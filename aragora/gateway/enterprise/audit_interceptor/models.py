@@ -335,7 +335,7 @@ class AuditRecord:
         return self.to_dict()
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditRecord":
+    def from_dict(cls, data: dict[str, Any]) -> AuditRecord:
         """Create an AuditRecord from a dictionary."""
         timestamp = data.get("timestamp")
         if isinstance(timestamp, str):

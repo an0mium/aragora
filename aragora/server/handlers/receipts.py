@@ -103,9 +103,9 @@ class ReceiptsHandler(BaseHandler):
         self,
         method: str,
         path: str,
-        body: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None = None,
+        query_params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
         query_params = query_params or {}

@@ -185,7 +185,7 @@ class FusionMixin:
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item.
 
         This default implementation extracts common fields that are typically
@@ -256,7 +256,7 @@ class FusionMixin:
         self,
         record: Any,
         fusion_result: FusedValidation,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a source record.
 

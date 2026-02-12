@@ -145,7 +145,7 @@ class FactExtractor:
         self,
         agents: list[AgentProtocol] | None = None,
         config: ExtractionConfig | None = None,
-        fact_store: Optional["FactStore | InMemoryFactStore"] = None,
+        fact_store: FactStore | InMemoryFactStore | None = None,
     ):
         """Initialize the fact extractor.
 
@@ -515,7 +515,7 @@ class FactExtractor:
 
 def create_fact_extractor(
     agents: list[AgentProtocol] | None = None,
-    fact_store: Optional["FactStore | InMemoryFactStore"] = None,
+    fact_store: FactStore | InMemoryFactStore | None = None,
     config: ExtractionConfig | None = None,
 ) -> FactExtractor:
     """Create a fact extractor with the given configuration.

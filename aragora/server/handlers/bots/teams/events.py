@@ -58,7 +58,7 @@ class TeamsEventProcessor:
     Routes activities to the appropriate handler based on activity type.
     """
 
-    def __init__(self, bot: "TeamsBot"):
+    def __init__(self, bot: TeamsBot):
         """Initialize the event processor.
 
         Args:

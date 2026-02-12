@@ -879,4 +879,4 @@ class TestTimeoutIntegration:
         """If code in sync context raises before timeout, that exception should propagate."""
         with pytest.raises(IOError, match="disk error"):
             with timeout_context_sync(5.0, context_name="io_test"):
-                raise IOError("disk error")
+                raise OSError("disk error")

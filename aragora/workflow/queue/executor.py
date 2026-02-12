@@ -132,7 +132,7 @@ class StepExecutor(TaskExecutor):
     def __init__(
         self,
         executor_id: str,
-        handlers: Optional[dict[str, Callable[[WorkflowTask], TaskResult]]] = None,
+        handlers: dict[str, Callable[[WorkflowTask], TaskResult]] | None = None,
     ):
         super().__init__(executor_id)
         self._handlers: dict[str, Callable[[WorkflowTask], TaskResult]] = handlers or {}
@@ -210,7 +210,7 @@ class ExecutorPool:
     def __init__(
         self,
         config: PoolConfig | None = None,
-        executor_factory: Optional[Callable[[str], TaskExecutor]] = None,
+        executor_factory: Callable[[str], TaskExecutor] | None = None,
     ):
         self._config = config or PoolConfig()
         self._executor_factory = executor_factory or self._default_factory

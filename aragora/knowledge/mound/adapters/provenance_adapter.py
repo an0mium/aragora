@@ -175,9 +175,9 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
 
     async def ingest_provenance(
         self,
-        manager: "ProvenanceManager",
+        manager: ProvenanceManager,
         workspace_id: str | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> ProvenanceIngestionResult:
         """
         Ingest provenance data into the Knowledge Mound.
@@ -341,8 +341,8 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
 
     def _record_to_knowledge_item(
         self,
-        record: "ProvenanceRecord",
-        manager: "ProvenanceManager",
+        record: ProvenanceRecord,
+        manager: ProvenanceManager,
         workspace_id: str | None,
         tags: list[str],
     ) -> KnowledgeItem:
@@ -396,7 +396,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
     def _citation_to_knowledge_item(
         self,
         citation: Any,  # Citation type
-        manager: "ProvenanceManager",
+        manager: ProvenanceManager,
         workspace_id: str | None,
         tags: list[str],
     ) -> KnowledgeItem:
@@ -440,7 +440,7 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
 
     def _chain_to_summary_item(
         self,
-        manager: "ProvenanceManager",
+        manager: ProvenanceManager,
         workspace_id: str | None,
         tags: list[str],
     ) -> KnowledgeItem:

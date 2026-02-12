@@ -469,7 +469,7 @@ class ImpersonationStore:
         session_id: str | None = None,
         target_user_id: str | None = None,
         reason: str | None = None,
-        action_details: Optional[dict[str, Any]] = None,
+        action_details: dict[str, Any] | None = None,
         error_message: str | None = None,
     ) -> str:
         """

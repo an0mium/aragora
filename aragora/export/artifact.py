@@ -152,7 +152,7 @@ class DebateArtifact:
         path.write_text(self.to_json())
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DebateArtifact":
+    def from_dict(cls, data: dict) -> DebateArtifact:
         """Deserialize from dictionary."""
         consensus = None
         if data.get("consensus_proof"):
@@ -201,12 +201,12 @@ class DebateArtifact:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "DebateArtifact":
+    def from_json(cls, json_str: str) -> DebateArtifact:
         """Deserialize from JSON."""
         return cls.from_dict(json.loads(json_str))
 
     @classmethod
-    def load(cls, path: Path) -> "DebateArtifact":
+    def load(cls, path: Path) -> DebateArtifact:
         """Load artifact from file."""
         if not path.exists():
             raise FileNotFoundError(f"Debate artifact not found: {path}")
@@ -250,7 +250,7 @@ class ArtifactBuilder:
     def __init__(self):
         self._artifact = DebateArtifact()
 
-    def from_result(self, result) -> "ArtifactBuilder":
+    def from_result(self, result) -> ArtifactBuilder:
         """Initialize from a DebateResult."""
 
         self._artifact.debate_id = result.id
@@ -281,7 +281,7 @@ class ArtifactBuilder:
 
         return self
 
-    def with_graph(self, graph) -> "ArtifactBuilder":
+    def with_graph(self, graph) -> ArtifactBuilder:
         """Add debate graph."""
         if hasattr(graph, "to_dict"):
             self._artifact.graph_data = graph.to_dict()
@@ -289,7 +289,7 @@ class ArtifactBuilder:
             self._artifact.graph_data = graph
         return self
 
-    def with_trace(self, trace) -> "ArtifactBuilder":
+    def with_trace(self, trace) -> ArtifactBuilder:
         """Add debate trace."""
         if hasattr(trace, "to_json"):
             self._artifact.trace_data = json.loads(trace.to_json())
@@ -297,7 +297,7 @@ class ArtifactBuilder:
             self._artifact.trace_data = trace
         return self
 
-    def with_provenance(self, provenance) -> "ArtifactBuilder":
+    def with_provenance(self, provenance) -> ArtifactBuilder:
         """Add provenance data."""
         if hasattr(provenance, "export"):
             self._artifact.provenance_data = provenance.export()
@@ -307,7 +307,7 @@ class ArtifactBuilder:
 
     def with_verification(
         self, claim_id: str, claim_text: str, status: str, method: str = "z3", **kwargs
-    ) -> "ArtifactBuilder":
+    ) -> ArtifactBuilder:
         """Add a verification result."""
         self._artifact.verification_results.append(
             VerificationResult(

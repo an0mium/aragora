@@ -91,8 +91,8 @@ class ConnectionPoolState:
         lock: Thread lock for synchronizing access to pool state
     """
 
-    connector: Optional[aiohttp.TCPConnector] = None
-    loop_id: Optional[int] = None
+    connector: aiohttp.TCPConnector | None = None
+    loop_id: int | None = None
     pending_close_tasks: set[asyncio.Task[None]] = field(default_factory=set)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -108,8 +108,8 @@ _pool_state: ConnectionPoolState = ConnectionPoolState()
 
 # Legacy aliases for backward compatibility
 _session_lock: threading.Lock = _pool_state.lock
-_shared_connector: Optional[aiohttp.TCPConnector] = None  # Updated via _pool_state
-_connector_loop_id: Optional[int] = None  # Updated via _pool_state
+_shared_connector: aiohttp.TCPConnector | None = None  # Updated via _pool_state
+_connector_loop_id: int | None = None  # Updated via _pool_state
 _pending_close_tasks: set[asyncio.Task[Any]] = _pool_state.pending_close_tasks
 
 
@@ -144,7 +144,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
         # Get current event loop id (if any)
         try:
             current_loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
-            current_loop_id: Optional[int] = id(current_loop)
+            current_loop_id: int | None = id(current_loop)
         except RuntimeError:
             # No running loop - connector will be created for whatever loop uses it first
             current_loop_id = None
@@ -158,7 +158,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
         if need_new_connector:
             # Close old connector if it exists and is still open
-            old_connector: Optional[aiohttp.TCPConnector] = _pool_state.connector
+            old_connector: aiohttp.TCPConnector | None = _pool_state.connector
             if old_connector is not None and not old_connector.closed:
                 try:
                     if current_loop_id is not None:
@@ -193,8 +193,8 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
 
 def create_client_session(
-    timeout: Optional[float] = None,
-    connector: Optional[aiohttp.TCPConnector] = None,
+    timeout: float | None = None,
+    connector: aiohttp.TCPConnector | None = None,
 ) -> aiohttp.ClientSession:
     """Create an aiohttp ClientSession with proper connection limits.
 
@@ -265,7 +265,7 @@ def is_openrouter_fallback_available() -> bool:
     return bool(get_api_key("OPENROUTER_API_KEY", required=False))
 
 
-def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> Optional[str]:
+def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> str | None:
     """Get primary provider API key, optionally allowing OpenRouter fallback.
 
     When fallback is allowed and OpenRouter is configured, this returns None
@@ -366,7 +366,7 @@ STREAM_CHUNK_TIMEOUT: float = 90.0  # Default fallback (increased for long-form 
 
 async def iter_chunks_with_timeout(
     response_content: aiohttp.StreamReader,
-    chunk_timeout: Optional[float] = None,
+    chunk_timeout: float | None = None,
 ) -> AsyncGenerator[bytes, None]:
     """
     Async generator that wraps response content iteration with per-chunk timeout.
@@ -439,8 +439,8 @@ class SSEStreamParser:
         self,
         content_extractor: Callable[[dict[str, Any]], str],
         done_marker: str = "[DONE]",
-        max_buffer_size: Optional[int] = None,
-        chunk_timeout: Optional[float] = None,
+        max_buffer_size: int | None = None,
+        chunk_timeout: float | None = None,
     ) -> None:
         """
         Initialize the SSE parser.

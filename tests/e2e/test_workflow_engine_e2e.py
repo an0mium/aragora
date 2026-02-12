@@ -112,8 +112,8 @@ class MockFailingStep(WorkflowStep):
 
 
 def create_workflow_engine(
-    config: Optional[WorkflowConfig] = None,
-    custom_steps: Optional[dict[str, type]] = None,
+    config: WorkflowConfig | None = None,
+    custom_steps: dict[str, type] | None = None,
 ) -> WorkflowEngine:
     """Create a workflow engine with optional custom configuration."""
     engine = WorkflowEngine(

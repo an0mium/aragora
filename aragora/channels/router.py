@@ -56,7 +56,7 @@ class ChannelRouter:
         "wa": "whatsapp",
     }
 
-    def __init__(self, registry: Optional["DockRegistry"] = None):
+    def __init__(self, registry: DockRegistry | None = None):
         """
         Initialize the router.
 
@@ -66,7 +66,7 @@ class ChannelRouter:
         self._registry = registry
 
     @property
-    def registry(self) -> "DockRegistry":
+    def registry(self) -> DockRegistry:
         """Get the dock registry (lazily loaded)."""
         if self._registry is None:
             from aragora.channels.registry import get_dock_registry
@@ -79,7 +79,7 @@ class ChannelRouter:
         platform = platform.lower().strip()
         return self.PLATFORM_ALIASES.get(platform, platform)
 
-    async def _get_dock(self, platform: str) -> Optional["ChannelDock"]:
+    async def _get_dock(self, platform: str) -> ChannelDock | None:
         """Get an initialized dock for a platform."""
         platform = self._normalize_platform(platform)
         dock = self.registry.get_dock(platform)
@@ -412,7 +412,7 @@ class ChannelRouter:
 
     async def _send_voice_result(
         self,
-        dock: "ChannelDock",
+        dock: ChannelDock,
         channel_id: str,
         result: dict[str, Any],
         **kwargs: Any,

@@ -22,15 +22,15 @@ class EloFeedback:
 
     def __init__(
         self,
-        elo_system: Optional["EloSystemProtocol"] = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
+        elo_system: EloSystemProtocol | None = None,
+        event_emitter: EventEmitterProtocol | None = None,
         loop_id: str | None = None,
     ):
         self.elo_system = elo_system
         self.event_emitter = event_emitter
         self.loop_id = loop_id
 
-    def record_elo_match(self, ctx: "DebateContext") -> None:
+    def record_elo_match(self, ctx: DebateContext) -> None:
         """Record ELO match results."""
         if not self.elo_system:
             return
@@ -66,7 +66,7 @@ class EloFeedback:
                 "ELO update failed for debate %s: %s", ctx.debate_id, msg, exc_info=exc_info
             )
 
-    def _emit_match_recorded_event(self, ctx: "DebateContext", participants: list[str]) -> None:
+    def _emit_match_recorded_event(self, ctx: DebateContext, participants: list[str]) -> None:
         """Emit MATCH_RECORDED event for real-time leaderboard updates."""
         if not self.event_emitter or not self.elo_system:
             return
@@ -116,7 +116,7 @@ class EloFeedback:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"ELO event emission error: {e}")
 
-    def record_voting_accuracy(self, ctx: "DebateContext") -> None:
+    def record_voting_accuracy(self, ctx: DebateContext) -> None:
         """
         Record voting accuracy for agents based on consensus outcome.
 
@@ -165,7 +165,7 @@ class EloFeedback:
         except Exception as e:
             logger.debug(f"[voting_accuracy] Recording failed: {e}")
 
-    def apply_learning_bonuses(self, ctx: "DebateContext") -> None:
+    def apply_learning_bonuses(self, ctx: DebateContext) -> None:
         """
         Apply learning efficiency bonuses to participating agents.
 

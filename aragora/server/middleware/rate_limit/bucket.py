@@ -117,7 +117,7 @@ class RedisTokenBucket:
 
     def __init__(
         self,
-        redis_client: "redis.Redis",
+        redis_client: redis.Redis,
         key: str,
         rate_per_minute: float,
         burst_size: int | None = None,

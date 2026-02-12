@@ -221,7 +221,7 @@ class PaymentRequest:
     currency: str = "USD"
     description: str | None = None
     customer_id: str | None = None
-    payment_method: Optional[dict[str, Any]] = None
+    payment_method: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     provider: PaymentProvider = PaymentProvider.STRIPE
 

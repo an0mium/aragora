@@ -104,7 +104,7 @@ class WebSocketClient:
         self.url = url
         self.metrics = metrics
         self.client_id = client_id
-        self.ws: Optional[Any] = None
+        self.ws: Any | None = None
         self.connected = False
 
     async def connect(self) -> bool:

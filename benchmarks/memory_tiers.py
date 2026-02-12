@@ -124,7 +124,7 @@ def create_benchmark_result(
 class MemoryTierBenchmark:
     """Benchmark suite for memory tier operations."""
 
-    def __init__(self, db_path: Optional[Path] = None, iterations: int = 100):
+    def __init__(self, db_path: Path | None = None, iterations: int = 100):
         """
         Initialize benchmark.
 
@@ -138,7 +138,7 @@ class MemoryTierBenchmark:
             self._temp_dir = tempfile.mkdtemp(prefix="aragora_bench_")
             db_path = Path(self._temp_dir) / "benchmark_memory.db"
         self.db_path = db_path
-        self.memory: Optional[ContinuumMemory] = None
+        self.memory: ContinuumMemory | None = None
         self.results: list[BenchmarkResult] = []
 
     def setup(self):

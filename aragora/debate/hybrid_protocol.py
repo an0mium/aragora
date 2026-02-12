@@ -60,7 +60,7 @@ class HybridDebateConfig:
         refinement_feedback_limit: Max critiques to include in refinement prompt.
     """
 
-    external_agent: "ExternalFrameworkAgent"
+    external_agent: ExternalFrameworkAgent
     verification_agents: list[Agent]
     consensus_threshold: float = 0.7
     max_refinement_rounds: int = 3
@@ -94,7 +94,7 @@ class VerificationResult:
     consensus_score: float
     critiques: list[str]
     refinements: list[str]
-    receipt_hash: Optional[str] = None
+    receipt_hash: str | None = None
     debate_id: str = ""
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     rounds_used: int = 0
@@ -269,7 +269,7 @@ class HybridDebateProtocol:
         self,
         task: str,
         context: list[Message] | None = None,
-        decision_id: Optional[str] = None,
+        decision_id: str | None = None,
     ) -> VerificationResult:
         """
         Run hybrid debate with external proposal.
@@ -437,7 +437,7 @@ class HybridDebateProtocol:
         critiques: list[str] = []
 
         # Run critiques concurrently
-        async def get_critique(agent: Agent) -> Optional[str]:
+        async def get_critique(agent: Agent) -> str | None:
             try:
                 critique = await agent.critique(
                     proposal=proposal,
@@ -453,7 +453,7 @@ class HybridDebateProtocol:
         # Limit concurrency
         semaphore = asyncio.Semaphore(self.config.critique_concurrency)
 
-        async def bounded_critique(agent: Agent) -> Optional[str]:
+        async def bounded_critique(agent: Agent) -> str | None:
             async with semaphore:
                 return await get_critique(agent)
 
@@ -590,7 +590,7 @@ Provide only the refined proposal, without meta-commentary."""
 
 
 def create_hybrid_protocol(
-    external_agent: "ExternalFrameworkAgent",
+    external_agent: ExternalFrameworkAgent,
     verification_agents: list[Agent],
     consensus_threshold: float = 0.7,
     max_refinement_rounds: int = 3,

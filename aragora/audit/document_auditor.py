@@ -138,7 +138,7 @@ class AuditFinding:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditFinding":
+    def from_dict(cls, data: dict[str, Any]) -> AuditFinding:
         """Create from dictionary."""
         return cls(
             id=data.get("id", str(uuid4())),
@@ -301,8 +301,8 @@ class DocumentAuditor:
     def __init__(
         self,
         config: AuditConfig | None = None,
-        on_finding: Optional[Callable[[AuditFinding], None]] = None,
-        on_progress: Optional[Callable[[str, float, str], None]] = None,
+        on_finding: Callable[[AuditFinding], None] | None = None,
+        on_progress: Callable[[str, float, str], None] | None = None,
     ):
         """
         Initialize document auditor.

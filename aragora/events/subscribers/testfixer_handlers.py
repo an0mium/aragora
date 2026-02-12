@@ -65,7 +65,7 @@ class TestFixerHandlersMixin:
 
         Accumulates failures for batch submission to MetaPlanner.
         """
-        _check_and_record_slo: Optional[Callable[[str, float, str], Any]] = None
+        _check_and_record_slo: Callable[[str, float, str], Any] | None = None
         try:
             from aragora.observability.metrics.slo import check_and_record_slo as _slo_fn
 
@@ -129,7 +129,7 @@ class TestFixerHandlersMixin:
 
         Submits accumulated patterns to MetaPlanner for debate prioritization.
         """
-        _check_and_record_slo: Optional[Callable[[str, float, str], Any]] = None
+        _check_and_record_slo: Callable[[str, float, str], Any] | None = None
         try:
             from aragora.observability.metrics.slo import check_and_record_slo as _slo_fn
 

@@ -122,7 +122,7 @@ class OutcomeComplexityBridge:
     4. Feeds time_to_failure data into timeout calibration
     """
 
-    outcome_tracker: Optional["OutcomeTracker"] = None
+    outcome_tracker: OutcomeTracker | None = None
     config: OutcomeComplexityBridgeConfig = field(default_factory=OutcomeComplexityBridgeConfig)
 
     # Internal state - stats per complexity level
@@ -150,7 +150,7 @@ class OutcomeComplexityBridge:
         except Exception as e:
             logger.debug(f"Could not load historical outcomes: {e}")
 
-    def _process_outcome(self, outcome: "ConsensusOutcome") -> None:
+    def _process_outcome(self, outcome: ConsensusOutcome) -> None:
         """Process an outcome to update statistics.
 
         Args:
@@ -178,7 +178,7 @@ class OutcomeComplexityBridge:
             # Track failure signals from consensus text
             self._extract_failure_signals(outcome.consensus_text)
 
-    def _infer_complexity(self, outcome: "ConsensusOutcome") -> str:
+    def _infer_complexity(self, outcome: ConsensusOutcome) -> str:
         """Infer complexity level from outcome data.
 
         Args:
@@ -455,7 +455,7 @@ class OutcomeComplexityBridge:
 
 
 def create_outcome_complexity_bridge(
-    outcome_tracker: Optional["OutcomeTracker"] = None,
+    outcome_tracker: OutcomeTracker | None = None,
     **config_kwargs: Any,
 ) -> OutcomeComplexityBridge:
     """Create and configure an OutcomeComplexityBridge.

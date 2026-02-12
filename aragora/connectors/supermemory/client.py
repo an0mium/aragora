@@ -24,7 +24,7 @@ from .privacy_filter import PrivacyFilter
 logger = logging.getLogger(__name__)
 
 # Global client instance for singleton pattern
-_client: "SupermemoryClient | None" = None
+_client: SupermemoryClient | None = None
 
 T = TypeVar("T")
 

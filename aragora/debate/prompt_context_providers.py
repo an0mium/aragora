@@ -124,7 +124,7 @@ class PromptContextMixin:
 
         return result
 
-    def get_stance_guidance(self, agent: "Agent") -> str:
+    def get_stance_guidance(self, agent: Agent) -> str:
         """Generate prompt guidance based on agent's debate stance."""
         from .prompt_builder import _get_stance_guidance_impl
 
@@ -167,7 +167,7 @@ class PromptContextMixin:
             logger.warning(f"Unexpected patterns formatting error: {e}")
             return ""
 
-    def get_role_context(self, agent: "Agent") -> str:
+    def get_role_context(self, agent: Agent) -> str:
         """Get cognitive role context for an agent in the current round."""
         if not self.role_rotator or agent.name not in self.current_role_assignments:
             return ""
@@ -248,7 +248,7 @@ class PromptContextMixin:
 
         return _detect_domain_keywords_impl(question)
 
-    def get_persona_context(self, agent: "Agent") -> str:
+    def get_persona_context(self, agent: Agent) -> str:
         """Get persona context for agent specialization."""
         question_domain = self._detect_question_domain(self.env.task)
 
@@ -290,7 +290,7 @@ class PromptContextMixin:
 
         return persona.to_prompt_context()
 
-    def get_flip_context(self, agent: "Agent") -> str:
+    def get_flip_context(self, agent: Agent) -> str:
         """Get flip/consistency context for agent self-awareness."""
         if not self.flip_detector:
             return ""
@@ -400,13 +400,13 @@ class PromptContextMixin:
         """Get cached supermemory context for prompt injection."""
         return self._supermemory_context_cache
 
-    def set_supermemory_adapter(self, adapter: Optional["SupermemoryAdapter"]) -> None:
+    def set_supermemory_adapter(self, adapter: SupermemoryAdapter | None) -> None:
         """Set the supermemory adapter for external memory integration."""
         self.supermemory_adapter = adapter
         self._supermemory_context = None
         self._supermemory_context_cache = ""
 
-    def set_rlm_context(self, context: Optional["RLMContext"]) -> None:
+    def set_rlm_context(self, context: RLMContext | None) -> None:
         """Set hierarchical RLM context for drill-down access."""
         self._rlm_context = context
         if context:
@@ -516,7 +516,7 @@ The system will provide relevant details from the full history."""
             logger.warning(f"Unexpected belief context injection error: {e}")
             return ""
 
-    def _inject_calibration_context(self, agent: "Agent") -> str:
+    def _inject_calibration_context(self, agent: Agent) -> str:
         """Inject calibration feedback into agent prompts."""
         if not self.calibration_tracker:
             return ""
@@ -558,7 +558,7 @@ The system will provide relevant details from the full history."""
             logger.warning(f"Unexpected calibration context injection error: {e}")
             return ""
 
-    def get_elo_context(self, agent: "Agent", all_agents: list["Agent"]) -> str:
+    def get_elo_context(self, agent: Agent, all_agents: list[Agent]) -> str:
         """Inject ELO ranking context for agent awareness of relative expertise."""
         if not self.elo_system:
             return ""
@@ -671,12 +671,12 @@ The system will provide relevant details from the full history."""
         )
         return "\n".join(lines)
 
-    def set_evidence_pack(self, evidence_pack: Optional["EvidencePack"]) -> None:
+    def set_evidence_pack(self, evidence_pack: EvidencePack | None) -> None:
         """Update the evidence pack (called by orchestrator between rounds)."""
         self.evidence_pack = evidence_pack
         self._evidence_cache.clear()
 
-    def set_trending_topics(self, topics: list["TrendingTopic"]) -> None:
+    def set_trending_topics(self, topics: list[TrendingTopic]) -> None:
         """Update trending topics for context injection."""
         self.trending_topics = topics or []
         self._trending_cache.clear()

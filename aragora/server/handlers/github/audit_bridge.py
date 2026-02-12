@@ -114,7 +114,7 @@ class SyncResult:
     repository: str
     status: SyncStatus
     issues_created: list[GitHubIssueResult] = field(default_factory=list)
-    pr_created: Optional[dict[str, Any]] = None
+    pr_created: dict[str, Any] | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     error: str | None = None
@@ -160,8 +160,8 @@ class GitHubAuditClient:
         repo: str,
         title: str,
         body: str,
-        labels: Optional[list[str]] = None,
-        assignees: Optional[list[str]] = None,
+        labels: list[str] | None = None,
+        assignees: list[str] | None = None,
         milestone: int | None = None,
     ) -> dict[str, Any]:
         """Create a GitHub issue."""
@@ -328,7 +328,7 @@ class GitHubAuditClient:
         owner: str,
         repo: str,
         issue_number: int,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get issue details."""
         from aragora.server.http_client_pool import get_http_pool
 
@@ -580,7 +580,7 @@ async def handle_create_issue(
     repository: str,
     finding: dict[str, Any],
     session_id: str | None = None,
-    assignees: Optional[list[str]] = None,
+    assignees: list[str] | None = None,
     milestone: int | None = None,
     auto_label: bool = True,
 ) -> dict[str, Any]:
@@ -656,7 +656,7 @@ async def handle_bulk_create_issues(
     repository: str,
     findings: list[dict[str, Any]],
     session_id: str | None = None,
-    assignees: Optional[list[str]] = None,
+    assignees: list[str] | None = None,
     auto_label: bool = True,
     skip_existing: bool = True,
     max_concurrent: int = 5,
@@ -765,7 +765,7 @@ async def handle_create_fix_pr(
     branch_name: str | None = None,
     base_branch: str = "main",
     draft: bool = True,
-    auto_fixes: Optional[dict[str, str]] = None,
+    auto_fixes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """
     Create a PR with suggested fixes for audit findings.
@@ -889,7 +889,7 @@ async def handle_sync_session(
     min_severity: str = "low",
     create_issues: bool = True,
     create_pr: bool = False,
-    assignees: Optional[list[str]] = None,
+    assignees: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Sync an audit session to GitHub.

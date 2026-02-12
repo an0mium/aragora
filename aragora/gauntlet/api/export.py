@@ -75,7 +75,7 @@ class ExportOptions:
 
 
 def export_receipt(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     format: ReceiptExportFormat = ReceiptExportFormat.JSON,
     options: ExportOptions | None = None,
 ) -> str | bytes:
@@ -109,7 +109,7 @@ def export_receipt(
 
 
 def export_heatmap(
-    heatmap: "RiskHeatmap",
+    heatmap: RiskHeatmap,
     format: HeatmapExportFormat = HeatmapExportFormat.JSON,
     options: ExportOptions | None = None,
 ) -> str:
@@ -140,7 +140,7 @@ def export_heatmap(
         raise ValueError(f"Unsupported format: {format}")
 
 
-def _export_receipt_json(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
+def _export_receipt_json(receipt: DecisionReceipt, opts: ExportOptions) -> str:
     """Export receipt as JSON."""
     data = receipt.to_dict()
 
@@ -175,7 +175,7 @@ def _export_receipt_json(receipt: "DecisionReceipt", opts: ExportOptions) -> str
     return json.dumps(data, indent=opts.indent, sort_keys=opts.sort_keys)
 
 
-def _export_receipt_csv(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
+def _export_receipt_csv(receipt: DecisionReceipt, opts: ExportOptions) -> str:
     """Export receipt as CSV (findings table)."""
     output = io.StringIO()
     writer = csv.writer(output)
@@ -219,7 +219,7 @@ def _export_receipt_csv(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
     return output.getvalue()
 
 
-def _export_receipt_sarif(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
+def _export_receipt_sarif(receipt: DecisionReceipt, opts: ExportOptions) -> str:
     """
     Export receipt as SARIF (Static Analysis Results Interchange Format).
 
@@ -256,7 +256,7 @@ def _export_receipt_sarif(receipt: "DecisionReceipt", opts: ExportOptions) -> st
     return json.dumps(sarif, indent=opts.indent)
 
 
-def _generate_sarif_rules(receipt: "DecisionReceipt") -> list[dict[str, Any]]:
+def _generate_sarif_rules(receipt: DecisionReceipt) -> list[dict[str, Any]]:
     """Generate SARIF rules from vulnerability categories."""
     categories = set()
     for vuln in receipt.vulnerability_details:
@@ -279,7 +279,7 @@ def _generate_sarif_rules(receipt: "DecisionReceipt") -> list[dict[str, Any]]:
 
 
 def _generate_sarif_results(
-    receipt: "DecisionReceipt", opts: ExportOptions
+    receipt: DecisionReceipt, opts: ExportOptions
 ) -> list[dict[str, Any]]:
     """Generate SARIF results from vulnerabilities."""
     results = []
@@ -327,7 +327,7 @@ def _generate_sarif_results(
     return results
 
 
-def _export_heatmap_json(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
+def _export_heatmap_json(heatmap: RiskHeatmap, opts: ExportOptions) -> str:
     """Export heatmap as JSON."""
     data = heatmap.to_dict()
 
@@ -340,7 +340,7 @@ def _export_heatmap_json(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     return json.dumps(data, indent=opts.indent, sort_keys=opts.sort_keys)
 
 
-def _export_heatmap_csv(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
+def _export_heatmap_csv(heatmap: RiskHeatmap, opts: ExportOptions) -> str:
     """Export heatmap as CSV matrix."""
     output = io.StringIO()
     writer = csv.writer(output)
@@ -363,7 +363,7 @@ def _export_heatmap_csv(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     return output.getvalue()
 
 
-def _export_heatmap_html(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
+def _export_heatmap_html(heatmap: RiskHeatmap, opts: ExportOptions) -> str:
     """Export heatmap as standalone HTML with embedded SVG."""
     from html import escape
 
@@ -423,7 +423,7 @@ def _export_heatmap_html(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
 """
 
 
-def _heatmap_row_html(heatmap: "RiskHeatmap", category: str) -> str:
+def _heatmap_row_html(heatmap: RiskHeatmap, category: str) -> str:
     """Generate HTML table row for a heatmap category."""
     from html import escape
 
@@ -453,7 +453,7 @@ def is_pdf_export_available() -> bool:
         return False
 
 
-def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> bytes:
+def _export_receipt_pdf(receipt: DecisionReceipt, opts: ExportOptions) -> bytes:
     """
     Export receipt as PDF using WeasyPrint.
 
@@ -501,7 +501,7 @@ def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> byte
 
 
 def export_receipt_pdf_to_file(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     output_path: str,
     options: ExportOptions | None = None,
 ) -> str:
@@ -531,7 +531,7 @@ def export_receipt_pdf_to_file(
 
 
 def export_receipts_bundle(
-    receipts: list["DecisionReceipt"],
+    receipts: list[DecisionReceipt],
     format: ReceiptExportFormat = ReceiptExportFormat.JSON,
     options: ExportOptions | None = None,
 ) -> str:
@@ -605,7 +605,7 @@ def export_receipts_bundle(
 
 
 def stream_receipt_json(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     chunk_size: int = 4096,
 ) -> Any:
     """

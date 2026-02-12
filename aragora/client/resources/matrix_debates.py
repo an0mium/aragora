@@ -19,7 +19,7 @@ from aragora.client.models import (
 class MatrixDebatesAPI:
     """API interface for matrix debates with parallel scenarios."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def create(

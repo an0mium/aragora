@@ -17,13 +17,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Singleton instance for cross-subsystem access
-_global_continuum_memory: Optional["ContinuumMemory"] = None
+_global_continuum_memory: ContinuumMemory | None = None
 
 
 def get_continuum_memory(
     db_path: str | None = None,
-    event_emitter: Optional["EventEmitterProtocol"] = None,
-) -> "ContinuumMemory":
+    event_emitter: EventEmitterProtocol | None = None,
+) -> ContinuumMemory:
     """Get the global ContinuumMemory singleton instance.
 
     Creates a new instance if one doesn't exist, or returns the existing one.

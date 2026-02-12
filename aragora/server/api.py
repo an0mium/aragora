@@ -164,12 +164,12 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         try:
             # Read metadata
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 meta = json.load(f)
 
             # Read events
             events = []
-            with open(events_path, "r", encoding="utf-8") as f:
+            with open(events_path, encoding="utf-8") as f:
                 for line in f:
                     events.append(json.loads(line.strip()))
 
@@ -209,7 +209,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             self.send_error(400, "Invalid JSON")
             return
-        except (IOError, TimeoutError, OSError) as e:
+        except (TimeoutError, OSError) as e:
             logger.warning(f"Request body read error: {type(e).__name__}: {e}")
             self.send_error(400, "Failed to read request body")
             return
@@ -237,12 +237,12 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
         try:
             # Read metadata
-            with open(meta_path, "r", encoding="utf-8") as f:
+            with open(meta_path, encoding="utf-8") as f:
                 meta = json.load(f)
 
             # Read events up to the fork point
             events = []
-            with open(events_path, "r", encoding="utf-8") as f:
+            with open(events_path, encoding="utf-8") as f:
                 for line in f:
                     event = json.loads(line.strip())
                     events.append(event)
@@ -315,7 +315,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self._add_cors_headers()
             self.end_headers()
             self.wfile.write(content)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"File serving error: {type(e).__name__}: {e}")
             self.send_error(500, "Failed to read file")
 

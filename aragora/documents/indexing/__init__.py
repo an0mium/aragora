@@ -15,10 +15,10 @@ if TYPE_CHECKING:
         SearchResult as _SearchResult,
     )
 
-WeaviateStore: Optional[type["_WeaviateStore"]]
-WeaviateConfig: Optional[type["_WeaviateConfig"]]
-SearchResult: Optional[type["_SearchResult"]]
-get_weaviate_store: Optional[Callable[..., Any]]
+WeaviateStore: type["_WeaviateStore"] | None
+WeaviateConfig: type["_WeaviateConfig"] | None
+SearchResult: type["_SearchResult"] | None
+get_weaviate_store: Callable[..., Any] | None
 WEAVIATE_AVAILABLE: bool
 
 try:

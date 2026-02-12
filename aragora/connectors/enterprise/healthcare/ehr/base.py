@@ -124,7 +124,7 @@ class SMARTConfiguration:
     code_challenge_methods_supported: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SMARTConfiguration":
+    def from_dict(cls, data: dict[str, Any]) -> SMARTConfiguration:
         """Parse from SMART discovery document."""
         return cls(
             authorization_endpoint=data.get("authorization_endpoint", ""),
@@ -162,7 +162,7 @@ class TokenResponse:
         return datetime.now(timezone.utc) >= expiry
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TokenResponse":
+    def from_dict(cls, data: dict[str, Any]) -> TokenResponse:
         """Parse from OAuth2 token response."""
         return cls(
             access_token=data["access_token"],
@@ -196,7 +196,7 @@ class EHRAdapter(ABC):
 
     def __init__(self, config: EHRConnectionConfig):
         self.config = config
-        self._http_client: Optional["httpx.AsyncClient"] = None
+        self._http_client: httpx.AsyncClient | None = None
         self._smart_config: SMARTConfiguration | None = None
         self._token: TokenResponse | None = None
         self._token_lock = asyncio.Lock()
@@ -206,7 +206,7 @@ class EHRAdapter(ABC):
         self._errors_count = 0
         self._last_request_at: datetime | None = None
 
-    async def __aenter__(self) -> "EHRAdapter":
+    async def __aenter__(self) -> EHRAdapter:
         """Async context manager entry."""
         await self.connect()
         return self
@@ -538,7 +538,7 @@ class EHRAdapter(ABC):
     async def get_patient_records(
         self,
         patient_id: str,
-        resource_types: Optional[list[str]] = None,
+        resource_types: list[str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Get all clinical records for a patient."""
         ...
@@ -559,7 +559,7 @@ class EHRAdapter(ABC):
         }
 
 
-def detect_vendor(base_url: str, metadata: Optional[dict[str, Any]] = None) -> EHRVendor:
+def detect_vendor(base_url: str, metadata: dict[str, Any] | None = None) -> EHRVendor:
     """
     Detect EHR vendor from URL patterns or FHIR metadata.
 

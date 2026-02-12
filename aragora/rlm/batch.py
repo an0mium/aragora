@@ -173,7 +173,7 @@ async def llm_batch(
     items: list[T],
     process_fn: Callable[[T], Awaitable[R]],
     max_concurrent: int = 5,
-    early_stop: Optional[Callable[[list[R]], bool]] = None,
+    early_stop: Callable[[list[R]], bool] | None = None,
     config: BatchConfig | None = None,
 ) -> list[R]:
     """
@@ -228,7 +228,7 @@ async def llm_batch(
 async def llm_batch_detailed(
     items: list[T],
     process_fn: Callable[[T], Awaitable[R]],
-    early_stop: Optional[Callable[[list[R]], bool]] = None,
+    early_stop: Callable[[list[R]], bool] | None = None,
     config: BatchConfig | None = None,
 ) -> BatchResult[T, R]:
     """
@@ -474,7 +474,7 @@ async def batch_first(
 
 async def batch_race(
     callables: list[Callable[[], Awaitable[R]]],
-    winner_predicate: Optional[Callable[[R], bool]] = None,
+    winner_predicate: Callable[[R], bool] | None = None,
 ) -> R | None:
     """
     Race multiple async operations, return first valid result.

@@ -125,7 +125,7 @@ class SquareCredentials:
         return "https://connect.squareupsandbox.com"
 
     @classmethod
-    def from_env(cls, prefix: str = "SQUARE_") -> "SquareCredentials":
+    def from_env(cls, prefix: str = "SQUARE_") -> SquareCredentials:
         """Load credentials from environment variables."""
         import os
 
@@ -183,7 +183,7 @@ class Money:
     currency: str = "USD"
 
     @classmethod
-    def from_api(cls, data: Optional[dict[str, Any]]) -> Optional["Money"]:
+    def from_api(cls, data: dict[str, Any] | None) -> Money | None:
         if not data:
             return None
         return cls(
@@ -195,7 +195,7 @@ class Money:
         return {"amount": self.amount, "currency": self.currency}
 
     @classmethod
-    def usd(cls, dollars: float) -> "Money":
+    def usd(cls, dollars: float) -> Money:
         """Create USD money from dollars."""
         return cls(amount=int(dollars * 100), currency="USD")
 
@@ -217,7 +217,7 @@ class Address:
     country: str = "US"
 
     @classmethod
-    def from_api(cls, data: Optional[dict[str, Any]]) -> Optional["Address"]:
+    def from_api(cls, data: dict[str, Any] | None) -> Address | None:
         if not data:
             return None
         return cls(
@@ -258,7 +258,7 @@ class Card:
     fingerprint: str | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Card":
+    def from_api(cls, data: dict[str, Any]) -> Card:
         return cls(
             id=data.get("id"),
             card_brand=CardBrand(data["card_brand"]) if data.get("card_brand") else None,
@@ -284,13 +284,13 @@ class Customer:
     address: Address | None = None
     note: str | None = None
     reference_id: str | None = None
-    preferences: Optional[dict[str, Any]] = None
+    preferences: dict[str, Any] | None = None
     creation_source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Customer":
+    def from_api(cls, data: dict[str, Any]) -> Customer:
         return cls(
             id=data["id"],
             given_name=data.get("given_name"),
@@ -323,9 +323,9 @@ class Payment:
     tip_money: Money | None = None
     total_money: Money | None = None
     app_fee_money: Money | None = None
-    processing_fee: Optional[list[dict[str, Any]]] = None
+    processing_fee: list[dict[str, Any]] | None = None
     source_type: str | None = None
-    card_details: Optional[dict[str, Any]] = None
+    card_details: dict[str, Any] | None = None
     location_id: str | None = None
     order_id: str | None = None
     customer_id: str | None = None
@@ -337,7 +337,7 @@ class Payment:
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Payment":
+    def from_api(cls, data: dict[str, Any]) -> Payment:
         return cls(
             id=data["id"],
             status=PaymentStatus(data.get("status", "PENDING")),
@@ -368,14 +368,14 @@ class Refund:
     payment_id: str
     status: str
     amount_money: Money | None = None
-    processing_fee: Optional[list[dict[str, Any]]] = None
+    processing_fee: list[dict[str, Any]] | None = None
     reason: str | None = None
     location_id: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Refund":
+    def from_api(cls, data: dict[str, Any]) -> Refund:
         return cls(
             id=data["id"],
             payment_id=data.get("payment_id", ""),
@@ -395,13 +395,13 @@ class SubscriptionPlan:
 
     id: str
     name: str
-    subscription_plan_data: Optional[dict[str, Any]] = None
+    subscription_plan_data: dict[str, Any] | None = None
     phases: list[dict[str, Any]] = field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "SubscriptionPlan":
+    def from_api(cls, data: dict[str, Any]) -> SubscriptionPlan:
         plan_data = data.get("subscription_plan_data", {})
         return cls(
             id=data["id"],
@@ -429,12 +429,12 @@ class Subscription:
     price_override_money: Money | None = None
     card_id: str | None = None
     timezone: str | None = None
-    source: Optional[dict[str, Any]] = None
+    source: dict[str, Any] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Subscription":
+    def from_api(cls, data: dict[str, Any]) -> Subscription:
         return cls(
             id=data["id"],
             status=SubscriptionStatus(data.get("status", "PENDING")),
@@ -463,7 +463,7 @@ class Invoice:
     status: InvoiceStatus
     location_id: str
     order_id: str | None = None
-    primary_recipient: Optional[dict[str, Any]] = None
+    primary_recipient: dict[str, Any] | None = None
     payment_requests: list[dict[str, Any]] = field(default_factory=list)
     invoice_number: str | None = None
     title: str | None = None
@@ -475,7 +475,7 @@ class Invoice:
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Invoice":
+    def from_api(cls, data: dict[str, Any]) -> Invoice:
         return cls(
             id=data["id"],
             version=data.get("version", 0),
@@ -516,7 +516,7 @@ class CatalogItem:
     updated_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "CatalogItem":
+    def from_api(cls, data: dict[str, Any]) -> CatalogItem:
         item_data = data.get("item_data", {})
         return cls(
             id=data["id"],
@@ -595,9 +595,9 @@ class SquareClient:
 
     def __init__(self, credentials: SquareCredentials):
         self.credentials = credentials
-        self._client: Optional["httpx.AsyncClient"] = None
+        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "SquareClient":
+    async def __aenter__(self) -> SquareClient:
         import httpx
 
         self._client = httpx.AsyncClient(
@@ -620,8 +620,8 @@ class SquareClient:
         self,
         method: str,
         endpoint: str,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make authenticated API request."""
         if not self._client:
@@ -899,7 +899,7 @@ class SquareClient:
 
     async def search_customers(
         self,
-        query: Optional[dict[str, Any]] = None,
+        query: dict[str, Any] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> tuple[list[Customer], str | None]:
@@ -1009,8 +1009,8 @@ class SquareClient:
 
     async def search_subscriptions(
         self,
-        customer_ids: Optional[list[str]] = None,
-        location_ids: Optional[list[str]] = None,
+        customer_ids: list[str] | None = None,
+        location_ids: list[str] | None = None,
         cursor: str | None = None,
         limit: int = 100,
     ) -> tuple[list[Subscription], str | None]:
@@ -1089,7 +1089,7 @@ class SquareClient:
         location_id: str | None = None,
         idempotency_key: str | None = None,
         primary_recipient_customer_id: str | None = None,
-        payment_requests: Optional[list[dict[str, Any]]] = None,
+        payment_requests: list[dict[str, Any]] | None = None,
         invoice_number: str | None = None,
         title: str | None = None,
         description: str | None = None,
@@ -1185,8 +1185,8 @@ class SquareClient:
 
     async def search_catalog_objects(
         self,
-        object_types: Optional[list[str]] = None,
-        query: Optional[dict[str, Any]] = None,
+        object_types: list[str] | None = None,
+        query: dict[str, Any] | None = None,
         limit: int = 100,
         cursor: str | None = None,
     ) -> tuple[list[CatalogItem], str | None]:

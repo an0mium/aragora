@@ -57,7 +57,7 @@ class OAuthState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OAuthState":
+    def from_dict(cls, data: dict[str, Any]) -> OAuthState:
         """Create from dictionary."""
         return cls(
             user_id=data.get("user_id"),

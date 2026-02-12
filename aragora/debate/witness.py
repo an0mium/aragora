@@ -187,8 +187,8 @@ class DebateWitness:
         self,
         debate_id: str,
         config: WitnessConfig | None = None,
-        on_stall: Optional[Callable[[StallEvent], None]] = None,
-        on_progress: Optional[Callable[[AgentProgress], None]] = None,
+        on_stall: Callable[[StallEvent], None] | None = None,
+        on_progress: Callable[[AgentProgress], None] | None = None,
     ):
         """
         Initialize the witness.

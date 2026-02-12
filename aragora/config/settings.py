@@ -1232,7 +1232,7 @@ class Settings(BaseSettings):
         return self._concurrency
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """
     Get cached settings instance.

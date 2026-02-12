@@ -155,7 +155,7 @@ class CostEnforcer:
 
     def __init__(
         self,
-        cost_tracker: Optional["CostTracker"] = None,
+        cost_tracker: CostTracker | None = None,
         config: CostEnforcementConfig | None = None,
     ):
         """
@@ -187,7 +187,7 @@ class CostEnforcer:
             },
         )
 
-    def set_cost_tracker(self, cost_tracker: "CostTracker") -> None:
+    def set_cost_tracker(self, cost_tracker: CostTracker) -> None:
         """Set the cost tracker for budget lookups."""
         self._cost_tracker = cost_tracker
         logger.info("CostEnforcer connected to CostTracker")

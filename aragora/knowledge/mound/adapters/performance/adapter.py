@@ -144,7 +144,7 @@ class PerformanceAdapter(
 
     def __init__(
         self,
-        elo_system: Optional["EloSystem"] = None,
+        elo_system: EloSystem | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         cache_ttl_seconds: float = DEFAULT_CACHE_TTL_SECONDS,
@@ -201,11 +201,11 @@ class PerformanceAdapter(
     # =========================================================================
 
     @property
-    def elo_system(self) -> Optional["EloSystem"]:
+    def elo_system(self) -> EloSystem | None:
         """Access the underlying EloSystem."""
         return self._elo_system
 
-    def set_elo_system(self, elo_system: "EloSystem") -> None:
+    def set_elo_system(self, elo_system: EloSystem) -> None:
         """Set the ELO system to use."""
         self._elo_system = elo_system
 

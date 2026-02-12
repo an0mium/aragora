@@ -88,7 +88,7 @@ class FabricUsageTracker:
 
     def __init__(
         self,
-        fabric: "AgentFabric",
+        fabric: AgentFabric,
         entity_id: str,
         debate_id: str = "",
         budget_limit_usd: float | None = None,
@@ -179,7 +179,7 @@ class FabricAgentAdapter:
 
     def __init__(
         self,
-        fabric: "AgentFabric",
+        fabric: AgentFabric,
         agent_id: str,
         model: str,
         usage_tracker: FabricUsageTracker | None = None,
@@ -281,17 +281,17 @@ class FabricDebateRunner:
     5. Reports task completion to fabric
     """
 
-    def __init__(self, fabric: "AgentFabric"):
+    def __init__(self, fabric: AgentFabric):
         self.fabric = fabric
         self._active_debates: dict[str, TaskHandle] = {}
 
     async def run_debate(
         self,
-        environment: "Environment",
+        environment: Environment,
         pool_id: str,
-        protocol: "DebateProtocol | None" = None,
+        protocol: DebateProtocol | None = None,
         config: FabricDebateConfig | None = None,
-    ) -> "DebateResult":
+    ) -> DebateResult:
         """
         Run a debate using fabric-managed agents.
 
@@ -521,7 +521,7 @@ def create_debate_policy(
 
 
 # Register debate executor with fabric
-async def register_debate_executor(fabric: "AgentFabric") -> None:
+async def register_debate_executor(fabric: AgentFabric) -> None:
     """
     Register the debate task executor with the fabric.
 

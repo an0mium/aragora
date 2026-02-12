@@ -75,7 +75,7 @@ class EscalationEvent:
     timestamp: datetime
     reason: str
     previous_level: EscalationLevel | None = None
-    handler_result: Optional[dict[str, Any]] = None
+    handler_result: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -93,7 +93,7 @@ class EscalationEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EscalationEvent":
+    def from_dict(cls, data: dict[str, Any]) -> EscalationEvent:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -158,7 +158,7 @@ class EscalationChain:
     metadata: dict[str, Any] = field(default_factory=dict)
     auto_escalate_at: datetime | None = None
     suppress_until: datetime | None = None
-    _store: Optional["EscalationStore"] = field(default=None, repr=False)
+    _store: EscalationStore | None = field(default=None, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
@@ -191,8 +191,8 @@ class EscalationChain:
 
     @classmethod
     def from_dict(
-        cls, data: dict[str, Any], store: Optional["EscalationStore"] = None
-    ) -> "EscalationChain":
+        cls, data: dict[str, Any], store: EscalationStore | None = None
+    ) -> EscalationChain:
         """Deserialize from dictionary."""
         config_data = data.get("config", {})
         config = EscalationChainConfig(
@@ -278,7 +278,7 @@ class EscalationChain:
     async def escalate(
         self,
         reason: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> EscalationEvent | None:
         """
         Escalate to the next level.
@@ -328,7 +328,7 @@ class EscalationChain:
     async def resolve(
         self,
         reason: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> EscalationEvent:
         """
         Resolve the escalation.
@@ -369,7 +369,7 @@ class EscalationChain:
     async def deescalate(
         self,
         reason: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> EscalationEvent | None:
         """
         De-escalate to the previous level.
@@ -592,7 +592,7 @@ class EscalationStore:
         target: str,
         reason: str,
         config: EscalationChainConfig | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         initial_level: EscalationLevel | None = None,
     ) -> EscalationChain:
         """

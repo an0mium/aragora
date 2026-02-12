@@ -63,7 +63,7 @@ class ConcreteMondayConnector(MondayConnector):
             for item in items
         ]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Implement abstract fetch method."""
         # Extract item ID from evidence_id
         if evidence_id.startswith("monday-item-"):

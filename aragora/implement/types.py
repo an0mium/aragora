@@ -45,7 +45,7 @@ class ImplementTask:
         return payload
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ImplementTask":
+    def from_dict(cls, data: dict) -> ImplementTask:
         raw_caps = data.get("capabilities", [])
         caps: list[str] = []
         if isinstance(raw_caps, str):
@@ -84,7 +84,7 @@ class ImplementPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ImplementPlan":
+    def from_dict(cls, data: dict) -> ImplementPlan:
         return cls(
             design_hash=data["design_hash"],
             tasks=[ImplementTask.from_dict(t) for t in data.get("tasks", [])],
@@ -136,7 +136,7 @@ class ImplementProgress:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ImplementProgress":
+    def from_dict(cls, data: dict) -> ImplementProgress:
         return cls(
             plan=ImplementPlan.from_dict(data["plan"]),
             completed_tasks=data.get("completed_tasks", []),

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Context variable for current tenant
-_current_tenant: ContextVar[Optional["Tenant"]] = ContextVar("current_tenant", default=None)
+_current_tenant: ContextVar[Tenant | None] = ContextVar("current_tenant", default=None)
 
 # Context variable for tenant ID (lighter weight)
 _current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
@@ -63,7 +63,7 @@ class TenantContextInfo:
     """Information about the current tenant context."""
 
     tenant_id: str | None
-    tenant: Optional["Tenant"]
+    tenant: Tenant | None
     is_set: bool
     depth: int
 
@@ -93,7 +93,7 @@ class TenantContext:
     def __init__(
         self,
         tenant_id: str | None = None,
-        tenant: Optional["Tenant"] = None,
+        tenant: Tenant | None = None,
     ):
         """
         Initialize tenant context.
@@ -110,11 +110,11 @@ class TenantContext:
             self._tenant_id = tenant_id
 
         self._token_id: Token[str | None] | None = None
-        self._token_tenant: Token[Optional["Tenant"]] | None = None
-        self._previous_tenant: Optional["Tenant"] = None
+        self._token_tenant: Token[Tenant | None] | None = None
+        self._previous_tenant: Tenant | None = None
         self._previous_tenant_id: str | None = None
 
-    def __enter__(self) -> "TenantContext":
+    def __enter__(self) -> TenantContext:
         """Enter sync context."""
         self._previous_tenant_id = _current_tenant_id.get()
         self._previous_tenant = _current_tenant.get()
@@ -134,7 +134,7 @@ class TenantContext:
         TenantContext._depth -= 1
         logger.debug(f"Exited tenant context: {self._tenant_id} (depth={TenantContext._depth})")
 
-    async def __aenter__(self) -> "TenantContext":
+    async def __aenter__(self) -> TenantContext:
         """Enter async context."""
         return self.__enter__()
 
@@ -148,12 +148,12 @@ class TenantContext:
         return self._tenant_id
 
     @property
-    def tenant(self) -> Optional["Tenant"]:
+    def tenant(self) -> Tenant | None:
         """Get the tenant object for this context."""
         return self._tenant
 
 
-def get_current_tenant() -> Optional["Tenant"]:
+def get_current_tenant() -> Tenant | None:
     """
     Get the current tenant from context.
 
@@ -173,7 +173,7 @@ def get_current_tenant_id() -> str | None:
     return _current_tenant_id.get()
 
 
-def require_tenant() -> "Tenant":
+def require_tenant() -> Tenant:
     """
     Get the current tenant, raising if not set.
 
@@ -205,7 +205,7 @@ def require_tenant_id() -> str:
     return tenant_id
 
 
-def set_tenant(tenant: Optional["Tenant"]) -> None:
+def set_tenant(tenant: Tenant | None) -> None:
     """
     Set the current tenant directly (use with caution).
 

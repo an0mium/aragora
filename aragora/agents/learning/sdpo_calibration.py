@@ -83,8 +83,8 @@ class SDPOCalibrationBridge:
 
     def __init__(
         self,
-        sdpo_learner: "SDPOLearner | None" = None,
-        calibration_tracker: "CalibrationTracker | None" = None,
+        sdpo_learner: SDPOLearner | None = None,
+        calibration_tracker: CalibrationTracker | None = None,
         config: SDPOCalibrationConfig | None = None,
     ):
         """Initialize the bridge.
@@ -99,26 +99,26 @@ class SDPOCalibrationBridge:
         self.config = config or SDPOCalibrationConfig()
 
         # Cache for agent calibrations
-        self._agent_calibrations: dict[str, "AgentCalibration"] = {}
+        self._agent_calibrations: dict[str, AgentCalibration] = {}
         self._synced_trajectories: set[str] = set()
 
     @property
-    def sdpo_learner(self) -> "SDPOLearner | None":
+    def sdpo_learner(self) -> SDPOLearner | None:
         """Get the SDPO learner."""
         return self._sdpo
 
     @sdpo_learner.setter
-    def sdpo_learner(self, learner: "SDPOLearner") -> None:
+    def sdpo_learner(self, learner: SDPOLearner) -> None:
         """Set the SDPO learner."""
         self._sdpo = learner
 
     @property
-    def calibration_tracker(self) -> "CalibrationTracker | None":
+    def calibration_tracker(self) -> CalibrationTracker | None:
         """Get the calibration tracker."""
         return self._tracker
 
     @calibration_tracker.setter
-    def calibration_tracker(self, tracker: "CalibrationTracker") -> None:
+    def calibration_tracker(self, tracker: CalibrationTracker) -> None:
         """Set the calibration tracker."""
         self._tracker = tracker
 
@@ -130,7 +130,7 @@ class SDPOCalibrationBridge:
         correct: bool,
         domain: str = "general",
         trajectory_id: str | None = None,
-        trajectory: "TrajectoryRecord | None" = None,
+        trajectory: TrajectoryRecord | None = None,
         action_type: str | None = None,
     ) -> None:
         """Record a debate outcome in both SDPO and CalibrationTracker.
@@ -170,7 +170,7 @@ class SDPOCalibrationBridge:
 
     async def sync_trajectory_to_calibration(
         self,
-        trajectory: "TrajectoryRecord",
+        trajectory: TrajectoryRecord,
     ) -> int:
         """Sync a completed trajectory to CalibrationTracker.
 
@@ -282,7 +282,7 @@ class SDPOCalibrationBridge:
 
         return max(0.05, min(0.95, adjusted))
 
-    async def update_from_sdpo(self, agent_name: str) -> "AgentCalibration | None":
+    async def update_from_sdpo(self, agent_name: str) -> AgentCalibration | None:
         """Update calibration from SDPO learning.
 
         Args:
@@ -369,8 +369,8 @@ class SDPOCalibrationBridge:
 
 
 def integrate_sdpo_with_calibration(
-    sdpo_learner: "SDPOLearner",
-    calibration_tracker: "CalibrationTracker",
+    sdpo_learner: SDPOLearner,
+    calibration_tracker: CalibrationTracker,
     config: SDPOCalibrationConfig | None = None,
 ) -> SDPOCalibrationBridge:
     """Create and configure an SDPO-Calibration bridge.

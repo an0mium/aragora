@@ -68,7 +68,7 @@ class InboxAggregator:
     - Size limits with oldest-first eviction
     """
 
-    def __init__(self, max_size: int = 10000, store: "GatewayStore | None" = None) -> None:
+    def __init__(self, max_size: int = 10000, store: GatewayStore | None = None) -> None:
         self._max_size = max_size
         self._store = store
         self._messages: deque[InboxMessage] = deque(maxlen=max_size)

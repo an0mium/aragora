@@ -50,13 +50,13 @@ class VoteProcessor:
         user_votes: list[dict[str, Any] | None] = None,
         protocol: Any = None,
         # Callbacks
-        vote_with_agent: Optional[Callable[..., Any]] = None,
-        with_timeout: Optional[Callable[..., Any]] = None,
-        group_similar_votes: Optional[Callable[..., Any]] = None,
-        get_calibration_weight: Optional[Callable[..., Any]] = None,
-        notify_spectator: Optional[Callable[..., Any]] = None,
-        drain_user_events: Optional[Callable[..., Any]] = None,
-        user_vote_multiplier: Optional[Callable[..., Any]] = None,
+        vote_with_agent: Callable[..., Any] | None = None,
+        with_timeout: Callable[..., Any] | None = None,
+        group_similar_votes: Callable[..., Any] | None = None,
+        get_calibration_weight: Callable[..., Any] | None = None,
+        notify_spectator: Callable[..., Any] | None = None,
+        drain_user_events: Callable[..., Any] | None = None,
+        user_vote_multiplier: Callable[..., Any] | None = None,
         # Config
         vote_collection_timeout: float = DEFAULT_VOTE_COLLECTION_TIMEOUT,
     ) -> None:
@@ -103,7 +103,7 @@ class VoteProcessor:
 
         self.vote_collection_timeout = vote_collection_timeout
 
-    async def collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
+    async def collect_votes(self, ctx: DebateContext) -> list[Vote]:
         """Collect votes from all agents with outer timeout protection.
 
         Uses VOTE_COLLECTION_TIMEOUT to prevent total vote collection time from
@@ -120,10 +120,10 @@ class VoteProcessor:
             logger.warning("No vote_with_agent callback, skipping votes")
             return []
 
-        votes: list["Vote"] = []
+        votes: list[Vote] = []
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent") -> tuple["Agent", Any]:
+        async def cast_vote(agent: Agent) -> tuple[Agent, Any]:
             """Cast a vote for a single agent with timeout protection."""
             logger.debug(f"agent_voting agent={agent.name}")
             try:
@@ -174,7 +174,7 @@ class VoteProcessor:
 
         return votes
 
-    async def collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
+    async def collect_votes_with_errors(self, ctx: DebateContext) -> tuple[list[Vote], int]:
         """Collect votes with error tracking.
 
         Used for unanimity mode where we need to track errors.
@@ -188,11 +188,11 @@ class VoteProcessor:
         if not self._vote_with_agent:
             return [], 0
 
-        votes: list["Vote"] = []
+        votes: list[Vote] = []
         voting_errors = 0
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent") -> tuple["Agent", Any]:
+        async def cast_vote(agent: Agent) -> tuple[Agent, Any]:
             """Cast a vote for unanimous consensus with timeout protection."""
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
@@ -255,9 +255,9 @@ class VoteProcessor:
 
     def _handle_vote_success(
         self,
-        ctx: "DebateContext",
-        agent: "Agent",
-        vote: "Vote",
+        ctx: DebateContext,
+        agent: Agent,
+        vote: Vote,
         unanimous: bool = False,
     ) -> None:
         """Handle successful vote: notifications, hooks, recording."""
@@ -302,7 +302,7 @@ class VoteProcessor:
                 logger.debug(f"Position tracking error for vote: {e}")
 
     def compute_vote_groups(
-        self, votes: list["Vote"]
+        self, votes: list[Vote]
     ) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Group similar votes and create choice mapping.
 
@@ -329,7 +329,7 @@ class VoteProcessor:
         return vote_groups, choice_mapping
 
     def compute_vote_weights(
-        self, agents: list["Agent"], domain: str = "general"
+        self, agents: list[Agent], domain: str = "general"
     ) -> dict[str, float]:
         """Pre-compute vote weights for all agents.
 
@@ -353,9 +353,9 @@ class VoteProcessor:
 
     def apply_calibration_to_votes(
         self,
-        votes: list["Vote"],
-        ctx: "DebateContext",
-    ) -> list["Vote"]:
+        votes: list[Vote],
+        ctx: DebateContext,
+    ) -> list[Vote]:
         """Apply calibration adjustments to vote confidences.
 
         Adjusts each vote's confidence based on the agent's historical
@@ -413,7 +413,7 @@ class VoteProcessor:
 
     def count_weighted_votes(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         choice_mapping: dict[str, str],
         vote_weight_cache: dict[str, float],
     ) -> tuple[dict[str, float], float]:
@@ -485,7 +485,7 @@ class VoteProcessor:
     def normalize_choice_to_agent(
         self,
         choice: str,
-        agents: list["Agent"],
+        agents: list[Agent],
         proposals: dict[str, str],
     ) -> str:
         """Normalize a vote choice to an agent name.

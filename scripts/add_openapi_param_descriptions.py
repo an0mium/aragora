@@ -176,7 +176,7 @@ def main():
         sys.exit(1)
 
     print(f"Reading {spec_path}...")
-    with open(spec_path, "r") as f:
+    with open(spec_path) as f:
         spec = json.load(f)
 
     print("Adding parameter descriptions...")

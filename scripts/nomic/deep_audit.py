@@ -92,9 +92,9 @@ class DeepAuditRunner:
     def __init__(
         self,
         agents: list[Any] | None = None,
-        run_deep_audit_fn: Optional[Callable] = None,
+        run_deep_audit_fn: Callable | None = None,
         audit_config: Any = None,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
         deep_audit_available: bool = False,
     ):
         """

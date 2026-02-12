@@ -79,7 +79,7 @@ class CacheStats:
     extra: dict[str, Any] | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "CacheStats":
+    def from_dict(cls, d: dict[str, Any]) -> CacheStats:
         """Create CacheStats from a dictionary."""
         return cls(
             size=d.get("size", 0),

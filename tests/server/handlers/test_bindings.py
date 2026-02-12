@@ -53,13 +53,13 @@ class MockMessageBinding:
     agent_binding: str
     binding_type: MockBindingType = MockBindingType.DEFAULT
     priority: int = 0
-    time_window_start: Optional[int] = None
-    time_window_end: Optional[int] = None
-    allowed_users: Optional[set[str]] = None
-    blocked_users: Optional[set[str]] = None
+    time_window_start: int | None = None
+    time_window_end: int | None = None
+    allowed_users: set[str] | None = None
+    blocked_users: set[str] | None = None
     config_overrides: dict[str, Any] = field(default_factory=dict)
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     enabled: bool = True
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -69,7 +69,7 @@ class MockMessageBinding:
 
         return fnmatch.fnmatch(peer_id, self.peer_pattern)
 
-    def matches_time(self, hour: Optional[int] = None) -> bool:
+    def matches_time(self, hour: int | None = None) -> bool:
         """Check if current time is within the binding's time window."""
         if self.time_window_start is None or self.time_window_end is None:
             return True
@@ -79,7 +79,7 @@ class MockMessageBinding:
             return self.time_window_start <= hour < self.time_window_end
         return hour >= self.time_window_start or hour < self.time_window_end
 
-    def matches_user(self, user_id: Optional[str]) -> bool:
+    def matches_user(self, user_id: str | None) -> bool:
         """Check if user is allowed by this binding."""
         if user_id is None:
             return True
@@ -115,12 +115,12 @@ class MockBindingResolution:
     """Mock binding resolution result."""
 
     matched: bool
-    agent_binding: Optional[str] = None
-    binding_type: Optional[MockBindingType] = None
+    agent_binding: str | None = None
+    binding_type: MockBindingType | None = None
     config_overrides: dict[str, Any] = field(default_factory=dict)
-    match_reason: Optional[str] = None
+    match_reason: str | None = None
     candidates_checked: int = 0
-    binding: Optional[MockMessageBinding] = None
+    binding: MockMessageBinding | None = None
 
 
 class MockBindingRouter:
@@ -164,7 +164,7 @@ class MockBindingRouter:
         return False
 
     def list_bindings(
-        self, provider: Optional[str] = None, account_id: Optional[str] = None
+        self, provider: str | None = None, account_id: str | None = None
     ) -> list[MockMessageBinding]:
         result = self._bindings
         if provider:
@@ -195,8 +195,8 @@ class MockBindingRouter:
         provider: str,
         account_id: str,
         peer_id: str,
-        user_id: Optional[str] = None,
-        hour: Optional[int] = None,
+        user_id: str | None = None,
+        hour: int | None = None,
     ) -> MockBindingResolution:
         self._stats["total_resolutions"] += 1
         candidates_checked = 0

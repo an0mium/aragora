@@ -93,9 +93,9 @@ class MetaLearnerBridge:
 
     async def capture_adjustment(
         self,
-        metrics: "LearningMetrics",
+        metrics: LearningMetrics,
         adjustments: dict[str, Any],
-        hyperparams: "HyperparameterState",
+        hyperparams: HyperparameterState,
         cycle_number: int = 0,
     ) -> str | None:
         """
@@ -308,7 +308,7 @@ class EvidenceBridge:
 
     async def store_from_collector_evidence(
         self,
-        evidence: "CollectorEvidence",
+        evidence: CollectorEvidence,
         claim_node_id: str | None = None,
     ) -> str:
         """

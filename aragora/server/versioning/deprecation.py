@@ -185,7 +185,7 @@ class DeprecationMiddleware:
         path: str,
         method: str,
         headers: dict[str, str],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Process request for deprecation.
 

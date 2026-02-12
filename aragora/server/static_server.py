@@ -99,7 +99,7 @@ def validate_path(
 
 
 def serve_static_file(
-    handler: "BaseHTTPRequestHandler",
+    handler: BaseHTTPRequestHandler,
     filename: str,
     static_dir: Path,
     add_cors_headers: Callable | None = None,
@@ -174,7 +174,7 @@ def serve_static_file(
     except PermissionError:
         handler.send_error(403, "Permission denied")
         return False
-    except (IOError, OSError) as e:
+    except OSError as e:
         logger.error(f"File read error: {e}")
         handler.send_error(500, "Failed to read file")
         return False
@@ -184,7 +184,7 @@ def serve_static_file(
 
 
 def serve_audio_file(
-    handler: "BaseHTTPRequestHandler",
+    handler: BaseHTTPRequestHandler,
     debate_id: str,
     audio_store,
     add_cors_headers: Callable | None = None,
@@ -235,7 +235,7 @@ def serve_audio_file(
     except PermissionError:
         handler.send_error(403, "Permission denied")
         return False
-    except (IOError, OSError) as e:
+    except OSError as e:
         logger.error(f"Audio file read error: {e}")
         handler.send_error(500, "Failed to read audio file")
         return False
@@ -261,7 +261,7 @@ class StaticFileHandler:
 
     def serve(
         self,
-        handler: "BaseHTTPRequestHandler",
+        handler: BaseHTTPRequestHandler,
         path: str,
         add_cors_headers: Callable | None = None,
         add_security_headers: Callable | None = None,

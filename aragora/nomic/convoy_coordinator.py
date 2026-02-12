@@ -123,7 +123,7 @@ class BeadAssignment:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BeadAssignment":
+    def from_dict(cls, data: dict[str, Any]) -> BeadAssignment:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -249,10 +249,10 @@ class ConvoyCoordinator:
 
     def __init__(
         self,
-        convoy_manager: "ConvoyManager",
+        convoy_manager: ConvoyManager,
         hierarchy: AgentHierarchy,
-        hook_queue: Optional["HookQueue"] = None,
-        bead_store: Optional["BeadStore"] = None,
+        hook_queue: HookQueue | None = None,
+        bead_store: BeadStore | None = None,
         storage_dir: Path | None = None,
         policy: RebalancePolicy | None = None,
     ):
@@ -389,7 +389,7 @@ class ConvoyCoordinator:
     async def distribute_convoy(
         self,
         convoy_id: str,
-        agent_ids: Optional[list[str]] = None,
+        agent_ids: list[str] | None = None,
         strategy: str = "balanced",
     ) -> list[BeadAssignment]:
         """
@@ -436,8 +436,8 @@ class ConvoyCoordinator:
 
     async def _select_distribution_agents(
         self,
-        convoy: "Convoy",
-        agent_ids: Optional[list[str]] = None,
+        convoy: Convoy,
+        agent_ids: list[str] | None = None,
     ) -> list[str]:
         """Select agents for distribution."""
         if agent_ids:
@@ -478,7 +478,7 @@ class ConvoyCoordinator:
 
         return available
 
-    async def _get_unassigned_beads(self, convoy: "Convoy") -> list[str]:
+    async def _get_unassigned_beads(self, convoy: Convoy) -> list[str]:
         """Get bead IDs that need assignment."""
         unassigned = []
         for bead_id in convoy.bead_ids:
@@ -499,7 +499,7 @@ class ConvoyCoordinator:
 
     async def _distribute_balanced(
         self,
-        convoy: "Convoy",
+        convoy: Convoy,
         bead_ids: list[str],
         agent_ids: list[str],
     ) -> list[BeadAssignment]:
@@ -565,7 +565,7 @@ class ConvoyCoordinator:
 
     async def _distribute_round_robin(
         self,
-        convoy: "Convoy",
+        convoy: Convoy,
         bead_ids: list[str],
         agent_ids: list[str],
     ) -> list[BeadAssignment]:
@@ -602,7 +602,7 @@ class ConvoyCoordinator:
 
     async def _distribute_by_priority(
         self,
-        convoy: "Convoy",
+        convoy: Convoy,
         bead_ids: list[str],
         agent_ids: list[str],
     ) -> list[BeadAssignment]:
@@ -951,9 +951,9 @@ _default_coordinator: ConvoyCoordinator | None = None
 
 
 async def get_convoy_coordinator(
-    convoy_manager: "ConvoyManager",
+    convoy_manager: ConvoyManager,
     hierarchy: AgentHierarchy,
-    hook_queue: Optional["HookQueue"] = None,
+    hook_queue: HookQueue | None = None,
 ) -> ConvoyCoordinator:
     """Get the default convoy coordinator instance."""
     global _default_coordinator

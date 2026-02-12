@@ -152,11 +152,11 @@ class EmbeddingRelevanceScorer:
         Args:
             cache_size: Max number of embeddings to cache
         """
-        self._provider: Optional["UnifiedEmbeddingService"] = None
+        self._provider: UnifiedEmbeddingService | None = None
         self._initialized = False
         self._cache: dict[str, list[float]] = {}
         self._cache_size = cache_size
-        self._query_embedding: Optional[list[float]] = None
+        self._query_embedding: list[float] | None = None
         self._current_query: str | None = None
 
     async def initialize(self) -> bool:
@@ -197,7 +197,7 @@ class EmbeddingRelevanceScorer:
 
         return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()[:16]
 
-    async def _get_embedding(self, text: str) -> Optional[list[float]]:
+    async def _get_embedding(self, text: str) -> list[float] | None:
         """Get embedding for text, using cache if available."""
         if not self._provider:
             return None
@@ -437,7 +437,7 @@ class FederatedQueryAggregator:
     async def query(
         self,
         query: str,
-        sources: Optional[list[QuerySource | str]] = None,
+        sources: list[QuerySource | str] | None = None,
         limit: int | None = None,
         min_relevance: float = 0.0,
         **kwargs,

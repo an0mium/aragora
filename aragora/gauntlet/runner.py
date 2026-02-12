@@ -36,9 +36,9 @@ if TYPE_CHECKING:
     from aragora.sandbox.executor import ExecutionMode, SandboxConfig, SandboxExecutor
 
 # Runtime imports for optional sandbox support
-_sandbox_executor_cls: "type[SandboxExecutor] | None" = None
-_sandbox_config_cls: "type[SandboxConfig] | None" = None
-_execution_mode_cls: "type[ExecutionMode] | None" = None
+_sandbox_executor_cls: type[SandboxExecutor] | None = None
+_sandbox_config_cls: type[SandboxConfig] | None = None
+_execution_mode_cls: type[ExecutionMode] | None = None
 _create_strict_policy_fn: Callable[[], Any] | None = None
 
 try:
@@ -69,10 +69,10 @@ class GauntletRunner:
     def __init__(
         self,
         config: GauntletConfig | None = None,
-        agent_factory: Optional[Callable[[str], Any]] = None,
+        agent_factory: Callable[[str], Any] | None = None,
         run_agent_fn: Callable | None = None,
         enable_sandbox: bool = False,
-        sandbox_config: Optional["SandboxConfig"] = None,
+        sandbox_config: SandboxConfig | None = None,
     ):
         """
         Initialize GauntletRunner.
@@ -90,7 +90,7 @@ class GauntletRunner:
         self._vulnerability_counter = 0
 
         # Initialize sandbox for code execution scenarios (Clawdbot pattern)
-        self._sandbox: Optional["SandboxExecutor"] = None
+        self._sandbox: SandboxExecutor | None = None
         self.enable_sandbox = enable_sandbox and SANDBOX_AVAILABLE
 
         if (
@@ -113,7 +113,7 @@ class GauntletRunner:
         self,
         input_content: str,
         context: str = "",
-        on_progress: Optional[Callable[[str, float], None]] = None,
+        on_progress: Callable[[str, float], None] | None = None,
     ) -> GauntletResult:
         """
         Run the full Gauntlet validation.

@@ -16,7 +16,7 @@ from .schema import validate_against_schema
 def validate_request(
     schema: dict | None = None,
     required_params: list | None = None,
-    path_validators: Optional[dict[str, Callable]] = None,
+    path_validators: dict[str, Callable] | None = None,
 ) -> Callable:
     """Decorator for validating handler requests.
 
@@ -160,8 +160,8 @@ def validate_post_body(schema: dict) -> Callable:
 
 def validate_query_params(
     required: list | None = None,
-    int_params: Optional[dict[str, tuple[int, int, int]]] = None,
-    string_params: Optional[dict[str, tuple[str, int]]] = None,
+    int_params: dict[str, tuple[int, int, int]] | None = None,
+    string_params: dict[str, tuple[str, int]] | None = None,
 ) -> Callable:
     """Decorator for validating query parameters.
 

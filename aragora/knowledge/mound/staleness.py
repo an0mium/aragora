@@ -73,7 +73,7 @@ class StalenessDetector:
 
     def __init__(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMound,
         config: StalenessConfig | None = None,
         age_threshold: timedelta | None = None,
         event_emitter: Any | None = None,

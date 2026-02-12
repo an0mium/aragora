@@ -55,7 +55,7 @@ class NomicAdminMixin:
 
     # Type stubs for methods expected from host class (BaseHandler)
     ctx: dict[str, Any]
-    _require_admin: Callable[[Any], tuple["AuthorizationContext | None", HandlerResult | None]]
+    _require_admin: Callable[[Any], tuple[AuthorizationContext | None, HandlerResult | None]]
     _check_rbac_permission: Callable[..., HandlerResult | None]
 
     def _get_nomic_dir(self) -> str:

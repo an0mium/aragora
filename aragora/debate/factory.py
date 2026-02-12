@@ -232,7 +232,7 @@ class ArenaFactory:
         circuit_breaker: CircuitBreaker | None = None,
         initial_messages: list | None = None,
         trending_topic: Any | None = None,
-    ) -> "Arena":
+    ) -> Arena:
         """
         Create an Arena instance with injected dependencies.
 
@@ -328,7 +328,7 @@ def create_arena(
     environment: Environment,
     agents: list[Agent],
     **kwargs: Any,
-) -> "Arena":
+) -> Arena:
     """
     Convenience function to create an Arena with the default factory.
 

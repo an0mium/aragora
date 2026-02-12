@@ -69,7 +69,7 @@ def _batch_deserialize_json(rows: list[tuple[str, ...]], idx: int = 0) -> list[d
 
 
 # Global singleton
-_gauntlet_run_store: Optional["GauntletRunStoreBackend"] = None
+_gauntlet_run_store: GauntletRunStoreBackend | None = None
 _store_lock = threading.RLock()
 
 
@@ -126,7 +126,7 @@ class GauntletRunItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GauntletRunItem":
+    def from_dict(cls, data: dict[str, Any]) -> GauntletRunItem:
         """Create from dictionary."""
         return cls(
             run_id=data.get("run_id", ""),
@@ -148,7 +148,7 @@ class GauntletRunItem:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> "GauntletRunItem":
+    def from_json(cls, json_str: str) -> GauntletRunItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 

@@ -47,8 +47,8 @@ class LifecycleManager:
 
     def __init__(
         self,
-        cache: Optional["DebateStateCache"] = None,
-        circuit_breaker: Optional["CircuitBreaker"] = None,
+        cache: DebateStateCache | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
         checkpoint_manager: Any = None,
     ) -> None:
         """Initialize lifecycle manager.
@@ -148,7 +148,7 @@ class ArenaContextManager:
     async def _cleanup(self) -> None:
         """Cleanup resources. Subclasses should override this."""
 
-    async def __aenter__(self) -> "ArenaContextManager":
+    async def __aenter__(self) -> ArenaContextManager:
         """Enter async context - prepare for debate.
 
         Enables usage pattern:
@@ -159,7 +159,7 @@ class ArenaContextManager:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

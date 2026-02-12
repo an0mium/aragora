@@ -69,7 +69,7 @@ class UserRateLimiter:
 
     def __init__(
         self,
-        action_limits: Optional[dict[str, int]] = None,
+        action_limits: dict[str, int] | None = None,
         default_limit: int = 60,
         max_users: int = 10000,
     ):

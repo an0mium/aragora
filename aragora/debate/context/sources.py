@@ -129,7 +129,7 @@ class SourceFetcher:
     async def gather_evidence_context(
         self,
         task: str,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
         prompt_builder: Any | None = None,
     ) -> tuple[str | None, Any | None]:
         """
@@ -664,7 +664,7 @@ class SourceFetcher:
     async def gather_evidence_with_timeout(
         self,
         task: str,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
         prompt_builder: Any | None = None,
     ) -> tuple[str | None, Any | None]:
         """Gather evidence with timeout protection."""

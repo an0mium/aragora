@@ -329,7 +329,7 @@ class _patch_evidence_imports:
         self._local_available = local_available
         self._patches: list[Any] = []
 
-    def __enter__(self) -> "_patch_evidence_imports":
+    def __enter__(self) -> _patch_evidence_imports:
         # Patch EvidenceCollector
         collector_mod = MagicMock()
         collector_mod.EvidenceCollector = MagicMock(return_value=self._collector)

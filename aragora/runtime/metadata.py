@@ -53,7 +53,7 @@ class ModelConfig:
             self.system_prompt_hash = ""
 
     @classmethod
-    def from_agent(cls, agent) -> "ModelConfig":
+    def from_agent(cls, agent) -> ModelConfig:
         """Create config from an Agent instance."""
         system_hash = ""
         if hasattr(agent, "system_prompt") and agent.system_prompt:
@@ -186,7 +186,7 @@ class DebateMetadata:
         return json.dumps(self.to_dict(), indent=indent)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DebateMetadata":
+    def from_dict(cls, data: dict) -> DebateMetadata:
         """Deserialize from dictionary."""
         protocol = data.get("protocol", {})
         env = data.get("environment", {})
@@ -227,7 +227,7 @@ class DebateMetadata:
         )
 
     @classmethod
-    def from_arena(cls, arena, debate_id: str) -> "DebateMetadata":
+    def from_arena(cls, arena, debate_id: str) -> DebateMetadata:
         """Create metadata from an Arena instance."""
         agent_configs = []
         for agent in arena.agents:
@@ -243,11 +243,11 @@ class DebateMetadata:
             agent_configs=agent_configs,
         )
 
-    def is_similar_config(self, other: "DebateMetadata") -> bool:
+    def is_similar_config(self, other: DebateMetadata) -> bool:
         """Check if two debates have similar configuration."""
         return self.config_hash == other.config_hash
 
-    def diff(self, other: "DebateMetadata") -> dict[str, dict[str, Any]]:
+    def diff(self, other: DebateMetadata) -> dict[str, dict[str, Any]]:
         """Get differences between two metadata configs."""
         diffs: dict[str, dict[str, Any]] = {}
 

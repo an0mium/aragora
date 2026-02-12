@@ -100,7 +100,7 @@ class ApprovalFlow:
         storage_dir: Path | None = None,
         auto_approve_low_risk: bool = True,
         default_timeout_seconds: int = 3600,
-        notification_callback: Optional[Callable[[ApprovalRequest], None]] = None,
+        notification_callback: Callable[[ApprovalRequest], None] | None = None,
     ):
         """
         Initialize approval flow.
@@ -126,7 +126,7 @@ class ApprovalFlow:
         risk_level: str = "medium",
         requested_by: str = "system",
         timeout_seconds: int | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ApprovalRequest:
         """
         Request approval for an operation.
@@ -379,8 +379,8 @@ class RollbackManager:
     def create_rollback_point(
         self,
         description: str,
-        files_to_backup: Optional[list[Path]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        files_to_backup: list[Path] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> RollbackPoint:
         """
         Create a new rollback point.
@@ -616,7 +616,7 @@ class CodeVerifier:
 
     async def verify(
         self,
-        files: Optional[list[Path]] = None,
+        files: list[Path] | None = None,
         quick_mode: bool = False,
     ) -> VerificationResult:
         """
@@ -669,7 +669,7 @@ class CodeVerifier:
 
         return result
 
-    async def _check_syntax(self, files: Optional[list[Path]] = None) -> list[str]:
+    async def _check_syntax(self, files: list[Path] | None = None) -> list[str]:
         """Check Python syntax for files."""
         import ast
 
@@ -689,7 +689,7 @@ class CodeVerifier:
 
         return errors
 
-    async def _run_lint(self, files: Optional[list[Path]] = None) -> list[str]:
+    async def _run_lint(self, files: list[Path] | None = None) -> list[str]:
         """Run linter on files."""
         warnings = []
 
@@ -715,7 +715,7 @@ class CodeVerifier:
 
     async def _run_tests(
         self,
-        files: Optional[list[Path]] = None,
+        files: list[Path] | None = None,
     ) -> dict[str, Any]:
         """Run tests for files."""
         try:
@@ -775,7 +775,7 @@ class CodeVerifier:
 
     async def _run_security_scan(
         self,
-        files: Optional[list[Path]] = None,
+        files: list[Path] | None = None,
     ) -> list[str]:
         """Run security scan on files."""
         issues = []
@@ -822,7 +822,7 @@ class SelfImprovementManager:
         code_verifier: CodeVerifier | None = None,
         approval_flow: ApprovalFlow | None = None,
         auto_rollback_on_failure: bool = True,
-        require_approval_for_risk_levels: Optional[set[str]] = None,
+        require_approval_for_risk_levels: set[str] | None = None,
     ):
         """
         Initialize self-improvement manager.
@@ -849,7 +849,7 @@ class SelfImprovementManager:
         description: str,
         files_to_modify: list[Path],
         risk_level: str = "medium",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> tuple[bool, str | None]:
         """
         Start a self-improvement cycle.

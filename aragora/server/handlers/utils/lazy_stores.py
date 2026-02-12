@@ -203,7 +203,7 @@ class LazyStoreFactory:
             logger.warning(f"[{self.logger_context}] {self.store_name} factory not found: {e}")
             return None
 
-        except (OSError, IOError, RuntimeError) as e:
+        except (OSError, RuntimeError) as e:
             self._init_error = f"Init failed: {type(e).__name__}: {e}"
             logger.warning(
                 f"[{self.logger_context}] {self.store_name} init failed: {type(e).__name__}: {e}"

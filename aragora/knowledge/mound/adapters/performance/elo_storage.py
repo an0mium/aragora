@@ -85,7 +85,7 @@ class EloStorageMixin:
 
     def store_rating(
         self,
-        rating: "AgentRating",
+        rating: AgentRating,
         debate_id: str | None = None,
         reason: str = "match_update",
     ) -> str:
@@ -144,7 +144,7 @@ class EloStorageMixin:
         logger.info(f"Stored rating: {rating_id} (elo={rating.elo:.1f})")
         return rating_id
 
-    def store_match(self, match: "MatchResult") -> str:
+    def store_match(self, match: MatchResult) -> str:
         """
         Store a match result in the Knowledge Mound.
 
@@ -266,7 +266,7 @@ class EloStorageMixin:
     # Rating Retrieval Methods
     # =========================================================================
 
-    def get_rating(self, rating_id: str) -> Optional[dict[str, Any]]:
+    def get_rating(self, rating_id: str) -> dict[str, Any] | None:
         """
         Get a specific rating snapshot by ID.
 
@@ -280,7 +280,7 @@ class EloStorageMixin:
             rating_id = f"{self.ELO_PREFIX}{rating_id}"
         return self._ratings.get(rating_id)
 
-    def get_match(self, match_id: str) -> Optional[dict[str, Any]]:
+    def get_match(self, match_id: str) -> dict[str, Any] | None:
         """
         Get a specific match by ID.
 
@@ -294,7 +294,7 @@ class EloStorageMixin:
             match_id = f"{self.ELO_PREFIX}match_{match_id}"
         return self._matches.get(match_id)
 
-    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[dict[str, Any]]:
+    def get_relationship(self, agent_a: str, agent_b: str) -> dict[str, Any] | None:
         """
         Get relationship metrics between two agents.
 

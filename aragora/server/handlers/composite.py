@@ -648,7 +648,7 @@ class CompositeHandler(BaseHandler):
 
         return round(score, 3)
 
-    def _get_rlm_metrics(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def _get_rlm_metrics(self, debate_id: str) -> dict[str, Any] | None:
         """Get RLM compression metrics for a debate."""
         # Check for RLM handler in context
         rlm_handler = self.ctx.get("rlm_handler")

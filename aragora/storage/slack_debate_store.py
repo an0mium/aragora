@@ -78,7 +78,7 @@ class SlackActiveDebate:
         }
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "SlackActiveDebate":
+    def from_row(cls, row: sqlite3.Row) -> SlackActiveDebate:
         """Create from database row."""
         return cls(
             debate_id=row["debate_id"],

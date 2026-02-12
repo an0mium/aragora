@@ -196,7 +196,7 @@ class AragoraClient:
         self._rate_limiter = RateLimiter(rate_limit_rps) if rate_limit_rps > 0 else None
 
         # Lazy-loaded HTTP clients
-        self._session: Optional["aiohttp.ClientSession"] = None
+        self._session: aiohttp.ClientSession | None = None
         self._sync_client: Any = None
 
         # API interfaces
@@ -1061,7 +1061,7 @@ class AragoraClient:
         stream = self.stream_debate(debate_id, stream_options)
         return debate, stream
 
-    def __enter__(self) -> "AragoraClient":
+    def __enter__(self) -> AragoraClient:
         """Sync context manager entry."""
         return self
 
@@ -1069,7 +1069,7 @@ class AragoraClient:
         """Sync context manager exit."""
         self.close()
 
-    async def __aenter__(self) -> "AragoraClient":
+    async def __aenter__(self) -> AragoraClient:
         """Async context manager entry."""
         return self
 

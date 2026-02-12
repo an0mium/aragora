@@ -620,7 +620,7 @@ class TeamInboxEmitter:
         user_id: str,
         user_name: str,
         message_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int:
         """Emit a generic activity event for the feed."""
         event = TeamInboxEvent(

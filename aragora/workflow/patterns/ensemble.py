@@ -23,7 +23,7 @@ class EnsemblePattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "",
         selection_strategy: str = "best_score",
         samples_per_agent: int = 1,

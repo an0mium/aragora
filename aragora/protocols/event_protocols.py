@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional, Protocol, runtime_checkable
 class EventEmitterProtocol(Protocol):
     """Protocol for event emission systems."""
 
-    def emit(self, event: Any, data: Optional[dict[str, Any]] = None) -> None:
+    def emit(self, event: Any, data: dict[str, Any] | None = None) -> None:
         """Emit an event. Can be called with event object or (event_type, data)."""
         ...
 
@@ -56,7 +56,7 @@ class BaseHandlerProtocol(HandlerProtocol, Protocol):
     ROUTES: list[str]
     ctx: dict[str, Any]
 
-    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
+    def read_json_body(self, handler: Any) -> dict[str, Any] | None:
         """Read and parse JSON body from request."""
         ...
 

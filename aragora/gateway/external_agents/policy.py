@@ -256,8 +256,8 @@ class PolicyEngine:
 
     async def evaluate(
         self,
-        adapter: "ExternalAgentAdapter",
-        task: "ExternalAgentTask",
+        adapter: ExternalAgentAdapter,
+        task: ExternalAgentTask,
         tenant_id: str | None = None,
         user_id: str | None = None,
         sensitivity: SensitivityLevel = SensitivityLevel.INTERNAL,

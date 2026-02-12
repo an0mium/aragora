@@ -114,7 +114,7 @@ class ConvergenceDetectorProtocol(Protocol):
         current_responses: dict[str, str],
         previous_responses: dict[str, str],
         round_number: int,
-    ) -> "ConvergenceResultProtocol | None":
+    ) -> ConvergenceResultProtocol | None:
         """Check if debate has converged.
 
         Args:
@@ -295,7 +295,7 @@ class Registration(Generic[T]):
                 "Exactly one of service_type, factory, or instance must be provided"
             )
 
-    def resolve(self, container: "Container") -> T:
+    def resolve(self, container: Container) -> T:
         """Resolve the registration to an instance.
 
         Args:
@@ -360,7 +360,7 @@ class Container:
         protocol: type[T],
         implementation: type[T],
         singleton: bool = True,
-    ) -> "Container":
+    ) -> Container:
         """Register a class implementation for a protocol.
 
         Args:
@@ -385,9 +385,9 @@ class Container:
     def register_factory(
         self,
         protocol: type[T],
-        factory: Callable[["Container"], T],
+        factory: Callable[[Container], T],
         singleton: bool = True,
-    ) -> "Container":
+    ) -> Container:
         """Register a factory function for a protocol.
 
         The factory receives the container for resolving nested dependencies.
@@ -421,7 +421,7 @@ class Container:
         self,
         protocol: type[T],
         instance: T,
-    ) -> "Container":
+    ) -> Container:
         """Register a pre-created instance for a protocol.
 
         Args:
@@ -517,7 +517,7 @@ class Container:
         with self._lock:
             self._registrations.clear()
 
-    def create_child(self) -> "Container":
+    def create_child(self) -> Container:
         """Create a child container with current registrations copied.
 
         Child containers can override registrations without affecting parent.

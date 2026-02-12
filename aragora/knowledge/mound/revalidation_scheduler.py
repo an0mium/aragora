@@ -63,13 +63,13 @@ class RevalidationScheduler:
 
     def __init__(
         self,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
-        task_scheduler: Optional["TaskScheduler"] = None,
+        knowledge_mound: KnowledgeMound | None = None,
+        task_scheduler: TaskScheduler | None = None,
         staleness_threshold: float = 0.7,
         check_interval_seconds: int = 3600,
         max_tasks_per_check: int = 10,
         revalidation_method: str = "debate",
-        on_task_created: Optional[Callable[[str, str], None]] = None,
+        on_task_created: Callable[[str, str], None] | None = None,
     ):
         """
         Initialize the revalidation scheduler.
@@ -92,7 +92,7 @@ class RevalidationScheduler:
         self._on_task_created = on_task_created
 
         self._running = False
-        self._task: Optional[asyncio.Task[None]] = None
+        self._task: asyncio.Task[None] | None = None
         self._pending_revalidations: set[str] = set()  # Node IDs already queued
 
     @property
@@ -312,7 +312,7 @@ class RevalidationScheduler:
 # Task handler for processing revalidation tasks
 async def handle_revalidation_task(
     task_payload: dict[str, Any],
-    knowledge_mound: Optional["KnowledgeMound"] = None,
+    knowledge_mound: KnowledgeMound | None = None,
 ) -> dict[str, Any]:
     """
     Handle a knowledge revalidation task.
@@ -378,7 +378,7 @@ async def handle_revalidation_task(
 async def _revalidate_via_debate(
     node_id: str,
     payload: dict[str, Any],
-    knowledge_mound: Optional["KnowledgeMound"],
+    knowledge_mound: KnowledgeMound | None,
 ) -> dict[str, Any]:
     """Revalidate knowledge by running a focused debate.
 
@@ -490,7 +490,7 @@ async def _revalidate_via_debate(
 async def _revalidate_via_evidence(
     node_id: str,
     payload: dict[str, Any],
-    knowledge_mound: Optional["KnowledgeMound"],
+    knowledge_mound: KnowledgeMound | None,
 ) -> dict[str, Any]:
     """Revalidate knowledge by re-fetching evidence."""
     content_preview = payload.get("content_preview", "")
@@ -540,7 +540,7 @@ async def _revalidate_via_evidence(
 async def _flag_for_expert_review(
     node_id: str,
     payload: dict[str, Any],
-    knowledge_mound: Optional["KnowledgeMound"],
+    knowledge_mound: KnowledgeMound | None,
 ) -> dict[str, Any]:
     """Flag knowledge for human expert review."""
     return {

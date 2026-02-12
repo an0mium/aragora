@@ -89,7 +89,7 @@ def format_successful_patterns(
 
 
 def format_evidence_for_prompt(
-    snippets: list["EvidenceSnippet"],
+    snippets: list[EvidenceSnippet],
     max_snippets: int = 5,
     rlm_adapter: Any | None = None,
     enable_rlm_hints: bool = True,
@@ -157,7 +157,7 @@ def format_evidence_for_prompt(
 
 
 def format_trending_for_prompt(
-    topics: list["TrendingTopic"],
+    topics: list[TrendingTopic],
     task: str = "",
     max_topics: int = 3,
     use_relevance_filter: bool = True,

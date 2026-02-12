@@ -118,7 +118,7 @@ class PostgresWorkflowStore(PostgresStore):
     # Workflow CRUD
     # =========================================================================
 
-    async def save_workflow(self, workflow: "WorkflowDefinition") -> None:
+    async def save_workflow(self, workflow: WorkflowDefinition) -> None:
         """
         Save or update a workflow using upsert.
 
@@ -176,7 +176,7 @@ class PostgresWorkflowStore(PostgresStore):
 
     async def get_workflow(
         self, workflow_id: str, tenant_id: str = "default"
-    ) -> Optional["WorkflowDefinition"]:
+    ) -> WorkflowDefinition | None:
         """
         Get a workflow by ID.
 
@@ -211,11 +211,11 @@ class PostgresWorkflowStore(PostgresStore):
         self,
         tenant_id: str = "default",
         category: str | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list["WorkflowDefinition"], int]:
+    ) -> tuple[list[WorkflowDefinition], int]:
         """
         List workflows with filtering.
 
@@ -309,7 +309,7 @@ class PostgresWorkflowStore(PostgresStore):
     # Version Management
     # =========================================================================
 
-    async def save_version(self, workflow: "WorkflowDefinition") -> None:
+    async def save_version(self, workflow: WorkflowDefinition) -> None:
         """Save a workflow version to history."""
         data = workflow.to_dict()
         definition_json = json.dumps(data)
@@ -373,7 +373,7 @@ class PostgresWorkflowStore(PostgresStore):
         self,
         workflow_id: str,
         version: str,
-    ) -> Optional["WorkflowDefinition"]:
+    ) -> WorkflowDefinition | None:
         """Get a specific version of a workflow."""
         from aragora.workflow.types import WorkflowDefinition
 
@@ -399,7 +399,7 @@ class PostgresWorkflowStore(PostgresStore):
     # Templates
     # =========================================================================
 
-    async def save_template(self, template: "WorkflowDefinition") -> None:
+    async def save_template(self, template: WorkflowDefinition) -> None:
         """Save a workflow template."""
         now = datetime.now(timezone.utc)
         data = template.to_dict()
@@ -436,7 +436,7 @@ class PostgresWorkflowStore(PostgresStore):
             now,
         )
 
-    async def get_template(self, template_id: str) -> Optional["WorkflowDefinition"]:
+    async def get_template(self, template_id: str) -> WorkflowDefinition | None:
         """Get a template by ID."""
         from aragora.workflow.types import WorkflowDefinition
 
@@ -460,9 +460,9 @@ class PostgresWorkflowStore(PostgresStore):
     async def list_templates(
         self,
         category: str | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         limit: int = 50,
-    ) -> list["WorkflowDefinition"]:
+    ) -> list[WorkflowDefinition]:
         """List workflow templates."""
         from aragora.workflow.types import WorkflowDefinition
 
@@ -547,7 +547,7 @@ class PostgresWorkflowStore(PostgresStore):
             execution.get("duration_ms"),
         )
 
-    async def get_execution(self, execution_id: str) -> Optional[dict[str, Any]]:
+    async def get_execution(self, execution_id: str) -> dict[str, Any] | None:
         """Get an execution by ID."""
         row = await self.fetch_one(
             """

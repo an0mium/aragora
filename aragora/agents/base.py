@@ -311,7 +311,7 @@ def create_agent(
     model: str | None = None,
     api_key: str | None = None,
     timeout: float | None = None,
-) -> "Agent":
+) -> Agent:
     """
     Factory function to create agents by type.
 

@@ -76,7 +76,7 @@ class CurriculumOutcome:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CurriculumOutcome":
+    def from_dict(cls, data: dict[str, Any]) -> CurriculumOutcome:
         """Deserialize from dictionary."""
         return cls(
             curricula_created=data.get("curricula_created", 0),
@@ -124,7 +124,7 @@ class GoalOutcome:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GoalOutcome":
+    def from_dict(cls, data: dict[str, Any]) -> GoalOutcome:
         """Deserialize from dictionary."""
         return cls(
             goal_id=data["goal_id"],
@@ -198,7 +198,7 @@ class NomicCycleOutcome:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "NomicCycleOutcome":
+    def from_dict(cls, data: dict[str, Any]) -> NomicCycleOutcome:
         """Deserialize from dictionary."""
         curriculum_data = data.get("curriculum_outcome")
         curriculum_outcome = (

@@ -90,15 +90,15 @@ class _FakePartner:
     partner_id: str
     name: str
     email: str
-    company: Optional[str]
+    company: str | None
     tier: Any
     status: Any
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
-    webhook_url: Optional[str] = None
-    webhook_secret: Optional[str] = None
-    referral_code: Optional[str] = "REFCODE1"
+    webhook_url: str | None = None
+    webhook_secret: str | None = None
+    referral_code: str | None = "REFCODE1"
 
     def to_dict(self):
         return {
@@ -125,8 +125,8 @@ class _FakeAPIKey:
     name: str
     scopes: list[str]
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-    last_used_at: Optional[datetime] = None
+    expires_at: datetime | None = None
+    last_used_at: datetime | None = None
     is_active: bool = True
 
     def to_dict(self):

@@ -655,6 +655,15 @@ class TestAppleUserInfoExtraction:
 class TestAppleJwksCaching:
     """Tests for Apple JWKS caching behavior."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_jwks_cache(self):
+        """Reset Apple JWKS cache before and after each test."""
+        AppleOAuthProvider._jwks_cache = None
+        AppleOAuthProvider._jwks_cache_expiry = 0
+        yield
+        AppleOAuthProvider._jwks_cache = None
+        AppleOAuthProvider._jwks_cache_expiry = 0
+
     def test_jwks_cache_hit(self, apple_config, mock_http_client):
         """Should return cached JWKS when not expired."""
         # Set up cache
@@ -670,16 +679,8 @@ class TestAppleJwksCaching:
         mock_http_client.get.assert_not_called()
         assert jwks["keys"][0]["kid"] == "test_key"
 
-        # Clean up
-        AppleOAuthProvider._jwks_cache = None
-        AppleOAuthProvider._jwks_cache_expiry = 0
-
     def test_jwks_cache_miss(self, apple_config, mock_http_client):
         """Should fetch JWKS when cache expired."""
-        # Expire cache
-        AppleOAuthProvider._jwks_cache = None
-        AppleOAuthProvider._jwks_cache_expiry = 0
-
         mock_response = Mock()
         mock_response.json.return_value = {"keys": [{"kid": "new_key"}]}
         mock_response.raise_for_status = Mock()
@@ -692,10 +693,6 @@ class TestAppleJwksCaching:
 
         mock_http_client.get.assert_called_once_with("https://appleid.apple.com/auth/keys")
         assert jwks["keys"][0]["kid"] == "new_key"
-
-        # Clean up
-        AppleOAuthProvider._jwks_cache = None
-        AppleOAuthProvider._jwks_cache_expiry = 0
 
     def test_jwks_fetch_failure_uses_expired_cache(self, apple_config, mock_http_client):
         """Should use expired cache as fallback on fetch failure."""
@@ -711,10 +708,6 @@ class TestAppleJwksCaching:
         jwks = provider._fetch_apple_jwks()
 
         assert jwks["keys"][0]["kid"] == "old_key"
-
-        # Clean up
-        AppleOAuthProvider._jwks_cache = None
-        AppleOAuthProvider._jwks_cache_expiry = 0
 
 
 class TestAppleTokenRefresh:

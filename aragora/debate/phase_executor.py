@@ -104,16 +104,16 @@ class PhaseConfig:
 
     # Tracing
     enable_tracing: bool = True
-    trace_callback: Optional[Callable[[str, dict[str, Any]], None]] = None
+    trace_callback: Callable[[str, dict[str, Any]], None] | None = None
 
     # Metrics
-    metrics_callback: Optional[Callable[[str, float], None]] = None
+    metrics_callback: Callable[[str, float], None] | None = None
 
     # Checkpoint hooks - called before/after phases
     # pre_phase_callback: async (phase_name, context) -> None
-    pre_phase_callback: Optional[Callable[[str, Any], Any]] = None
+    pre_phase_callback: Callable[[str, Any], Any] | None = None
     # post_phase_callback: async (phase_name, context, result) -> None
-    post_phase_callback: Optional[Callable[[str, Any, PhaseResult], Any]] = None
+    post_phase_callback: Callable[[str, Any, PhaseResult], Any] | None = None
 
 
 # Phase ordering for standard debate flow
@@ -177,7 +177,7 @@ class PhaseExecutor:
         self,
         context: Any,
         debate_id: str = "",
-        phase_order: Optional[list[str]] = None,
+        phase_order: list[str] | None = None,
     ) -> ExecutionResult:
         """
         Execute all phases in sequence.

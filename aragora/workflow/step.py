@@ -37,7 +37,7 @@ class WorkflowStep(Protocol):
         """Step name for identification."""
         ...
 
-    async def execute(self, context: "WorkflowContext") -> Any:
+    async def execute(self, context: WorkflowContext) -> Any:
         """
         Execute the step with given context.
 
@@ -72,7 +72,7 @@ class WorkflowContext:
     # Current step info (set by engine during execution)
     current_step_id: str | None = None
     current_step_config: dict[str, Any] = field(default_factory=dict)
-    event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None
+    event_callback: Callable[[str, dict[str, Any]], None] | None = None
 
     def get_input(self, key: str, default: Any = None) -> Any:
         """Get a workflow input value."""
@@ -114,7 +114,7 @@ class BaseStep(ABC):
     - Logging integration
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         self._name = name
         self._config = config or {}
 
@@ -181,7 +181,7 @@ class AgentStep(BaseStep):
         name: str,
         agent_type: str | None = None,
         prompt_template: str | None = None,
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         super().__init__(name, config)
         # Extract from config if not passed directly (for engine compatibility)
@@ -419,7 +419,7 @@ class AgentStep(BaseStep):
         self,
         prompt: str,
         context: WorkflowContext,
-        harness_config: Optional[dict[str, Any]] = None,
+        harness_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute using KiloCode as the coding harness."""
         from aragora.agents.cli_agents import KiloCodeAgent
@@ -467,7 +467,7 @@ class ParallelStep(BaseStep):
         self,
         name: str,
         sub_steps: list[WorkflowStep],
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         super().__init__(name, config)
         self.sub_steps = sub_steps
@@ -504,7 +504,7 @@ class ConditionalStep(BaseStep):
         name: str,
         wrapped_step: WorkflowStep,
         condition: str,  # Python expression
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         super().__init__(name, config)
         self.wrapped_step = wrapped_step
@@ -547,7 +547,7 @@ class LoopStep(BaseStep):
         wrapped_step: WorkflowStep,
         condition: str,  # Exit condition (stop when True)
         max_iterations: int = 10,
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         super().__init__(name, config)
         self.wrapped_step = wrapped_step

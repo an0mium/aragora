@@ -52,8 +52,8 @@ class PolicyEnforcer:
 
     def __init__(
         self,
-        policy_manager: Optional["ControlPlanePolicyManager"] = None,
-        violation_callback: Optional[Callable[["PolicyViolation"], None]] = None,
+        policy_manager: ControlPlanePolicyManager | None = None,
+        violation_callback: Callable[[PolicyViolation], None] | None = None,
         enable_policy_sync: bool = True,
         policy_sync_workspace: str | None = None,
     ):
@@ -70,7 +70,7 @@ class PolicyEnforcer:
         self._policy_sync_workspace = policy_sync_workspace
         self._violation_callback = violation_callback
 
-        self._policy_manager: Optional["ControlPlanePolicyManager"] = None
+        self._policy_manager: ControlPlanePolicyManager | None = None
         if policy_manager:
             self._policy_manager = policy_manager
         elif HAS_POLICY:
@@ -79,11 +79,11 @@ class PolicyEnforcer:
             )
 
     @property
-    def policy_manager(self) -> Optional["ControlPlanePolicyManager"]:
+    def policy_manager(self) -> ControlPlanePolicyManager | None:
         """Get the Policy Manager if configured."""
         return self._policy_manager
 
-    def set_policy_manager(self, manager: "ControlPlanePolicyManager") -> None:
+    def set_policy_manager(self, manager: ControlPlanePolicyManager) -> None:
         """Set the Policy Manager."""
         self._policy_manager = manager
 
@@ -101,7 +101,7 @@ class PolicyEnforcer:
         else:
             loop.create_task(coro)
 
-    def _handle_policy_violation(self, violation: "PolicyViolation") -> None:
+    def _handle_policy_violation(self, violation: PolicyViolation) -> None:
         """Handle policy violations with audit logging and notifications."""
         # Call the external callback if provided
         if self._violation_callback:

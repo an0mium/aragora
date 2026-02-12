@@ -189,7 +189,7 @@ class PostgresContinuumMemory(PostgresStore):
 
     def __init__(
         self,
-        pool: "Pool",
+        pool: Pool,
         tier_manager: TierManager | None = None,
     ):
         """
@@ -234,7 +234,7 @@ class PostgresContinuumMemory(PostgresStore):
         content: str,
         tier: MemoryTier | str = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntryDict:
         """
         Add a new memory entry to the continuum.
@@ -300,7 +300,7 @@ class PostgresContinuumMemory(PostgresStore):
         content: str,
         tier: str | MemoryTier = MemoryTier.SLOW,
         importance: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntryDict:
         """Alias for add() for interface compatibility."""
         return await self.add(key, content, tier, importance, metadata)
@@ -341,7 +341,7 @@ class PostgresContinuumMemory(PostgresStore):
         memory_id: str,
         content: str | None = None,
         importance: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         surprise_score: float | None = None,
         consolidation_score: float | None = None,
     ) -> bool:
@@ -468,7 +468,7 @@ class PostgresContinuumMemory(PostgresStore):
     async def retrieve(
         self,
         query: str | None = None,
-        tiers: Optional[list[MemoryTier]] = None,
+        tiers: list[MemoryTier] | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
@@ -1223,7 +1223,7 @@ _postgres_continuum_memory: PostgresContinuumMemory | None = None
 
 
 async def get_postgres_continuum_memory(
-    pool: Optional["Pool"] = None,
+    pool: Pool | None = None,
     tier_manager: TierManager | None = None,
 ) -> PostgresContinuumMemory:
     """

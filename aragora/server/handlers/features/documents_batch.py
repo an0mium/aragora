@@ -355,7 +355,7 @@ class DocumentBatchHandler(BaseHandler):
         except json.JSONDecodeError as e:
             logger.warning(f"Batch upload failed (invalid JSON): {e}")
             return error_response(safe_error_message(e, "Batch upload"), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.exception(f"Batch upload failed (I/O error): {e}")
             return error_response(safe_error_message(e, "Batch upload"), 500)
         except RuntimeError as e:

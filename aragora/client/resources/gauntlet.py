@@ -24,7 +24,7 @@ from aragora.client.models import (
 class GauntletAPI:
     """API interface for gauntlet (adversarial validation)."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def run(

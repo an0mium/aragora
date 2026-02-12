@@ -57,7 +57,7 @@ class ReplayReader:
         self.events_path = self.session_dir / "events.jsonl"
         self.meta: ReplayMeta | None = None
         self._load_error: str | None = None
-        self._event_index: Optional[list[tuple[int, int, str]]] = (
+        self._event_index: list[tuple[int, int, str]] | None = (
             None  # (offset_ms, file_pos, event_id)
         )
 
@@ -66,7 +66,7 @@ class ReplayReader:
     def _load_metadata(self) -> None:
         """Load replay metadata from meta.json."""
         try:
-            with open(self.meta_path, "r", encoding="utf-8") as f:
+            with open(self.meta_path, encoding="utf-8") as f:
                 self.meta = ReplayMeta.from_json(f.read())
         except FileNotFoundError:
             self._load_error = f"Replay metadata not found: {self.meta_path}"
@@ -101,7 +101,7 @@ class ReplayReader:
         if not self.events_path.exists():
             return
         try:
-            with open(self.events_path, "r", encoding="utf-8") as f:
+            with open(self.events_path, encoding="utf-8") as f:
                 for line_num, line in enumerate(f, 1):
                     if not line.strip():
                         continue
@@ -336,7 +336,7 @@ class ReplayReader:
         line_num = 0
 
         try:
-            with open(self.events_path, "r", encoding="utf-8") as f:
+            with open(self.events_path, encoding="utf-8") as f:
                 for line_num, line in enumerate(f, 1):
                     if not line.strip():
                         continue

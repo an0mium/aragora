@@ -89,7 +89,7 @@ HIVE_MIND_TEMPLATE: dict[str, Any] = {
 
 def create_hive_mind_workflow(
     name: str = "Hive Mind Analysis",
-    agents: Optional[list[str]] = None,
+    agents: list[str] | None = None,
     task: str = "",
     consensus_mode: str = "synthesis",
     consensus_threshold: float = 0.7,
@@ -263,7 +263,7 @@ def create_review_cycle_workflow(
     task: str = "",
     max_iterations: int = 3,
     convergence_threshold: float = 0.85,
-    review_criteria: Optional[list[str]] = None,
+    review_criteria: list[str] | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -306,7 +306,7 @@ PATTERN_TEMPLATES: dict[str, dict[str, Any]] = {
 }
 
 
-def get_pattern_template(pattern_id: str) -> Optional[dict[str, Any]]:
+def get_pattern_template(pattern_id: str) -> dict[str, Any] | None:
     """Get a pattern template by ID."""
     return PATTERN_TEMPLATES.get(pattern_id)
 

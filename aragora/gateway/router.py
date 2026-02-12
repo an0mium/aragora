@@ -50,7 +50,7 @@ class AgentRouter:
     def __init__(
         self,
         default_agent: str = "default",
-        store: "GatewayStore | None" = None,
+        store: GatewayStore | None = None,
     ) -> None:
         self._rules: dict[str, RoutingRule] = {}
         self._default_agent = default_agent

@@ -335,7 +335,7 @@ def reset_marketplace_circuit_breaker() -> None:
 _registry: TemplateRegistry | None = None
 
 
-def _get_registry() -> "TemplateRegistry":
+def _get_registry() -> TemplateRegistry:
     """Get or create the template registry."""
     global _registry
     if _registry is None:

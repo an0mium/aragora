@@ -74,31 +74,31 @@ class HandlerProtocol(Protocol):
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+    ) -> HandlerResult | Awaitable[HandlerResult | None] | None:
         """Handle a GET request."""
         ...
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+    ) -> HandlerResult | Awaitable[HandlerResult | None] | None:
         """Handle a POST request."""
         ...
 
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+    ) -> HandlerResult | Awaitable[HandlerResult | None] | None:
         """Handle a DELETE request."""
         ...
 
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+    ) -> HandlerResult | Awaitable[HandlerResult | None] | None:
         """Handle a PATCH request."""
         ...
 
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "HandlerResult | Awaitable[HandlerResult | None] | None":
+    ) -> HandlerResult | Awaitable[HandlerResult | None] | None:
         """Handle a PUT request."""
         ...
 
@@ -728,7 +728,7 @@ class DebateMetrics(TypedDict):
     consensus_reached: bool
     confidence: float
     convergence: NotRequired[ConvergenceMetrics]
-    phases: NotRequired[list["PhaseMetrics"]]
+    phases: NotRequired[list[PhaseMetrics]]
 
 
 class AgentPerformanceMetrics(TypedDict):

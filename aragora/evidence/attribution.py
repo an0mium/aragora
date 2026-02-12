@@ -46,7 +46,7 @@ class ReputationTier(str, Enum):
     UNRELIABLE = "unreliable"  # < 0.30
 
     @classmethod
-    def from_score(cls, score: float) -> "ReputationTier":
+    def from_score(cls, score: float) -> ReputationTier:
         """Classify score into reputation tier."""
         if score >= 0.85:
             return cls.AUTHORITATIVE
@@ -91,7 +91,7 @@ class VerificationRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "VerificationRecord":
+    def from_dict(cls, data: dict[str, Any]) -> VerificationRecord:
         """Deserialize from dictionary."""
         return cls(
             record_id=data["record_id"],
@@ -183,7 +183,7 @@ class SourceReputation:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SourceReputation":
+    def from_dict(cls, data: dict[str, Any]) -> SourceReputation:
         """Deserialize from dictionary."""
         # Convert debates list back to set
         metadata = data.get("metadata", {})
@@ -623,7 +623,7 @@ class AttributionChain:
         debate_id: str,
         content: str,
         source_type: str = "unknown",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AttributionChainEntry:
         """Add evidence to the attribution chain.
 

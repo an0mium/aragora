@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 async def run_security_debate(
-    event: "SecurityEvent",
-    agents: list["Agent"] | None = None,
+    event: SecurityEvent,
+    agents: list[Agent] | None = None,
     confidence_threshold: float = 0.7,
     timeout_seconds: int = 300,
     org_id: str = "default",
-) -> "DebateResult":
+) -> DebateResult:
     """
     Run a multi-agent debate on a security event.
 
@@ -135,7 +135,7 @@ async def run_security_debate(
     return result
 
 
-async def get_security_debate_agents() -> list["Agent"]:
+async def get_security_debate_agents() -> list[Agent]:
     """Get agents suitable for security debates.
 
     Returns agents with security expertise. Tries to use a diverse set

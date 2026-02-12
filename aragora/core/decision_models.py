@@ -62,7 +62,7 @@ class ResponseChannel:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ResponseChannel":
+    def from_dict(cls, data: dict[str, Any]) -> ResponseChannel:
         """Create from dictionary."""
         return cls(
             platform=data.get("platform", "http"),
@@ -129,7 +129,7 @@ class RequestContext:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RequestContext":
+    def from_dict(cls, data: dict[str, Any]) -> RequestContext:
         """Create from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -228,7 +228,7 @@ class DecisionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DecisionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> DecisionConfig:
         """Create from dictionary."""
         raw_decision_integrity = data.get("decision_integrity", {}) or {}
         if isinstance(raw_decision_integrity, dict):
@@ -377,7 +377,7 @@ class DecisionRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DecisionRequest":
+    def from_dict(cls, data: dict[str, Any]) -> DecisionRequest:
         """Create from dictionary."""
         return cls(
             request_id=data.get("request_id", str(uuid.uuid4())),
@@ -406,7 +406,7 @@ class DecisionRequest:
         user_id: str | None = None,
         thread_id: str | None = None,
         **kwargs,
-    ) -> "DecisionRequest":
+    ) -> DecisionRequest:
         """Create from a chat platform message."""
         documents = normalize_document_ids(
             kwargs.pop("documents", None) or kwargs.pop("document_ids", None) or []
@@ -453,8 +453,8 @@ class DecisionRequest:
     def from_http(
         cls,
         body: dict[str, Any],
-        headers: Optional[dict[str, str]] = None,
-    ) -> "DecisionRequest":
+        headers: dict[str, str] | None = None,
+    ) -> DecisionRequest:
         """Create from HTTP API request body."""
         # Extract correlation ID from headers if present
         correlation_id = None
@@ -500,7 +500,7 @@ class DecisionRequest:
         voice_response: bool = True,
         voice_id: str = "narrator",
         **kwargs,
-    ) -> "DecisionRequest":
+    ) -> DecisionRequest:
         """Create from a voice message transcription."""
         source_map = {
             "slack": InputSource.VOICE_SLACK,
@@ -543,7 +543,7 @@ class DecisionRequest:
         document_url: str | None = None,
         user_id: str | None = None,
         **kwargs,
-    ) -> "DecisionRequest":
+    ) -> DecisionRequest:
         """Create from a document source (Google Drive, SharePoint, etc.)."""
         source_map = {
             "google_drive": InputSource.GOOGLE_DRIVE,

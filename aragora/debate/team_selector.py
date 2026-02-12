@@ -139,14 +139,14 @@ class TeamSelector:
         self,
         elo_system: AgentScorer | None = None,
         calibration_tracker: CalibrationScorer | None = None,
-        circuit_breaker: Optional["CircuitBreaker"] = None,
-        delegation_strategy: Optional["DelegationStrategy"] = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        delegation_strategy: DelegationStrategy | None = None,
         knowledge_mound: Any | None = None,
         ranking_adapter: Any | None = None,
-        critique_store: Optional["CritiqueStore"] = None,
-        pattern_matcher: Optional["TaskPatternMatcher"] = None,
-        cv_builder: Optional["CVBuilder"] = None,
-        agent_hierarchy: Optional["AgentHierarchy"] = None,
+        critique_store: CritiqueStore | None = None,
+        pattern_matcher: TaskPatternMatcher | None = None,
+        cv_builder: CVBuilder | None = None,
+        agent_hierarchy: AgentHierarchy | None = None,
         config: TeamSelectionConfig | None = None,
     ):
         self.elo_system = elo_system
@@ -164,19 +164,19 @@ class TeamSelector:
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
         # CV cache: agent_id -> (timestamp, AgentCV)
-        self._cv_cache: dict[str, tuple[float, "AgentCV"]] = {}
+        self._cv_cache: dict[str, tuple[float, AgentCV]] = {}
         # Hierarchy role assignments cache: debate_id -> {agent_name -> RoleAssignment}
         self._hierarchy_assignments: dict[str, dict[str, Any]] = {}
 
     def select(
         self,
-        agents: list["Agent"],
+        agents: list[Agent],
         domain: str = "general",
         task: str = "",
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
         required_hierarchy_roles: set[str] | None = None,
         debate_id: str | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select and rank agents for debate participation.
 
         Args:
@@ -228,7 +228,7 @@ class TeamSelector:
                 logger.debug(f"Batch calibration lookup failed: {e}")
 
         # 3.5. Pre-fetch Agent CVs in batch for performance
-        agent_cvs: dict[str, "AgentCV"] = {}
+        agent_cvs: dict[str, AgentCV] = {}
         if self.cv_builder and self.config.enable_cv_selection:
             try:
                 agent_names = [a.name for a in domain_filtered if a.name in available_names]
@@ -251,7 +251,7 @@ class TeamSelector:
             available_names = available_names & reliable_names
 
         # 4. Score remaining agents (using ELO, calibration, delegation, domain, and CV)
-        scored: list[tuple["Agent", float]] = []
+        scored: list[tuple[Agent, float]] = []
         for agent in domain_filtered:
             if agent.name not in available_names:
                 logger.info(f"agent_filtered_by_circuit_breaker agent={agent.name}")
@@ -283,7 +283,7 @@ class TeamSelector:
 
         return selected
 
-    def _filter_available(self, agents: list["Agent"]) -> set[str]:
+    def _filter_available(self, agents: list[Agent]) -> set[str]:
         """Filter agents through circuit breaker."""
         available_names = {a.name for a in agents}
 
@@ -299,9 +299,9 @@ class TeamSelector:
 
     def _filter_by_domain_capability(
         self,
-        agents: list["Agent"],
+        agents: list[Agent],
         domain: str,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Filter agents by domain expertise/capability.
 
         Uses DOMAIN_CAPABILITY_MAP to identify agents that excel in specific domains.
@@ -329,7 +329,7 @@ class TeamSelector:
             return agents
 
         # Filter agents whose name or agent_type matches preferred patterns
-        matching_agents: list["Agent"] = []
+        matching_agents: list[Agent] = []
         for agent in agents:
             if self._agent_matches_capability(agent, preferred_patterns):
                 matching_agents.append(agent)
@@ -354,10 +354,10 @@ class TeamSelector:
 
     def _filter_by_hierarchy_role(
         self,
-        agents: list["Agent"],
+        agents: list[Agent],
         required_roles: set[str] | None = None,
         debate_id: str | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Filter agents by Gastown hierarchy role.
 
         Uses the Gastown-inspired role system (orchestrator, monitor, worker)
@@ -378,7 +378,7 @@ class TeamSelector:
         # Normalize roles to lowercase
         required_roles_lower = {r.lower() for r in required_roles}
 
-        matching_agents: list["Agent"] = []
+        matching_agents: list[Agent] = []
         for agent in agents:
             # Check hierarchy role using AgentHierarchy if available
             hierarchy_role = self._get_agent_hierarchy_role(agent, debate_id)
@@ -407,7 +407,7 @@ class TeamSelector:
 
     def _assign_hierarchy_roles(
         self,
-        agents: list["Agent"],
+        agents: list[Agent],
         debate_id: str,
         domain: str = "general",
     ) -> None:
@@ -461,7 +461,7 @@ class TeamSelector:
         except Exception as e:
             logger.warning(f"Failed to assign hierarchy roles: {e}")
 
-    def _get_agent_elo(self, agent: "Agent") -> float:
+    def _get_agent_elo(self, agent: Agent) -> float:
         """Get ELO rating for an agent."""
         if self.elo_system:
             try:
@@ -472,7 +472,7 @@ class TeamSelector:
                 logger.debug(f"ELO lookup failed for {agent.name}: {e}")
         return 1000.0  # Default ELO
 
-    def _get_agent_capabilities(self, agent: "Agent") -> set[str]:
+    def _get_agent_capabilities(self, agent: Agent) -> set[str]:
         """Get capabilities for an agent."""
         if hasattr(agent, "capabilities") and agent.capabilities:
             return set(agent.capabilities)
@@ -489,7 +489,7 @@ class TeamSelector:
             caps.update({"analysis", "quality_assessment"})
         return caps
 
-    def _get_agent_hierarchy_role(self, agent: "Agent", debate_id: str | None = None) -> str | None:
+    def _get_agent_hierarchy_role(self, agent: Agent, debate_id: str | None = None) -> str | None:
         """Get the Gastown hierarchy role for an agent.
 
         Checks multiple sources for the hierarchy role:
@@ -550,7 +550,7 @@ class TeamSelector:
 
     def _agent_matches_capability(
         self,
-        agent: "Agent",
+        agent: Agent,
         patterns: list[str],
     ) -> bool:
         """Check if an agent matches any of the capability patterns.
@@ -577,7 +577,7 @@ class TeamSelector:
 
     def _compute_domain_score(
         self,
-        agent: "Agent",
+        agent: Agent,
         domain: str,
     ) -> float:
         """Compute a bonus score for domain expertise.
@@ -609,7 +609,7 @@ class TeamSelector:
 
     def _compute_culture_score(
         self,
-        agent: "Agent",
+        agent: Agent,
         task_type: str,
     ) -> float:
         """Compute a bonus score based on organizational culture patterns.
@@ -667,7 +667,7 @@ class TeamSelector:
 
     async def compute_culture_score_async(
         self,
-        agent: "Agent",
+        agent: Agent,
         task_type: str,
     ) -> float:
         """Async version of culture score computation.
@@ -742,7 +742,7 @@ class TeamSelector:
 
     def _compute_km_expertise_score(
         self,
-        agent: "Agent",
+        agent: Agent,
         domain: str,
     ) -> float:
         """Compute score bonus based on KM-stored expertise.
@@ -785,7 +785,7 @@ class TeamSelector:
 
     def _compute_pattern_score(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
     ) -> float:
         """Compute score bonus based on task pattern affinity.
@@ -883,7 +883,7 @@ class TeamSelector:
             },
         }
 
-    def _get_agent_cvs_batch(self, agent_names: list[str]) -> dict[str, "AgentCV"]:
+    def _get_agent_cvs_batch(self, agent_names: list[str]) -> dict[str, AgentCV]:
         """Get Agent CVs for multiple agents with caching.
 
         Uses the CVBuilder to efficiently fetch CV data for multiple agents,
@@ -901,7 +901,7 @@ class TeamSelector:
             return {}
 
         current_time = time.time()
-        result: dict[str, "AgentCV"] = {}
+        result: dict[str, AgentCV] = {}
         uncached_agents: list[str] = []
 
         # Check cache first
@@ -940,7 +940,7 @@ class TeamSelector:
 
     def _compute_cv_score(
         self,
-        cv: "AgentCV",
+        cv: AgentCV,
         domain: str | None = None,
     ) -> float:
         """Compute score bonus from Agent CV.
@@ -992,7 +992,7 @@ class TeamSelector:
 
         return final_score
 
-    def get_cv(self, agent_name: str) -> Optional["AgentCV"]:
+    def get_cv(self, agent_name: str) -> AgentCV | None:
         """Get the CV for a single agent (for external use).
 
         Args:
@@ -1006,12 +1006,12 @@ class TeamSelector:
 
     def _compute_score(
         self,
-        agent: "Agent",
+        agent: Agent,
         domain: str | None = None,
         task: str = "",
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
         calibration_scores: dict[str, float] | None = None,
-        agent_cvs: dict[str, "AgentCV"] | None = None,
+        agent_cvs: dict[str, AgentCV] | None = None,
     ) -> float:
         """Compute composite score for an agent.
 
@@ -1089,10 +1089,10 @@ class TeamSelector:
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         domain: str | None = None,
         task: str = "",
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """Get score for a single agent (for external use).
 
@@ -1104,7 +1104,7 @@ class TeamSelector:
         """
         return self._compute_score(agent, domain=domain, task=task, context=context)
 
-    def set_delegation_strategy(self, strategy: "DelegationStrategy") -> None:
+    def set_delegation_strategy(self, strategy: DelegationStrategy) -> None:
         """Set or update the delegation strategy.
 
         Args:

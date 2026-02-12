@@ -63,7 +63,7 @@ def _log_activity(
     actor_id: str,
     action: str,
     target_id: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Log an inbox activity (non-blocking helper)."""
     store = _get_activity_store()

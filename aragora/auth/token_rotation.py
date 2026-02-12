@@ -111,7 +111,7 @@ class RotationPolicy:
     bind_to_user_agent: bool = False  # Strict user agent binding
 
     @classmethod
-    def strict(cls) -> "RotationPolicy":
+    def strict(cls) -> RotationPolicy:
         """Create a strict security policy."""
         return cls(
             max_uses=50,
@@ -126,12 +126,12 @@ class RotationPolicy:
         )
 
     @classmethod
-    def standard(cls) -> "RotationPolicy":
+    def standard(cls) -> RotationPolicy:
         """Create a standard security policy."""
         return cls()
 
     @classmethod
-    def relaxed(cls) -> "RotationPolicy":
+    def relaxed(cls) -> RotationPolicy:
         """Create a relaxed policy for development."""
         return cls(
             max_uses=1000,
@@ -174,8 +174,8 @@ class TokenRotationManager:
     def __init__(
         self,
         policy: RotationPolicy | None = None,
-        on_rotation_required: Optional[Callable[[str, str, RotationReason], None]] = None,
-        on_suspicious_activity: Optional[Callable[[str, str, list[str]], None]] = None,
+        on_rotation_required: Callable[[str, str, RotationReason], None] | None = None,
+        on_suspicious_activity: Callable[[str, str, list[str]], None] | None = None,
     ):
         """Initialize the rotation manager.
 
@@ -343,7 +343,7 @@ class TokenRotationManager:
 
             return False
 
-    def get_usage_stats(self, token_jti: str) -> Optional[dict[str, Any]]:
+    def get_usage_stats(self, token_jti: str) -> dict[str, Any] | None:
         """Get usage statistics for a token.
 
         Args:

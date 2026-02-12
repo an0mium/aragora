@@ -474,7 +474,7 @@ class EnterpriseMeter:
         cached_tokens: int = 0,
         latency_ms: int | None = None,
         success: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TokenUsageRecord:
         """
         Record token usage for billing.
@@ -784,7 +784,7 @@ class EnterpriseMeter:
         tenant_id: str,
         monthly_budget: Decimal,
         daily_limit: Decimal | None = None,
-        alert_emails: Optional[list[str]] = None,
+        alert_emails: list[str] | None = None,
         auto_suspend: bool = False,
     ) -> BudgetConfig:
         """
@@ -935,8 +935,8 @@ class EnterpriseMeter:
     async def _send_budget_alert_emails(
         self,
         tenant_id: str,
-        config: "BudgetConfig",
-        alert_level: "BudgetAlertLevel",
+        config: BudgetConfig,
+        alert_level: BudgetAlertLevel,
         current_spend: Decimal,
         percent: float,
     ) -> None:

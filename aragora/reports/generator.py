@@ -80,7 +80,7 @@ class ReportSection:
     title: str
     content: str
     order: int = 0
-    subsections: list["ReportSection"] = field(default_factory=list)
+    subsections: list[ReportSection] = field(default_factory=list)
 
 
 @dataclass
@@ -118,7 +118,7 @@ class AuditReportGenerator:
 
     async def generate(
         self,
-        session: "AuditSession",
+        session: AuditSession,
         format: ReportFormat = ReportFormat.MARKDOWN,
         template: ReportTemplate = ReportTemplate.DETAILED_FINDINGS,
     ) -> GeneratedReport:
@@ -170,7 +170,7 @@ class AuditReportGenerator:
             findings_count=len(findings),
         )
 
-    def _filter_findings(self, findings: list["AuditFinding"]) -> list["AuditFinding"]:
+    def _filter_findings(self, findings: list[AuditFinding]) -> list[AuditFinding]:
         """Filter findings based on config."""
         from aragora.audit.document_auditor import FindingSeverity, FindingStatus
 
@@ -196,8 +196,8 @@ class AuditReportGenerator:
 
     def _build_sections(
         self,
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
         template: ReportTemplate,
     ) -> list[ReportSection]:
         """Build report sections based on template."""
@@ -231,8 +231,8 @@ class AuditReportGenerator:
 
     def _build_executive_summary(
         self,
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build executive summary section."""
         severity_counts: dict[str, int] = {}
@@ -270,8 +270,8 @@ class AuditReportGenerator:
 
     def _build_summary_stats(
         self,
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build summary statistics section."""
         by_type: dict[str, int] = {}
@@ -300,11 +300,11 @@ class AuditReportGenerator:
 
     def _build_findings_by_severity(
         self,
-        findings: list["AuditFinding"],
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build detailed findings section grouped by severity."""
         severity_order = ["critical", "high", "medium", "low", "info"]
-        grouped: dict[str, list["AuditFinding"]] = {s: [] for s in severity_order}
+        grouped: dict[str, list[AuditFinding]] = {s: [] for s in severity_order}
 
         for f in findings:
             grouped[f.severity.value].append(f)
@@ -343,7 +343,7 @@ class AuditReportGenerator:
 
     def _build_recommendations(
         self,
-        findings: list["AuditFinding"],
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build recommendations section."""
         # Group recommendations by category
@@ -367,8 +367,8 @@ class AuditReportGenerator:
 
     def _build_compliance_summary(
         self,
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build compliance summary for attestation template."""
         from aragora.audit.document_auditor import AuditType
@@ -393,7 +393,7 @@ This assessment covers security controls, data handling practices, and regulator
 
     def _build_attestation_section(
         self,
-        session: "AuditSession",
+        session: AuditSession,
     ) -> ReportSection:
         """Build attestation signature section."""
         content = f"""
@@ -416,7 +416,7 @@ Signature: ________________ Date: ________________
 
     def _build_security_summary(
         self,
-        findings: list["AuditFinding"],
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build security assessment summary."""
         from aragora.audit.document_auditor import AuditType
@@ -442,7 +442,7 @@ Total Security Findings: {len(sec_findings)}
 
     def _build_vulnerability_details(
         self,
-        findings: list["AuditFinding"],
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build vulnerability details for security template."""
         from aragora.audit.document_auditor import AuditType
@@ -467,7 +467,7 @@ Total Security Findings: {len(sec_findings)}
 
     def _build_remediation_roadmap(
         self,
-        findings: list["AuditFinding"],
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build remediation roadmap section."""
         from aragora.audit.document_auditor import AuditType
@@ -495,8 +495,8 @@ Total Security Findings: {len(sec_findings)}
 
     def _build_appendix(
         self,
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> ReportSection:
         """Build appendix with raw data."""
         content = f"""**Audit Configuration:**
@@ -517,8 +517,8 @@ Total Security Findings: {len(sec_findings)}
     def _render_markdown(
         self,
         sections: list[ReportSection],
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> bytes:
         """Render report to Markdown format."""
         lines = [
@@ -539,8 +539,8 @@ Total Security Findings: {len(sec_findings)}
 
     def _render_json(
         self,
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> bytes:
         """Render report to JSON format."""
         report_data = {
@@ -564,8 +564,8 @@ Total Security Findings: {len(sec_findings)}
     def _render_html(
         self,
         sections: list[ReportSection],
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> bytes:
         """Render report to HTML format."""
         # Build HTML content
@@ -694,8 +694,8 @@ Total Security Findings: {len(sec_findings)}
     async def _render_pdf(
         self,
         sections: list[ReportSection],
-        session: "AuditSession",
-        findings: list["AuditFinding"],
+        session: AuditSession,
+        findings: list[AuditFinding],
     ) -> bytes:
         """Render report to PDF format."""
         # Try to use a PDF library if available

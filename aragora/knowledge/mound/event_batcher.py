@@ -108,11 +108,11 @@ class EventBatcher:
 
     def __init__(
         self,
-        callback: Optional[EventCallback | AsyncEventCallback] = None,
+        callback: EventCallback | AsyncEventCallback | None = None,
         batch_interval_ms: float = 100.0,
         max_batch_size: int = 50,
-        batch_event_types: Optional[list[str]] = None,
-        passthrough_event_types: Optional[list[str]] = None,
+        batch_event_types: list[str] | None = None,
+        passthrough_event_types: list[str] | None = None,
     ):
         """
         Initialize the event batcher.

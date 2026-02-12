@@ -90,7 +90,7 @@ class MockKnowledgeMound:
 class ContradictionHandler(ContradictionOperationsMixin):
     """Handler implementation for testing ContradictionOperationsMixin."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None):
         self._mound = mound
         self.ctx = {}
 

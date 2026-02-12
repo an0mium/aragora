@@ -64,7 +64,7 @@ class _TestFormatter(ReceiptFormatter):
     def format(
         self,
         receipt: Any,
-        options: Optional[dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return {"formatted": True, "content": receipt.verdict}
 

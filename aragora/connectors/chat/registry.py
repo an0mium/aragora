@@ -78,7 +78,7 @@ def get_connector(
         return None
 
 
-def _lazy_load_connector(platform: str) -> Optional[type[ChatPlatformConnector]]:
+def _lazy_load_connector(platform: str) -> type[ChatPlatformConnector] | None:
     """Lazy-load connector class on first access."""
     try:
         if platform == "slack":
@@ -252,7 +252,7 @@ class ChatPlatformRegistry:
         self,
         text: str,
         channels: dict[str, str],  # platform -> channel_id
-        blocks: Optional[dict[str, list[dict]]] = None,  # platform -> blocks
+        blocks: dict[str, list[dict]] | None = None,  # platform -> blocks
     ) -> dict[str, bool]:
         """
         Broadcast a message to multiple platforms.

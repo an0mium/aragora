@@ -36,7 +36,7 @@ class FailureEmail:
     id: str
     subject: str
     from_address: str
-    date: Optional[datetime]
+    date: datetime | None
     snippet: str
     failure_type: str
     severity: str
@@ -201,7 +201,7 @@ def is_failure_related(subject: str, body: str) -> bool:
     return False
 
 
-def parse_date(date_str: Optional[str]) -> Optional[datetime]:
+def parse_date(date_str: str | None) -> datetime | None:
     """Parse email date string."""
     if not date_str:
         return None

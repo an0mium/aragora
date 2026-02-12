@@ -67,10 +67,10 @@ _sync_jobs: dict[str, dict[str, Any]] = {}
 _sync_history: list[dict[str, Any]] = []
 
 # Global store instance (lazily initialized)
-_store: Optional["SyncStore"] = None
+_store: SyncStore | None = None
 
 
-async def _get_store() -> Optional["SyncStore"]:
+async def _get_store() -> SyncStore | None:
     """Get the sync store, initializing if needed."""
     global _store
     if _store is None and HAS_SYNC_STORE:

@@ -260,7 +260,7 @@ async def fetch_trending_topic_async(category: str | None = None) -> Any | None:
 def _set_debate_error(
     debate_id: str,
     error_msg: str,
-    emitter: "SyncEventEmitter | None" = None,
+    emitter: SyncEventEmitter | None = None,
 ) -> None:
     """Record an error state for a debate and optionally emit an error event."""
     with _active_debates_lock:
@@ -279,7 +279,7 @@ def _set_debate_error(
 
 def _filter_agent_specs_with_fallback(
     agent_specs: list[Any],
-    emitter: "SyncEventEmitter",
+    emitter: SyncEventEmitter,
     debate_id: str,
 ) -> tuple[list[Any], list[str], list[str]]:
     """Filter agent specs, applying OpenRouter fallback for missing API keys.
@@ -371,9 +371,9 @@ def _filter_agent_specs_with_fallback(
 
 def _create_debate_agents(
     agent_specs: list[Any],
-    emitter: "SyncEventEmitter",
+    emitter: SyncEventEmitter,
     debate_id: str,
-) -> "list[Agent]":
+) -> list[Agent]:
     """Create and wrap agents from filtered specs, assigning roles by position."""
     agents: list[Agent] = []
     for i, spec in enumerate(agent_specs):
@@ -430,7 +430,7 @@ def execute_debate_thread(
     rounds: int,
     consensus: str,
     trending_topic: Any | None,
-    emitter: "SyncEventEmitter",
+    emitter: SyncEventEmitter,
     user_id: str = "",
     org_id: str = "",
 ) -> None:

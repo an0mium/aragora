@@ -104,7 +104,7 @@ class SyncResult:
         records_synced: int = 0,
         records_skipped: int = 0,
         records_failed: int = 0,
-        errors: Optional[list[str]] = None,
+        errors: list[str] | None = None,
         duration_ms: float = 0.0,
     ):
         self.records_synced = records_synced
@@ -161,7 +161,7 @@ class ValidationSyncResult:
         records_analyzed: int = 0,
         records_updated: int = 0,
         records_skipped: int = 0,
-        errors: Optional[list[str]] = None,
+        errors: list[str] | None = None,
         duration_ms: float = 0.0,
     ):
         self.records_analyzed = records_analyzed

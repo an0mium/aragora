@@ -149,7 +149,7 @@ class OrchestrationHandler(SecureHandler):
 
     def _validate_knowledge_source(
         self,
-        source: "KnowledgeContextSource",
+        source: KnowledgeContextSource,
         auth_context: Any,
     ) -> HandlerResult | None:
         """
@@ -201,7 +201,7 @@ class OrchestrationHandler(SecureHandler):
 
     def _validate_output_channel(
         self,
-        channel: "OutputChannel",
+        channel: OutputChannel,
         auth_context: Any,
     ) -> HandlerResult | None:
         """

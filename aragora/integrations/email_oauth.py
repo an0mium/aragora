@@ -276,7 +276,7 @@ class EmailCredential:
         return json.dumps(data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "EmailCredential":
+    def from_json(cls, json_str: str) -> EmailCredential:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(
@@ -303,7 +303,7 @@ class EmailCredential:
         )
 
     @classmethod
-    def from_row(cls, row: tuple) -> "EmailCredential":
+    def from_row(cls, row: tuple) -> EmailCredential:
         """Create from database row."""
         tenant_id = row[0]
         provider = row[1]
@@ -836,7 +836,7 @@ class PostgresEmailCredentialStore(EmailCredentialStoreBackend):
             WHERE is_active = TRUE;
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresEmailCredentialStore initialized")

@@ -279,19 +279,19 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
 
     def __init__(
         self,
-        protocol: "DebateProtocol",
-        env: "Environment",
-        memory: Optional["CritiqueStore"] = None,
-        continuum_memory: Optional["ContinuumMemory"] = None,
-        dissent_retriever: Optional["DissentRetriever"] = None,
-        role_rotator: Optional["RoleRotator"] = None,
-        persona_manager: Optional["PersonaManager"] = None,
-        flip_detector: Optional["FlipDetector"] = None,
-        evidence_pack: Optional["EvidencePack"] = None,
-        calibration_tracker: Optional["CalibrationTracker"] = None,
-        elo_system: Optional["EloSystem"] = None,
+        protocol: DebateProtocol,
+        env: Environment,
+        memory: CritiqueStore | None = None,
+        continuum_memory: ContinuumMemory | None = None,
+        dissent_retriever: DissentRetriever | None = None,
+        role_rotator: RoleRotator | None = None,
+        persona_manager: PersonaManager | None = None,
+        flip_detector: FlipDetector | None = None,
+        evidence_pack: EvidencePack | None = None,
+        calibration_tracker: CalibrationTracker | None = None,
+        elo_system: EloSystem | None = None,
         domain: str = "general",
-        supermemory_adapter: Optional["SupermemoryAdapter"] = None,
+        supermemory_adapter: SupermemoryAdapter | None = None,
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -324,24 +324,24 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self.domain = domain
 
         # Trending topics for pulse injection (set externally via set_trending_topics)
-        self.trending_topics: list["TrendingTopic"] = []
+        self.trending_topics: list[TrendingTopic] = []
 
         # Current state (set externally by Arena)
-        self.current_role_assignments: dict[str, "RoleAssignment"] = {}
+        self.current_role_assignments: dict[str, RoleAssignment] = {}
         self._historical_context_cache: str = ""
         self._continuum_context_cache: str = ""
         self.user_suggestions: list = []
 
         # Question classification cache (populated by classify_question_async)
-        self._classification: Optional["QuestionClassification"] = None
-        self._question_classifier: Optional["QuestionClassifier"] = None
+        self._classification: QuestionClassification | None = None
+        self._question_classifier: QuestionClassifier | None = None
 
         # RLM hierarchical context (set by ContextInitializer when enabled)
-        self._rlm_context: Optional["RLMContext"] = None
+        self._rlm_context: RLMContext | None = None
         self._enable_rlm_hints: bool = HAS_RLM  # Show agents how to query context
 
         # RLM context adapter for external environment pattern
-        self._rlm_adapter: Optional["RLMContextAdapter"] = None
+        self._rlm_adapter: RLMContextAdapter | None = None
         if HAS_RLM and RLMContextAdapter is not None:
             self._rlm_adapter = RLMContextAdapter()
 
@@ -356,7 +356,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
 
         # Supermemory external memory integration (cross-session context)
         self.supermemory_adapter = supermemory_adapter
-        self._supermemory_context: Optional["ContextInjectionResult"] = None
+        self._supermemory_context: ContextInjectionResult | None = None
         self._supermemory_context_cache: str = ""
 
     def clear_caches(self) -> None:

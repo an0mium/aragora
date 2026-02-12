@@ -347,7 +347,7 @@ class PostgresBlacklist(BlacklistBackend):
         CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON token_blacklist(expires_at);
     """
 
-    def __init__(self, pool: "Pool", cleanup_interval: int = 300):
+    def __init__(self, pool: Pool, cleanup_interval: int = 300):
         """
         Initialize PostgreSQL blacklist.
 

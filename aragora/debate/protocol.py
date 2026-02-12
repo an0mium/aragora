@@ -334,7 +334,7 @@ class DebateProtocol:
     # Breakpoints: Human-in-the-loop intervention points
     # When enabled, debates can pause at critical moments for human guidance
     enable_breakpoints: bool = True  # Enable breakpoint detection
-    breakpoint_config: Optional["BreakpointConfig"] = None  # Custom breakpoint thresholds
+    breakpoint_config: BreakpointConfig | None = None  # Custom breakpoint thresholds
 
     # Calibration tracking: Record prediction accuracy for calibration curves
     # When enabled, agent prediction confidence is tracked against outcomes
@@ -528,7 +528,7 @@ class DebateProtocol:
         approval_mode: str = "risk_based",
         budget_limit_usd: float | None = None,
         **kwargs: Any,
-    ) -> "DebateProtocol":
+    ) -> DebateProtocol:
         """Create a protocol with Gold Path enabled.
 
         Gold Path automatically creates DecisionPlans after debates that reach

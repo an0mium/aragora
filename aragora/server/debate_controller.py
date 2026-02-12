@@ -144,7 +144,7 @@ class DebateRequest:
             self.debate_format = "full"
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DebateRequest":
+    def from_dict(cls, data: dict) -> DebateRequest:
         """Create request from parsed JSON data.
 
         Args:
@@ -260,9 +260,9 @@ class DebateController:
     def __init__(
         self,
         factory: DebateFactory,
-        emitter: "SyncEventEmitter",
+        emitter: SyncEventEmitter,
         elo_system: Any | None = None,
-        auto_select_fn: Optional[Callable[..., str]] = None,
+        auto_select_fn: Callable[..., str] | None = None,
         storage: Any | None = None,
     ):
         """Initialize the debate controller.

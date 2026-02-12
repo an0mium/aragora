@@ -209,7 +209,7 @@ class VoiceStreamHandler:
 
     def __init__(
         self,
-        server: "ServerBase",
+        server: ServerBase,
         whisper: WhisperConnector | None = None,
     ):
         """
@@ -245,8 +245,8 @@ class VoiceStreamHandler:
 
     async def handle_websocket(
         self,
-        request: "web.Request",
-        ws: "web.WebSocketResponse",
+        request: web.Request,
+        ws: web.WebSocketResponse,
         debate_id: str,
     ) -> None:
         """
@@ -400,7 +400,7 @@ class VoiceStreamHandler:
     async def _handle_text_message(
         self,
         session: VoiceSession,
-        ws: "web.WebSocketResponse",
+        ws: web.WebSocketResponse,
         data: str,
     ) -> None:
         """Handle JSON control message from client."""
@@ -454,7 +454,7 @@ class VoiceStreamHandler:
     async def _handle_binary_chunk(
         self,
         session: VoiceSession,
-        ws: "web.WebSocketResponse",
+        ws: web.WebSocketResponse,
         chunk: bytes,
     ) -> None:
         """Handle binary audio chunk from client."""
@@ -494,7 +494,7 @@ class VoiceStreamHandler:
     async def _periodic_transcribe(
         self,
         session: VoiceSession,
-        ws: "web.WebSocketResponse",
+        ws: web.WebSocketResponse,
     ) -> None:
         """Periodically transcribe accumulated audio."""
         interval = VOICE_TRANSCRIBE_INTERVAL_MS / 1000.0
@@ -511,7 +511,7 @@ class VoiceStreamHandler:
     async def _transcribe_buffer(
         self,
         session: VoiceSession,
-        ws: "web.WebSocketResponse",
+        ws: web.WebSocketResponse,
         final: bool = False,
     ) -> None:
         """Transcribe the current audio buffer."""
@@ -600,7 +600,7 @@ class VoiceStreamHandler:
     async def _synthesize_and_send(
         self,
         session: VoiceSession,
-        ws: "web.WebSocketResponse",
+        ws: web.WebSocketResponse,
         text: str,
         voice: str = "narrator",
         agent: str = "",
@@ -734,7 +734,7 @@ class VoiceStreamHandler:
             except OSError as e:
                 logger.debug(f"[Voice] Failed to cleanup temp file: {e}")
 
-        except (RuntimeError, OSError, ValueError, IOError) as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"[Voice] TTS synthesis failed: {e}")
             await ws.send_json(
                 {
@@ -798,7 +798,7 @@ class VoiceStreamHandler:
         self._ip_bytes_minute[client_ip].append((now, chunk_size))
         return True
 
-    def _get_client_ip(self, request: "web.Request") -> str:
+    def _get_client_ip(self, request: web.Request) -> str:
         """Extract client IP from request."""
         # Check X-Forwarded-For for proxied requests
         forwarded = request.headers.get("X-Forwarded-For", "")
@@ -875,7 +875,7 @@ class VoiceStreamHandler:
                 try:
                     await self._synthesize_and_send(session, ws, message, agent_voice, agent_name)
                     sessions_sent += 1
-                except (RuntimeError, OSError, ValueError, IOError, ConnectionError) as e:
+                except (RuntimeError, OSError, ValueError, ConnectionError) as e:
                     logger.error(
                         f"[Voice] Failed to synthesize for session {session.session_id}: {e}"
                     )
@@ -885,7 +885,7 @@ class VoiceStreamHandler:
 
         return sessions_sent
 
-    def _get_ws_for_session(self, session_id: str) -> Optional["web.WebSocketResponse"]:
+    def _get_ws_for_session(self, session_id: str) -> web.WebSocketResponse | None:
         """Get WebSocket connection for a session ID.
 
         Note: This requires the server to track WebSocket connections per session.

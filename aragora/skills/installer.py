@@ -141,7 +141,7 @@ class SkillInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
     ) -> InstallationCheck:
         """
         Check if a skill can be installed.
@@ -306,7 +306,7 @@ class SkillInstaller:
         tenant_id: str,
         user_id: str,
         version: str | None = None,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
         install_dependencies: bool = True,
     ) -> InstallResult:
         """
@@ -388,7 +388,7 @@ class SkillInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
     ) -> bool:
         """
         Uninstall a skill from a tenant.
@@ -439,7 +439,7 @@ class SkillInstaller:
         skill_ids: list[str],
         tenant_id: str,
         user_id: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
     ) -> dict[str, InstallResult]:
         """
         Install multiple skills.

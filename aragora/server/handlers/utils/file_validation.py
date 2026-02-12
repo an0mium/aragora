@@ -245,7 +245,7 @@ class FileValidationResult:
     details: dict | None = None
 
     @classmethod
-    def success(cls) -> "FileValidationResult":
+    def success(cls) -> FileValidationResult:
         """Create a successful validation result."""
         return cls(valid=True)
 
@@ -256,7 +256,7 @@ class FileValidationResult:
         error_message: str,
         http_status: int = 400,
         details: dict | None = None,
-    ) -> "FileValidationResult":
+    ) -> FileValidationResult:
         """Create a failed validation result."""
         return cls(
             valid=False,

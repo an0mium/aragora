@@ -24,8 +24,8 @@ class TeamsReceiptFormatter(ReceiptFormatter):
 
     def format(
         self,
-        receipt: "DecisionReceipt",
-        options: Optional[dict[str, Any]] = None,
+        receipt: DecisionReceipt,
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Format receipt as Teams Adaptive Card.

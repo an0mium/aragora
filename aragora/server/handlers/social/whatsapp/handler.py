@@ -728,10 +728,10 @@ class WhatsAppHandler(BaseHandler):
 
 
 # Export handler factory
-_whatsapp_handler: Optional["WhatsAppHandler"] = None
+_whatsapp_handler: WhatsAppHandler | None = None
 
 
-def get_whatsapp_handler(server_context: dict[str, Any] | None = None) -> "WhatsAppHandler":
+def get_whatsapp_handler(server_context: dict[str, Any] | None = None) -> WhatsAppHandler:
     """Get or create the WhatsApp handler instance."""
     global _whatsapp_handler
     if _whatsapp_handler is None:

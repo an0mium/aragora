@@ -196,7 +196,7 @@ class DebateEvent:
     agent_seq: int = 0
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "DebateEvent":
+    def from_dict(cls, d: dict[str, Any]) -> DebateEvent:
         """Create from dictionary."""
         event_type = d.get("type", "error")
         try:
@@ -373,7 +373,7 @@ class DebateStream:
             await self._ws.close()
             self._ws = None
 
-    def on(self, event_type: str, callback: EventCallback) -> "DebateStream":
+    def on(self, event_type: str, callback: EventCallback) -> DebateStream:
         """
         Subscribe to an event type.
 
@@ -389,17 +389,17 @@ class DebateStream:
         self._event_callbacks[event_type].append(callback)
         return self
 
-    def on_error(self, callback: ErrorCallback) -> "DebateStream":
+    def on_error(self, callback: ErrorCallback) -> DebateStream:
         """Subscribe to errors."""
         self._error_callbacks.append(callback)
         return self
 
-    def on_close(self, callback: CloseCallback) -> "DebateStream":
+    def on_close(self, callback: CloseCallback) -> DebateStream:
         """Subscribe to connection close."""
         self._close_callbacks.append(callback)
         return self
 
-    def off(self, event_type: str, callback: EventCallback) -> "DebateStream":
+    def off(self, event_type: str, callback: EventCallback) -> DebateStream:
         """Unsubscribe from an event type."""
         if event_type in self._event_callbacks:
             try:

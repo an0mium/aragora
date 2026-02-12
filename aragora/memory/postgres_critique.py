@@ -156,7 +156,7 @@ class PostgresCritiqueStore:
     SCHEMA_NAME = "critique_store"
     SCHEMA_VERSION = POSTGRES_CRITIQUE_SCHEMA_VERSION
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         """
         Initialize the store with a connection pool.
 
@@ -221,13 +221,13 @@ class PostgresCritiqueStore:
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized at version {self.SCHEMA_VERSION}")
 
     @asynccontextmanager
-    async def connection(self) -> AsyncGenerator["Connection", None]:
+    async def connection(self) -> AsyncGenerator[Connection, None]:
         """Context manager for database operations."""
         async with self._pool.acquire() as conn:
             yield conn
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncGenerator["Connection", None]:
+    async def transaction(self) -> AsyncGenerator[Connection, None]:
         """Context manager for transactional operations."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -531,7 +531,7 @@ class PostgresCritiqueStore:
 
     async def _update_agent_calibration(
         self,
-        conn: "Connection",
+        conn: Connection,
         agent_name: str,
         prediction_error: float,
     ) -> None:
@@ -666,7 +666,7 @@ class PostgresCritiqueStore:
                 await self._update_surprise_score(conn, pattern_id, is_success=False)
 
     async def _calculate_surprise(
-        self, conn: "Connection", issue_type: str, is_success: bool
+        self, conn: Connection, issue_type: str, is_success: bool
     ) -> float:
         """Calculate surprise score based on deviation from base rate."""
         row = await conn.fetchrow(
@@ -687,7 +687,7 @@ class PostgresCritiqueStore:
         return min(1.0, surprise * 2)
 
     async def _update_surprise_score(
-        self, conn: "Connection", pattern_id: str, is_success: bool
+        self, conn: Connection, pattern_id: str, is_success: bool
     ) -> None:
         """Update surprise score for a pattern after success/failure."""
         row = await conn.fetchrow("SELECT issue_type FROM patterns WHERE id = $1", pattern_id)

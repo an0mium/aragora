@@ -86,8 +86,8 @@ class MockWebhookEvent:
     object: dict
     data: dict
     metadata: dict = None
-    subscription_id: Optional[str] = None
-    event_id: Optional[str] = None
+    subscription_id: str | None = None
+    event_id: str | None = None
 
     def __post_init__(self):
         if self.metadata is None:

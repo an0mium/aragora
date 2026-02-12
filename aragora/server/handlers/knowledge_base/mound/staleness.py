@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 class StalenessHandlerProtocol(Protocol):
     """Protocol for handlers that use StalenessOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class StalenessOperationsMixin:

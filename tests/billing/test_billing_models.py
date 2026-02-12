@@ -191,7 +191,7 @@ class TestPasswordHashing:
         """Test verification of legacy SHA-256 hashes."""
         password = "test_password"
         salt = secrets.token_hex(32)
-        hash_input = f"{salt}{password}".encode("utf-8")
+        hash_input = f"{salt}{password}".encode()
         legacy_hash = hashlib.sha256(hash_input).hexdigest()
 
         # Unprefixed legacy hash (64 chars)
@@ -1234,7 +1234,7 @@ class TestUserExtended:
         user = User()
         # Set a legacy SHA-256 hash manually
         salt = secrets.token_hex(32)
-        hash_input = f"{salt}my_password".encode("utf-8")
+        hash_input = f"{salt}my_password".encode()
         legacy_hash = hashlib.sha256(hash_input).hexdigest()
         user.password_hash = f"{HASH_VERSION_SHA256}{legacy_hash}"
         user.password_salt = salt

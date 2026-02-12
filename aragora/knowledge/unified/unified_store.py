@@ -49,10 +49,10 @@ class KnowledgeMoundConfig:
     """Configuration for the Knowledge Mound."""
 
     # Optional store references (will use defaults if not provided)
-    continuum_memory: Optional["ContinuumMemory"] = None
-    consensus_memory: Optional["ConsensusMemory"] = None
-    fact_store: Optional["FactStore"] = None
-    vector_store: Optional["WeaviateStore"] = None
+    continuum_memory: ContinuumMemory | None = None
+    consensus_memory: ConsensusMemory | None = None
+    fact_store: FactStore | None = None
+    vector_store: WeaviateStore | None = None
 
     # Feature flags
     enable_cross_references: bool = True
@@ -105,10 +105,10 @@ class KnowledgeMound:
         self._initialized = False
 
         # Store references (lazy-loaded)
-        self._continuum: Optional["ContinuumMemory"] = config.continuum_memory if config else None
-        self._consensus: Optional["ConsensusMemory"] = config.consensus_memory if config else None
-        self._facts: Optional["FactStore"] = config.fact_store if config else None
-        self._vectors: Optional["WeaviateStore"] = config.vector_store if config else None
+        self._continuum: ContinuumMemory | None = config.continuum_memory if config else None
+        self._consensus: ConsensusMemory | None = config.consensus_memory if config else None
+        self._facts: FactStore | None = config.fact_store if config else None
+        self._vectors: WeaviateStore | None = config.vector_store if config else None
 
         # In-memory link storage (will be persisted in Phase 1.2)
         self._links: dict[str, KnowledgeLink] = {}
@@ -242,8 +242,8 @@ class KnowledgeMound:
         self,
         content: str,
         source_type: KnowledgeSource,
-        metadata: Optional[dict[str, Any]] = None,
-        cross_references: Optional[list[str]] = None,
+        metadata: dict[str, Any] | None = None,
+        cross_references: list[str] | None = None,
         importance: float = 0.5,
     ) -> StoreResult:
         """
@@ -322,7 +322,7 @@ class KnowledgeMound:
         relationship: RelationshipType,
         confidence: float = 1.0,
         created_by: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> LinkResult:
         """
         Create a link between two knowledge items.

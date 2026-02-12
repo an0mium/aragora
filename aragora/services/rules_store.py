@@ -244,7 +244,7 @@ class RulesStore:
         logger.info(f"[RulesStore] Created rule {rule_data['id']}: {rule_data['name']}")
         return rule_data
 
-    def get_rule(self, rule_id: str) -> Optional[dict[str, Any]]:
+    def get_rule(self, rule_id: str) -> dict[str, Any] | None:
         """Get a rule by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM routing_rules WHERE id = ?", (rule_id,))
@@ -253,7 +253,7 @@ class RulesStore:
                 return self._row_to_rule(row)
         return None
 
-    def update_rule(self, rule_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def update_rule(self, rule_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
         """
         Update a routing rule.
 
@@ -453,7 +453,7 @@ class RulesStore:
         logger.info(f"[RulesStore] Created inbox {inbox_data['id']}: {inbox_data['name']}")
         return inbox_data
 
-    def get_inbox(self, inbox_id: str) -> Optional[dict[str, Any]]:
+    def get_inbox(self, inbox_id: str) -> dict[str, Any] | None:
         """Get an inbox by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM shared_inboxes WHERE id = ?", (inbox_id,))
@@ -462,7 +462,7 @@ class RulesStore:
                 return self._row_to_inbox(row)
         return None
 
-    def update_inbox(self, inbox_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def update_inbox(self, inbox_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
         """Update an inbox."""
         existing = self.get_inbox(inbox_id)
         if not existing:
@@ -581,7 +581,7 @@ class RulesStore:
 
         return message_data
 
-    def get_message(self, message_id: str) -> Optional[dict[str, Any]]:
+    def get_message(self, message_id: str) -> dict[str, Any] | None:
         """Get a message by ID."""
         with self._cursor() as cursor:
             cursor.execute("SELECT * FROM inbox_messages WHERE id = ?", (message_id,))
@@ -590,7 +590,7 @@ class RulesStore:
                 return self._row_to_message(row)
         return None
 
-    def update_message(self, message_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def update_message(self, message_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
         """Update a message."""
         existing = self.get_message(message_id)
         if not existing:

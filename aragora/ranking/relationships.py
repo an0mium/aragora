@@ -133,7 +133,7 @@ class AgentRelationship:
         return 0.0
 
     @classmethod
-    def from_stats(cls, stats: "RelationshipStats") -> "AgentRelationship":
+    def from_stats(cls, stats: RelationshipStats) -> AgentRelationship:
         """Create AgentRelationship from RelationshipStats."""
         return cls(
             agent_a=stats.agent_a,

@@ -83,8 +83,8 @@ class TricksterCalibrator:
         adjustment_step: How much to adjust per calibration
     """
 
-    trickster: Optional["EvidencePoweredTrickster"] = None
-    outcome_tracker: Optional["OutcomeTracker"] = None
+    trickster: EvidencePoweredTrickster | None = None
+    outcome_tracker: OutcomeTracker | None = None
 
     # Calibration settings
     min_samples: int = 20  # Minimum outcomes before calibrating
@@ -118,7 +118,7 @@ class TricksterCalibrator:
             intervention_count,
         )
 
-    def record_debate_outcome(self, outcome: "ConsensusOutcome") -> None:
+    def record_debate_outcome(self, outcome: ConsensusOutcome) -> None:
         """Record a debate outcome for calibration analysis.
 
         Call this after recording an outcome to OutcomeTracker.
@@ -404,8 +404,8 @@ class TricksterCalibrator:
 
 
 def create_trickster_calibrator(
-    trickster: Optional["EvidencePoweredTrickster"] = None,
-    outcome_tracker: Optional["OutcomeTracker"] = None,
+    trickster: EvidencePoweredTrickster | None = None,
+    outcome_tracker: OutcomeTracker | None = None,
     **kwargs: Any,
 ) -> TricksterCalibrator:
     """Create a TricksterCalibrator with optional configuration.

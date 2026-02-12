@@ -83,7 +83,7 @@ class ChannelMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChannelMessage":
+    def from_dict(cls, data: dict[str, Any]) -> ChannelMessage:
         """Create from dictionary."""
         return cls(
             message_id=data["message_id"],

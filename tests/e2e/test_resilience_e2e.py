@@ -389,7 +389,7 @@ class TestSyncProtectedCall:
         """E2E: Failed sync call should record failure."""
         with pytest.raises(IOError):
             with circuit_breaker.protected_call_sync():
-                raise IOError("Simulated IO error")
+                raise OSError("Simulated IO error")
 
         assert circuit_breaker.failures == 1
 

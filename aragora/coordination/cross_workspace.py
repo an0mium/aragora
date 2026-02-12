@@ -76,8 +76,8 @@ class FederationPolicy:
     blocked_operations: set[OperationType] = field(default_factory=set)
 
     # Workspace permissions
-    allowed_source_workspaces: Optional[set[str]] = None  # None = any
-    allowed_target_workspaces: Optional[set[str]] = None  # None = any
+    allowed_source_workspaces: set[str] | None = None  # None = any
+    allowed_target_workspaces: set[str] | None = None  # None = any
     blocked_workspaces: set[str] = field(default_factory=set)
 
     # Rate limiting
@@ -377,7 +377,7 @@ class CrossWorkspaceCoordinator:
     def __init__(
         self,
         default_policy: FederationPolicy | None = None,
-        audit_callback: Optional[Callable[[dict[str, Any]], None]] = None,
+        audit_callback: Callable[[dict[str, Any]], None] | None = None,
     ):
         """
         Initialize cross-workspace coordinator.

@@ -42,11 +42,11 @@ class RolesManager:
 
     def __init__(
         self,
-        agents: list["Agent"],
-        protocol: "DebateProtocol",
-        prompt_builder: Optional["PromptBuilder"] = None,
-        calibration_tracker: Optional["CalibrationTracker"] = None,
-        persona_manager: Optional["PersonaManager"] = None,
+        agents: list[Agent],
+        protocol: DebateProtocol,
+        prompt_builder: PromptBuilder | None = None,
+        calibration_tracker: CalibrationTracker | None = None,
+        persona_manager: PersonaManager | None = None,
     ):
         """
         Initialize roles manager.
@@ -65,9 +65,9 @@ class RolesManager:
         self.persona_manager = persona_manager
 
         # Cognitive role rotation (Heavy3-inspired)
-        self.role_rotator: Optional["RoleRotator"] = None
-        self.role_matcher: Optional["RoleMatcher"] = None
-        self.current_role_assignments: dict[str, "RoleAssignment"] = {}
+        self.role_rotator: RoleRotator | None = None
+        self.role_matcher: RoleMatcher | None = None
+        self.current_role_assignments: dict[str, RoleAssignment] = {}
 
         self._init_role_systems()
 
@@ -181,7 +181,7 @@ Acknowledge good points while also noting weaknesses.
 Neither automatically agree nor disagree - let evidence guide you.
 Your role is to contribute fair and reasoned analysis."""
 
-    def get_stance_guidance(self, agent: "Agent") -> str:
+    def get_stance_guidance(self, agent: Agent) -> str:
         """Generate prompt guidance based on agent's debate stance.
 
         Args:
@@ -247,7 +247,7 @@ Do not advocate - analyze impartially."""
             # Role matcher uses task-based matching, not round rotation
             pass
 
-    def match_roles_for_task(self, task: str, round_num: int = 0) -> dict[str, "RoleAssignment"]:
+    def match_roles_for_task(self, task: str, round_num: int = 0) -> dict[str, RoleAssignment]:
         """Match agents to optimal roles for a specific task.
 
         Args:
@@ -292,7 +292,7 @@ Do not advocate - analyze impartially."""
             )
             logger.debug(f"Role rotator assigned: {list(self.current_role_assignments.keys())}")
 
-    def get_role_context(self, agent: "Agent") -> str:
+    def get_role_context(self, agent: Agent) -> str:
         """Get cognitive role context for an agent in the current round.
 
         Args:

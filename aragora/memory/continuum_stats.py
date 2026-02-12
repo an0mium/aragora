@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_stats(cms: "ContinuumMemory") -> dict[str, Any]:
+def get_stats(cms: ContinuumMemory) -> dict[str, Any]:
     """Get statistics about the continuum memory system."""
     with cms.connection() as conn:
         cursor = conn.cursor()
@@ -60,7 +60,7 @@ def get_stats(cms: "ContinuumMemory") -> dict[str, Any]:
     return stats
 
 
-def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> list[dict[str, Any]]:
+def export_for_tier(cms: ContinuumMemory, tier: MemoryTier) -> list[dict[str, Any]]:
     """Export all memories for a specific tier."""
     entries = cms.retrieve(tiers=[tier], limit=1000)
     return [
@@ -77,7 +77,7 @@ def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> list[dict[str, 
     ]
 
 
-def get_memory_pressure(cms: "ContinuumMemory") -> float:
+def get_memory_pressure(cms: ContinuumMemory) -> float:
     """
     Calculate memory pressure as a 0-1 score based on tier utilization.
 
@@ -90,7 +90,7 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
     Returns:
         Float between 0.0 and 1.0 indicating memory pressure level.
     """
-    max_entries: "MaxEntriesPerTier" = cms.hyperparams["max_entries_per_tier"]
+    max_entries: MaxEntriesPerTier = cms.hyperparams["max_entries_per_tier"]
     if not max_entries:
         return 0.0
 
@@ -120,7 +120,7 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
 
 
 def cleanup_expired_memories(
-    cms: "ContinuumMemory",
+    cms: ContinuumMemory,
     tier: MemoryTier | None = None,
     archive: bool = True,
     max_age_hours: float | None = None,
@@ -228,7 +228,7 @@ def cleanup_expired_memories(
 
 
 def delete_memory(
-    cms: "ContinuumMemory",
+    cms: ContinuumMemory,
     memory_id: str,
     archive: bool = True,
     reason: str = "user_deleted",
@@ -338,7 +338,7 @@ def delete_memory(
 
 
 def enforce_tier_limits(
-    cms: "ContinuumMemory",
+    cms: ContinuumMemory,
     tier: MemoryTier | None = None,
     archive: bool = True,
     tenant_id: str | None = None,
@@ -363,7 +363,7 @@ def enforce_tier_limits(
     """
     results: dict[str, int] = {}
     tiers_to_process = [tier] if tier else list(MemoryTier)
-    max_entries: "MaxEntriesPerTier" = cms.hyperparams["max_entries_per_tier"]
+    max_entries: MaxEntriesPerTier = cms.hyperparams["max_entries_per_tier"]
 
     # Build tenant filter clause if needed
     tenant_clause = ""
@@ -447,7 +447,7 @@ def enforce_tier_limits(
     return results
 
 
-def get_archive_stats(cms: "ContinuumMemory") -> dict[str, Any]:
+def get_archive_stats(cms: ContinuumMemory) -> dict[str, Any]:
     """Get statistics about archived memories."""
     with cms.connection() as conn:
         cursor = conn.cursor()

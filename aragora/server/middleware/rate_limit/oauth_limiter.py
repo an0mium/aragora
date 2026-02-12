@@ -656,7 +656,7 @@ def _extract_handler(*args, **kwargs) -> Any:
     return handler
 
 
-def _error_response(message: str, status: int, retry_after: int | None = None) -> "HandlerResult":
+def _error_response(message: str, status: int, retry_after: int | None = None) -> HandlerResult:
     """Create an error response with optional Retry-After header."""
     from aragora.server.handlers.base import error_response
 

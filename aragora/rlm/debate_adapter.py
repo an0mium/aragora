@@ -31,7 +31,7 @@ class DebateContextAdapter:
     aspects of debate history.
     """
 
-    def __init__(self, aragora_rlm: Optional["AragoraRLM"] = None):
+    def __init__(self, aragora_rlm: AragoraRLM | None = None):
         """
         Initialize the adapter.
 
@@ -39,13 +39,13 @@ class DebateContextAdapter:
             aragora_rlm: Optional AragoraRLM instance for queries
         """
         self._rlm = aragora_rlm
-        self._cached_context: Optional["RLMContext"] = None
+        self._cached_context: RLMContext | None = None
         self._compressor = HierarchicalCompressor()
 
     async def compress_debate(
         self,
         debate_result: Any,
-    ) -> "RLMContext":
+    ) -> RLMContext:
         """
         Compress debate history into hierarchical RLM context.
 
@@ -98,7 +98,7 @@ class DebateContextAdapter:
             # Fallback: search in context
             return self._simple_query(query, context)
 
-    def _simple_query(self, query: str, context: "RLMContext") -> str:
+    def _simple_query(self, query: str, context: RLMContext) -> str:
         """Simple keyword-based query fallback."""
         query_terms = query.lower().split()
 

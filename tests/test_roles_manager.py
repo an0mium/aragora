@@ -22,9 +22,9 @@ class MockAgent:
     """Mock agent for testing."""
 
     name: str
-    role: Optional[str] = None
-    stance: Optional[str] = None
-    system_prompt: Optional[str] = None
+    role: str | None = None
+    stance: str | None = None
+    system_prompt: str | None = None
 
 
 @dataclass
@@ -37,9 +37,9 @@ class MockProtocol:
     agreement_intensity: int = 5
     # Additional attributes required by root RolesManager
     role_matching: bool = False
-    role_matching_config: Optional[object] = None
+    role_matching_config: object | None = None
     role_rotation: bool = False
-    role_rotation_config: Optional[object] = None
+    role_rotation_config: object | None = None
     rounds: int = 3
 
 

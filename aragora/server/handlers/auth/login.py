@@ -87,7 +87,7 @@ logger = logging.getLogger(__name__)
 )
 @handle_errors("user registration")
 @log_request("user registration")
-def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_register(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Handle user registration."""
     from aragora.billing.jwt_auth import create_token_pair
     from aragora.billing.models import hash_password
@@ -219,7 +219,7 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
 @auth_rate_limit(requests_per_minute=5, limiter_name="auth_login", endpoint_name="user login")
 @handle_errors("user login")
 @log_request("user login")
-def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_login(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Handle user login."""
     from aragora.billing.jwt_auth import create_mfa_pending_token, create_token_pair
 

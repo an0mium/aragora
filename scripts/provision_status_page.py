@@ -40,7 +40,7 @@ class Monitor:
     interval: int = 60
     timeout: int = 10
     retries: int = 3
-    keyword: Optional[str] = None
+    keyword: str | None = None
     method: str = "GET"
     accepted_codes: list[str] = None
     group: str = "Core Services"

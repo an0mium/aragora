@@ -30,7 +30,7 @@ class TrainingEmitter:
     def __init__(
         self,
         *,
-        training_exporter: Optional[Callable[..., Any]] = None,
+        training_exporter: Callable[..., Any] | None = None,
         event_emitter: Any = None,
         insight_store: Any = None,
         loop_id: str | None = None,
@@ -59,7 +59,7 @@ class TrainingEmitter:
         self.min_response_length = min_response_length
         self.max_response_length = max_response_length
 
-    async def record_insight_usage(self, ctx: "DebateContext") -> None:
+    async def record_insight_usage(self, ctx: DebateContext) -> None:
         """Record insight usage to complete the insight application cycle.
 
         When insights were injected into this debate (tracked via ctx.applied_insight_ids),
@@ -113,7 +113,7 @@ class TrainingEmitter:
         ) as e:
             logger.debug("[insight] Usage recording failed: %s", e)
 
-    async def emit_training_data(self, ctx: "DebateContext") -> None:
+    async def emit_training_data(self, ctx: DebateContext) -> None:
         """Emit training data for fine-tuning integration.
 
         Exports debate outcomes for model fine-tuning:
@@ -173,7 +173,7 @@ class TrainingEmitter:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.debug("[training] Data emission failed: %s", e)
 
-    def build_sft_record(self, ctx: "DebateContext") -> dict[str, Any] | None:
+    def build_sft_record(self, ctx: DebateContext) -> dict[str, Any] | None:
         """Build SFT (Supervised Fine-Tuning) record from winning debate.
 
         Args:
@@ -206,7 +206,7 @@ class TrainingEmitter:
             },
         }
 
-    def build_dpo_records(self, ctx: "DebateContext") -> list[dict[str, Any]]:
+    def build_dpo_records(self, ctx: DebateContext) -> list[dict[str, Any]]:
         """Build DPO (Direct Preference Optimization) records from vote outcomes.
 
         Creates preference pairs where winner = chosen, loser = rejected.
@@ -267,7 +267,7 @@ class TrainingEmitter:
 
         return records
 
-    def build_calibration_records(self, ctx: "DebateContext") -> list[dict[str, Any]]:
+    def build_calibration_records(self, ctx: DebateContext) -> list[dict[str, Any]]:
         """Build calibration training records from prediction accuracy.
 
         Args:
@@ -307,7 +307,7 @@ class TrainingEmitter:
 
         return records
 
-    def _emit_training_event(self, ctx: "DebateContext", record_count: int) -> None:
+    def _emit_training_event(self, ctx: DebateContext, record_count: int) -> None:
         """Emit TRAINING_DATA_EXPORTED event to WebSocket."""
         if not self.event_emitter:
             return

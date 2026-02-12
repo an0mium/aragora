@@ -97,12 +97,12 @@ class CruxDetector:
 
     def __init__(
         self,
-        network: "BeliefNetwork",
+        network: BeliefNetwork,
         influence_weight: float = 0.3,
         disagreement_weight: float = 0.3,
         uncertainty_weight: float = 0.2,
         centrality_weight: float = 0.2,
-        km_adapter: "BeliefAdapter | None" = None,
+        km_adapter: BeliefAdapter | None = None,
         km_min_crux_score: float = 0.3,
     ):
         """
@@ -127,7 +127,7 @@ class CruxDetector:
         self._km_adapter = km_adapter
         self._km_min_crux_score = km_min_crux_score
 
-    def set_km_adapter(self, adapter: "BeliefAdapter") -> None:
+    def set_km_adapter(self, adapter: BeliefAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync."""
         self._km_adapter = adapter
 
@@ -494,7 +494,7 @@ class BeliefPropagationAnalyzer:
     - What would move the needle on key claims
     """
 
-    def __init__(self, network: "BeliefNetwork"):
+    def __init__(self, network: BeliefNetwork):
         self.network = network
 
     def identify_debate_cruxes(self, top_k: int = 3) -> list[dict[str, Any]]:

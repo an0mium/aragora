@@ -79,7 +79,7 @@ class DebateBeliefAnalyzer:
 
     def analyze_messages(
         self,
-        messages: list["Message"],
+        messages: list[Message],
         top_k_cruxes: int = 3,
         top_k_evidence: int = 3,
     ) -> BeliefAnalysisResult:

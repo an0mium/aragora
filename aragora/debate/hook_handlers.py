@@ -55,7 +55,7 @@ class HookHandlerRegistry:
     - webhook_delivery: WebhookDeliveryManager for outbound webhook dispatch
     """
 
-    hook_manager: "HookManager"
+    hook_manager: HookManager
     subsystems: dict[str, Any] = field(default_factory=dict)
 
     # Track registered handlers for cleanup
@@ -114,7 +114,7 @@ class HookHandlerRegistry:
         hook_type: str,
         callback: Callable[..., Any],
         name: str,
-        priority: Optional["HookPriority"] = None,
+        priority: HookPriority | None = None,
     ) -> bool:
         """Register a handler and track for later cleanup.
 
@@ -1215,7 +1215,7 @@ class HookHandlerRegistry:
 
 
 def create_hook_handler_registry(
-    hook_manager: "HookManager",
+    hook_manager: HookManager,
     *,
     analytics: Any = None,
     continuum_memory: Any = None,

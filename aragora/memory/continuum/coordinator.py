@@ -118,7 +118,7 @@ class ContinuumMemory(
     SCHEMA_VERSION: int = CONTINUUM_SCHEMA_VERSION
 
     # Type annotations for lazy-initialized attributes
-    _hybrid_search: Optional[Any] = None
+    _hybrid_search: Any | None = None
 
     INITIAL_SCHEMA = """
         -- Main continuum memory table
@@ -218,10 +218,10 @@ class ContinuumMemory(
         self,
         db_path: str | Path | None = None,
         tier_manager: TierManager | None = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
+        event_emitter: EventEmitterProtocol | None = None,
         storage_path: str | None = None,
         base_dir: str | None = None,
-        km_adapter: Optional["ContinuumAdapter"] = None,
+        km_adapter: ContinuumAdapter | None = None,
     ) -> None:
         if db_path is None:
             db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
@@ -245,7 +245,7 @@ class ContinuumMemory(
         self._tier_manager: TierManager = tier_manager or get_tier_manager()
 
         # Optional event emitter for WebSocket streaming
-        self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
+        self.event_emitter: EventEmitterProtocol | None = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
         self.hyperparams: ContinuumHyperparams = get_default_hyperparams()
@@ -257,9 +257,9 @@ class ContinuumMemory(
         self._tier_lock: threading.Lock = threading.Lock()
 
         # Optional Knowledge Mound adapter for bidirectional integration
-        self._km_adapter: Optional["ContinuumAdapter"] = km_adapter
+        self._km_adapter: ContinuumAdapter | None = km_adapter
 
-    def set_km_adapter(self, adapter: "ContinuumAdapter") -> None:
+    def set_km_adapter(self, adapter: ContinuumAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 
         Args:
@@ -521,7 +521,7 @@ class ContinuumMemory(
         memory_id: str,
         content: str | None = None,
         importance: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         surprise_score: float | None = None,
         consolidation_score: float | None = None,
     ) -> bool:
@@ -591,7 +591,7 @@ _global_continuum_memory: ContinuumMemory | None = None
 
 def get_continuum_memory(
     db_path: str | None = None,
-    event_emitter: Optional["EventEmitterProtocol"] = None,
+    event_emitter: EventEmitterProtocol | None = None,
 ) -> ContinuumMemory:
     """Get the global ContinuumMemory singleton instance.
 

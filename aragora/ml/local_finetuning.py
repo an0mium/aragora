@@ -81,7 +81,7 @@ class TrainingExample:
         winning_response: str,
         losing_response: str | None = None,
         context: str = "",
-    ) -> "TrainingExample":
+    ) -> TrainingExample:
         """Create training example from debate outcome.
 
         Args:
@@ -123,7 +123,7 @@ class TrainingData:
                 f.write(json.dumps(ex.to_dict()) + "\n")
 
     @classmethod
-    def from_jsonl(cls, path: str | Path) -> "TrainingData":
+    def from_jsonl(cls, path: str | Path) -> TrainingData:
         """Load from JSONL format."""
         path = Path(path)
         examples = []
@@ -145,7 +145,7 @@ class TrainingData:
     def from_debates(
         cls,
         debate_outcomes: Sequence[dict[str, Any]],
-    ) -> "TrainingData":
+    ) -> TrainingData:
         """Create training data from debate outcomes.
 
         Args:

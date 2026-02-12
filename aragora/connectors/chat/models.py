@@ -539,7 +539,7 @@ class ChannelContext:
         message: ChatMessage,
         query: str | None = None,
         relevance_score: float = 1.0,
-    ) -> "ChatEvidence":
+    ) -> ChatEvidence:
         """Create ChatEvidence from a ChatMessage."""
         import hashlib
 

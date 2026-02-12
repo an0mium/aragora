@@ -185,10 +185,10 @@ class CrossChannelContextService:
 
     def __init__(
         self,
-        slack_connector: Optional["SlackConnector"] = None,
-        gmail_connector: Optional["GmailConnector"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
-        integration_store: Optional["IntegrationStoreBackend"] = None,
+        slack_connector: SlackConnector | None = None,
+        gmail_connector: GmailConnector | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
+        integration_store: IntegrationStoreBackend | None = None,
         cache_ttl_seconds: int = 300,  # 5 minute cache
         user_id: str = "default",  # Multi-tenant owner
     ):
@@ -273,7 +273,7 @@ class CrossChannelContextService:
 
     async def get_email_context(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
     ) -> EmailContextBoost:
         """
         Get context-based priority boosts for an email.
@@ -462,7 +462,7 @@ class CrossChannelContextService:
 
     async def _analyze_email_content_context(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
         boost: EmailContextBoost,
         sender_context: ChannelContext,
     ) -> None:
@@ -673,7 +673,7 @@ class CrossChannelContextService:
 # Factory function for easy instantiation
 async def create_context_service(
     slack_token: str | None = None,
-    knowledge_mound: Optional["KnowledgeMound"] = None,
+    knowledge_mound: KnowledgeMound | None = None,
     user_id: str = "default",
     load_mappings: bool = True,
 ) -> CrossChannelContextService:

@@ -763,7 +763,7 @@ class SkillRegistry:
 
     def get_function_schemas(
         self,
-        skills: Optional[list[str]] = None,
+        skills: list[str] | None = None,
         debate_compatible_only: bool = False,
     ) -> list[dict[str, Any]]:
         """

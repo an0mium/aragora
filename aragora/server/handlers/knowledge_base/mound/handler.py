@@ -276,10 +276,10 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def __init__(self, server_context: dict[str, Any]):
         """Initialize knowledge mound handler."""
         super().__init__(server_context)
-        self._mound: Optional["KnowledgeMound"] = None
+        self._mound: KnowledgeMound | None = None
         self._mound_initialized = False
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """Get or create Knowledge Mound instance."""
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound

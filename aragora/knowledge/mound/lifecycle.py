@@ -226,8 +226,8 @@ class LifecycleManager:
 
     def __init__(
         self,
-        mound: Optional["KnowledgeMound"] = None,
-        staleness_detector: Optional["StalenessDetector"] = None,
+        mound: KnowledgeMound | None = None,
+        staleness_detector: StalenessDetector | None = None,
     ):
         """
         Initialize lifecycle manager.
@@ -258,7 +258,7 @@ class LifecycleManager:
 
         logger.info("LifecycleManager initialized")
 
-    def set_mound(self, mound: "KnowledgeMound") -> None:
+    def set_mound(self, mound: KnowledgeMound) -> None:
         """Set the Knowledge Mound instance."""
         self._mound = mound
 
@@ -648,8 +648,8 @@ class LifecycleManager:
 
 # Factory function
 def create_lifecycle_manager(
-    mound: Optional["KnowledgeMound"] = None,
-    staleness_detector: Optional["StalenessDetector"] = None,
+    mound: KnowledgeMound | None = None,
+    staleness_detector: StalenessDetector | None = None,
 ) -> LifecycleManager:
     """Create a LifecycleManager instance."""
     return LifecycleManager(

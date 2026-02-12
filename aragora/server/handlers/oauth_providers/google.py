@@ -64,7 +64,7 @@ class GoogleOAuthProvider(OAuthProvider):
         self,
         state: str,
         redirect_uri: str | None = None,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         **kwargs,
     ) -> str:
         """

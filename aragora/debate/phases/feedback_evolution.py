@@ -28,9 +28,9 @@ class EvolutionFeedback:
 
     def __init__(
         self,
-        population_manager: Optional["PopulationManagerProtocol"] = None,
-        prompt_evolver: Optional["PromptEvolverProtocol"] = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
+        population_manager: PopulationManagerProtocol | None = None,
+        prompt_evolver: PromptEvolverProtocol | None = None,
+        event_emitter: EventEmitterProtocol | None = None,
         loop_id: str | None = None,
         auto_evolve: bool = True,
         breeding_threshold: float = 0.8,
@@ -42,7 +42,7 @@ class EvolutionFeedback:
         self.auto_evolve = auto_evolve
         self.breeding_threshold = breeding_threshold
 
-    def update_genome_fitness(self, ctx: "DebateContext") -> None:
+    def update_genome_fitness(self, ctx: DebateContext) -> None:
         """Update genome fitness scores based on debate outcome.
 
         For agents with genome_id attributes (evolved via Genesis),
@@ -87,8 +87,8 @@ class EvolutionFeedback:
 
     def _check_agent_prediction(
         self,
-        agent: "Agent",
-        ctx: "DebateContext",
+        agent: Agent,
+        ctx: DebateContext,
     ) -> bool:
         """Check if an agent correctly predicted the debate outcome.
 
@@ -110,7 +110,7 @@ class EvolutionFeedback:
 
         return False
 
-    async def maybe_evolve_population(self, ctx: "DebateContext") -> None:
+    async def maybe_evolve_population(self, ctx: DebateContext) -> None:
         """Trigger population evolution after high-quality debates.
 
         Evolution is triggered when:
@@ -187,7 +187,7 @@ class EvolutionFeedback:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("[genesis] Evolution failed: %s", e)
 
-    def record_evolution_patterns(self, ctx: "DebateContext") -> None:
+    def record_evolution_patterns(self, ctx: DebateContext) -> None:
         """Extract winning patterns from high-confidence debates for prompt evolution.
 
         When enabled via protocol.enable_evolution, this method:

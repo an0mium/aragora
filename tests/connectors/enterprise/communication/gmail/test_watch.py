@@ -40,8 +40,8 @@ class MockGmailBase:
     def __init__(self):
         self.user_id = "me"
         self.exclude_labels: set[str] = set()
-        self._gmail_state: Optional[GmailSyncState] = None
-        self._watch_task: Optional[asyncio.Task] = None
+        self._gmail_state: GmailSyncState | None = None
+        self._watch_task: asyncio.Task | None = None
         self._watch_running: bool = False
         self._access_token = "test_token"
         self._circuit_open = False

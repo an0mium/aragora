@@ -190,7 +190,7 @@ class MockKnowledgeMound:
 
     def get_items_since(
         self,
-        since: Optional[str] = None,
+        since: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         """Get items from KM since a timestamp."""

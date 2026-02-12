@@ -113,7 +113,7 @@ def get_canonical_workspace_stores(
     convoy_dir: str | None = None,
     git_enabled: bool = True,
     auto_commit: bool = False,
-    bead_store: "BeadStore | None" = None,
+    bead_store: BeadStore | None = None,
 ) -> CanonicalWorkspaceStores:
     """Return a canonical workspace stores accessor."""
     stores = CanonicalWorkspaceStores(
@@ -132,7 +132,7 @@ def get_canonical_gateway_stores(*, allow_disabled: bool = False) -> CanonicalGa
     return CanonicalGatewayStores(allow_disabled=allow_disabled)
 
 
-def get_critique_store(nomic_dir: Path | str | None = None) -> "CritiqueStore | None":
+def get_critique_store(nomic_dir: Path | str | None = None) -> CritiqueStore | None:
     """
     Get a CritiqueStore instance using the canonical path resolution.
 

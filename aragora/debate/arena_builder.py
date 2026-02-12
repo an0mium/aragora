@@ -86,7 +86,7 @@ class InitPhase(Enum):
     PHASES = auto()
 
     @classmethod
-    def dependencies(cls) -> dict["InitPhase", list["InitPhase"]]:
+    def dependencies(cls) -> dict[InitPhase, list[InitPhase]]:
         """Return the dependency graph for each phase."""
         return {
             cls.CORE: [],
@@ -163,39 +163,39 @@ class ArenaBuilder:
 
         # Protocol configuration
         self._protocol: DebateProtocol | None = None
-        self._template: Optional["DebateTemplate"] = None
+        self._template: DebateTemplate | None = None
 
         # Memory and persistence
-        self._memory: Optional["CritiqueStore"] = None
-        self._debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None
-        self._insight_store: Optional["InsightStore"] = None
-        self._continuum_memory: Optional["ContinuumMemory"] = None
+        self._memory: CritiqueStore | None = None
+        self._debate_embeddings: DebateEmbeddingsDatabase | None = None
+        self._insight_store: InsightStore | None = None
+        self._continuum_memory: ContinuumMemory | None = None
 
         # Event handling
         self._event_hooks: dict = {}
         self._event_emitter = None
         self._spectator: SpectatorStream | None = None
-        self._recorder: Optional["ReplayRecorder"] = None
+        self._recorder: ReplayRecorder | None = None
 
         # Agent tracking and ranking
         self._agent_weights: dict[str, float] = {}
-        self._elo_system: Optional["EloSystem"] = None
-        self._persona_manager: Optional["PersonaManager"] = None
-        self._calibration_tracker: Optional["CalibrationTracker"] = None
-        self._relationship_tracker: Optional["RelationshipTracker"] = None
+        self._elo_system: EloSystem | None = None
+        self._persona_manager: PersonaManager | None = None
+        self._calibration_tracker: CalibrationTracker | None = None
+        self._relationship_tracker: RelationshipTracker | None = None
 
         # Position and truth grounding
-        self._position_tracker: Optional["PositionTracker"] = None
-        self._position_ledger: Optional["PositionLedger"] = None
-        self._flip_detector: Optional["FlipDetector"] = None
-        self._moment_detector: Optional["MomentDetector"] = None
+        self._position_tracker: PositionTracker | None = None
+        self._position_ledger: PositionLedger | None = None
+        self._flip_detector: FlipDetector | None = None
+        self._moment_detector: MomentDetector | None = None
 
         # Historical context
-        self._dissent_retriever: Optional["DissentRetriever"] = None
-        self._evidence_collector: Optional["EvidenceCollector"] = None
+        self._dissent_retriever: DissentRetriever | None = None
+        self._evidence_collector: EvidenceCollector | None = None
         self._document_store: Any | None = None
         self._evidence_store: Any | None = None
-        self._trending_topic: Optional["TrendingTopic"] = None
+        self._trending_topic: TrendingTopic | None = None
         self._consensus_memory: Any = None
         self._tier_analytics_tracker: Any = None
         self._enable_knowledge_retrieval: bool | None = None
@@ -305,7 +305,7 @@ class ArenaBuilder:
 
     def with_template(
         self,
-        template: "DebateTemplate",
+        template: DebateTemplate,
         overrides: dict | None = None,
     ) -> ArenaBuilder:
         """Configure arena from a DebateTemplate.
@@ -333,7 +333,7 @@ class ArenaBuilder:
     # Memory and Persistence
     # =========================================================================
 
-    def with_memory(self, memory: "CritiqueStore") -> ArenaBuilder:
+    def with_memory(self, memory: CritiqueStore) -> ArenaBuilder:
         """Set the critique store for memory persistence.
 
         Args:
@@ -342,7 +342,7 @@ class ArenaBuilder:
         self._memory = memory
         return self
 
-    def with_debate_embeddings(self, embeddings: "DebateEmbeddingsDatabase") -> ArenaBuilder:
+    def with_debate_embeddings(self, embeddings: DebateEmbeddingsDatabase) -> ArenaBuilder:
         """Set the debate embeddings database for historical context.
 
         Args:
@@ -351,7 +351,7 @@ class ArenaBuilder:
         self._debate_embeddings = embeddings
         return self
 
-    def with_insight_store(self, store: "InsightStore") -> ArenaBuilder:
+    def with_insight_store(self, store: InsightStore) -> ArenaBuilder:
         """Set the insight store for extracting learnings.
 
         Args:
@@ -360,7 +360,7 @@ class ArenaBuilder:
         self._insight_store = store
         return self
 
-    def with_continuum_memory(self, memory: "ContinuumMemory") -> ArenaBuilder:
+    def with_continuum_memory(self, memory: ContinuumMemory) -> ArenaBuilder:
         """Set continuum memory for cross-debate learning.
 
         Args:
@@ -428,7 +428,7 @@ class ArenaBuilder:
         self._spectator = spectator
         return self
 
-    def with_recorder(self, recorder: "ReplayRecorder") -> ArenaBuilder:
+    def with_recorder(self, recorder: ReplayRecorder) -> ArenaBuilder:
         """Set replay recorder for debate recording.
 
         Args:
@@ -462,7 +462,7 @@ class ArenaBuilder:
         self._agent_weights = weights
         return self
 
-    def with_elo_system(self, elo: "EloSystem") -> ArenaBuilder:
+    def with_elo_system(self, elo: EloSystem) -> ArenaBuilder:
         """Set ELO system for relationship tracking.
 
         Args:
@@ -471,7 +471,7 @@ class ArenaBuilder:
         self._elo_system = elo
         return self
 
-    def with_persona_manager(self, manager: "PersonaManager") -> ArenaBuilder:
+    def with_persona_manager(self, manager: PersonaManager) -> ArenaBuilder:
         """Set persona manager for agent specialization.
 
         Args:
@@ -480,7 +480,7 @@ class ArenaBuilder:
         self._persona_manager = manager
         return self
 
-    def with_calibration_tracker(self, tracker: "CalibrationTracker") -> ArenaBuilder:
+    def with_calibration_tracker(self, tracker: CalibrationTracker) -> ArenaBuilder:
         """Set calibration tracker for prediction accuracy.
 
         Args:
@@ -489,7 +489,7 @@ class ArenaBuilder:
         self._calibration_tracker = tracker
         return self
 
-    def with_relationship_tracker(self, tracker: "RelationshipTracker") -> ArenaBuilder:
+    def with_relationship_tracker(self, tracker: RelationshipTracker) -> ArenaBuilder:
         """Set relationship tracker for agent relationships.
 
         Args:
@@ -502,7 +502,7 @@ class ArenaBuilder:
     # Position and Truth Grounding
     # =========================================================================
 
-    def with_position_tracker(self, tracker: "PositionTracker") -> ArenaBuilder:
+    def with_position_tracker(self, tracker: PositionTracker) -> ArenaBuilder:
         """Set position tracker for truth-grounded personas.
 
         Args:
@@ -511,7 +511,7 @@ class ArenaBuilder:
         self._position_tracker = tracker
         return self
 
-    def with_position_ledger(self, ledger: "PositionLedger") -> ArenaBuilder:
+    def with_position_ledger(self, ledger: PositionLedger) -> ArenaBuilder:
         """Set position ledger for grounded personas.
 
         Args:
@@ -520,7 +520,7 @@ class ArenaBuilder:
         self._position_ledger = ledger
         return self
 
-    def with_flip_detector(self, detector: "FlipDetector") -> ArenaBuilder:
+    def with_flip_detector(self, detector: FlipDetector) -> ArenaBuilder:
         """Set flip detector for position reversal detection.
 
         Args:
@@ -529,7 +529,7 @@ class ArenaBuilder:
         self._flip_detector = detector
         return self
 
-    def with_moment_detector(self, detector: "MomentDetector") -> ArenaBuilder:
+    def with_moment_detector(self, detector: MomentDetector) -> ArenaBuilder:
         """Set moment detector for significant moments.
 
         Args:
@@ -542,7 +542,7 @@ class ArenaBuilder:
     # Historical Context
     # =========================================================================
 
-    def with_dissent_retriever(self, retriever: "DissentRetriever") -> ArenaBuilder:
+    def with_dissent_retriever(self, retriever: DissentRetriever) -> ArenaBuilder:
         """Set dissent retriever for historical minority views.
 
         Args:
@@ -551,7 +551,7 @@ class ArenaBuilder:
         self._dissent_retriever = retriever
         return self
 
-    def with_evidence_collector(self, collector: "EvidenceCollector") -> ArenaBuilder:
+    def with_evidence_collector(self, collector: EvidenceCollector) -> ArenaBuilder:
         """Set evidence collector for auto-collecting evidence.
 
         Args:
@@ -570,7 +570,7 @@ class ArenaBuilder:
         self._evidence_store = store
         return self
 
-    def with_trending_topic(self, topic: "TrendingTopic") -> ArenaBuilder:
+    def with_trending_topic(self, topic: TrendingTopic) -> ArenaBuilder:
         """Set trending topic to seed debate context.
 
         Args:
@@ -867,7 +867,7 @@ class ArenaBuilder:
         manager: Any = None,
         default_language: str = "en",
         auto_translate: bool = True,
-    ) -> "ArenaBuilder":
+    ) -> ArenaBuilder:
         """Configure multilingual debate support.
 
         Enables automatic translation between different participant languages,
@@ -910,7 +910,7 @@ class ArenaBuilder:
     # New Orchestration Features (Phase 4 Integration)
     # =========================================================================
 
-    def with_hook_manager(self, hook_manager: Any) -> "ArenaBuilder":
+    def with_hook_manager(self, hook_manager: Any) -> ArenaBuilder:
         """Set the HookManager for extended lifecycle hooks.
 
         The HookManager provides PRE_DEBATE, POST_ROUND, ON_FINDING, etc.
@@ -925,7 +925,7 @@ class ArenaBuilder:
         self._hook_manager = hook_manager
         return self
 
-    def with_delegation(self, strategy: Any) -> "ArenaBuilder":
+    def with_delegation(self, strategy: Any) -> ArenaBuilder:
         """Set the delegation strategy for task routing.
 
         Delegation strategies (ContentBased, LoadBalanced, Hybrid) route
@@ -940,7 +940,7 @@ class ArenaBuilder:
         self._delegation_strategy = strategy
         return self
 
-    def with_cancellation(self, token: Any) -> "ArenaBuilder":
+    def with_cancellation(self, token: Any) -> ArenaBuilder:
         """Set the cancellation token for cooperative abort.
 
         CancellationToken enables user-initiated cancellation of long-running
@@ -955,7 +955,7 @@ class ArenaBuilder:
         self._cancellation_token = token
         return self
 
-    def with_stream_chaining(self, enabled: bool = True) -> "ArenaBuilder":
+    def with_stream_chaining(self, enabled: bool = True) -> ArenaBuilder:
         """Enable agent-to-agent stream chaining.
 
         Stream chaining allows agents to receive streaming output from
@@ -970,7 +970,7 @@ class ArenaBuilder:
         self._enable_stream_chaining = enabled
         return self
 
-    def with_byzantine_consensus(self, config: Any) -> "ArenaBuilder":
+    def with_byzantine_consensus(self, config: Any) -> ArenaBuilder:
         """Set Byzantine consensus configuration.
 
         Byzantine consensus (PBFT-style) tolerates faulty or adversarial
@@ -985,7 +985,7 @@ class ArenaBuilder:
         self._byzantine_config = config
         return self
 
-    def with_session(self, session_id: str) -> "ArenaBuilder":
+    def with_session(self, session_id: str) -> ArenaBuilder:
         """Set session ID for session lifecycle tracking.
 
         Session ID enables pause/resume and session management endpoints.
@@ -1005,10 +1005,10 @@ class ArenaBuilder:
 
     def with_full_tracking(
         self,
-        elo_system: "EloSystem",
-        persona_manager: Optional["PersonaManager"] = None,
-        calibration_tracker: Optional["CalibrationTracker"] = None,
-        relationship_tracker: Optional["RelationshipTracker"] = None,
+        elo_system: EloSystem,
+        persona_manager: PersonaManager | None = None,
+        calibration_tracker: CalibrationTracker | None = None,
+        relationship_tracker: RelationshipTracker | None = None,
     ) -> ArenaBuilder:
         """Configure all tracking components at once.
 
@@ -1029,10 +1029,10 @@ class ArenaBuilder:
 
     def with_full_memory(
         self,
-        memory: "CritiqueStore",
-        debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None,
-        continuum_memory: Optional["ContinuumMemory"] = None,
-        insight_store: Optional["InsightStore"] = None,
+        memory: CritiqueStore,
+        debate_embeddings: DebateEmbeddingsDatabase | None = None,
+        continuum_memory: ContinuumMemory | None = None,
+        insight_store: InsightStore | None = None,
     ) -> ArenaBuilder:
         """Configure all memory components at once.
 
@@ -1055,7 +1055,7 @@ class ArenaBuilder:
     # Build
     # =========================================================================
 
-    def build(self) -> "Arena":
+    def build(self) -> Arena:
         """Build and return the configured Arena instance.
 
         Returns:
@@ -1176,9 +1176,9 @@ def create_arena(
     environment: Environment,
     agents: list[Agent],
     protocol: DebateProtocol | None = None,
-    memory: Optional["CritiqueStore"] = None,
-    elo_system: Optional["EloSystem"] = None,
-) -> "Arena":
+    memory: CritiqueStore | None = None,
+    elo_system: EloSystem | None = None,
+) -> Arena:
     """Create an Arena with commonly used options.
 
     For more complex configurations, use ArenaBuilder directly.

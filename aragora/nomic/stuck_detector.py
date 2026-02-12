@@ -163,10 +163,10 @@ class StuckDetector:
 
     def __init__(
         self,
-        bead_store: Optional["BeadStore"] = None,
-        convoy_manager: Optional["ConvoyManager"] = None,
-        coordinator: Optional["ConvoyCoordinator"] = None,
-        escalation_store: Optional["EscalationStore"] = None,
+        bead_store: BeadStore | None = None,
+        convoy_manager: ConvoyManager | None = None,
+        coordinator: ConvoyCoordinator | None = None,
+        escalation_store: EscalationStore | None = None,
         config: StuckDetectorConfig | None = None,
     ):
         """
@@ -613,9 +613,9 @@ _default_detector: StuckDetector | None = None
 
 
 async def get_stuck_detector(
-    bead_store: Optional["BeadStore"] = None,
-    coordinator: Optional["ConvoyCoordinator"] = None,
-    escalation_store: Optional["EscalationStore"] = None,
+    bead_store: BeadStore | None = None,
+    coordinator: ConvoyCoordinator | None = None,
+    escalation_store: EscalationStore | None = None,
 ) -> StuckDetector:
     """Get the default stuck detector instance."""
     global _default_detector

@@ -50,7 +50,7 @@ class EmailWebhookHandler:
         self._error_count = 0
         self._last_error: str | None = None
 
-    async def handle_sendgrid(self, request: "web.Request") -> HandlerResult:
+    async def handle_sendgrid(self, request: web.Request) -> HandlerResult:
         """
         Handle SendGrid Inbound Parse webhook.
 
@@ -85,7 +85,7 @@ class EmailWebhookHandler:
             logger.exception("SendGrid webhook error")
             return error_response(f"Internal error: {e}", status=500)
 
-    async def _handle_sendgrid_inbound(self, request: "web.Request") -> HandlerResult:
+    async def _handle_sendgrid_inbound(self, request: web.Request) -> HandlerResult:
         """Handle SendGrid Inbound Parse (multipart form)."""
         from aragora.integrations.email_reply_loop import (
             InboundEmail,
@@ -155,7 +155,7 @@ class EmailWebhookHandler:
                 status=202,
             )  # Still return 2xx to prevent retries
 
-    async def _handle_sendgrid_event(self, request: "web.Request") -> HandlerResult:
+    async def _handle_sendgrid_event(self, request: web.Request) -> HandlerResult:
         """Handle SendGrid Event webhook (JSON)."""
         from aragora.integrations.email_reply_loop import verify_sendgrid_signature
 
@@ -198,7 +198,7 @@ class EmailWebhookHandler:
             }
         )
 
-    async def handle_mailgun(self, request: "web.Request") -> HandlerResult:
+    async def handle_mailgun(self, request: web.Request) -> HandlerResult:
         """
         Handle Mailgun webhook.
 
@@ -272,7 +272,7 @@ class EmailWebhookHandler:
             logger.exception("Mailgun webhook error")
             return error_response(f"Internal error: {e}", status=500)
 
-    async def handle_ses(self, request: "web.Request") -> HandlerResult:
+    async def handle_ses(self, request: web.Request) -> HandlerResult:
         """
         Handle AWS SES SNS notification.
 
@@ -457,7 +457,7 @@ class EmailWebhookHandler:
             "last_error": self._last_error,
         }
 
-    async def handle_status(self, request: "web.Request") -> HandlerResult:
+    async def handle_status(self, request: web.Request) -> HandlerResult:
         """Return status and stats for email webhooks."""
         return json_response(
             {
@@ -503,7 +503,7 @@ def register_email_webhook_routes(app: Any) -> EmailWebhookHandler:
 
     handler = EmailWebhookHandler()
 
-    async def _wrap(result: Any) -> "web.Response":
+    async def _wrap(result: Any) -> web.Response:
         if hasattr(result, "body") and hasattr(result, "status_code"):
             return web.Response(
                 body=result.body,
@@ -515,16 +515,16 @@ def register_email_webhook_routes(app: Any) -> EmailWebhookHandler:
             return result  # type: ignore[return-value]
         return web.json_response(result)
 
-    async def _sendgrid(request: "web.Request") -> "web.Response":
+    async def _sendgrid(request: web.Request) -> web.Response:
         return await _wrap(await handler.handle_sendgrid(request))
 
-    async def _mailgun(request: "web.Request") -> "web.Response":
+    async def _mailgun(request: web.Request) -> web.Response:
         return await _wrap(await handler.handle_mailgun(request))
 
-    async def _ses(request: "web.Request") -> "web.Response":
+    async def _ses(request: web.Request) -> web.Response:
         return await _wrap(await handler.handle_ses(request))
 
-    async def _status(request: "web.Request") -> "web.Response":
+    async def _status(request: web.Request) -> web.Response:
         return await _wrap(await handler.handle_status(request))
 
     app.router.add_post("/webhooks/email/sendgrid", _sendgrid)

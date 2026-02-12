@@ -341,7 +341,7 @@ class CostTracker:
     def __init__(
         self,
         usage_tracker: UsageTracker | None = None,
-        km_adapter: Optional["CostAdapter"] = None,
+        km_adapter: CostAdapter | None = None,
     ):
         """
         Initialize cost tracker.
@@ -571,7 +571,7 @@ class CostTracker:
             return self._budgets.get(self._org_budgets[org_id])
         return None
 
-    def set_km_adapter(self, adapter: "CostAdapter") -> None:
+    def set_km_adapter(self, adapter: CostAdapter) -> None:
         """
         Set Knowledge Mound adapter for alert/anomaly persistence.
 
@@ -1126,7 +1126,7 @@ async def record_usage(
     debate_id: str | None = None,
     operation: str = "",
     latency_ms: float = 0.0,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> TokenUsage:
     """
     Convenience function to record token usage.

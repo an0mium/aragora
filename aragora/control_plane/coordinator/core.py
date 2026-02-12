@@ -137,12 +137,12 @@ class ControlPlaneCoordinator:
         scheduler: Any | None = None,
         health_monitor: Any | None = None,
         # Common parameters
-        km_adapter: Optional["ControlPlaneAdapter"] = None,
+        km_adapter: ControlPlaneAdapter | None = None,
         knowledge_mound: Any | None = None,
-        arena_bridge: Optional["ArenaControlPlaneBridge"] = None,
+        arena_bridge: ArenaControlPlaneBridge | None = None,
         stream_server: Any | None = None,
         shared_state: Any | None = None,
-        policy_manager: Optional["ControlPlanePolicyManager"] = None,
+        policy_manager: ControlPlanePolicyManager | None = None,
     ):
         """
         Initialize the coordinator.
@@ -226,7 +226,7 @@ class ControlPlaneCoordinator:
             )
 
         # Arena Bridge integration for unified debate execution
-        self._arena_bridge: Optional["ArenaControlPlaneBridge"] = None
+        self._arena_bridge: ArenaControlPlaneBridge | None = None
         if HAS_ARENA_BRIDGE:
             if arena_bridge:
                 self._arena_bridge = arena_bridge
@@ -244,7 +244,7 @@ class ControlPlaneCoordinator:
         # The policy enforcer already handles this internally
         pass
 
-    async def _handle_watchdog_issue(self, issue: "WatchdogIssue") -> None:
+    async def _handle_watchdog_issue(self, issue: WatchdogIssue) -> None:
         """Handle watchdog issues with control plane actions.
 
         This method is called by the ThreeTierWatchdog when issues are detected
@@ -312,7 +312,7 @@ class ControlPlaneCoordinator:
     async def create(
         cls,
         config: ControlPlaneConfig | None = None,
-    ) -> "ControlPlaneCoordinator":
+    ) -> ControlPlaneCoordinator:
         """
         Create and connect a coordinator.
 
@@ -403,8 +403,8 @@ class ControlPlaneCoordinator:
         capabilities: list[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[dict[str, Any]] = None,
-        health_probe: Optional[Callable[[], bool]] = None,
+        metadata: dict[str, Any] | None = None,
+        health_probe: Callable[[], bool] | None = None,
     ) -> AgentInfo:
         """Register an agent with the control plane."""
         return await self._state_manager.register_agent(
@@ -444,7 +444,7 @@ class ControlPlaneCoordinator:
         self,
         capabilities: list[str | AgentCapability],
         strategy: str = "least_loaded",
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
         task_type: str | None = None,
         use_km_recommendations: bool = True,
     ) -> AgentInfo | None:
@@ -478,10 +478,10 @@ class ControlPlaneCoordinator:
         self,
         task_type: str,
         payload: dict[str, Any],
-        required_capabilities: Optional[list[str]] = None,
+        required_capabilities: list[str] | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         workspace_id: str | None = None,
     ) -> str:
         """Submit a task for execution."""
@@ -515,7 +515,7 @@ class ControlPlaneCoordinator:
     async def complete_task(
         self,
         task_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
         agent_id: str | None = None,
         latency_ms: float | None = None,
         sla_policy_id: str | None = None,
@@ -605,7 +605,7 @@ class ControlPlaneCoordinator:
     # =========================================================================
 
     @property
-    def watchdog(self) -> Optional["ThreeTierWatchdog"]:
+    def watchdog(self) -> ThreeTierWatchdog | None:
         """Get the Three-Tier Watchdog if configured."""
         return self._state_manager.watchdog
 
@@ -623,11 +623,11 @@ class ControlPlaneCoordinator:
     # =========================================================================
 
     @property
-    def policy_manager(self) -> Optional["ControlPlanePolicyManager"]:
+    def policy_manager(self) -> ControlPlanePolicyManager | None:
         """Get the Policy Manager if configured."""
         return self._policy_enforcer.policy_manager
 
-    def set_policy_manager(self, manager: "ControlPlanePolicyManager") -> None:
+    def set_policy_manager(self, manager: ControlPlanePolicyManager) -> None:
         """Set the Policy Manager."""
         self._policy_enforcer.set_policy_manager(manager)
         # Also update the scheduler's policy manager
@@ -652,11 +652,11 @@ class ControlPlaneCoordinator:
     # =========================================================================
 
     @property
-    def km_adapter(self) -> Optional["ControlPlaneAdapter"]:
+    def km_adapter(self) -> ControlPlaneAdapter | None:
         """Get the Knowledge Mound adapter if configured."""
         return self._state_manager.km_adapter
 
-    def set_km_adapter(self, adapter: "ControlPlaneAdapter") -> None:
+    def set_km_adapter(self, adapter: ControlPlaneAdapter) -> None:
         """Set the Knowledge Mound adapter."""
         self._state_manager.set_km_adapter(adapter)
 
@@ -673,20 +673,20 @@ class ControlPlaneCoordinator:
     # =========================================================================
 
     @property
-    def arena_bridge(self) -> Optional["ArenaControlPlaneBridge"]:
+    def arena_bridge(self) -> ArenaControlPlaneBridge | None:
         """Get the Arena Bridge if configured."""
         return self._arena_bridge
 
-    def set_arena_bridge(self, bridge: "ArenaControlPlaneBridge") -> None:
+    def set_arena_bridge(self, bridge: ArenaControlPlaneBridge) -> None:
         """Set the Arena Bridge."""
         self._arena_bridge = bridge
 
     async def execute_deliberation(
         self,
-        task: "DeliberationTask",
-        agents: Optional[list[Any]] = None,
+        task: DeliberationTask,
+        agents: list[Any] | None = None,
         workspace_id: str | None = None,
-    ) -> Optional["DeliberationOutcome"]:
+    ) -> DeliberationOutcome | None:
         """
         Execute a deliberation using the Arena Bridge.
 
@@ -803,37 +803,37 @@ class ControlPlaneCoordinator:
     # =========================================================================
 
     @property
-    def _registry(self) -> "AgentRegistry":
+    def _registry(self) -> AgentRegistry:
         """Backward compatibility: access to registry."""
         return self._state_manager.registry
 
     @property
-    def _scheduler(self) -> "TaskScheduler":
+    def _scheduler(self) -> TaskScheduler:
         """Backward compatibility: access to scheduler."""
         return self._scheduler_bridge.scheduler
 
     @property
-    def _health_monitor(self) -> "HealthMonitor":
+    def _health_monitor(self) -> HealthMonitor:
         """Backward compatibility: access to health monitor."""
         return self._state_manager.health_monitor
 
     @property
-    def _km_adapter(self) -> "ControlPlaneAdapter | None":
+    def _km_adapter(self) -> ControlPlaneAdapter | None:
         """Backward compatibility: access to KM adapter."""
         return self._state_manager.km_adapter
 
     @property
-    def _watchdog(self) -> "ThreeTierWatchdog | None":
+    def _watchdog(self) -> ThreeTierWatchdog | None:
         """Backward compatibility: access to watchdog."""
         return self._state_manager.watchdog
 
     @property
-    def _agent_factory(self) -> "AgentFactory | None":
+    def _agent_factory(self) -> AgentFactory | None:
         """Backward compatibility: access to agent factory."""
         return self._state_manager.agent_factory
 
     @property
-    def _result_waiters(self) -> "dict[str, asyncio.Event]":
+    def _result_waiters(self) -> dict[str, asyncio.Event]:
         """Backward compatibility: access to result waiters."""
         return self._scheduler_bridge._result_waiters
 

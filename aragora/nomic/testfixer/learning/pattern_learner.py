@@ -78,7 +78,7 @@ class FixPattern:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FixPattern":
+    def from_dict(cls, data: dict[str, Any]) -> FixPattern:
         return cls(
             id=data["id"],
             category=data["category"],
@@ -103,7 +103,7 @@ class PatternMatch:
     similarity: float  # 0-1, how similar the current failure is
     confidence: float  # Combined pattern confidence and similarity
 
-    def __lt__(self, other: "PatternMatch") -> bool:
+    def __lt__(self, other: PatternMatch) -> bool:
         return self.confidence < other.confidence
 
 
@@ -209,7 +209,7 @@ class PatternLearner:
         # Keep first 200 chars for matching
         return pattern[:200]
 
-    def _extract_fix_pattern(self, proposal: "PatchProposal") -> str:
+    def _extract_fix_pattern(self, proposal: PatchProposal) -> str:
         """Extract a description of what the fix does."""
         if proposal.description:
             return proposal.description[:500]
@@ -224,7 +224,7 @@ class PatternLearner:
     def _calculate_similarity(
         self,
         pattern: FixPattern,
-        analysis: "FailureAnalysis",
+        analysis: FailureAnalysis,
     ) -> float:
         """Calculate similarity between a pattern and a failure analysis."""
         score = 0.0
@@ -258,7 +258,7 @@ class PatternLearner:
 
         return score / weights_total if weights_total > 0 else 0.0
 
-    def learn_from_attempt(self, attempt: "FixAttempt") -> FixPattern | None:
+    def learn_from_attempt(self, attempt: FixAttempt) -> FixPattern | None:
         """Learn from a fix attempt.
 
         If successful, extracts a pattern for future use.
@@ -334,7 +334,7 @@ class PatternLearner:
 
     def find_similar_patterns(
         self,
-        analysis: "FailureAnalysis",
+        analysis: FailureAnalysis,
         min_similarity: float = 0.5,
         max_results: int = 5,
     ) -> list[PatternMatch]:
@@ -399,7 +399,7 @@ class PatternLearner:
 
         return sorted(patterns, key=lambda p: p.confidence, reverse=True)
 
-    def suggest_heuristic(self, analysis: "FailureAnalysis") -> str | None:
+    def suggest_heuristic(self, analysis: FailureAnalysis) -> str | None:
         """Suggest a fix approach based on learned patterns.
 
         Args:

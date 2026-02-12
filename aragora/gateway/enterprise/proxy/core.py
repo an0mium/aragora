@@ -131,7 +131,7 @@ class EnterpriseProxy:
     # Lifecycle Management
     # =========================================================================
 
-    async def __aenter__(self) -> "EnterpriseProxy":
+    async def __aenter__(self) -> EnterpriseProxy:
         """Async context manager entry."""
         await self.start()
         return self

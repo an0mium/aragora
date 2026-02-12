@@ -115,37 +115,37 @@ class ServerContext(TypedDict, total=False):
     """
 
     # Core Resources
-    storage: "DebateStorage"
-    user_store: "UserStore"
-    elo_system: "EloSystem"
-    nomic_dir: "Path"
+    storage: DebateStorage
+    user_store: UserStore
+    elo_system: EloSystem
+    nomic_dir: Path
 
     # Memory Systems
-    continuum_memory: "ContinuumMemory"
-    cross_debate_memory: "CrossDebateMemory"
-    critique_store: "CritiqueStore"
-    knowledge_mound: "KnowledgeMound"
+    continuum_memory: ContinuumMemory
+    cross_debate_memory: CrossDebateMemory
+    critique_store: CritiqueStore
+    knowledge_mound: KnowledgeMound
 
     # Analytics & Monitoring
-    calibration_tracker: "CalibrationTracker"
-    moment_detector: "MomentDetector"
-    usage_tracker: "UsageTracker"
+    calibration_tracker: CalibrationTracker
+    moment_detector: MomentDetector
+    usage_tracker: UsageTracker
 
     # Feature Stores
-    document_store: "DocumentStore"
-    evidence_store: "EvidenceStore"
-    evidence_collector: "EvidenceCollector"
-    webhook_store: "WebhookStore"
+    document_store: DocumentStore
+    evidence_store: EvidenceStore
+    evidence_collector: EvidenceCollector
+    webhook_store: WebhookStore
     audio_store: Any  # AudioStore type if available
 
     # Event & Communication
     event_emitter: Any  # EventEmitter type if available
-    ws_manager: "WebSocketManager"
+    ws_manager: WebSocketManager
     connectors: dict[str, Any]  # Service connectors
 
     # Database Paths
     analytics_db: str
-    debate_embeddings: "DebateEmbeddingsDatabase"
+    debate_embeddings: DebateEmbeddingsDatabase
 
     # Request Context (populated by handler registry)
     body: dict[str, Any]  # Parsed JSON request body
@@ -583,7 +583,7 @@ class BaseHandler:
 
         cls.__init__ = _wrapped_init  # type: ignore[assignment]
 
-    def __init__(self, server_context: "ServerContext | dict[str, Any]"):
+    def __init__(self, server_context: ServerContext | dict[str, Any]):
         """
         Initialize with server context.
 
@@ -811,27 +811,27 @@ class BaseHandler:
             result[param_name] = value
         return result, None
 
-    def get_storage(self) -> Optional["DebateStorage"]:
+    def get_storage(self) -> DebateStorage | None:
         """Get debate storage instance."""
         return self.ctx.get("storage")
 
-    def get_elo_system(self) -> Optional["EloSystem"]:
+    def get_elo_system(self) -> EloSystem | None:
         """Get ELO system instance."""
         # Check class attribute first (set by unified_server), then ctx
         if hasattr(self.__class__, "elo_system") and self.__class__.elo_system is not None:
-            elo: Optional["EloSystem"] = self.__class__.elo_system
+            elo: EloSystem | None = self.__class__.elo_system
             return elo
         return self.ctx.get("elo_system")
 
-    def get_debate_embeddings(self) -> Optional["DebateEmbeddingsDatabase"]:
+    def get_debate_embeddings(self) -> DebateEmbeddingsDatabase | None:
         """Get debate embeddings database."""
         return self.ctx.get("debate_embeddings")
 
-    def get_critique_store(self) -> Optional["CritiqueStore"]:
+    def get_critique_store(self) -> CritiqueStore | None:
         """Get critique store instance."""
         return self.ctx.get("critique_store")
 
-    def get_nomic_dir(self) -> Optional["Path"]:
+    def get_nomic_dir(self) -> Path | None:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")
 
@@ -872,7 +872,7 @@ class BaseHandler:
 
     def require_auth_or_error(
         self, handler: HTTPRequestHandler
-    ) -> tuple[UserAuthContext | None, Optional[HandlerResult]]:
+    ) -> tuple[UserAuthContext | None, HandlerResult | None]:
         """Require authentication and return user or error response.
 
         Alternative to @require_user_auth decorator for cases where you need
@@ -900,7 +900,7 @@ class BaseHandler:
 
     def require_admin_or_error(
         self, handler: HTTPRequestHandler
-    ) -> tuple[UserAuthContext | None, Optional[HandlerResult]]:
+    ) -> tuple[UserAuthContext | None, HandlerResult | None]:
         """Require admin authentication and return user or error response.
 
         Checks that the user is authenticated and has admin privileges

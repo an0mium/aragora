@@ -17,7 +17,7 @@ STABILITY_VALUES = {"stable", "beta", "experimental", "internal", "deprecated"}
 DEFAULT_STABILITY = "experimental"
 
 _MANIFEST_PATH = Path(__file__).with_name("stability_manifest.json")
-_CACHE: "StabilityIndex | None" = None
+_CACHE: StabilityIndex | None = None
 
 
 @dataclass(frozen=True)

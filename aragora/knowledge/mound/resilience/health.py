@@ -58,7 +58,7 @@ class ConnectionHealthMonitor:
             healthy=True,
             last_check=datetime.now(timezone.utc),
         )
-        self._check_task: Optional[asyncio.Task[None]] = None
+        self._check_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         """Start background health monitoring."""

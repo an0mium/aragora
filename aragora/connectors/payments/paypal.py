@@ -124,7 +124,7 @@ class PayPalCredentials:
         return "https://api-m.sandbox.paypal.com"
 
     @classmethod
-    def from_env(cls, prefix: str = "PAYPAL_") -> "PayPalCredentials":
+    def from_env(cls, prefix: str = "PAYPAL_") -> PayPalCredentials:
         """Load credentials from environment variables."""
         import os
 
@@ -160,7 +160,7 @@ class PayPalError(Exception):
         status_code: int | None = None,
         error_name: str | None = None,
         debug_id: str | None = None,
-        details: Optional[list[dict[str, Any]]] = None,
+        details: list[dict[str, Any]] | None = None,
     ):
         super().__init__(message)
         self.status_code = status_code
@@ -182,7 +182,7 @@ class Money:
     value: str  # String to preserve precision
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Money":
+    def from_api(cls, data: dict[str, Any]) -> Money:
         return cls(
             currency_code=data.get("currency_code", "USD"),
             value=data.get("value", "0.00"),
@@ -192,7 +192,7 @@ class Money:
         return {"currency_code": self.currency_code, "value": self.value}
 
     @classmethod
-    def usd(cls, amount: float) -> "Money":
+    def usd(cls, amount: float) -> Money:
         return cls(currency_code="USD", value=f"{amount:.2f}")
 
 
@@ -204,7 +204,7 @@ class PayerName:
     surname: str | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "PayerName":
+    def from_api(cls, data: dict[str, Any]) -> PayerName:
         return cls(
             given_name=data.get("given_name"),
             surname=data.get("surname"),
@@ -225,10 +225,10 @@ class Payer:
     name: PayerName | None = None
     phone: str | None = None
     birth_date: str | None = None
-    address: Optional[dict[str, Any]] = None
+    address: dict[str, Any] | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Payer":
+    def from_api(cls, data: dict[str, Any]) -> Payer:
         name_data = data.get("name")
         return cls(
             payer_id=data.get("payer_id"),
@@ -251,11 +251,11 @@ class PurchaseUnit:
     soft_descriptor: str | None = None
     amount: Money | None = None
     items: list[dict[str, Any]] = field(default_factory=list)
-    shipping: Optional[dict[str, Any]] = None
-    payments: Optional[dict[str, Any]] = None
+    shipping: dict[str, Any] | None = None
+    payments: dict[str, Any] | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "PurchaseUnit":
+    def from_api(cls, data: dict[str, Any]) -> PurchaseUnit:
         amount_data = data.get("amount")
         return cls(
             reference_id=data.get("reference_id"),
@@ -306,7 +306,7 @@ class Order:
     links: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Order":
+    def from_api(cls, data: dict[str, Any]) -> Order:
         return cls(
             id=data["id"],
             status=OrderStatus(data.get("status", "CREATED")),
@@ -334,15 +334,15 @@ class Capture:
     status: CaptureStatus
     amount: Money | None = None
     final_capture: bool = True
-    seller_protection: Optional[dict[str, Any]] = None
-    seller_receivable_breakdown: Optional[dict[str, Any]] = None
+    seller_protection: dict[str, Any] | None = None
+    seller_receivable_breakdown: dict[str, Any] | None = None
     invoice_id: str | None = None
     custom_id: str | None = None
     create_time: datetime | None = None
     update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Capture":
+    def from_api(cls, data: dict[str, Any]) -> Capture:
         amount_data = data.get("amount")
         return cls(
             id=data["id"],
@@ -367,12 +367,12 @@ class Refund:
     amount: Money | None = None
     invoice_id: str | None = None
     note_to_payer: str | None = None
-    seller_payable_breakdown: Optional[dict[str, Any]] = None
+    seller_payable_breakdown: dict[str, Any] | None = None
     create_time: datetime | None = None
     update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Refund":
+    def from_api(cls, data: dict[str, Any]) -> Refund:
         amount_data = data.get("amount")
         return cls(
             id=data["id"],
@@ -396,13 +396,13 @@ class BillingPlan:
     status: str = "ACTIVE"
     product_id: str | None = None
     billing_cycles: list[dict[str, Any]] = field(default_factory=list)
-    payment_preferences: Optional[dict[str, Any]] = None
-    taxes: Optional[dict[str, Any]] = None
+    payment_preferences: dict[str, Any] | None = None
+    taxes: dict[str, Any] | None = None
     create_time: datetime | None = None
     update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "BillingPlan":
+    def from_api(cls, data: dict[str, Any]) -> BillingPlan:
         return cls(
             id=data["id"],
             name=data.get("name", ""),
@@ -427,14 +427,14 @@ class Subscription:
     start_time: datetime | None = None
     quantity: str = "1"
     shipping_amount: Money | None = None
-    subscriber: Optional[dict[str, Any]] = None
-    billing_info: Optional[dict[str, Any]] = None
+    subscriber: dict[str, Any] | None = None
+    billing_info: dict[str, Any] | None = None
     create_time: datetime | None = None
     update_time: datetime | None = None
     links: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Subscription":
+    def from_api(cls, data: dict[str, Any]) -> Subscription:
         shipping_data = data.get("shipping_amount")
         return cls(
             id=data["id"],
@@ -495,7 +495,7 @@ class PayoutBatch:
     items: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "PayoutBatch":
+    def from_api(cls, data: dict[str, Any]) -> PayoutBatch:
         batch_header = data.get("batch_header", {})
         amount_data = batch_header.get("amount")
         fees_data = batch_header.get("fees")
@@ -559,11 +559,11 @@ class PayPalClient:
     def __init__(
         self,
         credentials: PayPalCredentials,
-        circuit_breaker: Optional["CircuitBreaker"] = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
     ):
         self.credentials = credentials
-        self._client: Optional["httpx.AsyncClient"] = None
+        self._client: httpx.AsyncClient | None = None
         self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
         self._circuit_breaker = circuit_breaker
@@ -577,7 +577,7 @@ class PayPalClient:
                 cooldown_seconds=120,  # Longer recovery for payment APIs
             )
 
-    async def __aenter__(self) -> "PayPalClient":
+    async def __aenter__(self) -> PayPalClient:
         import httpx
 
         self._client = httpx.AsyncClient(
@@ -641,9 +641,9 @@ class PayPalClient:
         self,
         method: str,
         endpoint: str,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make authenticated API request."""
         # Check circuit breaker before making request
@@ -717,7 +717,7 @@ class PayPalClient:
         reference_id: str | None = None,
         custom_id: str | None = None,
         invoice_id: str | None = None,
-        items: Optional[list[dict[str, Any]]] = None,
+        items: list[dict[str, Any]] | None = None,
         return_url: str | None = None,
         cancel_url: str | None = None,
         idempotency_key: str | None = None,
@@ -899,7 +899,7 @@ class PayPalClient:
         product_id: str,
         name: str,
         billing_cycles: list[dict[str, Any]],
-        payment_preferences: Optional[dict[str, Any]] = None,
+        payment_preferences: dict[str, Any] | None = None,
         description: str | None = None,
     ) -> BillingPlan:
         """
@@ -972,7 +972,7 @@ class PayPalClient:
         self,
         plan_id: str,
         subscriber_email: str | None = None,
-        subscriber_name: Optional[dict[str, str]] = None,
+        subscriber_name: dict[str, str] | None = None,
         start_time: datetime | None = None,
         custom_id: str | None = None,
         return_url: str | None = None,

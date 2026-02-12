@@ -125,7 +125,7 @@ class MigrationTracker:
         )
     """
 
-    def __init__(self, backend: "DatabaseBackend | DatabaseBackendProtocol") -> None:
+    def __init__(self, backend: DatabaseBackend | DatabaseBackendProtocol) -> None:
         """
         Initialize the migration tracker.
 

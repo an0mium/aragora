@@ -184,7 +184,7 @@ class AdaptiveTTLCache(Generic[K, V]):
         self._stats = CacheStats()
 
         # Background cleanup
-        self._cleanup_task: Optional[asyncio.Task[None]] = None
+        self._cleanup_task: asyncio.Task[None] | None = None
         self._running = False
 
     async def start(self) -> None:

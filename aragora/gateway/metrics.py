@@ -95,7 +95,7 @@ GATEWAY_AUDIT_EVENTS_TOTAL: Any = None
 class _NoOpMetric:
     """No-op metric for when prometheus_client is unavailable."""
 
-    def labels(self, *args: Any, **kwargs: Any) -> "_NoOpMetric":
+    def labels(self, *args: Any, **kwargs: Any) -> _NoOpMetric:
         return self
 
     def inc(self, amount: float = 1) -> None:

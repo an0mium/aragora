@@ -42,9 +42,9 @@ def cdc_event_factory():
         operation: str = "insert",
         table: str = "products",
         data: Any = _UNSET,
-        primary_key: Optional[dict[str, Any]] = None,
-        document_id: Optional[str] = None,
-        resume_token: Optional[str] = None,
+        primary_key: dict[str, Any] | None = None,
+        document_id: str | None = None,
+        resume_token: str | None = None,
     ) -> ChangeEvent:
         # Use sentinel to distinguish None/empty from "use default"
         event_data = {"name": "Test Product", "price": 99.99} if data is _UNSET else data

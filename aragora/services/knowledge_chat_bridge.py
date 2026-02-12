@@ -156,7 +156,7 @@ class KnowledgeChatBridge:
         user_id: str | None = None,
         scope: KnowledgeSearchScope = KnowledgeSearchScope.WORKSPACE,
         strategy: RelevanceStrategy = RelevanceStrategy.HYBRID,
-        node_types: Optional[list[str]] = None,
+        node_types: list[str] | None = None,
         min_confidence: float = 0.3,
         max_results: int | None = None,
     ) -> ChatKnowledgeContext:

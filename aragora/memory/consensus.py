@@ -322,7 +322,7 @@ class ConsensusMemory(SQLiteStore):
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
         # Optional Knowledge Mound adapter for bidirectional integration
-        self._km_adapter: Optional["ConsensusAdapter"] = km_adapter
+        self._km_adapter: ConsensusAdapter | None = km_adapter
 
     def set_km_adapter(self, adapter: "ConsensusAdapter") -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.

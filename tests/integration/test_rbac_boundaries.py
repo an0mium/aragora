@@ -435,7 +435,7 @@ class TestTenantBoundaries:
     async def test_cross_tenant_queries_blocked(self, tenant_a_user):
         """Queries across tenant boundaries should be blocked."""
 
-        def query_with_tenant_check(ctx: MockAuthContext, requested_tenant: str) -> Optional[list]:
+        def query_with_tenant_check(ctx: MockAuthContext, requested_tenant: str) -> list | None:
             if ctx.tenant_id != requested_tenant:
                 return None  # Blocked
             return ["allowed_data"]

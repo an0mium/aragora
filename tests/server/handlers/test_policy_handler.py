@@ -37,7 +37,7 @@ class MockPolicyRule:
     description: str = "A test rule"
     severity: str = "medium"
     enabled: bool = True
-    custom_threshold: Optional[float] = None
+    custom_threshold: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,7 +67,7 @@ class MockPolicy:
     rules: list[MockPolicyRule] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = None
+    created_by: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -105,9 +105,9 @@ class MockViolation:
     description: str = "Test violation detected"
     source: str = "manual_check"
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    resolved_at: Optional[datetime] = None
-    resolved_by: Optional[str] = None
-    resolution_notes: Optional[str] = None
+    resolved_at: datetime | None = None
+    resolved_by: str | None = None
+    resolution_notes: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -156,9 +156,9 @@ class MockPolicyStore:
 
     def list_policies(
         self,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
@@ -174,7 +174,7 @@ class MockPolicyStore:
             policies = [p for p in policies if p.enabled]
         return policies[offset : offset + limit]
 
-    def get_policy(self, policy_id: str) -> Optional[MockPolicy]:
+    def get_policy(self, policy_id: str) -> MockPolicy | None:
         return self._policies.get(policy_id)
 
     def create_policy(self, policy: MockPolicy) -> MockPolicy:
@@ -182,8 +182,8 @@ class MockPolicyStore:
         return policy
 
     def update_policy(
-        self, policy_id: str, data: dict[str, Any], changed_by: Optional[str] = None
-    ) -> Optional[MockPolicy]:
+        self, policy_id: str, data: dict[str, Any], changed_by: str | None = None
+    ) -> MockPolicy | None:
         if policy_id not in self._policies:
             return None
         policy = self._policies[policy_id]
@@ -199,7 +199,7 @@ class MockPolicyStore:
         return False
 
     def toggle_policy(
-        self, policy_id: str, enabled: bool, changed_by: Optional[str] = None
+        self, policy_id: str, enabled: bool, changed_by: str | None = None
     ) -> bool:
         if policy_id not in self._policies:
             return False
@@ -208,12 +208,12 @@ class MockPolicyStore:
 
     def list_violations(
         self,
-        policy_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
-        vertical_id: Optional[str] = None,
-        framework_id: Optional[str] = None,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
+        policy_id: str | None = None,
+        workspace_id: str | None = None,
+        vertical_id: str | None = None,
+        framework_id: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[MockViolation]:
@@ -228,7 +228,7 @@ class MockPolicyStore:
             violations = [v for v in violations if v.severity == severity]
         return violations[offset : offset + limit]
 
-    def get_violation(self, violation_id: str) -> Optional[MockViolation]:
+    def get_violation(self, violation_id: str) -> MockViolation | None:
         return self._violations.get(violation_id)
 
     def create_violation(self, violation: MockViolation) -> MockViolation:
@@ -239,9 +239,9 @@ class MockPolicyStore:
         self,
         violation_id: str,
         status: str,
-        resolved_by: Optional[str] = None,
-        resolution_notes: Optional[str] = None,
-    ) -> Optional[MockViolation]:
+        resolved_by: str | None = None,
+        resolution_notes: str | None = None,
+    ) -> MockViolation | None:
         if violation_id not in self._violations:
             return None
         violation = self._violations[violation_id]
@@ -253,7 +253,7 @@ class MockPolicyStore:
         return violation
 
     def count_violations(
-        self, workspace_id: Optional[str] = None, status: Optional[str] = None
+        self, workspace_id: str | None = None, status: str | None = None
     ) -> dict[str, int]:
         violations = list(self._violations.values())
         if workspace_id:
@@ -278,7 +278,7 @@ class MockComplianceManager:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[dict[str, Any]] = None,
+    body: dict[str, Any] | None = None,
     path: str = "/api/v1/policies",
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""

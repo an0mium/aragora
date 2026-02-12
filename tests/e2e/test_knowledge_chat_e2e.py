@@ -103,11 +103,11 @@ def mock_bridge(mock_knowledge_context, mock_knowledge_item):
     async def search_knowledge(
         query: str,
         workspace_id: str = "default",
-        channel_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        channel_id: str | None = None,
+        user_id: str | None = None,
         scope=None,
         strategy=None,
-        node_types: Optional[list[str]] = None,
+        node_types: list[str] | None = None,
         min_confidence: float = 0.3,
         max_results: int = 10,
     ):
@@ -131,7 +131,7 @@ def mock_bridge(mock_knowledge_context, mock_knowledge_item):
     async def inject_knowledge_for_conversation(
         messages: list[dict[str, Any]],
         workspace_id: str = "default",
-        channel_id: Optional[str] = None,
+        channel_id: str | None = None,
         max_context_items: int = 5,
     ):
         # Extract topics from messages

@@ -33,10 +33,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global voice processor instance (lazily initialized)
-_voice_processor: Optional["VoiceProcessor"] = None
+_voice_processor: VoiceProcessor | None = None
 
 
-def get_voice_processor() -> "VoiceProcessor":
+def get_voice_processor() -> VoiceProcessor:
     """Get or create the voice processor instance."""
     global _voice_processor
     if _voice_processor is None:

@@ -85,7 +85,7 @@ class GauntletStep(BaseStep):
 
     SEVERITY_LEVELS = ["low", "medium", "high", "critical"]
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
         self._findings_count = 0
         self._highest_severity: str | None = None

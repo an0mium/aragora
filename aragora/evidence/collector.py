@@ -248,14 +248,14 @@ class EvidenceCollector:
 
     def __init__(
         self,
-        connectors: Optional[dict[str, Connector]] = None,
+        connectors: dict[str, Connector] | None = None,
         event_emitter: Any | None = None,
         loop_id: str | None = None,
-        allowed_domains: Optional[set[str]] = None,
+        allowed_domains: set[str] | None = None,
         require_url_consent: bool = False,
-        url_consent_callback: Optional[Callable[[str, str], bool]] = None,
-        audit_callback: Optional[Callable[[str, str, str, bool], None]] = None,
-        km_adapter: Optional["EvidenceAdapter"] = None,
+        url_consent_callback: Callable[[str, str], bool] | None = None,
+        audit_callback: Callable[[str, str, str, bool], None] | None = None,
+        km_adapter: EvidenceAdapter | None = None,
     ):
         """Initialize the evidence collector.
 
@@ -294,7 +294,7 @@ class EvidenceCollector:
 
         # Document parser integration
         self._document_connector: Any | None = None
-        self._parsed_documents: dict[str, "ParsedDocument"] = {}
+        self._parsed_documents: dict[str, ParsedDocument] = {}
 
         if require_url_consent and url_consent_callback is None:
             raise ValueError("url_consent_callback is required when require_url_consent=True")
@@ -326,7 +326,7 @@ class EvidenceCollector:
         """Set the organization context for consent and audit tracking."""
         self._org_id = org_id
 
-    def set_km_adapter(self, adapter: "EvidenceAdapter") -> None:
+    def set_km_adapter(self, adapter: EvidenceAdapter) -> None:
         """Set Knowledge Mound adapter for querying existing evidence.
 
         Args:
@@ -384,7 +384,7 @@ class EvidenceCollector:
     async def parse_document_file(
         self,
         file_path: str | Path,
-    ) -> Optional[list[EvidenceSnippet]]:
+    ) -> list[EvidenceSnippet] | None:
         """Parse a document file and return evidence snippets.
 
         Supports PDF, DOCX, XLSX, PPTX, HTML, JSON, YAML, XML, CSV formats.
@@ -410,7 +410,7 @@ class EvidenceCollector:
 
             return self._document_to_snippets(doc, str(path))
 
-        except (OSError, IOError, PermissionError) as e:
+        except (OSError, PermissionError) as e:
             logger.error(f"Failed to parse document file {file_path} (I/O error): {e}")
             return None
         except (ValueError, TypeError, KeyError) as e:
@@ -422,7 +422,7 @@ class EvidenceCollector:
         content: bytes,
         filename: str,
         source_url: str | None = None,
-    ) -> Optional[list[EvidenceSnippet]]:
+    ) -> list[EvidenceSnippet] | None:
         """Parse document bytes and return evidence snippets.
 
         Args:
@@ -453,7 +453,7 @@ class EvidenceCollector:
 
     def _document_to_snippets(
         self,
-        doc: "ParsedDocument",
+        doc: ParsedDocument,
         source: str,
     ) -> list[EvidenceSnippet]:
         """Convert ParsedDocument to EvidenceSnippet list."""
@@ -507,7 +507,7 @@ class EvidenceCollector:
             if isinstance(table, list):
                 # Raw table data (list[list[str]])
                 table_data = cast(list[list[Any]], table)
-                table_headers: Optional[list[str]] = None
+                table_headers: list[str] | None = None
                 table_page: int | None = None
                 table_caption: str | None = None
             else:
@@ -551,7 +551,7 @@ class EvidenceCollector:
     def _format_table_for_snippet(
         self,
         data: list[list[Any]],
-        headers: Optional[list[str]] = None,
+        headers: list[str] | None = None,
     ) -> str:
         """Format table data as text for evidence snippet."""
         lines = []
@@ -802,7 +802,7 @@ class EvidenceCollector:
         task: str,
         enabled_connectors: list[str] = None,
         fetch_urls: bool | None = None,
-        document_files: Optional[list[str | Path]] = None,
+        document_files: list[str | Path] | None = None,
     ) -> EvidencePack:
         """Collect evidence relevant to the task.
 
@@ -1113,7 +1113,7 @@ class EvidenceCollector:
         pattern = r"^https?://github\.com/([\w.-]+)/([\w.-]+)/?$"
         return bool(re.match(pattern, url, re.IGNORECASE))
 
-    def _parse_github_repo(self, url: str) -> Optional[tuple[str, str]]:
+    def _parse_github_repo(self, url: str) -> tuple[str, str] | None:
         """Parse owner and repo from GitHub URL."""
         pattern = r"github\.com/([\w.-]+)/([\w.-]+)"
         match = re.search(pattern, url, re.IGNORECASE)

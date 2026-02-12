@@ -37,9 +37,9 @@ class LazySubsystem(Generic[T]):
     def __init__(
         self,
         private_attr: str,
-        factory: Callable[["Arena"], T],
-        condition: Optional[Callable[["Arena"], bool]] = None,
-        on_create: Optional[Callable[["Arena", T], None]] = None,
+        factory: Callable[[Arena], T],
+        condition: Callable[[Arena], bool] | None = None,
+        on_create: Callable[[Arena, T], None] | None = None,
     ):
         """Initialize lazy subsystem descriptor.
 
@@ -55,14 +55,14 @@ class LazySubsystem(Generic[T]):
         self.on_create = on_create
 
     @overload
-    def __get__(self, obj: None, objtype: type = ...) -> "LazySubsystem[T]": ...
+    def __get__(self, obj: None, objtype: type = ...) -> LazySubsystem[T]: ...
 
     @overload
-    def __get__(self, obj: "Arena", objtype: type = ...) -> T | None: ...
+    def __get__(self, obj: Arena, objtype: type = ...) -> T | None: ...
 
     def __get__(
-        self, obj: Optional["Arena"], objtype: type = None
-    ) -> "LazySubsystem[T] | T | None":
+        self, obj: Arena | None, objtype: type = None
+    ) -> LazySubsystem[T] | T | None:
         if obj is None:
             return self
 
@@ -91,13 +91,13 @@ class LazySubsystem(Generic[T]):
             setattr(obj, self.private_attr, None)
             return None
 
-    def __set__(self, obj: "Arena", value: T | None) -> None:
+    def __set__(self, obj: Arena, value: T | None) -> None:
         setattr(obj, self.private_attr, value)
 
 
 def lazy_property(
-    condition: Optional[Callable[["Arena"], bool]] = None,
-    on_create: Optional[Callable[["Arena", Any], None]] = None,
+    condition: Callable[[Arena], bool] | None = None,
+    on_create: Callable[[Arena, Any], None] | None = None,
 ):
     """Decorator for lazy property initialization.
 
@@ -111,10 +111,10 @@ def lazy_property(
         on_create: Optional callback after creation
     """
 
-    def decorator(func: Callable[["Arena"], T]) -> property:
+    def decorator(func: Callable[[Arena], T]) -> property:
         private_attr = f"_lazy_{func.__name__}"
 
-        def wrapper(self: "Arena") -> T | None:
+        def wrapper(self: Arena) -> T | None:
             # Check cache
             cached = getattr(self, private_attr, None)
             if cached is not None:
@@ -148,7 +148,7 @@ def lazy_property(
     return decorator
 
 
-def create_lazy_checkpoint_manager(arena: "Arena"):
+def create_lazy_checkpoint_manager(arena: Arena):
     """Factory for lazy checkpoint manager creation."""
     if not arena.protocol.enable_checkpointing:
         return None
@@ -164,7 +164,7 @@ def create_lazy_checkpoint_manager(arena: "Arena"):
         return None
 
 
-def create_lazy_knowledge_mound(arena: "Arena"):
+def create_lazy_knowledge_mound(arena: Arena):
     """Factory for lazy knowledge mound creation."""
     if not (arena.enable_knowledge_retrieval or arena.enable_knowledge_ingestion):
         return None
@@ -194,7 +194,7 @@ def create_lazy_knowledge_mound(arena: "Arena"):
         return None
 
 
-def create_lazy_population_manager(arena: "Arena"):
+def create_lazy_population_manager(arena: Arena):
     """Factory for lazy population manager creation."""
     if not arena.auto_evolve:
         return None
@@ -213,7 +213,7 @@ def create_lazy_population_manager(arena: "Arena"):
         return None
 
 
-def create_lazy_prompt_evolver(arena: "Arena"):
+def create_lazy_prompt_evolver(arena: Arena):
     """Factory for lazy prompt evolver creation."""
     if not arena.protocol.enable_prompt_evolution:
         return None
@@ -229,7 +229,7 @@ def create_lazy_prompt_evolver(arena: "Arena"):
         return None
 
 
-def create_lazy_cross_debate_memory(arena: "Arena"):
+def create_lazy_cross_debate_memory(arena: Arena):
     """Factory for lazy cross-debate memory creation."""
     if not getattr(arena, "enable_cross_debate_memory", True):
         return None

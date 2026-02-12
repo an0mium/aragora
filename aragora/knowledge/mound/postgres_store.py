@@ -519,7 +519,7 @@ class PostgresStore:
     async def get_relationships_async(
         self,
         node_id: str,
-        types: Optional[list[RelationshipType]] = None,
+        types: list[RelationshipType] | None = None,
     ) -> list[KnowledgeLink]:
         """Get relationships for a node."""
         async with self.connection() as conn:
@@ -559,7 +559,7 @@ class PostgresStore:
     async def get_relationships_batch_async(
         self,
         node_ids: list[str],
-        types: Optional[list[RelationshipType]] = None,
+        types: list[RelationshipType] | None = None,
     ) -> dict[str, list[KnowledgeLink]]:
         """Get relationships for multiple nodes in a single query.
 

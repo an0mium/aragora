@@ -74,7 +74,7 @@ class WhatsAppDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -143,7 +143,7 @@ class WhatsAppDock(ChannelDock):
     def _build_payload(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build WhatsApp API payload from normalized message."""
@@ -173,7 +173,7 @@ class WhatsAppDock(ChannelDock):
         self,
         channel_id: str,
         audio: Any,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """Send a voice message to WhatsApp."""

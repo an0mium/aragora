@@ -15,7 +15,7 @@ from aragora.server.handlers.base import HandlerResult
 def slack_response(
     text: str,
     response_type: str = "ephemeral",
-    attachments: Optional[list[dict[str, Any]]] = None,
+    attachments: list[dict[str, Any]] | None = None,
 ) -> HandlerResult:
     """Create a basic Slack response.
 

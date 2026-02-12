@@ -82,7 +82,7 @@ class ReceiptDeliveryConfig:
     include_evidence: bool = False
 
     @classmethod
-    def from_env(cls) -> "ReceiptDeliveryConfig":
+    def from_env(cls) -> ReceiptDeliveryConfig:
         """Create configuration from environment variables."""
         return cls(
             email_include_pdf=os.environ.get("ARAGORA_RECEIPT_EMAIL_PDF", "true").lower() == "true",
@@ -119,7 +119,7 @@ class ReceiptDeliveryResult:
 
 
 async def deliver_receipt(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     channels: list[str],
     recipients: list[str],
     slack_channel: str | None = None,
@@ -187,7 +187,7 @@ async def deliver_receipt(
 
 
 async def _deliver_via_email(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     recipient: str,
     config: ReceiptDeliveryConfig,
 ) -> ReceiptDeliveryResult:
@@ -273,7 +273,7 @@ async def _deliver_via_email(
 
 
 def _build_email_html(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     config: ReceiptDeliveryConfig,
 ) -> str:
     """Build HTML email body for receipt."""
@@ -367,7 +367,7 @@ def _build_email_html(
 
 
 async def _deliver_via_slack(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     channel: str,
     config: ReceiptDeliveryConfig,
 ) -> ReceiptDeliveryResult:
@@ -445,7 +445,7 @@ async def _deliver_via_slack(
 
 
 async def _deliver_via_webhook(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     webhook_url: str,
     config: ReceiptDeliveryConfig,
 ) -> ReceiptDeliveryResult:

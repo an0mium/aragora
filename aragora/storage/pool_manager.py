@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global pool state
-_shared_pool: Optional["Pool"] = None
+_shared_pool: Pool | None = None
 _pool_event_loop: asyncio.AbstractEventLoop | None = None
 _pool_config: dict[str, Any] = {}
 _dedicated_loop_thread: threading.Thread | None = None
@@ -52,7 +52,7 @@ async def initialize_shared_pool(
     command_timeout: float = 60.0,
     statement_timeout: int = 60,
     force: bool = False,
-) -> Optional["Pool"]:
+) -> Pool | None:
     """
     Initialize the shared PostgreSQL pool in the current event loop.
 
@@ -230,7 +230,7 @@ async def initialize_shared_pool(
         return None
 
 
-def get_shared_pool() -> Optional["Pool"]:
+def get_shared_pool() -> Pool | None:
     """
     Get the shared pool, validating it's being accessed from the correct event loop.
 

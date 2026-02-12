@@ -159,7 +159,7 @@ class WorkflowEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkflowEvent":
+    def from_dict(cls, data: dict[str, Any]) -> WorkflowEvent:
         """Create from dictionary."""
         return cls(
             id=data.get("id", str(uuid4())),
@@ -259,7 +259,7 @@ class FindingWorkflowData:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FindingWorkflowData":
+    def from_dict(cls, data: dict[str, Any]) -> FindingWorkflowData:
         """Create from dictionary."""
 
         return cls(

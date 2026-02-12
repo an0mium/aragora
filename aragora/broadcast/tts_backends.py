@@ -104,14 +104,14 @@ class TTSConfig:
     polly_text_type: str = "text"  # text or ssml
     polly_voice_map: dict[str, str] = field(default_factory=dict)
     polly_default_voice_id: str | None = None
-    polly_lexicons: Optional[list[str]] = None
+    polly_lexicons: list[str] | None = None
 
     # Cache settings
     cache_dir: Path | None = None
     enable_cache: bool = True
 
     @classmethod
-    def from_env(cls) -> "TTSConfig":
+    def from_env(cls) -> TTSConfig:
         """Create config from environment variables."""
         backend_order = (
             os.getenv("ARAGORA_TTS_ORDER")
@@ -553,7 +553,7 @@ class EdgeTTSBackend(TTSBackend):
         """Get Edge-TTS voice for speaker."""
         return EDGE_TTS_VOICES.get(speaker, EDGE_TTS_VOICES["default"])
 
-    def _get_command(self) -> Optional[list[str]]:
+    def _get_command(self) -> list[str] | None:
         """Get edge-tts command."""
         cmd = shutil.which("edge-tts")
         if cmd:

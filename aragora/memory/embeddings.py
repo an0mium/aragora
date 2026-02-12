@@ -361,7 +361,7 @@ class SemanticRetriever:
                     result = sock.connect_ex((host, port))
                     if result == 0:
                         return ollama
-            except (OSError, socket.error, socket.timeout, ConnectionError, TimeoutError) as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 logger.debug(f"Failed to connect to Ollama: {e}")
             # Fall back to hash-based embeddings (always works, no API needed)
             return EmbeddingProvider(dimension=256)

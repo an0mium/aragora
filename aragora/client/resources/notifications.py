@@ -72,7 +72,7 @@ class NotificationStats:
 class NotificationsAPI:
     """API interface for notification management."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -100,7 +100,7 @@ class NotificationsAPI:
         self,
         event_type: str,
         enabled: bool | None = None,
-        channels: Optional[builtins.list[str]] = None,
+        channels: builtins.list[str] | None = None,
         frequency: str | None = None,
     ) -> NotificationPreference:
         """
@@ -130,7 +130,7 @@ class NotificationsAPI:
         self,
         event_type: str,
         enabled: bool | None = None,
-        channels: Optional[builtins.list[str]] = None,
+        channels: builtins.list[str] | None = None,
         frequency: str | None = None,
     ) -> NotificationPreference:
         """Async version of update_preference()."""
@@ -214,7 +214,7 @@ class NotificationsAPI:
         channel_type: str,
         enabled: bool = True,
         target: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
     ) -> NotificationChannel:
         """
         Configure a notification channel.
@@ -245,7 +245,7 @@ class NotificationsAPI:
         channel_type: str,
         enabled: bool = True,
         target: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
     ) -> NotificationChannel:
         """Async version of configure_channel()."""
         body: dict[str, Any] = {

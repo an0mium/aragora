@@ -111,12 +111,12 @@ class GoogleDriveConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        folder_ids: Optional[list[str]] = None,
+        folder_ids: list[str] | None = None,
         include_shared_drives: bool = True,
         include_trashed: bool = False,
         export_google_docs: bool = True,
         max_file_size_mb: int = 100,
-        exclude_patterns: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
         **kwargs: Any,
     ):
         """
@@ -197,7 +197,7 @@ class GoogleDriveConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Make a request to Google Drive API."""

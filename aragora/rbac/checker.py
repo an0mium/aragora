@@ -96,13 +96,13 @@ class PermissionChecker:
         auditor: AuthorizationAuditor | None = None,
         cache_ttl: int = 300,
         enable_cache: bool = True,
-        cache_backend: Optional["RBACDistributedCache"] = None,
-        resource_permission_store: Optional["ResourcePermissionStore"] = None,
-        delegation_manager: Optional["DelegationManager"] = None,
+        cache_backend: RBACDistributedCache | None = None,
+        resource_permission_store: ResourcePermissionStore | None = None,
+        delegation_manager: DelegationManager | None = None,
         enable_delegation: bool = True,
         enable_workspace_scope: bool = True,
         enable_conditions: bool = True,
-        condition_evaluator: Optional["ConditionEvaluator"] = None,
+        condition_evaluator: ConditionEvaluator | None = None,
     ) -> None:
         """
         Initialize the permission checker.
@@ -184,7 +184,7 @@ class PermissionChecker:
             user_v = self._user_resource_cache_versions.get(user_id, 0)
         return f"v{global_v}.{user_v}"
 
-    def _get_condition_evaluator(self) -> "ConditionEvaluator":
+    def _get_condition_evaluator(self) -> ConditionEvaluator:
         """Get the condition evaluator (custom or global singleton)."""
         if self._condition_evaluator is not None:
             return self._condition_evaluator
@@ -439,7 +439,7 @@ class PermissionChecker:
 
         return decision
 
-    def set_resource_permission_store(self, store: Optional["ResourcePermissionStore"]) -> None:
+    def set_resource_permission_store(self, store: ResourcePermissionStore | None) -> None:
         """
         Set the resource permission store.
 
@@ -450,7 +450,7 @@ class PermissionChecker:
         # Clear resource permission cache when store changes
         self._resource_permission_cache.clear()
 
-    def get_resource_permission_store(self) -> Optional["ResourcePermissionStore"]:
+    def get_resource_permission_store(self) -> ResourcePermissionStore | None:
         """Get the current resource permission store."""
         return self._resource_permission_store
 
@@ -818,15 +818,15 @@ class PermissionChecker:
         workspace_roles = self._workspace_roles.get(workspace_id, {})
         return workspace_roles.get(user_id, set()).copy()
 
-    def set_delegation_manager(self, manager: Optional["DelegationManager"]) -> None:
+    def set_delegation_manager(self, manager: DelegationManager | None) -> None:
         """Set the delegation manager."""
         self._delegation_manager = manager
 
-    def get_delegation_manager(self) -> Optional["DelegationManager"]:
+    def get_delegation_manager(self) -> DelegationManager | None:
         """Get the current delegation manager."""
         return self._delegation_manager
 
-    def set_condition_evaluator(self, evaluator: Optional["ConditionEvaluator"]) -> None:
+    def set_condition_evaluator(self, evaluator: ConditionEvaluator | None) -> None:
         """Set a custom condition evaluator.
 
         Args:
@@ -834,7 +834,7 @@ class PermissionChecker:
         """
         self._condition_evaluator = evaluator
 
-    def get_condition_evaluator(self) -> Optional["ConditionEvaluator"]:
+    def get_condition_evaluator(self) -> ConditionEvaluator | None:
         """Get the current condition evaluator (custom instance only)."""
         return self._condition_evaluator
 

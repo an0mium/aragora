@@ -101,10 +101,10 @@ class FeedbackPhase:
         event_emitter: EventEmitterProtocol | None = None,
         loop_id: str | None = None,
         # Callbacks for orchestrator methods
-        emit_moment_event: Optional[Callable[[Any], None]] = None,
-        store_debate_outcome_as_memory: Optional[Callable[[Any], None]] = None,
-        update_continuum_memory_outcomes: Optional[Callable[[Any], None]] = None,
-        index_debate_async: Optional[Callable[[dict[str, Any]], Any]] = None,
+        emit_moment_event: Callable[[Any], None] | None = None,
+        store_debate_outcome_as_memory: Callable[[Any], None] | None = None,
+        update_continuum_memory_outcomes: Callable[[Any], None] | None = None,
+        index_debate_async: Callable[[dict[str, Any]], Any] | None = None,
         # ConsensusMemory for storing historical outcomes
         consensus_memory: ConsensusMemoryProtocol | None = None,
         # CalibrationTracker for prediction accuracy
@@ -120,7 +120,7 @@ class FeedbackPhase:
         # Insight store for tracking applied insights
         insight_store: InsightStoreProtocol | None = None,
         # Training data export for Tinker integration
-        training_exporter: Optional[Callable[[list[dict[str, Any]], str], Any]] = None,
+        training_exporter: Callable[[list[dict[str, Any]], str], Any] | None = None,
         # Broadcast auto-trigger for high-quality debates
         broadcast_pipeline: BroadcastPipelineProtocol | None = None,
         auto_broadcast: bool = False,
@@ -128,7 +128,7 @@ class FeedbackPhase:
         # Knowledge Mound integration
         knowledge_mound: Any | None = None,  # KnowledgeMound for unified knowledge ingestion
         enable_knowledge_ingestion: bool = True,  # Store debate outcomes in mound
-        ingest_debate_outcome: Optional[Callable[[Any], Any]] = None,  # Callback to ingest outcome
+        ingest_debate_outcome: Callable[[Any], Any] | None = None,  # Callback to ingest outcome
         knowledge_bridge_hub: Any | None = None,  # KnowledgeBridgeHub for bridge access
         # Memory Coordination (cross-system atomic writes)
         memory_coordinator: Any | None = None,  # MemoryCoordinator for atomic writes
@@ -272,7 +272,7 @@ class FeedbackPhase:
             breeding_threshold=breeding_threshold,
         )
 
-    async def execute(self, ctx: "DebateContext") -> None:
+    async def execute(self, ctx: DebateContext) -> None:
         """
         Execute all feedback loops.
 
@@ -378,7 +378,7 @@ class FeedbackPhase:
         # 29. Generate and optionally post decision receipt
         await self._generate_and_post_receipt(ctx)
 
-    async def _maybe_trigger_workflow(self, ctx: "DebateContext") -> None:
+    async def _maybe_trigger_workflow(self, ctx: DebateContext) -> None:
         """Trigger post-debate workflow for high-quality debates.
 
         When enabled via enable_post_debate_workflow, this method:
@@ -414,7 +414,7 @@ class FeedbackPhase:
             confidence,
         )
 
-    async def _run_workflow_async(self, ctx: "DebateContext") -> None:
+    async def _run_workflow_async(self, ctx: DebateContext) -> None:
         """Run workflow engine asynchronously.
 
         This is a fire-and-forget task so it doesn't block debate completion.
@@ -462,7 +462,7 @@ class FeedbackPhase:
         except Exception as e:
             logger.warning("[workflow] Post-debate workflow failed: %s", e)
 
-    async def _generate_and_post_receipt(self, ctx: "DebateContext") -> Any | None:
+    async def _generate_and_post_receipt(self, ctx: DebateContext) -> Any | None:
         """Generate decision receipt and optionally post to originating channel.
 
         When enabled via enable_auto_receipt, this method:
@@ -563,7 +563,7 @@ class FeedbackPhase:
             logger.warning("[receipt] Receipt generation failed: %s", e)
             return None
 
-    async def _execute_coordinated_writes(self, ctx: "DebateContext") -> None:
+    async def _execute_coordinated_writes(self, ctx: DebateContext) -> None:
         """Execute coordinated atomic writes to all memory systems.
 
         When enabled, this provides transaction semantics for multi-system
@@ -609,7 +609,7 @@ class FeedbackPhase:
         except Exception as e:
             logger.error("[coordinator] Transaction failed for %s: %s", ctx.debate_id, e)
 
-    async def _update_selection_feedback(self, ctx: "DebateContext") -> None:
+    async def _update_selection_feedback(self, ctx: DebateContext) -> None:
         """Update selection feedback loop with debate outcome.
 
         Records debate performance metrics and computes selection weight
@@ -643,7 +643,7 @@ class FeedbackPhase:
             logger.debug("[feedback] Selection feedback update failed: %s", e)
 
     def _emit_selection_feedback_event(
-        self, ctx: "DebateContext", adjustments: dict[str, float]
+        self, ctx: DebateContext, adjustments: dict[str, float]
     ) -> None:
         """Emit SELECTION_FEEDBACK event for real-time monitoring."""
         if not self.event_emitter:
@@ -667,7 +667,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug("Selection feedback event emission error: %s", e)
 
-    async def _ingest_knowledge_outcome(self, ctx: "DebateContext") -> None:
+    async def _ingest_knowledge_outcome(self, ctx: DebateContext) -> None:
         """Ingest debate outcome into Knowledge Mound for future retrieval.
 
         Stores high-confidence debate conclusions in the unified knowledge
@@ -688,7 +688,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning("[knowledge_mound] Failed to ingest outcome: %s", e)
 
-    async def _extract_knowledge_from_debate(self, ctx: "DebateContext") -> None:
+    async def _extract_knowledge_from_debate(self, ctx: DebateContext) -> None:
         """Extract structured knowledge (claims, relationships) from debate.
 
         Uses the Knowledge Mound's extraction capabilities to identify:
@@ -778,7 +778,7 @@ class FeedbackPhase:
             # Catch-all for unexpected errors; don't fail the feedback phase
             logger.error("[knowledge_extraction] Unexpected error during extraction: %s", e)
 
-    async def _store_evidence_in_mound(self, ctx: "DebateContext") -> None:
+    async def _store_evidence_in_mound(self, ctx: DebateContext) -> None:
         """Store collected evidence in Knowledge Mound via EvidenceBridge.
 
         Persists evidence gathered during the debate (sources, quotes, data)
@@ -813,7 +813,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning("[evidence] Failed to store evidence: %s", e)
 
-    async def _observe_debate_culture(self, ctx: "DebateContext") -> None:
+    async def _observe_debate_culture(self, ctx: DebateContext) -> None:
         """Observe debate for organizational culture patterns.
 
         Extracts patterns from debate outcomes to build institutional knowledge
@@ -840,7 +840,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.debug("[culture] Pattern observation failed: %s", e)
 
-    async def _maybe_trigger_broadcast(self, ctx: "DebateContext") -> None:
+    async def _maybe_trigger_broadcast(self, ctx: DebateContext) -> None:
         """Trigger broadcast for high-quality debates.
 
         When enabled via auto_broadcast, this method:
@@ -875,7 +875,7 @@ class FeedbackPhase:
             confidence,
         )
 
-    async def _broadcast_async(self, ctx: "DebateContext") -> None:
+    async def _broadcast_async(self, ctx: DebateContext) -> None:
         """Run broadcast pipeline asynchronously.
 
         This is a fire-and-forget task so it doesn't block debate completion.
@@ -910,7 +910,7 @@ class FeedbackPhase:
         except Exception as e:
             logger.warning("[broadcast] Auto-broadcast failed: %s", e)
 
-    def _assess_risks(self, ctx: "DebateContext") -> None:
+    def _assess_risks(self, ctx: DebateContext) -> None:
         """Assess domain-specific risks and emit RISK_WARNING events.
 
         Analyzes the debate topic for safety-sensitive domains (medical, legal,
@@ -956,7 +956,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.debug(f"Risk assessment error: {e}")
 
-    def _record_calibration(self, ctx: "DebateContext") -> None:
+    def _record_calibration(self, ctx: DebateContext) -> None:
         """Record calibration data from agent votes with confidence.
 
         Tracks (confidence, outcome) pairs for measuring prediction accuracy.
@@ -1002,7 +1002,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"[calibration] Failed to record: {e}")
 
-    def _emit_calibration_update(self, ctx: "DebateContext", recorded_count: int) -> None:
+    def _emit_calibration_update(self, ctx: DebateContext, recorded_count: int) -> None:
         """Emit CALIBRATION_UPDATE event to WebSocket."""
         if not self.event_emitter or not self.calibration_tracker:
             return
@@ -1031,7 +1031,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Calibration event emission error: {e}")
 
-    def _record_pulse_outcome(self, ctx: "DebateContext") -> None:
+    def _record_pulse_outcome(self, ctx: DebateContext) -> None:
         """Record pulse outcome if the debate was on a trending topic.
 
         This enables analytics on which trending topics lead to productive debates.
@@ -1068,7 +1068,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning(f"[pulse] Failed to record outcome: {e}")
 
-    def _run_memory_cleanup(self, ctx: "DebateContext") -> None:
+    def _run_memory_cleanup(self, ctx: DebateContext) -> None:
         """Run periodic memory cleanup to prevent unbounded growth.
 
         Cleans up expired memories and enforces tier limits. This activates
@@ -1102,19 +1102,19 @@ class FeedbackPhase:
     # Kept for backward compatibility
     # =========================================================================
 
-    def _record_elo_match(self, ctx: "DebateContext") -> None:
+    def _record_elo_match(self, ctx: DebateContext) -> None:
         """Record ELO match results. Delegates to EloFeedback."""
         self._elo_feedback.record_elo_match(ctx)
 
-    def _emit_match_recorded_event(self, ctx: "DebateContext", participants: list[str]) -> None:
+    def _emit_match_recorded_event(self, ctx: DebateContext, participants: list[str]) -> None:
         """Emit MATCH_RECORDED event. Delegates to EloFeedback."""
         self._elo_feedback._emit_match_recorded_event(ctx, participants)
 
-    def _record_voting_accuracy(self, ctx: "DebateContext") -> None:
+    def _record_voting_accuracy(self, ctx: DebateContext) -> None:
         """Record voting accuracy. Delegates to EloFeedback."""
         self._elo_feedback.record_voting_accuracy(ctx)
 
-    def _apply_learning_bonuses(self, ctx: "DebateContext") -> None:
+    def _apply_learning_bonuses(self, ctx: DebateContext) -> None:
         """Apply learning bonuses. Delegates to EloFeedback."""
         self._elo_feedback.apply_learning_bonuses(ctx)
 
@@ -1123,21 +1123,21 @@ class FeedbackPhase:
     # Kept for backward compatibility
     # =========================================================================
 
-    def _update_persona_performance(self, ctx: "DebateContext") -> None:
+    def _update_persona_performance(self, ctx: DebateContext) -> None:
         """Update PersonaManager. Delegates to PersonaFeedback."""
         self._persona_feedback.update_persona_performance(ctx)
 
-    def _check_trait_emergence(self, ctx: "DebateContext") -> None:
+    def _check_trait_emergence(self, ctx: DebateContext) -> None:
         """Check trait emergence. Delegates to PersonaFeedback."""
         self._persona_feedback.check_trait_emergence(ctx)
 
     def _detect_emerging_traits(
-        self, agent_name: str, ctx: "DebateContext"
+        self, agent_name: str, ctx: DebateContext
     ) -> list[dict[str, Any]]:
         """Detect emerging traits. Delegates to PersonaFeedback."""
         return self._persona_feedback.detect_emerging_traits(agent_name, ctx)
 
-    def _resolve_positions(self, ctx: "DebateContext") -> None:
+    def _resolve_positions(self, ctx: DebateContext) -> None:
         """Resolve positions in PositionLedger."""
         if not self.position_ledger:
             return
@@ -1160,7 +1160,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Position resolution failed: %s", e)
 
-    def _update_relationships(self, ctx: "DebateContext") -> None:
+    def _update_relationships(self, ctx: DebateContext) -> None:
         """Update relationship metrics from debate."""
         if not self.relationship_tracker:
             return
@@ -1196,7 +1196,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Relationship tracking failed: %s", e)
 
-    def _detect_moments(self, ctx: "DebateContext") -> None:
+    def _detect_moments(self, ctx: DebateContext) -> None:
         """Detect significant narrative moments."""
         if not self.moment_detector:
             return
@@ -1239,7 +1239,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Moment detection failed: %s", e)
 
-    async def _index_debate(self, ctx: "DebateContext") -> None:
+    async def _index_debate(self, ctx: DebateContext) -> None:
         """Index debate in embeddings for historical retrieval."""
         if not self.debate_embeddings:
             return
@@ -1289,7 +1289,7 @@ class FeedbackPhase:
         ) as e:
             logger.warning("Embedding indexing failed: %s", e)
 
-    def _detect_flips(self, ctx: "DebateContext") -> None:
+    def _detect_flips(self, ctx: DebateContext) -> None:
         """Detect position flips for all participating agents."""
         if not self.flip_detector:
             return
@@ -1306,7 +1306,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Flip detection failed: %s", e)
 
-    def _emit_flip_events(self, ctx: "DebateContext", agent_name: str, flips: list) -> None:
+    def _emit_flip_events(self, ctx: DebateContext, agent_name: str, flips: list) -> None:
         """Emit FLIP_DETECTED events to WebSocket."""
         if not self.event_emitter:
             return
@@ -1335,7 +1335,7 @@ class FeedbackPhase:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.warning(f"Flip event emission error: {e}")
 
-    def _store_memory(self, ctx: "DebateContext") -> None:
+    def _store_memory(self, ctx: DebateContext) -> None:
         """Store debate outcome in ContinuumMemory."""
         if not self.continuum_memory:
             return
@@ -1347,7 +1347,7 @@ class FeedbackPhase:
         if self._store_debate_outcome_as_memory:
             self._store_debate_outcome_as_memory(result)
 
-    def _update_memory_outcomes(self, ctx: "DebateContext") -> None:
+    def _update_memory_outcomes(self, ctx: DebateContext) -> None:
         """Update retrieved memories based on debate outcome."""
         if not self.continuum_memory:
             return
@@ -1360,19 +1360,19 @@ class FeedbackPhase:
     # Kept for backward compatibility
     # =========================================================================
 
-    def _update_genome_fitness(self, ctx: "DebateContext") -> None:
+    def _update_genome_fitness(self, ctx: DebateContext) -> None:
         """Update genome fitness. Delegates to EvolutionFeedback."""
         self._evolution_feedback.update_genome_fitness(ctx)
 
     def _check_agent_prediction(
         self,
-        agent: "Agent",
-        ctx: "DebateContext",
+        agent: Agent,
+        ctx: DebateContext,
     ) -> bool:
         """Check agent prediction. Delegates to EvolutionFeedback."""
         return self._evolution_feedback._check_agent_prediction(agent, ctx)
 
-    async def _maybe_evolve_population(self, ctx: "DebateContext") -> None:
+    async def _maybe_evolve_population(self, ctx: DebateContext) -> None:
         """Maybe evolve population. Delegates to EvolutionFeedback."""
         await self._evolution_feedback.maybe_evolve_population(ctx)
 
@@ -1380,7 +1380,7 @@ class FeedbackPhase:
         """Evolve population async. Delegates to EvolutionFeedback."""
         await self._evolution_feedback._evolve_async(population)
 
-    def _record_evolution_patterns(self, ctx: "DebateContext") -> None:
+    def _record_evolution_patterns(self, ctx: DebateContext) -> None:
         """Record evolution patterns. Delegates to EvolutionFeedback."""
         self._evolution_feedback.record_evolution_patterns(ctx)
 
@@ -1390,24 +1390,24 @@ class FeedbackPhase:
     # that existing tests and callers rely on.
     # =========================================================================
 
-    def _store_consensus_outcome(self, ctx: "DebateContext") -> None:
+    def _store_consensus_outcome(self, ctx: DebateContext) -> None:
         """Delegate to ConsensusStorage for backward compatibility."""
         consensus_id = self._consensus_storage.store_consensus_outcome(ctx)
         if consensus_id:
             setattr(ctx, "_last_consensus_id", consensus_id)
 
-    def _confidence_to_strength(self, confidence: float) -> "ConsensusStrength":
+    def _confidence_to_strength(self, confidence: float) -> ConsensusStrength:
         """Delegate to ConsensusStorage for backward compatibility."""
         return self._consensus_storage._confidence_to_strength(confidence)
 
-    def _store_cruxes(self, ctx: "DebateContext") -> None:
+    def _store_cruxes(self, ctx: DebateContext) -> None:
         """Delegate to ConsensusStorage for backward compatibility."""
         self._consensus_storage.store_cruxes(ctx)
 
-    async def _record_insight_usage(self, ctx: "DebateContext") -> None:
+    async def _record_insight_usage(self, ctx: DebateContext) -> None:
         """Delegate to TrainingEmitter for backward compatibility."""
         await self._training_emitter.record_insight_usage(ctx)
 
-    async def _emit_training_data(self, ctx: "DebateContext") -> None:
+    async def _emit_training_data(self, ctx: DebateContext) -> None:
         """Delegate to TrainingEmitter for backward compatibility."""
         await self._training_emitter.emit_training_data(ctx)

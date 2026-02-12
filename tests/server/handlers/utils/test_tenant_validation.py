@@ -52,16 +52,16 @@ class MockUser:
     """Mock user context for testing."""
 
     user_id: str = "user-123"
-    tenant_id: Optional[str] = None
-    org_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    roles: Optional[set[str]] = None
-    role: Optional[str] = None
-    permissions: Optional[set[str]] = None
+    tenant_id: str | None = None
+    org_id: str | None = None
+    workspace_id: str | None = None
+    roles: set[str] | None = None
+    role: str | None = None
+    permissions: set[str] | None = None
     is_admin: bool = False
     is_superadmin: bool = False
-    workspace_memberships: Optional[list[dict]] = None
-    tenant_memberships: Optional[list[dict]] = None
+    workspace_memberships: list[dict] | None = None
+    tenant_memberships: list[dict] | None = None
 
 
 # ===========================================================================

@@ -29,13 +29,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global provenance store singleton
-_provenance_store: Optional["ProvenanceStore"] = None
+_provenance_store: ProvenanceStore | None = None
 
 # In-memory cache for active managers (avoids repeated DB loads)
 _provenance_managers: dict[str, ProvenanceManager] = {}
 
 
-def get_provenance_store() -> "ProvenanceStore":
+def get_provenance_store() -> ProvenanceStore:
     """Get or create the global ProvenanceStore instance."""
     global _provenance_store
     if _provenance_store is None:

@@ -50,7 +50,7 @@ from aragora.persistence.db_config import get_default_data_dir
 logger = logging.getLogger(__name__)
 
 # Module-level shared state singleton
-_shared_state: Optional["SharedControlPlaneState"] = None
+_shared_state: SharedControlPlaneState | None = None
 
 
 @dataclass
@@ -103,7 +103,7 @@ class AgentState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AgentState":
+    def from_dict(cls, data: dict[str, Any]) -> AgentState:
         """Create from dict."""
         return cls(
             id=data.get("id", ""),
@@ -162,7 +162,7 @@ class TaskState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TaskState":
+    def from_dict(cls, data: dict[str, Any]) -> TaskState:
         """Create from dict."""
         return cls(
             id=data.get("id", ""),
@@ -415,7 +415,7 @@ class SharedControlPlaneState:
 
         return [a.to_dict() for a in agents]
 
-    async def get_agent(self, agent_id: str) -> Optional[dict[str, Any]]:
+    async def get_agent(self, agent_id: str) -> dict[str, Any] | None:
         """Get a specific agent by ID."""
         agent = await self._get_agent(agent_id)
         return agent.to_dict() if agent else None
@@ -441,7 +441,7 @@ class SharedControlPlaneState:
         self,
         agent_id: str,
         status: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Update agent status (pause/resume/etc).
 
@@ -543,7 +543,7 @@ class SharedControlPlaneState:
         task_id: str,
         priority: str,
         position: int | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Update task priority and/or position."""
         task = await self._get_task(task_id)
         if not task:

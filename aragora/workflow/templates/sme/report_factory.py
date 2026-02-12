@@ -22,7 +22,7 @@ def create_report_workflow(
     frequency: str = "weekly",
     date_range: str = "last_week",
     format: str = "pdf",
-    recipients: Optional[list[str]] = None,
+    recipients: list[str] | None = None,
     include_charts: bool = True,
     include_comparison: bool = True,
 ) -> WorkflowDefinition:
@@ -169,9 +169,9 @@ def weekly_sales_report(recipients: list[str]) -> WorkflowDefinition:
 def create_budget_allocation_workflow(
     department: str,
     total_budget: float,
-    categories: Optional[list[str]] = None,
+    categories: list[str] | None = None,
     fiscal_year: str | None = None,
-    constraints: Optional[list[str]] = None,
+    constraints: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create a budget allocation workflow.
 
@@ -293,10 +293,10 @@ def create_budget_allocation_workflow(
 
 def create_feature_prioritization_workflow(
     features: list[str],
-    constraints: Optional[list[str]] = None,
+    constraints: list[str] | None = None,
     team_capacity: str | None = None,
     timeline: str = "next quarter",
-    scoring_criteria: Optional[list[str]] = None,
+    scoring_criteria: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create a feature prioritization workflow.
 
@@ -521,8 +521,8 @@ def create_contract_review_workflow(
     contract_type: str,
     counterparty: str,
     contract_value: str | None = None,
-    key_terms: Optional[list[str]] = None,
-    concerns: Optional[list[str]] = None,
+    key_terms: list[str] | None = None,
+    concerns: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create a contract review workflow.
 
@@ -645,7 +645,7 @@ def create_contract_review_workflow(
 def create_business_decision_workflow(
     decision_topic: str,
     context: str | None = None,
-    stakeholders: Optional[list[str]] = None,
+    stakeholders: list[str] | None = None,
     urgency: str = "normal",
     impact_level: str = "medium",
 ) -> WorkflowDefinition:

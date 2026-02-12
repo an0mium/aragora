@@ -66,7 +66,7 @@ class FastTierMixin:
         content: str,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
-    ) -> "ContinuumMemoryEntry":
+    ) -> ContinuumMemoryEntry:
         """
         Store a memory in the fast tier.
 
@@ -147,7 +147,7 @@ class FastTierMixin:
         content: str,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
-    ) -> "ContinuumMemoryEntry":
+    ) -> ContinuumMemoryEntry:
         """Async wrapper for store_fast()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -160,7 +160,7 @@ class FastTierMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve memories from the fast tier with 1-hour decay.
 
@@ -239,7 +239,7 @@ class FastTierMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for retrieve_fast()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(

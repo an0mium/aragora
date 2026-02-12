@@ -147,7 +147,7 @@ class ByzantineConsensus:
     Tolerates up to f faulty agents where n >= 3f + 1.
     """
 
-    agents: Sequence["Agent"]
+    agents: Sequence[Agent]
     config: ByzantineConsensusConfig = field(default_factory=ByzantineConsensusConfig)
 
     # State
@@ -180,14 +180,14 @@ class ByzantineConsensus:
         return 2 * self.f + 1
 
     @property
-    def leader(self) -> "Agent":
+    def leader(self) -> Agent:
         """Current leader (rotating by view number)."""
         return self.agents[self._current_view % self.n]
 
     async def propose(
         self,
         proposal: str,
-        proposer: Optional["Agent"] = None,
+        proposer: Agent | None = None,
         task: str = "",
     ) -> ByzantineConsensusResult:
         """
@@ -292,7 +292,7 @@ class ByzantineConsensus:
         """
         self._prepare_votes[pre_prepare.proposal_hash] = set()
 
-        async def get_prepare_vote(agent: "Agent") -> str | None:
+        async def get_prepare_vote(agent: Agent) -> str | None:
             try:
                 prompt = self._build_prepare_prompt(pre_prepare, task)
                 response = await asyncio.wait_for(
@@ -335,7 +335,7 @@ class ByzantineConsensus:
         """
         self._commit_votes[pre_prepare.proposal_hash] = set()
 
-        async def get_commit_vote(agent: "Agent") -> str | None:
+        async def get_commit_vote(agent: Agent) -> str | None:
             try:
                 prompt = self._build_commit_prompt(pre_prepare, prepare_votes, task)
                 response = await asyncio.wait_for(
@@ -451,7 +451,7 @@ class ConsensusFailure(Exception):
 
 async def verify_with_byzantine_consensus(
     proposal: str,
-    agents: Sequence["Agent"],
+    agents: Sequence[Agent],
     task: str = "",
     fault_tolerance: float = 0.33,
 ) -> ByzantineConsensusResult:

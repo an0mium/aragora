@@ -248,7 +248,7 @@ class AuditEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditEvent":
+    def from_dict(cls, data: dict[str, Any]) -> AuditEvent:
         """Create from dictionary."""
         return cls(
             id=data.get("id", str(uuid4())),

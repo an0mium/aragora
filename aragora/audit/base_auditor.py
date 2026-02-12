@@ -135,7 +135,7 @@ class ChunkData:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChunkData":
+    def from_dict(cls, data: dict[str, Any]) -> ChunkData:
         """Create from dictionary (e.g., from database/API)."""
         return cls(
             id=data.get("id", ""),

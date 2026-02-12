@@ -507,7 +507,7 @@ async def run_epic_debate() -> dict[str, Any]:
 # =============================================================================
 
 
-async def generate_debate_audio(result: dict[str, Any], output_dir: Path) -> Optional[Path]:
+async def generate_debate_audio(result: dict[str, Any], output_dir: Path) -> Path | None:
     """Generate ElevenLabs audio from debate result."""
     try:
         import httpx

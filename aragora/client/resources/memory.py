@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class MemoryAPI:
     """API interface for memory tier analytics."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def analytics(self, days: int = 30) -> MemoryAnalyticsResponse:

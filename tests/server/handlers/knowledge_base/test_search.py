@@ -100,9 +100,9 @@ class MockSearchResult:
 class MockQueryEngine:
     """Mock query engine for testing."""
 
-    def __init__(self, results: Optional[list[MockSearchResult]] = None):
+    def __init__(self, results: list[MockSearchResult] | None = None):
         self._results = results or []
-        self._search_error: Optional[Exception] = None
+        self._search_error: Exception | None = None
 
     async def search(self, query: str, workspace_id: str, limit: int) -> list[MockSearchResult]:
         if self._search_error:
@@ -113,14 +113,14 @@ class MockQueryEngine:
 class MockFactStore:
     """Mock fact store for testing."""
 
-    def __init__(self, stats: Optional[dict[str, Any]] = None):
+    def __init__(self, stats: dict[str, Any] | None = None):
         self._stats = stats or {
             "total_chunks": 100,
             "total_facts": 50,
             "indexed_workspaces": 3,
         }
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
+    def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         result = self._stats.copy()
         if workspace_id:
             result["workspace_id"] = workspace_id
@@ -132,8 +132,8 @@ class SearchHandler(SearchOperationsMixin):
 
     def __init__(
         self,
-        query_engine: Optional[MockQueryEngine] = None,
-        fact_store: Optional[MockFactStore] = None,
+        query_engine: MockQueryEngine | None = None,
+        fact_store: MockFactStore | None = None,
     ):
         self._query_engine = query_engine
         self._fact_store = fact_store

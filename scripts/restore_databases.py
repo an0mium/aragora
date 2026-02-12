@@ -132,7 +132,7 @@ def restore_sqlite_database(
 def restore_postgres_database(
     backup_path: Path,
     pg_url: str,
-    database_name: Optional[str] = None,
+    database_name: str | None = None,
     verify: bool = True,
     dry_run: bool = False,
 ) -> tuple[bool, str]:
@@ -227,7 +227,7 @@ def restore_postgres_database(
 
 def restore_from_manifest(
     backup_dir: Path,
-    target_dir: Optional[Path] = None,
+    target_dir: Path | None = None,
     verify: bool = True,
     dry_run: bool = False,
     quiet: bool = False,

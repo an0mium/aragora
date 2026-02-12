@@ -64,8 +64,8 @@ class S3Connector(EnterpriseConnector):
         prefix: str = "",
         endpoint_url: str | None = None,  # For MinIO, etc.
         region: str = "us-east-1",
-        extensions: Optional[set[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        extensions: set[str] | None = None,
+        exclude_patterns: list[str] | None = None,
         **kwargs: Any,
     ):
         connector_id = f"s3_{bucket}_{prefix.replace('/', '_')}"

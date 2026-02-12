@@ -163,8 +163,8 @@ class InboxRepository(BaseRepository[dict[str, Any]]):
         confidence: float,
         reasoning: str | None = None,
         tier_used: str | None = None,
-        scores: Optional[dict[str, float]] = None,
-        suggested_labels: Optional[list[str]] = None,
+        scores: dict[str, float] | None = None,
+        suggested_labels: list[str] | None = None,
         auto_archive: bool = False,
     ) -> str:
         """Save email prioritization result."""
@@ -198,7 +198,7 @@ class InboxRepository(BaseRepository[dict[str, Any]]):
             )
             return record_id
 
-    def get_prioritization(self, user_id: str, email_id: str) -> Optional[dict[str, Any]]:
+    def get_prioritization(self, user_id: str, email_id: str) -> dict[str, Any] | None:
         """Get prioritization for a specific email."""
         with self._connection(readonly=True) as conn:
             row = conn.execute(
@@ -240,7 +240,7 @@ class InboxRepository(BaseRepository[dict[str, Any]]):
         user_id: str,
         email_id: str,
         action: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         predicted_priority: str | None = None,
         actual_feedback: str | None = None,
     ) -> None:
@@ -429,7 +429,7 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
         branch: str | None = None,
         commit_sha: str | None = None,
         error: str | None = None,
-        summary: Optional[dict[str, Any]] = None,
+        summary: dict[str, Any] | None = None,
     ) -> str:
         """Save or update a scan result."""
         now = datetime.utcnow().isoformat()
@@ -457,7 +457,7 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
             )
             return scan_id
 
-    def get_scan(self, scan_id: str) -> Optional[dict[str, Any]]:
+    def get_scan(self, scan_id: str) -> dict[str, Any] | None:
         """Get a specific scan by ID."""
         with self._connection(readonly=True) as conn:
             row = conn.execute(
@@ -505,8 +505,8 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
         cvss_score: float | None = None,
         package_name: str | None = None,
         package_ecosystem: str | None = None,
-        vulnerable_versions: Optional[list[str]] = None,
-        patched_versions: Optional[list[str]] = None,
+        vulnerable_versions: list[str] | None = None,
+        patched_versions: list[str] | None = None,
         file_path: str | None = None,
         line_number: int | None = None,
         fix_available: bool = False,
@@ -665,7 +665,7 @@ class PRReviewRepository(BaseRepository[dict[str, Any]]):
         verdict: str | None = None,
         summary: str | None = None,
         error: str | None = None,
-        metrics: Optional[dict[str, Any]] = None,
+        metrics: dict[str, Any] | None = None,
         debate_id: str | None = None,
         created_by: str | None = None,
     ) -> str:
@@ -697,7 +697,7 @@ class PRReviewRepository(BaseRepository[dict[str, Any]]):
             )
             return review_id
 
-    def get_review(self, review_id: str) -> Optional[dict[str, Any]]:
+    def get_review(self, review_id: str) -> dict[str, Any] | None:
         """Get a specific review by ID."""
         with self._connection(readonly=True) as conn:
             row = conn.execute(

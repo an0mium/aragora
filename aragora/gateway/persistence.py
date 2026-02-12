@@ -400,7 +400,7 @@ class FileGatewayStore:
             return
 
         try:
-            with open(self._path, "r") as f:
+            with open(self._path) as f:
                 data = json.load(f)
 
             # Load messages

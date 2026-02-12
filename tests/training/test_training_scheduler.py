@@ -1140,7 +1140,7 @@ class TestRunSFTJob:
         scheduler._jobs[job.job_id] = job
 
         mock_exporter = MagicMock()
-        mock_exporter.export.side_effect = IOError("Cannot write")
+        mock_exporter.export.side_effect = OSError("Cannot write")
 
         with patch("aragora.training.training_scheduler.SFTExporter", return_value=mock_exporter):
             await scheduler._run_sft_job(job)

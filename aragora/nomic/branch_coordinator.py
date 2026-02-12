@@ -42,7 +42,7 @@ class TrackAssignment:
     status: str = "pending"  # pending, running, completed, failed, merged
     started_at: datetime | None = None
     completed_at: datetime | None = None
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str | None = None
 
 
@@ -105,7 +105,7 @@ class BranchCoordinator:
         self,
         repo_path: Path | None = None,
         config: BranchCoordinatorConfig | None = None,
-        on_conflict: Optional[Callable[[ConflictReport], None]] = None,
+        on_conflict: Callable[[ConflictReport], None] | None = None,
     ):
         self.repo_path = repo_path or Path.cwd()
         self.config = config or BranchCoordinatorConfig()
@@ -368,7 +368,7 @@ class BranchCoordinator:
     async def coordinate_parallel_work(
         self,
         assignments: list[TrackAssignment],
-        run_nomic_fn: Optional[Callable[[TrackAssignment], Any]] = None,
+        run_nomic_fn: Callable[[TrackAssignment], Any] | None = None,
     ) -> CoordinationResult:
         """Run nomic loops in parallel on separate branches.
 
@@ -501,7 +501,7 @@ class BranchCoordinator:
         slug = slug.strip("-")
         return slug
 
-    def cleanup_branches(self, branches: Optional[list[str]] = None) -> int:
+    def cleanup_branches(self, branches: list[str] | None = None) -> int:
         """Delete merged or stale branches.
 
         Args:

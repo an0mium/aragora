@@ -54,7 +54,7 @@ class ForkingRunner:
         enabled: bool = False,
         available: bool = False,
         fork_detector_class: Any = None,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
     ):
         """
         Initialize forking runner.
@@ -83,7 +83,7 @@ class ForkingRunner:
         messages: list[Any],
         round_num: int,
         agents: list[Any],
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         Check if debate should fork.
 
@@ -117,10 +117,10 @@ class ForkingRunner:
         fork_decision: Any,
         base_context: str,
         *,
-        env: Optional[Any] = None,
-        agents: Optional[list[Any]] = None,
-        run_debate_fn: Optional[Callable[..., Awaitable[Any]]] = None,
-    ) -> Optional[Any]:
+        env: Any | None = None,
+        agents: list[Any] | None = None,
+        run_debate_fn: Callable[..., Awaitable[Any]] | None = None,
+    ) -> Any | None:
         """
         Run forked parallel debates.
 

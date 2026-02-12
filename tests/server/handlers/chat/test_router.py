@@ -63,7 +63,7 @@ class MockHandler:
     def __init__(
         self,
         body: bytes = b"",
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         path: str = "/",
         method: str = "GET",
     ):
@@ -83,7 +83,7 @@ class MockHandler:
         }
         return cls(body=body, headers=headers, **kwargs)
 
-    def get_argument(self, name: str, default: str = None) -> Optional[str]:
+    def get_argument(self, name: str, default: str = None) -> str | None:
         return default
 
 
@@ -95,7 +95,7 @@ class MockWebhookEvent:
         platform: str = "slack",
         event_type: str = "message",
         is_verification: bool = False,
-        challenge: Optional[str] = None,
+        challenge: str | None = None,
     ):
         self.platform = platform
         self.event_type = event_type

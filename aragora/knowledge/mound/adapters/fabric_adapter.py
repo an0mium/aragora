@@ -126,8 +126,8 @@ class FabricAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        fabric: Optional["AgentFabric"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        fabric: AgentFabric | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         workspace_id: str = "default",
         event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
@@ -652,7 +652,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
     async def get_pool_recommendations(
         self,
         task_type: str,
-        available_pools: Optional[list[str]] = None,
+        available_pools: list[str] | None = None,
         top_n: int = 3,
     ) -> list[dict[str, Any]]:
         """

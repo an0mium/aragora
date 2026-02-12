@@ -36,13 +36,13 @@ class ContradictionHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class ContradictionOperationsMixin:
     """Mixin providing contradiction detection API endpoints."""
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """Provided by host class."""
         ...
 

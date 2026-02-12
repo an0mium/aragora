@@ -89,11 +89,11 @@ class CancellationToken:
     _reason: str | None = field(default=None, repr=False)
     _reason_type: CancellationReason = field(default=CancellationReason.USER_REQUESTED, repr=False)
     _cancelled_at: datetime | None = field(default=None, repr=False)
-    _callbacks: list[Callable[["CancellationToken"], None]] = field(
+    _callbacks: list[Callable[[CancellationToken], None]] = field(
         default_factory=list, repr=False
     )
-    _children: list["CancellationToken"] = field(default_factory=list, repr=False)
-    _parent: Optional["CancellationToken"] = field(default=None, repr=False)
+    _children: list[CancellationToken] = field(default_factory=list, repr=False)
+    _parent: CancellationToken | None = field(default=None, repr=False)
 
     def cancel(
         self,
@@ -185,7 +185,7 @@ class CancellationToken:
             )
 
     def register_callback(
-        self, callback: Callable[["CancellationToken"], None]
+        self, callback: Callable[[CancellationToken], None]
     ) -> Callable[[], None]:
         """
         Register a callback to be called on cancellation.
@@ -211,7 +211,7 @@ class CancellationToken:
 
         return unregister
 
-    def link_child(self, child: "CancellationToken") -> None:
+    def link_child(self, child: CancellationToken) -> None:
         """
         Link a child token to this parent.
 
@@ -227,7 +227,7 @@ class CancellationToken:
                 reason_type=CancellationReason.PARENT_CANCELLED,
             )
 
-    def create_child(self) -> "CancellationToken":
+    def create_child(self) -> CancellationToken:
         """
         Create a linked child token.
 

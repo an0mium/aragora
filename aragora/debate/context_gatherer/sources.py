@@ -43,7 +43,7 @@ class SourceGatheringMixin:
     _threat_intel_enrichment: Any
     _enable_belief_guidance: bool
     _belief_analyzer: Any
-    _evidence_store_callback: Optional[Callable[..., Any]]
+    _evidence_store_callback: Callable[..., Any] | None
     _prompt_builder: Any
     _project_root: Any
     _research_evidence_pack: dict[str, Any]
@@ -884,7 +884,7 @@ class SourceGatheringMixin:
         combined_text: str,
         evidence_collector: Any,
         task: str,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
     ) -> tuple[int, Any]:
         """Refresh evidence based on claims made during a debate round.
 

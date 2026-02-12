@@ -62,7 +62,7 @@ def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, N
         status = "error"
         logger.warning("Request error on %s %s: %s", method, endpoint, e)
         raise
-    except (OSError, IOError, ConnectionError, TimeoutError) as e:
+    except (OSError, ConnectionError, TimeoutError) as e:
         # I/O and network-related errors
         status = "error"
         logger.warning("I/O error on %s %s: %s", method, endpoint, e)

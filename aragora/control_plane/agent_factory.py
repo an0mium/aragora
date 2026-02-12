@@ -132,7 +132,7 @@ class AgentFactory:
             **self._config.provider_overrides,
         }
 
-    def resolve_agent_type(self, agent_info: "AgentInfo") -> str | None:
+    def resolve_agent_type(self, agent_info: AgentInfo) -> str | None:
         """
         Resolve AgentInfo to an agent registry type name.
 
@@ -188,7 +188,7 @@ class AgentFactory:
 
     def create_from_info(
         self,
-        agent_info: "AgentInfo",
+        agent_info: AgentInfo,
         role: str | None = None,
     ) -> AgentCreationResult:
         """
@@ -291,10 +291,10 @@ class AgentFactory:
 
     async def create_agents(
         self,
-        agent_infos: Sequence["AgentInfo"],
+        agent_infos: Sequence[AgentInfo],
         role: str | None = None,
         min_agents: int = 0,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """
         Create multiple Agent instances from AgentInfo list.
 

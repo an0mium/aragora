@@ -93,7 +93,7 @@ class AnalysisResult:
 class CodebaseAPI:
     """API interface for codebase analysis."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================

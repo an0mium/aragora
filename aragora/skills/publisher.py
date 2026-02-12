@@ -408,7 +408,7 @@ class SkillPublisher:
 
         return issues
 
-    def _run_scan(self, skill: Skill) -> "ScanResult | None":
+    def _run_scan(self, skill: Skill) -> ScanResult | None:
         """Run security scan on skill content if scanner is available."""
         if not SkillScanner:
             return None
@@ -433,7 +433,7 @@ class SkillPublisher:
         category: SkillCategory = SkillCategory.CUSTOM,
         tier: SkillTier = SkillTier.FREE,
         changelog: str = "Initial release",
-        scan_result: "ScanResult | None" = None,
+        scan_result: ScanResult | None = None,
         **kwargs: Any,
     ) -> tuple[bool, SkillListing | None, list[ValidationIssue]]:
         """

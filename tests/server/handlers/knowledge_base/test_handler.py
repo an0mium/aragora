@@ -74,8 +74,8 @@ class MockAuthenticatedUser:
     def __init__(
         self,
         user_id: str = "test-user-001",
-        permissions: Optional[set[str]] = None,
-        roles: Optional[set[str]] = None,
+        permissions: set[str] | None = None,
+        roles: set[str] | None = None,
     ):
         self.user_id = user_id
         self.permissions = permissions or {
@@ -108,7 +108,7 @@ class MockNoPermissionsUser:
 
 def make_http_handler(
     method: str = "GET",
-    body: Optional[dict[str, Any]] = None,
+    body: dict[str, Any] | None = None,
     client_ip: str = "127.0.0.1",
 ) -> MagicMock:
     """Create a mock HTTP handler with optional JSON body and client IP."""

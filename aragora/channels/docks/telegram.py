@@ -68,7 +68,7 @@ class TelegramDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -136,7 +136,7 @@ class TelegramDock(ChannelDock):
         self,
         channel_id: str,
         audio: Any,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """Send a voice message to Telegram."""
@@ -196,7 +196,7 @@ class TelegramDock(ChannelDock):
     def _build_payload(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build Telegram API payload from normalized message."""

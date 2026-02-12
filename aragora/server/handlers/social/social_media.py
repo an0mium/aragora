@@ -88,7 +88,7 @@ class YouTubeConnectorProtocol(Protocol):
         ...
 
     def upload(
-        self, video_path: Path, metadata: "YouTubeVideoMetadata"
+        self, video_path: Path, metadata: YouTubeVideoMetadata
     ) -> Awaitable[dict[str, Any]]:
         """Upload a video to YouTube."""
         ...

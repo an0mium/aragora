@@ -319,7 +319,7 @@ class SessionContainerManager:
         config: SessionConfig | None = None,
         policy: ToolPolicy | None = None,
         session_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ContainerSession:
         """
         Create a new container session.
@@ -495,7 +495,7 @@ class SessionContainerManager:
         code: str,
         language: str = "python",
         timeout: float | None = None,
-        env: Optional[dict[str, str]] = None,
+        env: dict[str, str] | None = None,
     ) -> SessionExecutionResult:
         """
         Execute code in a session's container.
@@ -584,7 +584,7 @@ class SessionContainerManager:
         code: str,
         language: str,
         timeout: float,
-        env: Optional[dict[str, str]],
+        env: dict[str, str] | None,
     ) -> SessionExecutionResult:
         """Execute code in the session's container."""
         if not session.container:
@@ -661,7 +661,7 @@ class SessionContainerManager:
                 logger.warning("Failed to kill timed-out process: %s", e)
             raise
 
-    def _build_execution_command(self, language: str) -> Optional[list[str]]:
+    def _build_execution_command(self, language: str) -> list[str] | None:
         """Build the execution command for a language."""
         commands = {
             "python": ["python3", "-c"],

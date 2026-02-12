@@ -232,7 +232,7 @@ class TransactionManager:
     def __init__(
         self,
         pool: Any,
-        config: Optional[TransactionConfig] = None,
+        config: TransactionConfig | None = None,
     ):
         """Initialize transaction manager.
 
@@ -291,8 +291,8 @@ class TransactionManager:
     @asynccontextmanager
     async def transaction(
         self,
-        isolation: Optional[TransactionIsolation] = None,
-        timeout: Optional[float] = None,
+        isolation: TransactionIsolation | None = None,
+        timeout: float | None = None,
         readonly: bool = False,
     ) -> AsyncIterator[Any]:
         """
@@ -472,7 +472,7 @@ class TransactionManager:
                 logger.error(f"Failed to rollback savepoint '{name}': {rollback_error}")
             raise
 
-    async def begin(self, conn: Any, isolation: Optional[TransactionIsolation] = None) -> None:
+    async def begin(self, conn: Any, isolation: TransactionIsolation | None = None) -> None:
         """
         Manually begin a transaction on a connection.
 
@@ -545,7 +545,7 @@ class NestedTransactionManager(TransactionManager):
     def __init__(
         self,
         pool: Any,
-        config: Optional[TransactionConfig] = None,
+        config: TransactionConfig | None = None,
     ):
         super().__init__(pool, config)
         self._connection_depth: dict[int, int] = {}
@@ -553,8 +553,8 @@ class NestedTransactionManager(TransactionManager):
     @asynccontextmanager
     async def transaction(
         self,
-        isolation: Optional[TransactionIsolation] = None,
-        timeout: Optional[float] = None,
+        isolation: TransactionIsolation | None = None,
+        timeout: float | None = None,
         readonly: bool = False,
     ) -> AsyncIterator[Any]:
         """

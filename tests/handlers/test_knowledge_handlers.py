@@ -29,7 +29,7 @@ def parse_body(result) -> dict:
     return json.loads(result.body.decode("utf-8"))
 
 
-def create_handler(method: str = "GET", body: Optional[dict] = None) -> MagicMock:
+def create_handler(method: str = "GET", body: dict | None = None) -> MagicMock:
     """Create a mock HTTP handler with configurable method and body."""
     handler = MagicMock()
     handler.client_address = ("127.0.0.1", 12345)
@@ -67,7 +67,7 @@ class MockFact:
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    superseded_by: Optional[str] = None
+    superseded_by: str | None = None
 
     def to_dict(self) -> dict:
         return {

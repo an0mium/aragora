@@ -161,7 +161,7 @@ class BatchWebhookDispatcher:
         self._lock = threading.Lock()
 
         # Delivery callback
-        self._deliver_callback: Optional[Callable[[str, dict], None]] = None
+        self._deliver_callback: Callable[[str, dict], None] | None = None
 
         # Background flush thread
         self._shutdown = False

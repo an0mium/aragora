@@ -233,7 +233,7 @@ class ExplorationSession:
         }
 
     @classmethod
-    def from_checkpoint(cls, data: dict[str, Any]) -> "ExplorationSession":
+    def from_checkpoint(cls, data: dict[str, Any]) -> ExplorationSession:
         """Restore session from checkpoint."""
         session = cls(
             id=data["id"],

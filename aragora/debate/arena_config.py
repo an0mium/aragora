@@ -140,83 +140,83 @@ class ArenaConfigBuilder:
     def __init__(self) -> None:
         self._kwargs: dict[str, Any] = {}
 
-    def _merge(self, kwargs: dict[str, Any]) -> "ArenaConfigBuilder":
+    def _merge(self, kwargs: dict[str, Any]) -> ArenaConfigBuilder:
         self._kwargs.update(kwargs)
         return self
 
     # -- Top-level fields --
 
-    def with_identity(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_identity(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set identification fields (loop_id, strict_loop_scoping)."""
         return self._merge(kwargs)
 
-    def with_core(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_core(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set core subsystem fields (memory, event_emitter, spectator, etc.)."""
         return self._merge(kwargs)
 
     # -- Sub-config groups --
 
-    def with_hooks(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_hooks(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set hook configuration fields."""
         return self._merge(kwargs)
 
-    def with_tracking(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_tracking(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set tracking subsystem fields."""
         return self._merge(kwargs)
 
-    def with_knowledge(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_knowledge(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set Knowledge Mound integration fields."""
         return self._merge(kwargs)
 
-    def with_memory_coordination(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_memory_coordination(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set memory coordination fields."""
         return self._merge(kwargs)
 
-    def with_performance_feedback(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_performance_feedback(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set performance feedback loop fields."""
         return self._merge(kwargs)
 
-    def with_audit_trail(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_audit_trail(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set audit trail fields (receipts, provenance, beads)."""
         return self._merge(kwargs)
 
-    def with_ml(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_ml(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set ML integration fields."""
         return self._merge(kwargs)
 
-    def with_rlm(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_rlm(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set RLM cognitive load limiter fields."""
         return self._merge(kwargs)
 
-    def with_checkpoint(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_checkpoint(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set checkpoint and memory state fields."""
         return self._merge(kwargs)
 
-    def with_cross_pollination(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_cross_pollination(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set Phase 9 cross-pollination bridge fields."""
         return self._merge(kwargs)
 
-    def with_km_bidirectional(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_km_bidirectional(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set Phase 10 bidirectional KM fields."""
         return self._merge(kwargs)
 
-    def with_translation(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_translation(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set multi-language translation fields."""
         return self._merge(kwargs)
 
-    def with_supermemory(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_supermemory(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set Supermemory external memory integration fields."""
         return self._merge(kwargs)
 
-    def with_budget(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_budget(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set per-debate budget configuration fields."""
         return self._merge(kwargs)
 
-    def with_power_sampling(self, **kwargs: Any) -> "ArenaConfigBuilder":
+    def with_power_sampling(self, **kwargs: Any) -> ArenaConfigBuilder:
         """Set power sampling configuration for inference-time reasoning."""
         return self._merge(kwargs)
 
-    def build(self) -> "ArenaConfig":
+    def build(self) -> ArenaConfig:
         """Build the ArenaConfig from accumulated settings."""
         return ArenaConfig(**self._kwargs)
 
@@ -339,7 +339,7 @@ class ArenaConfig:
         propulsion_engine: Any | None = None,
         enable_propulsion: bool = False,
         # Agent configuration
-        agent_weights: Optional[dict[str, float]] = None,
+        agent_weights: dict[str, float] | None = None,
         # Vertical personas
         vertical: str | None = None,
         vertical_persona_manager: Any | None = None,
@@ -365,7 +365,7 @@ class ArenaConfig:
         broadcast_pipeline: BroadcastPipelineProtocol | None = None,
         auto_broadcast: bool = False,
         broadcast_min_confidence: float = 0.8,
-        broadcast_platforms: Optional[list[str]] = None,
+        broadcast_platforms: list[str] | None = None,
         # Training data export
         training_exporter: Any | None = None,
         auto_export_training: bool = False,
@@ -376,7 +376,7 @@ class ArenaConfig:
         auto_evolve: bool = False,
         breeding_threshold: float = 0.8,
         # Fork/continuation
-        initial_messages: Optional[list[Any]] = None,
+        initial_messages: list[Any] | None = None,
         trending_topic: Any | None = None,
         pulse_manager: PulseManagerProtocol | None = None,
         auto_fetch_trending: bool = False,

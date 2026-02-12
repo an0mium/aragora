@@ -92,9 +92,9 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             server_context: Server context with shared resources
         """
         super().__init__(server_context)
-        self._stream: Optional["NomicLoopStreamServer"] = None
+        self._stream: NomicLoopStreamServer | None = None
 
-    def set_stream_server(self, stream: "NomicLoopStreamServer") -> None:
+    def set_stream_server(self, stream: NomicLoopStreamServer) -> None:
         """Set the WebSocket stream server for event emission.
 
         Args:
@@ -102,7 +102,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         """
         self._stream = stream
 
-    def _get_stream(self) -> Optional["NomicLoopStreamServer"]:
+    def _get_stream(self) -> NomicLoopStreamServer | None:
         """Get the stream server from context or instance."""
         if self._stream:
             return self._stream

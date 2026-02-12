@@ -82,7 +82,7 @@ class WeaviateConfig:
     timeout: int = 30
 
     @classmethod
-    def from_env(cls) -> "WeaviateConfig":
+    def from_env(cls) -> WeaviateConfig:
         """Create config from environment variables."""
         return cls(
             url=os.getenv("WEAVIATE_URL", "http://localhost:8080"),
@@ -237,7 +237,7 @@ class WeaviateStore:
         self,
         chunks: list[DocumentChunk],
         embeddings: list[list[float]],
-        on_progress: Optional[Callable[[int, int], None]] = None,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> list[str]:
         """
         Batch index multiple document chunks.

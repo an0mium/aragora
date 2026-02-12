@@ -61,11 +61,11 @@ class LeaderboardEngine:
 
     def __init__(
         self,
-        db: "EloDatabase",
-        leaderboard_cache: Optional["TTLCache"] = None,
-        stats_cache: Optional["TTLCache"] = None,
-        rating_cache: Optional["TTLCache"] = None,
-        rating_factory: Optional[Callable[..., Any]] = None,
+        db: EloDatabase,
+        leaderboard_cache: TTLCache | None = None,
+        stats_cache: TTLCache | None = None,
+        rating_cache: TTLCache | None = None,
+        rating_factory: Callable[..., Any] | None = None,
     ):
         """
         Initialize the leaderboard engine.
@@ -87,7 +87,7 @@ class LeaderboardEngine:
         self,
         limit: int = 20,
         domain: str | None = None,
-    ) -> list["AgentRating"]:
+    ) -> list[AgentRating]:
         """
         Get top agents by ELO.
 
@@ -137,7 +137,7 @@ class LeaderboardEngine:
         self,
         limit: int = 20,
         domain: str | None = None,
-    ) -> list["AgentRating"]:
+    ) -> list[AgentRating]:
         """
         Get leaderboard with caching for better performance.
 
@@ -185,7 +185,7 @@ class LeaderboardEngine:
         self,
         domain: str,
         limit: int = 5,
-    ) -> list["AgentRating"]:
+    ) -> list[AgentRating]:
         """
         Get agents ranked by domain-specific performance.
 

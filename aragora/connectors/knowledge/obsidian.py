@@ -63,7 +63,7 @@ class ObsidianConfig:
     parse_dataview: bool = True  # Parse dataview inline fields
 
     @classmethod
-    def from_env(cls, env: dict[str, str] | None = None) -> "ObsidianConfig | None":
+    def from_env(cls, env: dict[str, str] | None = None) -> ObsidianConfig | None:
         """Create config from environment variables.
 
         Supported variables:

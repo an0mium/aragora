@@ -148,7 +148,7 @@ class TemplateRegistry:
     def get(
         self,
         template_id: str,
-    ) -> Optional[AgentTemplate | DebateTemplate | WorkflowTemplate]:
+    ) -> AgentTemplate | DebateTemplate | WorkflowTemplate | None:
         """Get a template by ID."""
         with self._get_conn() as conn:
             row = conn.execute("SELECT * FROM templates WHERE id = ?", (template_id,)).fetchone()

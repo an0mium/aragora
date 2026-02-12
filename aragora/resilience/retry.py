@@ -132,14 +132,14 @@ class RetryConfig:
     jitter_mode: JitterMode = JitterMode.MULTIPLICATIVE
     jitter_factor: float = 0.25  # ±25% jitter
     retryable_exceptions: tuple[type[Exception], ...] = DEFAULT_RETRYABLE_EXCEPTIONS
-    on_retry: Optional[Callable[[int, Exception, float], None]] = None
-    should_retry: Optional[Callable[[Exception], bool]] = None
+    on_retry: Callable[[int, Exception, float], None] | None = None
+    should_retry: Callable[[Exception], bool] | None = None
     # Backward-compat alias: jitter=True maps to MULTIPLICATIVE, False to NONE
-    jitter: Optional[bool] = None
+    jitter: bool | None = None
     # Circuit breaker integration
-    circuit_breaker: Optional["CircuitBreaker"] = None
+    circuit_breaker: CircuitBreaker | None = None
     # Provider identification for logging/metrics
-    provider_name: Optional[str] = None
+    provider_name: str | None = None
     # HTTP status codes that should not be retried (e.g., 400, 401, 403, 404)
     non_retryable_status_codes: tuple[int, ...] = (400, 401, 403, 404, 422)
 
@@ -194,7 +194,7 @@ class RetryConfig:
         if self.circuit_breaker is not None:
             self.circuit_breaker.record_success()
 
-    def record_failure(self, exception: Optional[Exception] = None) -> None:
+    def record_failure(self, exception: Exception | None = None) -> None:
         """Record a failed operation to the circuit breaker.
 
         Args:
@@ -210,8 +210,8 @@ class CircuitOpenError(Exception):
     def __init__(
         self,
         message: str = "Circuit breaker is open",
-        provider: Optional[str] = None,
-        cooldown_remaining: Optional[float] = None,
+        provider: str | None = None,
+        cooldown_remaining: float | None = None,
     ):
         """Initialize CircuitOpenError.
 
@@ -266,7 +266,7 @@ def create_provider_config(
     max_delay: float = 60.0,
     strategy: RetryStrategy = RetryStrategy.EXPONENTIAL,
     jitter_factor: float = 0.25,
-    circuit_breaker: Optional["CircuitBreaker"] = None,
+    circuit_breaker: CircuitBreaker | None = None,
 ) -> RetryConfig:
     """Create a RetryConfig for a specific provider.
 
@@ -427,7 +427,7 @@ PROVIDER_RETRY_POLICIES: dict[str, RetryConfig] = {
 
 def get_provider_retry_config(
     provider: str,
-    circuit_breaker: Optional["CircuitBreaker"] = None,
+    circuit_breaker: CircuitBreaker | None = None,
     **overrides: Any,
 ) -> RetryConfig:
     """Get a retry config for a provider with optional overrides.
@@ -588,7 +588,7 @@ class ExponentialBackoff:
         self.jitter = jitter
         self._attempt = 0
 
-    def __iter__(self) -> "ExponentialBackoff":
+    def __iter__(self) -> ExponentialBackoff:
         self._attempt = 0
         return self
 
@@ -616,9 +616,9 @@ def with_retry(
     *,
     max_retries: int = 3,
     base_delay: float = 0.1,
-    retryable_exceptions: Optional[tuple[type[Exception], ...]] = None,
-    circuit_breaker: Optional["CircuitBreaker"] = None,
-    provider: Optional[str] = None,
+    retryable_exceptions: tuple[type[Exception], ...] | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
+    provider: str | None = None,
 ) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Decorator for async functions with retry logic and circuit breaker support.
 
@@ -734,9 +734,9 @@ def with_retry_sync(
     *,
     max_retries: int = 3,
     base_delay: float = 0.1,
-    retryable_exceptions: Optional[tuple[type[Exception], ...]] = None,
-    circuit_breaker: Optional["CircuitBreaker"] = None,
-    provider: Optional[str] = None,
+    retryable_exceptions: tuple[type[Exception], ...] | None = None,
+    circuit_breaker: CircuitBreaker | None = None,
+    provider: str | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator for sync functions with retry logic and circuit breaker support.
 

@@ -84,7 +84,7 @@ class HarnessResultAdapter:
     def __init__(self, config: AdapterConfig | None = None):
         self.config = config or AdapterConfig()
 
-    def adapt(self, result: HarnessResult) -> list["AuditFinding"]:
+    def adapt(self, result: HarnessResult) -> list[AuditFinding]:
         """
         Convert harness result to list of audit findings.
 
@@ -168,7 +168,7 @@ class HarnessResultAdapter:
 
         return audit_findings
 
-    def adapt_batch(self, results: list[HarnessResult]) -> list["AuditFinding"]:
+    def adapt_batch(self, results: list[HarnessResult]) -> list[AuditFinding]:
         """
         Convert multiple harness results to audit findings.
 
@@ -185,8 +185,8 @@ class HarnessResultAdapter:
 
     def merge_duplicate_findings(
         self,
-        findings: list["AuditFinding"],
-    ) -> list["AuditFinding"]:
+        findings: list[AuditFinding],
+    ) -> list[AuditFinding]:
         """
         Merge duplicate findings from multiple harnesses.
 
@@ -241,7 +241,7 @@ class HarnessResultAdapter:
 def adapt_to_audit_findings(
     result: HarnessResult,
     config: AdapterConfig | None = None,
-) -> list["AuditFinding"]:
+) -> list[AuditFinding]:
     """
     Convenience function to adapt a harness result.
 
@@ -260,7 +260,7 @@ def adapt_multiple_results(
     results: list[HarnessResult],
     merge_duplicates: bool = True,
     config: AdapterConfig | None = None,
-) -> list["AuditFinding"]:
+) -> list[AuditFinding]:
     """
     Adapt multiple harness results and optionally merge duplicates.
 

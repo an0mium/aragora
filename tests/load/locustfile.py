@@ -212,7 +212,7 @@ class DebateTasks(TaskSet):
 
     def on_start(self) -> None:
         """Initialize user state."""
-        self.active_debate_id: Optional[str] = None
+        self.active_debate_id: str | None = None
         self.completed_debates: list[str] = []
 
     @task(2)
@@ -527,8 +527,8 @@ class AuthenticationTasks(TaskSet):
 
     def on_start(self) -> None:
         """Initialize auth state."""
-        self.access_token: Optional[str] = None
-        self.refresh_token: Optional[str] = None
+        self.access_token: str | None = None
+        self.refresh_token: str | None = None
 
     @task(3)
     def attempt_login(self) -> None:

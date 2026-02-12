@@ -104,7 +104,7 @@ def mock_marketplace_store():
             templates[template_id] = template
             return template
 
-        def get_template(self, template_id: str) -> Optional[MockTemplate]:
+        def get_template(self, template_id: str) -> MockTemplate | None:
             return templates.get(template_id)
 
         def list_templates(self, category=None, search=None, limit=20, offset=0):
@@ -196,9 +196,9 @@ def mock_webhook_store():
             self,
             url: str,
             events: builtins.list[str],
-            name: Optional[str] = None,
-            description: Optional[str] = None,
-            user_id: Optional[str] = None,
+            name: str | None = None,
+            description: str | None = None,
+            user_id: str | None = None,
         ):
             webhook_id = str(uuid4())
             secret = f"whsec_{uuid4().hex}"

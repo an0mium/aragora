@@ -53,7 +53,7 @@ class LoadTestPerformanceMonitor:
                 total_calls=10 + i,
             )
 
-    def get_agent_metrics(self, agent_name: str) -> Optional[LoadTestMetrics]:
+    def get_agent_metrics(self, agent_name: str) -> LoadTestMetrics | None:
         return self._metrics.get(agent_name)
 
 
@@ -83,7 +83,7 @@ class LoadTestRelationshipTracker:
                         agreement_rate=0.4 + ((i * j) % 5) * 0.1,
                     )
 
-    def compute_metrics(self, agent_a: str, agent_b: str) -> Optional[LoadTestRelationshipMetrics]:
+    def compute_metrics(self, agent_a: str, agent_b: str) -> LoadTestRelationshipMetrics | None:
         key = tuple(sorted([agent_a, agent_b]))
         return self._relationships.get(key)
 
@@ -120,7 +120,7 @@ class LoadTestCalibrationTracker:
                 ece=0.05 + (i % 10) * 0.01,
             )
 
-    def get_calibration_summary(self, agent_name: str) -> Optional[LoadTestCalibrationSummary]:
+    def get_calibration_summary(self, agent_name: str) -> LoadTestCalibrationSummary | None:
         return self._summaries.get(agent_name)
 
     def get_all_agents(self) -> list[str]:

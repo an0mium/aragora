@@ -111,9 +111,9 @@ class DocumentJob:
     completed_at: datetime | None = None
 
     # Callbacks
-    on_progress: Optional[Callable[[float, str], None]] = None
-    on_complete: Optional[Callable[["DocumentJob"], None]] = None
-    on_error: Optional[Callable[["DocumentJob", Exception], None]] = None
+    on_progress: Callable[[float, str], None] | None = None
+    on_complete: Callable[[DocumentJob], None] | None = None
+    on_error: Callable[[DocumentJob, Exception], None] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excluding callbacks and content)."""
@@ -250,9 +250,9 @@ class BatchProcessor:
         chunk_size: int | None = None,
         chunk_overlap: int | None = None,
         enable_ocr: bool = True,
-        on_progress: Optional[Callable[[float, str], None]] = None,
-        on_complete: Optional[Callable[[DocumentJob], None]] = None,
-        on_error: Optional[Callable[[DocumentJob, Exception], None]] = None,
+        on_progress: Callable[[float, str], None] | None = None,
+        on_complete: Callable[[DocumentJob], None] | None = None,
+        on_error: Callable[[DocumentJob, Exception], None] | None = None,
     ) -> str:
         """
         Submit a document for processing.

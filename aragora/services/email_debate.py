@@ -160,10 +160,10 @@ class EmailDebateService:
 
     def __init__(
         self,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         enable_pii_redaction: bool = True,
         enable_sender_reputation: bool = True,
-        preserve_domains: Optional[list[str]] = None,
+        preserve_domains: list[str] | None = None,
         fast_mode: bool = True,
     ):
         """

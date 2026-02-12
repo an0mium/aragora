@@ -135,7 +135,7 @@ class PostgresDebateStorage(PostgresStore):
         """Generate URL-friendly slug (sync wrapper)."""
         return run_async(self.generate_slug_async(task))
 
-    def save(self, artifact: "DebateArtifact") -> str:
+    def save(self, artifact: DebateArtifact) -> str:
         """Save artifact and return permalink slug (sync wrapper)."""
         return run_async(self.save_async(artifact))
 
@@ -262,7 +262,7 @@ class PostgresDebateStorage(PostgresStore):
 
         return f"{slug}-{count + 1}" if count > 0 else slug
 
-    async def save_async(self, artifact: "DebateArtifact") -> str:
+    async def save_async(self, artifact: DebateArtifact) -> str:
         """Save artifact and return permalink slug."""
         slug = await self.generate_slug_async(artifact.task)
 

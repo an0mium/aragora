@@ -40,13 +40,13 @@ class MockSlackWorkspace:
     access_token: str = "xoxb-test-token-12345"
     bot_user_id: str = "U12345678"
     installed_at: float = 1700000000.0
-    installed_by: Optional[str] = "user-123"
+    installed_by: str | None = "user-123"
     scopes: list[str] = None
     tenant_id: str = "org-456"
     is_active: bool = True
-    signing_secret: Optional[str] = None
-    refresh_token: Optional[str] = None
-    token_expires_at: Optional[float] = None
+    signing_secret: str | None = None
+    refresh_token: str | None = None
+    token_expires_at: float | None = None
 
     def __post_init__(self):
         if self.scopes is None:
@@ -78,9 +78,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[bytes] = None,
-        query_params: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
+        body: bytes | None = None,
+        query_params: dict[str, str] | None = None,
     ):
         super().__init__(query_params or {})
         self.command = command

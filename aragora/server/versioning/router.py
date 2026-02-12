@@ -44,7 +44,7 @@ class APIVersion(Enum):
     V3 = "v3"
 
     @classmethod
-    def from_string(cls, version_str: str) -> Optional["APIVersion"]:
+    def from_string(cls, version_str: str) -> APIVersion | None:
         """Parse version from string."""
         if not version_str:
             return None
@@ -64,20 +64,20 @@ class APIVersion(Enum):
             return None
 
     @classmethod
-    def latest(cls) -> "APIVersion":
+    def latest(cls) -> APIVersion:
         """Get latest stable version."""
         return cls.V1  # V1 is current stable
 
     @classmethod
-    def all_versions(cls) -> list["APIVersion"]:
+    def all_versions(cls) -> list[APIVersion]:
         """Get all versions in order."""
         return [cls.V1, cls.V2, cls.V3]
 
-    def __lt__(self, other: "APIVersion") -> bool:
+    def __lt__(self, other: APIVersion) -> bool:
         versions = self.all_versions()
         return versions.index(self) < versions.index(other)
 
-    def __le__(self, other: "APIVersion") -> bool:
+    def __le__(self, other: APIVersion) -> bool:
         return self == other or self < other
 
 
@@ -136,7 +136,7 @@ VERSION_INFO: dict[APIVersion, VersionInfo] = {
 
 def get_version_from_request(
     path: str,
-    headers: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
     default: APIVersion = APIVersion.V1,
 ) -> tuple[APIVersion, str]:
     """
@@ -376,7 +376,7 @@ def version_route(
 def versioned_response(
     data: Any,
     version: APIVersion,
-    meta: Optional[dict[str, Any]] = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Create version-appropriate response format.

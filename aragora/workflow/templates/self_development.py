@@ -33,7 +33,7 @@ from aragora.workflow.types import (
 
 def create_self_development_workflow(
     objective: str,
-    tracks: Optional[list[str]] = None,
+    tracks: list[str] | None = None,
     require_approval: bool = True,
     max_parallel: int = 2,
 ) -> WorkflowDefinition:

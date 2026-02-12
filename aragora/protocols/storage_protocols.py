@@ -136,7 +136,7 @@ class DebateStorageProtocol(Protocol):
         """Save debate data."""
         ...
 
-    def load_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def load_debate(self, debate_id: str) -> dict[str, Any] | None:
         """Load debate data."""
         ...
 
@@ -148,19 +148,19 @@ class DebateStorageProtocol(Protocol):
         """Delete a debate."""
         ...
 
-    def get_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_debate(self, debate_id: str) -> dict[str, Any] | None:
         """Get debate by ID."""
         ...
 
-    def get_debate_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
+    def get_debate_by_slug(self, slug: str) -> dict[str, Any] | None:
         """Get debate by slug."""
         ...
 
-    def get_by_id(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_by_id(self, debate_id: str) -> dict[str, Any] | None:
         """Get debate by ID (alias)."""
         ...
 
-    def get_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
+    def get_by_slug(self, slug: str) -> dict[str, Any] | None:
         """Get debate by slug (alias)."""
         ...
 

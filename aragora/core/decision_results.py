@@ -36,12 +36,12 @@ def save_decision_result(request_id: str, data: dict[str, Any]) -> None:
         try:
             store.save(request_id, data)
             return
-        except (OSError, IOError, RuntimeError, ValueError) as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Failed to persist result, using fallback: {e}")
     _decision_results_fallback[request_id] = data
 
 
-def get_decision_result(request_id: str) -> Optional[dict[str, Any]]:
+def get_decision_result(request_id: str) -> dict[str, Any] | None:
     """Get a decision result from persistent store with fallback."""
     store = _get_result_store()
     if store:
@@ -49,7 +49,7 @@ def get_decision_result(request_id: str) -> Optional[dict[str, Any]]:
             result = store.get(request_id)
             if result:
                 return result
-        except (OSError, IOError, RuntimeError, KeyError) as e:
+        except (OSError, RuntimeError, KeyError) as e:
             logger.warning(f"Failed to retrieve from store: {e}")
     return _decision_results_fallback.get(request_id)
 
@@ -60,7 +60,7 @@ def get_decision_status(request_id: str) -> dict[str, Any]:
     if store:
         try:
             return store.get_status(request_id)
-        except (OSError, IOError, RuntimeError, KeyError) as e:
+        except (OSError, RuntimeError, KeyError) as e:
             logger.warning(f"Failed to get status from store: {e}")
 
     if request_id in _decision_results_fallback:

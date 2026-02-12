@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global collector instance
-_global_collector: Optional["DebateTrajectoryCollector"] = None
+_global_collector: DebateTrajectoryCollector | None = None
 
 
 @dataclass
@@ -95,7 +95,7 @@ class DebateTrajectoryCollector:
         task: str,
         consensus_reached: bool,
         confidence: float,
-        messages: list["Message"] | None = None,
+        messages: list[Message] | None = None,
         winner: str | None = None,
         final_answer: str = "",
         num_rounds: int = 0,
@@ -147,7 +147,7 @@ class DebateTrajectoryCollector:
 
         return trajectory
 
-    def record_from_context(self, ctx: "DebateContext") -> Trajectory | None:
+    def record_from_context(self, ctx: DebateContext) -> Trajectory | None:
         """
         Record a trajectory directly from a DebateContext.
 
@@ -163,7 +163,7 @@ class DebateTrajectoryCollector:
             return None
 
         result = ctx.result
-        messages: list["Message"] | None = ctx.context_messages if ctx.context_messages else None
+        messages: list[Message] | None = ctx.context_messages if ctx.context_messages else None
         return self.record_debate_outcome(
             debate_id=ctx.debate_id,
             task=ctx.env.task if ctx.env else "",
@@ -180,7 +180,7 @@ class DebateTrajectoryCollector:
     def _create_trajectory(
         self,
         outcome: DebateOutcome,
-        messages: list["Message"] | None = None,
+        messages: list[Message] | None = None,
     ) -> Trajectory:
         """
         Create a training trajectory from a debate outcome.

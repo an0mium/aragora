@@ -62,10 +62,10 @@ class DelegationStrategy(ABC):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """
         Select agents for a task.
 
@@ -83,9 +83,9 @@ class DelegationStrategy(ABC):
     @abstractmethod
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """
         Score an individual agent for a task.
@@ -127,7 +127,7 @@ class ContentBasedDelegation(DelegationStrategy):
             self.keyword_mapping[key] = []
         self.keyword_mapping[key].extend(agent_names)
 
-    def add_from_config(self, config: "AgentConfig") -> None:
+    def add_from_config(self, config: AgentConfig) -> None:
         """
         Add expertise mappings from an AgentConfig.
 
@@ -148,9 +148,9 @@ class ContentBasedDelegation(DelegationStrategy):
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """Score agent based on keyword matches."""
         keywords = self._extract_keywords(task)
@@ -167,10 +167,10 @@ class ContentBasedDelegation(DelegationStrategy):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select agents by keyword matching."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
         scored.sort(key=lambda x: x[1], reverse=True)
@@ -208,7 +208,7 @@ class LoadBalancedDelegation(DelegationStrategy):
         if self.agent_load[agent_name] > 0:
             self.agent_load[agent_name] -= 1
 
-    def get_load(self, agent_name: str, context: Optional["DebateContext"] = None) -> int:
+    def get_load(self, agent_name: str, context: DebateContext | None = None) -> int:
         """Get current load for an agent."""
         # Check context for workload data first
         if context is not None and hasattr(context, "agent_workloads"):
@@ -220,9 +220,9 @@ class LoadBalancedDelegation(DelegationStrategy):
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """Score agent inversely proportional to load."""
         load = self.get_load(agent.name, context)
@@ -236,10 +236,10 @@ class LoadBalancedDelegation(DelegationStrategy):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select agents by load balance."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
         # Filter out overloaded agents
@@ -321,7 +321,7 @@ class ExpertiseDelegation(DelegationStrategy):
                 ],
             }
 
-    def _get_agent_domains(self, agent: "Agent") -> list[str]:
+    def _get_agent_domains(self, agent: Agent) -> list[str]:
         """Get expertise domains from agent config."""
         if hasattr(agent, "_config") and agent._config is not None:
             return agent._config.expertise_domains
@@ -342,9 +342,9 @@ class ExpertiseDelegation(DelegationStrategy):
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """Score agent based on domain match."""
         agent_domains = set(self._get_agent_domains(agent))
@@ -363,10 +363,10 @@ class ExpertiseDelegation(DelegationStrategy):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select agents by expertise match."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
         scored.sort(key=lambda x: x[1], reverse=True)
@@ -396,9 +396,9 @@ class RoundRobinDelegation(DelegationStrategy):
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """All agents get equal score in round-robin."""
         return self.default_score
@@ -406,10 +406,10 @@ class RoundRobinDelegation(DelegationStrategy):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select agents in round-robin order."""
         if not agents:
             return []
@@ -458,9 +458,9 @@ class HybridDelegation(DelegationStrategy):
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """Compute weighted score from all strategies."""
         if not self.strategies:
@@ -476,10 +476,10 @@ class HybridDelegation(DelegationStrategy):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select agents using weighted combined scoring."""
         scored = [(a, self.score_agent(a, task, context)) for a in agents]
         scored.sort(key=lambda x: x[1], reverse=True)

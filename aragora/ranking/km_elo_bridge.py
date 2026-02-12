@@ -248,9 +248,9 @@ class KMEloBridge:
 
     def __init__(
         self,
-        elo_system: Optional["EloSystem"] = None,
-        elo_adapter: Optional["EloAdapter"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        elo_system: EloSystem | None = None,
+        elo_adapter: EloAdapter | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         config: KMEloBridgeConfig | None = None,
     ):
         """
@@ -279,37 +279,37 @@ class KMEloBridge:
         self._total_adjustments: int = 0
 
     @property
-    def elo_system(self) -> Optional["EloSystem"]:
+    def elo_system(self) -> EloSystem | None:
         """Get the ELO system."""
         return self._elo_system
 
     @property
-    def elo_adapter(self) -> Optional["EloAdapter"]:
+    def elo_adapter(self) -> EloAdapter | None:
         """Get the ELO adapter."""
         return self._elo_adapter
 
     @property
-    def knowledge_mound(self) -> Optional["KnowledgeMound"]:
+    def knowledge_mound(self) -> KnowledgeMound | None:
         """Get the knowledge mound."""
         return self._knowledge_mound
 
-    def set_elo_system(self, elo_system: "EloSystem") -> None:
+    def set_elo_system(self, elo_system: EloSystem) -> None:
         """Set the ELO system."""
         self._elo_system = elo_system
         if self._elo_adapter:
             self._elo_adapter.set_elo_system(elo_system)
 
-    def set_elo_adapter(self, adapter: "EloAdapter") -> None:
+    def set_elo_adapter(self, adapter: EloAdapter) -> None:
         """Set the ELO adapter."""
         self._elo_adapter = adapter
 
-    def set_knowledge_mound(self, mound: "KnowledgeMound") -> None:
+    def set_knowledge_mound(self, mound: KnowledgeMound) -> None:
         """Set the knowledge mound."""
         self._knowledge_mound = mound
 
     async def sync_km_to_elo(
         self,
-        agent_names: Optional[list[str]] = None,
+        agent_names: list[str] | None = None,
         force: bool = False,
     ) -> KMEloBridgeSyncResult:
         """
@@ -360,7 +360,7 @@ class KMEloBridge:
                 return result
 
             # Process agents in batches
-            all_patterns: dict[str, list["KMEloPattern"]] = {}
+            all_patterns: dict[str, list[KMEloPattern]] = {}
 
             for i in range(0, len(agents), self._config.batch_size):
                 batch = agents[i : i + self._config.batch_size]
@@ -456,7 +456,7 @@ class KMEloBridge:
     async def _analyze_agent_patterns(
         self,
         agent_name: str,
-    ) -> list["KMEloPattern"]:
+    ) -> list[KMEloPattern]:
         """
         Analyze KM patterns for a specific agent.
 
@@ -521,7 +521,7 @@ class KMEloBridge:
     async def get_agent_km_patterns(
         self,
         agent_name: str,
-    ) -> list["KMEloPattern"]:
+    ) -> list[KMEloPattern]:
         """
         Get stored KM patterns for an agent.
 
@@ -538,7 +538,7 @@ class KMEloBridge:
 
     async def get_pending_adjustments(
         self,
-    ) -> list["EloAdjustmentRecommendation"]:
+    ) -> list[EloAdjustmentRecommendation]:
         """Get pending ELO adjustments that haven't been applied."""
         if not self._elo_adapter:
             return []
@@ -547,7 +547,7 @@ class KMEloBridge:
 
     async def apply_pending_adjustments(
         self,
-        agent_names: Optional[list[str]] = None,
+        agent_names: list[str] | None = None,
         min_confidence: float = 0.7,
     ) -> int:
         """
@@ -624,9 +624,9 @@ class KMEloBridge:
 
 
 def create_km_elo_bridge(
-    elo_system: Optional["EloSystem"] = None,
-    elo_adapter: Optional["EloAdapter"] = None,
-    knowledge_mound: Optional["KnowledgeMound"] = None,
+    elo_system: EloSystem | None = None,
+    elo_adapter: EloAdapter | None = None,
+    knowledge_mound: KnowledgeMound | None = None,
     config: KMEloBridgeConfig | None = None,
 ) -> KMEloBridge:
     """Factory function to create KMEloBridge."""

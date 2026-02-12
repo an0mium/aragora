@@ -15,9 +15,9 @@ class MockResponse:
     def __init__(
         self,
         status: int = 200,
-        json_data: Optional[dict[str, Any]] = None,
+        json_data: dict[str, Any] | None = None,
         text: str = "",
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ):
         self.status = status
         self._json_data = json_data or {}
@@ -43,8 +43,8 @@ class MockStreamResponse:
     def __init__(
         self,
         status: int = 200,
-        chunks: Optional[list[bytes]] = None,
-        headers: Optional[dict[str, str]] = None,
+        chunks: list[bytes] | None = None,
+        headers: dict[str, str] | None = None,
     ):
         self.status = status
         self._chunks = chunks or []
@@ -88,7 +88,7 @@ class MockStreamResponse:
 class MockClientSession:
     """Mock aiohttp ClientSession."""
 
-    def __init__(self, responses: Optional[list[MockResponse]] = None):
+    def __init__(self, responses: list[MockResponse] | None = None):
         self._responses = responses or []
         self._response_index = 0
 

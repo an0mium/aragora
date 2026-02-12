@@ -248,7 +248,7 @@ class RiskAnalyzer:
     - Dissenting opinions
     """
 
-    def __init__(self, artifact: "DebateArtifact") -> None:
+    def __init__(self, artifact: DebateArtifact) -> None:
         self.artifact: DebateArtifact = artifact
 
     def analyze(self) -> RiskRegister:

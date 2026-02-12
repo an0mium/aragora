@@ -32,7 +32,7 @@ class MockAgent:
 
     name: str = "test_agent"
     role: str = "proposer"
-    stance: Optional[str] = None
+    stance: str | None = None
 
 
 @dataclass
@@ -69,7 +69,7 @@ class MockDebateResult:
     rounds_used: int = 0
     rounds_completed: int = 0
     duration_seconds: float = 0.0
-    winner: Optional[str] = None
+    winner: str | None = None
     consensus_reached: bool = False
     avg_novelty: float = 1.0
     proposals: dict = field(default_factory=dict)

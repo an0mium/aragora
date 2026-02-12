@@ -712,7 +712,7 @@ class ExpenseTracker:
         description: str = "",
         employee_id: str | None = None,
         is_reimbursable: bool = False,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> ExpenseRecord:
         """
         Create an expense record manually.
@@ -960,8 +960,8 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def sync_to_qbo(
         self,
-        expenses: Optional[list[ExpenseRecord]] = None,
-        expense_ids: Optional[list[str]] = None,
+        expenses: list[ExpenseRecord] | None = None,
+        expense_ids: list[str] | None = None,
     ) -> SyncResult:
         """
         Sync expenses to QuickBooks Online.
@@ -1267,7 +1267,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
         description: str | None = None,
         status: ExpenseStatus | None = None,
         is_reimbursable: bool | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> ExpenseRecord | None:
         """Update an expense record."""
         expense = await self.get_expense(expense_id)
@@ -1440,7 +1440,7 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
 
     async def bulk_categorize(
         self,
-        expense_ids: Optional[list[str]] = None,
+        expense_ids: list[str] | None = None,
     ) -> dict[str, ExpenseCategory]:
         """
         Bulk categorize expenses.

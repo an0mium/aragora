@@ -88,8 +88,8 @@ class OutlookConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        folders: Optional[list[str]] = None,
-        exclude_folders: Optional[list[str]] = None,
+        folders: list[str] | None = None,
+        exclude_folders: list[str] | None = None,
         max_results: int = 100,
         include_deleted: bool = False,
         user_id: str = "me",
@@ -354,8 +354,8 @@ class OutlookConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API with circuit breaker protection."""
         import httpx
@@ -882,8 +882,8 @@ class OutlookConnector(EnterpriseConnector):
         to: list[str],
         subject: str,
         body: str,
-        cc: Optional[list[str]] = None,
-        bcc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
         reply_to: str | None = None,
         html_body: str | None = None,
     ) -> dict[str, Any]:
@@ -949,7 +949,7 @@ class OutlookConnector(EnterpriseConnector):
         self,
         original_message_id: str,
         body: str,
-        cc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
         html_body: str | None = None,
         reply_all: bool = False,
     ) -> dict[str, Any]:

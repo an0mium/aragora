@@ -54,9 +54,9 @@ class PromptAssemblyMixin:
 
     def build_proposal_prompt(
         self,
-        agent: "Agent",
+        agent: Agent,
         audience_section: str = "",
-        all_agents: list["Agent"] | None = None,
+        all_agents: list[Agent] | None = None,
     ) -> str:
         """Build the initial proposal prompt.
 
@@ -204,11 +204,11 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
 
     def build_revision_prompt(
         self,
-        agent: "Agent",
+        agent: Agent,
         original: str,
-        critiques: list["Critique"],
+        critiques: list[Critique],
         audience_section: str = "",
-        all_agents: list["Agent"] | None = None,
+        all_agents: list[Agent] | None = None,
         round_number: int = 0,
     ) -> str:
         """Build the revision prompt including critiques."""
@@ -299,7 +299,7 @@ Explain what you changed and why. If you disagree with a critique, explain your 
         self,
         proposals: dict[str, str],
         task: str,
-        critiques: list["Critique"],
+        critiques: list[Critique],
     ) -> str:
         """Build the judge/synthesizer prompt."""
         proposals_str = "\n\n---\n\n".join(
@@ -331,7 +331,7 @@ Synthesize the best elements of all proposals into a final answer.
 Reference evidence [EVID-N] to support key claims in your synthesis.
 Address the most important critiques raised. Explain your synthesis."""
 
-    def build_judge_vote_prompt(self, candidates: list["Agent"], proposals: dict[str, str]) -> str:
+    def build_judge_vote_prompt(self, candidates: list[Agent], proposals: dict[str, str]) -> str:
         """Build prompt for voting on who should judge."""
         candidate_names = ", ".join(a.name for a in candidates)
         proposals_summary = "\n".join(

@@ -187,7 +187,7 @@ class Migration:
     from_version: int
     to_version: int
     sql: str | None = None
-    function: Optional[Callable[[sqlite3.Connection], None]] = None
+    function: Callable[[sqlite3.Connection], None] | None = None
     description: str = ""
 
     def apply(self, conn: sqlite3.Connection) -> None:
@@ -266,7 +266,7 @@ class SchemaManager:
         from_version: int,
         to_version: int,
         sql: str | None = None,
-        function: Optional[Callable[[sqlite3.Connection], None]] = None,
+        function: Callable[[sqlite3.Connection], None] | None = None,
         description: str = "",
     ) -> None:
         """

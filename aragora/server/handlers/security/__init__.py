@@ -32,7 +32,7 @@ class CSPViolation:
     status_code: int | None = None
 
     @classmethod
-    def from_report(cls, report: dict[str, Any]) -> "CSPViolation":
+    def from_report(cls, report: dict[str, Any]) -> CSPViolation:
         """Parse a CSP violation from browser report format.
 
         Browsers send CSP violations in slightly different formats.

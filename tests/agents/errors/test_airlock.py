@@ -41,11 +41,11 @@ class MockAgent:
     name: str = "mock-agent"
     model: str = "mock-model"
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         """Generate a response."""
         return f"Response to: {prompt[:50]}"
 
-    async def critique(self, proposal: str, task: str, context: Optional[list] = None) -> dict:
+    async def critique(self, proposal: str, task: str, context: list | None = None) -> dict:
         """Critique a proposal."""
         return {
             "agent": self.name,
@@ -80,7 +80,7 @@ def slow_agent():
     """Create a mock agent that takes a long time to respond."""
     agent = MockAgent(name="slow-agent")
 
-    async def slow_generate(prompt: str, context: Optional[list] = None) -> str:
+    async def slow_generate(prompt: str, context: list | None = None) -> str:
         await asyncio.sleep(10)  # Longer than default timeout in tests
         return "Slow response"
 
@@ -93,7 +93,7 @@ def failing_agent():
     """Create a mock agent that raises errors."""
     agent = MockAgent(name="failing-agent")
 
-    async def failing_generate(prompt: str, context: Optional[list] = None) -> str:
+    async def failing_generate(prompt: str, context: list | None = None) -> str:
         raise ConnectionError("Connection refused")
 
     agent.generate = failing_generate

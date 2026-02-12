@@ -147,7 +147,7 @@ def track_request_with_trace(
         status = "error"
         logger.warning("Request error on %s %s: %s", method, endpoint, e)
         raise
-    except (OSError, IOError, ConnectionError, TimeoutError) as e:
+    except (OSError, ConnectionError, TimeoutError) as e:
         status = "error"
         logger.warning("I/O error on %s %s: %s", method, endpoint, e)
         raise

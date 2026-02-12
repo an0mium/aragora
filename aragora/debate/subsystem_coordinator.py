@@ -101,41 +101,41 @@ class SubsystemCoordinator:
     """
 
     # Protocol reference for breakpoint configuration
-    protocol: Optional["DebateProtocol"] = None
+    protocol: DebateProtocol | None = None
     loop_id: str = ""
 
     # Position tracking subsystems
-    position_tracker: Optional["PositionTracker"] = None
-    position_ledger: Optional["PositionLedger"] = None
+    position_tracker: PositionTracker | None = None
+    position_ledger: PositionLedger | None = None
     enable_position_ledger: bool = False
 
     # Agent ranking subsystems
-    elo_system: Optional["EloSystem"] = None
-    calibration_tracker: Optional["CalibrationTracker"] = None
+    elo_system: EloSystem | None = None
+    calibration_tracker: CalibrationTracker | None = None
     enable_calibration: bool = False
 
     # SDPO learning (self-distillation for calibration)
-    sdpo_learner: Optional["SDPOLearner"] = None
-    sdpo_bridge: Optional["SDPOCalibrationBridge"] = None
-    sdpo_calibration_config: Optional["SDPOCalibrationConfig"] = None
+    sdpo_learner: SDPOLearner | None = None
+    sdpo_bridge: SDPOCalibrationBridge | None = None
+    sdpo_calibration_config: SDPOCalibrationConfig | None = None
     enable_sdpo: bool = True
 
     # Persona management
     persona_manager: Any | None = None
 
     # Memory subsystems
-    consensus_memory: Optional["ConsensusMemory"] = None
-    dissent_retriever: Optional["DissentRetriever"] = None
-    continuum_memory: Optional["ContinuumMemory"] = None
+    consensus_memory: ConsensusMemory | None = None
+    dissent_retriever: DissentRetriever | None = None
+    continuum_memory: ContinuumMemory | None = None
 
     # Detection subsystems
-    flip_detector: Optional["FlipDetector"] = None
-    moment_detector: Optional["MomentDetector"] = None
+    flip_detector: FlipDetector | None = None
+    moment_detector: MomentDetector | None = None
     enable_moment_detection: bool = False
 
     # Relationship subsystems
-    relationship_tracker: Optional["RelationshipTracker"] = None
-    tier_analytics_tracker: Optional["TierAnalyticsTracker"] = None
+    relationship_tracker: RelationshipTracker | None = None
+    tier_analytics_tracker: TierAnalyticsTracker | None = None
 
     # Hook system
     hook_manager: Any | None = None  # HookManager for lifecycle hooks
@@ -888,7 +888,7 @@ class SubsystemCoordinator:
     # Lifecycle hooks
     # =========================================================================
 
-    def on_debate_start(self, ctx: "DebateContext") -> None:
+    def on_debate_start(self, ctx: DebateContext) -> None:
         """Called when a debate starts.
 
         Args:
@@ -903,7 +903,7 @@ class SubsystemCoordinator:
 
     def on_round_complete(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
         positions: dict[str, str],
     ) -> None:
@@ -930,8 +930,8 @@ class SubsystemCoordinator:
 
     def on_debate_complete(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
     ) -> None:
         """Called when a debate completes.
 
@@ -1054,9 +1054,9 @@ class SubsystemCoordinator:
 
     def _build_sdpo_trajectory(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
-    ) -> "TrajectoryRecord | None":
+        ctx: DebateContext,
+        result: DebateResult,
+    ) -> TrajectoryRecord | None:
         """Construct an SDPO trajectory from debate messages."""
         try:
             from aragora.agents.learning.sdpo import TrajectoryRecord, ActionType
@@ -1125,7 +1125,7 @@ class SubsystemCoordinator:
 
         return trajectory
 
-    async def _process_sdpo_trajectory(self, trajectory: "TrajectoryRecord") -> None:
+    async def _process_sdpo_trajectory(self, trajectory: TrajectoryRecord) -> None:
         """Evaluate and persist SDPO trajectory insights."""
         if self.sdpo_learner is None:
             return
@@ -1398,7 +1398,7 @@ class SubsystemConfig:
 
     def create_coordinator(
         self,
-        protocol: Optional["DebateProtocol"] = None,
+        protocol: DebateProtocol | None = None,
         loop_id: str = "",
     ) -> SubsystemCoordinator:
         """Create SubsystemCoordinator from this configuration.

@@ -93,7 +93,7 @@ class DocumentTable:
     """A table extracted from a document."""
 
     data: list[list[str]]  # 2D array of cell values
-    headers: Optional[list[str]] = None  # Column headers if detected
+    headers: list[str] | None = None  # Column headers if detected
     page: int | None = None  # Page number where table was found
     caption: str | None = None  # Table caption if available
     metadata: dict[str, Any] = field(default_factory=dict)

@@ -69,7 +69,7 @@ class ProtocolPayload:
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ProtocolPayload":
+    def from_dict(cls, data: dict[str, Any]) -> ProtocolPayload:
         """Create payload from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
@@ -222,7 +222,7 @@ class ProtocolMessage:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ProtocolMessage":
+    def from_dict(cls, data: dict[str, Any]) -> ProtocolMessage:
         """Create message from dictionary."""
         message_type = ProtocolMessageType(data["message_type"])
         timestamp = data.get("timestamp")

@@ -185,7 +185,7 @@ class TestArenaSaveCheckpoint:
     async def test_save_checkpoint_handles_error(self, mock_arena):
         """Test checkpoint creation handles errors gracefully."""
         mock_arena.checkpoint_manager.create_checkpoint = AsyncMock(
-            side_effect=IOError("Storage error")
+            side_effect=OSError("Storage error")
         )
 
         checkpoint_id = await mock_arena.save_checkpoint(

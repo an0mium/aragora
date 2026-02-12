@@ -166,7 +166,7 @@ class ClientManager:
         return len(self.clients)
 
     # Context manager support for proper cleanup
-    def __enter__(self) -> "ClientManager":
+    def __enter__(self) -> ClientManager:
         """Enter context manager."""
         return self
 
@@ -382,7 +382,7 @@ class DebateStateCache:
         return removed
 
     # Context manager support
-    def __enter__(self) -> "DebateStateCache":
+    def __enter__(self) -> DebateStateCache:
         """Enter context manager."""
         return self
 
@@ -525,7 +525,7 @@ class LoopRegistry:
         return removed
 
     # Context manager support
-    def __enter__(self) -> "LoopRegistry":
+    def __enter__(self) -> LoopRegistry:
         """Enter context manager."""
         return self
 
@@ -726,7 +726,7 @@ class WebSocketBroadcaster:
         }
 
     # Context manager support
-    def __enter__(self) -> "WebSocketBroadcaster":
+    def __enter__(self) -> WebSocketBroadcaster:
         """Enter context manager."""
         self._running = True
         return self
@@ -735,7 +735,7 @@ class WebSocketBroadcaster:
         """Exit context manager - cleanup all resources."""
         self.cleanup()
 
-    async def __aenter__(self) -> "WebSocketBroadcaster":
+    async def __aenter__(self) -> WebSocketBroadcaster:
         """Enter async context manager."""
         self._running = True
         return self

@@ -205,7 +205,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item."""
         metadata = km_item.get("metadata", {})
         confidence = km_item.get("confidence") or metadata.get("confidence")
@@ -227,7 +227,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to an OpenClaw action record."""
         try:
@@ -758,13 +758,13 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
     # Query Methods
     # =========================================================================
 
-    def get_action(self, action_id: str) -> Optional[dict[str, Any]]:
+    def get_action(self, action_id: str) -> dict[str, Any] | None:
         """Get a specific action by ID."""
         if not action_id.startswith(self.ID_PREFIX):
             action_id = f"{self.ID_PREFIX}action_{action_id}"
         return self._actions.get(action_id)
 
-    def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:
+    def get_pattern(self, pattern_id: str) -> dict[str, Any] | None:
         """Get a specific pattern by ID."""
         if not pattern_id.startswith(self.ID_PREFIX):
             pattern_id = f"{self.ID_PREFIX}pattern_{pattern_id}"
@@ -788,7 +788,7 @@ class OpenClawAdapter(OpenClawLearningMixin, FusionMixin, SemanticSearchMixin, K
         action_ids = self._debate_actions.get(debate_id, [])
         return [self._actions[aid] for aid in action_ids[:limit] if aid in self._actions]
 
-    def to_knowledge_item(self, action: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, action: dict[str, Any]) -> KnowledgeItem:
         """Convert an action dict to a KnowledgeItem."""
         from aragora.knowledge.mound.types import (
             ConfidenceLevel,

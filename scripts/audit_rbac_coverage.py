@@ -30,11 +30,11 @@ class HandlerInfo:
     line: int
     has_permission: bool
     has_role: bool
-    permission_name: Optional[str] = None
-    role_name: Optional[str] = None
-    http_method: Optional[str] = None
-    route: Optional[str] = None
-    protection_type: Optional[str] = None  # 'decorator', 'admin_secure', 'manual_check'
+    permission_name: str | None = None
+    role_name: str | None = None
+    http_method: str | None = None
+    route: str | None = None
+    protection_type: str | None = None  # 'decorator', 'admin_secure', 'manual_check'
 
 
 def find_handlers(handler_dir: Path) -> list[HandlerInfo]:

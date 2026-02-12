@@ -69,7 +69,7 @@ class EvolutionABTestingHandler(BaseHandler):
         "/api/v1/evolution/ab-tests",
     ]
 
-    def __init__(self, ctx: "ServerContext | None" = None):
+    def __init__(self, ctx: ServerContext | None = None):
         """Initialize with context."""
         super().__init__(ctx or {})
         self._manager: ABTestManager | None = None

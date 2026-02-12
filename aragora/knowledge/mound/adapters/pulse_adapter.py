@@ -168,7 +168,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item."""
         metadata = km_item.get("metadata", {})
         confidence = km_item.get("confidence") or metadata.get("confidence")
@@ -187,7 +187,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a pulse record."""
         try:
@@ -336,7 +336,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_trending_topic(
         self,
-        topic: "TrendingTopic",
+        topic: TrendingTopic,
         min_quality: float = None,
     ) -> str | None:
         """
@@ -391,7 +391,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_scheduled_debate(
         self,
-        record: "ScheduledDebateRecord",
+        record: ScheduledDebateRecord,
     ) -> str:
         """
         Store a scheduled debate record in the Knowledge Mound.
@@ -428,7 +428,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_outcome(
         self,
-        outcome: "TrendingTopicOutcome",
+        outcome: TrendingTopicOutcome,
     ) -> str:
         """
         Store a debate outcome for a trending topic.
@@ -524,7 +524,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         return outcome_id
 
-    def get_topic(self, topic_id: str) -> Optional[dict[str, Any]]:
+    def get_topic(self, topic_id: str) -> dict[str, Any] | None:
         """
         Get a specific topic by ID.
 
@@ -538,7 +538,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             topic_id = f"{self.ID_PREFIX}topic_{topic_id}"
         return self._topics.get(topic_id)
 
-    def get_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_debate(self, debate_id: str) -> dict[str, Any] | None:
         """
         Get a specific debate record by ID.
 
@@ -751,7 +751,7 @@ class PulseAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             "category": category,
         }
 
-    def to_knowledge_item(self, topic: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, topic: dict[str, Any]) -> KnowledgeItem:
         """
         Convert a topic dict to a KnowledgeItem.
 

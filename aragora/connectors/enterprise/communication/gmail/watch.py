@@ -36,7 +36,7 @@ class GmailBaseMethods(Protocol):
     user_id: str
     exclude_labels: set[str]
     _gmail_state: GmailSyncState | None
-    _watch_task: Optional["asyncio.Task[None]"]
+    _watch_task: asyncio.Task[None] | None
     _watch_running: bool
 
     async def _get_access_token(self) -> str: ...
@@ -44,7 +44,7 @@ class GmailBaseMethods(Protocol):
         self, endpoint: str, method: str = "GET", **kwargs: Any
     ) -> dict[str, Any]: ...
     @asynccontextmanager
-    def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
+    def _get_client(self) -> AsyncIterator[httpx.AsyncClient]: ...
     def check_circuit_breaker(self) -> bool: ...
     def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
@@ -62,7 +62,7 @@ class GmailWatchMixin(GmailBaseMethods):
     user_id: str
     exclude_labels: set[str]
     _gmail_state: GmailSyncState | None
-    _watch_task: Optional["asyncio.Task[None]"]
+    _watch_task: asyncio.Task[None] | None
     _watch_running: bool
 
     def _is_protocol_method(self, method: Any) -> bool:
@@ -121,7 +121,7 @@ class GmailWatchMixin(GmailBaseMethods):
     async def setup_watch(
         self,
         topic_name: str,
-        label_ids: Optional[list[str]] = None,
+        label_ids: list[str] | None = None,
         project_id: str | None = None,
     ) -> dict[str, Any]:
         """

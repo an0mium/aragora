@@ -56,9 +56,9 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        provider: Optional["Web3Provider"] = None,
-        signer: Optional["WalletSigner"] = None,
-        km_store: Optional[Any] = None,
+        provider: Web3Provider | None = None,
+        signer: WalletSigner | None = None,
+        km_store: Any | None = None,
         enable_reverse_sync: bool = False,
         min_elo_for_reputation: float = 1500.0,
         **kwargs: Any,
@@ -83,7 +83,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
         self._reputation_contract: Any = None
         self._validation_contract: Any = None
 
-    def _get_provider(self) -> "Web3Provider":
+    def _get_provider(self) -> Web3Provider:
         """Get or create the Web3 provider."""
         if self._provider is None:
             from aragora.blockchain.provider import Web3Provider
@@ -455,7 +455,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                 # Scale: ELO 1000-2000 maps to reputation value 0-1000
                 # Using 2 decimal places (value_decimals=2)
                 elo_normalized = max(1000.0, min(2000.0, elo))
-                reputation_value = int((elo_normalized - 1000.0))
+                reputation_value = int(elo_normalized - 1000.0)
 
                 # Compute feedback hash from ELO data for integrity
                 import hashlib

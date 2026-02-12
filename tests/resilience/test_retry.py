@@ -313,7 +313,7 @@ class TestRetryConfigIsRetryable:
 
     def test_default_retryable_io_error(self):
         config = RetryConfig()
-        assert config.is_retryable(IOError("io error")) is True
+        assert config.is_retryable(OSError("io error")) is True
 
     def test_default_non_retryable_value_error(self):
         config = RetryConfig()
@@ -780,7 +780,7 @@ class TestIsTransientError:
         assert _is_transient_error(OSError("network error")) is True
 
     def test_io_error(self):
-        assert _is_transient_error(IOError("io error")) is True
+        assert _is_transient_error(OSError("io error")) is True
 
     def test_rate_limit_error(self):
         assert _is_transient_error(Exception("Rate limit exceeded")) is True

@@ -45,8 +45,8 @@ def _parse_result(result):
 
 def _make_handler(
     *,
-    headers: Optional[dict[str, str]] = None,
-    rfile: Optional[BytesIO] = None,
+    headers: dict[str, str] | None = None,
+    rfile: BytesIO | None = None,
     content_length: int = 0,
 ):
     """Build a fake HTTP handler object."""

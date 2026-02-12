@@ -462,7 +462,7 @@ def build_security_debate_question(event: SecurityEvent) -> str:
 async def trigger_security_debate(
     event: SecurityEvent,
     confidence_threshold: float = 0.7,
-    agents: Optional[list[Any]] = None,
+    agents: list[Any] | None = None,
     timeout_seconds: int = 300,
 ) -> str | None:
     """
@@ -621,7 +621,7 @@ async def _store_security_debate_result(
     }
 
 
-async def get_security_debate_result(debate_id: str) -> Optional[dict[str, Any]]:
+async def get_security_debate_result(debate_id: str) -> dict[str, Any] | None:
     """Get a security debate result by ID."""
     return _security_debate_results.get(debate_id)
 

@@ -44,8 +44,8 @@ class MockAgent:
     """Mock agent for testing."""
 
     name: str
-    genome_id: Optional[str] = None
-    prompt_version: Optional[int] = None
+    genome_id: str | None = None
+    prompt_version: int | None = None
 
 
 @dataclass
@@ -55,7 +55,7 @@ class MockMessage:
     agent: str
     content: str
     role: str = "proposer"
-    target_agent: Optional[str] = None
+    target_agent: str | None = None
 
 
 @dataclass
@@ -74,7 +74,7 @@ class MockDebateResult:
     final_answer: str = "The final answer from the debate."
     consensus_reached: bool = True
     confidence: float = 0.85
-    winner: Optional[str] = "claude"
+    winner: str | None = "claude"
     votes: list = field(default_factory=list)
     messages: list = field(default_factory=list)
     dissenting_views: list = field(default_factory=list)

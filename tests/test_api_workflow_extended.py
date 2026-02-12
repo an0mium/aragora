@@ -34,7 +34,7 @@ class MockRequest:
     method: str = "GET"
     headers: dict = field(default_factory=dict)
     query_params: dict = field(default_factory=dict)
-    body: Optional[bytes] = None
+    body: bytes | None = None
 
     def __post_init__(self):
         if self.body:

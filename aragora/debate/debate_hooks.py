@@ -62,12 +62,12 @@ class DebateHooks:
     """
 
     # Subsystem references
-    position_ledger: Optional["PositionLedger"] = None
-    elo_system: Optional["EloSystem"] = None
-    memory_manager: Optional["MemoryManager"] = None
-    evidence_grounder: Optional["EvidenceGrounder"] = None
-    calibration_tracker: Optional["CalibrationTracker"] = None
-    event_emitter: Optional["EventEmitter"] = None
+    position_ledger: PositionLedger | None = None
+    elo_system: EloSystem | None = None
+    memory_manager: MemoryManager | None = None
+    evidence_grounder: EvidenceGrounder | None = None
+    calibration_tracker: CalibrationTracker | None = None
+    event_emitter: EventEmitter | None = None
 
     # Slack webhook for notifications
     slack_webhook_url: str | None = None
@@ -82,7 +82,7 @@ class DebateHooks:
 
     def on_round_complete(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
         proposals: dict[str, str],
         domain: str | None = None,
@@ -152,11 +152,11 @@ class DebateHooks:
 
     async def on_debate_complete(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
-        agents: list["Agent"],
+        ctx: DebateContext,
+        result: DebateResult,
+        agents: list[Agent],
         task: str,
-        belief_cruxes: Optional[list[str]] = None,
+        belief_cruxes: list[str] | None = None,
     ) -> None:
         """Called when a debate completes.
 
@@ -208,7 +208,7 @@ class DebateHooks:
         debate_id: str,
         participants: list[str],
         winner: str | None,
-        votes: list["Vote"],
+        votes: list[Vote],
     ) -> None:
         """Update agent relationships after debate completion.
 
@@ -262,9 +262,9 @@ class DebateHooks:
 
     def _store_debate_outcome(
         self,
-        result: "DebateResult",
+        result: DebateResult,
         task: str,
-        belief_cruxes: Optional[list[str]] = None,
+        belief_cruxes: list[str] | None = None,
     ) -> None:
         """Store debate outcome in memory for future retrieval.
 
@@ -287,7 +287,7 @@ class DebateHooks:
         except Exception as e:
             logger.exception(f"Unexpected memory storage error: {e}")
 
-    def _update_memory_outcomes(self, result: "DebateResult") -> None:
+    def _update_memory_outcomes(self, result: DebateResult) -> None:
         """Update retrieved memories based on debate outcome.
 
         Updates the relevance/usefulness scores for memories that
@@ -319,8 +319,8 @@ class DebateHooks:
 
     def _update_calibration(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
         participants: list[str],
     ) -> None:
         """Update calibration scores and emit events.
@@ -408,7 +408,7 @@ class DebateHooks:
         except Exception as e:
             logger.exception(f"Unexpected calibration update error: {e}")
 
-    async def _verify_claims(self, result: "DebateResult") -> None:
+    async def _verify_claims(self, result: DebateResult) -> None:
         """Verify decidable claims using formal methods.
 
         For arithmetic, logic, and constraint claims, attempts formal
@@ -479,7 +479,7 @@ class DebateHooks:
     # Grounded Verdict Creation
     # =========================================================================
 
-    def create_grounded_verdict(self, result: "DebateResult") -> Any | None:
+    def create_grounded_verdict(self, result: DebateResult) -> Any | None:
         """Create a GroundedVerdict for the final answer.
 
         Heavy3-inspired: Wrap final answers with evidence grounding analysis.
@@ -511,7 +511,7 @@ class DebateHooks:
 
     def _notify_slack_webhook(
         self,
-        result: "DebateResult",
+        result: DebateResult,
         task: str,
         participants: list[str],
     ) -> None:

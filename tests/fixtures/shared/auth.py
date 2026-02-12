@@ -58,7 +58,7 @@ class MockAuthorizationContext:
     workspace_id: str = "test-ws-001"
     roles: set[str] = field(default_factory=lambda: {"admin"})
     permissions: set[str] = field(default_factory=set)
-    api_key_scope: Optional[str] = None
+    api_key_scope: str | None = None
     ip_address: str = "127.0.0.1"
     user_agent: str = "test-agent"
     request_id: str = "req-test-001"
@@ -136,8 +136,8 @@ def create_mock_auth_context(
     user_email: str = "test@example.com",
     org_id: str = "test-org-001",
     workspace_id: str = "test-ws-001",
-    roles: Optional[set[str]] = None,
-    permissions: Optional[set[str]] = None,
+    roles: set[str] | None = None,
+    permissions: set[str] | None = None,
     **kwargs: Any,
 ) -> MockAuthorizationContext:
     """Create a mock authorization context with custom settings.
@@ -235,7 +235,7 @@ def create_editor_context(
 
 def patch_get_auth_context(
     monkeypatch: Any,
-    auth_context: Optional[MockAuthorizationContext] = None,
+    auth_context: MockAuthorizationContext | None = None,
 ) -> None:
     """Patch get_auth_context across all handler modules.
 
@@ -311,7 +311,7 @@ def patch_rbac_decorators(monkeypatch: Any) -> None:
 
 def patch_context_from_args(
     monkeypatch: Any,
-    auth_context: Optional[MockAuthorizationContext] = None,
+    auth_context: MockAuthorizationContext | None = None,
 ) -> None:
     """Patch _get_context_from_args to return mock context.
 
@@ -349,7 +349,7 @@ def patch_context_from_args(
 
 def patch_user_auth_context(
     monkeypatch: Any,
-    auth_context: Optional[MockAuthorizationContext] = None,
+    auth_context: MockAuthorizationContext | None = None,
 ) -> None:
     """Patch extract_user_from_request for JWT-based user auth.
 
@@ -391,7 +391,7 @@ def patch_user_auth_context(
 
 def setup_full_auth_bypass(
     monkeypatch: Any,
-    auth_context: Optional[MockAuthorizationContext] = None,
+    auth_context: MockAuthorizationContext | None = None,
 ) -> MockAuthorizationContext:
     """Set up complete auth bypass for handler tests.
 
@@ -425,8 +425,8 @@ def authenticated_handler_context(
     handler_instance: Any,
     user_id: str = "test-user-001",
     org_id: str = "test-org-001",
-    roles: Optional[set[str]] = None,
-    permissions: Optional[set[str]] = None,
+    roles: set[str] | None = None,
+    permissions: set[str] | None = None,
 ):
     """Context manager that patches a handler instance to bypass RBAC.
 

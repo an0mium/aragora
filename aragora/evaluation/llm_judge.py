@@ -423,7 +423,7 @@ class EvaluationResult:
 
     def calculate_overall_score(
         self,
-        weights: Optional[dict[EvaluationDimension, float]] = None,
+        weights: dict[EvaluationDimension, float] | None = None,
     ) -> float:
         """Calculate weighted overall score."""
         if not self.dimension_scores:
@@ -513,9 +513,9 @@ class JudgeConfig:
 
     # Evaluation settings
     use_case: str = "default"
-    dimensions: Optional[list[EvaluationDimension]] = None  # None = all
-    custom_weights: Optional[dict[EvaluationDimension, float]] = None
-    custom_rubrics: Optional[dict[EvaluationDimension, EvaluationRubric]] = None
+    dimensions: list[EvaluationDimension] | None = None  # None = all
+    custom_weights: dict[EvaluationDimension, float] | None = None
+    custom_rubrics: dict[EvaluationDimension, EvaluationRubric] | None = None
 
     # Quality gate
     pass_threshold: float = 3.5  # Minimum overall score to pass

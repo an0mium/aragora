@@ -92,7 +92,7 @@ class ShareSettings:
         return time.time() > self.expires_at
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ShareSettings":
+    def from_dict(cls, data: dict[str, Any]) -> ShareSettings:
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],
@@ -702,7 +702,7 @@ class SharingHandler(BaseHandler):
         # Use secrets for cryptographically secure token
         return secrets.token_urlsafe(16)
 
-    def _get_debate_data(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def _get_debate_data(self, debate_id: str) -> dict[str, Any] | None:
         """Get debate data for sharing.
 
         Fetches the debate artifact from the DebateStorage database.

@@ -99,7 +99,7 @@ class TimeoutConfig:
     """
 
     seconds: float
-    on_timeout: Optional[Callable[[str], None]] = None
+    on_timeout: Callable[[str], None] | None = None
     error_class: type = TimeoutError
     message: str | None = None
 
@@ -226,7 +226,7 @@ def with_timeout_sync(
 @asynccontextmanager
 async def timeout_context(
     seconds: float,
-    on_timeout: Optional[Callable[[str], None]] = None,
+    on_timeout: Callable[[str], None] | None = None,
     context_name: str = "operation",
 ) -> AsyncIterator[None]:
     """Async context manager for timeout with optional callback.
@@ -260,7 +260,7 @@ async def timeout_context(
 @contextmanager
 def timeout_context_sync(
     seconds: float,
-    on_timeout: Optional[Callable[[str], None]] = None,
+    on_timeout: Callable[[str], None] | None = None,
     context_name: str = "operation",
 ) -> Iterator[None]:
     """Sync context manager for timeout (Unix-only).

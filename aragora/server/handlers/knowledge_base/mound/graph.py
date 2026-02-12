@@ -48,7 +48,7 @@ def _parse_relationship_type(value: str | None) -> RelationshipType | None:
 class GraphHandlerProtocol(Protocol):
     """Protocol for handlers that use GraphOperationsMixin."""
 
-    def _get_mound(self) -> "KnowledgeMound | None": ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class GraphOperationsMixin:

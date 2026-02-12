@@ -37,13 +37,13 @@ class ConfidenceDecayHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class ConfidenceDecayOperationsMixin:
     """Mixin providing confidence decay API endpoints."""
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """Provided by host class."""
         ...
 

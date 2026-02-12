@@ -26,7 +26,7 @@ class SelectionContext:
     """
 
     # Core data
-    agent_pool: dict[str, "AgentProfile"] = field(default_factory=dict)
+    agent_pool: dict[str, AgentProfile] = field(default_factory=dict)
     bench: list[str] = field(default_factory=list)
 
     # System integrations (optional)
@@ -60,8 +60,8 @@ class ScorerProtocol(Protocol):
 
     def score_agent(
         self,
-        agent: "AgentProfile",
-        requirements: "TaskRequirements",
+        agent: AgentProfile,
+        requirements: TaskRequirements,
         context: SelectionContext,
     ) -> float:
         """
@@ -102,10 +102,10 @@ class TeamSelectorProtocol(Protocol):
 
     def select_team(
         self,
-        scored_agents: list[tuple["AgentProfile", float]],
-        requirements: "TaskRequirements",
+        scored_agents: list[tuple[AgentProfile, float]],
+        requirements: TaskRequirements,
         context: SelectionContext,
-    ) -> list["AgentProfile"]:
+    ) -> list[AgentProfile]:
         """
         Select a team from scored candidates.
 
@@ -144,8 +144,8 @@ class RoleAssignerProtocol(Protocol):
 
     def assign_roles(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
         context: SelectionContext,
         phase: str | None = None,
     ) -> dict[str, str]:
@@ -185,10 +185,10 @@ class SelectionPipelineProtocol(Protocol):
 
     def select(
         self,
-        requirements: "TaskRequirements",
+        requirements: TaskRequirements,
         context: SelectionContext,
         exclude: list[str] | None = None,
-    ) -> "TeamComposition":
+    ) -> TeamComposition:
         """
         Run the complete selection pipeline.
 

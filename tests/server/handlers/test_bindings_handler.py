@@ -46,13 +46,13 @@ class MockMessageBinding:
     agent_binding: str
     binding_type: MockBindingType = MockBindingType.DEFAULT
     priority: int = 0
-    time_window_start: Optional[int] = None
-    time_window_end: Optional[int] = None
-    allowed_users: Optional[set[str]] = None
-    blocked_users: Optional[set[str]] = None
+    time_window_start: int | None = None
+    time_window_end: int | None = None
+    allowed_users: set[str] | None = None
+    blocked_users: set[str] | None = None
     config_overrides: dict[str, Any] = field(default_factory=dict)
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -80,12 +80,12 @@ class MockBindingResolution:
     """Mock binding resolution result."""
 
     matched: bool
-    agent_binding: Optional[str] = None
-    binding_type: Optional[MockBindingType] = None
+    agent_binding: str | None = None
+    binding_type: MockBindingType | None = None
     config_overrides: dict[str, Any] = field(default_factory=dict)
-    match_reason: Optional[str] = None
+    match_reason: str | None = None
     candidates_checked: int = 0
-    binding: Optional[MockMessageBinding] = None
+    binding: MockMessageBinding | None = None
 
 
 class MockBindingRouter:
@@ -116,7 +116,7 @@ class MockBindingRouter:
                 return True
         return False
 
-    def list_bindings(self, provider: Optional[str] = None) -> list[MockMessageBinding]:
+    def list_bindings(self, provider: str | None = None) -> list[MockMessageBinding]:
         if provider:
             return [b for b in self._bindings if b.provider == provider]
         return self._bindings
@@ -129,8 +129,8 @@ class MockBindingRouter:
         provider: str,
         account_id: str,
         peer_id: str,
-        user_id: Optional[str] = None,
-        hour: Optional[int] = None,
+        user_id: str | None = None,
+        hour: int | None = None,
     ) -> MockBindingResolution:
         self._stats["total_resolutions"] += 1
         # Simple matching logic

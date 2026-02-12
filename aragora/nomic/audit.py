@@ -104,7 +104,7 @@ class AuditEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditEvent":
+    def from_dict(cls, data: dict[str, Any]) -> AuditEvent:
         """Deserialize from dictionary."""
         return cls(
             event_type=AuditEventType(data.get("event_type", "custom")),

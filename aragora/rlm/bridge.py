@@ -127,7 +127,7 @@ class AragoraRLM(RLMStreamingMixin):
         backend_config: RLMBackendConfig | None = None,
         aragora_config: RLMConfig | None = None,
         agent_registry: Any | None = None,
-        hierarchy_cache: Optional["RLMHierarchyCache"] = None,
+        hierarchy_cache: RLMHierarchyCache | None = None,
         knowledge_mound: Any | None = None,  # For auto-creating cache
         enable_caching: bool = True,  # Enable compression caching
         belief_network: Any | None = None,  # For belief-augmented reasoning
@@ -170,7 +170,7 @@ class AragoraRLM(RLMStreamingMixin):
         )
 
         # Initialize hierarchy cache for compression result reuse
-        self._hierarchy_cache: Optional["RLMHierarchyCache"] = hierarchy_cache
+        self._hierarchy_cache: RLMHierarchyCache | None = hierarchy_cache
         if self.enable_caching and self._hierarchy_cache is None:
             # Auto-create cache if knowledge_mound provided
             self._hierarchy_cache = RLMHierarchyCache(knowledge_mound=knowledge_mound)
@@ -906,7 +906,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
         context: RLMContext,
         strategy: str = "auto",
         max_iterations: int = 3,
-        feedback_generator: Optional[Callable[[RLMResult], str]] = None,
+        feedback_generator: Callable[[RLMResult], str] | None = None,
         start_level: str = "SUMMARY",
     ) -> RLMResult:
         """

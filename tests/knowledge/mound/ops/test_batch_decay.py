@@ -43,8 +43,8 @@ class MockKnowledgeItem:
         self,
         item_id: str,
         confidence: float = 0.8,
-        domain: Optional[str] = None,
-        created_at: Optional[datetime] = None,
+        domain: str | None = None,
+        created_at: datetime | None = None,
     ):
         self.id = item_id
         self.confidence = confidence

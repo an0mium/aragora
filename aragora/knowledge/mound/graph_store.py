@@ -197,7 +197,7 @@ class KnowledgeGraphStore(SQLiteStore):
         confidence: float = 1.0,
         created_by: str | None = None,
         tenant_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Add a relationship between two knowledge items.
@@ -284,7 +284,7 @@ class KnowledgeGraphStore(SQLiteStore):
     async def get_links(
         self,
         node_id: str,
-        relationship_types: Optional[list[RelationshipType]] = None,
+        relationship_types: list[RelationshipType] | None = None,
         direction: Literal["outgoing", "incoming", "both"] = "both",
         tenant_id: str | None = None,
     ) -> list[GraphLink]:
@@ -310,7 +310,7 @@ class KnowledgeGraphStore(SQLiteStore):
     def _sync_get_links(
         self,
         node_id: str,
-        relationship_types: Optional[list[str]],
+        relationship_types: list[str] | None,
         direction: str,
         tenant_id: str,
     ) -> list[GraphLink]:
@@ -672,7 +672,7 @@ class KnowledgeGraphStore(SQLiteStore):
     async def traverse(
         self,
         start_id: str,
-        relationship_types: Optional[list[RelationshipType]] = None,
+        relationship_types: list[RelationshipType] | None = None,
         max_depth: int = 3,
         direction: Literal["outgoing", "incoming", "both"] = "both",
         tenant_id: str | None = None,
@@ -705,7 +705,7 @@ class KnowledgeGraphStore(SQLiteStore):
     def _sync_traverse(
         self,
         start_id: str,
-        relationship_types: Optional[list[str]],
+        relationship_types: list[str] | None,
         max_depth: int,
         direction: str,
         tenant_id: str,

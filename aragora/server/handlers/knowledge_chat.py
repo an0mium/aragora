@@ -105,7 +105,7 @@ async def handle_knowledge_search(
     user_id: str | None = None,
     scope: str = "workspace",
     strategy: str = "hybrid",
-    node_types: Optional[list[str]] = None,
+    node_types: list[str] | None = None,
     min_confidence: float = 0.3,
     max_results: int = 10,
 ) -> dict[str, Any]:

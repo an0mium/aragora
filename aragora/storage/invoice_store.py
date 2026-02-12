@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global singleton
-_invoice_store: Optional["InvoiceStoreBackend"] = None
+_invoice_store: InvoiceStoreBackend | None = None
 _store_lock = threading.RLock()
 
 
@@ -828,7 +828,7 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_invoice_payment ON invoices(scheduled_payment_date);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
 

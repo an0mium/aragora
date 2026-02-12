@@ -96,10 +96,10 @@ class MySQLConnector(EnterpriseConnector):
         host: str = "localhost",
         port: int = 3306,
         database: str = "mysql",
-        tables: Optional[list[str]] = None,
+        tables: list[str] | None = None,
         timestamp_column: str | None = None,
         primary_key_column: str = "id",
-        content_columns: Optional[list[str]] = None,
+        content_columns: list[str] | None = None,
         enable_binlog_cdc: bool = False,
         server_id: int = 100,  # For binlog replication
         pool_size: int = 5,
@@ -120,8 +120,8 @@ class MySQLConnector(EnterpriseConnector):
         self.pool_size = pool_size
 
         self._pool: Any = None
-        self._binlog_stream: Optional["BinLogStreamReader"] = None
-        self._cdc_task: Optional[asyncio.Task[None]] = None
+        self._binlog_stream: BinLogStreamReader | None = None
+        self._cdc_task: asyncio.Task[None] | None = None
 
         # CDC support
         self._cdc_manager: CDCStreamManager | None = None
@@ -238,7 +238,7 @@ class MySQLConnector(EnterpriseConnector):
                 return candidate
         return None
 
-    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: list[str] | None = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}
@@ -566,7 +566,7 @@ class MySQLConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self, timeout: float = 5.0) -> "ConnectorHealth":
+    async def health_check(self, timeout: float = 5.0) -> ConnectorHealth:
         """
         Check MySQL connection health.
 

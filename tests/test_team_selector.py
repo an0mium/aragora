@@ -799,7 +799,7 @@ class MockAgentCV:
 
     def compute_selection_score(
         self,
-        domain: Optional[str] = None,
+        domain: str | None = None,
         elo_weight: float = 0.3,
         calibration_weight: float = 0.2,
         reliability_weight: float = 0.2,

@@ -20,11 +20,11 @@ from aragora.config import resolve_db_path
 logger = logging.getLogger(__name__)
 
 # Global singleton with thread-safe initialization
-_store: Optional["ReceiptShareStore"] = None
+_store: ReceiptShareStore | None = None
 _store_lock = threading.Lock()
 
 
-def get_receipt_share_store() -> "ReceiptShareStore":
+def get_receipt_share_store() -> ReceiptShareStore:
     """Get the global receipt share store instance."""
     global _store
     if _store is None:
@@ -134,7 +134,7 @@ class ReceiptShareStore:
         conn.commit()
         logger.debug(f"Saved share token for receipt {receipt_id}")
 
-    def get_by_token(self, token: str) -> Optional[dict[str, Any]]:
+    def get_by_token(self, token: str) -> dict[str, Any] | None:
         """
         Get share info by token.
 

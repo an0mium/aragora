@@ -579,7 +579,7 @@ class SubsystemRegistry:
         self,
         nomic_dir: Path | None = None,
         enable_persistence: bool = True,
-    ) -> "SubsystemRegistry":
+    ) -> SubsystemRegistry:
         """
         Initialize all available subsystems.
 
@@ -623,7 +623,7 @@ class SubsystemRegistry:
         self,
         nomic_dir: Path | None = None,
         enable_persistence: bool = True,
-    ) -> "SubsystemRegistry":
+    ) -> SubsystemRegistry:
         """
         Initialize all available subsystems in parallel where possible.
 

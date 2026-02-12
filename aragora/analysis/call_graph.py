@@ -451,7 +451,7 @@ class CallGraphBuilder:
     def build_from_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
     ) -> CallGraph:
         """
         Build call graph from a directory of source files.
@@ -662,10 +662,10 @@ class CallGraphBuilder:
 
         # Read file content for call extraction
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
                 content = f.read()
                 lines = content.split("\n")
-        except (OSError, IOError):
+        except OSError:
             return call_sites
 
         # For each function/method, find calls within it
@@ -850,7 +850,7 @@ class ImportGraph:
         return list(self._graph.predecessors(module))
 
     @classmethod
-    def from_analyses(cls, analyses: list[FileAnalysis]) -> "ImportGraph":
+    def from_analyses(cls, analyses: list[FileAnalysis]) -> ImportGraph:
         """Build import graph from file analyses."""
         graph = cls()
 
@@ -875,7 +875,7 @@ class ImportGraph:
 
 def analyze_codebase_dependencies(
     directory: str,
-    exclude_patterns: Optional[list[str]] = None,
+    exclude_patterns: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     High-level function to analyze codebase dependencies.

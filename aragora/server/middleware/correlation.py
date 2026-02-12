@@ -60,7 +60,7 @@ from aragora.server.middleware.tracing import (
 logger = logging.getLogger(__name__)
 
 # Single context variable holding the correlated IDs
-_correlation: ContextVar["CorrelationContext | None"] = ContextVar(
+_correlation: ContextVar[CorrelationContext | None] = ContextVar(
     "correlation_context", default=None
 )
 

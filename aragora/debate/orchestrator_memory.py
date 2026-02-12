@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 logger = get_structured_logger(__name__)
 
 
-def queue_for_supabase_sync(ctx: "DebateContext", result: "DebateResult") -> None:
+def queue_for_supabase_sync(ctx: DebateContext, result: DebateResult) -> None:
     """Queue debate result for background Supabase sync.
 
     This is a non-blocking operation. If sync is disabled or fails,

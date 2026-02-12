@@ -98,7 +98,7 @@ class MockPersona:
 class MockCalibrationTracker:
     """Mock calibration tracker for testing."""
 
-    def __init__(self, summaries: Optional[dict] = None):
+    def __init__(self, summaries: dict | None = None):
         self.summaries = summaries or {}
 
     def get_calibration_summary(self, agent: str):
@@ -110,7 +110,7 @@ class MockCalibrationTracker:
 class MockPersonaManager:
     """Mock persona manager for testing."""
 
-    def __init__(self, personas: Optional[dict] = None):
+    def __init__(self, personas: dict | None = None):
         self.personas = personas or {}
 
     def get_persona(self, agent: str):

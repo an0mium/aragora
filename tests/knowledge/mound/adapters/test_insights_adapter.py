@@ -62,7 +62,7 @@ class MockFlipEvent:
     new_position_id: str = ""
     similarity_score: float = 0.8
     flip_type: str = "contradiction"
-    domain: Optional[str] = None
+    domain: str | None = None
     detected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 

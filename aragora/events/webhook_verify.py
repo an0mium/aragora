@@ -121,7 +121,7 @@ def verify_timestamp(
 def verify_webhook_request(
     payload: str | bytes,
     signature: str | None,
-    timestamp: Optional[str | int | float] = None,
+    timestamp: str | int | float | None = None,
     secret: str = "",
     check_timestamp: bool = True,
     timestamp_tolerance: float = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS,

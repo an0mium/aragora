@@ -50,7 +50,7 @@ class MockChannelSubscription:
     channel_type: str = "slack"
     channel_id: str = "C123456"
     event_types: list[str] = field(default_factory=lambda: ["receipt"])
-    workspace_id: Optional[str] = "T123456"
+    workspace_id: str | None = "T123456"
     is_active: bool = True
 
 

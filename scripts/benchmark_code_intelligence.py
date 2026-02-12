@@ -74,7 +74,7 @@ class BenchmarkSuite:
 
     path: str
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     results: list[BenchmarkResult] = field(default_factory=list)
     file_count: int = 0
     line_count: int = 0
@@ -115,8 +115,8 @@ def count_files_and_lines(path: str) -> tuple[int, int]:
             if not any(ex in p.parts for ex in exclude_dirs):
                 file_count += 1
                 try:
-                    line_count += sum(1 for _ in open(p, "r", encoding="utf-8", errors="ignore"))
-                except (OSError, IOError):
+                    line_count += sum(1 for _ in open(p, encoding="utf-8", errors="ignore"))
+                except OSError:
                     pass
 
     return file_count, line_count
@@ -256,7 +256,7 @@ def get_user_data(user_id):
 async def run_benchmarks(
     path: str,
     iterations: int = 5,
-    benchmarks: Optional[list[str]] = None,
+    benchmarks: list[str] | None = None,
 ) -> BenchmarkSuite:
     """Run all benchmarks."""
     suite = BenchmarkSuite(path=path)

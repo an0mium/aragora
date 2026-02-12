@@ -344,7 +344,7 @@ class TrainingScheduler:
                 job.completed_at = datetime.now().isoformat()
                 logger.error("SFT job %s failed: %s", job.job_id, result.error_message)
 
-        except (OSError, IOError, ValueError, RuntimeError) as e:
+        except (OSError, ValueError, RuntimeError) as e:
             job.status = JobStatus.FAILED
             job.error = str(e)
             job.completed_at = datetime.now().isoformat()
@@ -397,7 +397,7 @@ class TrainingScheduler:
                 job.completed_at = datetime.now().isoformat()
                 logger.error("DPO job %s failed: %s", job.job_id, result.error_message)
 
-        except (OSError, IOError, ValueError, RuntimeError) as e:
+        except (OSError, ValueError, RuntimeError) as e:
             job.status = JobStatus.FAILED
             job.error = str(e)
             job.completed_at = datetime.now().isoformat()
@@ -463,7 +463,7 @@ class TrainingScheduler:
 
             job.completed_at = datetime.now().isoformat()
 
-        except (OSError, IOError, ValueError, RuntimeError) as e:
+        except (OSError, ValueError, RuntimeError) as e:
             job.status = JobStatus.FAILED
             job.error = str(e)
             job.completed_at = datetime.now().isoformat()

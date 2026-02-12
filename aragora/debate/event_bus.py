@@ -551,7 +551,7 @@ class EventBus:
         self._events_by_type.clear()
 
     # Context manager support for proper cleanup
-    def __enter__(self) -> "EventBus":
+    def __enter__(self) -> EventBus:
         """Enter context manager."""
         return self
 

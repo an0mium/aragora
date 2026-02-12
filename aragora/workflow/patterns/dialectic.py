@@ -59,7 +59,7 @@ class DialecticPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "",
         thesis_agent: str | None = None,
         antithesis_agent: str | None = None,

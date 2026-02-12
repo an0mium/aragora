@@ -32,7 +32,7 @@ def audit_system():
 
     # Check orchestrator sanitization
     try:
-        with open("aragora/debate/orchestrator.py", "r") as f:
+        with open("aragora/debate/orchestrator.py") as f:
             content = f.read()
             report["sanitization_defined"] = "def _sanitize" in content.lower()
             report["sanitization_used"] = "._sanitize" in content
@@ -50,7 +50,7 @@ def audit_system():
         fork_handler_found = False
         for module_path in stream_modules:
             try:
-                with open(module_path, "r") as f:
+                with open(module_path) as f:
                     if "_handle_start_fork" in f.read():
                         fork_handler_found = True
                         break
@@ -62,7 +62,7 @@ def audit_system():
 
     # Check frontend
     try:
-        with open("frontend/src/components/ReplayBrowser.tsx", "r") as f:
+        with open("frontend/src/components/ReplayBrowser.tsx") as f:
             report["frontend_ready"] = "start_fork" in f.read()
     except FileNotFoundError:
         # It's okay if the frontend file doesn't exist, just report it.

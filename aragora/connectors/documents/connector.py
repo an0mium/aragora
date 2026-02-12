@@ -401,7 +401,7 @@ class DocumentConnector(Connector):
     def _format_table(
         self,
         data: list[list[Any]],
-        headers: Optional[list[str]] = None,
+        headers: list[str] | None = None,
     ) -> str:
         """Format table data as text."""
         lines = []
@@ -517,7 +517,7 @@ class DocumentEvidence:
     @staticmethod
     def _format_table_text(
         data: list[list[Any]],
-        headers: Optional[list[str]] = None,
+        headers: list[str] | None = None,
     ) -> str:
         """Format table as text for evidence snippet."""
         lines = []

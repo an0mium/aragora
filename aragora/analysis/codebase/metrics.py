@@ -199,7 +199,7 @@ class PythonAnalyzer:
     def analyze_file(self, file_path: str, content: str | None = None) -> FileMetrics:
         """Analyze a Python file for complexity metrics."""
         if content is None:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
         lines = content.split("\n")
@@ -317,7 +317,7 @@ class TypeScriptAnalyzer:
     def analyze_file(self, file_path: str, content: str | None = None) -> FileMetrics:
         """Analyze a TypeScript/JavaScript file for metrics."""
         if content is None:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
         lines = content.split("\n")
@@ -504,8 +504,8 @@ class CodeMetricsAnalyzer:
         self,
         repo_path: str,
         scan_id: str | None = None,
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ) -> MetricsReport:
         """Analyze an entire repository for code metrics.
 
@@ -563,10 +563,10 @@ class CodeMetricsAnalyzer:
                         continue
 
                 try:
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    with open(file_path, encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                     files_to_analyze.append((rel_path, content))
-                except (OSError, IOError):
+                except OSError:
                     continue
 
         # Analyze each file

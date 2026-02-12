@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
     requests_per_minute=30, limiter_name="auth_sessions", endpoint_name="session listing"
 )
 @handle_errors("list sessions")
-def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_list_sessions(handler_instance: AuthHandler, handler) -> HandlerResult:
     """List all active sessions for the current user.
 
     Returns list of sessions with metadata (device, IP, last activity).
@@ -139,7 +139,7 @@ def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerRes
 )
 @handle_errors("revoke session")
 def handle_revoke_session(
-    handler_instance: "AuthHandler", handler, session_id: str
+    handler_instance: AuthHandler, handler, session_id: str
 ) -> HandlerResult:
     """Revoke a specific session.
 

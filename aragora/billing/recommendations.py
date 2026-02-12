@@ -89,7 +89,7 @@ class ImplementationStep:
     order: int
     description: str
     code_snippet: str | None = None
-    config_change: Optional[dict[str, Any]] = None
+    config_change: dict[str, Any] | None = None
     estimated_effort: str = "low"  # low, medium, high
 
 

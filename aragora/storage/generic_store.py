@@ -433,7 +433,7 @@ class GenericPostgresStore(GenericStoreBackend):
     SCHEMA_SQL: str = ""
     INDEX_COLUMNS: set[str] = set()
 
-    def __init__(self, pool: "Pool") -> None:
+    def __init__(self, pool: Pool) -> None:
         if not self.TABLE_NAME:
             raise ValueError("TABLE_NAME must be set")
         self._pool = pool
@@ -632,7 +632,7 @@ def create_store_factory(
             postgres_class=PostgresApprovalRequestStore,
         )
     """
-    _store: Optional[GenericStoreBackend] = None
+    _store: GenericStoreBackend | None = None
     _lock = threading.RLock()
 
     def get_store() -> GenericStoreBackend:

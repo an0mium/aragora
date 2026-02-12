@@ -80,7 +80,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         storage = DebateStorage(nomic_dir=nomic_dir)
         ctx["storage"] = storage
         logger.info("Initialized DebateStorage")
-    except (OSError, IOError, RuntimeError) as e:
+    except (OSError, RuntimeError) as e:
         logger.warning(f"Failed to initialize DebateStorage: {e}")
         ctx["storage"] = None
 
@@ -196,7 +196,7 @@ async def lifespan(app: FastAPI):
     if ctx.get("storage"):
         try:
             ctx["storage"].close()
-        except (OSError, IOError, RuntimeError) as e:
+        except (OSError, RuntimeError) as e:
             logger.debug("Error closing storage during shutdown: %s", e)
 
 

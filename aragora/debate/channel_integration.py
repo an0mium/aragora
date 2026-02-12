@@ -58,8 +58,8 @@ class ChannelIntegration:
     def __init__(
         self,
         debate_id: str,
-        agents: list["Agent"],
-        protocol: Optional["DebateProtocol"] = None,
+        agents: list[Agent],
+        protocol: DebateProtocol | None = None,
     ):
         """
         Initialize channel integration.
@@ -325,8 +325,8 @@ class ChannelIntegration:
 # Factory function for Arena integration
 def create_channel_integration(
     debate_id: str,
-    agents: list["Agent"],
-    protocol: Optional["DebateProtocol"] = None,
+    agents: list[Agent],
+    protocol: DebateProtocol | None = None,
 ) -> ChannelIntegration:
     """
     Create a channel integration instance.

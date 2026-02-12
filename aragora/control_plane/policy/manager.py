@@ -82,7 +82,7 @@ class ControlPlanePolicyManager:
 
     def __init__(
         self,
-        violation_callback: Optional[Callable[[PolicyViolation], None]] = None,
+        violation_callback: Callable[[PolicyViolation], None] | None = None,
     ):
         """
         Initialize the policy manager.
@@ -261,7 +261,7 @@ class ControlPlanePolicyManager:
         task_type: str,
         agent_id: str,
         region: str,
-        capabilities: Optional[list[str]] = None,
+        capabilities: list[str] | None = None,
         workspace: str | None = None,
         data_region: str | None = None,
         task_id: str | None = None,
@@ -600,7 +600,7 @@ class ControlPlanePolicyManager:
         workspace_id: str | None = None,
         task_id: str | None = None,
         agent_id: str | None = None,
-        violations: Optional[list[str]] = None,
+        violations: list[str] | None = None,
     ) -> None:
         """Fire audit log entry asynchronously (fire and forget)."""
         if not HAS_AUDIT or log_policy_decision is None:

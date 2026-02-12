@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_gateway(
-    config: "GatewayConfig | None" = None,
+    config: GatewayConfig | None = None,
     enable_credential_vault: bool = True,
     enable_policy_engine: bool = True,
     audit_logger: Any | None = None,

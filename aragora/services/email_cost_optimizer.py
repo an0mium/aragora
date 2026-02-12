@@ -148,7 +148,7 @@ class UsageStats:
 class CacheEntry:
     """Cached prioritization result."""
 
-    result: "EmailPriorityResult"
+    result: EmailPriorityResult
     timestamp: datetime
     email_hash: str
     confidence: float
@@ -164,7 +164,7 @@ class CostOptimizedPrioritizer:
 
     def __init__(
         self,
-        prioritizer: "EmailPrioritizer",
+        prioritizer: EmailPrioritizer,
         config: CostConfig | None = None,
     ):
         """
@@ -191,11 +191,11 @@ class CostOptimizedPrioritizer:
         self._rate_lock = asyncio.Lock()
 
         # Batch queue
-        self._batch_queue: list[tuple["EmailMessage", asyncio.Future]] = []
+        self._batch_queue: list[tuple[EmailMessage, asyncio.Future]] = []
         self._batch_lock = asyncio.Lock()
         self._batch_task: asyncio.Task | None = None
 
-    def _compute_email_hash(self, email: "EmailMessage") -> str:
+    def _compute_email_hash(self, email: EmailMessage) -> str:
         """Compute a hash for caching purposes."""
         # Use key fields that affect prioritization
         key_data = {
@@ -209,8 +209,8 @@ class CostOptimizedPrioritizer:
 
     async def _get_cached_result(
         self,
-        email: "EmailMessage",
-    ) -> Optional["EmailPriorityResult"]:
+        email: EmailMessage,
+    ) -> EmailPriorityResult | None:
         """Get cached result if available and valid."""
         email_hash = self._compute_email_hash(email)
 
@@ -235,8 +235,8 @@ class CostOptimizedPrioritizer:
 
     async def _cache_result(
         self,
-        email: "EmailMessage",
-        result: "EmailPriorityResult",
+        email: EmailMessage,
+        result: EmailPriorityResult,
     ) -> None:
         """Cache a result if it meets quality threshold."""
         # Only cache high-confidence results
@@ -348,8 +348,8 @@ class CostOptimizedPrioritizer:
 
     def _select_optimal_tier(
         self,
-        email: "EmailMessage",
-        tier_1_result: Optional["EmailPriorityResult"] = None,
+        email: EmailMessage,
+        tier_1_result: EmailPriorityResult | None = None,
     ) -> int:
         """
         Select the optimal scoring tier based on confidence and cost.
@@ -388,10 +388,10 @@ class CostOptimizedPrioritizer:
 
     async def score_email(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
         force_tier: int | None = None,
         skip_cache: bool = False,
-    ) -> "EmailPriorityResult":
+    ) -> EmailPriorityResult:
         """
         Score a single email with cost optimization.
 
@@ -487,9 +487,9 @@ class CostOptimizedPrioritizer:
 
     async def batch_score_emails(
         self,
-        emails: list["EmailMessage"],
+        emails: list[EmailMessage],
         max_concurrent: int = 5,
-    ) -> list["EmailPriorityResult"]:
+    ) -> list[EmailPriorityResult]:
         """
         Score multiple emails with batch optimization.
 
@@ -501,7 +501,7 @@ class CostOptimizedPrioritizer:
             List of EmailPriorityResult in same order as input
         """
         # Check cache for all emails first
-        results: list[Optional["EmailPriorityResult"]] = [None] * len(emails)
+        results: list[EmailPriorityResult | None] = [None] * len(emails)
         uncached_indices: list[int] = []
 
         for i, email in enumerate(emails):
@@ -518,7 +518,7 @@ class CostOptimizedPrioritizer:
         # Score uncached emails with concurrency limit
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def score_with_limit(index: int) -> tuple[int, "EmailPriorityResult"]:
+        async def score_with_limit(index: int) -> tuple[int, EmailPriorityResult]:
             async with semaphore:
                 result = await self.score_email(emails[index], skip_cache=True)
                 return index, result
@@ -564,7 +564,7 @@ class CostOptimizedPrioritizer:
     async def get_cost_projection(
         self,
         emails_per_day: int,
-        tier_distribution: Optional[dict[int, float]] = None,
+        tier_distribution: dict[int, float] | None = None,
     ) -> dict[str, Any]:
         """
         Project costs based on expected volume.

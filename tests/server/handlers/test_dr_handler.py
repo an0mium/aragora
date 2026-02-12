@@ -70,8 +70,8 @@ class MockComprehensiveResult:
 
     backup_id: str
     verified: bool = True
-    schema_validation: Optional[Any] = None
-    integrity_check: Optional[Any] = None
+    schema_validation: Any | None = None
+    integrity_check: Any | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -112,20 +112,20 @@ class MockBackupManager:
 
     def list_backups(
         self,
-        source_path: Optional[str] = None,
-        status: Optional[Any] = None,
-        since: Optional[datetime] = None,
+        source_path: str | None = None,
+        status: Any | None = None,
+        since: datetime | None = None,
     ) -> list[MockBackupMetadata]:
         return list(self._backups.values())
 
-    def get_latest_backup(self, source_path: Optional[str] = None) -> Optional[MockBackupMetadata]:
+    def get_latest_backup(self, source_path: str | None = None) -> MockBackupMetadata | None:
         backups = self.list_backups()
         return backups[0] if backups else None
 
     def verify_backup(
         self,
         backup_id: str,
-        backup_meta: Optional[Any] = None,
+        backup_meta: Any | None = None,
         test_restore: bool = True,
     ) -> MockVerificationResult:
         return MockVerificationResult(backup_id=backup_id)
@@ -133,7 +133,7 @@ class MockBackupManager:
     def verify_restore_comprehensive(
         self,
         backup_id: str,
-        backup_meta: Optional[Any] = None,
+        backup_meta: Any | None = None,
     ) -> MockComprehensiveResult:
         return MockComprehensiveResult(backup_id=backup_id)
 

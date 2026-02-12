@@ -64,7 +64,7 @@ class TeamsCardActions:
     interactions to the appropriate handlers.
     """
 
-    def __init__(self, bot: "TeamsBot"):
+    def __init__(self, bot: TeamsBot):
         """Initialize the card actions handler.
 
         Args:

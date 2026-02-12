@@ -61,7 +61,7 @@ def _convert_messages_to_think_prm_rounds(
 async def _run_think_prm_verification(
     arena: Any,
     ctx: Any,
-) -> Optional[Any]:
+) -> Any | None:
     """Run ThinkPRM verification on debate context messages.
 
     Returns ``None`` when there are no agents or no messages to verify.

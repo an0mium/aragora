@@ -225,7 +225,7 @@ class DebateStorage(SQLiteStore):
 
         return f"{slug}-{count + 1}" if count > 0 else slug
 
-    def save(self, artifact: "DebateArtifact") -> str:
+    def save(self, artifact: DebateArtifact) -> str:
         """
         Save artifact and return permalink slug.
 

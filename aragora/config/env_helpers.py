@@ -73,7 +73,7 @@ def env_bool(key: str, default: bool) -> bool:
     return val in ("true", "1", "yes", "on")
 
 
-def env_list(key: str, default: Optional[list[str]] = None, separator: str = ",") -> list[str]:
+def env_list(key: str, default: list[str] | None = None, separator: str = ",") -> list[str]:
     """Get list from comma-separated environment variable.
 
     Args:

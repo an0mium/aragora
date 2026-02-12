@@ -68,7 +68,7 @@ class SlackDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -138,7 +138,7 @@ class SlackDock(ChannelDock):
     def _build_payload(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build Slack API payload from normalized message."""

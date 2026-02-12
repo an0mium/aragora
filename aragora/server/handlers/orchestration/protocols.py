@@ -33,7 +33,7 @@ class GitHubConnectorProtocol(Protocol):
 class JiraConnectorProtocol(Protocol):
     """Protocol for Jira connector with issue fetching."""
 
-    async def get_issue(self, issue_key: str) -> Optional[dict[str, Any]]:
+    async def get_issue(self, issue_key: str) -> dict[str, Any] | None:
         """Fetch a Jira issue."""
         ...
 

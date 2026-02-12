@@ -54,7 +54,7 @@ class DebateHandlersMixin:
 
         Updates team selection weights based on performance changes.
         """
-        _check_and_record_slo: Optional[Callable[[str, float, str], Any]] = None
+        _check_and_record_slo: Callable[[str, float, str], Any] | None = None
         try:
             from aragora.observability.metrics.slo import check_and_record_slo as _slo_fn
 
@@ -112,7 +112,7 @@ class DebateHandlersMixin:
 
         Updates agent confidence based on calibration results.
         """
-        _check_and_record_slo: Optional[Callable[[str, float, str], Any]] = None
+        _check_and_record_slo: Callable[[str, float, str], Any] | None = None
         try:
             from aragora.observability.metrics.slo import check_and_record_slo as _slo_fn
 

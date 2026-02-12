@@ -23,7 +23,7 @@ class MockAgent:
     """Mock agent for testing."""
 
     name: str
-    role: Optional[str] = None
+    role: str | None = None
 
 
 @dataclass

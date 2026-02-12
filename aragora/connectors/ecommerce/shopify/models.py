@@ -65,7 +65,7 @@ class ShopifyCredentials:
     scope: str = ""
 
     @classmethod
-    def from_env(cls) -> "ShopifyCredentials":
+    def from_env(cls) -> ShopifyCredentials:
         """Create credentials from environment variables."""
         return cls(
             shop_domain=os.environ.get("SHOPIFY_SHOP_DOMAIN", ""),
@@ -204,7 +204,7 @@ class ShopifyProduct(ConnectorDataclass):
     published_at: datetime | None
     description: str | None = None
     tags: list[str] = field(default_factory=list)
-    variants: list["ShopifyVariant"] = field(default_factory=list)
+    variants: list[ShopifyVariant] = field(default_factory=list)
     images: list[str] = field(default_factory=list)  # Image URLs
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:

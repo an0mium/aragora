@@ -79,7 +79,7 @@ def _compute_file_hash(path: Path, chunk_size: int = 8192) -> str:
             while chunk := f.read(chunk_size):
                 hasher.update(chunk)
         return hasher.hexdigest()
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.warning(f"Could not hash file {path}: {e}")
         return ""
 
@@ -99,7 +99,7 @@ class DirectoryWatcher:
     def __init__(
         self,
         config: WatcherConfig | None = None,
-        on_change: Optional[Callable[[FileChange], None]] = None,
+        on_change: Callable[[FileChange], None] | None = None,
     ):
         """
         Initialize the directory watcher.
@@ -275,7 +275,7 @@ class DirectoryWatcher:
                     if since is None or change.detected_at > since:
                         changes.append(change)
 
-            except (OSError, IOError) as e:
+            except OSError as e:
                 logger.warning(f"Error scanning {file_path}: {e}")
 
         # Check for deleted files
@@ -378,7 +378,7 @@ class DirectoryWatcher:
                 state.known_files[rel_path] = content_hash
                 state.total_files += 1
 
-            except (OSError, IOError) as e:
+            except OSError as e:
                 logger.warning(f"Error scanning {file_path}: {e}")
 
             # Yield control periodically
@@ -470,7 +470,7 @@ class DirectoryWatcher:
         try:
             stat = file_path.stat()
             size = stat.st_size
-        except (OSError, IOError):
+        except OSError:
             size = None
 
         mime_type, _ = mimetypes.guess_type(str(file_path))

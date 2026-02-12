@@ -88,7 +88,7 @@ class ContradictionResult:
 class KnowledgeAPI:
     """API interface for Knowledge Mound operations."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -210,7 +210,7 @@ class KnowledgeAPI:
         confidence: float = 0.8,
         workspace_id: str | None = None,
         domain: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeNode:
         """
         Create a new knowledge node.
@@ -248,7 +248,7 @@ class KnowledgeAPI:
         confidence: float = 0.8,
         workspace_id: str | None = None,
         domain: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeNode:
         """Async version of create_node()."""
         body = {
@@ -281,7 +281,7 @@ class KnowledgeAPI:
         node_id: str,
         content: str | None = None,
         confidence: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeNode:
         """Update a knowledge node."""
         body: dict[str, Any] = {}
@@ -300,7 +300,7 @@ class KnowledgeAPI:
         node_id: str,
         content: str | None = None,
         confidence: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> KnowledgeNode:
         """Async version of update_node()."""
         body: dict[str, Any] = {}

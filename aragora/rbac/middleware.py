@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_route_permissions(
-    route_permissions: list["RoutePermission"],
+    route_permissions: list[RoutePermission],
     strict: bool = False,
 ) -> list[str]:
     """

@@ -305,7 +305,7 @@ class CompressionMiddleware:
         min_size: int = 1000,
         gzip_level: int = 6,
         brotli_level: int = 4,
-        excluded_paths: Optional[set[str]] = None,
+        excluded_paths: set[str] | None = None,
     ):
         """
         Initialize compression middleware.

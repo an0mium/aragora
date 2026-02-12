@@ -155,8 +155,8 @@ class MockDeletionRequest:
     status: MockDeletionStatus = MockDeletionStatus.PENDING
     entities_deleted: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
-    cancelled_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    cancelled_at: datetime | None = None
+    completed_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -184,11 +184,11 @@ class MockLegalHold:
     reason: str = "Litigation hold"
     created_by: str = "legal-team"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    case_reference: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    case_reference: str | None = None
+    expires_at: datetime | None = None
     is_active: bool = True
-    released_at: Optional[datetime] = None
-    released_by: Optional[str] = None
+    released_at: datetime | None = None
+    released_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -211,19 +211,19 @@ class MockStoredReceipt:
 
     receipt_id: str = "receipt-001"
     gauntlet_id: str = "gauntlet-001"
-    debate_id: Optional[str] = "debate-001"
+    debate_id: str | None = "debate-001"
     created_at: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
-    expires_at: Optional[float] = None
+    expires_at: float | None = None
     verdict: str = "approved"
     confidence: float = 0.95
     risk_level: str = "low"
     risk_score: float = 0.1
     checksum: str = "sha256:abc123"
-    signature: Optional[str] = "sig-data"
-    signature_algorithm: Optional[str] = "RSA-SHA256"
-    signature_key_id: Optional[str] = "key-001"
-    signed_at: Optional[float] = None
-    audit_trail_id: Optional[str] = None
+    signature: str | None = "sig-data"
+    signature_algorithm: str | None = "RSA-SHA256"
+    signature_key_id: str | None = "key-001"
+    signed_at: float | None = None
+    audit_trail_id: str | None = None
     data: dict[str, Any] = field(default_factory=dict)
 
 
@@ -233,7 +233,7 @@ class MockVerificationResult:
 
     receipt_id: str = "receipt-001"
     is_valid: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -267,7 +267,7 @@ class MockAuditStore:
         action: str,
         resource_type: str,
         resource_id: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         event_id = f"evt-{len(self._events) + 1:03d}"
         event = {
@@ -283,7 +283,7 @@ class MockAuditStore:
 
     def get_log(
         self,
-        action: Optional[str] = None,
+        action: str | None = None,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
         events = self._events
@@ -314,10 +314,10 @@ class MockReceiptStore:
     ) -> builtins.list[MockStoredReceipt]:
         return list(self._receipts.values())[:limit]
 
-    def get(self, receipt_id: str) -> Optional[MockStoredReceipt]:
+    def get(self, receipt_id: str) -> MockStoredReceipt | None:
         return self._receipts.get(receipt_id)
 
-    def get_by_gauntlet(self, gauntlet_id: str) -> Optional[MockStoredReceipt]:
+    def get_by_gauntlet(self, gauntlet_id: str) -> MockStoredReceipt | None:
         for receipt in self._receipts.values():
             if receipt.gauntlet_id == gauntlet_id:
                 return receipt
@@ -351,12 +351,12 @@ class MockDeletionStore:
         self._requests: dict[str, MockDeletionRequest] = {}
         self._holds: dict[str, MockLegalHold] = {}
 
-    def get_request(self, request_id: str) -> Optional[MockDeletionRequest]:
+    def get_request(self, request_id: str) -> MockDeletionRequest | None:
         return self._requests.get(request_id)
 
     def get_all_requests(
         self,
-        status: Optional[MockDeletionStatus] = None,
+        status: MockDeletionStatus | None = None,
         limit: int = 50,
     ) -> list[MockDeletionRequest]:
         requests = list(self._requests.values())
@@ -380,7 +380,7 @@ class MockDeletionScheduler:
         user_id: str,
         grace_period_days: int = 30,
         reason: str = "User request",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MockDeletionRequest:
         request = MockDeletionRequest(
             request_id=f"del-{user_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
@@ -397,7 +397,7 @@ class MockDeletionScheduler:
         self,
         request_id: str,
         reason: str = "Cancelled",
-    ) -> Optional[MockDeletionRequest]:
+    ) -> MockDeletionRequest | None:
         request = self._requests.get(request_id)
         if not request:
             return None
@@ -425,8 +425,8 @@ class MockLegalHoldManager:
         user_ids: list[str],
         reason: str,
         created_by: str,
-        case_reference: Optional[str] = None,
-        expires_at: Optional[datetime] = None,
+        case_reference: str | None = None,
+        expires_at: datetime | None = None,
     ) -> MockLegalHold:
         hold = MockLegalHold(
             hold_id=f"hold-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
@@ -447,7 +447,7 @@ class MockLegalHoldManager:
         self,
         hold_id: str,
         released_by: str,
-    ) -> Optional[MockLegalHold]:
+    ) -> MockLegalHold | None:
         hold = self._holds.get(hold_id)
         if not hold:
             return None

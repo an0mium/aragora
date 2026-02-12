@@ -718,7 +718,7 @@ class ConsensusBuilder:
         )
 
     @classmethod
-    def from_debate_result(cls, result: Any) -> "ConsensusBuilder":
+    def from_debate_result(cls, result: Any) -> ConsensusBuilder:
         """
         Create a ConsensusBuilder from a DebateResult.
 

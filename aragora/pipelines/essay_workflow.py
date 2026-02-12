@@ -140,7 +140,7 @@ class SeedEssay:
     metadata: dict = field(default_factory=dict)
 
     @classmethod
-    def from_markdown(cls, path: str | Path) -> "SeedEssay":
+    def from_markdown(cls, path: str | Path) -> SeedEssay:
         """Load seed essay from markdown file."""
         path = Path(path)
         content = path.read_text(encoding="utf-8")

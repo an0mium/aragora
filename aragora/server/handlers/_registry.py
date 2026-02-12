@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from aragora.server.handlers.base import BaseHandler
 
 # Handler list - populated by __init__.py after imports complete
-ALL_HANDLERS: list[type["BaseHandler"]] = []
+ALL_HANDLERS: list[type[BaseHandler]] = []
 
 # Handler stability classifications - populated by __init__.py
 HANDLER_STABILITY: dict[str, Stability] = {}

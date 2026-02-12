@@ -52,7 +52,7 @@ def _format_timestamp(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else "N/A"
 
 
-def _print_table(headers: list[str], rows: list[list[str]], widths: Optional[list[int]] = None):
+def _print_table(headers: list[str], rows: list[list[str]], widths: list[int] | None = None):
     """Print a simple text table."""
     if not widths:
         widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]

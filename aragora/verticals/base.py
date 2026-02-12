@@ -141,7 +141,7 @@ class VerticalSpecialistAgent(APIAgent):
 
     def build_system_prompt(
         self,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> str:
         """
         Build the system prompt from the template.
@@ -387,7 +387,7 @@ class VerticalSpecialistAgent(APIAgent):
     async def respond(
         self,
         task: str,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
         **kwargs: Any,
     ) -> Message:
         """
@@ -419,7 +419,7 @@ class VerticalSpecialistAgent(APIAgent):
         self,
         task: str,
         system_prompt: str,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
         **kwargs: Any,
     ) -> Message:
         """
@@ -495,7 +495,7 @@ class VerticalSpecialistAgent(APIAgent):
     async def generate(
         self,
         prompt: str,
-        context: Optional[list[Message]] = None,
+        context: list[Message] | None = None,
     ) -> str:
         """
         Generate a response to a prompt.
@@ -527,8 +527,8 @@ class VerticalSpecialistAgent(APIAgent):
         self,
         proposal: str,
         task: str,
-        context: Optional[list[Message]] = None,
-        target_agent: Optional[str] = None,
+        context: list[Message] | None = None,
+        target_agent: str | None = None,
     ) -> Critique:
         """
         Critique a proposal from the perspective of this vertical.

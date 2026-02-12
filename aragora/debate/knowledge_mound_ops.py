@@ -33,11 +33,11 @@ class KnowledgeMoundOperations:
 
     def __init__(
         self,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        knowledge_mound: KnowledgeMound | None = None,
         enable_retrieval: bool = True,
         enable_ingestion: bool = True,
         notify_callback: NotifyCallback | None = None,
-        metrics: Optional["KMMetrics"] = None,
+        metrics: KMMetrics | None = None,
     ):
         """Initialize Knowledge Mound operations.
 
@@ -205,8 +205,8 @@ class KnowledgeMoundOperations:
 
     async def ingest_debate_outcome(
         self,
-        result: "DebateResult",
-        env: Optional["Environment"] = None,
+        result: DebateResult,
+        env: Environment | None = None,
     ) -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.
 

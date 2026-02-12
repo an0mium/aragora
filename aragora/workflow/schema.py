@@ -527,13 +527,13 @@ class WorkflowValidator:
 
         return reachable
 
-    def _find_cycle(self, start: str, graph: dict[str, set[str]]) -> Optional[list[str]]:
+    def _find_cycle(self, start: str, graph: dict[str, set[str]]) -> list[str] | None:
         """Find a cycle in the graph, if any."""
         visited: set[str] = set()
         path: list[str] = []
         path_set: set[str] = set()
 
-        def dfs(node: str) -> Optional[list[str]]:
+        def dfs(node: str) -> list[str] | None:
             if node in path_set:
                 # Found cycle
                 idx = path.index(node)
@@ -647,14 +647,14 @@ def validate_workflow_file(path: str) -> ValidationResult:
         ValidationResult with errors and warnings
     """
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             content = f.read()
         return validate_workflow(content)
     except FileNotFoundError:
         result = ValidationResult(valid=False)
         result.add_error(f"File not found: {path}", "", "FILE_NOT_FOUND")
         return result
-    except IOError as e:
+    except OSError as e:
         result = ValidationResult(valid=False)
         result.add_error(f"Error reading file: {e}", "", "READ_ERROR")
         return result
@@ -673,8 +673,8 @@ if PYDANTIC_AVAILABLE:
 
         model_config = ConfigDict(extra="allow")
 
-        position: Optional[dict[str, float]] = None
-        size: Optional[dict[str, float]] = None
+        position: dict[str, float] | None = None
+        size: dict[str, float] | None = None
         category: str | None = None
         color: str | None = None
 
@@ -690,7 +690,7 @@ if PYDANTIC_AVAILABLE:
         retries: int = Field(default=0, ge=0)
         optional: bool = Field(default=False)
         next_steps: list[str] = Field(default_factory=list)
-        visual: Optional[dict[str, Any]] = None
+        visual: dict[str, Any] | None = None
         description: str = Field(default="")
 
         @field_validator("step_type")

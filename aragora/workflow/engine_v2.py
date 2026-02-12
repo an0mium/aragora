@@ -221,8 +221,8 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         self,
         config: WorkflowConfig | None = None,
         limits: ResourceLimits | None = None,
-        step_registry: Optional[dict[str, type[WorkflowStep]]] = None,
-        metrics_callback: Optional[Callable[[dict[str, Any]], None]] = None,
+        step_registry: dict[str, type[WorkflowStep]] | None = None,
+        metrics_callback: Callable[[dict[str, Any]], None] | None = None,
     ):
         super().__init__(config, step_registry)
         self._limits = limits or ResourceLimits()
@@ -248,10 +248,10 @@ class EnhancedWorkflowEngine(WorkflowEngine):
     async def execute(
         self,
         definition: WorkflowDefinition,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
         workflow_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
-        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        metadata: dict[str, Any] | None = None,
+        event_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> EnhancedWorkflowResult:
         """
         Execute workflow with resource tracking and limits.

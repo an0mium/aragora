@@ -51,15 +51,15 @@ class PromptContextBuilder:
 
     def __init__(
         self,
-        persona_manager: Optional["PersonaManager"] = None,
-        flip_detector: Optional["FlipDetector"] = None,
-        protocol: Optional["DebateProtocol"] = None,
-        prompt_builder: Optional["PromptBuilder"] = None,
-        audience_manager: Optional["AudienceManager"] = None,
-        spectator: Optional["SpectatorStream"] = None,
-        notify_callback: Optional[Callable[..., Any]] = None,
-        vertical: Optional["Vertical"] = None,
-        vertical_persona_manager: Optional["VerticalPersonaManager"] = None,
+        persona_manager: PersonaManager | None = None,
+        flip_detector: FlipDetector | None = None,
+        protocol: DebateProtocol | None = None,
+        prompt_builder: PromptBuilder | None = None,
+        audience_manager: AudienceManager | None = None,
+        spectator: SpectatorStream | None = None,
+        notify_callback: Callable[..., Any] | None = None,
+        vertical: Vertical | None = None,
+        vertical_persona_manager: VerticalPersonaManager | None = None,
     ) -> None:
         """Initialize prompt context builder.
 
@@ -84,7 +84,7 @@ class PromptContextBuilder:
         self.vertical = vertical
         self.vertical_persona_manager = vertical_persona_manager
 
-    def get_persona_context(self, agent: "Agent") -> str:
+    def get_persona_context(self, agent: Agent) -> str:
         """Get persona context for agent specialization.
 
         Args:
@@ -189,7 +189,7 @@ class PromptContextBuilder:
             logger.debug(f"Vertical context error: {e}")
             return ""
 
-    def get_flip_context(self, agent: "Agent") -> str:
+    def get_flip_context(self, agent: Agent) -> str:
         """Get flip/consistency context for agent self-awareness.
 
         This helps agents be aware of their position history and avoid
@@ -305,7 +305,7 @@ class PromptContextBuilder:
 
         return audience_section
 
-    def build_proposal_prompt(self, agent: "Agent") -> str:
+    def build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt.
 
         Args:
@@ -322,9 +322,9 @@ class PromptContextBuilder:
 
     def build_revision_prompt(
         self,
-        agent: "Agent",
+        agent: Agent,
         original: str,
-        critiques: list["Critique"],
+        critiques: list[Critique],
         round_number: int = 0,
     ) -> str:
         """Build the revision prompt including critiques and round-specific phase context.

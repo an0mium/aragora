@@ -41,9 +41,9 @@ class GroundedOperations:
 
     def __init__(
         self,
-        position_ledger: Optional["PositionLedger"] = None,
-        elo_system: Optional["EloSystem"] = None,
-        evidence_grounder: Optional["EvidenceGrounder"] = None,
+        position_ledger: PositionLedger | None = None,
+        elo_system: EloSystem | None = None,
+        evidence_grounder: EvidenceGrounder | None = None,
     ) -> None:
         """Initialize grounded operations.
 
@@ -98,7 +98,7 @@ class GroundedOperations:
         debate_id: str,
         participants: list[str],
         winner: str | None,
-        votes: list["Vote"],
+        votes: list[Vote],
     ) -> None:
         """Update agent relationships after debate completion.
 
@@ -147,7 +147,7 @@ class GroundedOperations:
             # Unexpected error - log type for debugging
             logger.warning(f"Relationship update error (type={type(e).__name__}): {e}")
 
-    def create_grounded_verdict(self, result: "DebateResult") -> Any:
+    def create_grounded_verdict(self, result: DebateResult) -> Any:
         """Create a GroundedVerdict for the final answer.
 
         Heavy3-inspired: Wrap final answers with evidence grounding analysis.
@@ -169,7 +169,7 @@ class GroundedOperations:
             confidence=result.confidence,
         )
 
-    async def verify_claims_formally(self, result: "DebateResult") -> None:
+    async def verify_claims_formally(self, result: DebateResult) -> None:
         """Verify decidable claims using Z3 SMT solver.
 
         For arithmetic, logic, and constraint claims, attempts formal

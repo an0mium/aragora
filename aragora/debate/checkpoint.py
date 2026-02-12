@@ -168,7 +168,7 @@ class DebateCheckpoint:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DebateCheckpoint":
+    def from_dict(cls, data: dict) -> DebateCheckpoint:
         return cls(
             checkpoint_id=data["checkpoint_id"],
             debate_id=data["debate_id"],
@@ -286,7 +286,7 @@ class CheckpointManager:
         self,
         store: CheckpointStore | None = None,
         config: CheckpointConfig | None = None,
-        webhook: Optional["CheckpointWebhook"] = None,
+        webhook: CheckpointWebhook | None = None,
     ):
         self.store = store or FileCheckpointStore()
         self.config = config or CheckpointConfig()
@@ -301,7 +301,7 @@ class CheckpointManager:
             self._recovery_narrator = RecoveryNarrator(self.store)
 
     @property
-    def recovery_narrator(self) -> Optional["RecoveryNarrator"]:
+    def recovery_narrator(self) -> RecoveryNarrator | None:
         """Get the recovery narrator (only available with GitCheckpointStore)."""
         return self._recovery_narrator
 

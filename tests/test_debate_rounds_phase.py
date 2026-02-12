@@ -23,8 +23,8 @@ class MockAgent:
     """Mock agent for testing."""
 
     name: str
-    role: Optional[str] = None
-    stance: Optional[str] = None
+    role: str | None = None
+    stance: str | None = None
 
 
 @dataclass
@@ -51,11 +51,11 @@ class MockResult:
     critiques: list = field(default_factory=list)
     messages: list = field(default_factory=list)
     rounds_used: int = 0
-    convergence_status: Optional[str] = None
+    convergence_status: str | None = None
     convergence_similarity: float = 0.0
     per_agent_similarity: dict = field(default_factory=dict)
     id: str = "test-debate-123"
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 @dataclass

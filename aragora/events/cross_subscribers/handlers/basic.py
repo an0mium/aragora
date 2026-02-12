@@ -56,7 +56,7 @@ class AgentPoolProtocol(Protocol):
 class BasicHandlersMixin:
     """Mixin providing basic cross-subsystem event handlers."""
 
-    def _handle_memory_to_rlm(self, event: "StreamEvent") -> None:
+    def _handle_memory_to_rlm(self, event: StreamEvent) -> None:
         """
         Memory retrieval → RLM feedback.
 
@@ -93,7 +93,7 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"RLM pattern recording failed: {e}")
 
-    def _handle_elo_to_debate(self, event: "StreamEvent") -> None:
+    def _handle_elo_to_debate(self, event: StreamEvent) -> None:
         """
         ELO update → Debate team selection weights.
 
@@ -130,7 +130,7 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"AgentPool weight update failed: {e}")
 
-    def _handle_knowledge_to_memory(self, event: "StreamEvent") -> None:
+    def _handle_knowledge_to_memory(self, event: StreamEvent) -> None:
         """
         Knowledge indexed → Memory sync.
 
@@ -172,7 +172,7 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"Memory sync for knowledge failed: {e}")
 
-    def _handle_calibration_to_agent(self, event: "StreamEvent") -> None:
+    def _handle_calibration_to_agent(self, event: StreamEvent) -> None:
         """
         Calibration update → Agent confidence weights.
 
@@ -206,7 +206,7 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"AgentPool calibration update failed: {e}")
 
-    def _handle_evidence_to_insight(self, event: "StreamEvent") -> None:
+    def _handle_evidence_to_insight(self, event: StreamEvent) -> None:
         """
         Evidence found → Insight extraction.
 
@@ -256,7 +256,7 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"Evidence insight storage failed: {e}")
 
-    def _handle_webhook_delivery(self, event: "StreamEvent") -> None:
+    def _handle_webhook_delivery(self, event: StreamEvent) -> None:
         """
         Event → Webhook delivery.
 
@@ -300,7 +300,7 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"Webhook delivery handler error: {e}")
 
-    def _handle_mound_to_memory(self, event: "StreamEvent") -> None:
+    def _handle_mound_to_memory(self, event: StreamEvent) -> None:
         """
         Mound structure update → Memory/Debate sync.
 

@@ -72,7 +72,7 @@ class GoogleChatDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -130,7 +130,7 @@ class GoogleChatDock(ChannelDock):
                 channel_id=channel_id,
             )
 
-    def _build_card_sections(self, message: "NormalizedMessage") -> list[dict[str, Any]]:
+    def _build_card_sections(self, message: NormalizedMessage) -> list[dict[str, Any]]:
         """Build Google Chat Card v2 sections from normalized message."""
         sections: list[dict[str, Any]] = []
 

@@ -33,7 +33,7 @@ _km_similarity_cache: TTLCache[list] = TTLCache(maxsize=1000, ttl_seconds=300)
 class KMIntegrationMixin:
     """Mixin providing Knowledge Mound integration for ContinuumMemory."""
 
-    def set_km_adapter(self: "ContinuumMemory", adapter: "ContinuumAdapter") -> None:
+    def set_km_adapter(self: ContinuumMemory, adapter: ContinuumAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 
         Args:
@@ -42,7 +42,7 @@ class KMIntegrationMixin:
         self._km_adapter = adapter
 
     def query_km_for_similar(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         content: str,
         limit: int = 5,
         min_similarity: float = 0.7,
@@ -93,7 +93,7 @@ class KMIntegrationMixin:
             return []
 
     def prewarm_for_query(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         query: str,
         workspace_id: str | None = None,
         limit: int = 20,
@@ -166,7 +166,7 @@ class KMIntegrationMixin:
             logger.warning(f"Unexpected error during memory pre-warm: {e}")
             return 0
 
-    def invalidate_reference(self: "ContinuumMemory", node_id: str) -> bool:
+    def invalidate_reference(self: ContinuumMemory, node_id: str) -> bool:
         """
         Invalidate any memory references to a KM node.
 

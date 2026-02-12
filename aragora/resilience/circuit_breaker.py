@@ -122,7 +122,7 @@ class CircuitBreaker:
         cls,
         config: CircuitBreakerConfig,
         name: str = "default",
-    ) -> "CircuitBreaker":
+    ) -> CircuitBreaker:
         """Create a CircuitBreaker from a CircuitBreakerConfig.
 
         This is the preferred way to create configured circuit breakers.
@@ -446,7 +446,7 @@ class CircuitBreaker:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], **kwargs: Any) -> "CircuitBreaker":
+    def from_dict(cls, data: dict[str, Any], **kwargs: Any) -> CircuitBreaker:
         """Load from persisted dict.
 
         Restores both single-mode and entity-mode state from persisted data.

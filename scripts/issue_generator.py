@@ -43,7 +43,7 @@ class Issue:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Issue":
+    def from_dict(cls, data: dict) -> Issue:
         return cls(**data)
 
 
@@ -213,7 +213,7 @@ class IssueGenerator:
                 continue
 
             try:
-                with open(py_file, "r", encoding="utf-8") as f:
+                with open(py_file, encoding="utf-8") as f:
                     lines = sum(1 for _ in f)
 
                 if lines > threshold:
@@ -273,7 +273,7 @@ class IssueGenerator:
 
                     # Check file size - only report for substantial files
                     try:
-                        with open(py_file, "r", encoding="utf-8") as f:
+                        with open(py_file, encoding="utf-8") as f:
                             lines = sum(1 for _ in f)
                         if lines < 50:
                             continue
@@ -339,11 +339,11 @@ class IssueGenerator:
 class IssueSelector:
     """Select next issue for nomic cycle."""
 
-    def __init__(self, backlog: list[Issue], history: Optional[list[dict]] = None):
+    def __init__(self, backlog: list[Issue], history: list[dict] | None = None):
         self.backlog = backlog
         self.history = {h["id"] for h in (history or [])}
 
-    def select_next(self) -> Optional[Issue]:
+    def select_next(self) -> Issue | None:
         """Select highest priority unworked issue."""
         for issue in self.backlog:
             if issue.id not in self.history:

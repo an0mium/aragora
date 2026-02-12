@@ -61,7 +61,7 @@ class NomicLoopStep(BaseStep):
     # Available phases in order
     ALL_PHASES = ["context", "debate", "design", "implement", "verify", "commit"]
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
         self._state_machine = None
         self._current_phase_idx = 0

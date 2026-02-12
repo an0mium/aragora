@@ -167,25 +167,25 @@ def _init_tracer() -> Any:
 class _NoOpSpan:
     """No-op span for when tracing is disabled."""
 
-    def set_attribute(self, key: str, value: Any) -> "_NoOpSpan":
+    def set_attribute(self, key: str, value: Any) -> _NoOpSpan:
         return self
 
-    def set_attributes(self, attributes: dict[str, Any]) -> "_NoOpSpan":
+    def set_attributes(self, attributes: dict[str, Any]) -> _NoOpSpan:
         return self
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> "_NoOpSpan":
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> _NoOpSpan:
         return self
 
-    def record_exception(self, exception: BaseException) -> "_NoOpSpan":
+    def record_exception(self, exception: BaseException) -> _NoOpSpan:
         return self
 
-    def set_status(self, status: Any) -> "_NoOpSpan":
+    def set_status(self, status: Any) -> _NoOpSpan:
         return self
 
     def end(self) -> None:
         pass
 
-    def __enter__(self) -> "_NoOpSpan":
+    def __enter__(self) -> _NoOpSpan:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -214,7 +214,7 @@ def get_tracer() -> Any:
 @contextmanager
 def create_span(
     name: str,
-    attributes: Optional[dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
 ) -> Iterator[Any]:
     """Create a span context manager.
 

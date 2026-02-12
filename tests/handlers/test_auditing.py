@@ -47,7 +47,7 @@ class MockUser:
         email: str,
         name: str = "Test User",
         role: str = "admin",
-        org_id: Optional[str] = "org_1",
+        org_id: str | None = "org_1",
     ):
         self.id = id
         self.user_id = id
@@ -64,9 +64,9 @@ class MockAuthContext:
         self,
         user_id: str,
         is_authenticated: bool = True,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         role: str = "admin",
-        error_reason: Optional[str] = None,
+        error_reason: str | None = None,
     ):
         self.user_id = user_id
         self.is_authenticated = is_authenticated
@@ -80,7 +80,7 @@ class MockHandler:
 
     def __init__(
         self,
-        body: Optional[dict] = None,
+        body: dict | None = None,
         command: str = "POST",
         user_store=None,
     ):
@@ -200,10 +200,10 @@ class MockStorage:
     def add_debate(self, debate_id: str, data: dict):
         self._debates[debate_id] = data
 
-    def get_by_slug(self, slug: str) -> Optional[dict]:
+    def get_by_slug(self, slug: str) -> dict | None:
         return self._debates.get(slug)
 
-    def get_by_id(self, id: str) -> Optional[dict]:
+    def get_by_id(self, id: str) -> dict | None:
         return self._debates.get(id)
 
 

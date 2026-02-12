@@ -82,7 +82,7 @@ class TraceCarrier:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TraceCarrier":
+    def from_dict(cls, data: dict[str, Any]) -> TraceCarrier:
         return cls(
             trace_id=data.get("trace_id", ""),
             parent_span_id=data.get("parent_span_id"),

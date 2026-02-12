@@ -35,7 +35,7 @@ class DependencyGraph:
     Uses Kahn's algorithm for topological sorting and cycle detection.
     """
 
-    def __init__(self, steps: list["MoleculeStep"]):
+    def __init__(self, steps: list[MoleculeStep]):
         self.steps = {s.id: s for s in steps}
         self.adjacency: dict[str, list[str]] = defaultdict(list)
         self.in_degree: dict[str, int] = defaultdict(int)

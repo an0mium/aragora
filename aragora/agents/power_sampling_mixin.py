@@ -38,7 +38,7 @@ class PowerSamplingMixin:
     """
 
     # Power sampling configuration (set by Arena or manually)
-    _power_sampling_config: "PowerSamplingConfig | None" = None
+    _power_sampling_config: PowerSamplingConfig | None = None
     _power_sampling_scorer: Callable[[str], float] | None = None
 
     @property
@@ -50,7 +50,7 @@ class PowerSamplingMixin:
 
     def configure_power_sampling(
         self,
-        config: "PowerSamplingConfig | None" = None,
+        config: PowerSamplingConfig | None = None,
         scorer: Callable[[str], float] | None = None,
     ) -> None:
         """Configure power sampling for this agent.
@@ -65,7 +65,7 @@ class PowerSamplingMixin:
     async def generate_with_power_sampling(
         self,
         prompt: str,
-        context: "list[Message] | None" = None,
+        context: list[Message] | None = None,
         generator: Callable[[str, Any], Awaitable[str]] | None = None,
     ) -> str:
         """Generate response using power sampling.
@@ -177,7 +177,7 @@ class PowerSamplingMixin:
     async def _base_generate(
         self,
         prompt: str,
-        context: "list[Message] | None" = None,
+        context: list[Message] | None = None,
     ) -> str:
         """Base generation method - should be overridden by actual agent class.
 

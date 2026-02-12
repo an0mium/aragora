@@ -89,7 +89,7 @@ class RBACCacheConfig:
     enable_metrics: bool = True
 
     @classmethod
-    def from_env(cls) -> "RBACCacheConfig":
+    def from_env(cls) -> RBACCacheConfig:
         """Create config from environment variables (using safe type conversion)."""
         return cls(
             redis_url=os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL"),

@@ -109,7 +109,7 @@ class SharingNotification:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SharingNotification":
+    def from_dict(cls, data: dict[str, Any]) -> SharingNotification:
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -271,7 +271,7 @@ class SharingNotifier:
         to_user_id: str,
         to_user_email: str | None = None,
         workspace_id: str | None = None,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
     ) -> dict[str, bool]:
         """
         Notify a user that an item was shared with them.
@@ -391,8 +391,8 @@ class SharingNotifier:
         from_user_name: str,
         to_user_id: str,
         to_user_email: str | None = None,
-        old_permissions: Optional[list[str]] = None,
-        new_permissions: Optional[list[str]] = None,
+        old_permissions: list[str] | None = None,
+        new_permissions: list[str] | None = None,
     ) -> dict[str, bool]:
         """Notify a user that their permissions on a shared item changed."""
         results = {}
@@ -620,7 +620,7 @@ async def notify_item_shared(
     to_user_id: str,
     to_user_email: str | None = None,
     workspace_id: str | None = None,
-    permissions: Optional[list[str]] = None,
+    permissions: list[str] | None = None,
 ) -> dict[str, bool]:
     """Convenience function to notify about item sharing."""
     notifier = SharingNotifier()

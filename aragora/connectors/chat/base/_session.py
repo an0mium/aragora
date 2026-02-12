@@ -161,7 +161,7 @@ class SessionMixin:
         channel_id: str | None = None,
         thread_id: str | None = None,
         **kwargs: Any,
-    ) -> list["SendMessageResponse"]:
+    ) -> list[SendMessageResponse]:
         """
         Route a debate result to all sessions on this platform.
 

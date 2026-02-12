@@ -159,7 +159,7 @@ class Trajectory:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Trajectory":
+    def from_dict(cls, data: dict[str, Any]) -> Trajectory:
         """Create trajectory from dictionary."""
         trajectory = cls(
             trajectory_id=data.get("trajectory_id", ""),
@@ -375,7 +375,7 @@ class ExperienceBuffer:
         logger.info(f"Saved {len(self._buffer)} trajectories to {filepath}")
 
     @classmethod
-    def load(cls, filepath: str) -> "ExperienceBuffer":
+    def load(cls, filepath: str) -> ExperienceBuffer:
         """
         Load buffer from disk.
 
@@ -387,7 +387,7 @@ class ExperienceBuffer:
         """
         import json
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         buffer = cls(

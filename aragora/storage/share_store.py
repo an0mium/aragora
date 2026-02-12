@@ -170,7 +170,7 @@ class ShareLinkStore(SQLiteStore):
         """Run cleanup on startup."""
         self.cleanup_expired()
 
-    def save(self, settings: "ShareSettings") -> None:
+    def save(self, settings: ShareSettings) -> None:
         """
         Save or update sharing settings.
 
@@ -246,7 +246,7 @@ class ShareLinkStore(SQLiteStore):
         self._maybe_cleanup()
         logger.debug(f"Saved share settings for debate {settings.debate_id}")
 
-    def get(self, debate_id: str) -> Optional["ShareSettings"]:
+    def get(self, debate_id: str) -> ShareSettings | None:
         """
         Get sharing settings by debate ID.
 
@@ -274,7 +274,7 @@ class ShareLinkStore(SQLiteStore):
 
         return self._row_to_settings(row)
 
-    def get_by_token(self, token: str) -> Optional["ShareSettings"]:
+    def get_by_token(self, token: str) -> ShareSettings | None:
         """
         Get sharing settings by share token.
 
@@ -472,7 +472,7 @@ class ShareLinkStore(SQLiteStore):
         """Generate a secure share token."""
         return secrets.token_urlsafe(16)
 
-    def _row_to_settings(self, row: tuple) -> "ShareSettings":
+    def _row_to_settings(self, row: tuple) -> ShareSettings:
         """Convert a database row to ShareSettings object."""
         # Import here to avoid circular dependency
         from aragora.server.handlers.social.sharing import DebateVisibility, ShareSettings

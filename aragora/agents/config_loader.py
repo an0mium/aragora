@@ -165,7 +165,7 @@ class AgentConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], config_path: str | None = None) -> "AgentConfig":
+    def from_dict(cls, data: dict[str, Any], config_path: str | None = None) -> AgentConfig:
         """Create configuration from dictionary."""
         return cls(
             name=data.get("name", ""),
@@ -332,7 +332,7 @@ class AgentConfigLoader:
         """List all loaded configuration names."""
         return list(self._configs.keys())
 
-    def create_agent(self, config: str | AgentConfig) -> "Agent":
+    def create_agent(self, config: str | AgentConfig) -> Agent:
         """
         Create an agent from a configuration.
 
@@ -380,7 +380,7 @@ class AgentConfigLoader:
         logger.debug(f"Created agent from config: {config.name}")
         return agent
 
-    def create_agents(self, configs: list[str | AgentConfig | None] = None) -> list["Agent"]:
+    def create_agents(self, configs: list[str | AgentConfig | None] = None) -> list[Agent]:
         """
         Create multiple agents from configurations.
 
@@ -454,7 +454,7 @@ class AgentConfigLoader:
 
 
 def load_agent_configs(
-    config_dir: Optional[str | Path] = None,
+    config_dir: str | Path | None = None,
 ) -> dict[str, AgentConfig]:
     """
     Convenience function to load agent configurations.

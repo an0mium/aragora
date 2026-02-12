@@ -63,7 +63,7 @@ class Language(str, Enum):
     ROMANIAN = "ro"
 
     @classmethod
-    def from_code(cls, code: str) -> Optional["Language"]:
+    def from_code(cls, code: str) -> Language | None:
         """Get language from ISO code."""
         code = code.lower().strip()[:2]
         for lang in cls:

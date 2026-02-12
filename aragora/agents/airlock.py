@@ -118,7 +118,7 @@ class AirlockProxy:
 
     def __init__(
         self,
-        agent: "Agent",
+        agent: Agent,
         config: AirlockConfig | None = None,
     ):
         """
@@ -143,7 +143,7 @@ class AirlockProxy:
         return self._metrics
 
     @property
-    def wrapped_agent(self) -> "Agent":
+    def wrapped_agent(self) -> Agent:
         """Get the wrapped agent."""
         return self._agent
 
@@ -152,7 +152,7 @@ class AirlockProxy:
     async def generate(
         self,
         prompt: str,
-        context: list["Message"] | None = None,
+        context: list[Message] | None = None,
     ) -> str:
         """Generate a response with timeout and sanitization."""
 
@@ -170,9 +170,9 @@ class AirlockProxy:
         self,
         proposal: str,
         task: str,
-        context: list["Message"] | None = None,
+        context: list[Message] | None = None,
         target_agent: str | None = None,
-    ) -> "Critique":
+    ) -> Critique:
         """Critique a proposal with timeout handling.
 
         Args:
@@ -183,7 +183,7 @@ class AirlockProxy:
         """
         from aragora.core import Critique
 
-        async def coro_factory() -> "Critique":
+        async def coro_factory() -> Critique:
             return await self._agent.critique(proposal, task, context)
 
         result = await self._safe_call(
@@ -202,11 +202,11 @@ class AirlockProxy:
         self,
         proposals: dict[str, str],
         task: str,
-    ) -> "Vote":
+    ) -> Vote:
         """Vote on proposals with timeout handling."""
         from aragora.core import Vote
 
-        async def coro_factory() -> "Vote":
+        async def coro_factory() -> Vote:
             return await self._agent.vote(proposals, task)
 
         result = await self._safe_call(
@@ -459,7 +459,7 @@ class AirlockProxy:
 
 
 def wrap_agent(
-    agent: "Agent",
+    agent: Agent,
     config: AirlockConfig | None = None,
 ) -> AirlockProxy:
     """
@@ -478,9 +478,9 @@ def wrap_agent(
 
 
 def wrap_agents(
-    agents: list["Agent"],
+    agents: list[Agent],
     config: AirlockConfig | None = None,
-) -> list["AirlockProxy"]:
+) -> list[AirlockProxy]:
     """
     Wrap multiple agents with airlock protection.
 

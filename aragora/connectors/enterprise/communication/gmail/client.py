@@ -336,8 +336,8 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Gmail API with circuit breaker protection."""
         from aragora.server.http_client_pool import get_http_pool

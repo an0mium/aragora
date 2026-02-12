@@ -313,10 +313,10 @@ DEFAULT_POLICIES: dict[ResourceType, ResourcePolicy] = {
 class PolicyRegistry:
     """Registry for resource access policies."""
 
-    _instance: Optional["PolicyRegistry"] = None
+    _instance: PolicyRegistry | None = None
     _policies: dict[ResourceType, ResourcePolicy]
 
-    def __new__(cls) -> "PolicyRegistry":
+    def __new__(cls) -> PolicyRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._policies = dict(DEFAULT_POLICIES)
@@ -523,7 +523,7 @@ def check_resource_access(
     resource_workspace_id: str | None = None,
     user_workspace_id: str | None = None,
     user_workspace_role: str | None = None,
-    shared_with: Optional[set[str]] = None,
+    shared_with: set[str] | None = None,
     sensitivity: str = "internal",
 ) -> AccessDecision:
     """

@@ -36,7 +36,7 @@ AgentLike = Union["Agent", "AirlockProxy"]
 
 # Optional evolution import for prompt self-improvement
 # Declare PromptEvolver with proper type before the conditional import
-_PromptEvolver: Optional[type["PromptEvolverType"]] = None
+_PromptEvolver: type[PromptEvolverType] | None = None
 try:
     from aragora.evolution.evolver import PromptEvolver as _ImportedPromptEvolver
 
@@ -53,13 +53,13 @@ PromptEvolver = _PromptEvolver
 class CoreComponents:
     """Container for core Arena components initialized by ArenaInitializer."""
 
-    env: "Environment"
-    agents: list["Agent"]
+    env: Environment
+    agents: list[Agent]
     protocol: DebateProtocol
     memory: Any
     hooks: dict
     hook_manager: Any
-    event_emitter: Optional["EventEmitterProtocol"]
+    event_emitter: EventEmitterProtocol | None
     spectator: SpectatorStream
     debate_embeddings: Any
     insight_store: Any
@@ -73,7 +73,7 @@ class CoreComponents:
     chaos_director: Any
     performance_monitor: Any
     prompt_evolver: Any
-    autonomic: "AutonomicExecutor"
+    autonomic: AutonomicExecutor
     initial_messages: list
     trending_topic: Any
     pulse_manager: Any
@@ -90,7 +90,7 @@ class CoreComponents:
     user_id: str
     extensions: ArenaExtensions
     cartographer: Any
-    event_bridge: "EventEmitterBridge"
+    event_bridge: EventEmitterBridge
     # ML Integration
     enable_ml_delegation: bool
     ml_delegation_weight: float
@@ -149,13 +149,13 @@ class ArenaInitializer:
 
     def init_core(
         self,
-        environment: "Environment",
-        agents: list["Agent"],
+        environment: Environment,
+        agents: list[Agent],
         protocol: DebateProtocol | None,
         memory,
         event_hooks: dict | None,
         hook_manager,
-        event_emitter: Optional["EventEmitterProtocol"],
+        event_emitter: EventEmitterProtocol | None,
         spectator: SpectatorStream | None,
         debate_embeddings,
         insight_store,

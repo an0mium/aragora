@@ -52,14 +52,14 @@ def test_recorder():
         events_file = session_dir / "events.jsonl"
 
         if meta_file.exists():
-            with open(meta_file, "r") as f:
+            with open(meta_file) as f:
                 json.load(f)
         else:
             pass
 
         if events_file.exists():
             # Count events
-            with open(events_file, "r") as f:
+            with open(events_file) as f:
                 events = [json.loads(line) for line in f]
             for event in events:
                 pass

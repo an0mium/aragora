@@ -25,8 +25,8 @@ class ReceiptFormatter(ABC):
     @abstractmethod
     def format(
         self,
-        receipt: "DecisionReceipt",
-        options: Optional[dict[str, Any]] = None,
+        receipt: DecisionReceipt,
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Format a decision receipt for this channel.
@@ -42,7 +42,7 @@ class ReceiptFormatter(ABC):
 
     def format_summary(
         self,
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         max_length: int = 280,
     ) -> str:
         """
@@ -84,9 +84,9 @@ def get_formatter(channel_type: str) -> ReceiptFormatter | None:
 
 
 def format_receipt_for_channel(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     channel_type: str,
-    options: Optional[dict[str, Any]] = None,
+    options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Format a receipt for a specific channel.

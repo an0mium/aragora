@@ -25,16 +25,16 @@ logger = get_structured_logger(__name__)
 async def save_checkpoint(
     checkpoint_manager: Any,
     debate_id: str,
-    env: "Environment",
-    protocol: "DebateProtocol",
-    agents: list["Agent"],
+    env: Environment,
+    protocol: DebateProtocol,
+    agents: list[Agent],
     phase: str = "manual",
-    messages: Optional[list[Message]] = None,
-    critiques: Optional[list[Critique]] = None,
-    votes: Optional[list[Vote]] = None,
+    messages: list[Message] | None = None,
+    critiques: list[Critique] | None = None,
+    votes: list[Vote] | None = None,
     current_round: int = 0,
-    current_consensus: Optional[str] = None,
-) -> Optional[str]:
+    current_consensus: str | None = None,
+) -> str | None:
     """Save a checkpoint for the current debate state.
 
     This allows manual checkpoint creation at any point during or after
@@ -80,7 +80,7 @@ async def save_checkpoint(
         )
         return checkpoint.checkpoint_id
 
-    except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning(f"[checkpoint] Failed to save checkpoint: {e}")
         return None
 
@@ -88,13 +88,13 @@ async def save_checkpoint(
 async def restore_from_checkpoint(
     checkpoint_manager: Any,
     checkpoint_id: str,
-    env: "Environment",
-    agents: list["Agent"],
+    env: Environment,
+    agents: list[Agent],
     domain: str = "",
     hook_manager: Any = None,
     org_id: str = "",
     resumed_by: str = "system",
-) -> Optional[DebateContext]:
+) -> DebateContext | None:
     """Restore debate state from a checkpoint.
 
     Loads a checkpoint and reconstructs the debate context, enabling
@@ -178,14 +178,14 @@ async def restore_from_checkpoint(
         )
         return ctx
 
-    except (IOError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.warning(f"[checkpoint] Failed to restore checkpoint: {e}")
         return None
 
 
 async def list_checkpoints(
     checkpoint_manager: Any,
-    debate_id: Optional[str] = None,
+    debate_id: str | None = None,
     limit: int = 100,
 ) -> list[dict]:
     """List available checkpoints.
@@ -215,7 +215,7 @@ async def list_checkpoints(
             debate_id=debate_id,
             limit=limit,
         )
-    except (IOError, OSError, ValueError, TypeError, AttributeError) as e:
+    except (OSError, ValueError, TypeError, AttributeError) as e:
         logger.warning(f"[checkpoint] Failed to list checkpoints: {e}")
         return []
 
@@ -262,6 +262,6 @@ async def cleanup_checkpoints(
             logger.info(f"[checkpoint] Cleaned up {deleted} checkpoints for debate {debate_id}")
         return deleted
 
-    except (IOError, OSError, ValueError, TypeError, AttributeError) as e:
+    except (OSError, ValueError, TypeError, AttributeError) as e:
         logger.warning(f"[checkpoint] Cleanup failed: {e}")
         return 0

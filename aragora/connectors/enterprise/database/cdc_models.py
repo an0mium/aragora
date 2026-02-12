@@ -75,12 +75,12 @@ class ChangeEvent:
     table: str = ""  # Table or collection name
 
     # Key identification
-    primary_key: Optional[dict[str, Any]] = None  # Primary key values
+    primary_key: dict[str, Any] | None = None  # Primary key values
     document_id: str | None = None  # MongoDB _id or row identifier
 
     # Data (for insert/update/replace)
-    data: Optional[dict[str, Any]] = None  # New data after change
-    old_data: Optional[dict[str, Any]] = None  # Old data before change (if available)
+    data: dict[str, Any] | None = None  # New data after change
+    old_data: dict[str, Any] | None = None  # Old data before change (if available)
 
     # Change tracking
     fields_changed: list[str] = field(default_factory=list)
@@ -153,7 +153,7 @@ class ChangeEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChangeEvent":
+    def from_dict(cls, data: dict[str, Any]) -> ChangeEvent:
         """Deserialize from dictionary."""
         timestamp = data.get("timestamp")
         if timestamp and isinstance(timestamp, str):
@@ -188,7 +188,7 @@ class ChangeEvent:
         connector_id: str,
         database: str,
         schema: str = "public",
-    ) -> "ChangeEvent":
+    ) -> ChangeEvent:
         """Create ChangeEvent from PostgreSQL NOTIFY payload."""
         try:
             data = json.loads(payload) if payload else {}
@@ -227,7 +227,7 @@ class ChangeEvent:
         cls,
         change: dict[str, Any],
         connector_id: str,
-    ) -> "ChangeEvent":
+    ) -> ChangeEvent:
         """Create ChangeEvent from MongoDB change stream document."""
         operation_map = {
             "insert": ChangeOperation.INSERT,
@@ -310,7 +310,7 @@ class ResumeToken:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ResumeToken":
+    def from_dict(cls, data: dict[str, Any]) -> ResumeToken:
         timestamp = data.get("timestamp")
         if timestamp and isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
@@ -362,7 +362,7 @@ class ResumeTokenStore:
             with open(self.storage_path, "w") as f:
                 data = {key: token.to_dict() for key, token in self._tokens.items()}
                 json.dump(data, f, indent=2)
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to save resume tokens: {e}")
 
     def get(self, connector_id: str) -> ResumeToken | None:

@@ -131,7 +131,7 @@ class SkillManifest:
     requires_debate_context: bool = False  # Needs active debate context
 
     # Output schema (optional, for structured outputs)
-    output_schema: Optional[dict[str, Any]] = None
+    output_schema: dict[str, Any] | None = None
 
     def to_function_schema(self) -> dict[str, Any]:
         """
@@ -175,7 +175,7 @@ class SkillManifest:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SkillManifest":
+    def from_dict(cls, data: dict[str, Any]) -> SkillManifest:
         """Deserialize manifest from dictionary."""
         capabilities = [
             SkillCapability(c) if isinstance(c, str) else c for c in data.get("capabilities", [])
@@ -243,7 +243,7 @@ class SkillResult(Generic[T]):
         return None
 
     @classmethod
-    def create_success(cls, data: T, **metadata: Any) -> "SkillResult[T]":
+    def create_success(cls, data: T, **metadata: Any) -> SkillResult[T]:
         """Create a successful result."""
         return cls(
             status=SkillStatus.SUCCESS,
@@ -259,7 +259,7 @@ class SkillResult(Generic[T]):
         error_code: str | None = None,
         status: SkillStatus = SkillStatus.FAILURE,
         **metadata: Any,
-    ) -> "SkillResult[T]":
+    ) -> SkillResult[T]:
         """Create a failure result."""
         return cls(
             status=status,
@@ -270,7 +270,7 @@ class SkillResult(Generic[T]):
         )
 
     @classmethod
-    def create_timeout(cls, timeout_seconds: float) -> "SkillResult[T]":
+    def create_timeout(cls, timeout_seconds: float) -> SkillResult[T]:
         """Create a timeout result."""
         return cls(
             status=SkillStatus.TIMEOUT,
@@ -279,7 +279,7 @@ class SkillResult(Generic[T]):
         )
 
     @classmethod
-    def create_permission_denied(cls, permission: str) -> "SkillResult[T]":
+    def create_permission_denied(cls, permission: str) -> SkillResult[T]:
         """Create a permission denied result."""
         return cls(
             status=SkillStatus.PERMISSION_DENIED,
@@ -328,7 +328,7 @@ class SkillContext:
 
     # Debate context (if invoked during debate)
     debate_id: str | None = None
-    debate_context: Optional[dict[str, Any]] = None
+    debate_context: dict[str, Any] | None = None
     agent_name: str | None = None
 
     # Environment

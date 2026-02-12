@@ -55,7 +55,7 @@ class PolicySyncScheduler:
         policy_manager: ControlPlanePolicyManager,
         sync_interval_seconds: float = 60.0,
         policy_cache: RedisPolicyCache | None = None,
-        conflict_callback: Optional[Callable[[list[PolicyConflict]], None]] = None,
+        conflict_callback: Callable[[list[PolicyConflict]], None] | None = None,
         sync_from_compliance_store: bool = True,
         sync_from_control_plane_store: bool = True,
         workspace_id: str | None = None,

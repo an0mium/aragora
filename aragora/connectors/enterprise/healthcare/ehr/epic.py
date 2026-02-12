@@ -285,7 +285,7 @@ class EpicAdapter(EHRAdapter):
     async def get_patient_records(  # type: ignore[override]  # Epic adds resource_types and date range kwargs to base signature
         self,
         patient_id: str,
-        resource_types: Optional[list[str]] = None,
+        resource_types: list[str] | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
         """
@@ -541,7 +541,7 @@ class EpicAdapter(EHRAdapter):
 
     async def bulk_export(
         self,
-        resource_types: Optional[list[str]] = None,
+        resource_types: list[str] | None = None,
         since: str | None = None,
         output_format: str = "application/fhir+ndjson",
     ) -> dict[str, Any]:

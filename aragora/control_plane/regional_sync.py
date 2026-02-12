@@ -95,7 +95,7 @@ class RegionalEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RegionalEvent":
+    def from_dict(cls, data: dict[str, Any]) -> RegionalEvent:
         """Deserialize from dictionary."""
         return cls(
             event_type=RegionalEventType(data["event_type"]),
@@ -106,7 +106,7 @@ class RegionalEvent:
             version=data.get("version", 1),
         )
 
-    def is_newer_than(self, other: "RegionalEvent") -> bool:
+    def is_newer_than(self, other: RegionalEvent) -> bool:
         """Check if this event is newer than another (for conflict resolution)."""
         return self.timestamp > other.timestamp
 

@@ -218,7 +218,7 @@ class EmailStore(SQLiteStore):
         self,
         user_id: str,
         workspace_id: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get user email prioritization configuration.
 
         Args:
@@ -377,8 +377,8 @@ class EmailStore(SQLiteStore):
         name: str,
         description: str | None = None,
         email_address: str | None = None,
-        members: Optional[list[str]] = None,
-        settings: Optional[dict[str, Any]] = None,
+        members: list[str] | None = None,
+        settings: dict[str, Any] | None = None,
     ) -> str:
         """Create a shared inbox.
 
@@ -410,7 +410,7 @@ class EmailStore(SQLiteStore):
         logger.info(f"[EmailStore] Created shared inbox: {inbox_id}")
         return inbox_id
 
-    def get_shared_inbox(self, inbox_id: str) -> Optional[dict[str, Any]]:
+    def get_shared_inbox(self, inbox_id: str) -> dict[str, Any] | None:
         """Get a shared inbox by ID."""
         row = self.fetch_one(
             "SELECT * FROM shared_inboxes WHERE id = ?",
@@ -531,8 +531,8 @@ class EmailStore(SQLiteStore):
         status: str = "open",
         priority: str = "normal",
         assigned_to: str | None = None,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         external_id: str | None = None,
         received_at: str | None = None,
     ) -> str:
@@ -578,7 +578,7 @@ class EmailStore(SQLiteStore):
 
         return message_id
 
-    def get_message(self, message_id: str) -> Optional[dict[str, Any]]:
+    def get_message(self, message_id: str) -> dict[str, Any] | None:
         """Get a message by ID."""
         row = self.fetch_one(
             "SELECT * FROM shared_inbox_messages WHERE id = ?",
@@ -961,7 +961,7 @@ class EmailStore(SQLiteStore):
         logger.info(f"[EmailStore] Created routing rule: {rule_id}")
         return rule_id
 
-    def get_routing_rule(self, rule_id: str) -> Optional[dict[str, Any]]:
+    def get_routing_rule(self, rule_id: str) -> dict[str, Any] | None:
         """Get a routing rule by ID."""
         row = self.fetch_one("SELECT * FROM routing_rules WHERE id = ?", (rule_id,))
         if row:
@@ -1082,8 +1082,8 @@ class EmailStore(SQLiteStore):
         confidence: float,
         score: float,
         rationale: str | None = None,
-        factors: Optional[dict[str, float]] = None,
-        context_boosts: Optional[dict[str, float]] = None,
+        factors: dict[str, float] | None = None,
+        context_boosts: dict[str, float] | None = None,
     ) -> str:
         """Record a prioritization decision for audit trail."""
         now = datetime.now(timezone.utc).isoformat()

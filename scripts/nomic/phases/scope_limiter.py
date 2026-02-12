@@ -81,7 +81,7 @@ class ScopeLimiter:
         self,
         max_complexity: float = 0.7,
         max_files: int = 5,
-        protected_files: Optional[list[str]] = None,
+        protected_files: list[str] | None = None,
     ):
         """
         Initialize scope limiter.

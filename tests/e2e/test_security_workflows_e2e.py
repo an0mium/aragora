@@ -88,7 +88,7 @@ class MockAuthService:
         self,
         email: str,
         password: str,
-    ) -> Optional[MockToken]:
+    ) -> MockToken | None:
         """Authenticate user and return token."""
         # Check account lock
         if email in self._locked_accounts:
@@ -141,7 +141,7 @@ class MockAuthService:
             self._locked_accounts[email] = time.time() + 300  # 5 minute lockout
             self._audit("account_locked", {"email": email})
 
-    async def validate_token(self, token: str) -> Optional[MockUser]:
+    async def validate_token(self, token: str) -> MockUser | None:
         """Validate token and return user."""
         if token not in self._tokens:
             return None
@@ -157,7 +157,7 @@ class MockAuthService:
 
         return None
 
-    async def refresh_token(self, refresh_token: str) -> Optional[MockToken]:
+    async def refresh_token(self, refresh_token: str) -> MockToken | None:
         """Refresh an access token."""
         if refresh_token not in self._refresh_tokens:
             self._audit("token_refresh_failed", {"reason": "invalid_refresh_token"})

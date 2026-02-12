@@ -56,7 +56,7 @@ class PolicyRule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PolicyRule":
+    def from_dict(cls, data: dict[str, Any]) -> PolicyRule:
         return cls(
             rule_id=data["rule_id"],
             name=data["name"],
@@ -105,7 +105,7 @@ class Policy:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Policy":
+    def from_dict(cls, data: dict[str, Any]) -> Policy:
         rules = [PolicyRule.from_dict(r) for r in data.get("rules", [])]
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -177,7 +177,7 @@ class Violation:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Violation":
+    def from_dict(cls, data: dict[str, Any]) -> Violation:
         detected_at = data.get("detected_at")
         if isinstance(detected_at, str):
             detected_at = datetime.fromisoformat(detected_at)

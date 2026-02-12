@@ -17,7 +17,7 @@ def build_starting_blocks(
     topic: str,
     user_id: str,
     debate_id: str,
-    agents: Optional[list[str]] = None,
+    agents: list[str] | None = None,
     expected_rounds: int | None = None,
 ) -> list[dict[str, Any]]:
     """Build Slack blocks for debate start message.

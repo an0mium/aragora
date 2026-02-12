@@ -195,16 +195,16 @@ def require_authenticated(func: F) -> F:
 def require_authenticated(
     func: None = None,
     *,
-    on_failure: Optional[Callable[[Exception], Any]] = None,
+    on_failure: Callable[[Exception], Any] | None = None,
 ) -> Callable[[F], F]:
     """Overload for use with arguments: @require_authenticated(on_failure=...)"""
     ...
 
 
 def require_authenticated(
-    func: Optional[F] = None,
+    func: F | None = None,
     *,
-    on_failure: Optional[Callable[[Exception], Any]] = None,
+    on_failure: Callable[[Exception], Any] | None = None,
 ) -> F | Callable[[F], F]:
     """
     Decorator to require authentication for a handler method.

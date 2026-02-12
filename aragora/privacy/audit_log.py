@@ -134,7 +134,7 @@ class AuditEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditEntry":
+    def from_dict(cls, data: dict[str, Any]) -> AuditEntry:
         """Create from dictionary."""
         return cls(
             id=data["id"],

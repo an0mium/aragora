@@ -131,7 +131,7 @@ class WebConnector(BaseConnector):
         self.max_content_length = max_content_length
         self.rate_limit_delay = rate_limit_delay
         self._last_request_time = 0.0
-        self._http_client: Optional["httpx.AsyncClient"] = None
+        self._http_client: httpx.AsyncClient | None = None
 
         # Initialize cache
         self.cache_dir = Path(cache_dir)

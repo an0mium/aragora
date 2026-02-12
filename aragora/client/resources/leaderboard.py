@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class LeaderboardAPI:
     """API interface for leaderboard."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def get(self, limit: int = 10) -> list[LeaderboardEntry]:

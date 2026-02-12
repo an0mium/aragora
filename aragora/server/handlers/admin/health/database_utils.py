@@ -52,7 +52,7 @@ def handle_store_check_errors(
     try:
         result = check_fn()
         return result, result.get("healthy", True)
-    except (sqlite3.Error, OSError, IOError) as e:
+    except (sqlite3.Error, OSError) as e:
         logger.warning(f"{store_name} database error: {type(e).__name__}: {e}")
         return {
             "healthy": False,

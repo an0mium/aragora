@@ -75,7 +75,7 @@ class UsageForecast:
 class BillingAPI:
     """API interface for billing and subscription management."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # -------------------------------------------------------------------------

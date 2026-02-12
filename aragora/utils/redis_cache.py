@@ -278,7 +278,7 @@ def HybridTTLCache(
     prefix: str = "cache",
     ttl_seconds: float = 300.0,
     maxsize: int = 1000,
-) -> "RedisTTLCache[Any]":
+) -> RedisTTLCache[Any]:
     """
     Factory function that returns the best available cache implementation.
 

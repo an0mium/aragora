@@ -76,7 +76,7 @@ class Job:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Job":
+    def from_dict(cls, data: dict[str, Any]) -> Job:
         """Create job from dictionary."""
         return cls(
             id=data["id"],
@@ -100,7 +100,7 @@ class Job:
         self.worker_id = worker_id
         self.attempts += 1
 
-    def mark_completed(self, result: Optional[dict[str, Any]] = None) -> None:
+    def mark_completed(self, result: dict[str, Any] | None = None) -> None:
         """Mark job as completed."""
         self.status = JobStatus.COMPLETED
         self.completed_at = datetime.now().timestamp()
@@ -257,8 +257,8 @@ class JobQueue(ABC):
     async def complete(
         self,
         job_id: str,
-        result: Optional[dict[str, Any]] = None,
-        status: Optional["JobStatus"] = None,
+        result: dict[str, Any] | None = None,
+        status: JobStatus | None = None,
     ) -> bool:
         """
         Mark a job as completed successfully.

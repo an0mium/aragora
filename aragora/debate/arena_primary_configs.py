@@ -74,7 +74,7 @@ class DebateConfig:
     enable_agent_hierarchy: bool = True  # Assign orchestrator/monitor/worker roles
     hierarchy_config: Any | None = None  # Optional HierarchyConfig
 
-    def apply_to_protocol(self, protocol: "DebateProtocol") -> "DebateProtocol":
+    def apply_to_protocol(self, protocol: DebateProtocol) -> DebateProtocol:
         """Apply config values to a DebateProtocol instance."""
         protocol.rounds = self.rounds
         protocol.consensus_threshold = self.consensus_threshold
@@ -104,7 +104,7 @@ class AgentConfig:
     """
 
     # Agent weights and selection
-    agent_weights: Optional[dict[str, float]] = None  # Reliability weights
+    agent_weights: dict[str, float] | None = None  # Reliability weights
     agent_selector: Any | None = None  # AgentSelector for performance-based selection
     use_performance_selection: bool = True  # Enable ELO/calibration-based selection
 
@@ -150,7 +150,7 @@ class StreamingConfig:
     """
 
     # Event hooks and emitters
-    event_hooks: Optional[dict[str, Any]] = None  # Hooks for streaming events
+    event_hooks: dict[str, Any] | None = None  # Hooks for streaming events
     hook_manager: Any | None = None  # HookManager for extended lifecycle
     event_emitter: EventEmitterProtocol | None = None  # User event subscription
 
@@ -245,7 +245,7 @@ class ObservabilityConfig:
     post_debate_workflow_threshold: float = 0.7  # Min confidence for workflow
 
     # Fork/continuation
-    initial_messages: Optional[list[Any]] = None  # Initial conversation history
+    initial_messages: list[Any] | None = None  # Initial conversation history
 
 
 # Primary config classes tuple for iteration
@@ -463,7 +463,7 @@ class BroadcastConfig:
     broadcast_pipeline: BroadcastPipelineProtocol | None = None
     auto_broadcast: bool = False
     broadcast_min_confidence: float = 0.8
-    broadcast_platforms: Optional[list[str]] = None
+    broadcast_platforms: list[str] | None = None
     training_exporter: Any | None = None
     auto_export_training: bool = False
     training_export_min_confidence: float = 0.75
@@ -477,7 +477,7 @@ class TranslationConfig:
     multilingual_manager: Any | None = None  # Pre-configured MultilingualDebateManager
     enable_translation: bool = False  # Enable multi-language debate support
     default_language: str = "en"  # Default language code (ISO 639-1)
-    target_languages: Optional[list[str]] = None  # Languages to translate conclusions to
+    target_languages: list[str] | None = None  # Languages to translate conclusions to
     auto_detect_language: bool = True  # Auto-detect source language of messages
     translate_conclusions: bool = True  # Translate final conclusions to target languages
     translation_cache_ttl_seconds: int = 3600  # Translation cache TTL (1 hour default)

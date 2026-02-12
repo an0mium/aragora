@@ -35,13 +35,13 @@ class VerifyPhase:
     def __init__(
         self,
         aragora_path: Path,
-        codex: Optional[Any] = None,
-        nomic_integration: Optional[Any] = None,
+        codex: Any | None = None,
+        nomic_integration: Any | None = None,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
-        save_state_fn: Optional[Callable[[dict], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
+        save_state_fn: Callable[[dict], None] | None = None,
         consistency_auditor: Optional["ConsistencyAuditor"] = None,
         enable_consistency_check: bool = True,
     ):
@@ -265,7 +265,7 @@ class VerifyPhase:
                 "note": "Test execution failed",
             }
 
-    async def _codex_audit(self) -> Optional[dict]:
+    async def _codex_audit(self) -> dict | None:
         """Run Codex verification audit on changed files."""
         try:
             self._log("  [hybrid] Codex verification audit...")

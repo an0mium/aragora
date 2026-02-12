@@ -103,11 +103,11 @@ class TaskQueue:
         self._workflow_completed: dict[str, asyncio.Event] = {}
 
         # Callbacks
-        self._on_task_complete: Optional[Callable[[WorkflowTask], None]] = None
-        self._on_task_error: Optional[Callable[[WorkflowTask, Exception], None]] = None
+        self._on_task_complete: Callable[[WorkflowTask], None] | None = None
+        self._on_task_error: Callable[[WorkflowTask, Exception], None] | None = None
 
         # Executor reference (set by scheduler)
-        self._executor: Optional["TaskExecutor" | "ExecutorPool"] = None
+        self._executor: TaskExecutor | ExecutorPool | None = None
 
     async def start(self) -> None:
         """Start the queue processor."""
@@ -445,7 +445,7 @@ class TaskQueue:
             avg_execution_time_ms=avg_exec,
         )
 
-    def set_executor(self, executor: "TaskExecutor" | "ExecutorPool") -> None:
+    def set_executor(self, executor: TaskExecutor | ExecutorPool) -> None:
         """Set the task executor."""
         self._executor = executor
 

@@ -96,7 +96,7 @@ class AsyncWebhookDispatcher:
         self.connect_timeout = connect_timeout
         self._client: Any | None = None
 
-    async def __aenter__(self) -> "AsyncWebhookDispatcher":
+    async def __aenter__(self) -> AsyncWebhookDispatcher:
         """Enter async context and create HTTP client."""
         await self._ensure_client()
         return self
@@ -138,7 +138,7 @@ class AsyncWebhookDispatcher:
 
     async def dispatch(
         self,
-        webhook: "WebhookConfig",
+        webhook: WebhookConfig,
         payload: dict[str, Any],
     ) -> tuple[bool, int, str | None]:
         """
@@ -207,7 +207,7 @@ class AsyncWebhookDispatcher:
 
     async def dispatch_with_retry(
         self,
-        webhook: "WebhookConfig",
+        webhook: WebhookConfig,
         payload: dict[str, Any],
         max_retries: int = MAX_RETRIES,
         initial_delay: float = INITIAL_RETRY_DELAY,
@@ -329,7 +329,7 @@ async def get_async_dispatcher() -> AsyncWebhookDispatcher:
 
 
 async def dispatch_webhook_async(
-    webhook: "WebhookConfig",
+    webhook: WebhookConfig,
     payload: dict[str, Any],
 ) -> tuple[bool, int, str | None]:
     """
@@ -349,7 +349,7 @@ async def dispatch_webhook_async(
 
 
 async def dispatch_webhook_async_with_retry(
-    webhook: "WebhookConfig",
+    webhook: WebhookConfig,
     payload: dict[str, Any],
     max_retries: int = MAX_RETRIES,
 ) -> AsyncDeliveryResult:

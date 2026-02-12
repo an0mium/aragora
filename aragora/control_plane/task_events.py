@@ -31,10 +31,10 @@ from aragora.control_plane.channels import NotificationEventType, NotificationPr
 
 logger = logging.getLogger(__name__)
 
-_dispatcher: Optional["NotificationDispatcher"] = None
+_dispatcher: NotificationDispatcher | None = None
 
 
-def set_task_event_dispatcher(dispatcher: "NotificationDispatcher") -> None:
+def set_task_event_dispatcher(dispatcher: NotificationDispatcher) -> None:
     """Set the dispatcher for task events.
 
     Args:
@@ -45,7 +45,7 @@ def set_task_event_dispatcher(dispatcher: "NotificationDispatcher") -> None:
     logger.info("task_event_dispatcher_set")
 
 
-def get_task_event_dispatcher() -> Optional["NotificationDispatcher"]:
+def get_task_event_dispatcher() -> NotificationDispatcher | None:
     """Get the current task event dispatcher.
 
     Returns the configured dispatcher, or falls back to the default
@@ -85,7 +85,7 @@ async def emit_task_submitted(
     task_type: str,
     priority: str,
     workspace_id: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Emit TASK_SUBMITTED notification.
 

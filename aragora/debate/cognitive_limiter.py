@@ -41,7 +41,7 @@ class CognitiveBudget:
         """Maximum context size in characters."""
         return self.max_context_tokens * CHARS_PER_TOKEN
 
-    def scale(self, factor: float) -> "CognitiveBudget":
+    def scale(self, factor: float) -> CognitiveBudget:
         """Scale all budgets by a factor."""
         return CognitiveBudget(
             max_context_tokens=int(self.max_context_tokens * factor),
@@ -121,7 +121,7 @@ class CognitiveLoadLimiter:
         }
 
     @classmethod
-    def for_stress_level(cls, level: str) -> "CognitiveLoadLimiter":
+    def for_stress_level(cls, level: str) -> CognitiveLoadLimiter:
         """
         Create a limiter appropriate for the stress level.
 
@@ -135,7 +135,7 @@ class CognitiveLoadLimiter:
         return cls(budget=budget)
 
     @classmethod
-    def from_governor(cls) -> "CognitiveLoadLimiter":
+    def from_governor(cls) -> CognitiveLoadLimiter:
         """Create limiter based on current complexity governor state."""
         try:
             from aragora.debate.complexity_governor import get_complexity_governor

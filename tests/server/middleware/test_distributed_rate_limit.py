@@ -81,12 +81,12 @@ class SharedMockRedis:
         self._check_fail()
         return True
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         self._check_fail()
         with self._lock:
             return self._shared_data.get(key)
 
-    def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    def set(self, key: str, value: str, ex: int | None = None) -> bool:
         self._check_fail()
         with self._lock:
             self._shared_data[key] = value
@@ -132,9 +132,9 @@ class SharedMockRedis:
     def hset(
         self,
         name: str,
-        key: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict[str, str]] = None,
+        key: str | None = None,
+        value: str | None = None,
+        mapping: dict[str, str] | None = None,
     ) -> int:
         self._check_fail()
         with self._lock:
@@ -294,7 +294,7 @@ class SharedMockRedis:
 
         return [1, 0, 0]  # Default: allow
 
-    def pipeline(self) -> "SharedMockPipeline":
+    def pipeline(self) -> SharedMockPipeline:
         return SharedMockPipeline(self)
 
     def close(self) -> None:
@@ -308,35 +308,35 @@ class SharedMockPipeline:
         self._redis = redis
         self._commands: list = []
 
-    def zadd(self, key: str, mapping: dict[str, float]) -> "SharedMockPipeline":
+    def zadd(self, key: str, mapping: dict[str, float]) -> SharedMockPipeline:
         self._commands.append(("zadd", (key, mapping), {}))
         return self
 
     def zremrangebyscore(
         self, key: str, min_score: float, max_score: float
-    ) -> "SharedMockPipeline":
+    ) -> SharedMockPipeline:
         self._commands.append(("zremrangebyscore", (key, min_score, max_score), {}))
         return self
 
-    def zcard(self, key: str) -> "SharedMockPipeline":
+    def zcard(self, key: str) -> SharedMockPipeline:
         self._commands.append(("zcard", (key,), {}))
         return self
 
     def hset(
         self,
         name: str,
-        key: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict[str, str]] = None,
-    ) -> "SharedMockPipeline":
+        key: str | None = None,
+        value: str | None = None,
+        mapping: dict[str, str] | None = None,
+    ) -> SharedMockPipeline:
         self._commands.append(("hset", (name,), {"key": key, "value": value, "mapping": mapping}))
         return self
 
-    def expire(self, key: str, seconds: int) -> "SharedMockPipeline":
+    def expire(self, key: str, seconds: int) -> SharedMockPipeline:
         self._commands.append(("expire", (key, seconds), {}))
         return self
 
-    def incr(self, key: str) -> "SharedMockPipeline":
+    def incr(self, key: str) -> SharedMockPipeline:
         self._commands.append(("incr", (key,), {}))
         return self
 

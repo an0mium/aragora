@@ -50,7 +50,7 @@ class ReplayEvent:
         return json.dumps(asdict(self), ensure_ascii=False)
 
     @classmethod
-    def from_jsonl(cls, line: str) -> "ReplayEvent":
+    def from_jsonl(cls, line: str) -> ReplayEvent:
         try:
             data = json.loads(line.strip())
         except json.JSONDecodeError as e:
@@ -80,7 +80,7 @@ class ReplayMeta:
         return json.dumps(asdict(self), indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_json(cls, data: str) -> "ReplayMeta":
+    def from_json(cls, data: str) -> ReplayMeta:
         try:
             parsed = json.loads(data)
         except json.JSONDecodeError as e:

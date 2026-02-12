@@ -50,7 +50,7 @@ def list_presets() -> list[str]:
 
 def load_preset(
     name: str,
-    overrides: Optional[dict[str, Any]] = None,
+    overrides: dict[str, Any] | None = None,
 ) -> WorkflowDefinition:
     """
     Load a workflow preset by name.

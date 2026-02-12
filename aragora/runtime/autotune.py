@@ -353,7 +353,7 @@ class AutotunedDebateRunner:
 
     async def run(
         self,
-        on_round_complete: Optional[Callable[[int, RunMetrics], None]] = None,
+        on_round_complete: Callable[[int, RunMetrics], None] | None = None,
     ):
         """
         Run debate with autotuning.

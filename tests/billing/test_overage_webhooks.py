@@ -90,8 +90,8 @@ class MockStripeEvent:
     type: str
     object: dict
     data: dict
-    metadata: Optional[dict] = None
-    event_id: Optional[str] = None
+    metadata: dict | None = None
+    event_id: str | None = None
 
     def __post_init__(self):
         if self.metadata is None:

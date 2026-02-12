@@ -30,7 +30,7 @@ class GmailBaseMethods(Protocol):
         self, endpoint: str, method: str = "GET", **kwargs: Any
     ) -> dict[str, Any]: ...
     @asynccontextmanager
-    def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
+    def _get_client(self) -> AsyncIterator[httpx.AsyncClient]: ...
     def check_circuit_breaker(self) -> bool: ...
     def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
@@ -160,8 +160,8 @@ class GmailLabelsMixin(GmailBaseMethods):
     async def modify_message(
         self,
         message_id: str,
-        add_labels: Optional[list[str]] = None,
-        remove_labels: Optional[list[str]] = None,
+        add_labels: list[str] | None = None,
+        remove_labels: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Modify message labels.
@@ -544,8 +544,8 @@ class GmailLabelsMixin(GmailBaseMethods):
     async def batch_modify(
         self,
         message_ids: list[str],
-        add_labels: Optional[list[str]] = None,
-        remove_labels: Optional[list[str]] = None,
+        add_labels: list[str] | None = None,
+        remove_labels: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Batch modify multiple messages.

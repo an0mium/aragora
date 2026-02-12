@@ -27,7 +27,7 @@ class SimilarDebate:
     dissent_count: int = 0
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SimilarDebate":
+    def from_dict(cls, data: dict[str, Any]) -> SimilarDebate:
         return cls(
             id=data.get("id", ""),
             topic=data.get("topic", ""),
@@ -52,7 +52,7 @@ class SettledTopic:
     debate_count: int = 1
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SettledTopic":
+    def from_dict(cls, data: dict[str, Any]) -> SettledTopic:
         return cls(
             topic=data.get("topic", ""),
             conclusion=data.get("conclusion", ""),
@@ -79,7 +79,7 @@ class Dissent:
     timestamp: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Dissent":
+    def from_dict(cls, data: dict[str, Any]) -> Dissent:
         return cls(
             id=data.get("id", ""),
             debate_id=data.get("debate_id", ""),
@@ -108,7 +108,7 @@ class RiskWarning:
     timestamp: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RiskWarning":
+    def from_dict(cls, data: dict[str, Any]) -> RiskWarning:
         return cls(
             id=data.get("id", ""),
             debate_id=data.get("debate_id", ""),
@@ -132,7 +132,7 @@ class ConsensusStats:
     avg_confidence: float
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConsensusStats":
+    def from_dict(cls, data: dict[str, Any]) -> ConsensusStats:
         return cls(
             total_consensuses=data.get("total_consensuses", 0),
             total_dissents=data.get("total_dissents", 0),
@@ -162,7 +162,7 @@ class ConsensusAPI:
         warnings = client.consensus.get_risk_warnings(limit=10)
     """
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def find_similar(

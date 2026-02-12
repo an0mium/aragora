@@ -75,7 +75,7 @@ class MockTTLCache:
     def __init__(self):
         self._data: dict[str, Any] = {}
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         return self._data.get(key)
 
     def set(self, key: str, value: Any) -> None:

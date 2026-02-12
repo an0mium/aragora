@@ -102,7 +102,7 @@ class GenesisEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "GenesisEvent":
+    def from_dict(cls, data: dict) -> GenesisEvent:
         return cls(
             event_id=data["event_id"],
             event_type=GenesisEventType(data["event_type"]),

@@ -81,8 +81,8 @@ class GatewayProtocolAdapter:
         self,
         gateway: LocalGateway,
         store: GatewayStore | None = None,
-        policy: "OpenClawPolicy | None" = None,
-        secure_proxy: "OpenClawSecureProxy | None" = None,
+        policy: OpenClawPolicy | None = None,
+        secure_proxy: OpenClawSecureProxy | None = None,
         pre_session_hook: Callable[[str, str, dict[str, Any] | None], PolicyInterceptResult]
         | None = None,
         post_session_hook: Callable[[GatewaySession], None] | None = None,
@@ -166,11 +166,11 @@ class GatewayProtocolAdapter:
             except Exception as e:
                 logger.warning(f"Audit hook failed: {e}")
 
-    def set_policy(self, policy: "OpenClawPolicy") -> None:
+    def set_policy(self, policy: OpenClawPolicy) -> None:
         """Set the policy engine for this adapter."""
         self._policy = policy
 
-    def set_secure_proxy(self, proxy: "OpenClawSecureProxy") -> None:
+    def set_secure_proxy(self, proxy: OpenClawSecureProxy) -> None:
         """Set the secure proxy for action routing."""
         self._secure_proxy = proxy
 
@@ -186,7 +186,7 @@ class GatewayProtocolAdapter:
         self,
         user_id: str,
         device_id: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> GatewaySession | PolicyInterceptResult:
         """Create a new session.
 

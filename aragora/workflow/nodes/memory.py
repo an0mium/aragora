@@ -46,7 +46,7 @@ class MemoryReadStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -193,7 +193,7 @@ class MemoryWriteStep(BaseStep):
         )
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:

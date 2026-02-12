@@ -97,7 +97,7 @@ class WeightConfig:
 
     # User vote settings
     user_vote_weight: float = 0.5  # Base weight for user votes
-    user_intensity_multiplier: Optional[Callable[[int, Any], float]] = None
+    user_intensity_multiplier: Callable[[int, Any], float] | None = None
 
     # Weight source contributions (0.0 = disabled, 1.0 = full contribution)
     reputation_contribution: float = 1.0
@@ -191,10 +191,10 @@ class VoteWeightCalculator:
     def __init__(
         self,
         config: WeightConfig | None = None,
-        reputation_source: Optional[Callable[[str], float]] = None,
+        reputation_source: Callable[[str], float] | None = None,
         reliability_weights: dict[str, float] | None = None,
-        consistency_source: Optional[Callable[[str], float]] = None,
-        calibration_source: Optional[Callable[[str], float]] = None,
+        consistency_source: Callable[[str], float] | None = None,
+        calibration_source: Callable[[str], float] | None = None,
     ):
         """Initialize weight calculator.
 
@@ -315,8 +315,8 @@ class VotingEngine:
 
     def __init__(
         self,
-        protocol: Optional["DebateProtocol"] = None,
-        similarity_backend: Optional["SimilarityBackend"] = None,
+        protocol: DebateProtocol | None = None,
+        similarity_backend: SimilarityBackend | None = None,
         weight_config: WeightConfig | None = None,
     ):
         """Initialize voting engine.
@@ -339,7 +339,7 @@ class VotingEngine:
     # Vote Grouping
     # -------------------------------------------------------------------------
 
-    def group_similar_votes(self, votes: list["Vote"]) -> dict[str, list[str]]:
+    def group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
         """Group semantically similar vote choices.
 
         This prevents artificial disagreement when agents vote for the
@@ -411,7 +411,7 @@ class VotingEngine:
         return {k: v for k, v in groups.items() if len(v) > 1}
 
     def _build_choice_mapping(
-        self, votes: list["Vote"]
+        self, votes: list[Vote]
     ) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Build vote groups and choice mapping.
 
@@ -437,7 +437,7 @@ class VotingEngine:
 
     def count_votes(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         user_votes: list[dict[str, Any] | None] = None,
         require_majority: bool = False,
         min_margin: float = 0.0,
@@ -562,7 +562,7 @@ class VotingEngine:
 
     def count_unweighted(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         voting_errors: int = 0,
     ) -> VoteResult:
         """Count votes without weighting (for unanimous mode).
@@ -666,7 +666,7 @@ class VotingEngine:
 
         return strength, variance
 
-    def compute_vote_distribution(self, votes: list["Vote"]) -> dict[str, dict[str, Any]]:
+    def compute_vote_distribution(self, votes: list[Vote]) -> dict[str, dict[str, Any]]:
         """Compute vote distribution statistics.
 
         Args:
@@ -704,7 +704,7 @@ class VotingEngine:
 
     def determine_winner(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         require_majority: bool = False,
         min_margin: float = 0.0,
     ) -> str | None:

@@ -151,8 +151,8 @@ class RLMSelectionBridge:
     4. Enables optimization for long debates requiring RLM
     """
 
-    rlm_bridge: Optional["RLMBridge"] = None
-    selection_feedback: Optional["SelectionFeedbackLoop"] = None
+    rlm_bridge: RLMBridge | None = None
+    selection_feedback: SelectionFeedbackLoop | None = None
     config: RLMSelectionBridgeConfig = field(default_factory=RLMSelectionBridgeConfig)
 
     # Internal state
@@ -162,7 +162,7 @@ class RLMSelectionBridge:
     def record_compression(
         self,
         agent_name: str,
-        compression_result: "CompressionResult",
+        compression_result: CompressionResult,
     ) -> float:
         """Record a compression operation result.
 
@@ -206,7 +206,7 @@ class RLMSelectionBridge:
     def record_query(
         self,
         agent_name: str,
-        query_result: "RLMResult",
+        query_result: RLMResult,
     ) -> float:
         """Record an RLM query result.
 
@@ -473,8 +473,8 @@ class RLMSelectionBridge:
 
 
 def create_rlm_selection_bridge(
-    rlm_bridge: Optional["RLMBridge"] = None,
-    selection_feedback: Optional["SelectionFeedbackLoop"] = None,
+    rlm_bridge: RLMBridge | None = None,
+    selection_feedback: SelectionFeedbackLoop | None = None,
     **config_kwargs: Any,
 ) -> RLMSelectionBridge:
     """Create and configure an RLMSelectionBridge.

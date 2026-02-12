@@ -100,10 +100,10 @@ class ConvoyImplementExecutor:
         self,
         aragora_path: Path,
         agents: list[str],
-        agent_factory: Optional[Callable[[str], Any]] = None,
+        agent_factory: Callable[[str], Any] | None = None,
         max_parallel: int = 4,
         enable_cross_check: bool = True,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
     ) -> None:
         self._aragora_path = aragora_path
         self._agents = agents

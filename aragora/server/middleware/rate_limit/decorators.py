@@ -55,7 +55,7 @@ def _extract_handler(*args, **kwargs) -> Any:
     return handler
 
 
-def _error_response(message: str, status: int, headers: dict[str, str]) -> "HandlerResult":
+def _error_response(message: str, status: int, headers: dict[str, str]) -> HandlerResult:
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 
@@ -214,7 +214,7 @@ def _extract_tenant_id(handler: Any, kwargs: dict) -> str | None:
 
 def user_rate_limit(
     action: str = "default",
-    user_store_factory: Optional[Callable[[], Any]] = None,
+    user_store_factory: Callable[[], Any] | None = None,
 ):
     """
     Decorator for per-user rate limiting.

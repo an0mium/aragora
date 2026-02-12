@@ -47,7 +47,7 @@ class CheckResult:
     name: str
     status: Status
     message: str
-    fix: Optional[str] = None
+    fix: str | None = None
 
 
 def check_env_var(name: str, required: bool = True, secret: bool = False) -> CheckResult:

@@ -95,7 +95,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             ON unified_inbox_messages(received_at);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         from aragora.storage.postgres_store import PostgresStore
 
         class _Store(PostgresStore):
@@ -146,7 +146,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             json.dumps(account.get("metadata") or {}),
         )
 
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> dict[str, Any] | None:
         row = await self._store.fetch_one(
             """
             SELECT tenant_id, account_id, provider, email_address, display_name, status,
@@ -355,7 +355,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         return message_id, True
 
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         row = await self._store.fetch_one(
             """
             SELECT tenant_id, message_id, account_id, provider, external_id, subject,
@@ -571,7 +571,7 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             triage.get("created_at") or _utc_now(),
         )
 
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         row = await self._store.fetch_one(
             """
             SELECT tenant_id, message_id, recommended_action, confidence, rationale,

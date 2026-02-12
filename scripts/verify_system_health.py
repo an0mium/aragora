@@ -33,7 +33,7 @@ def check_timeout_handling():
     orchestrator_path = Path("aragora/debate/orchestrator.py")
     if orchestrator_path.exists():
         try:
-            with open(orchestrator_path, "r") as f:
+            with open(orchestrator_path) as f:
                 content = f.read()
                 return "asyncio.wait_for" in content or "TimeoutError" in content
         except Exception:
@@ -63,7 +63,7 @@ def check_stream_for_loop_id_binding():
     for stream_path in stream_modules:
         if stream_path.exists():
             try:
-                with open(stream_path, "r") as f:
+                with open(stream_path) as f:
                     content = f.read()
                     if (
                         "_bound_loop_id" in content
@@ -90,7 +90,7 @@ def check_stream_for_validation():
     for stream_path in stream_modules:
         if stream_path.exists():
             try:
-                with open(stream_path, "r") as f:
+                with open(stream_path) as f:
                     content = f.read()
                     if "loop_id in self.active_loops" in content or "active_loops" in content:
                         return True
@@ -109,7 +109,7 @@ def check_function_implementation(func_name):
     auth_path = Path("aragora/auth.py")
     if auth_path.exists():
         try:
-            with open(auth_path, "r") as f:
+            with open(auth_path) as f:
                 content = f.read()
                 return f"def {func_name}" in content
         except Exception:
@@ -122,7 +122,7 @@ def check_websocket_auth_capability():
     auth_path = Path("aragora/auth.py")
     if auth_path.exists():
         try:
-            with open(auth_path, "r") as f:
+            with open(auth_path) as f:
                 content = f.read()
                 return "websocket" in content.lower() or "ws" in content.lower()
         except Exception:

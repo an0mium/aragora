@@ -89,9 +89,9 @@ class VoteAggregator:
 
     def __init__(
         self,
-        group_similar_votes: Optional[Callable[[list], dict[str, list[str]]]] = None,
+        group_similar_votes: Callable[[list], dict[str, list[str]]] | None = None,
         user_vote_weight: float = 0.5,
-        user_vote_multiplier: Optional[Callable[[int, Any], float]] = None,
+        user_vote_multiplier: Callable[[int, Any], float] | None = None,
         protocol: Any = None,
     ):
         """Initialize the vote aggregator.
@@ -109,7 +109,7 @@ class VoteAggregator:
 
     def aggregate(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         weights: dict[str, float] | None = None,
         user_votes: list[dict] | None = None,
     ) -> AggregatedVotes:
@@ -149,7 +149,7 @@ class VoteAggregator:
         )
 
     def _compute_vote_groups(
-        self, votes: list["Vote"]
+        self, votes: list[Vote]
     ) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Group similar votes and create choice mapping.
 
@@ -188,7 +188,7 @@ class VoteAggregator:
 
     def _count_weighted_votes(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         choice_mapping: dict[str, str],
         weights: dict[str, float],
     ) -> tuple[Counter, float]:
@@ -271,7 +271,7 @@ class VoteAggregator:
 
     def count_unweighted(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         choice_mapping: dict[str, str] | None = None,
     ) -> Counter:
         """Count votes without weighting (for unanimous mode).

@@ -110,8 +110,8 @@ class MetaPlanner:
     async def prioritize_work(
         self,
         objective: str,
-        available_tracks: Optional[list[Track]] = None,
-        constraints: Optional[list[str]] = None,
+        available_tracks: list[Track] | None = None,
+        constraints: list[str] | None = None,
         context: PlanningContext | None = None,
     ) -> list[PrioritizedGoal]:
         """Use multi-agent debate to prioritize work.

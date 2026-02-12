@@ -97,7 +97,7 @@ class FractalOrchestrator:
         timeout_inheritance: float = 0.5,
         evolve_agents: bool = True,
         population_manager: PopulationManager | None = None,
-        event_hooks: Optional[dict[Any, Any]] = None,
+        event_hooks: dict[Any, Any] | None = None,
     ):
         """
         Args:

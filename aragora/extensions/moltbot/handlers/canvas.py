@@ -34,10 +34,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global manager instance
-_manager: Optional["CanvasManager"] = None
+_manager: CanvasManager | None = None
 
 
-def get_canvas_manager() -> "CanvasManager":
+def get_canvas_manager() -> CanvasManager:
     """Get or create the canvas manager instance."""
     global _manager
     if _manager is None:
@@ -150,7 +150,7 @@ class MoltbotCanvasHandler(BaseHandler):
     # ========== Handler Methods ==========
 
     def _serialize_canvas(
-        self, canvas: "Canvas", element_count: int | None = None
+        self, canvas: Canvas, element_count: int | None = None
     ) -> dict[str, Any]:
         """Serialize canvas to JSON-safe dict."""
         return {
@@ -167,7 +167,7 @@ class MoltbotCanvasHandler(BaseHandler):
         }
 
     def _serialize_element(
-        self, element: "CanvasElement", layer_id: str | None = None
+        self, element: CanvasElement, layer_id: str | None = None
     ) -> dict[str, Any]:
         """Serialize element to JSON-safe dict."""
         return {

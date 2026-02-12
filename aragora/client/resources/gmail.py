@@ -86,7 +86,7 @@ class GmailStats:
 class GmailAPI:
     """API interface for Gmail integration."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -261,8 +261,8 @@ class GmailAPI:
         self,
         rule_id: str,
         name: str | None = None,
-        conditions: Optional[dict[str, Any]] = None,
-        actions: Optional[list[str]] = None,
+        conditions: dict[str, Any] | None = None,
+        actions: list[str] | None = None,
         enabled: bool | None = None,
         priority: int | None = None,
     ) -> EmailTriageRule:
@@ -299,8 +299,8 @@ class GmailAPI:
         self,
         rule_id: str,
         name: str | None = None,
-        conditions: Optional[dict[str, Any]] = None,
-        actions: Optional[list[str]] = None,
+        conditions: dict[str, Any] | None = None,
+        actions: list[str] | None = None,
         enabled: bool | None = None,
         priority: int | None = None,
     ) -> EmailTriageRule:
@@ -363,7 +363,7 @@ class GmailAPI:
         self,
         name: str,
         trigger_conditions: dict[str, Any],
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         debate_template: str | None = None,
         auto_reply: bool = False,
     ) -> EmailDebateConfig:
@@ -397,7 +397,7 @@ class GmailAPI:
         self,
         name: str,
         trigger_conditions: dict[str, Any],
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         debate_template: str | None = None,
         auto_reply: bool = False,
     ) -> EmailDebateConfig:

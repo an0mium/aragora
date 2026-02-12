@@ -88,8 +88,8 @@ class PerformanceEloIntegrator:
         k_factor_range: (min, max) multiplier range for K-factor
     """
 
-    elo_system: Optional["EloSystem"] = None
-    performance_monitor: Optional["AgentPerformanceMonitor"] = None
+    elo_system: EloSystem | None = None
+    performance_monitor: AgentPerformanceMonitor | None = None
 
     # Weights for performance components (should sum to 1.0)
     response_quality_weight: float = 0.4  # Success rate impact
@@ -387,8 +387,8 @@ class PerformanceEloIntegrator:
 
 
 def create_performance_integrator(
-    elo_system: Optional["EloSystem"] = None,
-    performance_monitor: Optional["AgentPerformanceMonitor"] = None,
+    elo_system: EloSystem | None = None,
+    performance_monitor: AgentPerformanceMonitor | None = None,
     **kwargs: Any,
 ) -> PerformanceEloIntegrator:
     """Create a PerformanceEloIntegrator with optional configuration.

@@ -89,10 +89,10 @@ class SQLServerConnector(EnterpriseConnector):
         port: int = 1433,
         database: str = "master",
         schema: str = "dbo",
-        tables: Optional[list[str]] = None,
+        tables: list[str] | None = None,
         timestamp_column: str | None = None,
         primary_key_column: str = "id",
-        content_columns: Optional[list[str]] = None,
+        content_columns: list[str] | None = None,
         use_cdc: bool = False,  # Use SQL Server CDC
         use_change_tracking: bool = False,  # Use Change Tracking
         poll_interval_seconds: int = 5,
@@ -116,7 +116,7 @@ class SQLServerConnector(EnterpriseConnector):
         self.pool_size = pool_size
 
         self._pool = None
-        self._cdc_task: Optional[asyncio.Task[None]] = None
+        self._cdc_task: asyncio.Task[None] | None = None
         self._last_lsn: bytes | None = None  # Last processed LSN for CDC
 
         # CDC support
@@ -238,7 +238,7 @@ class SQLServerConnector(EnterpriseConnector):
                 return candidate
         return None
 
-    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: list[str] | None = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}

@@ -17,7 +17,7 @@ async def run_with_timeout(
     coro: Coroutine[Any, Any, T],
     timeout: float = DEFAULT_TIMEOUT,
     *,
-    operation_name: Optional[str] = None,
+    operation_name: str | None = None,
 ) -> T:
     """Run a coroutine with a timeout and clear error message.
 
@@ -56,7 +56,7 @@ async def run_with_timeout(
 async def run_with_cancellation(
     coro: Coroutine[Any, Any, T],
     timeout: float = DEFAULT_TIMEOUT,
-) -> Optional[T]:
+) -> T | None:
     """Run a coroutine, returning None on timeout instead of raising.
 
     Useful for operations that are expected to possibly timeout
@@ -118,7 +118,7 @@ class AsyncTestContext:
     def __init__(
         self,
         setup_coro: Coroutine[Any, Any, T],
-        cleanup_fn: Optional[Any] = None,
+        cleanup_fn: Any | None = None,
         setup_timeout: float = DEFAULT_TIMEOUT,
         cleanup_timeout: float = 5.0,
     ):
@@ -126,7 +126,7 @@ class AsyncTestContext:
         self.cleanup_fn = cleanup_fn
         self.setup_timeout = setup_timeout
         self.cleanup_timeout = cleanup_timeout
-        self._resource: Optional[T] = None
+        self._resource: T | None = None
 
     async def __aenter__(self) -> T:
         self._resource = await run_with_timeout(

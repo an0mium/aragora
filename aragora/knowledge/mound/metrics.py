@@ -198,7 +198,7 @@ class KMMetrics:
         latency_ms: float,
         success: bool = True,
         error: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Record an operation sample.
@@ -270,7 +270,7 @@ class KMMetrics:
     def measure_operation(
         self,
         operation: OperationType | str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Generator[None, None, None]:
         """
         Context manager to measure operation latency.

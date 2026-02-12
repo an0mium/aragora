@@ -99,7 +99,7 @@ class AuditTemplate:
 
     def render(
         self,
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         format: TemplateFormat | None = None,
     ) -> str:
         """
@@ -125,7 +125,7 @@ class AuditTemplate:
         else:
             raise ValueError(f"Unsupported format: {fmt}")
 
-    def _render_markdown(self, receipt: "DecisionReceipt") -> str:
+    def _render_markdown(self, receipt: DecisionReceipt) -> str:
         """Render as Markdown."""
         lines = [
             f"# {self.name}",
@@ -171,7 +171,7 @@ class AuditTemplate:
 
         return "\n".join(lines)
 
-    def _render_html(self, receipt: "DecisionReceipt") -> str:
+    def _render_html(self, receipt: DecisionReceipt) -> str:
         """Render as HTML."""
         from html import escape
 
@@ -234,7 +234,7 @@ class AuditTemplate:
 </html>
 """
 
-    def _render_json(self, receipt: "DecisionReceipt") -> str:
+    def _render_json(self, receipt: DecisionReceipt) -> str:
         """Render as JSON."""
         import json
 
@@ -265,7 +265,7 @@ class AuditTemplate:
 
         return json.dumps(data, indent=2)
 
-    def _render_text(self, receipt: "DecisionReceipt") -> str:
+    def _render_text(self, receipt: DecisionReceipt) -> str:
         """Render as plain text."""
         lines = [
             self.name.upper(),
@@ -304,7 +304,7 @@ class AuditTemplate:
 
     def _get_section_content(
         self,
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         section: TemplateSection,
     ) -> list[str]:
         """Get content for a section from receipt fields."""
@@ -669,7 +669,7 @@ def create_custom_template(
     sections: list[dict[str, Any]],
     category: TemplateCategory = TemplateCategory.CUSTOM,
     description: str = "",
-    regulations: Optional[list[str]] = None,
+    regulations: list[str] | None = None,
     disclaimer: str = "",
 ) -> AuditTemplate:
     """

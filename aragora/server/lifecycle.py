@@ -38,7 +38,7 @@ class ServerLifecycleManager:
 
     def __init__(
         self,
-        stream_server: Optional["GauntletStreamServer"] = None,
+        stream_server: GauntletStreamServer | None = None,
         get_active_debates: Callable | None = None,
     ):
         """Initialize lifecycle manager.

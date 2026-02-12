@@ -69,18 +69,7 @@ class DebateOptions:
 
     # Protocol options
     rounds: int | None = None
-    consensus: Optional[
-        Literal[
-            "majority",
-            "unanimous",
-            "judge",
-            "none",
-            "weighted",
-            "supermajority",
-            "any",
-            "byzantine",
-        ]
-    ] = None
+    consensus: Literal["majority", "unanimous", "judge", "none", "weighted", "supermajority", "any", "byzantine"] | None = None
     topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
         "all-to-all"
     )
@@ -106,9 +95,9 @@ class DebateOptions:
     correlation_id: str = ""
 
     # Event hooks
-    on_round_start: Optional[Callable[[int], None]] = None
-    on_agent_message: Optional[Callable[[str, str], None]] = None
-    on_consensus: Optional[Callable[[str, float], None]] = None
+    on_round_start: Callable[[int], None] | None = None
+    on_agent_message: Callable[[str, str], None] | None = None
+    on_consensus: Callable[[str, float], None] | None = None
 
     def __post_init__(self) -> None:
         settings = get_settings()
@@ -204,10 +193,10 @@ class DebateService:
 
     def __init__(
         self,
-        default_agents: Optional[list[Agent] | list[str]] = None,
+        default_agents: list[Agent] | list[str] | None = None,
         default_options: DebateOptions | None = None,
-        memory: Optional["ContinuumMemory"] = None,
-        agent_resolver: Optional[Callable[[str], Agent]] = None,
+        memory: ContinuumMemory | None = None,
+        agent_resolver: Callable[[str], Agent] | None = None,
     ):
         """Initialize the debate service.
 
@@ -225,10 +214,10 @@ class DebateService:
     async def run(
         self,
         task: str,
-        agents: Optional[list[Agent] | list[str]] = None,
+        agents: list[Agent] | list[str] | None = None,
         protocol: DebateProtocol | None = None,
         options: DebateOptions | None = None,
-        memory: Optional["ContinuumMemory"] = None,
+        memory: ContinuumMemory | None = None,
         **kwargs: Any,
     ) -> DebateResult:
         """Run a debate on the given task.
@@ -312,7 +301,7 @@ class DebateService:
         self,
         task: str,
         rounds: int = 2,
-        agents: Optional[list[Agent] | list[str]] = None,
+        agents: list[Agent] | list[str] | None = None,
     ) -> DebateResult:
         """Run a quick debate with minimal configuration.
 
@@ -335,7 +324,7 @@ class DebateService:
     async def run_deep(
         self,
         task: str,
-        agents: Optional[list[Agent] | list[str]] = None,
+        agents: list[Agent] | list[str] | None = None,
         rounds: int | None = None,
     ) -> DebateResult:
         """Run a thorough debate with more rounds and stricter consensus.
@@ -391,7 +380,7 @@ class DebateService:
         )
         return merged
 
-    def _resolve_agents(self, agents: Optional[list[Agent] | list[str]]) -> list[Agent]:
+    def _resolve_agents(self, agents: list[Agent] | list[str] | None) -> list[Agent]:
         """Resolve agent specifications to Agent objects."""
         if agents is None:
             # Recursively resolve default agents (which may be strings)
@@ -440,7 +429,7 @@ _debate_service: DebateService | None = None
 
 
 def get_debate_service(
-    default_agents: Optional[list[Agent] | list[str]] = None,
+    default_agents: list[Agent] | list[str] | None = None,
     **kwargs: Any,
 ) -> DebateService:
     """Get the global debate service instance.

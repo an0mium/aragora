@@ -161,7 +161,7 @@ class ThreadManager(ABC):
         channel_id: str,
         limit: int = 50,
         cursor: str | None = None,
-    ) -> tuple[list["ChatMessage"], str | None]:
+    ) -> tuple[list[ChatMessage], str | None]:
         """
         Get messages in a thread with pagination.
 
@@ -203,7 +203,7 @@ class ThreadManager(ABC):
         channel_id: str,
         message: str,
         **kwargs: Any,
-    ) -> "ChatMessage":
+    ) -> ChatMessage:
         """
         Reply to an existing thread.
 

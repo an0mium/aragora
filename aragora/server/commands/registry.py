@@ -100,7 +100,7 @@ class CommandRegistry:
 
     def get_handler(
         self, name: str
-    ) -> Optional[Callable[[CommandContext], Coroutine[Any, Any, CommandResult]]]:
+    ) -> Callable[[CommandContext], Coroutine[Any, Any, CommandResult]] | None:
         """
         Get command handler by name or alias.
 

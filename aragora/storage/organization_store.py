@@ -70,9 +70,9 @@ class OrganizationStore:
     def __init__(
         self,
         db_path: Path | str = "organizations.db",
-        get_connection: Optional[Callable[[], sqlite3.Connection]] = None,
-        update_user: Optional[Callable[..., bool]] = None,
-        row_to_user: Optional[Callable[[sqlite3.Row], User]] = None,
+        get_connection: Callable[[], sqlite3.Connection] | None = None,
+        update_user: Callable[..., bool] | None = None,
+        row_to_user: Callable[[sqlite3.Row], User] | None = None,
         backend: str | None = None,
         database_url: str | None = None,
     ):

@@ -56,7 +56,7 @@ class TestDebateRecorder:
             assert Path(filepath).exists()
 
             # Verify content
-            with open(filepath, "r") as f:
+            with open(filepath) as f:
                 data = json.load(f)
 
             assert data["debate_result"]["id"] == "test-123"

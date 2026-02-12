@@ -48,7 +48,7 @@ DEFAULT_RETENTION_DAYS = int(os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2
 DEFAULT_DB_PATH = Path(resolve_db_path("receipts.db"))
 
 # Global singleton
-_receipt_store: Optional["ReceiptStore"] = None
+_receipt_store: ReceiptStore | None = None
 _store_lock = threading.RLock()
 
 
@@ -343,7 +343,7 @@ class ReceiptStore:
     def save(
         self,
         receipt_dict: dict[str, Any],
-        signed_receipt: Optional[dict[str, Any]] = None,
+        signed_receipt: dict[str, Any] | None = None,
     ) -> str:
         """
         Save a decision receipt.

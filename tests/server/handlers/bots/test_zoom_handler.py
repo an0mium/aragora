@@ -219,7 +219,7 @@ class TestUrlValidation:
         # Verify the encrypted token is correct
         expected_encrypted = hmac.new(
             secret.encode(),
-            "test-token-123".encode(),
+            b"test-token-123",
             hashlib.sha256,
         ).hexdigest()
         assert data["encryptedToken"] == expected_encrypted

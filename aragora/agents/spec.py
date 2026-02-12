@@ -186,7 +186,7 @@ class AgentSpec:
         return self.provider
 
     @property
-    def gastown_role(self) -> Optional["GastownRole"]:
+    def gastown_role(self) -> GastownRole | None:
         """Get the Gastown AgentRole enum value if hierarchy_role is set.
 
         Returns:
@@ -243,9 +243,9 @@ class AgentSpec:
     @classmethod
     def create_team(
         cls,
-        specs: Sequence["AgentSpecDict | AgentSpec"],
+        specs: Sequence[AgentSpecDict | AgentSpec],
         default_role_rotation: bool = True,
-    ) -> list["AgentSpec"]:
+    ) -> list[AgentSpec]:
         """
         Create a team of agents from explicit field specifications.
 
@@ -301,7 +301,7 @@ class AgentSpec:
         return result
 
     @classmethod
-    def parse(cls, spec_str: str, _warn: bool = True) -> "AgentSpec":
+    def parse(cls, spec_str: str, _warn: bool = True) -> AgentSpec:
         """
         Parse a spec string in either pipe format or legacy colon format.
 
@@ -338,7 +338,7 @@ class AgentSpec:
             return cls._parse_legacy_format(spec_str)
 
     @classmethod
-    def _parse_pipe_format(cls, spec_str: str) -> "AgentSpec":
+    def _parse_pipe_format(cls, spec_str: str) -> AgentSpec:
         """Parse new pipe-delimited format: provider|model|persona|role.
 
         Empty or missing role returns None to allow automatic role assignment.
@@ -354,7 +354,7 @@ class AgentSpec:
         return cls(provider=provider, model=model, persona=persona, role=role)
 
     @classmethod
-    def _parse_legacy_format(cls, spec_str: str) -> "AgentSpec":
+    def _parse_legacy_format(cls, spec_str: str) -> AgentSpec:
         """
         Parse legacy colon format: provider:role or provider:persona or just provider.
 
@@ -389,7 +389,7 @@ class AgentSpec:
             return cls(provider=provider, persona=None, role=None)
 
     @classmethod
-    def parse_list(cls, specs_str: str, _warn: bool = True) -> list["AgentSpec"]:
+    def parse_list(cls, specs_str: str, _warn: bool = True) -> list[AgentSpec]:
         """
         Parse a comma-separated string of agent specs.
 
@@ -425,7 +425,7 @@ class AgentSpec:
         return specs
 
     @classmethod
-    def _from_dict(cls, spec: dict[str, Any], index: int | None = None) -> "AgentSpec":
+    def _from_dict(cls, spec: dict[str, Any], index: int | None = None) -> AgentSpec:
         provider = (
             spec.get("provider") or spec.get("agent_type") or spec.get("type") or spec.get("agent")
         )
@@ -442,7 +442,7 @@ class AgentSpec:
         )
 
     @classmethod
-    def coerce_list(cls, specs: Any, *, warn: bool = True) -> list["AgentSpec"]:
+    def coerce_list(cls, specs: Any, *, warn: bool = True) -> list[AgentSpec]:
         """Coerce flexible agent spec inputs into AgentSpec list.
 
         Accepts:
@@ -520,7 +520,7 @@ class AgentSpec:
             return f"{self.provider}:{self.persona}"
         return self.provider
 
-    def with_role(self, role: str) -> "AgentSpec":
+    def with_role(self, role: str) -> AgentSpec:
         """
         Create a new AgentSpec with a different role.
 
@@ -538,7 +538,7 @@ class AgentSpec:
             name=None,  # Regenerate name
         )
 
-    def with_persona(self, persona: str) -> "AgentSpec":
+    def with_persona(self, persona: str) -> AgentSpec:
         """
         Create a new AgentSpec with a different persona.
 

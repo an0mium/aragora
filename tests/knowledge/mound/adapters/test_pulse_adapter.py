@@ -847,7 +847,7 @@ class TestSearchPastDebates:
         # Store a debate with unix timestamp
         debate_data = {
             "id": "pl_debate_001",
-            "topic_hash": hashlib.sha256("test topic".encode()).hexdigest()[:16],
+            "topic_hash": hashlib.sha256(b"test topic").hexdigest()[:16],
             "topic_text": "test topic",
             "created_at": time.time(),  # Unix timestamp
             "platform": "hackernews",
@@ -882,7 +882,7 @@ class TestSearchPastDebates:
         # Store an old debate
         old_debate = {
             "id": "pl_debate_old",
-            "topic_hash": hashlib.sha256("test topic".encode()).hexdigest()[:16],
+            "topic_hash": hashlib.sha256(b"test topic").hexdigest()[:16],
             "topic_text": "test topic",
             "created_at": time.time() - (72 * 3600),  # 72 hours ago
             "platform": "hackernews",

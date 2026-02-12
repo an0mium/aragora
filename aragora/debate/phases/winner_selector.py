@@ -37,9 +37,9 @@ class WinnerSelector:
         calibration_tracker: Any = None,
         recorder: Any = None,
         # Callbacks
-        notify_spectator: Optional[Callable[..., Any]] = None,
-        extract_debate_domain: Optional[Callable[..., Any]] = None,
-        get_belief_analyzer: Optional[Callable[..., Any]] = None,
+        notify_spectator: Callable[..., Any] | None = None,
+        extract_debate_domain: Callable[..., Any] | None = None,
+        get_belief_analyzer: Callable[..., Any] | None = None,
     ) -> None:
         """Initialize the winner selector.
 
@@ -63,11 +63,11 @@ class WinnerSelector:
 
     def determine_majority_winner(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         vote_counts: dict[str, float],
         total_votes: float,
         choice_mapping: dict[str, str],
-        normalize_choice: Callable[[str, list["Agent"], dict[str, str]], str],
+        normalize_choice: Callable[[str, list[Agent], dict[str, str]], str],
         threshold_override: float | None = None,
     ) -> None:
         """Determine winner for majority consensus.
@@ -174,7 +174,7 @@ class WinnerSelector:
 
     def _record_calibration_predictions(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         winner_agent: str,
         choice_mapping: dict[str, str],
     ) -> None:
@@ -206,7 +206,7 @@ class WinnerSelector:
 
     def set_unanimous_winner(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         winner: str,
         unanimity_ratio: float,
         total_voters: int,
@@ -279,7 +279,7 @@ class WinnerSelector:
 
     def set_no_unanimity(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         winner: str,
         unanimity_ratio: float,
         total_voters: int,
@@ -331,7 +331,7 @@ class WinnerSelector:
                 metric=unanimity_ratio,
             )
 
-    def analyze_belief_network(self, ctx: "DebateContext") -> None:
+    def analyze_belief_network(self, ctx: DebateContext) -> None:
         """Analyze belief network to identify debate cruxes.
 
         Args:

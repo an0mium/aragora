@@ -34,7 +34,7 @@ class MockAgent:
     def __init__(self, name: str = "mock-agent"):
         self.name = name
         self.call_count = 0
-        self.last_prompt: Optional[str] = None
+        self.last_prompt: str | None = None
 
     async def generate(self, prompt: str, context: list | None = None) -> str:
         """Generate a mock response based on the prompt."""

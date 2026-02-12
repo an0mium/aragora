@@ -120,7 +120,7 @@ class ResourceLimits:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ResourceLimits":
+    def from_dict(cls, data: dict[str, Any]) -> ResourceLimits:
         """Create from dictionary."""
         return cls(
             max_tokens=data.get("max_tokens", 100000),
@@ -241,7 +241,7 @@ class ResourceTracker:
     def __init__(
         self,
         limits: ResourceLimits | None = None,
-        on_warning: Optional[Callable[[ResourceType, float], None]] = None,
+        on_warning: Callable[[ResourceType, float], None] | None = None,
     ):
         """
         Initialize the resource tracker.

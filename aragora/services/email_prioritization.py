@@ -140,7 +140,7 @@ class EmailPriorityResult:
 
     # Debate metadata (if Tier 3 was used)
     debate_id: str | None = None
-    agent_dissent: Optional[dict[str, Any]] = None
+    agent_dissent: dict[str, Any] | None = None
 
     # Recommended actions
     suggested_labels: list[str] = field(default_factory=list)
@@ -252,12 +252,12 @@ class EmailPrioritizer:
 
     def __init__(
         self,
-        gmail_connector: Optional["GmailConnector"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        gmail_connector: GmailConnector | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         config: EmailPrioritizationConfig | None = None,
-        sender_history_service: Optional["SenderHistoryService"] = None,
+        sender_history_service: SenderHistoryService | None = None,
         user_id: str | None = None,
-        threat_intel_service: Optional["ThreatIntelligenceService"] = None,
+        threat_intel_service: ThreatIntelligenceService | None = None,
     ):
         """
         Initialize email prioritizer.
@@ -291,7 +291,7 @@ class EmailPrioritizer:
 
     async def score_email(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
         force_tier: ScoringTier | None = None,
         _sender_profile: SenderProfile | None = None,
     ) -> EmailPriorityResult:
@@ -340,7 +340,7 @@ class EmailPrioritizer:
 
     async def score_emails(
         self,
-        emails: list["EmailMessage"],
+        emails: list[EmailMessage],
         force_tier: ScoringTier | None = None,
     ) -> list[EmailPriorityResult]:
         """
@@ -405,7 +405,7 @@ class EmailPrioritizer:
 
     async def rank_inbox(
         self,
-        emails: list["EmailMessage"],
+        emails: list[EmailMessage],
         limit: int | None = None,
     ) -> list[EmailPriorityResult]:
         """
@@ -623,7 +623,7 @@ class EmailPrioritizer:
 
         return histories
 
-    async def _load_sender_history(self, email_address: str) -> Optional[dict[str, Any]]:
+    async def _load_sender_history(self, email_address: str) -> dict[str, Any] | None:
         """Load sender interaction history from Knowledge Mound."""
         if not self.mound:
             return None
@@ -641,7 +641,7 @@ class EmailPrioritizer:
 
         return None
 
-    async def _check_email_threats(self, email: "EmailMessage") -> Optional[dict[str, Any]]:
+    async def _check_email_threats(self, email: EmailMessage) -> dict[str, Any] | None:
         """
         Check email content for threats using threat intelligence.
 
@@ -675,7 +675,7 @@ class EmailPrioritizer:
 
     async def _tier_1_score(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
         sender: SenderProfile,
     ) -> EmailPriorityResult:
         """
@@ -828,7 +828,7 @@ class EmailPrioritizer:
 
     async def _tier_2_score(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
         sender: SenderProfile,
     ) -> EmailPriorityResult:
         """
@@ -910,7 +910,7 @@ Output format: PRIORITY: [1-5], CONFIDENCE: [0-1], REASON: [brief explanation]""
 
     async def _tier_3_debate(
         self,
-        email: "EmailMessage",
+        email: EmailMessage,
         sender: SenderProfile,
     ) -> EmailPriorityResult:
         """
@@ -992,7 +992,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
 
         return tier_2_result
 
-    def _detect_newsletter(self, email: "EmailMessage") -> bool:
+    def _detect_newsletter(self, email: EmailMessage) -> bool:
         """Detect if email is a newsletter/bulk mail."""
         # Check sender in auto-archive list
         if email.from_address.lower() in {a.lower() for a in self.config.auto_archive_senders}:
@@ -1014,7 +1014,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
 
         return False
 
-    def _detect_reply_needed(self, email: "EmailMessage") -> bool:
+    def _detect_reply_needed(self, email: EmailMessage) -> bool:
         """Detect if email expects a reply."""
         text = f"{email.subject} {email.body_text or ''}"
 
@@ -1037,7 +1037,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
         self,
         email_id: str,
         action: str,
-        email: Optional["EmailMessage"] = None,
+        email: EmailMessage | None = None,
         user_id: str = "default",
         response_time_minutes: int | None = None,
     ) -> None:
@@ -1138,8 +1138,8 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
 
 # Convenience function for quick access
 async def prioritize_inbox(
-    gmail_connector: "GmailConnector",
-    knowledge_mound: Optional["KnowledgeMound"] = None,
+    gmail_connector: GmailConnector,
+    knowledge_mound: KnowledgeMound | None = None,
     config: EmailPrioritizationConfig | None = None,
     limit: int = 50,
 ) -> list[EmailPriorityResult]:

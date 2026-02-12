@@ -39,7 +39,7 @@ def parse_body(result) -> dict:
 class MockHandler:
     """Mock HTTP handler."""
 
-    def __init__(self, method: str = "GET", body: Optional[dict] = None):
+    def __init__(self, method: str = "GET", body: dict | None = None):
         self.client_address = ("127.0.0.1", 12345)
         self.command = method
         self.headers = {"Content-Length": "0"}

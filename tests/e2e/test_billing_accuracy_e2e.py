@@ -73,7 +73,7 @@ class MockUsageTracker:
         cost: Decimal,
         tenant_id: str = "default",
         user_id: str = "default",
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ):
         """Record a usage event."""
         event = {

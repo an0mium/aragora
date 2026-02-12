@@ -55,7 +55,7 @@ class FabricImplementationRunner:
 
     def __init__(
         self,
-        fabric: "AgentFabric",
+        fabric: AgentFabric,
         *,
         repo_path: Path,
         implementation_profile: ImplementationProfile | None = None,
@@ -477,7 +477,7 @@ Include proper type hints and docstrings.""",
         return results
 
 
-async def register_implementation_executor(fabric: "AgentFabric") -> None:
+async def register_implementation_executor(fabric: AgentFabric) -> None:
     """Register the implementation executor with fabric (optional)."""
 
     runner = FabricImplementationRunner(

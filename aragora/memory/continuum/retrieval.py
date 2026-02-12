@@ -49,7 +49,7 @@ class RetrievalMixin:
     _GET_MANY_MAX_IDS: int = 200
 
     def retrieve(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         query: str | None = None,
         tiers: list[MemoryTier] | None = None,
         limit: int = 10,
@@ -216,7 +216,7 @@ class RetrievalMixin:
         return AwaitableList(entries)
 
     def get_many(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         ids: list[str],
         tenant_id: str | None = None,
     ) -> list[ContinuumMemoryEntry]:
@@ -286,7 +286,7 @@ class RetrievalMixin:
         return [entries_by_id[entry_id] for entry_id in ordered if entry_id in entries_by_id]
 
     def get_timeline_entries(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         anchor_id: str,
         before: int = 3,
         after: int = 3,
@@ -402,7 +402,7 @@ class RetrievalMixin:
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def retrieve_async(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         query: str | None = None,
         tiers: list[MemoryTier] | None = None,
         limit: int = 10,
@@ -426,7 +426,7 @@ class RetrievalMixin:
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def hybrid_search(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         query: str,
         limit: int = 10,
         tiers: list[MemoryTier] | list[str] | None = None,
@@ -499,7 +499,7 @@ class RetrievalMixin:
 
         return results
 
-    def rebuild_keyword_index(self: "ContinuumMemory") -> int:
+    def rebuild_keyword_index(self: ContinuumMemory) -> int:
         """
         Rebuild the FTS5 keyword index for hybrid search.
 

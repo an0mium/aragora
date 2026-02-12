@@ -249,9 +249,9 @@ class MockTask:
     status: TaskStatus
     priority: TaskPriority
     required_capabilities: list[str]
-    assigned_agent: Optional[str]
-    result: Optional[Any]
-    error: Optional[str]
+    assigned_agent: str | None
+    result: Any | None
+    error: str | None
     created_at: datetime
     metadata: dict[str, Any]
 
@@ -329,13 +329,13 @@ class MockCoordinator:
             return True
         return False
 
-    async def get_agent(self, agent_id: str) -> Optional[MockAgentInfo]:
+    async def get_agent(self, agent_id: str) -> MockAgentInfo | None:
         """Get agent by ID."""
         return self._agents.get(agent_id)
 
     async def list_agents(
         self,
-        capability: Optional[str] = None,
+        capability: str | None = None,
         only_available: bool = True,
     ) -> list[MockAgentInfo]:
         """List agents."""
@@ -346,7 +346,7 @@ class MockCoordinator:
             agents = [a for a in agents if a.status != AgentStatus.OFFLINE]
         return agents
 
-    async def heartbeat(self, agent_id: str, status: Optional[AgentStatus] = None) -> bool:
+    async def heartbeat(self, agent_id: str, status: AgentStatus | None = None) -> bool:
         """Process agent heartbeat."""
         agent = self._agents.get(agent_id)
         if not agent:
@@ -362,7 +362,7 @@ class MockCoordinator:
         payload: dict[str, Any],
         required_capabilities: list[str] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
-        timeout_seconds: Optional[int] = None,
+        timeout_seconds: int | None = None,
         metadata: dict[str, Any] = None,
     ) -> str:
         """Submit a task."""
@@ -385,7 +385,7 @@ class MockCoordinator:
         self._tasks[task_id] = task
         return task_id
 
-    async def get_task(self, task_id: str) -> Optional[MockTask]:
+    async def get_task(self, task_id: str) -> MockTask | None:
         """Get task by ID."""
         return self._tasks.get(task_id)
 
@@ -394,7 +394,7 @@ class MockCoordinator:
         agent_id: str,
         capabilities: list[str],
         block_ms: int = 5000,
-    ) -> Optional[MockTask]:
+    ) -> MockTask | None:
         """Claim a task for an agent."""
         for task in self._tasks.values():
             if task.status == TaskStatus.PENDING:
@@ -411,8 +411,8 @@ class MockCoordinator:
         self,
         task_id: str,
         result: Any = None,
-        agent_id: Optional[str] = None,
-        latency_ms: Optional[float] = None,
+        agent_id: str | None = None,
+        latency_ms: float | None = None,
     ) -> bool:
         """Complete a task."""
         task = self._tasks.get(task_id)
@@ -426,8 +426,8 @@ class MockCoordinator:
         self,
         task_id: str,
         error: str,
-        agent_id: Optional[str] = None,
-        latency_ms: Optional[float] = None,
+        agent_id: str | None = None,
+        latency_ms: float | None = None,
         requeue: bool = True,
     ) -> bool:
         """Fail a task."""
@@ -461,7 +461,7 @@ class MockCoordinator:
             return HealthStatus.DEGRADED
         return HealthStatus.HEALTHY
 
-    def get_agent_health(self, agent_id: str) -> Optional[MockHealthCheck]:
+    def get_agent_health(self, agent_id: str) -> MockHealthCheck | None:
         """Get agent health."""
         return self._health.get(agent_id)
 
@@ -491,8 +491,8 @@ class MockRequest:
         self,
         method: str = "GET",
         path: str = "/",
-        query: Optional[dict[str, str]] = None,
-        body: Optional[dict[str, Any]] = None,
+        query: dict[str, str] | None = None,
+        body: dict[str, Any] | None = None,
     ):
         self.method = method
         self.path = path
@@ -513,7 +513,7 @@ class MockRequest:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: Optional[dict[str, Any]] = None):
+    def __init__(self, body: dict[str, Any] | None = None):
         self.rfile = MagicMock()
         self._body = body
         if body:
@@ -540,8 +540,8 @@ def mock_request():
     def _create_request(
         method: str = "GET",
         path: str = "/",
-        query: Optional[dict[str, str]] = None,
-        body: Optional[dict[str, Any]] = None,
+        query: dict[str, str] | None = None,
+        body: dict[str, Any] | None = None,
     ) -> MockRequest:
         return MockRequest(method=method, path=path, query=query, body=body)
 
@@ -552,7 +552,7 @@ def mock_request():
 def mock_handler():
     """Factory for creating mock handlers."""
 
-    def _create_handler(body: Optional[dict[str, Any]] = None) -> MockHandler:
+    def _create_handler(body: dict[str, Any] | None = None) -> MockHandler:
         return MockHandler(body=body)
 
     return _create_handler

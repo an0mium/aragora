@@ -78,7 +78,7 @@ class SendResult:
         platform: str = "",
         channel_id: str = "",
         **metadata: Any,
-    ) -> "SendResult":
+    ) -> SendResult:
         """Create a successful result."""
         return cls(
             success=True,
@@ -95,7 +95,7 @@ class SendResult:
         platform: str = "",
         channel_id: str = "",
         **metadata: Any,
-    ) -> "SendResult":
+    ) -> SendResult:
         """Create a failed result."""
         return cls(
             success=False,
@@ -164,7 +164,7 @@ class ChannelDock(ABC):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """

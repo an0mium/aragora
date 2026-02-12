@@ -174,7 +174,7 @@ class CacheEntry:
     timestamp: float
     workspace_id: str | None = None
     policy_version: str | None = None
-    agent_versions: Optional[dict[str, str]] = None
+    agent_versions: dict[str, str] | None = None
     tags: list[str] = field(default_factory=list)
 
     def matches_tag(self, tag: str) -> bool:
@@ -213,7 +213,7 @@ class ResponseCache:
         # Current policy version (updated on governance changes)
         self._policy_version: str | None = None
 
-    def _compute_hash(self, content: str, context: Optional[dict[str, Any]] = None) -> str:
+    def _compute_hash(self, content: str, context: dict[str, Any] | None = None) -> str:
         """Compute a cache key hash."""
         ctx_str = json.dumps(context, sort_keys=True) if context else ""
         data = f"{content}:{ctx_str}"
@@ -222,7 +222,7 @@ class ResponseCache:
     async def get(
         self,
         content: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> Any | None:
         """Get a cached response if available."""
         cache_key = self._compute_hash(content, context)
@@ -257,9 +257,9 @@ class ResponseCache:
         self,
         content: str,
         result: Any,
-        context: Optional[dict[str, Any]] = None,
-        tags: Optional[list[str]] = None,
-        agent_versions: Optional[dict[str, str]] = None,
+        context: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+        agent_versions: dict[str, str] | None = None,
     ) -> None:
         """
         Cache a response with metadata.

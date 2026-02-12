@@ -78,7 +78,7 @@ class AmazonCredentials:
     role_arn: str | None = None
 
     @classmethod
-    def from_env(cls) -> "AmazonCredentials":
+    def from_env(cls) -> AmazonCredentials:
         """Create credentials from environment variables."""
         return cls(
             refresh_token=os.environ.get("AMAZON_SP_REFRESH_TOKEN", ""),
@@ -244,8 +244,8 @@ class AmazonProduct:
     manufacturer: str | None
     product_type: str | None
     parent_asin: str | None  # For variations
-    item_dimensions: Optional[dict[str, Any]] = None
-    package_dimensions: Optional[dict[str, Any]] = None
+    item_dimensions: dict[str, Any] | None = None
+    package_dimensions: dict[str, Any] | None = None
     images: list[str] = field(default_factory=list)
     bullet_points: list[str] = field(default_factory=list)
     browse_nodes: list[str] = field(default_factory=list)

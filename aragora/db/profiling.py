@@ -206,13 +206,13 @@ class QueryProfiler:
         print(profiler.profile.report())
     """
 
-    _current: Optional["QueryProfiler"] = None
+    _current: QueryProfiler | None = None
 
     def __init__(self) -> None:
         self.profile = QueryProfile()
-        self._previous: Optional["QueryProfiler"] = None
+        self._previous: QueryProfiler | None = None
 
-    def __enter__(self) -> "QueryProfiler":
+    def __enter__(self) -> QueryProfiler:
         self._previous = QueryProfiler._current
         QueryProfiler._current = self
         return self
@@ -222,7 +222,7 @@ class QueryProfiler:
         QueryProfiler._current = self._previous
 
     @classmethod
-    def current(cls) -> Optional["QueryProfiler"]:
+    def current(cls) -> QueryProfiler | None:
         """Get the current active profiler, if any."""
         return cls._current
 

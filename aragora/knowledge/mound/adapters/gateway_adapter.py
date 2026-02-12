@@ -124,8 +124,8 @@ class GatewayAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        gateway: Optional["LocalGateway"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        gateway: LocalGateway | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         workspace_id: str = "default",
         event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,

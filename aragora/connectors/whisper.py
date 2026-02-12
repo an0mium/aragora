@@ -82,7 +82,7 @@ class TranscriptionSegment:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TranscriptionSegment":
+    def from_dict(cls, data: dict) -> TranscriptionSegment:
         return cls(
             start=data["start"],
             end=data["end"],
@@ -138,7 +138,7 @@ class TranscriptionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TranscriptionResult":
+    def from_dict(cls, data: dict) -> TranscriptionResult:
         return cls(
             id=data["id"],
             text=data["text"],

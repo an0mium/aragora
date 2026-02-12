@@ -79,7 +79,7 @@ class TenantUsage:
 class TenantsAPI:
     """API interface for tenant management."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -157,8 +157,8 @@ class TenantsAPI:
         slug: str,
         tier: str = "free",
         owner_id: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
-        quotas: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
+        quotas: dict[str, Any] | None = None,
     ) -> Tenant:
         """
         Create a new tenant.
@@ -195,8 +195,8 @@ class TenantsAPI:
         slug: str,
         tier: str = "free",
         owner_id: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
-        quotas: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
+        quotas: dict[str, Any] | None = None,
     ) -> Tenant:
         """Async version of create()."""
         body: dict[str, Any] = {
@@ -219,8 +219,8 @@ class TenantsAPI:
         tenant_id: str,
         name: str | None = None,
         tier: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
-        quotas: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
+        quotas: dict[str, Any] | None = None,
     ) -> Tenant:
         """
         Update tenant details.
@@ -253,8 +253,8 @@ class TenantsAPI:
         tenant_id: str,
         name: str | None = None,
         tier: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
-        quotas: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
+        quotas: dict[str, Any] | None = None,
     ) -> Tenant:
         """Async version of update()."""
         body: dict[str, Any] = {}

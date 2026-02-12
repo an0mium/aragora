@@ -54,7 +54,7 @@ class ReplayStorage:
                 meta_path = session_dir / "meta.json"
                 if not meta_path.exists():
                     continue
-                with open(meta_path, "r") as f:
+                with open(meta_path) as f:
                     meta = json.load(f)
                 recordings.append(
                     {

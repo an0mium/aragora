@@ -42,8 +42,8 @@ class CheckpointOperations:
     def __init__(
         self,
         checkpoint_manager: Any = None,
-        memory_manager: Optional["MemoryManager"] = None,
-        cache: Optional["DebateStateCache"] = None,
+        memory_manager: MemoryManager | None = None,
+        cache: DebateStateCache | None = None,
     ) -> None:
         """Initialize checkpoint operations.
 
@@ -58,7 +58,7 @@ class CheckpointOperations:
 
     async def create_checkpoint(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
         env: Any,
         agents: list,
@@ -96,12 +96,12 @@ class CheckpointOperations:
                 current_consensus=getattr(ctx.result, "final_answer", None),
             )
             logger.debug(f"[checkpoint] Saved checkpoint after round {round_num}")
-        except (IOError, OSError, TypeError, ValueError, RuntimeError) as e:
+        except (OSError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"[checkpoint] Failed to create checkpoint: {e}")
 
     def store_debate_outcome(
         self,
-        result: "DebateResult",
+        result: DebateResult,
         task: str,
         belief_cruxes: list[str] | None = None,
     ) -> None:
@@ -127,7 +127,7 @@ class CheckpointOperations:
             return
         self.memory_manager.store_evidence(evidence_snippets, task)
 
-    def update_memory_outcomes(self, result: "DebateResult") -> None:
+    def update_memory_outcomes(self, result: DebateResult) -> None:
         """Update retrieved memories based on debate outcome.
 
         Args:

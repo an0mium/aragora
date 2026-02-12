@@ -78,7 +78,7 @@ def create_memory_cleanup_callback(
                 )
         except ImportError:
             logger.debug("ContinuumMemory not available, skipping cleanup")
-        except (sqlite3.Error, OSError, IOError) as e:
+        except (sqlite3.Error, OSError) as e:
             logger.warning("Memory cleanup failed: %s", e)
 
     return memory_cleanup_task
@@ -118,7 +118,7 @@ def create_memory_consolidation_callback(
             )
         except ImportError:
             logger.debug("ContinuumMemory not available, skipping consolidation")
-        except (sqlite3.Error, OSError, IOError) as e:
+        except (sqlite3.Error, OSError) as e:
             logger.warning("Memory consolidation failed: %s", e)
 
     return memory_consolidation_task
@@ -135,7 +135,7 @@ def stale_debate_cleanup() -> None:
             logger.info("Cleaned up %d stale debates", cleaned)
     except (ImportError, AttributeError) as e:
         logger.debug("Stale debate cleanup skipped: %s", e)
-    except (sqlite3.Error, OSError, IOError) as e:
+    except (sqlite3.Error, OSError) as e:
         logger.warning("Stale debate cleanup failed: %s", e)
 
 
@@ -159,7 +159,7 @@ def circuit_breaker_cleanup() -> None:
         cleanup_stale_persisted(max_age_hours=72.0)
     except ImportError:
         pass  # resilience module may not be available
-    except (sqlite3.Error, OSError, IOError) as e:
+    except (sqlite3.Error, OSError) as e:
         logger.warning("Circuit breaker cleanup failed: %s", e)
 
 
@@ -193,7 +193,7 @@ def consensus_cleanup_task() -> None:
         logger.debug("ConsensusMemory not available, skipping cleanup")
     except sqlite3.Error as e:
         logger.warning("Consensus cleanup database error: %s", e)
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.warning("Consensus cleanup I/O error: %s", e)
 
 

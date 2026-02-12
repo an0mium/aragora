@@ -16,9 +16,9 @@ T = TypeVar("T")
 @contextmanager
 def managed_fixture(
     resource: T,
-    cleanup_fn: Optional[Callable[[], None]] = None,
+    cleanup_fn: Callable[[], None] | None = None,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> Generator[T, None, None]:
     """Universal fixture wrapper guaranteeing resource cleanup.
 
@@ -58,7 +58,7 @@ def managed_fixture(
 
 def _cleanup_resource(
     resource: Any,
-    cleanup_fn: Optional[Callable[[], None]],
+    cleanup_fn: Callable[[], None] | None,
     name: str,
 ) -> None:
     """Execute cleanup for a resource, handling errors gracefully."""
@@ -85,9 +85,9 @@ def _cleanup_resource(
 @contextmanager
 def managed_async_fixture(
     resource: T,
-    cleanup_coro_fn: Optional[Callable[[], Any]] = None,
+    cleanup_coro_fn: Callable[[], Any] | None = None,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> Generator[T, None, None]:
     """Fixture wrapper for async resources needing async cleanup.
 

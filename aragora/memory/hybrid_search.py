@@ -264,7 +264,7 @@ class HybridMemorySearch:
 
     def __init__(
         self,
-        continuum_memory: "ContinuumMemory",
+        continuum_memory: ContinuumMemory,
         embedder: EmbeddingProvider | None = None,
         config: HybridMemoryConfig | None = None,
     ):
@@ -604,7 +604,7 @@ _hybrid_search: HybridMemorySearch | None = None
 
 
 def get_hybrid_memory_search(
-    continuum_memory: Optional["ContinuumMemory"] = None,
+    continuum_memory: ContinuumMemory | None = None,
     config: HybridMemoryConfig | None = None,
 ) -> HybridMemorySearch:
     """

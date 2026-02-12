@@ -263,7 +263,7 @@ class HealthHandler(SecureHandler):
     def _deployment_diagnostics(self) -> HandlerResult:
         return deployment_diagnostics(self)
 
-    def _generate_checklist(self, result: "ValidationResult") -> dict[str, Any]:
+    def _generate_checklist(self, result: ValidationResult) -> dict[str, Any]:
         from .diagnostics import _generate_checklist
 
         return _generate_checklist(result)

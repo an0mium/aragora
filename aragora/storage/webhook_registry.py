@@ -303,7 +303,7 @@ class SQLiteWebhookRegistry:
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[builtins.list[str]] = None,
+        events: builtins.list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,

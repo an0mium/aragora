@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global singleton
-_approval_request_store: Optional["ApprovalRequestStoreBackend"] = None
+_approval_request_store: ApprovalRequestStoreBackend | None = None
 _store_lock = threading.RLock()
 
 
@@ -116,7 +116,7 @@ class ApprovalRequestItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ApprovalRequestItem":
+    def from_dict(cls, data: dict[str, Any]) -> ApprovalRequestItem:
         """Create from dictionary."""
         return cls(
             request_id=data.get("request_id", ""),
@@ -143,7 +143,7 @@ class ApprovalRequestItem:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> "ApprovalRequestItem":
+    def from_json(cls, json_str: str) -> ApprovalRequestItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 

@@ -122,7 +122,7 @@ class BotHandlerMixin:
     async def handle_status_request(
         self,
         handler: Any,
-        extra_status: Optional[dict[str, Any]] = None,
+        extra_status: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """Handle RBAC-protected status endpoint request.
 
@@ -149,7 +149,7 @@ class BotHandlerMixin:
         return self._build_status_response(extra_status)
 
     def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
+        self, extra_status: dict[str, Any] | None = None
     ) -> HandlerResult:
         """Build the status response JSON.
 
@@ -302,7 +302,7 @@ class BotHandlerMixin:
 
     def _parse_json_body(
         self, body: bytes, context: str = "webhook", allow_empty: bool = False
-    ) -> tuple[Optional[dict[str, Any]], HandlerResult | None]:
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
         """Parse JSON from request body with standardized error handling.
 
         Args:

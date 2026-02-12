@@ -349,7 +349,7 @@ class TestCritiqueStoreProtocol:
 class ConformingEventEmitter:
     """A class that conforms to EventEmitterProtocol."""
 
-    def emit(self, event: Any, data: Optional[dict[str, Any]] = None) -> None:
+    def emit(self, event: Any, data: dict[str, Any] | None = None) -> None:
         pass
 
     def on(self, event_type: str, callback: Any) -> None:
@@ -359,7 +359,7 @@ class ConformingEventEmitter:
 class NonConformingEventEmitter:
     """Event emitter missing on method."""
 
-    def emit(self, event: Any, data: Optional[dict[str, Any]] = None) -> None:
+    def emit(self, event: Any, data: dict[str, Any] | None = None) -> None:
         pass
 
 
@@ -439,7 +439,7 @@ class ConformingBaseHandler:
     def handle(self, path: str, query: dict[str, Any], request_handler: Any) -> Any | None:
         return {"status": "ok"}
 
-    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
+    def read_json_body(self, handler: Any) -> dict[str, Any] | None:
         return {}
 
 
@@ -454,7 +454,7 @@ class BaseHandlerMissingRoutes:
     def handle(self, path: str, query: dict[str, Any], request_handler: Any) -> Any | None:
         return None
 
-    def read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
+    def read_json_body(self, handler: Any) -> dict[str, Any] | None:
         return {}
 
 
@@ -689,7 +689,7 @@ class TestEloSystemProtocol:
 class ConformingCalibrationTracker:
     """A class that conforms to CalibrationTrackerProtocol."""
 
-    def get_calibration(self, agent: str) -> Optional[dict[str, Any]]:
+    def get_calibration(self, agent: str) -> dict[str, Any] | None:
         return {"agent": agent, "score": 0.1}
 
     def record_prediction(
@@ -710,7 +710,7 @@ class ConformingCalibrationTracker:
 class CalibrationTrackerMissingMethod:
     """Calibration tracker missing get_calibration_score."""
 
-    def get_calibration(self, agent: str) -> Optional[dict[str, Any]]:
+    def get_calibration(self, agent: str) -> dict[str, Any] | None:
         return None
 
     def record_prediction(
@@ -828,7 +828,7 @@ class TestPositionLedgerProtocol:
 class ConformingRelationshipTracker:
     """A class that conforms to RelationshipTrackerProtocol."""
 
-    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[dict[str, Any]]:
+    def get_relationship(self, agent_a: str, agent_b: str) -> dict[str, Any] | None:
         return {"agent_a": agent_a, "agent_b": agent_b, "affinity": 0.5}
 
     def update_relationship(
@@ -849,10 +849,10 @@ class ConformingRelationshipTracker:
     def update_from_debate(
         self,
         debate_id: str = "",
-        participants: Optional[list[str]] = None,
+        participants: list[str] | None = None,
         winner: str | None = None,
-        votes: Optional[dict[str, Any]] = None,
-        critiques: Optional[list[Any]] = None,
+        votes: dict[str, Any] | None = None,
+        critiques: list[Any] | None = None,
         **kwargs: Any,
     ) -> None:
         pass
@@ -861,7 +861,7 @@ class ConformingRelationshipTracker:
 class RelationshipTrackerMissingMethod:
     """Relationship tracker missing get_allies."""
 
-    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[dict[str, Any]]:
+    def get_relationship(self, agent_a: str, agent_b: str) -> dict[str, Any] | None:
         return None
 
     def update_relationship(
@@ -884,7 +884,7 @@ class ConformingMomentDetector:
         content: str,
         context: dict[str, Any],
         threshold: float = 0.7,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return {"type": "breakthrough", "content": content}
 
     def get_moment_types(self) -> list[str]:
@@ -896,7 +896,7 @@ class ConformingMomentDetector:
         loser: str = "",
         debate_id: str = "",
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
     def detect_calibration_vindication(
@@ -907,12 +907,12 @@ class ConformingMomentDetector:
         domain: str = "",
         debate_id: str = "",
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
     def record_moment(
         self,
-        moment: Optional[dict[str, Any]] = None,
+        moment: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str | None:
         return "moment-123"
@@ -923,16 +923,16 @@ class MomentDetectorMissingMethod:
 
     def detect_moment(
         self, content: str, context: dict[str, Any], threshold: float = 0.7
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
-    def detect_upset_victory(self, **kwargs: Any) -> Optional[dict[str, Any]]:
+    def detect_upset_victory(self, **kwargs: Any) -> dict[str, Any] | None:
         return None
 
-    def detect_calibration_vindication(self, **kwargs: Any) -> Optional[dict[str, Any]]:
+    def detect_calibration_vindication(self, **kwargs: Any) -> dict[str, Any] | None:
         return None
 
-    def record_moment(self, moment: Optional[dict[str, Any]] = None, **kwargs: Any) -> str | None:
+    def record_moment(self, moment: dict[str, Any] | None = None, **kwargs: Any) -> str | None:
         return None
 
 
@@ -972,7 +972,7 @@ class TestMomentDetectorProtocol:
 class ConformingPersonaManager:
     """A class that conforms to PersonaManagerProtocol."""
 
-    def get_persona(self, agent_name: str) -> Optional[dict[str, Any]]:
+    def get_persona(self, agent_name: str) -> dict[str, Any] | None:
         return {"name": agent_name, "style": "formal"}
 
     def update_persona(self, agent_name: str, updates: dict[str, Any]) -> None:
@@ -995,7 +995,7 @@ class ConformingPersonaManager:
 class PersonaManagerMissingMethod:
     """Persona manager missing get_context_for_prompt."""
 
-    def get_persona(self, agent_name: str) -> Optional[dict[str, Any]]:
+    def get_persona(self, agent_name: str) -> dict[str, Any] | None:
         return None
 
     def update_persona(self, agent_name: str, updates: dict[str, Any]) -> None:
@@ -1193,7 +1193,7 @@ class ConformingDebateStorage:
     def save_debate(self, debate_id: str, data: dict[str, Any]) -> None:
         pass
 
-    def load_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def load_debate(self, debate_id: str) -> dict[str, Any] | None:
         return None
 
     def list_debates(self, limit: int = 100, org_id: str | None = None) -> list[Any]:
@@ -1202,16 +1202,16 @@ class ConformingDebateStorage:
     def delete_debate(self, debate_id: str) -> bool:
         return True
 
-    def get_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_debate(self, debate_id: str) -> dict[str, Any] | None:
         return None
 
-    def get_debate_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
+    def get_debate_by_slug(self, slug: str) -> dict[str, Any] | None:
         return None
 
-    def get_by_id(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_by_id(self, debate_id: str) -> dict[str, Any] | None:
         return None
 
-    def get_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
+    def get_by_slug(self, slug: str) -> dict[str, Any] | None:
         return None
 
     def list_recent(self, limit: int = 20, org_id: str | None = None) -> list[Any]:
@@ -1234,7 +1234,7 @@ class DebateStorageMissingMethod:
     def save_debate(self, debate_id: str, data: dict[str, Any]) -> None:
         pass
 
-    def load_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def load_debate(self, debate_id: str) -> dict[str, Any] | None:
         return None
 
     def list_debates(self, limit: int = 100, org_id: str | None = None) -> list[Any]:
@@ -1243,16 +1243,16 @@ class DebateStorageMissingMethod:
     def delete_debate(self, debate_id: str) -> bool:
         return True
 
-    def get_debate(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_debate(self, debate_id: str) -> dict[str, Any] | None:
         return None
 
-    def get_debate_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
+    def get_debate_by_slug(self, slug: str) -> dict[str, Any] | None:
         return None
 
-    def get_by_id(self, debate_id: str) -> Optional[dict[str, Any]]:
+    def get_by_id(self, debate_id: str) -> dict[str, Any] | None:
         return None
 
-    def get_by_slug(self, slug: str) -> Optional[dict[str, Any]]:
+    def get_by_slug(self, slug: str) -> dict[str, Any] | None:
         return None
 
     def list_recent(self, limit: int = 20, org_id: str | None = None) -> list[Any]:
@@ -1386,7 +1386,7 @@ class ConformingDebateEmbeddings:
         self,
         debate_id: str,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         pass
 
@@ -1403,7 +1403,7 @@ class DebateEmbeddingsMissingMethod:
     """Debate embeddings missing embed method."""
 
     def index_debate(
-        self, debate_id: str, content: str, metadata: Optional[dict[str, Any]] = None
+        self, debate_id: str, content: str, metadata: dict[str, Any] | None = None
     ) -> None:
         pass
 
@@ -1422,7 +1422,7 @@ class ConformingFlipDetector:
         old_position: str,
         new_position: str,
         threshold: float = 0.3,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
     def get_flip_history(self, agent: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -1440,7 +1440,7 @@ class FlipDetectorMissingMethod:
 
     def detect_flip(
         self, agent: str, old_position: str, new_position: str, threshold: float = 0.3
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
     def get_flip_history(self, agent: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -1497,7 +1497,7 @@ class ConformingConsensusMemory:
     ) -> str:
         return "outcome-id"
 
-    def get_consensus(self, topic: str, domain: str | None = None) -> Optional[dict[str, Any]]:
+    def get_consensus(self, topic: str, domain: str | None = None) -> dict[str, Any] | None:
         return None
 
     def search_similar_topics(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
@@ -1509,15 +1509,15 @@ class ConformingConsensusMemory:
         conclusion: str = "",
         strength: str = "",
         confidence: float = 0.0,
-        participating_agents: Optional[list[str]] = None,
-        agreeing_agents: Optional[list[str]] = None,
-        dissenting_agents: Optional[list[str]] = None,
-        key_claims: Optional[list[str]] = None,
+        participating_agents: list[str] | None = None,
+        agreeing_agents: list[str] | None = None,
+        dissenting_agents: list[str] | None = None,
+        key_claims: list[str] | None = None,
         domain: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         debate_duration: float = 0.0,
         rounds: int = 0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         return {"id": "consensus-id"}
@@ -1526,7 +1526,7 @@ class ConformingConsensusMemory:
         pass
 
     def store_vote(
-        self, debate_id: str = "", vote_data: Optional[dict[str, Any]] = None, **kwargs: Any
+        self, debate_id: str = "", vote_data: dict[str, Any] | None = None, **kwargs: Any
     ) -> None:
         pass
 
@@ -1557,7 +1557,7 @@ class ConsensusMemoryMissingMethod:
     ) -> str:
         return "id"
 
-    def get_consensus(self, topic: str, domain: str | None = None) -> Optional[dict[str, Any]]:
+    def get_consensus(self, topic: str, domain: str | None = None) -> dict[str, Any] | None:
         return None
 
     def search_similar_topics(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
@@ -1567,7 +1567,7 @@ class ConsensusMemoryMissingMethod:
         pass
 
     def store_vote(
-        self, debate_id: str = "", vote_data: Optional[dict[str, Any]] = None, **kwargs: Any
+        self, debate_id: str = "", vote_data: dict[str, Any] | None = None, **kwargs: Any
     ) -> None:
         pass
 
@@ -1661,7 +1661,7 @@ class ConformingPulseManager:
     """A class that conforms to PulseManagerProtocol."""
 
     def get_trending(
-        self, sources: Optional[list[str]] = None, limit: int = 10
+        self, sources: list[str] | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
         return []
 
@@ -1687,7 +1687,7 @@ class PulseManagerMissingMethod:
     """Pulse manager missing get_topic_analytics."""
 
     def get_trending(
-        self, sources: Optional[list[str]] = None, limit: int = 10
+        self, sources: list[str] | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
         return []
 
@@ -1808,7 +1808,7 @@ class ConformingInsightStore:
         content: str,
         source_debate_id: str,
         confidence: float,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         return "insight-id"
 
@@ -1847,7 +1847,7 @@ class InsightStoreMissingMethod:
         content: str,
         source_debate_id: str,
         confidence: float,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         return "id"
 
@@ -1874,8 +1874,8 @@ class ConformingBroadcastPipeline:
     def queue_broadcast(
         self,
         debate_id: str,
-        platforms: Optional[list[str]] = None,
-        options: Optional[dict[str, Any]] = None,
+        platforms: list[str] | None = None,
+        options: dict[str, Any] | None = None,
     ) -> str:
         return "job-id"
 
@@ -1898,8 +1898,8 @@ class BroadcastPipelineMissingMethod:
     def queue_broadcast(
         self,
         debate_id: str,
-        platforms: Optional[list[str]] = None,
-        options: Optional[dict[str, Any]] = None,
+        platforms: list[str] | None = None,
+        options: dict[str, Any] | None = None,
     ) -> str:
         return "id"
 
@@ -1951,7 +1951,7 @@ class ConformingContinuumMemory:
         key: str,
         value: Any,
         tier: str = "medium",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         pass
 
@@ -1969,7 +1969,7 @@ class ContinuumMemoryMissingMethod:
     """Continuum memory missing get_context."""
 
     def store(
-        self, key: str, value: Any, tier: str = "medium", metadata: Optional[dict[str, Any]] = None
+        self, key: str, value: Any, tier: str = "medium", metadata: dict[str, Any] | None = None
     ) -> None:
         pass
 
@@ -1988,11 +1988,11 @@ class ConformingPositionTracker:
         agent_name: str,
         position: str,
         confidence: float = 1.0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         pass
 
-    def get_position(self, agent_name: str) -> Optional[dict[str, Any]]:
+    def get_position(self, agent_name: str) -> dict[str, Any] | None:
         return None
 
     def get_position_history(self, agent_name: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -2010,11 +2010,11 @@ class PositionTrackerMissingMethod:
         agent_name: str,
         position: str,
         confidence: float = 1.0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         pass
 
-    def get_position(self, agent_name: str) -> Optional[dict[str, Any]]:
+    def get_position(self, agent_name: str) -> dict[str, Any] | None:
         return None
 
     def get_position_history(self, agent_name: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -2060,7 +2060,7 @@ class ConformingEvidenceCollector:
     def collect(
         self,
         query: str,
-        sources: Optional[list[str]] = None,
+        sources: list[str] | None = None,
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         return []
@@ -2076,7 +2076,7 @@ class EvidenceCollectorMissingMethod:
     """Evidence collector missing get_sources."""
 
     def collect(
-        self, query: str, sources: Optional[list[str]] = None, limit: int = 5
+        self, query: str, sources: list[str] | None = None, limit: int = 5
     ) -> list[dict[str, Any]]:
         return []
 

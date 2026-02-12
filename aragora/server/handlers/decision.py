@@ -93,7 +93,7 @@ def _save_result(request_id: str, data: dict[str, Any]) -> None:
     _decision_results_fallback[request_id] = data
 
 
-def _get_result(request_id: str) -> Optional[dict[str, Any]]:
+def _get_result(request_id: str) -> dict[str, Any] | None:
     """Get a decision result from persistent store with fallback."""
     store = _get_result_store()
     if store:

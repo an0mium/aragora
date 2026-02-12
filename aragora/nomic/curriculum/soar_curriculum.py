@@ -164,7 +164,7 @@ class Curriculum:
         successes = sum(1 for r in self.results if r.success)
         return successes / len(self.results)
 
-    def next_stone(self) -> Optional[SteppingStone]:
+    def next_stone(self) -> SteppingStone | None:
         """Get the next stepping stone to attempt."""
         if self.is_complete:
             return None
@@ -637,7 +637,7 @@ class CurriculumPlanner:
         # Check success rate threshold
         return curriculum.success_rate >= 0.6
 
-    def get_next_action(self, curriculum_id: str) -> Optional[SteppingStone | str]:
+    def get_next_action(self, curriculum_id: str) -> SteppingStone | str | None:
         """Get the next action for a curriculum.
 
         Returns either:

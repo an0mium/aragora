@@ -252,7 +252,7 @@ class Decision:
         return json.dumps(self.to_dict(), indent=indent)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Decision":
+    def from_dict(cls, data: dict[str, Any]) -> Decision:
         """Create decision from dictionary."""
         return cls(
             decision_id=data.get("decision_id", ""),

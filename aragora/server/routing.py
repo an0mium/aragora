@@ -245,7 +245,7 @@ class Route:
         self._regex = re.compile(f"^{regex_pattern}$")
         self._param_names = param_names
 
-    def match(self, path: str) -> Optional[dict[str, Any]]:
+    def match(self, path: str) -> dict[str, Any] | None:
         """
         Match path against this route pattern.
 

@@ -72,7 +72,7 @@ class KnowledgeMoundHandlersMixin:
             from aragora.knowledge.mound import get_knowledge_mound
 
             # Get or create mound instance
-            mound: Optional["KnowledgeMound"] = get_knowledge_mound()
+            mound: KnowledgeMound | None = get_knowledge_mound()
             if mound is None:
                 return
 
@@ -298,7 +298,7 @@ class KnowledgeMoundHandlersMixin:
             # and update_priority_hints is not a method on it.
             # This handler documents intent but RLM priority updates
             # would need to be implemented at a higher level.
-            compressor: Optional[HierarchicalCompressor] = None
+            compressor: HierarchicalCompressor | None = None
             if compressor and hasattr(compressor, "update_priority_hints"):
                 getattr(compressor, "update_priority_hints")(
                     accessed_ids=node_ids,

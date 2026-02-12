@@ -233,9 +233,9 @@ class HumanCheckpointStep(BaseStep):
     """
 
     # Callback for notifying about new approval requests
-    on_approval_requested: Optional[Callable[[ApprovalRequest], None]] = None
+    on_approval_requested: Callable[[ApprovalRequest], None] | None = None
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -650,7 +650,7 @@ def resolve_approval(
     status: ApprovalStatus,
     responder_id: str,
     notes: str = "",
-    checklist_updates: Optional[dict[str, bool]] = None,
+    checklist_updates: dict[str, bool] | None = None,
 ) -> bool:
     """
     Resolve an approval request from external code.

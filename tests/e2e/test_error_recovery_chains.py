@@ -46,7 +46,7 @@ class MockProviderAgent:
         self._call_count = 0
         self.calls: list[str] = []
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         self._call_count += 1
         self.calls.append(prompt)
 
@@ -550,7 +550,7 @@ class TestErrorRecoveryOrdering:
         call_order: list[str] = []
 
         class OrderTrackingAgent(MockProviderAgent):
-            async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+            async def generate(self, prompt: str, context: list | None = None) -> str:
                 call_order.append(self.name)
                 return await super().generate(prompt, context)
 

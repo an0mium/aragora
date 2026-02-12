@@ -44,7 +44,7 @@ from aragora.utils.async_utils import run_async
 logger = logging.getLogger(__name__)
 
 # Global singleton
-_finding_workflow_store: Optional["FindingWorkflowStoreBackend"] = None
+_finding_workflow_store: FindingWorkflowStoreBackend | None = None
 _store_lock = threading.RLock()
 
 
@@ -107,7 +107,7 @@ class WorkflowDataItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkflowDataItem":
+    def from_dict(cls, data: dict[str, Any]) -> WorkflowDataItem:
         """Create from dictionary."""
         return cls(
             finding_id=data.get("finding_id", ""),
@@ -130,7 +130,7 @@ class WorkflowDataItem:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> "WorkflowDataItem":
+    def from_json(cls, json_str: str) -> WorkflowDataItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
@@ -685,7 +685,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_workflow_due_date ON finding_workflows(due_date);
     """
 
-    def __init__(self, pool: "Pool") -> None:
+    def __init__(self, pool: Pool) -> None:
         self._pool = pool
         self._initialized = False
         logger.info("PostgresFindingWorkflowStore initialized")

@@ -34,7 +34,7 @@ class TelegramMessagesMixin:
         chat_id: int,
         text: str,
         parse_mode: str | None = None,
-        reply_markup: Optional[dict[str, Any]] = None,
+        reply_markup: dict[str, Any] | None = None,
     ) -> None:
         """Send a message to Telegram chat."""
         import time

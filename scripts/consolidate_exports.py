@@ -167,7 +167,7 @@ def find_json_files(directory: Path) -> list[Path]:
 
         # Check if it looks like a conversation file
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 # Read first bit to check structure
                 start = f.read(1000)
                 if '"mapping"' in start or '"chat_messages"' in start or '"conversations"' in start:
@@ -190,7 +190,7 @@ def load_conversations_from_file(
 
     Returns (conversations, source_type, account_label)
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
 
     source_type = detect_export_type(data)

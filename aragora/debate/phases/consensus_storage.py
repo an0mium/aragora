@@ -32,7 +32,7 @@ class ConsensusStorage:
     def __init__(
         self,
         *,
-        consensus_memory: Optional["ConsensusMemoryProtocol"] = None,
+        consensus_memory: ConsensusMemoryProtocol | None = None,
     ) -> None:
         """Initialize the consensus storage handler.
 
@@ -41,7 +41,7 @@ class ConsensusStorage:
         """
         self.consensus_memory = consensus_memory
 
-    def store_consensus_outcome(self, ctx: "DebateContext") -> str | None:
+    def store_consensus_outcome(self, ctx: DebateContext) -> str | None:
         """Store debate outcome in ConsensusMemory for historical retrieval.
 
         This enables future debates to benefit from past decisions,
@@ -125,7 +125,7 @@ class ConsensusStorage:
             logger.warning("ConsensusMemory storage failed: %s", msg, exc_info=exc_info)
             return None
 
-    def _confidence_to_strength(self, confidence: float) -> "ConsensusStrength":
+    def _confidence_to_strength(self, confidence: float) -> ConsensusStrength:
         """Convert confidence score to ConsensusStrength enum."""
         from aragora.memory.consensus import ConsensusStrength
 
@@ -142,7 +142,7 @@ class ConsensusStorage:
 
     def _store_dissenting_views(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         consensus_id: str,
         dissenting_agents: list[str],
     ) -> None:
@@ -173,7 +173,7 @@ class ConsensusStorage:
             except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Dissent storage failed for %s: %s", vote.agent, e)
 
-    def store_cruxes(self, ctx: "DebateContext", consensus_id: str | None = None) -> None:
+    def store_cruxes(self, ctx: DebateContext, consensus_id: str | None = None) -> None:
         """Extract and store belief cruxes from the debate.
 
         Cruxes are key points of contention that drove the debate.

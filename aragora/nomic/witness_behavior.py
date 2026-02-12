@@ -146,7 +146,7 @@ class HealthReport:
     overall_status: HealthStatus
     agent_checks: list[AgentHealthCheck]
     convoy_checks: list[ConvoyHealthCheck]
-    alerts: list["Alert"]
+    alerts: list[Alert]
     statistics: dict[str, Any]
     recommendations: list[str] = field(default_factory=list)
 
@@ -290,9 +290,9 @@ class WitnessBehavior:
     def __init__(
         self,
         hierarchy: AgentHierarchy,
-        convoy_manager: Optional["ConvoyManager"] = None,
-        coordinator: Optional["ConvoyCoordinator"] = None,
-        escalation_store: Optional["EscalationStore"] = None,
+        convoy_manager: ConvoyManager | None = None,
+        coordinator: ConvoyCoordinator | None = None,
+        escalation_store: EscalationStore | None = None,
         config: WitnessConfig | None = None,
     ):
         """
@@ -538,7 +538,7 @@ class WitnessBehavior:
         source: str,
         target: str,
         message: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Alert | None:
         """
         Create an alert if within limits.
@@ -790,9 +790,9 @@ _default_witness: WitnessBehavior | None = None
 
 async def get_witness_behavior(
     hierarchy: AgentHierarchy,
-    convoy_manager: Optional["ConvoyManager"] = None,
-    coordinator: Optional["ConvoyCoordinator"] = None,
-    escalation_store: Optional["EscalationStore"] = None,
+    convoy_manager: ConvoyManager | None = None,
+    coordinator: ConvoyCoordinator | None = None,
+    escalation_store: EscalationStore | None = None,
 ) -> WitnessBehavior:
     """Get the default witness behavior instance."""
     global _default_witness

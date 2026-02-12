@@ -264,8 +264,8 @@ class ApprovalWorkflow:
     def __init__(
         self,
         policy: ApprovalPolicy | None = None,
-        notify_fn: Optional[Callable[[ApprovalRequest], None]] = None,
-        default_approvers: Optional[list[str]] = None,
+        notify_fn: Callable[[ApprovalRequest], None] | None = None,
+        default_approvers: list[str] | None = None,
     ):
         """
         Initialize the approval workflow.
@@ -284,11 +284,11 @@ class ApprovalWorkflow:
     def create_request(
         self,
         changes: list[FileChange],
-        approvers: Optional[list[str]] = None,
+        approvers: list[str] | None = None,
         level: ApprovalLevel | None = None,
         description: str | None = None,
         timeout_seconds: int = 300,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ApprovalRequest:
         """
         Create an approval request for changes.
@@ -334,11 +334,11 @@ class ApprovalWorkflow:
     async def request_approval(
         self,
         changes: list[FileChange],
-        approvers: Optional[list[str]] = None,
+        approvers: list[str] | None = None,
         level: ApprovalLevel | None = None,
         description: str | None = None,
         timeout_seconds: int = 300,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ApprovalResult:
         """
         Request approval for changes and wait for result.

@@ -30,7 +30,7 @@ class TrendingTopic:
             self.suggested_agents = []
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TrendingTopic":
+    def from_dict(cls, data: dict[str, Any]) -> TrendingTopic:
         return cls(
             title=data.get("title", ""),
             source=data.get("source", "unknown"),
@@ -60,7 +60,7 @@ class DebateSuggestion:
             self.related_topics = []
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DebateSuggestion":
+    def from_dict(cls, data: dict[str, Any]) -> DebateSuggestion:
         return cls(
             topic=data.get("topic", ""),
             rationale=data.get("rationale", ""),
@@ -82,7 +82,7 @@ class PulseAnalytics:
     freshness_hours: float = 24.0
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PulseAnalytics":
+    def from_dict(cls, data: dict[str, Any]) -> PulseAnalytics:
         return cls(
             total_topics=data.get("total_topics", 0),
             by_source=data.get("by_source", {}),
@@ -116,7 +116,7 @@ class PulseAPI:
         debate = client.debates.create(task=topic.title)
     """
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def trending(
@@ -222,7 +222,7 @@ class PulseAPI:
         response = await self._client._get_async("/api/pulse/analytics")
         return PulseAnalytics.from_dict(response)
 
-    def refresh(self, sources: Optional[list[str]] = None) -> bool:
+    def refresh(self, sources: list[str] | None = None) -> bool:
         """
         Refresh trending topics from sources.
 
@@ -239,7 +239,7 @@ class PulseAPI:
         response = self._client._post("/api/pulse/refresh", data)
         return response.get("refreshed", False)
 
-    async def refresh_async(self, sources: Optional[list[str]] = None) -> bool:
+    async def refresh_async(self, sources: list[str] | None = None) -> bool:
         """Async version of refresh."""
         data = {}
         if sources:

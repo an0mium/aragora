@@ -116,7 +116,7 @@ class CurriculumAwareFeedbackLoop:
 
     async def analyze_failure(
         self,
-        assignment: "AgentAssignment",
+        assignment: AgentAssignment,
         error_info: dict[str, Any],
     ) -> dict[str, Any]:
         """Analyze a failure and determine next steps.
@@ -160,7 +160,7 @@ class CurriculumAwareFeedbackLoop:
 
     async def _create_curriculum(
         self,
-        assignment: "AgentAssignment",
+        assignment: AgentAssignment,
         error_info: dict[str, Any],
     ) -> dict[str, Any]:
         """Create a curriculum of stepping stones for a difficult task.
@@ -234,7 +234,7 @@ class CurriculumAwareFeedbackLoop:
 
     async def _handle_curriculum_progress(
         self,
-        assignment: "AgentAssignment",
+        assignment: AgentAssignment,
         error_info: dict[str, Any],
     ) -> dict[str, Any]:
         """Handle progress through an active curriculum.
@@ -443,7 +443,7 @@ class CurriculumAwareFeedbackLoop:
 
 
 def integrate_curriculum_with_orchestrator(
-    orchestrator: "AutonomousOrchestrator",
+    orchestrator: AutonomousOrchestrator,
     config: CurriculumConfig | None = None,
 ) -> None:
     """Integrate curriculum-based learning with an existing orchestrator.

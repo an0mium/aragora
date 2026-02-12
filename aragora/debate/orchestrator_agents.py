@@ -22,7 +22,7 @@ logger = get_structured_logger(__name__)
 
 
 def select_debate_team(
-    agents: list["Agent"],
+    agents: list[Agent],
     env: Any,
     extract_domain_fn: Any,
     enable_ml_delegation: bool,
@@ -30,7 +30,7 @@ def select_debate_team(
     protocol: Any,
     use_performance_selection: bool,
     agent_pool: Any,
-) -> list["Agent"]:
+) -> list[Agent]:
     """Select debate team using ML delegation or AgentPool.
 
     Priority:
@@ -164,8 +164,8 @@ def should_terminate_early(
 
 def init_agent_hierarchy(
     enable_agent_hierarchy: bool,
-    hierarchy_config: Optional["HierarchyConfig"],
-) -> Optional["AgentHierarchy"]:
+    hierarchy_config: HierarchyConfig | None,
+) -> AgentHierarchy | None:
     """Create an AgentHierarchy for Gastown-style role assignment.
 
     Args:
@@ -191,9 +191,9 @@ def init_agent_hierarchy(
 
 
 def assign_hierarchy_roles(
-    ctx: "DebateContext",
+    ctx: DebateContext,
     enable_agent_hierarchy: bool,
-    hierarchy: Optional["AgentHierarchy"],
+    hierarchy: AgentHierarchy | None,
     task_type: str | None = None,
 ) -> None:
     """Assign hierarchy roles to agents for this debate.

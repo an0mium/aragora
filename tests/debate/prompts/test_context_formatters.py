@@ -32,7 +32,7 @@ class MockEvidenceSnippet:
     title: str = "Test Article"
     source: str = "Test Source"
     snippet: str = "This is test content"
-    url: Optional[str] = "https://example.com"
+    url: str | None = "https://example.com"
     reliability_score: float = 0.8
 
 

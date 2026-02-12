@@ -588,7 +588,7 @@ class AuditTrail:
         resource_type: str,
         resource_id: str,
         workspace_id: str | None = None,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
         success: bool = True,
@@ -735,7 +735,7 @@ class AuditTrail:
         success_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> Optional[list[AuditEntry]]:
+    ) -> list[AuditEntry] | None:
         """Query entries from the database."""
         await self._ensure_db()
         if not self._db_initialized:
@@ -954,7 +954,7 @@ class GovernanceMixin:
         resource_type: str,
         resource_id: str,
         workspace_id: str | None = None,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         success: bool = True,
     ) -> AuditEntry:
         """Log an audit entry."""

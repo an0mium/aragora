@@ -311,7 +311,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
         CREATE INDEX IF NOT EXISTS idx_reset_expires ON password_reset_tokens(expires_at);
     """
 
-    def __init__(self, pool: "Pool") -> None:
+    def __init__(self, pool: Pool) -> None:
         self._pool = pool
         self._initialized = False
         logger.info("PostgresPasswordResetStore initialized")

@@ -123,9 +123,9 @@ class KMCheckpointHandler(BaseHandler):
         # Default to empty dict if None, then cast for BaseHandler
         ctx = server_context if server_context is not None else dict()
         super().__init__(ctx)
-        self._checkpoint_store: Optional["KMCheckpointStore"] = None
+        self._checkpoint_store: KMCheckpointStore | None = None
 
-    def _get_checkpoint_store(self) -> "KMCheckpointStore":
+    def _get_checkpoint_store(self) -> KMCheckpointStore:
         """Get or create the checkpoint store instance."""
         if self._checkpoint_store is None:
             try:
@@ -261,7 +261,7 @@ class KMCheckpointHandler(BaseHandler):
         except RuntimeError as e:
             logger.error("Checkpoint store not available: %s", e)
             return error_response("Checkpoint service unavailable", status=503)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("IO error listing checkpoints: %s", e)
             return error_response("Failed to list checkpoints", status=500)
 

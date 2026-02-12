@@ -184,9 +184,9 @@ class TeamsOAuthHandler(SecureHandler):
         self,
         method: str,
         path: str,
-        body: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None = None,
+        query_params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
         handler: Any | None = None,
     ) -> HandlerResult:
         """Route OAuth requests to appropriate methods.

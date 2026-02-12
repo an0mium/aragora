@@ -111,7 +111,7 @@ class FatigueDetector:
         agent: str,
         response: str,
         round: int,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> FatigueSignal | None:
         """Analyze a response for fatigue indicators.
 
@@ -274,7 +274,7 @@ class FatigueDetector:
 
         return phrases
 
-    def _engagement_score(self, response: str, context: Optional[dict[str, Any]]) -> float:
+    def _engagement_score(self, response: str, context: dict[str, Any] | None) -> float:
         """Score how engaged the response is with prior arguments.
 
         Higher score = better engagement with context.

@@ -87,8 +87,8 @@ from aragora.observability.tracing import get_tracer
 # MODULAR PACKAGE IMPORTS (scripts/nomic/)
 # These modules are extracted versions of the code below, available for reuse
 # =============================================================================
-_NOMIC_PACKAGE_IMPORT_ERROR: Optional[Exception] = None
-_NOMIC_PHASES_IMPORT_ERROR: Optional[Exception] = None
+_NOMIC_PACKAGE_IMPORT_ERROR: Exception | None = None
+_NOMIC_PHASES_IMPORT_ERROR: Exception | None = None
 
 try:
     from scripts.nomic import (
@@ -2530,10 +2530,10 @@ class NomicLoop:
                 )
         except PermissionError as e:
             logger.warning(f"[circuit-breaker] Cannot write state (permission denied): {e}")
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.warning(f"[circuit-breaker] Failed to persist state: {e}")
 
-    def _load_state(self) -> Optional[dict]:
+    def _load_state(self) -> dict | None:
         """Load saved state if exists."""
         if self.state_file.exists():
             try:
@@ -2552,7 +2552,7 @@ class NomicLoop:
             except PermissionError as e:
                 logger.error(f"[state] Cannot read state file (permission denied): {e}")
                 return None
-            except (OSError, IOError) as e:
+            except OSError as e:
                 logger.warning(f"[state] Failed to load state: {e}")
                 return None
         return None
@@ -3093,7 +3093,7 @@ class NomicLoop:
         )
         return True
 
-    def _get_latest_backup(self) -> Optional[Path]:
+    def _get_latest_backup(self) -> Path | None:
         """Get the most recent backup directory."""
         backups = sorted(self.backup_dir.iterdir(), reverse=True)
         for backup in backups:
@@ -7493,7 +7493,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         except Exception:
             return ""
 
-    async def _parallel_implementation_review(self, diff: str) -> Optional[str]:
+    async def _parallel_implementation_review(self, diff: str) -> str | None:
         """
         All 3 agents review implementation changes in parallel.
 
@@ -7634,7 +7634,7 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
 
     async def _run_deep_audit_for_design(
         self, improvement: str, design_context: str = ""
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Run Deep Audit Mode for design phase of critical topics.
 
         Uses STRATEGY_AUDIT config with cross-examination enabled.
@@ -7694,7 +7694,7 @@ Cross-examine each other's reasoning. Be thorough.""",
 
     async def _run_deep_audit_for_protected_files(
         self, diff: str, touched_files: list[str]
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Run Deep Audit Mode for changes to protected files.
 
         Heavy3-inspired: 6-round intensive review with cross-examination
@@ -8287,7 +8287,7 @@ Synthesize these suggestions into a coherent, working implementation.
 
     async def _arbitrate_design(
         self, proposals: dict, improvement: str, alignment: float = None
-    ) -> Optional[str]:
+    ) -> str | None:
         """Use a judge agent to pick between competing design proposals.
 
         When design voting is tied or close, this method uses Claude as an impartial

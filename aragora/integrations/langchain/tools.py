@@ -99,7 +99,7 @@ class AragoraToolInput(BaseModel):
     """Input schema for Aragora debate tool (compatible API)."""
 
     question: str = Field(description="The question or task to debate")
-    agents: Optional[list[str]] = Field(
+    agents: list[str] | None = Field(
         default=None,
         description="List of agents to participate",
     )
@@ -121,7 +121,7 @@ class AragoraDebateInput(BaseModel):
     """Input schema for Aragora debate tool."""
 
     task: str = Field(description="The question or task to debate")
-    agents: Optional[list[str]] = Field(
+    agents: list[str] | None = Field(
         default=None,
         description="List of agents to participate (e.g., ['claude', 'gpt-4']). If not specified, uses defaults.",
     )
@@ -180,7 +180,7 @@ class AragoraDebateTool(BaseTool):
     def _run(
         self,
         task: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         max_rounds: int | None = None,
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
@@ -191,7 +191,7 @@ class AragoraDebateTool(BaseTool):
     async def _arun(
         self,
         task: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         max_rounds: int | None = None,
         run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
@@ -337,7 +337,7 @@ class AragoraDecisionInput(BaseModel):
     """Input schema for Aragora decision tool."""
 
     question: str = Field(description="The decision question")
-    options: Optional[list[str]] = Field(
+    options: list[str] | None = Field(
         default=None,
         description="List of options to choose from (optional)",
     )
@@ -382,7 +382,7 @@ class AragoraDecisionTool(BaseTool):
     def _run(
         self,
         question: str,
-        options: Optional[list[str]] = None,
+        options: list[str] | None = None,
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the decision synchronously."""
@@ -392,7 +392,7 @@ class AragoraDecisionTool(BaseTool):
     async def _arun(
         self,
         question: str,
-        options: Optional[list[str]] = None,
+        options: list[str] | None = None,
         run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the decision asynchronously."""

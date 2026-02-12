@@ -29,7 +29,7 @@ def parse_body(result: HandlerResult) -> dict:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: Optional[dict[str, Any]] = None, client_ip: str = "127.0.0.1"):
+    def __init__(self, body: dict[str, Any] | None = None, client_ip: str = "127.0.0.1"):
         self.rfile = MagicMock()
         self._body = body
         self._client_ip = client_ip
@@ -54,14 +54,14 @@ class MockEvidenceStore:
         self._debate_evidence: dict[str, list] = {}
         self._km_adapter = None  # KnowledgeMound adapter (not needed for tests)
 
-    def get_evidence(self, evidence_id: str) -> Optional[dict]:
+    def get_evidence(self, evidence_id: str) -> dict | None:
         return self._evidence.get(evidence_id)
 
     def search_evidence(
         self,
         query: str,
         limit: int = 20,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
         min_reliability: float = 0.0,
         context=None,
     ) -> list:
@@ -74,7 +74,7 @@ class MockEvidenceStore:
                         results.append(ev)
         return results[:limit]
 
-    def get_debate_evidence(self, debate_id: str, round_number: Optional[int] = None) -> list:
+    def get_debate_evidence(self, debate_id: str, round_number: int | None = None) -> list:
         evidence_list = self._debate_evidence.get(debate_id, [])
         if round_number is not None:
             evidence_list = [e for e in evidence_list if e.get("round") == round_number]
@@ -94,9 +94,9 @@ class MockEvidenceStore:
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[dict] = None,
-        debate_id: Optional[str] = None,
-        round_number: Optional[int] = None,
+        metadata: dict | None = None,
+        debate_id: str | None = None,
+        round_number: int | None = None,
         enrich: bool = False,
         score_quality: bool = False,
     ) -> str:
@@ -120,7 +120,7 @@ class MockEvidenceStore:
             )
         return evidence_id
 
-    def save_evidence_pack(self, pack, debate_id: str, round_number: Optional[int] = None) -> list:
+    def save_evidence_pack(self, pack, debate_id: str, round_number: int | None = None) -> list:
         saved = []
         for s in pack.snippets:
             eid = f"ev_{len(self._evidence)}"

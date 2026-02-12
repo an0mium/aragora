@@ -116,7 +116,7 @@ def restore_backup(
     return True
 
 
-def get_latest_backup(backup_dir: Path) -> Optional[Path]:
+def get_latest_backup(backup_dir: Path) -> Path | None:
     """
     Get the most recent backup directory.
 

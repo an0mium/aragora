@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global circuit breaker registry for shared state across components (thread-safe)
-_circuit_breakers: dict[str, "CircuitBreaker"] = {}
+_circuit_breakers: dict[str, CircuitBreaker] = {}
 _circuit_breakers_lock = threading.Lock()
 
 # Configuration for circuit breaker pruning
@@ -59,7 +59,7 @@ def get_circuit_breaker(
     cooldown_seconds: float | None = None,
     provider: str | None = None,
     config: CircuitBreakerConfig | None = None,
-) -> "CircuitBreaker":
+) -> CircuitBreaker:
     """
     Get or create a named circuit breaker from the global registry (thread-safe).
 
@@ -147,7 +147,7 @@ def reset_all_circuit_breakers() -> None:
     logger.info(f"Reset {count} circuit breakers")
 
 
-def get_circuit_breakers() -> dict[str, "CircuitBreaker"]:
+def get_circuit_breakers() -> dict[str, CircuitBreaker]:
     """Get all registered circuit breakers (thread-safe).
 
     Returns:

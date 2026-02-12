@@ -218,7 +218,7 @@ def track_debate_execution(domain: str = "general") -> Generator[dict, None, Non
         ctx["status"] = "error"
         logger.warning("Debate execution error: %s", e)
         raise
-    except (OSError, IOError, ConnectionError) as e:
+    except (OSError, ConnectionError) as e:
         # I/O and network-related errors
         ctx["status"] = "error"
         logger.warning("Debate I/O error: %s", e)

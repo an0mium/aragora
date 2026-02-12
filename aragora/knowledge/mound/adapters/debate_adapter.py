@@ -82,7 +82,7 @@ class DebateOutcome:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
-    def from_debate_result(cls, result: Any) -> "DebateOutcome":
+    def from_debate_result(cls, result: Any) -> DebateOutcome:
         """Create a DebateOutcome from a DebateResult object."""
         return cls(
             debate_id=getattr(result, "debate_id", getattr(result, "id", "")),
@@ -227,7 +227,7 @@ class DebateAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledg
         results.sort(key=lambda r: r.similarity, reverse=True)
         return results[:limit]
 
-    def to_knowledge_item(self, outcome: DebateOutcome) -> "KnowledgeItem":
+    def to_knowledge_item(self, outcome: DebateOutcome) -> KnowledgeItem:
         """Convert a DebateOutcome to a KnowledgeItem for KM storage."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
         from aragora.knowledge.unified.types import ConfidenceLevel
@@ -387,8 +387,8 @@ class DebateAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledg
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        cross_refs: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply KM validation to a debate outcome."""
         record.metadata["km_validated"] = True
@@ -424,7 +424,7 @@ class DebateAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledg
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a debate outcome."""
         record.metadata["fusion_applied"] = True

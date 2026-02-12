@@ -98,7 +98,7 @@ class SyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SyncState":
+    def from_dict(cls, data: dict[str, Any]) -> SyncState:
         """Deserialize from dictionary."""
         return cls(
             connector_id=data["connector_id"],
@@ -132,7 +132,7 @@ class SyncState:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def load(cls, path: Path) -> Optional["SyncState"]:
+    def load(cls, path: Path) -> SyncState | None:
         """Load state from file."""
         if not path.exists():
             return None
@@ -343,7 +343,7 @@ class EnterpriseConnector(BaseConnector):
 
         # Circuit breaker
         self._enable_circuit_breaker = enable_circuit_breaker
-        self._circuit_breaker: Optional["CircuitBreaker"] = None
+        self._circuit_breaker: CircuitBreaker | None = None
         if enable_circuit_breaker:
             from aragora.resilience import get_circuit_breaker
 
@@ -359,8 +359,8 @@ class EnterpriseConnector(BaseConnector):
         self._cancel_requested = False
 
         # Callbacks
-        self._on_item_synced: Optional[Callable[[SyncItem], None]] = None
-        self._on_progress: Optional[Callable[[int, int], None]] = None
+        self._on_item_synced: Callable[[SyncItem], None] | None = None
+        self._on_progress: Callable[[int, int], None] | None = None
 
     @property
     def state_path(self) -> Path:
@@ -731,7 +731,7 @@ class EnterpriseConnector(BaseConnector):
 
         return hmac.compare_digest(expected, signature)
 
-    def capabilities(self) -> "ConnectorCapabilities":
+    def capabilities(self) -> ConnectorCapabilities:
         """
         Report the capabilities of this enterprise connector.
 

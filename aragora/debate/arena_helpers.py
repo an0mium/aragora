@@ -50,7 +50,7 @@ def compute_domain_from_task(task_lower: str) -> str:
 class CitationHelper:
     """Helper for citation extraction and logging."""
 
-    def __init__(self, citation_extractor: Optional["CitationExtractor"] = None):
+    def __init__(self, citation_extractor: CitationExtractor | None = None):
         self._citation_extractor = citation_extractor
 
     @staticmethod

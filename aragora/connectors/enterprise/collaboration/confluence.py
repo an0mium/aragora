@@ -94,11 +94,11 @@ class ConfluenceConnector(EnterpriseConnector):
     def __init__(
         self,
         base_url: str,
-        spaces: Optional[list[str]] = None,
+        spaces: list[str] | None = None,
         include_archived: bool = False,
         include_attachments: bool = True,
         include_comments: bool = True,
-        exclude_labels: Optional[list[str]] = None,
+        exclude_labels: list[str] | None = None,
         **kwargs: Any,
     ):
         """
@@ -172,8 +172,8 @@ class ConfluenceConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Confluence REST API."""
         from aragora.server.http_client_pool import get_http_pool

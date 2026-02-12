@@ -19,11 +19,11 @@ from .types import (
 # Pre-built policies for common scenarios
 def create_production_policy(
     name: str = "production-environment",
-    allowed_agents: Optional[list[str]] = None,
-    blocked_agents: Optional[list[str]] = None,
-    allowed_regions: Optional[list[str]] = None,
+    allowed_agents: list[str] | None = None,
+    blocked_agents: list[str] | None = None,
+    allowed_regions: list[str] | None = None,
     # Aliases for backward compatibility
-    agent_allowlist: Optional[list[str]] = None,
+    agent_allowlist: list[str] | None = None,
 ) -> ControlPlanePolicy:
     """Create a policy for production task restrictions.
 
@@ -58,12 +58,12 @@ def create_production_policy(
 
 
 def create_sensitive_data_policy(
-    allowed_agents: Optional[list[str]] = None,
-    allowed_regions: Optional[list[str]] = None,
-    blocked_regions: Optional[list[str]] = None,
+    allowed_agents: list[str] | None = None,
+    allowed_regions: list[str] | None = None,
+    blocked_regions: list[str] | None = None,
     require_data_residency: bool = True,
     # Alias for backward compatibility
-    data_regions: Optional[list[str]] = None,
+    data_regions: list[str] | None = None,
 ) -> ControlPlanePolicy:
     """Create a policy for sensitive data handling with residency requirements.
 
@@ -95,10 +95,10 @@ def create_sensitive_data_policy(
 
 def create_agent_tier_policy(
     tier: str,
-    allowed_agents: Optional[list[str]] = None,
-    task_types: Optional[list[str]] = None,
+    allowed_agents: list[str] | None = None,
+    task_types: list[str] | None = None,
     # Alias for backward compatibility
-    agents: Optional[list[str]] = None,
+    agents: list[str] | None = None,
 ) -> ControlPlanePolicy:
     """Create a policy restricting certain task types to specific agent tiers.
 
@@ -123,7 +123,7 @@ def create_agent_tier_policy(
 
 def create_sla_policy(
     name: str = "default-sla",
-    task_types: Optional[list[str]] = None,
+    task_types: list[str] | None = None,
     max_execution_seconds: float = 300.0,
     max_queue_seconds: float = 60.0,
     max_concurrent_tasks: int = 5,

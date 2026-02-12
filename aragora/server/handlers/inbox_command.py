@@ -281,7 +281,7 @@ register_cache("inbox_priority", _priority_results._cache)
 class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
     """Handler for inbox command center API endpoints."""
 
-    gmail_connector: Optional["GmailConnector"] = None
+    gmail_connector: GmailConnector | None = None
     prioritizer: EmailPrioritizer | None = None
     sender_history: SenderHistoryService | None = None
     _initialized: bool = field(default=False, repr=False)

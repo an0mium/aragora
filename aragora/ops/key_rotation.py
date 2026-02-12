@@ -94,7 +94,7 @@ class KeyRotationConfig:
     )
 
     @classmethod
-    def from_env(cls) -> "KeyRotationConfig":
+    def from_env(cls) -> KeyRotationConfig:
         """Create config from environment variables."""
         return cls(
             rotation_interval_days=int(os.environ.get("ARAGORA_KEY_ROTATION_INTERVAL_DAYS", "90")),
@@ -164,7 +164,7 @@ class KeyRotationScheduler:
     def __init__(
         self,
         config: KeyRotationConfig | None = None,
-        alert_callback: Optional[Callable[[str, str, dict], None]] = None,
+        alert_callback: Callable[[str, str, dict], None] | None = None,
     ):
         """
         Initialize the scheduler.

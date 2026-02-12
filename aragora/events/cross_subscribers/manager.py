@@ -35,14 +35,14 @@ try:
 
     SETTINGS_AVAILABLE = True
 
-    def get_settings() -> Optional[Settings]:
+    def get_settings() -> Settings | None:
         """Get settings instance (wrapper for type safety)."""
         return _get_settings()
 
 except ImportError:
     SETTINGS_AVAILABLE = False
 
-    def get_settings() -> Optional[Settings]:
+    def get_settings() -> Settings | None:
         """Fallback when settings module not available."""
         return None
 
@@ -839,7 +839,7 @@ class CrossSubscriberManager(
         self._filters[name] = filter_func
         return True
 
-    def get_filter(self, name: str) -> Optional[Callable[[StreamEvent], bool]]:
+    def get_filter(self, name: str) -> Callable[[StreamEvent], bool] | None:
         """Get the filter function for a subscriber."""
         return self._filters.get(name)
 

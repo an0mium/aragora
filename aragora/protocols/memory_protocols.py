@@ -100,7 +100,7 @@ class ContinuumMemoryProtocol(Protocol):
         key: str,
         value: Any,
         tier: str = "medium",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Store a value in the specified memory tier."""
         ...

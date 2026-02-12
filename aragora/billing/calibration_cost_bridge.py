@@ -100,8 +100,8 @@ class CalibrationCostBridge:
     4. Predicts verification rounds needed based on calibration
     """
 
-    calibration_tracker: Optional["CalibrationTracker"] = None
-    cost_tracker: Optional["CostTracker"] = None
+    calibration_tracker: CalibrationTracker | None = None
+    cost_tracker: CostTracker | None = None
     config: CalibrationCostBridgeConfig = field(default_factory=CalibrationCostBridgeConfig)
 
     # Cached efficiency data
@@ -189,7 +189,7 @@ class CalibrationCostBridge:
 
         return result
 
-    def _get_calibration_summary(self, agent_name: str) -> Optional["CalibrationSummary"]:
+    def _get_calibration_summary(self, agent_name: str) -> CalibrationSummary | None:
         """Get calibration summary from tracker."""
         if self.calibration_tracker is None:
             return None
@@ -369,7 +369,7 @@ class CalibrationCostBridge:
 
     def get_overconfident_agents(
         self,
-        available_agents: Optional[list[str]] = None,
+        available_agents: list[str] | None = None,
     ) -> list[str]:
         """Get list of overconfident agents (may incur extra costs).
 
@@ -394,7 +394,7 @@ class CalibrationCostBridge:
 
     def get_well_calibrated_agents(
         self,
-        available_agents: Optional[list[str]] = None,
+        available_agents: list[str] | None = None,
     ) -> list[str]:
         """Get list of well-calibrated agents (cost-efficient).
 
@@ -435,7 +435,7 @@ class CalibrationCostBridge:
 
         return self._efficiency_cache.get(agent_name)
 
-    def refresh_cache(self, agents: Optional[list[str]] = None) -> int:
+    def refresh_cache(self, agents: list[str] | None = None) -> int:
         """Refresh efficiency cache for agents.
 
         Args:
@@ -477,8 +477,8 @@ class CalibrationCostBridge:
 
 
 def create_calibration_cost_bridge(
-    calibration_tracker: Optional["CalibrationTracker"] = None,
-    cost_tracker: Optional["CostTracker"] = None,
+    calibration_tracker: CalibrationTracker | None = None,
+    cost_tracker: CostTracker | None = None,
     **config_kwargs: Any,
 ) -> CalibrationCostBridge:
     """Create and configure a CalibrationCostBridge.

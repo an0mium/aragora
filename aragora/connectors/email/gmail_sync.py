@@ -190,7 +190,7 @@ class GmailSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GmailSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> GmailSyncState:
         """Create from dictionary."""
         state = cls(
             tenant_id=data.get("tenant_id", ""),
@@ -225,7 +225,7 @@ class GmailWebhookPayload:
     raw_data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_pubsub(cls, payload: dict[str, Any]) -> "GmailWebhookPayload":
+    def from_pubsub(cls, payload: dict[str, Any]) -> GmailWebhookPayload:
         """
         Parse Pub/Sub webhook payload.
 
@@ -271,8 +271,8 @@ class GmailWebhookPayload:
 class SyncedMessage:
     """A message that was synced and prioritized."""
 
-    message: "EmailMessage"
-    priority_result: Optional["EmailPriorityResult"] = None
+    message: EmailMessage
+    priority_result: EmailPriorityResult | None = None
     sync_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     account_id: str = ""
     is_new: bool = True
@@ -295,10 +295,10 @@ class GmailSyncService:
         tenant_id: str,
         user_id: str,
         config: GmailSyncConfig | None = None,
-        gmail_connector: Optional["GmailConnector"] = None,
-        prioritizer: Optional["EmailPrioritizer"] = None,
-        on_message_synced: Optional[Callable[[SyncedMessage], None]] = None,
-        on_batch_complete: Optional[Callable[[list[SyncedMessage]], None]] = None,
+        gmail_connector: GmailConnector | None = None,
+        prioritizer: EmailPrioritizer | None = None,
+        on_message_synced: Callable[[SyncedMessage], None] | None = None,
+        on_batch_complete: Callable[[list[SyncedMessage]], None] | None = None,
     ):
         """
         Initialize Gmail sync service.
@@ -666,7 +666,7 @@ class GmailSyncService:
 
     async def _process_message(
         self,
-        message: "EmailMessage",
+        message: EmailMessage,
         is_new: bool = True,
     ) -> SyncedMessage | None:
         """
@@ -904,7 +904,7 @@ async def start_gmail_sync(
     user_id: str,
     refresh_token: str,
     config: GmailSyncConfig | None = None,
-    on_message: Optional[Callable[[SyncedMessage], None]] = None,
+    on_message: Callable[[SyncedMessage], None] | None = None,
 ) -> GmailSyncService:
     """
     Quick start function for Gmail sync.

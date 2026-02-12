@@ -258,7 +258,7 @@ class PatternExtractor:
         observation_type: str,
         data: dict[str, Any],
         agents: list[str],
-        topics: Optional[list[str]] = None,
+        topics: list[str] | None = None,
     ) -> None:
         """
         Record an observation for pattern extraction.
@@ -478,7 +478,7 @@ class KnowledgeDecayManager:
         initial_confidence: float,
         importance: float = 0.5,
         half_life_days: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Register a knowledge item for decay tracking.
@@ -587,7 +587,7 @@ class ContinuousLearner:
         elo_updater: EloUpdater | None = None,
         pattern_extractor: PatternExtractor | None = None,
         decay_manager: KnowledgeDecayManager | None = None,
-        event_callback: Optional[Callable[[LearningEvent], None]] = None,
+        event_callback: Callable[[LearningEvent], None] | None = None,
     ):
         """
         Initialize continuous learner.
@@ -613,7 +613,7 @@ class ContinuousLearner:
         votes: dict[str, int],
         consensus_reached: bool,
         topics: list[str],
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> LearningEvent:
         """
         Process a completed debate for learning.
@@ -704,7 +704,7 @@ class ContinuousLearner:
         agent_id: str,
         feedback_type: str,  # "helpful", "unhelpful", "accurate", "inaccurate"
         score: float,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> LearningEvent:
         """
         Process user feedback for learning.

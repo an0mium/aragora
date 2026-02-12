@@ -144,7 +144,7 @@ class EmbeddingCache:
 
             if row and row[0]:
                 return np.frombuffer(row[0], dtype=np.float32)
-        except (OSError, IOError) as e:
+        except OSError as e:
             # Expected: DB file issues, permissions
             logger.debug(f"Failed to load embedding from DB: {e}")
         except Exception as e:
@@ -178,7 +178,7 @@ class EmbeddingCache:
             )
             conn.commit()
             conn.close()
-        except (OSError, IOError) as e:
+        except OSError as e:
             # Expected: DB file issues, disk full, permissions
             logger.debug(f"Failed to save embedding to DB: {e}")
         except Exception as e:

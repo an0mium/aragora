@@ -414,8 +414,8 @@ class SpecialistModelSelector:
 
     def __init__(
         self,
-        model_profiles: Optional[dict[str, ModelProfile]] = None,
-        available_models: Optional[list[str]] = None,
+        model_profiles: dict[str, ModelProfile] | None = None,
+        available_models: list[str] | None = None,
     ):
         self._profiles = model_profiles or MODEL_PROFILES
         self._available_models = available_models or list(self._profiles.keys())
@@ -427,8 +427,8 @@ class SpecialistModelSelector:
         context_length: int = 0,
         cost_sensitive: bool = False,
         latency_sensitive: bool = False,
-        required_capabilities: Optional[list[ModelCapability]] = None,
-        excluded_models: Optional[list[str]] = None,
+        required_capabilities: list[ModelCapability] | None = None,
+        excluded_models: list[str] | None = None,
     ) -> ModelSelection:
         """
         Select the best model for a task.

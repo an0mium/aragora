@@ -22,7 +22,7 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
         with self._lock:
             self._accounts.setdefault(tenant_id, {})[account["id"]] = dict(account)
 
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._accounts.get(tenant_id, {}).get(account_id)
 
@@ -98,7 +98,7 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
             )
             return message_id, True
 
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._messages.get(tenant_id, {}).get(message_id)
 
@@ -201,6 +201,6 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
         with self._lock:
             self._triage.setdefault(tenant_id, {})[triage["message_id"]] = dict(triage)
 
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         with self._lock:
             return self._triage.get(tenant_id, {}).get(message_id)

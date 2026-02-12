@@ -283,7 +283,7 @@ class PluginRunner:
             # Memory limit (soft)
             max_bytes = self.manifest.max_memory_mb * 1024 * 1024
             resource.setrlimit(resource.RLIMIT_AS, (max_bytes, max_bytes))
-        except (ValueError, resource.error):
+        except (OSError, ValueError):
             pass  # May fail if limit is higher than system allows
 
     async def run(

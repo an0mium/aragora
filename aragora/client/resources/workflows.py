@@ -97,7 +97,7 @@ class WorkflowApproval:
 class WorkflowsAPI:
     """API interface for workflow management."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -159,7 +159,7 @@ class WorkflowsAPI:
         name: str,
         steps: builtins.list[dict[str, Any]],
         description: str | None = None,
-        triggers: Optional[builtins.list[dict[str, Any]]] = None,
+        triggers: builtins.list[dict[str, Any]] | None = None,
         workspace_id: str | None = None,
     ) -> Workflow:
         """
@@ -194,7 +194,7 @@ class WorkflowsAPI:
         name: str,
         steps: builtins.list[dict[str, Any]],
         description: str | None = None,
-        triggers: Optional[builtins.list[dict[str, Any]]] = None,
+        triggers: builtins.list[dict[str, Any]] | None = None,
         workspace_id: str | None = None,
     ) -> Workflow:
         """Async version of create()."""
@@ -216,7 +216,7 @@ class WorkflowsAPI:
         self,
         workflow_id: str,
         name: str | None = None,
-        steps: Optional[builtins.list[dict[str, Any]]] = None,
+        steps: builtins.list[dict[str, Any]] | None = None,
         description: str | None = None,
         is_active: bool | None = None,
     ) -> Workflow:
@@ -238,7 +238,7 @@ class WorkflowsAPI:
         self,
         workflow_id: str,
         name: str | None = None,
-        steps: Optional[builtins.list[dict[str, Any]]] = None,
+        steps: builtins.list[dict[str, Any]] | None = None,
         description: str | None = None,
         is_active: bool | None = None,
     ) -> Workflow:
@@ -273,7 +273,7 @@ class WorkflowsAPI:
     def execute(
         self,
         workflow_id: str,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ) -> WorkflowExecution:
         """
         Execute a workflow.
@@ -300,7 +300,7 @@ class WorkflowsAPI:
     async def execute_async(
         self,
         workflow_id: str,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ) -> WorkflowExecution:
         """Async version of execute()."""
         body: dict[str, Any] = {}
@@ -374,7 +374,7 @@ class WorkflowsAPI:
     def simulate(
         self,
         workflow_id: str,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Simulate (dry-run) a workflow without executing.
@@ -395,7 +395,7 @@ class WorkflowsAPI:
     async def simulate_async(
         self,
         workflow_id: str,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Async version of simulate()."""
         body: dict[str, Any] = {}
@@ -457,7 +457,7 @@ class WorkflowsAPI:
     def run_template(
         self,
         template_id: str,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -482,7 +482,7 @@ class WorkflowsAPI:
     async def run_template_async(
         self,
         template_id: str,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """Async version of run_template()."""

@@ -25,7 +25,7 @@ class ClaudeMemConfig:
     project: str | None = None
 
     @classmethod
-    def from_env(cls) -> "ClaudeMemConfig":
+    def from_env(cls) -> ClaudeMemConfig:
         base_url = os.environ.get("ARAGORA_CLAUDE_MEM_BASE_URL", "http://localhost:37777")
         timeout_seconds = float(os.environ.get("ARAGORA_CLAUDE_MEM_TIMEOUT", "10"))
         project = os.environ.get("ARAGORA_CLAUDE_MEM_PROJECT")

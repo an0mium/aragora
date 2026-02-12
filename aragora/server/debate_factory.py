@@ -110,7 +110,7 @@ class DebateConfig:
     consensus: str = DEFAULT_CONSENSUS  # Default consensus for final decisions
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     debate_id: str | None = None
-    trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
+    trending_topic: TrendingTopic | None = None  # TrendingTopic from pulse
     metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
     documents: list[str] = field(default_factory=list)
     enable_verticals: bool = field(
@@ -195,15 +195,15 @@ class DebateFactory:
 
     def __init__(
         self,
-        elo_system: Optional["EloSystem"] = None,
-        persona_manager: Optional["PersonaManager"] = None,
-        debate_embeddings: Optional["DebateEmbeddings"] = None,
-        position_tracker: Optional["PositionTracker"] = None,
-        position_ledger: Optional["PositionLedger"] = None,
-        flip_detector: Optional["FlipDetector"] = None,
-        dissent_retriever: Optional["DissentRetriever"] = None,
-        moment_detector: Optional["MomentDetector"] = None,
-        stream_emitter: Optional["SyncEventEmitter"] = None,
+        elo_system: EloSystem | None = None,
+        persona_manager: PersonaManager | None = None,
+        debate_embeddings: DebateEmbeddings | None = None,
+        position_tracker: PositionTracker | None = None,
+        position_ledger: PositionLedger | None = None,
+        flip_detector: FlipDetector | None = None,
+        dissent_retriever: DissentRetriever | None = None,
+        moment_detector: MomentDetector | None = None,
+        stream_emitter: SyncEventEmitter | None = None,
         document_store: Any | None = None,
         evidence_store: Any | None = None,
     ):
@@ -235,7 +235,7 @@ class DebateFactory:
     def create_agents(
         self,
         specs: list[AgentSpec],
-        stream_wrapper: Optional[Callable[..., Any]] = None,
+        stream_wrapper: Callable[..., Any] | None = None,
         debate_id: str | None = None,
     ) -> AgentCreationResult:
         """Create agents from specifications.
@@ -492,9 +492,9 @@ class DebateFactory:
         self,
         config: DebateConfig,
         event_hooks: dict | None = None,
-        stream_wrapper: Optional[Callable[..., Any]] = None,
+        stream_wrapper: Callable[..., Any] | None = None,
         enable_rlm_training: bool | None = None,
-    ) -> "Arena":
+    ) -> Arena:
         """Create a fully configured debate arena.
 
         Uses ArenaBuilder internally for cleaner configuration.
@@ -676,7 +676,7 @@ class DebateFactory:
 
         return builder.build()
 
-    def reset_circuit_breakers(self, arena: "Arena") -> None:
+    def reset_circuit_breakers(self, arena: Arena) -> None:
         """Reset circuit breakers for fresh debate.
 
         For ad-hoc debates, we want all agents to have a fresh start.

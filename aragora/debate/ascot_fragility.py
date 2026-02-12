@@ -105,7 +105,7 @@ class ASCoTFragilityAnalyzer:
         },
     }
 
-    def __init__(self, config: Optional[FragilityConfig] = None):
+    def __init__(self, config: FragilityConfig | None = None):
         """Initialize the fragility analyzer.
 
         Args:
@@ -118,7 +118,7 @@ class ASCoTFragilityAnalyzer:
         self,
         round_number: int,
         total_rounds: int,
-        dependencies: Optional[list[int]] = None,
+        dependencies: list[int] | None = None,
     ) -> FragilityScore:
         """
         Calculate fragility score for a specific debate round.

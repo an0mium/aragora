@@ -537,7 +537,7 @@ class MicrosoftAdsConnector:
         campaign_type: CampaignType | None = None,
     ) -> list[Campaign]:
         """Get all campaigns for the account."""
-        body = "<AccountId>{}</AccountId>".format(self.credentials.account_id)
+        body = f"<AccountId>{self.credentials.account_id}</AccountId>"
         if campaign_type:
             body += f"<CampaignType>{campaign_type.value}</CampaignType>"
 

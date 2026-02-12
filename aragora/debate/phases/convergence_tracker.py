@@ -55,10 +55,10 @@ class DebateConvergenceTracker:
 
     def __init__(
         self,
-        convergence_detector: Optional["ConvergenceDetector"] = None,
-        novelty_tracker: Optional["NoveltyTracker"] = None,
-        trickster: Optional["Trickster"] = None,
-        hooks: Optional[dict[str, Callable]] = None,
+        convergence_detector: ConvergenceDetector | None = None,
+        novelty_tracker: NoveltyTracker | None = None,
+        trickster: Trickster | None = None,
+        hooks: dict[str, Callable] | None = None,
         event_emitter: Any = None,
         notify_spectator: Callable | None = None,
         inject_challenge: Callable | None = None,
@@ -92,7 +92,7 @@ class DebateConvergenceTracker:
         self._previous_round_responses = {}
         self._collective_readiness = CollectiveReadiness()
 
-    def check_convergence(self, ctx: "DebateContext", round_num: int) -> ConvergenceResult:
+    def check_convergence(self, ctx: DebateContext, round_num: int) -> ConvergenceResult:
         """
         Check for convergence and return result.
 
@@ -229,7 +229,7 @@ class DebateConvergenceTracker:
 
         return result
 
-    def track_novelty(self, ctx: "DebateContext", round_num: int) -> None:
+    def track_novelty(self, ctx: DebateContext, round_num: int) -> None:
         """
         Track novelty of current proposals compared to prior proposals.
 
@@ -325,7 +325,7 @@ class DebateConvergenceTracker:
                     if self._inject_challenge:
                         self._inject_challenge(intervention.challenge_text, ctx)
 
-    def check_rlm_ready_quorum(self, ctx: "DebateContext", round_num: int) -> bool:
+    def check_rlm_ready_quorum(self, ctx: DebateContext, round_num: int) -> bool:
         """
         Check if RLM ready signal quorum has been reached.
 

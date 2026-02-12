@@ -81,7 +81,7 @@ class TeamsResponseCapture:
                 if attachment.get("contentType") == "application/vnd.microsoft.card.adaptive":
                     self.cards_sent.append(attachment.get("content", {}))
 
-    def get_final_result(self) -> Optional[dict[str, Any]]:
+    def get_final_result(self) -> dict[str, Any] | None:
         """Get the final debate result message."""
         for activity in reversed(self.activities_sent):
             text = activity.get("text", "")

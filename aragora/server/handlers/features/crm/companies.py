@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class CompanyOperationsMixin:
     """Mixin providing company operations for CRMHandler."""
 
-    async def _list_all_companies(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _list_all_companies(self: CRMHandler, request: Any) -> HandlerResult:
         """List companies from all connected platforms."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -81,7 +81,7 @@ class CompanyOperationsMixin:
         )
 
     async def _fetch_platform_companies(
-        self: "CRMHandler",
+        self: CRMHandler,
         platform: str,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
@@ -105,7 +105,7 @@ class CompanyOperationsMixin:
         return []
 
     async def _list_platform_companies(
-        self: "CRMHandler", request: Any, platform: str
+        self: CRMHandler, request: Any, platform: str
     ) -> HandlerResult:
         """List companies from a specific platform."""
         # Check circuit breaker
@@ -135,7 +135,7 @@ class CompanyOperationsMixin:
         )
 
     async def _get_company(
-        self: "CRMHandler", request: Any, platform: str, company_id: str
+        self: CRMHandler, request: Any, platform: str, company_id: str
     ) -> HandlerResult:
         """Get a specific company."""
         # Check circuit breaker
@@ -175,7 +175,7 @@ class CompanyOperationsMixin:
 
         return self._error_response(400, "Unsupported platform")
 
-    async def _create_company(self: "CRMHandler", request: Any, platform: str) -> HandlerResult:
+    async def _create_company(self: CRMHandler, request: Any, platform: str) -> HandlerResult:
         """Create a new company."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():

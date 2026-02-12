@@ -482,7 +482,7 @@ class MigrationOrchestrator:
         }
         self.include_databases = include_databases
         self.translator = SchemaTranslator(pg_schema=pg_schema)
-        self._pool: Optional[Pool] = None
+        self._pool: Pool | None = None
 
     # -- Discovery -----------------------------------------------------------
 
@@ -665,8 +665,8 @@ class MigrationOrchestrator:
 
             # Stream data in batches
             data_cursor = sqlite_conn.execute(
-                "SELECT {} ".format(", ".join('"{}"'.format(c) for c in common_columns))
-                + 'FROM "{}"'.format(table)
+                "SELECT {} ".format(", ".join(f'"{c}"' for c in common_columns))
+                + f'FROM "{table}"'
             )
 
             batch: list[tuple[Any, ...]] = []

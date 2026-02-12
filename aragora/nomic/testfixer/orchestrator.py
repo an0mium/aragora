@@ -140,11 +140,11 @@ class FixLoopConfig:
 
     # LLM analysis & validation
     use_llm_analyzer: bool = False
-    llm_analyzer_config: "LLMAnalyzerConfig | None" = None
+    llm_analyzer_config: LLMAnalyzerConfig | None = None
     enable_arena_validation: bool = False
-    arena_validator_config: "ArenaValidatorConfig | None" = None
+    arena_validator_config: ArenaValidatorConfig | None = None
     enable_redteam_validation: bool = False
-    redteam_validator_config: "RedTeamValidatorConfig | None" = None
+    redteam_validator_config: RedTeamValidatorConfig | None = None
     enable_pattern_learning: bool = False
     pattern_store_path: Path | None = None
     generation_timeout_seconds: float | None = None
@@ -165,7 +165,7 @@ class FixLoopConfig:
     # Persistence
     save_attempts: bool = True
     attempts_dir: Path | None = None
-    attempt_store: "TestFixerAttemptStore | None" = None
+    attempt_store: TestFixerAttemptStore | None = None
     run_id: str | None = None
     artifacts_dir: Path | None = None
     enable_diagnostics: bool = True

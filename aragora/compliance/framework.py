@@ -888,8 +888,8 @@ class ComplianceFrameworkManager:
 
     def __init__(
         self,
-        frameworks: Optional[dict[str, ComplianceFramework]] = None,
-        custom_rules: Optional[list[ComplianceRule]] = None,
+        frameworks: dict[str, ComplianceFramework] | None = None,
+        custom_rules: list[ComplianceRule] | None = None,
     ):
         self._frameworks = frameworks or COMPLIANCE_FRAMEWORKS.copy()
         if custom_rules:
@@ -920,7 +920,7 @@ class ComplianceFrameworkManager:
     def check(
         self,
         content: str,
-        frameworks: Optional[list[str]] = None,
+        frameworks: list[str] | None = None,
         min_severity: ComplianceSeverity = ComplianceSeverity.LOW,
     ) -> ComplianceCheckResult:
         """
@@ -1018,7 +1018,7 @@ class ComplianceFrameworkManager:
 
 async def check_compliance(
     content: str,
-    frameworks: Optional[list[str]] = None,
+    frameworks: list[str] | None = None,
     min_severity: ComplianceSeverity = ComplianceSeverity.LOW,
 ) -> ComplianceCheckResult:
     """

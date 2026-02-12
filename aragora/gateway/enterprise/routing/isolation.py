@@ -298,7 +298,7 @@ class TenantRoutingContextManager:
         self._decision: Any | None = None  # RoutingDecision
         self._completed = False
 
-    async def __aenter__(self) -> "TenantRoutingContextManager":
+    async def __aenter__(self) -> TenantRoutingContextManager:
         """Enter tenant routing context."""
         self._tenant_context = TenantContext(tenant_id=self._tenant_id)
         await self._tenant_context.__aenter__()

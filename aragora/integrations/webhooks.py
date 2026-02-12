@@ -133,13 +133,13 @@ class WebhookConfig:
     url: str
     secret: str = ""
     event_types: set[str] = field(default_factory=lambda: set(DEFAULT_EVENT_TYPES))
-    loop_ids: Optional[set[str]] = None  # None = all loops
+    loop_ids: set[str] | None = None  # None = all loops
     timeout_s: float = 10.0
     max_retries: int = 3
     backoff_base_s: float = 1.0
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WebhookConfig":
+    def from_dict(cls, data: dict[str, Any]) -> WebhookConfig:
         """Create config from dictionary with validation and normalization.
 
         Raises ValueError if required fields are missing.
@@ -239,7 +239,7 @@ def load_webhook_configs() -> list[WebhookConfig]:
             logger.warning(f"Webhook config file not found: {config_path}")
             return []
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 configs_data = json.load(f)
             if not isinstance(configs_data, list):
                 logger.warning(f"Webhook config file must contain a JSON array: {config_path}")
@@ -252,7 +252,7 @@ def load_webhook_configs() -> list[WebhookConfig]:
                         f"Skipping invalid webhook config at index {i} in {config_path}: {e}"
                     )
             return configs
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load webhook config from {config_path}: {e}")
             return []
 
@@ -525,7 +525,7 @@ class WebhookDispatcher:
                     # This prevents one slow webhook from blocking others
                     self._executor.submit(self._deliver_and_track, cfg, event_dict)
 
-    def _deliver_and_track(self, cfg: "WebhookConfig", event_dict: dict[str, Any]) -> None:
+    def _deliver_and_track(self, cfg: WebhookConfig, event_dict: dict[str, Any]) -> None:
         """Deliver webhook and update stats (runs in thread pool)."""
         try:
             success = self._deliver(cfg, event_dict)
@@ -689,7 +689,7 @@ def get_dispatcher() -> WebhookDispatcher | None:
     return _dispatcher
 
 
-def init_dispatcher(configs: Optional[list[WebhookConfig]] = None) -> WebhookDispatcher | None:
+def init_dispatcher(configs: list[WebhookConfig] | None = None) -> WebhookDispatcher | None:
     """Initialize the global webhook dispatcher.
 
     If configs is None, loads from environment. Returns None if no configs.

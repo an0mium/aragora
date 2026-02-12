@@ -20,17 +20,17 @@ from uuid import uuid4
 logger = logging.getLogger(__name__)
 
 # Context variable for threading isolation context through async calls
-_current_context: ContextVar["IsolationContext | None"] = ContextVar(
+_current_context: ContextVar[IsolationContext | None] = ContextVar(
     "isolation_context", default=None
 )
 
 
-def get_current_context() -> "IsolationContext | None":
+def get_current_context() -> IsolationContext | None:
     """Get the current isolation context from the context variable."""
     return _current_context.get()
 
 
-def set_current_context(ctx: "IsolationContext | None") -> None:
+def set_current_context(ctx: IsolationContext | None) -> None:
     """Set the current isolation context in the context variable."""
     _current_context.set(ctx)
 
@@ -60,7 +60,7 @@ class IsolationContext:
     # Cached permissions (populated by RBAC if available)
     _cached_permissions: set = field(default_factory=set)
 
-    def with_workspace(self, workspace_id: str) -> "IsolationContext":
+    def with_workspace(self, workspace_id: str) -> IsolationContext:
         """Create a new context scoped to a specific workspace."""
         return IsolationContext(
             actor_id=self.actor_id,
@@ -72,7 +72,7 @@ class IsolationContext:
             timestamp=self.timestamp,
         )
 
-    def with_organization(self, organization_id: str) -> "IsolationContext":
+    def with_organization(self, organization_id: str) -> IsolationContext:
         """Create a new context scoped to a specific organization."""
         return IsolationContext(
             actor_id=self.actor_id,
@@ -96,7 +96,7 @@ class IsolationContext:
             "timestamp": self.timestamp.isoformat(),
         }
 
-    def __enter__(self) -> "IsolationContext":
+    def __enter__(self) -> IsolationContext:
         """Enter context manager, setting this as the current context."""
         set_current_context(self)
         return self

@@ -31,9 +31,9 @@ class SpectatorMixin:
     - loop_id: str
     """
 
-    spectator: Optional["SpectatorStream"]
-    event_emitter: Optional["SyncEventEmitter"]
-    cartographer: Optional["ArgumentCartographer"]
+    spectator: SpectatorStream | None
+    event_emitter: SyncEventEmitter | None
+    cartographer: ArgumentCartographer | None
     loop_id: str
 
     def _notify_spectator(self, event_type: str, **kwargs: Any) -> None:

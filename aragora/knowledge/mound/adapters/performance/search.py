@@ -42,7 +42,7 @@ class _SearchHostProtocol(Protocol):
     _matches: dict[str, dict[str, Any]]
     _calibrations: dict[str, dict[str, Any]]
 
-    def _get_record_by_id(self, record_id: str) -> Optional[dict[str, Any]]: ...
+    def _get_record_by_id(self, record_id: str) -> dict[str, Any] | None: ...
 
 
 class FusionImplementationMixin:
@@ -65,7 +65,7 @@ class FusionImplementationMixin:
         """
         return ["consensus", "evidence", "belief", "continuum"]
 
-    def _extract_fusible_data(self, km_item: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def _extract_fusible_data(self, km_item: dict[str, Any]) -> dict[str, Any] | None:
         """Extract data from a KM item that can be used for fusion.
 
         Args:
@@ -105,7 +105,7 @@ class FusionImplementationMixin:
         self,
         record: Any,
         fusion_result: Any,  # FusedValidation from ops.fusion
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to an agent rating or expertise record.
 
@@ -189,7 +189,7 @@ class SemanticSearchImplementationMixin:
     _matches: dict[str, dict[str, Any]]
     _calibrations: dict[str, dict[str, Any]]
 
-    def _get_record_by_id(self, record_id: str) -> Optional[dict[str, Any]]:
+    def _get_record_by_id(self, record_id: str) -> dict[str, Any] | None:
         """Get a performance record by ID (required by SemanticSearchMixin).
 
         Supports both ELO rating IDs (el_ prefix) and expertise IDs (ex_ prefix).
@@ -269,7 +269,7 @@ class SearchMixin:
     _calibrations: dict[str, dict[str, Any]]
     _get_record_by_id: Any  # Method from SemanticSearchImplementationMixin
 
-    def get(self, record_id: str) -> Optional[dict[str, Any]]:
+    def get(self, record_id: str) -> dict[str, Any] | None:
         """Get a single performance record by ID.
 
         Args:

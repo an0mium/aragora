@@ -77,7 +77,7 @@ class AuthContext:
         """Alias for authenticated."""
         return self.authenticated
 
-    def to_authorization_context(self) -> "AuthorizationContext":
+    def to_authorization_context(self) -> AuthorizationContext:
         """
         Convert to full AuthorizationContext for RBAC operations.
 
@@ -147,7 +147,7 @@ def _extract_handler(*args, **kwargs) -> Any:
     return handler
 
 
-def _error_response(message: str, status: int = 401) -> "HandlerResult":
+def _error_response(message: str, status: int = 401) -> HandlerResult:
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 

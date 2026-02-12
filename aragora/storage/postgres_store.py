@@ -103,9 +103,9 @@ try:
     from aragora.resilience import get_circuit_breaker as _get_circuit_breaker
 
     RESILIENCE_AVAILABLE = True
-    CircuitBreaker: Optional[type[Any]] = _CircuitBreaker
+    CircuitBreaker: type[Any] | None = _CircuitBreaker
     CircuitOpenError: type[Exception] = _CircuitOpenError
-    get_circuit_breaker: Optional[Callable[..., Any]] = _get_circuit_breaker
+    get_circuit_breaker: Callable[..., Any] | None = _get_circuit_breaker
 except ImportError:
     RESILIENCE_AVAILABLE = False
     CircuitBreaker = None
@@ -114,7 +114,7 @@ except ImportError:
     logger.debug("resilience module not available, circuit breaker disabled")
 
 # Global pool singleton
-_pool: Optional["Pool"] = None
+_pool: Pool | None = None
 
 # Pool metrics tracking
 _pool_metrics: dict[str, Any] = {
@@ -256,7 +256,7 @@ async def get_postgres_pool(
     command_timeout: float = 60.0,
     statement_timeout: int = 60,
     pool_recycle: int = 1800,
-) -> "Pool":
+) -> Pool:
     """
     Get or create the global PostgreSQL connection pool.
 
@@ -328,7 +328,7 @@ async def get_postgres_pool(
     return _pool
 
 
-async def get_postgres_pool_from_settings() -> "Pool":
+async def get_postgres_pool_from_settings() -> Pool:
     """
     Get or create PostgreSQL connection pool using centralized settings.
 
@@ -380,11 +380,11 @@ async def close_postgres_pool() -> None:
 
 @asynccontextmanager
 async def acquire_connection_resilient(
-    pool: "Pool",
+    pool: Pool,
     timeout: float = POOL_ACQUIRE_TIMEOUT,
     retries: int = 3,
     backoff_base: float = 0.5,
-) -> AsyncGenerator["Connection", None]:
+) -> AsyncGenerator[Connection, None]:
     """
     Acquire a connection from the pool with resilience patterns.
 
@@ -537,7 +537,7 @@ class PostgresStore(ABC):
 
     def __init__(
         self,
-        pool: "Pool",
+        pool: Pool,
         use_resilient: bool = True,
         acquire_timeout: float = POOL_ACQUIRE_TIMEOUT,
         acquire_retries: int = 3,
@@ -625,7 +625,7 @@ class PostgresStore(ABC):
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized at version {self.SCHEMA_VERSION}")
 
-    async def _run_migrations(self, conn: "Connection", from_version: int) -> None:
+    async def _run_migrations(self, conn: Connection, from_version: int) -> None:
         """
         Run migrations from current version to target version.
 
@@ -639,7 +639,7 @@ class PostgresStore(ABC):
         await conn.execute(self.INITIAL_SCHEMA)
 
     @asynccontextmanager
-    async def connection(self) -> AsyncGenerator["Connection", None]:
+    async def connection(self) -> AsyncGenerator[Connection, None]:
         """
         Context manager for database operations.
 
@@ -665,7 +665,7 @@ class PostgresStore(ABC):
                 yield conn
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncGenerator["Connection", None]:
+    async def transaction(self) -> AsyncGenerator[Connection, None]:
         """
         Context manager for transactional operations.
 

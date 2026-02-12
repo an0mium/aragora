@@ -42,7 +42,7 @@ class ResultFormatter:
         self.max_answer_length = max_answer_length
         self.max_view_length = max_view_length
 
-    def format_conclusion(self, result: "DebateResult") -> str:
+    def format_conclusion(self, result: DebateResult) -> str:
         """
         Format a clear, readable debate conclusion with full context.
 
@@ -85,7 +85,7 @@ class ResultFormatter:
         lines.append("\n" + "=" * 60)
         return "\n".join(lines)
 
-    def _add_verdict(self, lines: list[str], result: "DebateResult") -> None:
+    def _add_verdict(self, lines: list[str], result: DebateResult) -> None:
         """Add verdict section to output."""
         if result.consensus_reached:
             lines.append(f"Consensus: YES ({result.confidence:.0%} agreement)")
@@ -94,7 +94,7 @@ class ResultFormatter:
         else:
             lines.append(f"Consensus: NO (only {result.confidence:.0%} agreement)")
 
-    def _add_final_answer(self, lines: list[str], result: "DebateResult") -> None:
+    def _add_final_answer(self, lines: list[str], result: DebateResult) -> None:
         """Add final answer section to output."""
         if result.final_answer:
             # Truncate if very long, but show substantial content
@@ -106,7 +106,7 @@ class ResultFormatter:
         else:
             lines.append("No final answer determined.")
 
-    def _add_vote_breakdown(self, lines: list[str], result: "DebateResult") -> None:
+    def _add_vote_breakdown(self, lines: list[str], result: DebateResult) -> None:
         """Add vote breakdown section if votes are available."""
         if not (hasattr(result, "votes") and result.votes):
             return
@@ -120,7 +120,7 @@ class ResultFormatter:
         for voter, choice in vote_counts.items():
             lines.append(f"  - {voter}: {choice}")
 
-    def _add_dissenting_views(self, lines: list[str], result: "DebateResult") -> None:
+    def _add_dissenting_views(self, lines: list[str], result: DebateResult) -> None:
         """Add dissenting views section if present."""
         if not (hasattr(result, "dissenting_views") and result.dissenting_views):
             return
@@ -133,7 +133,7 @@ class ResultFormatter:
                 view_display = view
             lines.append(f"  {i + 1}. {view_display}")
 
-    def _add_cruxes(self, lines: list[str], result: "DebateResult") -> None:
+    def _add_cruxes(self, lines: list[str], result: DebateResult) -> None:
         """Add key cruxes section if present."""
         if not (hasattr(result, "belief_cruxes") and result.belief_cruxes):
             return
@@ -144,7 +144,7 @@ class ResultFormatter:
             uncertainty = crux.get("uncertainty", 0)
             lines.append(f"  - {claim}... (uncertainty: {uncertainty:.2f})")
 
-    def _add_translations(self, lines: list[str], result: "DebateResult") -> None:
+    def _add_translations(self, lines: list[str], result: DebateResult) -> None:
         """Add translations section if present."""
         if not (hasattr(result, "translations") and result.translations):
             return
@@ -179,8 +179,8 @@ class ResultFormatter:
         self,
         content: str,
         vertical: str | None = None,
-        frameworks: Optional[list[str]] = None,
-    ) -> "ComplianceCheckResult":
+        frameworks: list[str] | None = None,
+    ) -> ComplianceCheckResult:
         """
         Validate content against compliance frameworks.
 
@@ -240,7 +240,7 @@ class ResultFormatter:
 
     def format_compliance_result(
         self,
-        result: "ComplianceCheckResult",
+        result: ComplianceCheckResult,
     ) -> str:
         """
         Format compliance check result for display.
@@ -289,9 +289,9 @@ class ResultFormatter:
 
     def format_conclusion_with_compliance(
         self,
-        result: "DebateResult",
+        result: DebateResult,
         vertical: str | None = None,
-        frameworks: Optional[list[str]] = None,
+        frameworks: list[str] | None = None,
     ) -> str:
         """
         Format conclusion including compliance validation.
@@ -330,7 +330,7 @@ class ResultFormatter:
         return base_conclusion
 
 
-def format_conclusion(result: "DebateResult") -> str:
+def format_conclusion(result: DebateResult) -> str:
     """
     Convenience function to format a debate conclusion.
 
@@ -345,9 +345,9 @@ def format_conclusion(result: "DebateResult") -> str:
 
 
 def format_conclusion_with_compliance(
-    result: "DebateResult",
+    result: DebateResult,
     vertical: str | None = None,
-    frameworks: Optional[list[str]] = None,
+    frameworks: list[str] | None = None,
 ) -> str:
     """
     Convenience function to format conclusion with compliance validation.

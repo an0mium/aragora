@@ -271,7 +271,7 @@ class FollowUpTracker:
 
         return items
 
-    async def check_for_replies(self, thread_ids: Optional[list[str]] = None) -> list[FollowUpItem]:
+    async def check_for_replies(self, thread_ids: list[str] | None = None) -> list[FollowUpItem]:
         """
         Check if replies have been received for tracked threads.
 
@@ -332,7 +332,7 @@ class FollowUpTracker:
     async def auto_detect_sent_emails(
         self,
         days_back: int = 7,
-        exclude_recipients: Optional[set[str]] = None,
+        exclude_recipients: set[str] | None = None,
     ) -> list[FollowUpItem]:
         """
         Auto-detect sent emails that might need follow-up tracking.

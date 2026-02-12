@@ -75,10 +75,10 @@ class MockCoordinatorOptions:
 class MockCoordinator:
     """Mock MemoryCoordinator."""
 
-    continuum_memory: Optional[Any] = None
-    consensus_memory: Optional[Any] = None
-    critique_store: Optional[Any] = None
-    knowledge_mound: Optional[Any] = None
+    continuum_memory: Any | None = None
+    consensus_memory: Any | None = None
+    critique_store: Any | None = None
+    knowledge_mound: Any | None = None
     options: MockCoordinatorOptions = field(default_factory=MockCoordinatorOptions)
     _rollback_handlers: dict[str, Any] = field(default_factory=dict)
 

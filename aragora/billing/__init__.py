@@ -91,12 +91,12 @@ from aragora.billing.multi_org import (
 
 # Invoice export requires reportlab (optional dependency)
 # Declare with explicit Optional types for proper type checking
-InvoiceExporter: Optional[type[Any]]
-InvoiceCompanyInfo: Optional[type[Any]]
-InvoiceCustomerInfo: Optional[type[Any]]
-InvoiceExportConfig: Optional[type[Any]]
-export_invoice_pdf: Optional[Callable[..., Any]]
-export_invoice_html: Optional[Callable[..., Any]]
+InvoiceExporter: type[Any] | None
+InvoiceCompanyInfo: type[Any] | None
+InvoiceCustomerInfo: type[Any] | None
+InvoiceExportConfig: type[Any] | None
+export_invoice_pdf: Callable[..., Any] | None
+export_invoice_html: Callable[..., Any] | None
 
 try:
     from aragora.billing.invoice_export import (

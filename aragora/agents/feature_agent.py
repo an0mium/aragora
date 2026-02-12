@@ -162,7 +162,7 @@ class FeatureDevelopmentAgent:
         enable_debate: bool = True,
         enable_tdd: bool = True,
         enable_approval: bool = True,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
     ):
         """
         Initialize the feature development agent.
@@ -227,7 +227,7 @@ class FeatureDevelopmentAgent:
     async def develop_feature(
         self,
         spec: FeatureSpec,
-        approvers: Optional[list[str]] = None,
+        approvers: list[str] | None = None,
     ) -> FeatureImplementation:
         """
         Develop a feature end-to-end.

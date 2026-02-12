@@ -162,7 +162,7 @@ class DeliberationTask:
         }
 
     @classmethod
-    def from_payload(cls, task_id: str, payload: dict[str, Any]) -> "DeliberationTask":
+    def from_payload(cls, task_id: str, payload: dict[str, Any]) -> DeliberationTask:
         """Create from task payload."""
         sla_data = payload.get("sla", {})
         return cls(
@@ -312,9 +312,9 @@ class DeliberationManager:
 
     def __init__(
         self,
-        coordinator: Optional["ControlPlaneCoordinator"] = None,
-        elo_callback: Optional[Callable[[DeliberationOutcome], None]] = None,
-        notification_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        coordinator: ControlPlaneCoordinator | None = None,
+        elo_callback: Callable[[DeliberationOutcome], None] | None = None,
+        notification_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ):
         """
         Initialize the deliberation manager.
@@ -330,7 +330,7 @@ class DeliberationManager:
         self._active_deliberations: dict[str, DeliberationTask] = {}
         self._sla_monitors: dict[str, asyncio.Task[None]] = {}
 
-    def set_coordinator(self, coordinator: "ControlPlaneCoordinator") -> None:
+    def set_coordinator(self, coordinator: ControlPlaneCoordinator) -> None:
         """Set the coordinator after initialization."""
         self._coordinator = coordinator
 
@@ -338,14 +338,14 @@ class DeliberationManager:
         self,
         question: str,
         context: str | None = None,
-        agents: Optional[list[str]] = None,
-        required_capabilities: Optional[list[str]] = None,
+        agents: list[str] | None = None,
+        required_capabilities: list[str] | None = None,
         priority: str = "normal",
         timeout_seconds: float = DEFAULT_DELIBERATION_TIMEOUT,
         max_rounds: int = 5,
         min_agents: int = 2,
         consensus_required: bool = True,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Submit a deliberation task to the control plane.
@@ -707,9 +707,9 @@ class DeliberationManager:
 async def handle_deliberation_task(
     task_id: str,
     payload: dict[str, Any],
-    coordinator: "ControlPlaneCoordinator",
+    coordinator: ControlPlaneCoordinator,
     router: Any | None = None,
-    elo_callback: Optional[Callable[[DeliberationOutcome], None]] = None,
+    elo_callback: Callable[[DeliberationOutcome], None] | None = None,
 ) -> dict[str, Any]:
     """
     Handle a claimed deliberation task from the scheduler.

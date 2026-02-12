@@ -339,7 +339,7 @@ class SLOAlertBridge:
         latency_ms: float,
         threshold_ms: float,
         severity: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         """
         Handle an SLO violation event.
@@ -403,7 +403,7 @@ class SLOAlertBridge:
         self,
         operation: str,
         percentile: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         """
         Handle an SLO recovery event.

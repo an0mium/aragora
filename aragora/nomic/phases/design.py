@@ -104,22 +104,22 @@ class DesignPhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: Optional[list[Any]] = None,
-        arena_factory: Optional[Callable[..., Any]] = None,
-        environment_factory: Optional[Callable[..., Any]] = None,
-        protocol_factory: Optional[Callable[..., Any]] = None,
+        agents: list[Any] | None = None,
+        arena_factory: Callable[..., Any] | None = None,
+        environment_factory: Callable[..., Any] | None = None,
+        protocol_factory: Callable[..., Any] | None = None,
         config: DesignConfig | None = None,
         nomic_integration: Any | None = None,
-        deep_audit_fn: Optional[Callable[..., Any]] = None,
-        arbitrate_fn: Optional[Callable[..., Any]] = None,
+        deep_audit_fn: Callable[..., Any] | None = None,
+        arbitrate_fn: Callable[..., Any] | None = None,
         max_cycle_seconds: int = 3600,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
         # Legacy API compatibility
         claude_agent: Any | None = None,
-        protected_files: Optional[list[str]] = None,
+        protected_files: list[str] | None = None,
         auto_approve_threshold: float = 0.5,
     ):
         """
@@ -183,8 +183,8 @@ class DesignPhase:
 
     async def run(
         self,
-        proposal: Optional[dict[str, Any]] = None,
-        winning_proposal: Optional[dict[str, Any]] = None,
+        proposal: dict[str, Any] | None = None,
+        winning_proposal: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Legacy API: Run the design phase.
@@ -428,7 +428,7 @@ class DesignPhase:
         improvement: str,
         belief_context: BeliefContext | None = None,
         learning_context: str = "",
-        arena_kwargs: Optional[dict[str, Any]] = None,
+        arena_kwargs: dict[str, Any] | None = None,
     ) -> DesignResult:
         """
         Execute the design phase.
@@ -563,7 +563,7 @@ class DesignPhase:
         decomposition: TaskDecomposition,
         belief_context: BeliefContext | None,
         learning_context: str,
-        arena_kwargs: Optional[dict[str, Any]],
+        arena_kwargs: dict[str, Any] | None,
         phase_start: datetime,
     ) -> DesignResult:
         """Execute design phase for a decomposed task.

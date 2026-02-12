@@ -49,8 +49,8 @@ class MockSimilarityBackend:
 
     def __init__(
         self,
-        similarity_matrix: Optional[dict] = None,
-        contradiction_pairs: Optional[set] = None,
+        similarity_matrix: dict | None = None,
+        contradiction_pairs: set | None = None,
     ):
         self._matrix = similarity_matrix or {}
         self._contradictions = contradiction_pairs or set()

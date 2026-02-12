@@ -112,7 +112,7 @@ class AgentHierarchy:
     def assign_roles(
         self,
         debate_id: str,
-        agents: list["AgentProfile"],
+        agents: list[AgentProfile],
         task_type: str | None = None,
     ) -> dict[str, RoleAssignment]:
         """
@@ -195,10 +195,10 @@ class AgentHierarchy:
 
     def _score_for_role(
         self,
-        agents: list["AgentProfile"],
+        agents: list[AgentProfile],
         role: HierarchyRole,
         task_type: str | None = None,
-    ) -> list[tuple["AgentProfile", float, set[str]]]:
+    ) -> list[tuple[AgentProfile, float, set[str]]]:
         """Score agents for a specific role.
 
         Returns list of (agent, score, matched_capabilities) sorted by score descending.
@@ -313,7 +313,7 @@ class AgentHierarchy:
 # Convenience function for quick role assignment
 def assign_debate_roles(
     debate_id: str,
-    agents: list["AgentProfile"],
+    agents: list[AgentProfile],
     task_type: str | None = None,
 ) -> dict[str, RoleAssignment]:
     """Quick role assignment using default configuration."""

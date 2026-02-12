@@ -77,7 +77,7 @@ class ConsensusMemoryProtocol(Protocol):
         domain: str = "general",
         rounds: int = 0,
         **kwargs: Any,
-    ) -> "ConsensusRecord":
+    ) -> ConsensusRecord:
         """Store a consensus record and return it."""
         ...
 
@@ -358,11 +358,11 @@ class MemoryCoordinator:
 
     def __init__(
         self,
-        continuum_memory: Optional["ContinuumMemory"] = None,
-        consensus_memory: Optional["ConsensusMemory"] = None,
-        critique_store: Optional["CritiqueStore"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
-        supermemory_adapter: Optional["SupermemoryAdapter"] = None,
+        continuum_memory: ContinuumMemory | None = None,
+        consensus_memory: ConsensusMemory | None = None,
+        critique_store: CritiqueStore | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
+        supermemory_adapter: SupermemoryAdapter | None = None,
         options: CoordinatorOptions | None = None,
     ):
         """
@@ -591,7 +591,7 @@ class MemoryCoordinator:
 
     async def commit_debate_outcome(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         options: CoordinatorOptions | None = None,
     ) -> MemoryTransaction:
         """
@@ -670,8 +670,8 @@ class MemoryCoordinator:
 
     def _build_operations(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
         opts: CoordinatorOptions,
     ) -> tuple[list[WriteOperation], list[SkippedOperation]]:
         """Build write operations based on configuration.

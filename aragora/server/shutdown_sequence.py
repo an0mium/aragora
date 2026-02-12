@@ -58,7 +58,7 @@ class ShutdownSequence:
         self._completed: list[str] = []
         self._failed: list[str] = []
 
-    def add_phase(self, phase: ShutdownPhase) -> "ShutdownSequence":
+    def add_phase(self, phase: ShutdownPhase) -> ShutdownSequence:
         """Add a phase to the shutdown sequence.
 
         Args:

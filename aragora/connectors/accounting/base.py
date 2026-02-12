@@ -206,9 +206,9 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         retry_config: RetryConfig | None = None,
     ) -> dict[str, Any]:
         """
@@ -324,8 +324,8 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self,
         method: str,
         url: str,
-        data: Optional[dict[str, Any]],
-        params: Optional[dict[str, Any]],
+        data: dict[str, Any] | None,
+        params: dict[str, Any] | None,
         headers: dict[str, str],
     ) -> Any:
         """Make the actual HTTP request (override for custom clients)."""
@@ -409,7 +409,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         self,
         entity_type: str,
         endpoint: str,
-        filters: Optional[dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         pagination: PaginationConfig | None = None,
     ) -> list[dict[str, Any]]:
         """
@@ -491,7 +491,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
         entity_type: str,
         endpoint: str,
         entity_id: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get a single entity by ID.
 
@@ -513,7 +513,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
 
     def _extract_single_entity(
         self, response: dict[str, Any], entity_type: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract single entity from response (override for custom formats)."""
         if entity_type in response:
             return response[entity_type]
@@ -534,7 +534,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                 await self._http_client.close()
             self._http_client = None
 
-    async def __aenter__(self) -> "AccountingConnectorBase":
+    async def __aenter__(self) -> AccountingConnectorBase:
         """Async context manager entry."""
         return self
 

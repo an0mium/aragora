@@ -85,7 +85,7 @@ class UnifiedRecoveryState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "UnifiedRecoveryState":
+    def from_dict(cls, data: dict[str, Any]) -> UnifiedRecoveryState:
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],
@@ -117,8 +117,8 @@ class CheckpointBridge:
 
     def __init__(
         self,
-        molecule_orchestrator: Optional["MoleculeOrchestrator"] = None,
-        checkpoint_manager: Optional["CheckpointManager"] = None,
+        molecule_orchestrator: MoleculeOrchestrator | None = None,
+        checkpoint_manager: CheckpointManager | None = None,
     ):
         """
         Initialize the bridge.
@@ -374,8 +374,8 @@ class CheckpointBridge:
 
 # Factory function
 def create_checkpoint_bridge(
-    molecule_orchestrator: Optional["MoleculeOrchestrator"] = None,
-    checkpoint_manager: Optional["CheckpointManager"] = None,
+    molecule_orchestrator: MoleculeOrchestrator | None = None,
+    checkpoint_manager: CheckpointManager | None = None,
 ) -> CheckpointBridge:
     """
     Create a checkpoint bridge.

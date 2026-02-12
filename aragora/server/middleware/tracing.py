@@ -52,7 +52,7 @@ TRACEPARENT_HEADER = "traceparent"
 _trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
 _span_id: ContextVar[str | None] = ContextVar("span_id", default=None)
 _parent_span_id: ContextVar[str | None] = ContextVar("parent_span_id", default=None)
-_span_stack: ContextVar[list["Span"]] = ContextVar("span_stack", default=[])
+_span_stack: ContextVar[list[Span]] = ContextVar("span_stack", default=[])
 
 
 def generate_trace_id() -> str:
@@ -151,7 +151,7 @@ class Span:
         """
         self.tags[key] = value
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         """Add an event to the span.
 
         Args:
@@ -502,7 +502,7 @@ class TracingMiddleware:
 
 def trace_websocket_event(
     event_type: str,
-    event_data: Optional[dict[str, Any]] = None,
+    event_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Add tracing context to a WebSocket event.
 

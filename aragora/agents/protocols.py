@@ -71,7 +71,7 @@ class CritiqueCapable(Protocol):
         self,
         context: list[Message] | None = None,
         truncate: bool = False,
-        sanitize_fn: Optional[Callable[[str], str]] = None,
+        sanitize_fn: Callable[[str], str] | None = None,
     ) -> str:
         """Build formatted context from previous messages.
 
@@ -273,7 +273,7 @@ class OpenAICompatibleBase(Protocol):
         self,
         context: list[Message] | None = None,
         truncate: bool = False,
-        sanitize_fn: Optional[Callable[[str], str]] = None,
+        sanitize_fn: Callable[[str], str] | None = None,
     ) -> str:
         """Build formatted context from previous messages."""
         ...

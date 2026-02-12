@@ -23,10 +23,10 @@ from aragora.persistence.db_config import DatabaseType, get_db_path
 logger = logging.getLogger(__name__)
 
 # Singleton instance
-_debate_store: Optional["DebateStore"] = None
+_debate_store: DebateStore | None = None
 
 
-def get_debate_store() -> "DebateStore":
+def get_debate_store() -> DebateStore:
     """Get or create the singleton DebateStore instance."""
     global _debate_store
     if _debate_store is None:

@@ -110,7 +110,7 @@ class DatabaseConfig:
         self.sqlite_path = resolve_db_path(self.sqlite_path)
 
     @classmethod
-    def from_env(cls) -> "DatabaseConfig":
+    def from_env(cls) -> DatabaseConfig:
         """Create config from environment variables.
 
         Supports two configuration methods:

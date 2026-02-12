@@ -28,7 +28,7 @@ class MockFact:
     evidence_ids: list = field(default_factory=list)
     source_documents: list = field(default_factory=list)
     validation_status: str = "unverified"
-    superseded_by: Optional[str] = None
+    superseded_by: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -56,7 +56,7 @@ class MockRelation:
     relation_type: str = "supports"
     confidence: float = 0.7
     created_by: str = "test-user"
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -807,7 +807,7 @@ class MockRelationship:
     strength: float = 1.0
     created_at: datetime = field(default_factory=datetime.now)
     created_by: str = ""
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 @dataclass
@@ -836,7 +836,7 @@ class MockCultureProfile:
 
     workspace_id: str = "default"
     patterns: dict = field(default_factory=dict)
-    generated_at: Optional[datetime] = None
+    generated_at: datetime | None = None
     total_observations: int = 0
 
 
@@ -847,7 +847,7 @@ class MockStaleItem:
     node_id: str = "node-123"
     staleness_score: float = 0.7
     reasons: list = field(default_factory=list)
-    last_validated_at: Optional[datetime] = None
+    last_validated_at: datetime | None = None
     recommended_action: str = "revalidate"
 
 

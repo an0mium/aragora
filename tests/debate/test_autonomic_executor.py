@@ -1694,7 +1694,7 @@ class TestWisdomFallbackEdgeCases:
     def test_get_wisdom_fallback_io_error(self):
         """Test wisdom fallback handles IOError gracefully."""
         mock_store = MagicMock()
-        mock_store.get_relevant_wisdom.side_effect = IOError("Read error")
+        mock_store.get_relevant_wisdom.side_effect = OSError("Read error")
         executor = AutonomicExecutor(wisdom_store=mock_store, loop_id="test-loop")
         result = executor._get_wisdom_fallback("agent")
         assert result is None

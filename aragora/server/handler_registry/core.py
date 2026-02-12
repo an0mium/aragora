@@ -383,7 +383,7 @@ class RouteIndex:
             f"{len(self._prefix_routes)} prefix patterns"
         )
 
-    def get_handler(self, path: str) -> Optional[tuple[str, Any]]:
+    def get_handler(self, path: str) -> tuple[str, Any] | None:
         """Get handler for path with O(1) lookup for known routes.
 
         Supports both versioned (/api/v1/debates) and legacy (/api/debates) paths.
@@ -410,7 +410,7 @@ class RouteIndex:
         return self._get_handler_cached(path, normalized_path)
 
     @lru_cache(maxsize=500)
-    def _get_handler_cached(self, path: str, normalized_path: str) -> Optional[tuple[str, Any]]:
+    def _get_handler_cached(self, path: str, normalized_path: str) -> tuple[str, Any] | None:
         """Cached prefix matching for dynamic routes.
 
         Tries matching both the original path and the normalized (version-stripped) path.

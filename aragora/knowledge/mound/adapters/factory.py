@@ -472,7 +472,7 @@ class AdapterFactory:
 
     def __init__(
         self,
-        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        event_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ):
         """
         Initialize the factory.
@@ -544,7 +544,7 @@ class AdapterFactory:
     def create_from_arena_config(
         self,
         config: Any,  # ArenaConfig
-        subsystems: Optional[dict[str, Any]] = None,
+        subsystems: dict[str, Any] | None = None,
     ) -> dict[str, CreatedAdapter]:
         """
         Create adapters from ArenaConfig.
@@ -873,7 +873,7 @@ class AdapterFactory:
 
     def register_with_coordinator(
         self,
-        coordinator: "BidirectionalCoordinator",
+        coordinator: BidirectionalCoordinator,
         adapters: dict[str, CreatedAdapter],
         enable_overrides: set[str] | None = None,
     ) -> int:

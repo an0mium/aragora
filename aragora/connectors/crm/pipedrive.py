@@ -70,7 +70,7 @@ class PipedriveCredentials:
     base_url: str = "https://api.pipedrive.com/v1"
 
     @classmethod
-    def from_env(cls, prefix: str = "PIPEDRIVE_") -> "PipedriveCredentials":
+    def from_env(cls, prefix: str = "PIPEDRIVE_") -> PipedriveCredentials:
         """Load credentials from environment variables."""
         import os
 
@@ -125,7 +125,7 @@ class Person:
     custom_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Person":
+    def from_api(cls, data: dict[str, Any]) -> Person:
         """Parse from API response."""
         # Extract primary email
         emails = data.get("email", [])
@@ -200,7 +200,7 @@ class Organization:
     custom_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Organization":
+    def from_api(cls, data: dict[str, Any]) -> Organization:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -245,7 +245,7 @@ class Pipeline:
     update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Pipeline":
+    def from_api(cls, data: dict[str, Any]) -> Pipeline:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -275,7 +275,7 @@ class Stage:
     update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Stage":
+    def from_api(cls, data: dict[str, Any]) -> Stage:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -319,7 +319,7 @@ class Deal:
     custom_fields: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Deal":
+    def from_api(cls, data: dict[str, Any]) -> Deal:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -396,7 +396,7 @@ class Activity:
     marked_as_done_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Activity":
+    def from_api(cls, data: dict[str, Any]) -> Activity:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -465,7 +465,7 @@ class Note:
     pinned_to_organization_flag: bool = False
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Note":
+    def from_api(cls, data: dict[str, Any]) -> Note:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -521,7 +521,7 @@ class Product:
     update_time: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Product":
+    def from_api(cls, data: dict[str, Any]) -> Product:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -579,7 +579,7 @@ class User:
     modified: datetime | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "User":
+    def from_api(cls, data: dict[str, Any]) -> User:
         """Parse from API response."""
         return cls(
             id=data["id"],
@@ -665,9 +665,9 @@ class PipedriveClient:
 
     def __init__(self, credentials: PipedriveCredentials):
         self.credentials = credentials
-        self._client: Optional["httpx.AsyncClient"] = None
+        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "PipedriveClient":
+    async def __aenter__(self) -> PipedriveClient:
         import httpx
 
         self._client = httpx.AsyncClient(
@@ -685,8 +685,8 @@ class PipedriveClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[dict[str, Any]] = None,
-        json: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make authenticated API request."""
         if not self._client:
@@ -1236,7 +1236,7 @@ class PipedriveClient:
         description: str | None = None,
         unit: str | None = None,
         tax: float = 0.0,
-        prices: Optional[list[dict[str, Any]]] = None,
+        prices: list[dict[str, Any]] | None = None,
         owner_id: int | None = None,
         visible_to: str | None = None,
     ) -> Product:

@@ -53,7 +53,7 @@ class TranscriptionWorker:
         worker_id: str | None = None,
         poll_interval: float = 2.0,
         max_concurrent: int = 2,
-        broadcast_fn: Optional[Callable[..., Any]] = None,
+        broadcast_fn: Callable[..., Any] | None = None,
     ):
         """
         Initialize transcription worker.

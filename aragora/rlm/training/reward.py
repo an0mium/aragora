@@ -45,7 +45,7 @@ class RewardModel(ABC):
     """Abstract base class for reward models."""
 
     @abstractmethod
-    def compute(self, trajectory: "Trajectory") -> float:
+    def compute(self, trajectory: Trajectory) -> float:
         """
         Compute reward for a trajectory.
 
@@ -58,7 +58,7 @@ class RewardModel(ABC):
         pass
 
     @abstractmethod
-    def compute_components(self, trajectory: "Trajectory") -> dict[str, float]:
+    def compute_components(self, trajectory: Trajectory) -> dict[str, float]:
         """
         Compute individual reward components.
 
@@ -92,12 +92,12 @@ class DebateOutcomeReward(RewardModel):
 
     config: RewardConfig = field(default_factory=RewardConfig)
 
-    def compute(self, trajectory: "Trajectory") -> float:
+    def compute(self, trajectory: Trajectory) -> float:
         """Compute total reward for trajectory."""
         components = self.compute_components(trajectory)
         return sum(components.values())
 
-    def compute_components(self, trajectory: "Trajectory") -> dict[str, float]:
+    def compute_components(self, trajectory: Trajectory) -> dict[str, float]:
         """Compute individual reward components."""
         components = {}
 
@@ -123,7 +123,7 @@ class DebateOutcomeReward(RewardModel):
 
         return components
 
-    def _compute_consensus_reward(self, trajectory: "Trajectory") -> float:
+    def _compute_consensus_reward(self, trajectory: Trajectory) -> float:
         """Reward for reaching consensus."""
         if not trajectory.outcome:
             return -1.0
@@ -140,7 +140,7 @@ class DebateOutcomeReward(RewardModel):
                 return agreement_score - 0.5  # Range [0.2, 0.5]
             return -0.5
 
-    def _compute_efficiency_reward(self, trajectory: "Trajectory") -> float:
+    def _compute_efficiency_reward(self, trajectory: Trajectory) -> float:
         """Reward for efficient sub-call usage."""
         sub_calls = trajectory.stats.get("sub_calls_made", 0)
 
@@ -158,13 +158,13 @@ class DebateOutcomeReward(RewardModel):
             penalty = min(excess * 0.1, 0.5)
             return 0.0 - penalty
 
-    def _compute_confidence_reward(self, trajectory: "Trajectory") -> float:
+    def _compute_confidence_reward(self, trajectory: Trajectory) -> float:
         """Reward for high confidence."""
         confidence = cast(float, trajectory.stats.get("confidence", 0.5))
         # Map confidence [0, 1] to reward [-0.5, 1.0]
         return (confidence * 1.5) - 0.5
 
-    def _compute_iteration_reward(self, trajectory: "Trajectory") -> float:
+    def _compute_iteration_reward(self, trajectory: Trajectory) -> float:
         """Penalize excessive refinement iterations."""
         iterations = trajectory.stats.get("iterations", 1)
         ready = trajectory.stats.get("ready", True)
@@ -184,7 +184,7 @@ class DebateOutcomeReward(RewardModel):
             # Hit max iterations without ready=True
             return -1.0
 
-    def _compute_quality_reward(self, trajectory: "Trajectory") -> float:
+    def _compute_quality_reward(self, trajectory: Trajectory) -> float:
         """Reward for answer quality (if evaluated)."""
         quality_score = trajectory.outcome.get("quality_score", None)
         if quality_score is None:
@@ -209,7 +209,7 @@ class CompositeReward(RewardModel):
         """Add a reward model with weight."""
         self.models.append((model, weight))
 
-    def compute(self, trajectory: "Trajectory") -> float:
+    def compute(self, trajectory: Trajectory) -> float:
         """Compute weighted sum of all model rewards."""
         if not self.models:
             return 0.0
@@ -221,7 +221,7 @@ class CompositeReward(RewardModel):
         weighted_sum = sum(model.compute(trajectory) * weight for model, weight in self.models)
         return weighted_sum / total_weight
 
-    def compute_components(self, trajectory: "Trajectory") -> dict[str, float]:
+    def compute_components(self, trajectory: Trajectory) -> dict[str, float]:
         """Compute components from all models."""
         components = {}
         for i, (model, weight) in enumerate(self.models):
@@ -244,7 +244,7 @@ class SparseReward(RewardModel):
     failure_penalty: float = -1.0
     partial_reward: float = 0.0
 
-    def compute(self, trajectory: "Trajectory") -> float:
+    def compute(self, trajectory: Trajectory) -> float:
         """Compute sparse reward based on final outcome."""
         if not trajectory.is_terminal:
             return 0.0
@@ -263,7 +263,7 @@ class SparseReward(RewardModel):
 
         return self.failure_penalty
 
-    def compute_components(self, trajectory: "Trajectory") -> dict[str, float]:
+    def compute_components(self, trajectory: Trajectory) -> dict[str, float]:
         """Return single component for sparse reward."""
         return {"sparse": self.compute(trajectory)}
 

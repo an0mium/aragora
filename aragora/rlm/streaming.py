@@ -94,7 +94,7 @@ class StreamingRLMQuery:
 
     def __init__(
         self,
-        rlm_context: "RLMContext",
+        rlm_context: RLMContext,
         config: StreamConfig | None = None,
     ):
         """
@@ -295,10 +295,10 @@ class StreamingRLMQuery:
 
 
 async def stream_context(
-    rlm_context: "RLMContext",
+    rlm_context: RLMContext,
     query: str | None = None,
     mode: StreamMode = StreamMode.TOP_DOWN,
-    chunk_callback: Optional[Callable[[StreamChunk], None]] = None,
+    chunk_callback: Callable[[StreamChunk], None] | None = None,
 ) -> AsyncGenerator[StreamChunk, None]:
     """
     Stream context from an RLM context object.
@@ -321,7 +321,7 @@ async def stream_context(
         yield chunk
 
 
-async def quick_summary(rlm_context: "RLMContext") -> str:
+async def quick_summary(rlm_context: RLMContext) -> str:
     """
     Get a quick summary from RLM context.
 
@@ -340,7 +340,7 @@ async def quick_summary(rlm_context: "RLMContext") -> str:
 
 
 async def progressive_load(
-    rlm_context: "RLMContext",
+    rlm_context: RLMContext,
     on_level: Callable[[str, str], None],
     delay: float = 0.5,
 ) -> None:
@@ -376,15 +376,15 @@ class StreamingContextIterator:
 
     def __init__(
         self,
-        rlm_context: "RLMContext",
+        rlm_context: RLMContext,
         config: StreamConfig | None = None,
         timeout: float = 30.0,
     ):
         self.query = StreamingRLMQuery(rlm_context, config)
         self.timeout = timeout
-        self._iterator: Optional[AsyncGenerator[StreamChunk, None]] = None
+        self._iterator: AsyncGenerator[StreamChunk, None] | None = None
 
-    async def __aenter__(self) -> "StreamingContextIterator":
+    async def __aenter__(self) -> StreamingContextIterator:
         self._iterator = self.query.stream_all()
         return self
 
@@ -397,7 +397,7 @@ class StreamingContextIterator:
         if self._iterator:
             await self._iterator.aclose()
 
-    def __aiter__(self) -> "StreamingContextIterator":
+    def __aiter__(self) -> StreamingContextIterator:
         return self
 
     async def __anext__(self) -> StreamChunk:

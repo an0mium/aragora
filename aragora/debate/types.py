@@ -49,7 +49,7 @@ class PhaseProtocol(Protocol):
 
     name: str
 
-    async def execute(self, ctx: "DebateContextType") -> None:
+    async def execute(self, ctx: DebateContextType) -> None:
         """Execute the phase with the given debate context."""
         ...
 

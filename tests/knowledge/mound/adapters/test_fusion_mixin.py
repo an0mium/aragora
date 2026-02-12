@@ -37,10 +37,10 @@ from aragora.knowledge.mound.ops.fusion import (
 def make_fused_validation(
     fused_confidence: float = 0.85,
     strategy: FusionStrategy = FusionStrategy.WEIGHTED_AVERAGE,
-    participating_adapters: Optional[list[str]] = None,
+    participating_adapters: list[str] | None = None,
     conflict_detected: bool = False,
     conflict_resolved: bool = False,
-    resolution_method: Optional[ConflictResolution] = None,
+    resolution_method: ConflictResolution | None = None,
 ) -> MagicMock:
     """Create a mock FusedValidation for tests."""
     mock = MagicMock()
@@ -65,7 +65,7 @@ class MockFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
     adapter_name = "mock_fusion"
 
-    def __init__(self, fusion_sources: Optional[list[str]] = None):
+    def __init__(self, fusion_sources: list[str] | None = None):
         super().__init__()
         self._fusion_sources = fusion_sources or ["consensus", "elo", "belief"]
         self._records: dict[str, Any] = {}
@@ -77,7 +77,7 @@ class MockFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         metadata = km_item.get("metadata", {})
         confidence = km_item.get("confidence", metadata.get("confidence"))
 
@@ -95,7 +95,7 @@ class MockFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: FusedValidation,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         self._apply_calls.append(
             {
@@ -111,7 +111,7 @@ class MockFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
         return True
 
-    def _get_record_for_fusion(self, source_id: str) -> Optional[Any]:
+    def _get_record_for_fusion(self, source_id: str) -> Any | None:
         return self._records.get(source_id)
 
     def add_record(self, record_id: str, record: Any) -> None:

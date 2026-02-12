@@ -34,11 +34,11 @@ class JudgmentPhase:
 
     def __init__(
         self,
-        protocol: "DebateProtocol",
-        agents: list["Agent"],
-        elo_system: Optional["EloSystem"] = None,
-        calibration_weight_fn: Optional[Callable[[str], float]] = None,
-        composite_score_fn: Optional[Callable[[str], float]] = None,
+        protocol: DebateProtocol,
+        agents: list[Agent],
+        elo_system: EloSystem | None = None,
+        calibration_weight_fn: Callable[[str], float] | None = None,
+        composite_score_fn: Callable[[str], float] | None = None,
     ):
         """Initialize judgment phase.
 
@@ -55,7 +55,7 @@ class JudgmentPhase:
         self._get_calibration_weight = calibration_weight_fn
         self._compute_composite_score = composite_score_fn
 
-    def _require_agents(self) -> list["Agent"]:
+    def _require_agents(self) -> list[Agent]:
         """Ensure agents list is not empty."""
         if not self.agents:
             raise ValueError("No agents available for judgment")
@@ -64,9 +64,9 @@ class JudgmentPhase:
     def select_judge(
         self,
         proposals: dict[str, str],
-        context: list["Message"],
-        vote_for_judge_fn: Optional[Callable[..., Any]] = None,
-    ) -> "Agent":
+        context: list[Message],
+        vote_for_judge_fn: Callable[..., Any] | None = None,
+    ) -> Agent:
         """Select judge based on protocol.judge_selection setting.
 
         Args:
@@ -101,12 +101,12 @@ class JudgmentPhase:
         # Default fallback
         return random.choice(self._require_agents())
 
-    def _select_last(self) -> "Agent":
+    def _select_last(self) -> Agent:
         """Select synthesizer or last agent as judge."""
         synthesizers = [a for a in self.agents if a.role == "synthesizer"]
         return synthesizers[0] if synthesizers else self._require_agents()[-1]
 
-    def _select_elo_ranked(self) -> "Agent":
+    def _select_elo_ranked(self) -> Agent:
         """Select highest ELO-rated agent as judge."""
         if not self.elo_system:
             logger.warning("elo_ranked judge selection requires elo_system; falling back to random")
@@ -129,7 +129,7 @@ class JudgmentPhase:
 
         return random.choice(self._require_agents())
 
-    def _select_calibrated(self) -> "Agent":
+    def _select_calibrated(self) -> Agent:
         """Select based on composite score (ELO + calibration)."""
         if not self.elo_system:
             logger.warning("calibrated judge selection requires elo_system; falling back to random")
@@ -198,7 +198,7 @@ class JudgmentPhase:
             return False, reason  # Stop debate
         return True, ""  # Continue debate
 
-    def get_judge_stats(self, judge: "Agent") -> dict[str, Any]:
+    def get_judge_stats(self, judge: Agent) -> dict[str, Any]:
         """Get statistics about the selected judge.
 
         Args:

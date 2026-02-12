@@ -291,7 +291,7 @@ class MemoryHandler(
             return default
         return raw.strip().lower() in ("1", "true", "yes", "y", "on")
 
-    def _parse_tiers_param(self, params: dict, name: str = "tier") -> list["MemoryTier"]:
+    def _parse_tiers_param(self, params: dict, name: str = "tier") -> list[MemoryTier]:
         """Parse tiers parameter from query params."""
         tier_param = get_bounded_string_param(params, name, "", max_length=100)
         tiers: list[MemoryTier] = []

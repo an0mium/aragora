@@ -43,7 +43,7 @@ class MockSSOUser:
     email: str
     name: str = ""
     groups: list = None
-    org_id: Optional[str] = None
+    org_id: str | None = None
 
     def __post_init__(self):
         if self.groups is None:

@@ -396,7 +396,7 @@ class DisagreementAnalyzer:
         self,
         cruxes: list[DisagreementCrux],
         parent_debate_id: str | None = None,
-        available_agents: Optional[list[str]] = None,
+        available_agents: list[str] | None = None,
     ) -> list[FollowUpSuggestion]:
         """
         Generate follow-up debate suggestions from identified cruxes.

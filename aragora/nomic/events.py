@@ -128,7 +128,7 @@ class Event:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Event":
+    def from_dict(cls, data: dict[str, Any]) -> Event:
         """Deserialize event from dictionary."""
         return cls(
             event_id=data.get("event_id", str(uuid.uuid4())[:8]),
@@ -371,7 +371,7 @@ class EventLog:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EventLog":
+    def from_dict(cls, data: dict[str, Any]) -> EventLog:
         """Deserialize event log from dictionary."""
         log = cls(cycle_id=data.get("cycle_id", ""))
         log.events = [Event.from_dict(e) for e in data.get("events", [])]

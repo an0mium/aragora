@@ -38,8 +38,8 @@ logger = get_structured_logger(__name__)
 
 def init_fabric_integration(
     arena: Arena,
-    fabric: Optional[Any],
-    fabric_config: Optional[Any],
+    fabric: Any | None,
+    fabric_config: Any | None,
     agents: list[Agent],
 ) -> list[Agent]:
     """Initialize fabric integration for agent pool management.
@@ -80,8 +80,8 @@ def init_fabric_integration(
 def init_debate_strategy(
     arena: Arena,
     enable_adaptive_rounds: bool,
-    debate_strategy: Optional[Any],
-) -> Optional[Any]:
+    debate_strategy: Any | None,
+) -> Any | None:
     """Initialize debate strategy for adaptive rounds.
 
     Auto-creates DebateStrategy if adaptive rounds enabled but no strategy provided.
@@ -121,7 +121,7 @@ def init_debate_strategy(
 def init_post_debate_workflow(
     arena: Arena,
     enable_post_debate_workflow: bool,
-    post_debate_workflow: Optional[Any],
+    post_debate_workflow: Any | None,
     post_debate_workflow_threshold: float,
 ) -> None:
     """Initialize post-debate workflow automation.
@@ -237,7 +237,7 @@ def init_agent_hierarchy(
 def init_rlm_limiter(
     arena: Arena,
     use_rlm_limiter: bool,
-    rlm_limiter: Optional[RLMCognitiveLoadLimiter],
+    rlm_limiter: RLMCognitiveLoadLimiter | None,
     rlm_compression_threshold: int,
     rlm_max_recent_messages: int,
     rlm_summary_level: str,

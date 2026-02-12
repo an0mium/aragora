@@ -82,7 +82,7 @@ class LogRecord:
     trace_id: str | None = None
     span_id: str | None = None
     debate_id: str | None = None
-    exception: Optional[dict[str, Any]] = None
+    exception: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -272,7 +272,7 @@ class LogContext:
 
     def __init__(self, **fields: Any):
         self._fields = fields
-        self._token: Optional[Token[dict[str, Any]]] = None
+        self._token: Token[dict[str, Any]] | None = None
 
     def __enter__(self) -> "LogContext":
         # Merge with existing context

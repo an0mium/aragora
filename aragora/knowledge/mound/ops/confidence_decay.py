@@ -36,9 +36,9 @@ class KnowledgeMoundProtocol(Protocol):
         limit: int = 20,
         offset: int = 0,
         **kwargs: Any,
-    ) -> "QueryResult": ...
+    ) -> QueryResult: ...
 
-    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+    async def get(self, node_id: str) -> KnowledgeItem | None: ...
 
     async def update_confidence(self, node_id: str, new_confidence: float) -> bool: ...
 
@@ -46,9 +46,9 @@ class KnowledgeMoundProtocol(Protocol):
 class ConfidenceDecayMixinProtocol(KnowledgeMoundProtocol, Protocol):
     """Extended protocol for mixin methods that include decay manager access."""
 
-    _decay_manager: Optional["ConfidenceDecayManager"]
+    _decay_manager: ConfidenceDecayManager | None
 
-    def _get_decay_manager(self) -> "ConfidenceDecayManager": ...
+    def _get_decay_manager(self) -> ConfidenceDecayManager: ...
 
 
 class DecayModel(str, Enum):

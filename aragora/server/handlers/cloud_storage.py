@@ -117,10 +117,10 @@ class FileMetadata:
     created_at: datetime
     updated_at: datetime
     owner_id: str
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -154,7 +154,7 @@ class BucketInfo:
     region: str
     created_at: datetime
     owner_id: str
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     is_public: bool = False
     versioning_enabled: bool = False
     lifecycle_rules: list[dict[str, Any]] = field(default_factory=list)
@@ -183,7 +183,7 @@ class StorageQuota:
     used_bytes: int
     file_count: int
     max_file_size_bytes: int
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
 
     @property
     def available_bytes(self) -> int:

@@ -66,7 +66,7 @@ class EscalationRule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EscalationRule":
+    def from_dict(cls, data: dict[str, Any]) -> EscalationRule:
         return cls(
             id=data.get("id", str(uuid.uuid4())),
             level=EscalationLevel(data["level"]),
@@ -107,7 +107,7 @@ class SLAConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SLAConfig":
+    def from_dict(cls, data: dict[str, Any]) -> SLAConfig:
         rules = [EscalationRule.from_dict(r) for r in data.get("escalation_rules", [])]
         return cls(
             inbox_id=data["inbox_id"],
@@ -264,7 +264,7 @@ class InboxSLAMonitor:
     async def check_sla_compliance(
         self,
         inbox_id: str,
-        messages: Optional[list[dict[str, Any]]] = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> list[SLAViolation]:
         """
         Check SLA compliance for messages in an inbox.
@@ -342,7 +342,7 @@ class InboxSLAMonitor:
         self,
         inbox_id: str,
         threshold_minutes: int = 15,
-        messages: Optional[list[dict[str, Any]]] = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> list[AtRiskMessage]:
         """
         Get messages that are approaching SLA breach.
@@ -491,7 +491,7 @@ class InboxSLAMonitor:
         self,
         inbox_id: str,
         period_days: int = 7,
-        messages: Optional[list[dict[str, Any]]] = None,
+        messages: list[dict[str, Any]] | None = None,
     ) -> SLAMetrics:
         """
         Get SLA compliance metrics for an inbox.

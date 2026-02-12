@@ -1112,7 +1112,7 @@ class InvoiceHandler(BaseHandler):
     async def handle_get(
         self,
         path: str,
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """Handle GET requests."""
         query_params = query_params or {}
@@ -1149,7 +1149,7 @@ class InvoiceHandler(BaseHandler):
     async def handle_post(
         self,
         path: str,
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests."""

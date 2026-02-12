@@ -71,14 +71,14 @@ class CapabilityRouter(AgentRouter):
     def __init__(
         self,
         default_agent: str = "default",
-        device_registry: "DeviceRegistry | None" = None,
-        store: "GatewayStore | None" = None,
+        device_registry: DeviceRegistry | None = None,
+        store: GatewayStore | None = None,
     ) -> None:
         super().__init__(default_agent, store)
         self._device_registry = device_registry
         self._capability_rules: dict[str, CapabilityRule] = {}
 
-    def set_device_registry(self, registry: "DeviceRegistry") -> None:
+    def set_device_registry(self, registry: DeviceRegistry) -> None:
         """Set the device registry for capability checking."""
         self._device_registry = registry
 

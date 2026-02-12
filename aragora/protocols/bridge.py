@@ -116,7 +116,7 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[list[dict[str, Any]]] = None,
+        context: list[dict[str, Any]] | None = None,
         protocol: Protocol | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
@@ -163,7 +163,7 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[list[dict[str, Any]]] = None,
+        context: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Invoke a tool via MCP protocol.
@@ -263,7 +263,7 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[list[dict[str, Any]]] = None,
+        context: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Invoke via A2A protocol."""
@@ -301,7 +301,7 @@ class ProtocolBridge:
         self,
         target: str,
         task: str,
-        context: Optional[list[dict[str, Any]]] = None,
+        context: list[dict[str, Any]] | None = None,
         protocol: Protocol | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """
@@ -344,8 +344,8 @@ class ProtocolBridge:
 
     def wrap_aragora_agent(
         self,
-        agent: "BaseAgent",
-        capabilities: Optional[list[AgentCapability]] = None,
+        agent: BaseAgent,
+        capabilities: list[AgentCapability] | None = None,
     ) -> AgentCard:
         """
         Wrap an Aragora agent as an A2A agent card.

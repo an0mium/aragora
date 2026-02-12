@@ -59,7 +59,7 @@ class TestableOneDriveConnector(OneDriveConnector):
             results.append(file)
         return results
 
-    async def fetch(self, evidence_id: str) -> Optional[Any]:
+    async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch specific evidence."""
         try:
             return await self.get_file_metadata(evidence_id)

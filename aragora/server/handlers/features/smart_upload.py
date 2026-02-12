@@ -394,7 +394,7 @@ class UploadResult:
     status: str  # pending, processing, completed, failed
     created_at: float = field(default_factory=time.time)
     completed_at: float | None = None
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str | None = None
 
 
@@ -448,7 +448,7 @@ async def process_file(
     filename: str,
     category: FileCategory,
     action: ProcessingAction,
-    options: Optional[dict[str, Any]] = None,
+    options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Process a file based on its category and action.
@@ -925,7 +925,7 @@ async def smart_upload(
     filename: str,
     mime_type: str | None = None,
     override_action: ProcessingAction | None = None,
-    options: Optional[dict[str, Any]] = None,
+    options: dict[str, Any] | None = None,
 ) -> UploadResult:
     """
     Smart upload with auto-detection and processing.

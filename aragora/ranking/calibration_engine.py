@@ -72,7 +72,7 @@ class CalibrationEngine:
     def __init__(
         self,
         db_path: Path | str,
-        elo_system: Optional["EloSystem"] = None,
+        elo_system: EloSystem | None = None,
     ):
         """
         Initialize the calibration engine.
@@ -181,7 +181,7 @@ class CalibrationEngine:
 
         return brier_scores
 
-    def get_leaderboard(self, limit: int = 20) -> list["AgentRating"]:
+    def get_leaderboard(self, limit: int = 20) -> list[AgentRating]:
         """
         Get agents ranked by calibration score.
 
@@ -275,7 +275,7 @@ class DomainCalibrationEngine:
     def __init__(
         self,
         db_path: Path | str,
-        elo_system: Optional["EloSystem"] = None,
+        elo_system: EloSystem | None = None,
     ):
         """
         Initialize the domain calibration engine.

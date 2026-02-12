@@ -72,10 +72,10 @@ class SnowflakeConnector(EnterpriseConnector):
         database: str,
         schema: str = "PUBLIC",
         role: str | None = None,
-        tables: Optional[list[str]] = None,
+        tables: list[str] | None = None,
         timestamp_column: str | None = None,
         primary_key_column: str = "ID",
-        content_columns: Optional[list[str]] = None,
+        content_columns: list[str] | None = None,
         use_change_tracking: bool = False,
         pool_size: int = 3,
         **kwargs: Any,
@@ -305,7 +305,7 @@ class SnowflakeConnector(EnterpriseConnector):
                         return str(col["COLUMN_NAME"])
         return None
 
-    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: list[str] | None = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}

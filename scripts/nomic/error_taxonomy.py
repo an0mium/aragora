@@ -65,7 +65,7 @@ class ErrorCategory:
     message: str
     recoverable: bool
     suggested_action: str
-    root_cause_pattern: Optional[str] = None
+    root_cause_pattern: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -98,9 +98,9 @@ class ErrorPattern:
     context: dict = field(default_factory=dict)
 
     # Pattern matching fields
-    file_involved: Optional[str] = None
-    function_involved: Optional[str] = None
-    test_name: Optional[str] = None
+    file_involved: str | None = None
+    function_involved: str | None = None
+    test_name: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -125,7 +125,7 @@ class ErrorPattern:
         cycle_number: int = 0,
         fix_iteration: int = 0,
         context: dict | None = None,
-    ) -> "ErrorPattern":
+    ) -> ErrorPattern:
         """Create pattern from an exception."""
         error_type = _detect_error_type(error)
         stack = traceback.format_exception(type(error), error, error.__traceback__)

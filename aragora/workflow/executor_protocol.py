@@ -44,10 +44,10 @@ class WorkflowExecutor(Protocol):
 
     async def execute(
         self,
-        definition: "WorkflowDefinition",
+        definition: WorkflowDefinition,
         inputs: dict[str, Any] | None = None,
         workflow_id: str | None = None,
-    ) -> "WorkflowResult":
+    ) -> WorkflowResult:
         """
         Execute a workflow from the beginning.
 
@@ -96,9 +96,9 @@ class ResumableExecutor(WorkflowExecutor, Protocol):
     async def resume(
         self,
         workflow_id: str,
-        checkpoint: "WorkflowCheckpoint",
-        definition: "WorkflowDefinition",
-    ) -> "WorkflowResult":
+        checkpoint: WorkflowCheckpoint,
+        definition: WorkflowDefinition,
+    ) -> WorkflowResult:
         """
         Resume a workflow from a checkpoint.
 
@@ -112,7 +112,7 @@ class ResumableExecutor(WorkflowExecutor, Protocol):
         """
         ...
 
-    async def get_checkpoint(self, checkpoint_id: str) -> "WorkflowCheckpoint | None":
+    async def get_checkpoint(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """
         Get a checkpoint by ID.
 
@@ -124,7 +124,7 @@ class ResumableExecutor(WorkflowExecutor, Protocol):
         """
         ...
 
-    async def get_latest_checkpoint(self, workflow_id: str) -> "WorkflowCheckpoint | None":
+    async def get_latest_checkpoint(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """
         Get the most recent checkpoint for a workflow.
 
@@ -146,7 +146,7 @@ class ResourceAwareExecutor(WorkflowExecutor, Protocol):
     budget-conscious workflow execution.
     """
 
-    def estimate_cost(self, definition: "WorkflowDefinition") -> dict[str, float]:
+    def estimate_cost(self, definition: WorkflowDefinition) -> dict[str, float]:
         """
         Estimate workflow cost before execution.
 

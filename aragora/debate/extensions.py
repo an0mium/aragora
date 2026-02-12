@@ -191,9 +191,9 @@ class ArenaExtensions:
 
     def on_debate_complete(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
-        agents: list["Agent"],
+        ctx: DebateContext,
+        result: DebateResult,
+        agents: list[Agent],
     ) -> None:
         """Trigger all extensions after debate completion.
 
@@ -233,7 +233,7 @@ class ArenaExtensions:
     def _record_token_usage(
         self,
         debate_id: str,
-        agents: list["Agent"],
+        agents: list[Agent],
     ) -> None:
         """Record token usage from all agents for billing.
 
@@ -306,7 +306,7 @@ class ArenaExtensions:
 
     def _record_agent_cost(
         self,
-        agent: "Agent",
+        agent: Agent,
         debate_id: str,
         tokens_in: int,
         tokens_out: int,
@@ -431,8 +431,8 @@ class ArenaExtensions:
 
     def _sync_km_adapters(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
     ) -> None:
         """Sync Knowledge Mound adapters after debate completion.
 
@@ -495,8 +495,8 @@ class ArenaExtensions:
 
     def _evaluate_debate(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
     ) -> None:
         """Evaluate debate quality using LLM-as-Judge.
 
@@ -595,8 +595,8 @@ class ArenaExtensions:
 
     def _emit_debate_notifications(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
     ) -> None:
         """Emit notifications for debate completion (omnichannel delivery).
 
@@ -714,8 +714,8 @@ class ArenaExtensions:
 
     def _export_training_data(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
     ) -> None:
         """Export training data from completed debate (Tinker integration).
 

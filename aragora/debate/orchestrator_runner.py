@@ -87,9 +87,9 @@ def _convert_messages_to_think_prm_rounds(
 
 
 async def _run_think_prm_verification(
-    arena: "Arena",
-    ctx: "DebateContext",
-) -> "ProcessVerificationResult | None":
+    arena: Arena,
+    ctx: DebateContext,
+) -> ProcessVerificationResult | None:
     """Run ThinkPRM verification on completed debate rounds.
 
     Args:
@@ -168,7 +168,7 @@ class _DebateExecutionState:
     correlation_id: str
     domain: str
     task_complexity: Any  # TaskComplexity enum
-    ctx: "DebateContext"
+    ctx: DebateContext
     gupp_bead_id: str | None = None
     gupp_hook_entries: dict[str, str] = field(default_factory=dict)
     debate_status: str = "completed"
@@ -210,7 +210,7 @@ async def _populate_result_cost(
 
 
 async def initialize_debate_context(
-    arena: "Arena",
+    arena: Arena,
     correlation_id: str,
 ) -> _DebateExecutionState:
     """Initialize debate context and return execution state.
@@ -323,7 +323,7 @@ async def initialize_debate_context(
 
 
 async def setup_debate_infrastructure(
-    arena: "Arena",
+    arena: Arena,
     state: _DebateExecutionState,
 ) -> None:
     """Set up debate infrastructure before execution.
@@ -392,7 +392,7 @@ async def setup_debate_infrastructure(
 
 
 async def execute_debate_phases(
-    arena: "Arena",
+    arena: Arena,
     state: _DebateExecutionState,
     span: Any,
 ) -> None:
@@ -437,7 +437,7 @@ async def execute_debate_phases(
 
 
 def record_debate_metrics(
-    arena: "Arena",
+    arena: Arena,
     state: _DebateExecutionState,
     span: Any,
 ) -> None:
@@ -503,7 +503,7 @@ def record_debate_metrics(
 
 
 async def handle_debate_completion(
-    arena: "Arena",
+    arena: Arena,
     state: _DebateExecutionState,
 ) -> None:
     """Handle post-debate completion tasks.
@@ -572,7 +572,7 @@ async def handle_debate_completion(
 
 
 async def cleanup_debate_resources(
-    arena: "Arena",
+    arena: Arena,
     state: _DebateExecutionState,
 ) -> DebateResult:
     """Clean up debate resources and finalize result.

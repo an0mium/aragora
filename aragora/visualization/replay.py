@@ -279,9 +279,9 @@ class ReplayGenerator:
         """
         template_path = Path(__file__).parent / "templates" / "replay.html"
         try:
-            with open(template_path, "r", encoding="utf-8") as f:
+            with open(template_path, encoding="utf-8") as f:
                 return f.read()
-        except (FileNotFoundError, IOError) as e:
+        except (OSError, FileNotFoundError) as e:
             # Fallback: return minimal template if file not found
             import logging
 

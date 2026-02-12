@@ -91,8 +91,8 @@ class KnowledgeMoundMetaLearner:
 
     def __init__(
         self,
-        semantic_store: "SemanticStore",
-        continuum: Optional["ContinuumMemory"] = None,
+        semantic_store: SemanticStore,
+        continuum: ContinuumMemory | None = None,
         tenant_id: str = "default",
         optimization_interval_hours: float = 24.0,
     ):
@@ -124,7 +124,7 @@ class KnowledgeMoundMetaLearner:
         rank_position: int,
         was_useful: bool | None = None,
         query: str | None = None,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> None:
         """
         Record a retrieval event for learning.

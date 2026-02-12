@@ -40,7 +40,7 @@ from aragora.knowledge.mound.adapters._types import SyncResult
 class TricksterSearchResult:
     """Wrapper for trickster intervention search results."""
 
-    intervention: "TricksterIntervention"
+    intervention: TricksterIntervention
     debate_id: str
     domain: str | None
     topic: str
@@ -99,7 +99,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        trickster: "EvidencePoweredTrickster | None" = None,
+        trickster: EvidencePoweredTrickster | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -128,11 +128,11 @@ class TricksterAdapter(KnowledgeMoundAdapter):
         self._by_domain: dict[str, list[str]] = {}
 
     @property
-    def trickster(self) -> "EvidencePoweredTrickster | None":
+    def trickster(self) -> EvidencePoweredTrickster | None:
         """Access the underlying trickster."""
         return self._trickster
 
-    def set_trickster(self, trickster: "EvidencePoweredTrickster") -> None:
+    def set_trickster(self, trickster: EvidencePoweredTrickster) -> None:
         """Set or update the trickster instance."""
         self._trickster = trickster
 
@@ -141,7 +141,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
         debate_id: str,
         topic: str,
         domain: str | None = None,
-        trickster: "EvidencePoweredTrickster | None" = None,
+        trickster: EvidencePoweredTrickster | None = None,
     ) -> int:
         """
         Persist all interventions from a debate to the adapter storage.
@@ -291,7 +291,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
         self._record_metric("search", True, time.time() - start)
         return results
 
-    def _record_to_intervention(self, record: InterventionRecord) -> "TricksterIntervention":
+    def _record_to_intervention(self, record: InterventionRecord) -> TricksterIntervention:
         """Convert a persisted record back to TricksterIntervention."""
         from aragora.debate.trickster import InterventionType, TricksterIntervention
 
@@ -330,7 +330,7 @@ class TricksterAdapter(KnowledgeMoundAdapter):
     def to_knowledge_item(
         self,
         record: InterventionRecord | TricksterSearchResult,
-    ) -> "KnowledgeItem":
+    ) -> KnowledgeItem:
         """
         Convert an intervention record to a KnowledgeItem.
 

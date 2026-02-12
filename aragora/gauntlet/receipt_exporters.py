@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 def receipt_to_markdown(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     include_provenance: bool = True,
     include_evidence: bool = True,
 ) -> str:
@@ -200,7 +200,7 @@ def receipt_to_markdown(
 
 
 def receipt_to_html(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     max_findings: int = 20,
     max_provenance: int = 50,
 ) -> str:
@@ -334,7 +334,7 @@ def receipt_to_html(
 
 
 def receipt_to_html_paginated(
-    receipt: "DecisionReceipt",
+    receipt: DecisionReceipt,
     findings_per_page: int = 10,
     max_provenance: int = 50,
     provenance_sampling: str = "first_last",
@@ -485,7 +485,7 @@ def receipt_to_html_paginated(
 """
 
 
-def receipt_to_sarif(receipt: "DecisionReceipt") -> dict:
+def receipt_to_sarif(receipt: DecisionReceipt) -> dict:
     """Export as SARIF 2.1.0 format.
 
     SARIF (Static Analysis Results Interchange Format) is the OASIS standard
@@ -654,7 +654,7 @@ def receipt_to_sarif(receipt: "DecisionReceipt") -> dict:
     return sarif
 
 
-def receipt_to_csv(receipt: "DecisionReceipt") -> str:
+def receipt_to_csv(receipt: DecisionReceipt) -> str:
     """Export findings as CSV format.
 
     Args:

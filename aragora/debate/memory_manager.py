@@ -389,7 +389,7 @@ class MemoryManager:
         critique_store: Optional["CritiqueStore"] = None,
         consensus_memory: Optional["ConsensusMemory"] = None,
         debate_embeddings: Optional["DebateEmbeddingsDatabase"] = None,
-        domain_extractor: Optional[Callable[[], str]] = None,
+        domain_extractor: Callable[[], str] | None = None,
         event_emitter: EventEmitterProtocol | None = None,
         spectator: Optional["SpectatorStream"] = None,
         loop_id: str = "",

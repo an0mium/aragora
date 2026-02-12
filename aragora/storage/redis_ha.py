@@ -168,7 +168,7 @@ class RedisHAConfig:
             self.cluster_nodes = [n.strip() for n in self.cluster_nodes.split(",") if n.strip()]
 
     @classmethod
-    def from_env(cls) -> "RedisHAConfig":
+    def from_env(cls) -> RedisHAConfig:
         """
         Create configuration from environment variables.
 

@@ -331,7 +331,7 @@ class AuditEvent:
     organization_id: str
     outcome: str  # 0=success, 4=minor failure, 8=serious failure, 12=major failure
     reason: str | None = None
-    query_params: Optional[dict[str, Any]] = None
+    query_params: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -372,7 +372,7 @@ class FHIRAuditLogger:
         resource_type: str,
         resource_id: str,
         reason: str = "clinical_care",
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
     ) -> AuditEvent:
         """Log a read operation."""
         event = AuditEvent(
@@ -485,7 +485,7 @@ class FHIRConnector(EnterpriseConnector):
         self,
         base_url: str,
         organization_id: str,
-        resource_types: Optional[list[FHIRResourceType]] = None,
+        resource_types: list[FHIRResourceType] | None = None,
         client_id: str | None = None,
         enable_phi_redaction: bool = True,
         preserve_year_in_dates: bool = True,
@@ -569,8 +569,8 @@ class FHIRConnector(EnterpriseConnector):
         self,
         method: str,
         url: str,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make HTTP request with circuit breaker protection."""
         from aragora.server.http_client_pool import get_http_pool

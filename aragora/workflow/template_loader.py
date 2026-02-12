@@ -112,7 +112,7 @@ class TemplateLoader:
     def _load_template_file(self, yaml_file: Path) -> WorkflowDefinition | None:
         """Load a single template from a YAML file."""
         try:
-            with open(yaml_file, "r") as f:
+            with open(yaml_file) as f:
                 data = yaml.safe_load(f)
 
             if not data:
@@ -148,7 +148,7 @@ class TemplateLoader:
     def list_templates(
         self,
         category: WorkflowCategory | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> list[WorkflowDefinition]:
         """
         List templates with optional filtering.
@@ -204,7 +204,7 @@ def get_template(template_id: str) -> WorkflowDefinition | None:
 
 def list_templates(
     category: WorkflowCategory | None = None,
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
 ) -> list[WorkflowDefinition]:
     """List templates with optional filtering."""
     return get_template_loader().list_templates(category, tags)

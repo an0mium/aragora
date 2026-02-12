@@ -73,7 +73,7 @@ class MockPersonaManager:
     def get_all_personas(self) -> list[MockPersona]:
         return list(self._personas.values())
 
-    def get_persona(self, agent_name: str) -> Optional[MockPersona]:
+    def get_persona(self, agent_name: str) -> MockPersona | None:
         return self._personas.get(agent_name)
 
     def create_persona(
@@ -132,7 +132,7 @@ class MockPositionTracker:
     def __init__(self, db_path: str = ""):
         self.db_path = db_path
 
-    def get_agent_position_accuracy(self, agent: str) -> Optional[dict[str, Any]]:
+    def get_agent_position_accuracy(self, agent: str) -> dict[str, Any] | None:
         return {
             "total_positions": 250,
             "verified_positions": 200,

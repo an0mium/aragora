@@ -40,7 +40,7 @@ class TierRateLimiter:
 
     def __init__(
         self,
-        tier_limits: Optional[dict[str, tuple[int, int]]] = None,
+        tier_limits: dict[str, tuple[int, int]] | None = None,
         max_entries: int = 10000,
     ):
         """

@@ -78,7 +78,7 @@ class MockHandler:
         path: str = "/",
         method: str = "POST",
         headers: dict[str, str] | None = None,
-    ) -> "MockHandler":
+    ) -> MockHandler:
         """Create a MockHandler with JSON body."""
         body = json.dumps(data).encode("utf-8")
         all_headers = {

@@ -36,7 +36,7 @@ class InMemoryBackend:
 
     def get_events(
         self,
-        event_type: Optional[TelemetryEventType] = None,
+        event_type: TelemetryEventType | None = None,
     ) -> list[TelemetryEvent]:
         """Get stored events, optionally filtered by type."""
         if event_type is None:
@@ -75,7 +75,7 @@ class TelemetryCollector:
         self,
         buffer_size: int = 1000,
         flush_interval_seconds: int = 60,
-        backend: Optional[TelemetryBackend] = None,
+        backend: TelemetryBackend | None = None,
     ):
         """Initialize the telemetry collector.
 
@@ -89,7 +89,7 @@ class TelemetryCollector:
         self.backend = backend
         self._buffer: list[TelemetryEvent] = []
         self._aggregates: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-        self._flush_task: Optional[asyncio.Task[None]] = None
+        self._flush_task: asyncio.Task[None] | None = None
         self._period_start = datetime.utcnow()
 
     async def start_periodic_flush(self) -> None:
@@ -339,7 +339,7 @@ class TelemetryCollector:
 
 
 # Singleton collector for easy access
-_default_collector: Optional[TelemetryCollector] = None
+_default_collector: TelemetryCollector | None = None
 
 
 def get_telemetry_collector() -> TelemetryCollector:

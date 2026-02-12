@@ -133,14 +133,14 @@ class HandlerRegistryMixin:
     """
 
     # Type stubs for attributes expected from parent class
-    storage: Optional["DebateStorage"]
-    elo_system: Optional["EloSystem"]
-    debate_embeddings: Optional["DebateEmbeddingsDatabase"]
+    storage: DebateStorage | None
+    elo_system: EloSystem | None
+    debate_embeddings: DebateEmbeddingsDatabase | None
     document_store: Any | None
-    nomic_state_file: Optional["Path"]
-    critique_store: Optional["CritiqueStore"]
-    persona_manager: Optional["PersonaManager"]
-    position_ledger: Optional["PositionLedger"]
+    nomic_state_file: Path | None
+    critique_store: CritiqueStore | None
+    persona_manager: PersonaManager | None
+    position_ledger: PositionLedger | None
     wfile: BinaryIO
     _auth_context: Any
 

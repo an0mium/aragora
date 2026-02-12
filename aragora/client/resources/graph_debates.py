@@ -18,7 +18,7 @@ from aragora.client.models import (
 class GraphDebatesAPI:
     """API interface for graph-structured debates with branching."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def create(

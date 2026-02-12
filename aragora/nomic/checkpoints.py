@@ -131,7 +131,7 @@ def save_checkpoint(
         raise
 
 
-def load_checkpoint(checkpoint_path: str) -> Optional[dict[str, Any]]:
+def load_checkpoint(checkpoint_path: str) -> dict[str, Any] | None:
     """
     Load a checkpoint from disk.
 
@@ -162,7 +162,7 @@ def load_checkpoint(checkpoint_path: str) -> Optional[dict[str, Any]]:
         return None
 
 
-def load_latest_checkpoint(checkpoint_dir: str) -> Optional[dict[str, Any]]:
+def load_latest_checkpoint(checkpoint_dir: str) -> dict[str, Any] | None:
     """
     Load the most recent checkpoint from a directory.
 
@@ -369,11 +369,11 @@ class CheckpointManager:
 
         return path
 
-    def load_latest(self) -> Optional[dict[str, Any]]:
+    def load_latest(self) -> dict[str, Any] | None:
         """Load the most recent checkpoint."""
         return load_latest_checkpoint(self.checkpoint_dir)
 
-    def load(self, checkpoint_path: str) -> Optional[dict[str, Any]]:
+    def load(self, checkpoint_path: str) -> dict[str, Any] | None:
         """Load a specific checkpoint."""
         return load_checkpoint(checkpoint_path)
 

@@ -226,12 +226,12 @@ class StateContext:
     previous_state: NomicState | None = None
 
     # Phase outputs
-    context_result: Optional[dict[str, Any]] = None
-    debate_result: Optional[dict[str, Any]] = None
-    design_result: Optional[dict[str, Any]] = None
-    implement_result: Optional[dict[str, Any]] = None
-    verify_result: Optional[dict[str, Any]] = None
-    commit_result: Optional[dict[str, Any]] = None
+    context_result: dict[str, Any] | None = None
+    debate_result: dict[str, Any] | None = None
+    design_result: dict[str, Any] | None = None
+    implement_result: dict[str, Any] | None = None
+    verify_result: dict[str, Any] | None = None
+    commit_result: dict[str, Any] | None = None
 
     # Error tracking
     errors: list = field(default_factory=list)
@@ -267,7 +267,7 @@ class StateContext:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StateContext":
+    def from_dict(cls, data: dict[str, Any]) -> StateContext:
         """Deserialize context from dictionary."""
         ctx = cls()
         ctx.cycle_id = data.get("cycle_id", "")

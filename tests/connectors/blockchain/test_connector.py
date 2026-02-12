@@ -293,7 +293,7 @@ class TestSearchFunctionality:
     @pytest.mark.asyncio
     async def test_search_handles_contract_error(self, connector_with_mocks):
         """Search should handle contract errors gracefully."""
-        connector_with_mocks._identity_contract.get_agent.side_effect = Exception("Contract error")
+        connector_with_mocks._identity_contract.get_agent.side_effect = RuntimeError("Contract error")
 
         results = await connector_with_mocks.search("agent:42")
         assert results == []
@@ -376,7 +376,7 @@ class TestFetchFunctionality:
     @pytest.mark.asyncio
     async def test_fetch_handles_contract_error(self, connector_with_mocks):
         """Fetch should handle contract errors gracefully."""
-        connector_with_mocks._identity_contract.get_agent.side_effect = Exception("Contract error")
+        connector_with_mocks._identity_contract.get_agent.side_effect = RuntimeError("Contract error")
 
         evidence = await connector_with_mocks.fetch(f"identity:{MOCK_CHAIN_ID}:{MOCK_TOKEN_ID}")
         assert evidence is None
@@ -464,7 +464,7 @@ class TestHealthCheck:
         connector = ERC8004Connector(credentials=mock_credentials)
 
         mock_provider = MagicMock()
-        mock_provider.is_connected.side_effect = Exception("Connection failed")
+        mock_provider.is_connected.side_effect = ConnectionError("Connection failed")
         connector._provider = mock_provider
 
         # _get_provider would raise, mocking it directly

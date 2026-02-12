@@ -49,7 +49,7 @@ class FallbackResult:
 
     success: bool
     final_agent: str
-    result: "ExternalAgentResult | None" = None
+    result: ExternalAgentResult | None = None
     attempts: int = 0
     fallback_chain: list[str] = field(default_factory=list)
     fallback_reasons: dict[str, FallbackReason] = field(default_factory=dict)
@@ -130,7 +130,7 @@ class FallbackChain:
         retry_delay_ms: int = 100,
         enable_circuit_breaker: bool = True,
     ):
-        self._adapters: dict[str, "BaseExternalAgentAdapter"] = {}
+        self._adapters: dict[str, BaseExternalAgentAdapter] = {}
         self._priorities: dict[str, int] = {}  # Lower = higher priority
         self._circuits: dict[str, CircuitState] = {}
         self._max_retries = max_retries
@@ -139,12 +139,12 @@ class FallbackChain:
 
         # Callbacks for events
         self._on_fallback: Callable[[str, str, FallbackReason], Awaitable[None]] | None = None
-        self._on_exhausted: Callable[["ExternalAgentTask"], Awaitable[None]] | None = None
+        self._on_exhausted: Callable[[ExternalAgentTask], Awaitable[None]] | None = None
 
     def add_agent(
         self,
         name: str,
-        adapter: "BaseExternalAgentAdapter",
+        adapter: BaseExternalAgentAdapter,
         priority: int = 0,
         circuit_threshold: int = 5,
         circuit_reset: timedelta | None = None,
@@ -186,7 +186,7 @@ class FallbackChain:
 
     def on_exhausted(
         self,
-        callback: Callable[["ExternalAgentTask"], Awaitable[None]],
+        callback: Callable[[ExternalAgentTask], Awaitable[None]],
     ) -> None:
         """Set callback when all agents exhausted."""
         self._on_exhausted = callback
@@ -197,7 +197,7 @@ class FallbackChain:
 
     async def execute(
         self,
-        task: "ExternalAgentTask",
+        task: ExternalAgentTask,
         start_from: str | None = None,
         skip_agents: list[str] | None = None,
     ) -> FallbackResult:
@@ -244,7 +244,7 @@ class FallbackChain:
 
         fallback_chain: list[str] = []
         fallback_reasons: dict[str, FallbackReason] = {}
-        last_result: "ExternalAgentResult | None" = None
+        last_result: ExternalAgentResult | None = None
 
         for i, agent_name in enumerate(available):
             fallback_chain.append(agent_name)
@@ -331,7 +331,7 @@ class FallbackChain:
 
     def _determine_failure_reason(
         self,
-        result: "ExternalAgentResult",
+        result: ExternalAgentResult,
     ) -> FallbackReason:
         """Determine the reason for failure from result."""
         if result.error:

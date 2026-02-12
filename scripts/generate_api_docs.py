@@ -35,7 +35,7 @@ class Endpoint:
     handler_class: str = ""
     handler_method: str = ""
     parameters: list[dict] = field(default_factory=list)
-    response_example: Optional[str] = None
+    response_example: str | None = None
     auth_required: bool = False
 
 

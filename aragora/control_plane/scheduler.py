@@ -156,7 +156,7 @@ class Task:
     timeout_seconds: float = 300.0
     max_retries: int = 3
     retries: int = 0
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     # Regional routing fields
@@ -235,7 +235,7 @@ class Task:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Task":
+    def from_dict(cls, data: dict[str, Any]) -> Task:
         """Deserialize from dictionary."""
         # Parse region routing mode
         routing_mode_str = data.get("region_routing_mode", "any")
@@ -308,8 +308,8 @@ class TaskScheduler:
         stream_prefix: str = "aragora:cp:stream:",
         consumer_group: str = "aragora-workers",
         claim_timeout_ms: int = 60000,
-        policy_manager: Optional["ControlPlanePolicyManager"] = None,
-        cost_enforcer: Optional["CostEnforcer"] = None,
+        policy_manager: ControlPlanePolicyManager | None = None,
+        cost_enforcer: CostEnforcer | None = None,
     ):
         """
         Initialize the task scheduler.
@@ -464,7 +464,7 @@ class TaskScheduler:
             await self._redis.close()
             logger.info("TaskScheduler disconnected from Redis")
 
-    def set_cost_enforcer(self, cost_enforcer: "CostEnforcer") -> None:
+    def set_cost_enforcer(self, cost_enforcer: CostEnforcer) -> None:
         """
         Set the cost enforcer for budget-aware scheduling.
 
@@ -495,13 +495,13 @@ class TaskScheduler:
         self,
         task_type: str,
         payload: dict[str, Any],
-        required_capabilities: Optional[list[str]] = None,
+        required_capabilities: list[str] | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: float = 300.0,
         max_retries: int = 3,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         target_region: str | None = None,
-        fallback_regions: Optional[list[str]] = None,
+        fallback_regions: list[str] | None = None,
         region_routing_mode: RegionRoutingMode = RegionRoutingMode.ANY,
         origin_region: str = "default",
         workspace_id: str | None = None,
@@ -712,7 +712,7 @@ class TaskScheduler:
     async def complete(
         self,
         task_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
     ) -> bool:
         """
         Mark a task as completed.

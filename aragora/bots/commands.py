@@ -21,7 +21,7 @@ from aragora.bots.base import (
 logger = logging.getLogger(__name__)
 
 
-def _get_api_base(ctx: "CommandContext") -> str:
+def _get_api_base(ctx: CommandContext) -> str:
     """Get API base URL from command context.
 
     Returns:
@@ -231,8 +231,8 @@ class CommandRegistry:
         name: str,
         description: str = "",
         usage: str = "",
-        aliases: Optional[list[str]] = None,
-        platforms: Optional[set[Platform]] = None,
+        aliases: list[str] | None = None,
+        platforms: set[Platform] | None = None,
         requires_args: bool = False,
         min_args: int = 0,
         max_args: int | None = None,

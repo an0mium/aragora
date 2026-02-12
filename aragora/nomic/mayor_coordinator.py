@@ -73,8 +73,8 @@ class MayorCoordinator:
         hierarchy: AgentHierarchy,
         node_id: str | None = None,
         region: str | None = None,
-        on_become_mayor: Optional[Callable[[], Any]] = None,
-        on_lose_mayor: Optional[Callable[[], Any]] = None,
+        on_become_mayor: Callable[[], Any] | None = None,
+        on_lose_mayor: Callable[[], Any] | None = None,
     ):
         """
         Initialize the mayor coordinator.

@@ -128,7 +128,7 @@ class SQSMessage:
     message_group_id: str | None = None
 
     @classmethod
-    def from_sqs_response(cls, msg: dict[str, Any]) -> "SQSMessage":
+    def from_sqs_response(cls, msg: dict[str, Any]) -> SQSMessage:
         """Create from SQS response message."""
         body_str = msg.get("Body", "{}")
 
@@ -240,7 +240,7 @@ class SNSSQSConnector(EnterpriseConnector):
     """
 
     @property
-    def source_type(self) -> "SourceType":
+    def source_type(self) -> SourceType:
         """The source type for this connector."""
         from aragora.reasoning.provenance import SourceType
 

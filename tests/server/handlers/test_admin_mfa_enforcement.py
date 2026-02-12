@@ -37,13 +37,13 @@ class MockFullUser:
     email: str
     role: str = "user"
     mfa_enabled: bool = False
-    mfa_secret: Optional[str] = None
-    mfa_backup_codes: Optional[str] = None
-    created_at: Optional[str] = None
+    mfa_secret: str | None = None
+    mfa_backup_codes: str | None = None
+    created_at: str | None = None
     is_service_account: bool = False
-    mfa_bypass_approved_at: Optional[str] = None
-    mfa_bypass_expires_at: Optional[str] = None
-    mfa_grace_period_started_at: Optional[str] = None
+    mfa_bypass_approved_at: str | None = None
+    mfa_bypass_expires_at: str | None = None
+    mfa_grace_period_started_at: str | None = None
 
     @property
     def is_admin(self) -> bool:
@@ -71,7 +71,7 @@ class MockUserStore:
     def add_user(self, user: MockFullUser):
         self.users[user.id] = user
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockFullUser]:
+    def get_user_by_id(self, user_id: str) -> MockFullUser | None:
         return self.users.get(user_id)
 
 
@@ -95,8 +95,8 @@ class MockHandler:
 
     def __init__(
         self,
-        user: Optional[MockLightUser] = None,
-        user_store: Optional[MockUserStore] = None,
+        user: MockLightUser | None = None,
+        user_store: MockUserStore | None = None,
     ):
         self.headers = {"Authorization": f"Bearer test_token_{user.id}" if user else ""}
         self._user = user

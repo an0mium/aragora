@@ -114,8 +114,8 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        workspace_manager: Optional["WorkspaceManager"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        workspace_manager: WorkspaceManager | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         workspace_id: str = "default",
         event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
@@ -569,7 +569,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
     async def get_rig_recommendations(
         self,
         project_type: str,
-        available_rigs: Optional[list[str]] = None,
+        available_rigs: list[str] | None = None,
         top_n: int = 3,
     ) -> list[dict[str, Any]]:
         """

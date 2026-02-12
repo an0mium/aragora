@@ -103,7 +103,7 @@ class ExpertiseSearchResult:
 
     expertise: dict[str, Any]
     relevance_score: float = 0.0
-    matched_domains: Optional[list[str]] = None
+    matched_domains: list[str] | None = None
 
     def __post_init__(self) -> None:
         if self.matched_domains is None:

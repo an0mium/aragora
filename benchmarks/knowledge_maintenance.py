@@ -181,7 +181,7 @@ class MockStore:
         if node_id in self.items:
             self.items[node_id].update(updates)
 
-    async def get_node(self, node_id: str) -> Optional[dict]:
+    async def get_node(self, node_id: str) -> dict | None:
         return self.items.get(node_id)
 
 

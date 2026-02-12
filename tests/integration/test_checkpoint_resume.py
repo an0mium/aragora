@@ -45,7 +45,7 @@ from aragora.debate.protocol import DebateProtocol
 class MockCheckpointAgent(Agent):
     """Mock agent for checkpoint integration tests."""
 
-    def __init__(self, name: str, proposals: Optional[list[str]] = None):
+    def __init__(self, name: str, proposals: list[str] | None = None):
         super().__init__(name=name, model="mock-checkpoint", role="proposer")
         self.agent_type = "mock"
         self._proposals = proposals or [f"Proposal {i} from {name}" for i in range(10)]

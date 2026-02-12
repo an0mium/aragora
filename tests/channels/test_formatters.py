@@ -379,7 +379,7 @@ class TestFormatterRegistry:
                 return "test_channel_123"
 
             def format(
-                self, receipt: Any, options: Optional[dict[str, Any]] = None
+                self, receipt: Any, options: dict[str, Any] | None = None
             ) -> dict[str, Any]:
                 return {"test": True}
 

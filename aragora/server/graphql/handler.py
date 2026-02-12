@@ -152,7 +152,7 @@ class GraphQLHandler(BaseHandler):
         "/api/v1/graphql",
     ]
 
-    def __init__(self, server_context: "ServerContext"):
+    def __init__(self, server_context: ServerContext):
         """Initialize GraphQL handler.
 
         Args:
@@ -254,7 +254,7 @@ class GraphQLHandler(BaseHandler):
     def _execute(
         self,
         query: str,
-        variables: Optional[dict[str, Any]],
+        variables: dict[str, Any] | None,
         operation_name: str | None,
         ctx: ResolverContext,
     ) -> dict[str, Any]:
@@ -337,7 +337,7 @@ class GraphQLHandler(BaseHandler):
         operation: Any,
         ctx: ResolverContext,
         fragments: dict[str, Any],
-    ) -> tuple[Optional[dict[str, Any]], list[str]]:
+    ) -> tuple[dict[str, Any] | None, list[str]]:
         """Resolve a GraphQL operation.
 
         Args:

@@ -258,7 +258,7 @@ class NomicCycleRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "NomicCycleRecord":
+    def from_dict(cls, data: dict[str, Any]) -> NomicCycleRecord:
         """Create from dictionary."""
         record = cls(
             cycle_id=data["cycle_id"],

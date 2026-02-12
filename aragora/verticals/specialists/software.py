@@ -442,7 +442,7 @@ class SoftwareSpecialist(VerticalSpecialistAgent):
         self,
         code: str,
         language: str = "python",
-        focus_areas: Optional[list[str]] = None,
+        focus_areas: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Perform comprehensive code review.

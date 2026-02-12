@@ -152,8 +152,8 @@ class WooCommerceConnector(EnterpriseConnector):
         self,
         method: str,
         endpoint: str,
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> Any:
         """Make an API request with timeout and circuit breaker protection.
@@ -380,7 +380,7 @@ class WooCommerceConnector(EnterpriseConnector):
         customer_id: int | None = None,
         billing: WooAddress | None = None,
         shipping: WooAddress | None = None,
-        line_items: Optional[list[dict[str, Any]]] = None,
+        line_items: list[dict[str, Any]] | None = None,
         payment_method: str = "",
         payment_method_title: str = "",
         set_paid: bool = False,
@@ -798,9 +798,9 @@ class WooCommerceConnector(EnterpriseConnector):
         order_id: int,
         amount: Decimal | None = None,
         reason: str = "",
-        line_items: Optional[list[dict[str, Any]]] = None,
+        line_items: list[dict[str, Any]] | None = None,
         restock_items: bool = True,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a refund for an order.
 
         Args:
@@ -901,12 +901,12 @@ class WooCommerceConnector(EnterpriseConnector):
         date_expires: datetime | None = None,
         individual_use: bool = False,
         usage_limit: int | None = None,
-        product_ids: Optional[list[int]] = None,
-        excluded_product_ids: Optional[list[int]] = None,
+        product_ids: list[int] | None = None,
+        excluded_product_ids: list[int] | None = None,
         minimum_amount: str | None = None,
         maximum_amount: str | None = None,
         free_shipping: bool = False,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a new coupon.
 
         Args:
@@ -1315,7 +1315,7 @@ class WooCommerceConnector(EnterpriseConnector):
         delivery_url: str,
         secret: str = "",
         status: str = "active",
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Register a new webhook.
 
         Args:

@@ -81,12 +81,12 @@ class MockFollowUpItem:
     subject: str = "Test Subject"
     recipient: str = "test@example.com"
     sent_at: datetime = field(default_factory=datetime.now)
-    expected_by: Optional[datetime] = None
+    expected_by: datetime | None = None
     status: MockFollowUpStatus = MockFollowUpStatus.AWAITING
     days_waiting: int = 2
     urgency_score: float = 0.5
     reminder_count: int = 0
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
 
     def __post_init__(self):
         if self.expected_by is None:
@@ -116,7 +116,7 @@ class MockSnoozeRecommendation:
     """Mock snooze recommendation for testing."""
 
     suggestions: list[MockSnoozeSuggestion] = field(default_factory=list)
-    recommended: Optional[MockSnoozeSuggestion] = None
+    recommended: MockSnoozeSuggestion | None = None
 
     def __post_init__(self):
         if not self.suggestions:
@@ -180,7 +180,7 @@ class MockFollowUpTracker:
         followup_id: str,
         status: str = "resolved",
         notes: str = "",
-    ) -> Optional[MockFollowUpItem]:
+    ) -> MockFollowUpItem | None:
         item = self._followups.get(followup_id)
         if item:
             item.status = MockFollowUpStatus.RESOLVED
@@ -213,7 +213,7 @@ class MockSnoozeRecommender:
     async def recommend_snooze(
         self,
         email: dict[str, Any],
-        priority_result: Optional[Any] = None,
+        priority_result: Any | None = None,
         max_suggestions: int = 5,
     ) -> MockSnoozeRecommendation:
         return MockSnoozeRecommendation()
@@ -234,7 +234,7 @@ class MockEmailCategorizer:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[dict[str, Any]] = None,
+    body: dict[str, Any] | None = None,
     path: str = "/api/v1/email/followups/pending",
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""

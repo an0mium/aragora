@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Define fallback values before imports to avoid redefinition errors
-_get_rlm: Optional[Callable[[], Any]] = None
-_get_compressor: Optional[Callable[[], Any]] = None
-_KnowledgeMound: Optional[type] = None
+_get_rlm: Callable[[], Any] | None = None
+_get_compressor: Callable[[], Any] | None = None
+_KnowledgeMound: type | None = None
 
 # Check for RLM availability (use factory for consistent initialization)
 try:
@@ -60,7 +60,7 @@ KnowledgeMound = _KnowledgeMound
 # Threat Intelligence Integration
 # =============================================================================
 
-_ThreatIntelEnrichment: Optional[type] = None
+_ThreatIntelEnrichment: type | None = None
 
 try:
     from aragora.security.threat_intel_enrichment import (

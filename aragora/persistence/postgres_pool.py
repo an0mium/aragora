@@ -114,7 +114,7 @@ class ReplicaHealth:
 class ConnectionWrapper:
     """Wrapper around a database connection for metrics and tracing."""
 
-    def __init__(self, conn: Any, pool: "ReplicaAwarePool", is_replica: bool = False):
+    def __init__(self, conn: Any, pool: ReplicaAwarePool, is_replica: bool = False):
         """
         Initialize connection wrapper.
 
@@ -173,7 +173,7 @@ class ReplicaAwarePool:
     def __init__(
         self,
         primary_dsn: str = "",
-        replica_dsns: Optional[list[str]] = None,
+        replica_dsns: list[str] | None = None,
         min_size: int = POOL_MIN_SIZE,
         max_size: int = POOL_MAX_SIZE,
         health_check_interval: float = 30.0,
@@ -443,7 +443,7 @@ _pool: ReplicaAwarePool | None = None
 
 def configure_pool(
     primary_dsn: str = "",
-    replica_dsns: Optional[list[str]] = None,
+    replica_dsns: list[str] | None = None,
     min_size: int = POOL_MIN_SIZE,
     max_size: int = POOL_MAX_SIZE,
 ) -> ReplicaAwarePool:

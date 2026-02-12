@@ -144,7 +144,7 @@ class MockOpenAIChat:
 class MockOpenAIClient:
     """Mock OpenAI sync client."""
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         self.api_key = api_key or "mock-openai-key"
         self.chat = MockOpenAIChat(async_mode=False)
 
@@ -152,7 +152,7 @@ class MockOpenAIClient:
 class MockAsyncOpenAIClient:
     """Mock OpenAI async client."""
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         self.api_key = api_key or "mock-openai-key"
         self.chat = MockOpenAIChat(async_mode=True)
 
@@ -268,7 +268,7 @@ class MockAnthropicAsyncMessages:
 class MockAnthropicClient:
     """Mock Anthropic sync client."""
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         self.api_key = api_key or "mock-anthropic-key"
         self.messages = MockAnthropicMessages()
 
@@ -276,7 +276,7 @@ class MockAnthropicClient:
 class MockAsyncAnthropicClient:
     """Mock Anthropic async client."""
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         self.api_key = api_key or "mock-anthropic-key"
         self.messages = MockAnthropicAsyncMessages()
 
@@ -292,7 +292,7 @@ class MockHTTPXResponse:
     def __init__(
         self,
         status_code: int = 200,
-        json_data: Optional[dict] = None,
+        json_data: dict | None = None,
         text: str = "",
     ):
         self.status_code = status_code
@@ -556,7 +556,7 @@ def create_anthropic_response(
 
 def create_httpx_response(
     status_code: int = 200,
-    json_data: Optional[dict] = None,
+    json_data: dict | None = None,
     text: str = "",
 ) -> MockHTTPXResponse:
     """Create a mock HTTPX response.

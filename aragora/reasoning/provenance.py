@@ -124,7 +124,7 @@ class ProvenanceRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ProvenanceRecord":
+    def from_dict(cls, data: dict) -> ProvenanceRecord:
         return cls(
             id=data["id"],
             content_hash=data["content_hash"],
@@ -274,7 +274,7 @@ class ProvenanceChain:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ProvenanceChain":
+    def from_dict(cls, data: dict) -> ProvenanceChain:
         chain = cls(chain_id=data["chain_id"])
         chain.genesis_hash = data.get("genesis_hash")
         chain.created_at = datetime.fromisoformat(data["created_at"])
@@ -682,7 +682,7 @@ class ProvenanceManager:
         }
 
     @classmethod
-    def load(cls, data: dict) -> "ProvenanceManager":
+    def load(cls, data: dict) -> ProvenanceManager:
         """Load provenance data from export."""
         manager = cls(debate_id=data["debate_id"])
         manager.chain = ProvenanceChain.from_dict(data["chain"])

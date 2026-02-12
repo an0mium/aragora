@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 
-def git_stash_create(repo_path: Path, log_func: Callable = print) -> Optional[str]:
+def git_stash_create(repo_path: Path, log_func: Callable = print) -> str | None:
     """
     Create a git stash for transactional safety.
 
@@ -50,7 +50,7 @@ def git_stash_create(repo_path: Path, log_func: Callable = print) -> Optional[st
     return None
 
 
-def git_stash_pop(repo_path: Path, stash_ref: Optional[str], log_func: Callable = print) -> None:
+def git_stash_pop(repo_path: Path, stash_ref: str | None, log_func: Callable = print) -> None:
     """
     Pop a stash to restore previous state.
 
@@ -197,7 +197,7 @@ def git_add_all(repo_path: Path, log_func: Callable = print) -> bool:
         return False
 
 
-def git_commit(repo_path: Path, message: str, log_func: Callable = print) -> Optional[str]:
+def git_commit(repo_path: Path, message: str, log_func: Callable = print) -> str | None:
     """
     Create a git commit.
 
@@ -287,7 +287,7 @@ def selective_rollback(repo_path: Path, files: list[str], log_func: Callable = p
 
 def preserve_failed_work(
     repo_path: Path, branch_name: str, log_func: Callable = print
-) -> Optional[str]:
+) -> str | None:
     """
     Preserve failed work in a separate branch before rollback.
 

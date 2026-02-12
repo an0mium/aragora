@@ -93,7 +93,7 @@ class MockResult:
     messages: list = field(default_factory=list)
     critiques: list = field(default_factory=list)
     rounds_used: int = 0
-    metadata: Optional[dict] = field(default_factory=dict)
+    metadata: dict | None = field(default_factory=dict)
 
 
 @dataclass

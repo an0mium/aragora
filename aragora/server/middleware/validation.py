@@ -983,7 +983,7 @@ class ValidationMiddleware:
     def __init__(
         self,
         config: ValidationConfig | None = None,
-        registry: Optional[list[RouteValidation]] = None,
+        registry: list[RouteValidation] | None = None,
     ) -> None:
         self.config = config or ValidationConfig()
         self.registry = registry or VALIDATION_REGISTRY
@@ -998,7 +998,7 @@ class ValidationMiddleware:
         self,
         path: str,
         method: str,
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
         body: bytes | None = None,
         body_parsed: dict | None = None,
     ) -> MiddlewareValidationResult:
@@ -1182,8 +1182,8 @@ def add_route_validation(
     pattern: str,
     method: str,
     body_schema: dict | None = None,
-    query_rules: Optional[dict[str, tuple[int, int]]] = None,
-    required_params: Optional[list[str]] = None,
+    query_rules: dict[str, tuple[int, int]] | None = None,
+    required_params: list[str] | None = None,
 ) -> None:
     """Add a validation rule to the global registry.
 

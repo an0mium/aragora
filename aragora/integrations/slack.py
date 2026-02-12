@@ -667,7 +667,7 @@ class SlackIntegration:
     async def post_consensus_with_votes(
         self,
         debate_id: str,
-        result: "DebateResult",
+        result: DebateResult,
         user_votes: dict[str, int],
     ) -> bool:
         """Post consensus result including user votes from Slack.
@@ -691,7 +691,7 @@ class SlackIntegration:
     def _build_consensus_with_votes_blocks(
         self,
         debate_id: str,
-        result: "DebateResult",
+        result: DebateResult,
         user_votes: dict[str, int],
     ) -> list[dict[str, Any]]:
         """Build consensus result blocks with user vote counts."""

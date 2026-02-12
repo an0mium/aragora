@@ -29,9 +29,9 @@ class KMAdapterMixin:
         _km_adapter: Optional EloAdapter instance for KM integration
     """
 
-    _km_adapter: Optional["EloAdapter"]
+    _km_adapter: EloAdapter | None
 
-    def set_km_adapter(self, adapter: "EloAdapter") -> None:
+    def set_km_adapter(self, adapter: EloAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 
         Args:

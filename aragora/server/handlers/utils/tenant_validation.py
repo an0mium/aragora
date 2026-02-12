@@ -197,7 +197,7 @@ async def validate_tenant_access(
     endpoint: str = "unknown",
     ip_address: str | None = None,
     allow_none: bool = True,
-) -> "HandlerResult | None":
+) -> HandlerResult | None:
     """
     Validate that the authenticated user has access to the requested tenant.
 
@@ -283,7 +283,7 @@ async def validate_workspace_access(
     ip_address: str | None = None,
     allow_none: bool = True,
     allow_default: bool = True,
-) -> "HandlerResult | None":
+) -> HandlerResult | None:
     """
     Validate that the authenticated user has access to the requested workspace.
 
@@ -320,7 +320,7 @@ def validate_tenant_access_sync(
     endpoint: str = "unknown",
     ip_address: str | None = None,
     allow_none: bool = True,
-) -> "HandlerResult | None":
+) -> HandlerResult | None:
     """
     Synchronous version of validate_tenant_access for non-async handlers.
 
@@ -390,7 +390,7 @@ def validate_workspace_access_sync(
     ip_address: str | None = None,
     allow_none: bool = True,
     allow_default: bool = True,
-) -> "HandlerResult | None":
+) -> HandlerResult | None:
     """
     Synchronous version of validate_workspace_access for non-async handlers.
 

@@ -51,15 +51,15 @@ class MockUser:
     role: str = "user"
     is_admin: bool = False
     mfa_enabled: bool = False
-    mfa_secret: Optional[str] = None
-    mfa_backup_codes: Optional[str] = None
-    created_at: Optional[datetime] = None
-    mfa_grace_period_started_at: Optional[datetime] = None
+    mfa_secret: str | None = None
+    mfa_backup_codes: str | None = None
+    created_at: datetime | None = None
+    mfa_grace_period_started_at: datetime | None = None
     metadata: dict = field(default_factory=dict)
     # Service account bypass fields
     is_service_account: bool = False
-    mfa_bypass_approved_at: Optional[datetime] = None
-    mfa_bypass_expires_at: Optional[datetime] = None
+    mfa_bypass_approved_at: datetime | None = None
+    mfa_bypass_expires_at: datetime | None = None
 
 
 class MockUserStore:
@@ -68,7 +68,7 @@ class MockUserStore:
     def __init__(self):
         self.users: dict[str, MockUser] = {}
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockUser]:
+    def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self.users.get(user_id)
 
 
@@ -106,7 +106,7 @@ def get_body(result) -> dict:
     return {}
 
 
-def get_error_code(result) -> Optional[str]:
+def get_error_code(result) -> str | None:
     """Extract error code from result body."""
     body = get_body(result)
     # Handle nested error structure: {"error": {"code": "...", "message": "..."}}

@@ -94,8 +94,8 @@ class MockUser:
     email: str
     name: str = "Test User"
     role: str = "user"
-    org_id: Optional[str] = None
-    password_hash: Optional[str] = "hashed_password"
+    org_id: str | None = None
+    password_hash: str | None = "hashed_password"
 
 
 class MockUserStore:
@@ -113,16 +113,16 @@ class MockUserStore:
         self.users[user_id] = user
         return user
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockUser]:
+    def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self.users.get(user_id)
 
-    def get_user_by_email(self, email: str) -> Optional[MockUser]:
+    def get_user_by_email(self, email: str) -> MockUser | None:
         for user in self.users.values():
             if user.email == email:
                 return user
         return None
 
-    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> Optional[MockUser]:
+    def get_user_by_oauth(self, provider: str, provider_user_id: str) -> MockUser | None:
         user_id = self.oauth_links.get((provider, provider_user_id))
         if user_id:
             return self.users.get(user_id)
@@ -171,7 +171,7 @@ class MockAuthContext:
     """Mock authentication context."""
 
     is_authenticated: bool = False
-    user_id: Optional[str] = None
+    user_id: str | None = None
 
 
 @dataclass

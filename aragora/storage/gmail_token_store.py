@@ -216,7 +216,7 @@ class GmailUserState:
         return json.dumps(data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "GmailUserState":
+    def from_json(cls, json_str: str) -> GmailUserState:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(
@@ -242,7 +242,7 @@ class GmailUserState:
         )
 
     @classmethod
-    def from_row(cls, row: tuple) -> "GmailUserState":
+    def from_row(cls, row: tuple) -> GmailUserState:
         """Create from database row."""
         user_id = row[0]
         return cls(
@@ -763,7 +763,7 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
         );
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresGmailTokenStore initialized")

@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global singleton
-_ar_invoice_store: Optional["ARInvoiceStoreBackend"] = None
+_ar_invoice_store: ARInvoiceStoreBackend | None = None
 _store_lock = threading.RLock()
 
 
@@ -950,7 +950,7 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
         );
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
 

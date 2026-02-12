@@ -55,12 +55,12 @@ class Result(Generic[T]):
     error: str | None = None
 
     @classmethod
-    def ok(cls, value: T) -> "Result[T]":
+    def ok(cls, value: T) -> Result[T]:
         """Create successful result."""
         return cls(success=True, value=value)
 
     @classmethod
-    def fail(cls, error: str) -> "Result[T]":
+    def fail(cls, error: str) -> Result[T]:
         """Create failed result."""
         return cls(success=False, error=error)
 

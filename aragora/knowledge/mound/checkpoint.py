@@ -147,7 +147,7 @@ class KMCheckpointStore:
 
     def __init__(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMound,
         checkpoint_dir: str | None = None,
         compress: bool = True,
         max_checkpoints: int = 10,
@@ -180,7 +180,7 @@ class KMCheckpointStore:
         self,
         name: str | None = None,
         description: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         include_vectors: bool = False,
         include_culture: bool = True,
         include_staleness: bool = True,
@@ -733,7 +733,7 @@ _checkpoint_store: KMCheckpointStore | None = None
 
 
 def get_km_checkpoint_store(
-    mound: Optional["KnowledgeMound"] = None,
+    mound: KnowledgeMound | None = None,
     checkpoint_dir: str | None = None,
 ) -> KMCheckpointStore | None:
     """

@@ -130,8 +130,8 @@ class DecisionPlanAdapter(KnowledgeMoundAdapter):
 
     async def ingest_plan_outcome(
         self,
-        plan: "DecisionPlan",
-        outcome: "PlanOutcome",
+        plan: DecisionPlan,
+        outcome: PlanOutcome,
     ) -> PlanIngestionResult:
         """Ingest a completed plan and its outcome into Knowledge Mound.
 
@@ -206,8 +206,8 @@ class DecisionPlanAdapter(KnowledgeMoundAdapter):
 
     def _create_plan_outcome_item(
         self,
-        plan: "DecisionPlan",
-        outcome: "PlanOutcome",
+        plan: DecisionPlan,
+        outcome: PlanOutcome,
     ) -> KnowledgeItem:
         """Create a KnowledgeItem from plan outcome."""
         # Build content summary
@@ -296,8 +296,8 @@ Execution Results:
 
     def _create_lesson_item(
         self,
-        plan: "DecisionPlan",
-        outcome: "PlanOutcome",
+        plan: DecisionPlan,
+        outcome: PlanOutcome,
         lesson: str,
         index: int,
     ) -> KnowledgeItem:

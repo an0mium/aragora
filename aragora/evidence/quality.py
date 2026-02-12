@@ -36,7 +36,7 @@ class QualityTier(str, Enum):
     UNRELIABLE = "unreliable"  # < 0.30
 
     @classmethod
-    def from_score(cls, score: float) -> "QualityTier":
+    def from_score(cls, score: float) -> QualityTier:
         """Classify a score into a quality tier."""
         if score >= 0.85:
             return cls.EXCELLENT
@@ -117,7 +117,7 @@ class QualityScores:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "QualityScores":
+    def from_dict(cls, data: dict[str, Any]) -> QualityScores:
         """Create from dictionary."""
         weights = data.get("weights", {})
         return cls(
@@ -193,7 +193,7 @@ class QualityScorer:
     def __init__(
         self,
         default_context: QualityContext | None = None,
-        embedding_provider: Optional["EmbeddingProvider"] = None,
+        embedding_provider: EmbeddingProvider | None = None,
     ):
         """Initialize the quality scorer.
 
@@ -206,7 +206,7 @@ class QualityScorer:
         self._embedding_provider = embedding_provider
         self._query_embedding_cache: dict[str, list[float]] = {}
 
-    def set_embedding_provider(self, provider: "EmbeddingProvider") -> None:
+    def set_embedding_provider(self, provider: EmbeddingProvider) -> None:
         """Set or update the embedding provider for semantic scoring."""
         self._embedding_provider = provider
         self._query_embedding_cache.clear()
@@ -710,7 +710,7 @@ class QualityFilter:
 def score_evidence_snippet(
     snippet: Any,  # EvidenceSnippet
     query: str = "",
-    keywords: Optional[list[str]] = None,
+    keywords: list[str] | None = None,
     scorer: QualityScorer | None = None,
 ) -> QualityScores:
     """Convenience function to score an evidence snippet.

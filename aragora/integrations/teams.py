@@ -521,7 +521,7 @@ class TeamsIntegration:
 
         return await self._send_card(card)
 
-    async def __aenter__(self) -> "TeamsIntegration":
+    async def __aenter__(self) -> TeamsIntegration:
         """Async context manager entry."""
         return self
 

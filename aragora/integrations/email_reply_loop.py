@@ -185,7 +185,7 @@ class EmailReplyOrigin:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EmailReplyOrigin":
+    def from_dict(cls, data: dict[str, Any]) -> EmailReplyOrigin:
         """Create from dictionary."""
         sent_at = data.get("sent_at")
         reply_received_at = data.get("reply_received_at")
@@ -243,7 +243,7 @@ class SQLiteEmailReplyStore:
         conn.commit()
         conn.close()
 
-    def save(self, origin: "EmailReplyOrigin") -> None:
+    def save(self, origin: EmailReplyOrigin) -> None:
         """Save an email reply origin to SQLite."""
         conn = sqlite3.connect(self.db_path)
         conn.execute(
@@ -265,7 +265,7 @@ class SQLiteEmailReplyStore:
         conn.commit()
         conn.close()
 
-    def get(self, message_id: str) -> Optional["EmailReplyOrigin"]:
+    def get(self, message_id: str) -> EmailReplyOrigin | None:
         """Get an email reply origin by message ID."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.execute(
@@ -310,7 +310,7 @@ class PostgresEmailReplyStore:
         CREATE INDEX IF NOT EXISTS idx_email_origins_expires ON email_reply_origins(expires_at);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresEmailReplyStore initialized")
@@ -326,7 +326,7 @@ class PostgresEmailReplyStore:
         self._initialized = True
         logger.debug(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def save(self, origin: "EmailReplyOrigin") -> None:
+    async def save(self, origin: EmailReplyOrigin) -> None:
         """Save an email reply origin to PostgreSQL."""
         expires_at = datetime.now(timezone.utc).timestamp() + EMAIL_ORIGIN_TTL_SECONDS
         async with self._pool.acquire() as conn:
@@ -355,7 +355,7 @@ class PostgresEmailReplyStore:
                 expires_at,
             )
 
-    async def get(self, message_id: str) -> Optional["EmailReplyOrigin"]:
+    async def get(self, message_id: str) -> EmailReplyOrigin | None:
         """Get an email reply origin by message ID."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
@@ -484,7 +484,7 @@ def register_email_origin(
     message_id: str,
     recipient_email: str,
     recipient_name: str = "",
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> EmailReplyOrigin:
     """
     Register an email as expecting a reply.

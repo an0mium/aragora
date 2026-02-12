@@ -440,7 +440,7 @@ class AlexaConnector(DeviceConnector):
     def build_alexa_response(
         self,
         response: VoiceDeviceResponse,
-        session_attributes: Optional[dict[str, Any]] = None,
+        session_attributes: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Build an Alexa skill response from VoiceDeviceResponse.

@@ -87,7 +87,7 @@ class DebateState:
         return json.dumps(data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "DebateState":
+    def from_json(cls, json_str: str) -> DebateState:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(**data)

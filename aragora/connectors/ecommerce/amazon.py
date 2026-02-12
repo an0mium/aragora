@@ -101,7 +101,7 @@ class AmazonCredentials:
     role_arn: str | None = None
 
     @classmethod
-    def from_env(cls) -> "AmazonCredentials":
+    def from_env(cls) -> AmazonCredentials:
         """Create credentials from environment variables."""
         return cls(
             refresh_token=os.environ.get("AMAZON_SP_REFRESH_TOKEN", ""),
@@ -267,8 +267,8 @@ class AmazonProduct:
     manufacturer: str | None
     product_type: str | None
     parent_asin: str | None  # For variations
-    item_dimensions: Optional[dict[str, Any]] = None
-    package_dimensions: Optional[dict[str, Any]] = None
+    item_dimensions: dict[str, Any] | None = None
+    package_dimensions: dict[str, Any] | None = None
     images: list[str] = field(default_factory=list)
     bullet_points: list[str] = field(default_factory=list)
     browse_nodes: list[str] = field(default_factory=list)
@@ -416,8 +416,8 @@ class AmazonConnector(EnterpriseConnector):
     async def sync_orders(
         self,
         since: datetime | None = None,
-        status: Optional[list[AmazonOrderStatus]] = None,
-        fulfillment_channels: Optional[list[FulfillmentChannel]] = None,
+        status: list[AmazonOrderStatus] | None = None,
+        fulfillment_channels: list[FulfillmentChannel] | None = None,
     ) -> AsyncIterator[AmazonOrder]:
         """Sync orders from Amazon.
 
@@ -573,7 +573,7 @@ class AmazonConnector(EnterpriseConnector):
 
     async def get_fba_inventory(
         self,
-        skus: Optional[list[str]] = None,
+        skus: list[str] | None = None,
     ) -> list[AmazonInventoryItem]:
         """Get FBA inventory levels.
 

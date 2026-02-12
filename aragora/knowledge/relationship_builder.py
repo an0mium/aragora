@@ -60,7 +60,7 @@ class CodeEntity:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_file(cls, crawled_file: CrawledFile, repository: str) -> "CodeEntity":
+    def from_file(cls, crawled_file: CrawledFile, repository: str) -> CodeEntity:
         """Create a CodeEntity from a CrawledFile."""
         return cls(
             id=f"{repository}:{crawled_file.relative_path}",
@@ -77,7 +77,7 @@ class CodeEntity:
         )
 
     @classmethod
-    def from_symbol(cls, symbol: FileSymbol, file_path: str, repository: str) -> "CodeEntity":
+    def from_symbol(cls, symbol: FileSymbol, file_path: str, repository: str) -> CodeEntity:
         """Create a CodeEntity from a FileSymbol."""
         entity_id = f"{repository}:{file_path}:{symbol.name}"
         if symbol.parent:
@@ -148,7 +148,7 @@ class RelationshipGraph:
     def get_dependencies(
         self,
         entity_id: str,
-        relationship_kinds: Optional[set[RelationshipKind]] = None,
+        relationship_kinds: set[RelationshipKind] | None = None,
     ) -> list[CodeEntity]:
         """Get entities that this entity depends on."""
         result = []
@@ -161,7 +161,7 @@ class RelationshipGraph:
     def get_dependents(
         self,
         entity_id: str,
-        relationship_kinds: Optional[set[RelationshipKind]] = None,
+        relationship_kinds: set[RelationshipKind] | None = None,
     ) -> list[CodeEntity]:
         """Get entities that depend on this entity."""
         result = []
@@ -245,7 +245,7 @@ class RelationshipBuilder:
         self,
         entity_id: str,
         depth: int = 2,
-        relationship_kinds: Optional[set[RelationshipKind]] = None,
+        relationship_kinds: set[RelationshipKind] | None = None,
     ) -> list[CodeEntity]:
         """
         Find all dependencies of an entity up to a given depth.
@@ -281,7 +281,7 @@ class RelationshipBuilder:
         self,
         entity_id: str,
         depth: int = 2,
-        relationship_kinds: Optional[set[RelationshipKind]] = None,
+        relationship_kinds: set[RelationshipKind] | None = None,
     ) -> list[CodeEntity]:
         """
         Find all entities that depend on this entity.

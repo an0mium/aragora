@@ -69,12 +69,12 @@ class MockDebateResult:
     dissenting_views: list = field(default_factory=list)
     rounds_used: int = 3
     duration_seconds: float = 0.0
-    winner: Optional[str] = None
+    winner: str | None = None
     final_answer: str = "The answer is X"
     consensus_reached: bool = True
     confidence: float = 0.85
-    disagreement_report: Optional[object] = None
-    grounded_verdict: Optional[object] = None
+    disagreement_report: object | None = None
+    grounded_verdict: object | None = None
     belief_cruxes: list = field(default_factory=list)
 
 

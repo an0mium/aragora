@@ -30,7 +30,7 @@ class ArenaCall:
 def find_arena_calls(filepath: Path) -> list[ArenaCall]:
     """Find all Arena() calls in a Python file."""
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             source = f.read()
         tree = ast.parse(source)
     except (SyntaxError, UnicodeDecodeError):

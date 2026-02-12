@@ -59,7 +59,7 @@ class ZapierTrigger:
 
     # Filtering
     workspace_id: str | None = None
-    debate_tags: Optional[list[str]] = None
+    debate_tags: list[str] | None = None
     min_confidence: float | None = None
 
     def matches_event(self, event: dict[str, Any]) -> bool:
@@ -243,7 +243,7 @@ class ZapierIntegration(BaseIntegration):
         trigger_type: str,
         webhook_url: str,
         workspace_id: str | None = None,
-        debate_tags: Optional[list[str]] = None,
+        debate_tags: list[str] | None = None,
         min_confidence: float | None = None,
     ) -> ZapierTrigger | None:
         """Subscribe to a trigger (REST Hook subscription).

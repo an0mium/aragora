@@ -151,7 +151,7 @@ class WebhookDelivery:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WebhookDelivery":
+    def from_dict(cls, data: dict[str, Any]) -> WebhookDelivery:
         """Deserialize delivery from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -190,7 +190,7 @@ class WebhookDelivery:
         return json.dumps(self.to_dict(), default=str)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "WebhookDelivery":
+    def from_json(cls, json_str: str) -> WebhookDelivery:
         """Deserialize delivery from JSON string."""
         return cls.from_dict(json.loads(json_str))
 

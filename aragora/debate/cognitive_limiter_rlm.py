@@ -146,8 +146,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
     def __init__(
         self,
         budget: RLMCognitiveBudget | None = None,
-        compressor: Optional["HierarchicalCompressor"] = None,
-        summarize_fn: Optional[Callable[[str, str], str]] = None,
+        compressor: HierarchicalCompressor | None = None,
+        summarize_fn: Callable[[str, str], str] | None = None,
         rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
         rlm_model: str = "gpt-4o",
     ):
@@ -302,7 +302,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         return "No relevant information found."
 
     @property
-    def compressor(self) -> Optional["HierarchicalCompressor"]:
+    def compressor(self) -> HierarchicalCompressor | None:
         """Lazy-load the hierarchical compressor via factory."""
         if self._compressor is None:
             if get_compressor is not None:
@@ -320,7 +320,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         level: str,
         rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
         rlm_model: str = "gpt-4o",
-    ) -> "RLMCognitiveLoadLimiter":
+    ) -> RLMCognitiveLoadLimiter:
         """
         Create RLM limiter for stress level.
 
@@ -356,8 +356,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     async def compress_context_async(
         self,
-        messages: Optional[list[Any]] = None,
-        critiques: Optional[list[Any]] = None,
+        messages: list[Any] | None = None,
+        critiques: list[Any] | None = None,
         patterns: str | None = None,
         extra_context: str | None = None,
     ) -> CompressedContext:
@@ -669,8 +669,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def _calculate_total_chars(
         self,
-        messages: Optional[list[Any]],
-        critiques: Optional[list[Any]],
+        messages: list[Any] | None,
+        critiques: list[Any] | None,
         patterns: str | None,
         extra_context: str | None,
     ) -> int:
@@ -695,8 +695,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def compress_context(
         self,
-        messages: Optional[list[Any]] = None,
-        critiques: Optional[list[Any]] = None,
+        messages: list[Any] | None = None,
+        critiques: list[Any] | None = None,
         patterns: str | None = None,
         extra_context: str | None = None,
     ) -> CompressedContext:
@@ -718,8 +718,8 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
     def _compress_context_sync(
         self,
-        messages: Optional[list[Any]] = None,
-        critiques: Optional[list[Any]] = None,
+        messages: list[Any] | None = None,
+        critiques: list[Any] | None = None,
         patterns: str | None = None,
         extra_context: str | None = None,
     ) -> CompressedContext:
@@ -893,7 +893,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
 def create_rlm_limiter(
     stress_level: str = "elevated",
-    compressor: Optional["HierarchicalCompressor"] = None,
+    compressor: HierarchicalCompressor | None = None,
     rlm_backend: Any = _DEPRECATED_RLM_BACKEND,
     rlm_model: str = "gpt-4o",
 ) -> RLMCognitiveLoadLimiter:

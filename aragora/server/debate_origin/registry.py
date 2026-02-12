@@ -142,7 +142,7 @@ def register_debate_origin(
     user_id: str,
     thread_id: str | None = None,
     message_id: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
     session_id: str | None = None,
     create_session: bool = False,
 ) -> DebateOrigin:

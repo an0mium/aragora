@@ -40,7 +40,7 @@ def create_mock_kafka_message(
     topic: str = "test-topic",
     partition: int = 0,
     offset: int = 1,
-    key: Optional[bytes] = None,
+    key: bytes | None = None,
     value: bytes = b'{"type": "test", "data": "sample"}',
     timestamp: int = 1609459200000,  # 2021-01-01 00:00:00 UTC in ms
 ) -> MagicMock:
@@ -59,10 +59,10 @@ def create_kafka_message_dataclass(
     topic: str = "test-topic",
     partition: int = 0,
     offset: int = 1,
-    key: Optional[str] = None,
+    key: str | None = None,
     value: Any = None,
-    headers: Optional[dict[str, str]] = None,
-    timestamp: Optional[datetime] = None,
+    headers: dict[str, str] | None = None,
+    timestamp: datetime | None = None,
 ) -> KafkaMessage:
     """Create a KafkaMessage dataclass for testing."""
     return KafkaMessage(

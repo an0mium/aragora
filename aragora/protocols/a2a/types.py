@@ -141,7 +141,7 @@ class AgentCard:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AgentCard":
+    def from_dict(cls, data: dict[str, Any]) -> AgentCard:
         """Create from dictionary."""
         return cls(
             name=data["name"],
@@ -237,7 +237,7 @@ class TaskRequest:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TaskRequest":
+    def from_dict(cls, data: dict[str, Any]) -> TaskRequest:
         """Create from dictionary."""
         return cls(
             task_id=data["task_id"],
@@ -281,7 +281,7 @@ class TaskResult:
     # Result
     output: str | None = None
     output_type: str = "text"
-    structured_output: Optional[dict[str, Any]] = None
+    structured_output: dict[str, Any] | None = None
 
     # Metrics
     started_at: datetime | None = None
@@ -323,7 +323,7 @@ class TaskResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TaskResult":
+    def from_dict(cls, data: dict[str, Any]) -> TaskResult:
         """Create from dictionary."""
         return cls(
             task_id=data["task_id"],

@@ -63,7 +63,7 @@ class SpamClassifier:
     def __init__(
         self,
         config: SpamClassifierConfig | None = None,
-        sender_history_service: Optional["SenderHistoryService"] = None,
+        sender_history_service: SenderHistoryService | None = None,
         user_id: str | None = None,
     ):
         """
@@ -159,8 +159,8 @@ class SpamClassifier:
         subject: str,
         body: str,
         sender: str,
-        headers: Optional[dict[str, str]] = None,
-        attachments: Optional[list[str]] = None,
+        headers: dict[str, str] | None = None,
+        attachments: list[str] | None = None,
     ) -> SpamClassificationResult:
         """
         Classify an email as spam or ham.
@@ -531,8 +531,8 @@ async def classify_email_spam(
     subject: str,
     body: str,
     sender: str,
-    headers: Optional[dict[str, str]] = None,
-    attachments: Optional[list[str]] = None,
+    headers: dict[str, str] | None = None,
+    attachments: list[str] | None = None,
 ) -> SpamClassificationResult:
     """
     Quick convenience function for spam classification.

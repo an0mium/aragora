@@ -108,8 +108,8 @@ class TaskRouter:
         weights: dict[str, float] | None = None,
     ):
         self._default_strategy = default_strategy
-        self._adapters: dict[str, "BaseExternalAgentAdapter"] = {}
-        self._capabilities: dict[str, set["AgentCapability"]] = {}
+        self._adapters: dict[str, BaseExternalAgentAdapter] = {}
+        self._capabilities: dict[str, set[AgentCapability]] = {}
         self._metrics: dict[str, AgentMetrics] = {}
         self._priority: dict[str, int] = {}  # Higher = preferred
 
@@ -124,8 +124,8 @@ class TaskRouter:
     def register_agent(
         self,
         name: str,
-        adapter: "BaseExternalAgentAdapter",
-        capabilities: list["AgentCapability"],
+        adapter: BaseExternalAgentAdapter,
+        capabilities: list[AgentCapability],
         priority: int = 0,
         cost_per_request: float = 0.0,
         max_concurrent: int = 10,
@@ -164,7 +164,7 @@ class TaskRouter:
 
     def get_capable_agents(
         self,
-        required_capabilities: list["AgentCapability"],
+        required_capabilities: list[AgentCapability],
     ) -> list[str]:
         """Get agents that have all required capabilities."""
         required = set(required_capabilities)
@@ -172,7 +172,7 @@ class TaskRouter:
 
     async def route(
         self,
-        task: "ExternalAgentTask",
+        task: ExternalAgentTask,
         strategy: RoutingStrategy | None = None,
         exclude_agents: list[str] | None = None,
     ) -> RoutingDecision:
@@ -240,7 +240,7 @@ class TaskRouter:
     def _score_agent(
         self,
         agent: str,
-        task: "ExternalAgentTask",
+        task: ExternalAgentTask,
         strategy: RoutingStrategy,
     ) -> float:
         """Calculate score for an agent based on strategy."""
@@ -277,7 +277,7 @@ class TaskRouter:
     def _hybrid_score(
         self,
         agent: str,
-        task: "ExternalAgentTask",
+        task: ExternalAgentTask,
     ) -> float:
         """Calculate weighted hybrid score across all factors."""
         scores = {

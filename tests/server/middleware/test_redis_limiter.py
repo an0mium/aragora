@@ -49,10 +49,10 @@ class MockRedis:
     def ping(self) -> bool:
         return True
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         return self._data.get(key)
 
-    def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    def set(self, key: str, value: str, ex: int | None = None) -> bool:
         self._data[key] = value
         if ex:
             self._ttls[key] = time.time() + ex
@@ -86,9 +86,9 @@ class MockRedis:
     def hset(
         self,
         name: str,
-        key: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict[str, str]] = None,
+        key: str | None = None,
+        value: str | None = None,
+        mapping: dict[str, str] | None = None,
     ) -> int:
         if name not in self._hashes:
             self._hashes[name] = {}
@@ -107,7 +107,7 @@ class MockRedis:
         self._ttls[key] = time.time() + seconds
         return True
 
-    def pipeline(self) -> "MockPipeline":
+    def pipeline(self) -> MockPipeline:
         return MockPipeline(self)
 
     def close(self) -> None:

@@ -52,7 +52,7 @@ class DeviceRegistry:
     - Online/offline status tracking
     """
 
-    def __init__(self, store: "GatewayStore | None" = None) -> None:
+    def __init__(self, store: GatewayStore | None = None) -> None:
         self._devices: dict[str, DeviceNode] = {}
         self._store = store
 

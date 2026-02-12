@@ -63,7 +63,7 @@ class DecisionResult:
     status: str  # pending, processing, completed, failed
     decision_type: str  # debate, workflow, gauntlet, quick, auto
     content: str
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str | None = None
     created_at: datetime | None = None
     completed_at: datetime | None = None
@@ -84,7 +84,7 @@ class DecisionStatus:
 class DecisionsAPI:
     """API interface for unified decision-making."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -98,7 +98,7 @@ class DecisionsAPI:
         config: DecisionConfig | None = None,
         context: DecisionContext | None = None,
         priority: str = "normal",
-        response_channels: Optional[builtins.list[ResponseChannel]] = None,
+        response_channels: builtins.list[ResponseChannel] | None = None,
     ) -> DecisionResult:
         """
         Create a new decision request.
@@ -155,7 +155,7 @@ class DecisionsAPI:
         config: DecisionConfig | None = None,
         context: DecisionContext | None = None,
         priority: str = "normal",
-        response_channels: Optional[builtins.list[ResponseChannel]] = None,
+        response_channels: builtins.list[ResponseChannel] | None = None,
     ) -> DecisionResult:
         """Async version of create()."""
         body: dict[str, Any] = {
@@ -282,7 +282,7 @@ class DecisionsAPI:
     def quick_decision(
         self,
         question: str,
-        agents: Optional[builtins.list[str]] = None,
+        agents: builtins.list[str] | None = None,
     ) -> DecisionResult:
         """
         Make a quick decision with minimal configuration.
@@ -309,7 +309,7 @@ class DecisionsAPI:
     async def quick_decision_async(
         self,
         question: str,
-        agents: Optional[builtins.list[str]] = None,
+        agents: builtins.list[str] | None = None,
     ) -> DecisionResult:
         """Async version of quick_decision()."""
         config = DecisionConfig(
@@ -327,7 +327,7 @@ class DecisionsAPI:
     def start_debate(
         self,
         topic: str,
-        agents: Optional[builtins.list[str]] = None,
+        agents: builtins.list[str] | None = None,
         rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """
@@ -356,7 +356,7 @@ class DecisionsAPI:
     async def start_debate_async(
         self,
         topic: str,
-        agents: Optional[builtins.list[str]] = None,
+        agents: builtins.list[str] | None = None,
         rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """Async version of start_debate()."""

@@ -86,7 +86,7 @@ class SlackWorkspace:
         }
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "SlackWorkspace":
+    def from_row(cls, row: sqlite3.Row) -> SlackWorkspace:
         """Create from database row."""
         scopes_str = row["scopes"] or ""
         scopes = scopes_str.split(",") if scopes_str else []

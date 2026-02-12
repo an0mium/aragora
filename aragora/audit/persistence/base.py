@@ -36,7 +36,7 @@ class AuditPersistenceBackend(ABC):
         pass
 
     @abstractmethod
-    def store(self, event: "AuditEvent") -> str:
+    def store(self, event: AuditEvent) -> str:
         """
         Store an audit event.
 
@@ -52,7 +52,7 @@ class AuditPersistenceBackend(ABC):
         pass
 
     @abstractmethod
-    def get(self, event_id: str) -> "AuditEvent | None":
+    def get(self, event_id: str) -> AuditEvent | None:
         """
         Retrieve a single event by ID.
 
@@ -65,7 +65,7 @@ class AuditPersistenceBackend(ABC):
         pass
 
     @abstractmethod
-    def query(self, query: "AuditQuery") -> list["AuditEvent"]:
+    def query(self, query: AuditQuery) -> list[AuditEvent]:
         """
         Query events matching criteria.
 

@@ -111,7 +111,7 @@ class FileBackend(AuditPersistenceBackend):
             json.dump(self._meta, f)
         temp_path.replace(self._meta_path)
 
-    def store(self, event: "AuditEvent") -> str:
+    def store(self, event: AuditEvent) -> str:
         """Store an audit event."""
         log_file = self._get_current_file()
 
@@ -155,7 +155,7 @@ class FileBackend(AuditPersistenceBackend):
         except OSError as e:
             raise PersistenceError(f"Failed to write audit event: {e}")
 
-    def get(self, event_id: str) -> "AuditEvent | None":
+    def get(self, event_id: str) -> AuditEvent | None:
         """Retrieve a single event by ID."""
         if event_id not in self._index:
             return None
@@ -177,9 +177,9 @@ class FileBackend(AuditPersistenceBackend):
 
         return None
 
-    def query(self, query: "AuditQuery") -> list["AuditEvent"]:
+    def query(self, query: AuditQuery) -> list[AuditEvent]:
         """Query events matching criteria."""
-        results: list["AuditEvent"] = []
+        results: list[AuditEvent] = []
         count = 0
         skipped = 0
 
@@ -229,7 +229,7 @@ class FileBackend(AuditPersistenceBackend):
 
         return results
 
-    def _matches_query(self, event: "AuditEvent", query: "AuditQuery") -> bool:
+    def _matches_query(self, event: AuditEvent, query: AuditQuery) -> bool:
         """Check if event matches query criteria."""
         if query.start_date and event.timestamp < query.start_date:
             return False
@@ -404,7 +404,7 @@ class FileBackend(AuditPersistenceBackend):
         self._save_meta()
         logger.info("File audit backend closed")
 
-    def _dict_to_event(self, data: dict[str, Any]) -> "AuditEvent":
+    def _dict_to_event(self, data: dict[str, Any]) -> AuditEvent:
         """Convert dictionary to AuditEvent."""
         from aragora.audit.log import AuditCategory, AuditEvent, AuditOutcome
 

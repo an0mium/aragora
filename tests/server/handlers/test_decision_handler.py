@@ -53,7 +53,7 @@ class MockDecisionResult:
     reasoning: str = "Based on multi-agent deliberation..."
     evidence_used: list[str] = field(default_factory=list)
     duration_seconds: float = 12.5
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -74,9 +74,9 @@ class MockDecisionResult:
 class MockDecisionContext:
     """Mock decision context."""
 
-    user_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    metadata: Optional[dict[str, Any]] = None
+    user_id: str | None = None
+    workspace_id: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -90,7 +90,7 @@ class MockDecisionRequest:
     context: MockDecisionContext = field(default_factory=MockDecisionContext)
 
     @classmethod
-    def from_http(cls, body: dict[str, Any], headers: dict[str, str]) -> "MockDecisionRequest":
+    def from_http(cls, body: dict[str, Any], headers: dict[str, str]) -> MockDecisionRequest:
         """Create from HTTP request body."""
         if not body.get("content"):
             raise ValueError("Missing required field: content")
@@ -133,7 +133,7 @@ class MockDecisionResultStore:
     def save(self, request_id: str, data: dict[str, Any]) -> None:
         self._results[request_id] = data
 
-    def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    def get(self, request_id: str) -> dict[str, Any] | None:
         return self._results.get(request_id)
 
     def get_status(self, request_id: str) -> dict[str, Any]:
@@ -172,9 +172,9 @@ class MockAuthContext:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[dict[str, Any]] = None,
+    body: dict[str, Any] | None = None,
     path: str = "/api/v1/decisions",
-    headers: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""
     mock = MagicMock()

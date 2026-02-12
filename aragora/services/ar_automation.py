@@ -649,7 +649,7 @@ class ARAutomation:
         escalation_level: int | None = None,
         custom_message: str | None = None,
         send_email: bool = True,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Send a payment reminder for an overdue invoice.
 
@@ -1237,7 +1237,7 @@ class ARAutomation:
         if self._email is not None:
             await self._email.close()
 
-    async def __aenter__(self) -> "ARAutomation":
+    async def __aenter__(self) -> ARAutomation:
         """Async context manager entry."""
         return self
 

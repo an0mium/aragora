@@ -44,10 +44,10 @@ class EventEmitter:
 
     def __init__(
         self,
-        event_bus: Optional["EventBus"] = None,
-        event_bridge: Optional["EventEmitterBridge"] = None,
+        event_bus: EventBus | None = None,
+        event_bridge: EventEmitterBridge | None = None,
         hooks: dict | None = None,
-        persona_manager: Optional["PersonaManager"] = None,
+        persona_manager: PersonaManager | None = None,
     ) -> None:
         """Initialize event emitter.
 
@@ -135,7 +135,7 @@ class EventEmitter:
         """Check if agent preview hook is registered."""
         return "on_agent_preview" in self.hooks
 
-    def get_agent_role(self, agent: "Agent", role_assignments: dict) -> str:
+    def get_agent_role(self, agent: Agent, role_assignments: dict) -> str:
         """Get the role string for an agent from role assignments.
 
         Args:
@@ -148,7 +148,7 @@ class EventEmitter:
         role_data = role_assignments.get(agent.name, {})
         return str(role_data.get("role", "proposer"))
 
-    def get_agent_stance(self, agent: "Agent", role_assignments: dict) -> str:
+    def get_agent_stance(self, agent: Agent, role_assignments: dict) -> str:
         """Get the stance string for an agent from role assignments.
 
         Args:
@@ -161,7 +161,7 @@ class EventEmitter:
         role_data = role_assignments.get(agent.name, {})
         return role_data.get("stance", "neutral")
 
-    def get_agent_description(self, agent: "Agent") -> str:
+    def get_agent_description(self, agent: Agent) -> str:
         """Get the persona description for an agent.
 
         Args:
@@ -175,7 +175,7 @@ class EventEmitter:
         persona = self.persona_manager.get_persona(agent.name)
         return getattr(persona, "brief_description", "")
 
-    def build_agent_preview(self, agent: "Agent", role_assignments: dict) -> dict:
+    def build_agent_preview(self, agent: Agent, role_assignments: dict) -> dict:
         """Build preview data for a single agent.
 
         Args:
@@ -193,7 +193,7 @@ class EventEmitter:
             "strengths": [],
         }
 
-    def emit_agent_preview(self, agents: list["Agent"], role_assignments: dict) -> None:
+    def emit_agent_preview(self, agents: list[Agent], role_assignments: dict) -> None:
         """Emit agent preview for quick UI feedback.
 
         Shows agent roles and stances while proposals are being generated.

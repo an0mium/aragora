@@ -109,10 +109,10 @@ class DiscordOAuthHandler(SecureHandler):
         """
         method: str = kwargs.pop("method", "GET")
         handler: Any = kwargs.pop("handler", None)
-        query_params: Optional[dict[str, str]] = kwargs.pop("query_params", None)
+        query_params: dict[str, str] | None = kwargs.pop("query_params", None)
         body_param: Any = kwargs.pop("body", None)
 
-        path: Optional[str] = None
+        path: str | None = None
         if args:
             if (
                 len(args) >= 2

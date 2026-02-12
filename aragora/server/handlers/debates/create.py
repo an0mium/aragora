@@ -68,7 +68,7 @@ class _DebatesHandlerProtocol(Protocol):
         """Read and parse JSON body from request handler."""
         ...
 
-    def get_current_user(self, handler: Any) -> "UserAuthContext | None":
+    def get_current_user(self, handler: Any) -> UserAuthContext | None:
         """Get authenticated user from request."""
         ...
 

@@ -53,7 +53,7 @@ class RLMHierarchyCache:
             knowledge_mound: KnowledgeMound instance for persistence
         """
         self.knowledge_mound = knowledge_mound
-        self._local_cache: dict[str, "CompressionResult"] = {}
+        self._local_cache: dict[str, CompressionResult] = {}
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -80,7 +80,7 @@ class RLMHierarchyCache:
         self,
         content: str,
         source_type: str = "text",
-    ) -> Optional["CompressionResult"]:
+    ) -> CompressionResult | None:
         """
         Retrieve cached compression result if available.
 
@@ -140,7 +140,7 @@ class RLMHierarchyCache:
         self,
         content: str,
         source_type: str,
-        compression: "CompressionResult",
+        compression: CompressionResult,
     ) -> None:
         """
         Store compression result in cache.
@@ -190,7 +190,7 @@ class RLMHierarchyCache:
             except Exception as e:
                 logger.debug(f"[RLMHierarchyCache] Mound storage failed: {e}")
 
-    def _serialize_compression(self, compression: "CompressionResult") -> dict:
+    def _serialize_compression(self, compression: CompressionResult) -> dict:
         """Serialize compression result for storage."""
         # Serialize key topics and level summaries
         level_data = {}
@@ -214,7 +214,7 @@ class RLMHierarchyCache:
             "levels": level_data,
         }
 
-    def _deserialize_compression(self, data: dict) -> Optional["CompressionResult"]:
+    def _deserialize_compression(self, data: dict) -> CompressionResult | None:
         """Deserialize compression result from storage."""
         try:
             # Rebuild context

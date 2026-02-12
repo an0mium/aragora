@@ -60,7 +60,7 @@ class ResolverContext:
     org_id: str | None = None
     trace_id: str | None = None
     variables: dict[str, Any] = field(default_factory=dict)
-    loaders: "DataLoaderContext | None" = None
+    loaders: DataLoaderContext | None = None
 
     def __post_init__(self) -> None:
         pass  # variables now has proper default factory

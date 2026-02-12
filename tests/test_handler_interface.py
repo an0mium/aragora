@@ -64,27 +64,27 @@ class TestHandlerInterfaceProtocol:
         class FullHandler:
             def handle(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
             def handle_post(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
             def handle_delete(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
             def handle_patch(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
             def handle_put(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
         handler = FullHandler()
@@ -97,7 +97,7 @@ class TestHandlerInterfaceProtocol:
         class PartialHandler:
             def handle(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
             # Missing other handle_* methods
@@ -128,12 +128,12 @@ class TestAuthenticatedHandlerInterfaceProtocol:
         """Test object with auth methods is recognized."""
 
         class AuthHandler:
-            def get_current_user(self, handler: Any) -> Optional[Any]:
+            def get_current_user(self, handler: Any) -> Any | None:
                 return None
 
             def require_auth_or_error(
                 self, handler: Any
-            ) -> tuple[Optional[Any], Optional[HandlerResult]]:
+            ) -> tuple[Any | None, HandlerResult | None]:
                 return (None, None)
 
         handler = AuthHandler()
@@ -146,7 +146,7 @@ class TestAuthenticatedHandlerInterfaceProtocol:
         class NonAuthHandler:
             def handle(
                 self, path: str, query_params: dict[str, Any], handler: Any
-            ) -> Optional[HandlerResult]:
+            ) -> HandlerResult | None:
                 return None
 
         handler = NonAuthHandler()
@@ -164,8 +164,8 @@ class TestPaginatedHandlerInterfaceProtocol:
             def get_pagination(
                 self,
                 query_params: dict[str, Any],
-                default_limit: Optional[int] = None,
-                max_limit: Optional[int] = None,
+                default_limit: int | None = None,
+                max_limit: int | None = None,
             ) -> tuple[int, int]:
                 return (10, 0)
 

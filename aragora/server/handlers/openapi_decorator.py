@@ -78,7 +78,7 @@ def _is_pydantic_model(obj: Any) -> bool:
 
 
 # Global registry for decorated endpoints
-_endpoint_registry: list["OpenAPIEndpoint"] = []
+_endpoint_registry: list[OpenAPIEndpoint] = []
 
 
 @dataclass
@@ -91,7 +91,7 @@ class OpenAPIEndpoint:
     tags: list[str]
     description: str = ""
     parameters: list[dict[str, Any]] = field(default_factory=list)
-    request_body: Optional[dict[str, Any]] = None
+    request_body: dict[str, Any] | None = None
     responses: dict[str, dict[str, Any]] = field(default_factory=dict)
     security: list[dict[str, list[str]]] = field(default_factory=list)
     operation_id: str | None = None
@@ -144,13 +144,13 @@ def api_endpoint(
     path: str,
     method: str = "GET",
     summary: str = "",
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
     description: str = "",
-    parameters: Optional[list[dict[str, Any]]] = None,
-    request_body: Optional[dict[str, Any]] = None,
-    request_model: Optional[type[Any]] = None,
-    responses: Optional[dict[str, dict[str, Any]]] = None,
-    response_model: Optional[type[Any]] = None,
+    parameters: list[dict[str, Any]] | None = None,
+    request_body: dict[str, Any] | None = None,
+    request_model: type[Any] | None = None,
+    responses: dict[str, dict[str, Any]] | None = None,
+    response_model: type[Any] | None = None,
     auth_required: bool = True,
     deprecated: bool = False,
     operation_id: str | None = None,
@@ -356,7 +356,7 @@ def query_param(
     schema_type: str = "string",
     required: bool = False,
     default: Any = None,
-    enum: Optional[list[str]] = None,
+    enum: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a query parameter definition.
 

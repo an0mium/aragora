@@ -114,7 +114,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)
@@ -126,7 +126,7 @@ class MockHandler:
 class NodeHandler(NodeOperationsMixin):
     """Handler implementation for testing NodeOperationsMixin."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None, user: Optional[MockUser] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None, user: MockUser | None = None):
         self._mound = mound
         self._user = user or MockUser()
         self.ctx = {}

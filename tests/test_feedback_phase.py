@@ -42,7 +42,7 @@ class MockMessage:
     role: str = "proposer"
     agent: str = "test_agent"
     content: str = "Test content"
-    target_agent: Optional[str] = None
+    target_agent: str | None = None
 
 
 @dataclass
@@ -66,7 +66,7 @@ class MockDebateResult:
     dissenting_views: list = field(default_factory=list)
     rounds_used: int = 3
     duration_seconds: float = 120.0
-    winner: Optional[str] = "claude"
+    winner: str | None = "claude"
     final_answer: str = "The answer is X"
     consensus_reached: bool = True
     confidence: float = 0.85

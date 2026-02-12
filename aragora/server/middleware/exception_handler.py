@@ -284,7 +284,7 @@ class ExceptionHandler:
         self.result: Any = None
         self.start_time: float = 0
 
-    def __enter__(self) -> "ExceptionHandler":
+    def __enter__(self) -> ExceptionHandler:
         self.start_time = time.time()
         return self
 

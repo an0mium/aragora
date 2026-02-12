@@ -65,7 +65,7 @@ class AragoraToolInput(BaseModel):
     """Input schema for Aragora tool."""
 
     question: str = Field(description="The question or topic for the multi-agent debate")
-    agents: Optional[list[str]] = Field(
+    agents: list[str] | None = Field(
         default=None,
         description="List of agent types to use (e.g., ['claude', 'gpt', 'gemini'])",
     )
@@ -120,7 +120,7 @@ class AragoraTool(BaseTool):
         self,
         api_base: str = "https://api.aragora.ai",
         api_key: str = "",
-        default_agents: Optional[list[str]] = None,
+        default_agents: list[str] | None = None,
         default_rounds: int = _DEFAULT_LC_ROUNDS,
         timeout_seconds: float = 120.0,
         **kwargs,
@@ -146,7 +146,7 @@ class AragoraTool(BaseTool):
     def _run(
         self,
         question: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         rounds: int | None = None,
         consensus_threshold: float = 0.8,
         include_evidence: bool = True,
@@ -178,7 +178,7 @@ class AragoraTool(BaseTool):
     async def _arun(
         self,
         question: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         rounds: int | None = None,
         consensus_threshold: float = 0.8,
         include_evidence: bool = True,
@@ -427,10 +427,10 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def __init__(
         self,
-        on_debate_start: Optional[Callable[[dict], None]] = None,
-        on_debate_end: Optional[Callable[[dict], None]] = None,
-        on_consensus: Optional[Callable[[dict], None]] = None,
-        on_error: Optional[Callable[[BaseException], None]] = None,
+        on_debate_start: Callable[[dict], None] | None = None,
+        on_debate_end: Callable[[dict], None] | None = None,
+        on_consensus: Callable[[dict], None] | None = None,
+        on_error: Callable[[BaseException], None] | None = None,
         verbose: bool = False,
     ):
         """Initialize the callback handler.

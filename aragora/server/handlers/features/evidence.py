@@ -93,7 +93,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         super().__init__(server_context)
         self._evidence_store: EvidenceStore | None = None
         self._evidence_collector: EvidenceCollector | None = None
-        self._km_adapter: Optional["EvidenceAdapter"] = None
+        self._km_adapter: EvidenceAdapter | None = None
 
     def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:
         """Emit a KM event to WebSocket clients.
@@ -133,7 +133,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
                 return None, err
         return body, None
 
-    def _get_km_adapter(self) -> Optional["EvidenceAdapter"]:
+    def _get_km_adapter(self) -> EvidenceAdapter | None:
         """Get or create Knowledge Mound adapter for evidence."""
         if self._km_adapter is not None:
             return self._km_adapter

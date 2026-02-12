@@ -10,13 +10,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from aragora.server.prometheus import (
+from aragora.server.prometheus_definitions import (
     PROMETHEUS_AVAILABLE,
     _simple_metrics,
 )
 
 if PROMETHEUS_AVAILABLE:
-    from aragora.server.prometheus import (
+    from aragora.server.prometheus_definitions import (
         AGENT_CIRCUIT_BREAKER,
         AGENT_FAILURES,
         AGENT_GENERATION_DURATION,
@@ -34,6 +34,11 @@ if PROMETHEUS_AVAILABLE:
         DEBATE_ROUNDS,
         DEBATE_TOKENS,
         DEBATES_TOTAL,
+        EXTERNAL_AGENT_COST_TOTAL,
+        EXTERNAL_AGENT_TASK_DURATION,
+        EXTERNAL_AGENT_TASKS_TOTAL,
+        EXTERNAL_AGENT_TOKENS_TOTAL,
+        EXTERNAL_AGENT_TOOLS_BLOCKED,
         HTTP_REQUEST_DURATION,
         HTTP_REQUESTS_TOTAL,
         MEMORY_OPERATIONS,
@@ -424,8 +429,6 @@ def record_memory_operation(operation: str) -> None:
 def record_external_agent_task(adapter: str, status: str) -> None:
     """Record an external agent task event."""
     if PROMETHEUS_AVAILABLE:
-        from aragora.server.prometheus import EXTERNAL_AGENT_TASKS_TOTAL
-
         EXTERNAL_AGENT_TASKS_TOTAL.labels(adapter=adapter, status=status).inc()
     else:
         _simple_metrics.inc_counter(
@@ -437,8 +440,6 @@ def record_external_agent_task(adapter: str, status: str) -> None:
 def record_external_agent_duration(adapter: str, task_type: str, seconds: float) -> None:
     """Record external agent task duration."""
     if PROMETHEUS_AVAILABLE:
-        from aragora.server.prometheus import EXTERNAL_AGENT_TASK_DURATION
-
         EXTERNAL_AGENT_TASK_DURATION.labels(adapter=adapter, task_type=task_type).observe(seconds)
     else:
         _simple_metrics.observe_histogram(
@@ -451,8 +452,6 @@ def record_external_agent_duration(adapter: str, task_type: str, seconds: float)
 def record_external_agent_tokens(adapter: str, tokens: int) -> None:
     """Record tokens used by an external agent."""
     if PROMETHEUS_AVAILABLE:
-        from aragora.server.prometheus import EXTERNAL_AGENT_TOKENS_TOTAL
-
         EXTERNAL_AGENT_TOKENS_TOTAL.labels(adapter=adapter).inc(tokens)
     else:
         _simple_metrics.inc_counter(
@@ -465,8 +464,6 @@ def record_external_agent_tokens(adapter: str, tokens: int) -> None:
 def record_external_agent_tool_blocked(adapter: str, tool: str) -> None:
     """Record a blocked tool invocation."""
     if PROMETHEUS_AVAILABLE:
-        from aragora.server.prometheus import EXTERNAL_AGENT_TOOLS_BLOCKED
-
         EXTERNAL_AGENT_TOOLS_BLOCKED.labels(adapter=adapter, tool=tool).inc()
     else:
         _simple_metrics.inc_counter(
@@ -479,8 +476,6 @@ def record_external_agent_cost(adapter: str, cost_usd: float) -> None:
     """Record cost for an external agent task (stored as micro-dollars)."""
     micro_dollars = int(cost_usd * 1_000_000)
     if PROMETHEUS_AVAILABLE:
-        from aragora.server.prometheus import EXTERNAL_AGENT_COST_TOTAL
-
         EXTERNAL_AGENT_COST_TOTAL.labels(adapter=adapter).inc(micro_dollars)
     else:
         _simple_metrics.inc_counter(

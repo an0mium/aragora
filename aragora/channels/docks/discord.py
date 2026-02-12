@@ -68,7 +68,7 @@ class DiscordDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -127,7 +127,7 @@ class DiscordDock(ChannelDock):
     def _build_payload(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build Discord API payload from normalized message."""

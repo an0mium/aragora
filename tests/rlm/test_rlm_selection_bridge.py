@@ -63,7 +63,7 @@ class MockSelectionFeedbackLoop:
         self._agents: dict[str, MockAgentState] = {}
         self._selection_adjustments: dict[str, float] = {}
 
-    def get_agent_state(self, agent_name: str) -> Optional[MockAgentState]:
+    def get_agent_state(self, agent_name: str) -> MockAgentState | None:
         return self._agents.get(agent_name)
 
     def get_selection_adjustment(self, agent_name: str) -> float:

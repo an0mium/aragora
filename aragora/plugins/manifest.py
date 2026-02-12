@@ -151,7 +151,7 @@ class PluginPricing:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PluginPricing":
+    def from_dict(cls, data: dict) -> PluginPricing:
         model = PluginPricingModel.FREE
         try:
             model = PluginPricingModel(data.get("model", "free"))
@@ -305,7 +305,7 @@ class PluginManifest:
         path.write_text(self.to_json())
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PluginManifest":
+    def from_dict(cls, data: dict) -> PluginManifest:
         """Create manifest from dictionary."""
         capabilities = []
         for c in data.get("capabilities", []):
@@ -348,14 +348,14 @@ class PluginManifest:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "PluginManifest":
+    def from_json(cls, json_str: str) -> PluginManifest:
         try:
             return cls.from_dict(json.loads(json_str))
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid plugin manifest JSON: {e}") from e
 
     @classmethod
-    def load(cls, path: Path) -> "PluginManifest":
+    def load(cls, path: Path) -> PluginManifest:
         """Load manifest from file.
 
         Raises:

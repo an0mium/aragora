@@ -33,7 +33,7 @@ class MockProtocol:
     """Mock DebateProtocol for testing."""
 
     topology: str = "all-to-all"
-    topology_hub_agent: Optional[str] = None
+    topology_hub_agent: str | None = None
     topology_sparsity: float = 0.5
 
 

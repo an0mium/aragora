@@ -101,15 +101,15 @@ class DesignPhase:
         arena_factory: Callable[..., Any],
         environment_factory: Callable[..., Any],
         protocol_factory: Callable[..., Any],
-        config: Optional[DesignConfig] = None,
-        nomic_integration: Optional[Any] = None,
-        deep_audit_fn: Optional[Callable[..., Any]] = None,
-        arbitrate_fn: Optional[Callable[..., Any]] = None,
+        config: DesignConfig | None = None,
+        nomic_integration: Any | None = None,
+        deep_audit_fn: Callable[..., Any] | None = None,
+        arbitrate_fn: Callable[..., Any] | None = None,
         max_cycle_seconds: int = 3600,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
     ):
         """
         Initialize the design phase.
@@ -148,9 +148,9 @@ class DesignPhase:
     async def execute(
         self,
         improvement: str,
-        belief_context: Optional[BeliefContext] = None,
+        belief_context: BeliefContext | None = None,
         learning_context: str = "",
-        arena_kwargs: Optional[dict[str, Any]] = None,
+        arena_kwargs: dict[str, Any] | None = None,
     ) -> DesignResult:
         """
         Execute the design phase.
@@ -253,7 +253,7 @@ class DesignPhase:
             complexity_estimate=self._estimate_complexity(result.final_answer or ""),
         )
 
-    async def _check_deep_audit(self, improvement: str) -> Optional[dict]:
+    async def _check_deep_audit(self, improvement: str) -> dict | None:
         """Check if deep audit is needed and run it."""
         try:
             should_audit, reason = self._deep_audit("check", improvement, phase="design")

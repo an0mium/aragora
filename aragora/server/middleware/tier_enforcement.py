@@ -32,10 +32,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global QuotaManager singleton for unified quota enforcement
-_quota_manager: Optional["QuotaManager"] = None
+_quota_manager: QuotaManager | None = None
 
 
-def get_quota_manager() -> "QuotaManager":
+def get_quota_manager() -> QuotaManager:
     """Get or create the global QuotaManager instance.
 
     Returns:
@@ -52,7 +52,7 @@ def get_quota_manager() -> "QuotaManager":
 async def check_org_quota_async(
     org_id: str,
     resource: str = "debates",
-) -> tuple[bool, Optional["QuotaExceededError"]]:
+) -> tuple[bool, QuotaExceededError | None]:
     """
     Async check if an organization has available quota.
 

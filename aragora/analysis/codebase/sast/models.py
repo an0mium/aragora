@@ -36,25 +36,25 @@ class SASTSeverity(Enum):
         levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
         return levels.get(self.value, 0)
 
-    def __ge__(self, other: "SASTSeverity") -> bool:
+    def __ge__(self, other: SASTSeverity) -> bool:
         """Compare severity levels."""
         if isinstance(other, SASTSeverity):
             return self.level >= other.level
         return NotImplemented
 
-    def __gt__(self, other: "SASTSeverity") -> bool:
+    def __gt__(self, other: SASTSeverity) -> bool:
         """Compare severity levels."""
         if isinstance(other, SASTSeverity):
             return self.level > other.level
         return NotImplemented
 
-    def __le__(self, other: "SASTSeverity") -> bool:
+    def __le__(self, other: SASTSeverity) -> bool:
         """Compare severity levels."""
         if isinstance(other, SASTSeverity):
             return self.level <= other.level
         return NotImplemented
 
-    def __lt__(self, other: "SASTSeverity") -> bool:
+    def __lt__(self, other: SASTSeverity) -> bool:
         """Compare severity levels."""
         if isinstance(other, SASTSeverity):
             return self.level < other.level

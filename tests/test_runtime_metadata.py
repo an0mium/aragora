@@ -116,7 +116,7 @@ class TestModelConfigFromAgent(unittest.TestCase):
         config = ModelConfig.from_agent(agent)
 
         # Hash should be first 16 chars of SHA-256
-        expected_hash = hashlib.sha256("You are a helpful assistant.".encode()).hexdigest()[:16]
+        expected_hash = hashlib.sha256(b"You are a helpful assistant.").hexdigest()[:16]
         self.assertEqual(config.system_prompt_hash, expected_hash)
 
     def test_from_agent_no_system_prompt_attr(self):

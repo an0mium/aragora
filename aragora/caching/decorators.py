@@ -71,7 +71,7 @@ class CacheEntry(Generic[T]):
 
     value: T
     created_at: float
-    ttl_seconds: Optional[float] = None
+    ttl_seconds: float | None = None
 
     def is_expired(self) -> bool:
         """Check if this cache entry has expired."""
@@ -123,8 +123,8 @@ def clear_all_caches() -> int:
 def _make_cache_key(
     args: tuple,
     kwargs: dict,
-    key_args: Optional[tuple[str, ...]] = None,
-    param_names: Optional[tuple[str, ...]] = None,
+    key_args: tuple[str, ...] | None = None,
+    param_names: tuple[str, ...] | None = None,
 ) -> str:
     """
     Generate a cache key from function arguments.
@@ -194,7 +194,7 @@ class _TTLCache(Generic[T]):
         # Register for global management
         _register_cache(self._cache, self._stats, self._lock)
 
-    def get(self, key: str) -> tuple[bool, Optional[T]]:
+    def get(self, key: str) -> tuple[bool, T | None]:
         """
         Get a value from the cache.
 
@@ -294,7 +294,7 @@ def cached(
 
 
 def cached(  # type: ignore[misc]  # overload implementation signature
-    func: Optional[F] = None,
+    func: F | None = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,
 ) -> F | Callable[[F], F]:
@@ -376,7 +376,7 @@ def async_cached(
 
 
 def async_cached(  # type: ignore[misc]  # overload implementation signature
-    func: Optional[F] = None,
+    func: F | None = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,
 ) -> F | Callable[[F], F]:
@@ -591,9 +591,9 @@ class CacheContext:
             enabled: Whether caching should be enabled in this context
         """
         self._new_enabled = enabled
-        self._old_enabled: Optional[bool] = None
+        self._old_enabled: bool | None = None
 
-    def __enter__(self) -> "CacheContext":
+    def __enter__(self) -> CacheContext:
         with self._lock:
             self._old_enabled = CacheContext._enabled
             CacheContext._enabled = self._new_enabled

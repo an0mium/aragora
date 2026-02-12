@@ -109,8 +109,8 @@ class KMOutcomeBridge:
 
     def __init__(
         self,
-        outcome_tracker: Optional["OutcomeTracker"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        outcome_tracker: OutcomeTracker | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         config: KMOutcomeBridgeConfig | None = None,
     ):
         """
@@ -131,20 +131,20 @@ class KMOutcomeBridge:
         self._total_validations: int = 0
 
     @property
-    def outcome_tracker(self) -> Optional["OutcomeTracker"]:
+    def outcome_tracker(self) -> OutcomeTracker | None:
         """Get the outcome tracker."""
         return self._outcome_tracker
 
     @property
-    def knowledge_mound(self) -> Optional["KnowledgeMound"]:
+    def knowledge_mound(self) -> KnowledgeMound | None:
         """Get the knowledge mound."""
         return self._knowledge_mound
 
-    def set_outcome_tracker(self, tracker: "OutcomeTracker") -> None:
+    def set_outcome_tracker(self, tracker: OutcomeTracker) -> None:
         """Set the outcome tracker."""
         self._outcome_tracker = tracker
 
-    def set_knowledge_mound(self, mound: "KnowledgeMound") -> None:
+    def set_knowledge_mound(self, mound: KnowledgeMound) -> None:
         """Set the knowledge mound."""
         self._knowledge_mound = mound
 
@@ -182,8 +182,8 @@ class KMOutcomeBridge:
 
     async def validate_knowledge_from_outcome(
         self,
-        outcome: "ConsensusOutcome",
-        km_item_ids: Optional[list[str]] = None,
+        outcome: ConsensusOutcome,
+        km_item_ids: list[str] | None = None,
     ) -> list[OutcomeValidation]:
         """
         Validate KM entries based on debate outcome.

@@ -68,8 +68,8 @@ class Migration:
     name: str
     up_sql: str | None = None
     down_sql: str | None = None
-    up_fn: Optional[Callable[[DatabaseBackend], None]] = None
-    down_fn: Optional[Callable[[DatabaseBackend], None]] = None
+    up_fn: Callable[[DatabaseBackend], None] | None = None
+    down_fn: Callable[[DatabaseBackend], None] | None = None
     checksum: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:

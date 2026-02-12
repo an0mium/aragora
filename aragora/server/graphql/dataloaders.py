@@ -175,7 +175,7 @@ class AgentData:
     consistency_score: float | None = None
 
     @classmethod
-    def from_agent_rating(cls, rating: Any) -> "AgentData":
+    def from_agent_rating(cls, rating: Any) -> AgentData:
         """Create from AgentRating dataclass."""
         total_games = rating.wins + rating.losses + rating.draws
         win_rate = rating.wins / total_games if total_games > 0 else 0.0
@@ -197,7 +197,7 @@ class AgentData:
         )
 
     @classmethod
-    def default(cls, agent_name: str) -> "AgentData":
+    def default(cls, agent_name: str) -> AgentData:
         """Create default agent data for unknown agents."""
         return cls(
             id=agent_name,
@@ -228,7 +228,7 @@ class DataLoaderContext:
 
 
 async def _batch_load_agents(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_names: list[str],
 ) -> list[AgentData | None]:
     """

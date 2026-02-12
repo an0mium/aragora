@@ -27,7 +27,7 @@ class TournamentStanding:
     elo_change: float = 0.0
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TournamentStanding":
+    def from_dict(cls, data: dict[str, Any]) -> TournamentStanding:
         return cls(
             agent_id=data.get("agent_id", ""),
             rank=data.get("rank", 0),
@@ -54,7 +54,7 @@ class TournamentSummary:
     winner: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TournamentSummary":
+    def from_dict(cls, data: dict[str, Any]) -> TournamentSummary:
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),
@@ -89,7 +89,7 @@ class Tournament:
             self.metadata = {}
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Tournament":
+    def from_dict(cls, data: dict[str, Any]) -> Tournament:
         standings_data = data.get("standings", [])
         standings = [TournamentStanding.from_dict(s) for s in standings_data]
 
@@ -131,7 +131,7 @@ class TournamentsAPI:
         )
     """
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def list(
@@ -219,7 +219,7 @@ class TournamentsAPI:
         format: str = "round_robin",
         topic: str | None = None,
         rounds_per_match: int = 3,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TournamentSummary:
         """
         Create a new tournament.
@@ -256,7 +256,7 @@ class TournamentsAPI:
         format: str = "round_robin",
         topic: str | None = None,
         rounds_per_match: int = 3,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TournamentSummary:
         """Async version of create."""
         data = {

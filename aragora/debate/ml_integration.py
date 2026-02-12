@@ -127,10 +127,10 @@ class MLDelegationStrategy(DelegationStrategy):
     def select_agents(
         self,
         task: str,
-        agents: Sequence["Agent"],
-        context: Optional["DebateContext"] = None,
+        agents: Sequence[Agent],
+        context: DebateContext | None = None,
         max_agents: int | None = None,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Select agents using ML-based routing.
 
         Args:
@@ -189,9 +189,9 @@ class MLDelegationStrategy(DelegationStrategy):
 
     def _reorder_agents(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         order: list[str],
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """Reorder agents according to ML routing decision."""
         agent_map = {a.name: a for a in agents}
         result = []
@@ -210,9 +210,9 @@ class MLDelegationStrategy(DelegationStrategy):
 
     def score_agent(
         self,
-        agent: "Agent",
+        agent: Agent,
         task: str,
-        context: Optional["DebateContext"] = None,
+        context: DebateContext | None = None,
     ) -> float:
         """Score a single agent using ML routing.
 
@@ -372,9 +372,9 @@ class QualityGate:
 
     def filter_messages(
         self,
-        messages: Sequence["Message"],
+        messages: Sequence[Message],
         context: str | None = None,
-    ) -> list[tuple["Message", float]]:
+    ) -> list[tuple[Message, float]]:
         """Filter Message objects by quality.
 
         Args:
@@ -661,7 +661,7 @@ class MLEnhancedTeamSelector:
 
     def __init__(
         self,
-        base_selector: "TeamSelector",
+        base_selector: TeamSelector,
         ml_delegation: MLDelegationStrategy | None = None,
         ml_weight: float = 0.3,
     ):
@@ -678,11 +678,11 @@ class MLEnhancedTeamSelector:
 
     def select(
         self,
-        agents: list["Agent"],
+        agents: list[Agent],
         domain: str = "general",
         task: str = "",
-        context: Optional["DebateContext"] = None,
-    ) -> list["Agent"]:
+        context: DebateContext | None = None,
+    ) -> list[Agent]:
         """Select agents with ML-enhanced scoring.
 
         Args:
@@ -796,7 +796,7 @@ class DebateTrainingExporter:
         self,
         task: str,
         consensus_response: str,
-        rejected_responses: Optional[list[str]] = None,
+        rejected_responses: list[str] | None = None,
         context: str = "",
     ) -> Any | None:
         """Export single debate as training example.

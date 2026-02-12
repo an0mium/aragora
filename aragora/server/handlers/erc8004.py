@@ -316,7 +316,7 @@ async def handle_blockchain_sync(
     sync_identities: bool = True,
     sync_reputation: bool = True,
     sync_validations: bool = True,
-    agent_ids: Optional[list[int]] = None,
+    agent_ids: list[int] | None = None,
 ) -> HandlerResult:
     """Trigger manual blockchain sync to Knowledge Mound."""
     try:

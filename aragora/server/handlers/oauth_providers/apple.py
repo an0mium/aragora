@@ -61,7 +61,7 @@ class AppleOAuthProvider(OAuthProvider):
     PROVIDER_NAME = "apple"
 
     # Class-level JWKS cache (shared across instances)
-    _jwks_cache: ClassVar[Optional[dict[str, Any]]] = None
+    _jwks_cache: ClassVar[dict[str, Any] | None] = None
     _jwks_cache_expiry: ClassVar[float] = 0
     _jwks_lock: ClassVar[threading.Lock] = threading.Lock()
 
@@ -135,7 +135,7 @@ class AppleOAuthProvider(OAuthProvider):
         self,
         state: str,
         redirect_uri: str | None = None,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         **kwargs,
     ) -> str:
         """
@@ -250,7 +250,7 @@ class AppleOAuthProvider(OAuthProvider):
     def get_user_info_from_id_token(
         self,
         id_token: str,
-        user_data: Optional[dict[str, Any]] = None,
+        user_data: dict[str, Any] | None = None,
     ) -> OAuthUserInfo:
         """
         Extract user info from ID token and optional user data.

@@ -39,7 +39,7 @@ class MockPerformanceMonitor:
     def __init__(self):
         self._metrics: dict[str, MockPerformanceMetrics] = {}
 
-    def get_agent_metrics(self, agent_name: str) -> Optional[MockPerformanceMetrics]:
+    def get_agent_metrics(self, agent_name: str) -> MockPerformanceMetrics | None:
         """Get metrics for an agent."""
         return self._metrics.get(agent_name)
 
@@ -125,7 +125,7 @@ class MockRelationshipTracker:
     def __init__(self):
         self._relationships: dict[tuple, MockRelationshipMetrics] = {}
 
-    def compute_metrics(self, agent_a: str, agent_b: str) -> Optional[MockRelationshipMetrics]:
+    def compute_metrics(self, agent_a: str, agent_b: str) -> MockRelationshipMetrics | None:
         """Compute relationship metrics between agents."""
         key = tuple(sorted([agent_a, agent_b]))
         return self._relationships.get(key)
@@ -174,7 +174,7 @@ class MockCalibrationTracker:
     def __init__(self):
         self._summaries: dict[str, MockCalibrationSummary] = {}
 
-    def get_calibration_summary(self, agent_name: str) -> Optional[MockCalibrationSummary]:
+    def get_calibration_summary(self, agent_name: str) -> MockCalibrationSummary | None:
         """Get calibration summary for an agent."""
         return self._summaries.get(agent_name)
 

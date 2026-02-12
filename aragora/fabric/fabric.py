@@ -192,7 +192,7 @@ class AgentFabric:
         self._started = False
         logger.info("Agent Fabric stopped")
 
-    async def __aenter__(self) -> "AgentFabric":
+    async def __aenter__(self) -> AgentFabric:
         """Context manager entry."""
         await self.start()
         return self

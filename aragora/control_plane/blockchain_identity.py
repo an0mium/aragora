@@ -59,8 +59,8 @@ class BlockchainIdentityBridge:
 
     def __init__(
         self,
-        provider: Optional["Web3Provider"] = None,
-        agent_registry: Optional[Any] = None,
+        provider: Web3Provider | None = None,
+        agent_registry: Any | None = None,
     ) -> None:
         """Initialize the bridge.
 
@@ -73,7 +73,7 @@ class BlockchainIdentityBridge:
         self._links: dict[str, AgentBlockchainLink] = {}
         self._token_to_agent: dict[tuple[int, int], str] = {}  # (chain_id, token_id) -> agent_id
 
-    def _get_provider(self) -> "Web3Provider":
+    def _get_provider(self) -> Web3Provider:
         """Get or create the Web3 provider."""
         if self._provider is None:
             from aragora.blockchain.provider import Web3Provider
@@ -166,7 +166,7 @@ class BlockchainIdentityBridge:
     async def get_blockchain_identity(
         self,
         aragora_agent_id: str,
-    ) -> Optional["OnChainAgentIdentity"]:
+    ) -> OnChainAgentIdentity | None:
         """Get the on-chain identity for an Aragora agent.
 
         Args:

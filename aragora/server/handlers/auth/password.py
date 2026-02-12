@@ -63,7 +63,7 @@ def extract_user_from_request(handler, user_store):
     requests_per_minute=3, limiter_name="auth_change_password", endpoint_name="password change"
 )
 @handle_errors("change password")
-def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_change_password(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Change user password."""
     # RBAC check: authentication.read permission required
     if error := handler_instance._check_permission(handler, "authentication.read"):
@@ -145,7 +145,7 @@ def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerR
 )
 @handle_errors("forgot password")
 @log_request("forgot password")
-def handle_forgot_password(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_forgot_password(handler_instance: AuthHandler, handler) -> HandlerResult:
     """
     Handle forgot password request.
 
@@ -355,7 +355,7 @@ This is an automated message. Please do not reply.
 )
 @handle_errors("reset password")
 @log_request("reset password")
-def handle_reset_password(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_reset_password(handler_instance: AuthHandler, handler) -> HandlerResult:
     """
     Handle password reset with token.
 

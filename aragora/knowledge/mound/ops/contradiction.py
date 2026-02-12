@@ -33,9 +33,9 @@ class KnowledgeMoundProtocol(Protocol):
         limit: int = 20,
         offset: int = 0,
         **kwargs: Any,
-    ) -> "QueryResult": ...
+    ) -> QueryResult: ...
 
-    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+    async def get(self, node_id: str) -> KnowledgeItem | None: ...
 
     @property
     def _semantic_store(self) -> Any: ...
@@ -325,7 +325,7 @@ class ContradictionDetector:
         self,
         mound: KnowledgeMoundProtocol,
         workspace_id: str,
-        item_ids: Optional[list[str]] = None,
+        item_ids: list[str] | None = None,
     ) -> ContradictionReport:
         """Detect contradictions in knowledge items.
 
@@ -646,7 +646,7 @@ class ContradictionOperationsMixin:
     async def detect_contradictions(
         self,
         workspace_id: str,
-        item_ids: Optional[list[str]] = None,
+        item_ids: list[str] | None = None,
     ) -> ContradictionReport:
         """Detect contradictions in knowledge items.
 

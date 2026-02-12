@@ -80,7 +80,7 @@ class GraphNode:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_debate_node(cls, node: DebateNode, round_num: int = 0) -> "GraphNode":
+    def from_debate_node(cls, node: DebateNode, round_num: int = 0) -> GraphNode:
         """Create a GraphNode from a DebateNode."""
         return cls(
             id=node.id,
@@ -214,7 +214,7 @@ class GraphDebateOrchestrator:
         self,
         agents: list[Agent],
         policy: BranchPolicy | None = None,
-        event_callback: Optional[Callable[[str, dict], None]] = None,
+        event_callback: Callable[[str, dict], None] | None = None,
     ):
         """
         Initialize the graph debate orchestrator.
@@ -233,7 +233,7 @@ class GraphDebateOrchestrator:
         self,
         task: str,
         max_rounds: int = 5,
-        run_agent_fn: Optional[Callable[[Agent, str, Any], Any]] = None,
+        run_agent_fn: Callable[[Agent, str, Any], Any] | None = None,
         context: dict | None = None,
         event_emitter: Any | None = None,
     ) -> GraphDebateResult:

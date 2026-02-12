@@ -92,7 +92,7 @@ class EvidenceStore(SQLiteStore):
         db_path: Path | None = None,
         enricher: MetadataEnricher | None = None,
         scorer: QualityScorer | None = None,
-        km_adapter: Optional["EvidenceAdapter"] = None,
+        km_adapter: EvidenceAdapter | None = None,
         km_min_reliability: float = 0.6,
     ):
         """Initialize the evidence store.
@@ -112,7 +112,7 @@ class EvidenceStore(SQLiteStore):
         # Initialize SQLiteStore with db_path
         super().__init__(db_path=db_path or self.DEFAULT_DB_PATH)
 
-    def set_km_adapter(self, adapter: "EvidenceAdapter") -> None:
+    def set_km_adapter(self, adapter: EvidenceAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 
         Args:
@@ -190,7 +190,7 @@ class EvidenceStore(SQLiteStore):
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         debate_id: str | None = None,
         round_number: int | None = None,
         enrich: bool = True,
@@ -377,7 +377,7 @@ class EvidenceStore(SQLiteStore):
             saved_ids.append(evidence_id)
         return saved_ids
 
-    def get_evidence(self, evidence_id: str) -> Optional[dict[str, Any]]:
+    def get_evidence(self, evidence_id: str) -> dict[str, Any] | None:
         """Get evidence by ID.
 
         Args:
@@ -963,7 +963,7 @@ class InMemoryEvidenceStore:
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         debate_id: str | None = None,
         round_number: int | None = None,
         enrich: bool = True,
@@ -1021,7 +1021,7 @@ class InMemoryEvidenceStore:
 
         return evidence_id
 
-    def get_evidence(self, evidence_id: str) -> Optional[dict[str, Any]]:
+    def get_evidence(self, evidence_id: str) -> dict[str, Any] | None:
         """Get evidence by ID."""
         return self._evidence.get(evidence_id)
 

@@ -92,7 +92,7 @@ class MockExpense:
     status: MockExpenseStatus = MockExpenseStatus.PENDING
     payment_method: MockPaymentMethod = MockPaymentMethod.CREDIT_CARD
     description: str = ""
-    employee_id: Optional[str] = None
+    employee_id: str | None = None
     is_reimbursable: bool = False
     tags: list[str] = field(default_factory=list)
     date: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

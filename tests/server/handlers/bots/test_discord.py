@@ -32,7 +32,7 @@ class MockHandler:
 
     def __init__(
         self,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         body: bytes = b"",
         path: str = "/",
         method: str = "POST",

@@ -282,7 +282,7 @@ class TestValidateWebhookUrlDNS:
     def test_rejects_on_dns_timeout(self):
         """Should reject when DNS resolution times out."""
         with patch("socket.getaddrinfo") as mock_dns:
-            mock_dns.side_effect = socket.timeout("DNS timeout")
+            mock_dns.side_effect = TimeoutError("DNS timeout")
             valid, error = validate_webhook_url("https://slow.example.com")
             assert valid is False
             # Error message is "DNS resolution timed out"

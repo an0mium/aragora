@@ -370,9 +370,9 @@ class MemoryMigrator:
         self.postgres_dsn = postgres_dsn
         self.batch_size = batch_size
         self.skip_existing = skip_existing
-        self._pool: Optional["Pool"] = None
+        self._pool: Pool | None = None
 
-    async def _get_pool(self) -> "Pool":
+    async def _get_pool(self) -> Pool:
         """Get or create PostgreSQL connection pool."""
         if not ASYNCPG_AVAILABLE:
             raise RuntimeError("asyncpg package required for PostgreSQL migration")
@@ -437,7 +437,7 @@ class MemoryMigrator:
         )
         return cursor.fetchone() is not None
 
-    async def _table_exists_pg(self, pool: "Pool", table: str) -> bool:
+    async def _table_exists_pg(self, pool: Pool, table: str) -> bool:
         """Check if table exists in PostgreSQL."""
         async with pool.acquire() as conn:
             row = await conn.fetchrow(

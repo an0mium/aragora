@@ -191,7 +191,7 @@ class StreamChain:
     # Agent name -> StreamState
     _states: dict[str, StreamState] = field(default_factory=dict)
     # Optional hook manager for events
-    _hook_manager: Optional["HookManager"] = field(default=None)
+    _hook_manager: HookManager | None = field(default=None)
 
     def register_agent(self, agent_name: str) -> None:
         """Register an agent with the chain."""
@@ -263,10 +263,10 @@ class StreamChain:
 
     async def stream_through(
         self,
-        source_agent: "Agent",
-        target_agent: "Agent",
+        source_agent: Agent,
+        target_agent: Agent,
         prompt: str,
-        context: list["Message"] | None = None,
+        context: list[Message] | None = None,
         chain_prompt: str | None = None,
     ) -> AsyncIterator[str]:
         """
@@ -366,7 +366,7 @@ class ChainedDebate:
     Implements ring, all-to-all, and star topologies with streaming.
     """
 
-    agents: Sequence["Agent"]
+    agents: Sequence[Agent]
     chain: StreamChain = field(default_factory=StreamChain)
     topology: str = "ring"  # "ring", "all-to-all", "star"
 
@@ -411,7 +411,7 @@ class ChainedDebate:
     async def run_round(
         self,
         prompt: str,
-        context: list["Message"] | None = None,
+        context: list[Message] | None = None,
     ) -> dict[str, str]:
         """
         Run a debate round with streaming between agents.
@@ -455,7 +455,7 @@ class ChainedDebate:
             # Parallel execution for other topologies with bounded concurrency
             streaming_semaphore = asyncio.Semaphore(MAX_CONCURRENT_STREAMING)
 
-            async def generate(agent: "Agent") -> tuple[str, str]:
+            async def generate(agent: Agent) -> tuple[str, str]:
                 async with streaming_semaphore:
                     if hasattr(agent, "generate_stream"):
                         chunks = []
@@ -478,7 +478,7 @@ class ChainedDebate:
 
 def create_chain_from_topology(
     topology: str,
-    agents: Sequence["Agent"],
+    agents: Sequence[Agent],
 ) -> ChainedDebate:
     """
     Create a ChainedDebate with the specified topology.

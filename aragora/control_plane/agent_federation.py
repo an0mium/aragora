@@ -382,7 +382,7 @@ class FederatedAgentPool:
     def find_agents(
         self,
         capability: str | None = None,
-        capabilities: Optional[list[str]] = None,
+        capabilities: list[str] | None = None,
         min_count: int = 1,
         include_remote: bool = True,
         region: str | None = None,

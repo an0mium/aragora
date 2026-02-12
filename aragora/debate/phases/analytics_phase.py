@@ -110,7 +110,7 @@ class AnalyticsPhase:
         self._verify_claims_formally = verify_claims_formally
         self._format_conclusion = format_conclusion
 
-    async def execute(self, ctx: "DebateContext") -> None:
+    async def execute(self, ctx: DebateContext) -> None:
         """
         Execute analytics phase.
 
@@ -182,7 +182,7 @@ class AnalyticsPhase:
             except Exception as e:
                 logger.debug(f"POST_DEBATE hook failed: {e}")
 
-    def _track_failed_patterns(self, result: "DebateResult") -> None:
+    def _track_failed_patterns(self, result: DebateResult) -> None:
         """Track failed patterns for balanced learning."""
         if not self.memory or result.consensus_reached:
             return
@@ -202,7 +202,7 @@ class AnalyticsPhase:
                 except Exception as e:
                     logger.debug(f"Failed to record pattern failure: {e}")
 
-    def _record_metrics(self, ctx: "DebateContext") -> None:
+    def _record_metrics(self, ctx: DebateContext) -> None:
         """Record debate metrics for observability."""
         try:
             from aragora.server.prometheus import record_debate_completed
@@ -219,7 +219,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.debug(f"Metrics recording failed: {e}")
 
-    def _emit_consensus_event(self, result: "DebateResult") -> None:
+    def _emit_consensus_event(self, result: DebateResult) -> None:
         """Emit consensus event."""
         if "on_consensus" not in self.hooks:
             return
@@ -230,7 +230,7 @@ class AnalyticsPhase:
             answer=result.final_answer,
         )
 
-    def _emit_debate_end_event(self, result: "DebateResult") -> None:
+    def _emit_debate_end_event(self, result: DebateResult) -> None:
         """Emit debate end event."""
         if "on_debate_end" not in self.hooks:
             return
@@ -240,7 +240,7 @@ class AnalyticsPhase:
             rounds=result.rounds_used,
         )
 
-    def _notify_debate_end(self, result: "DebateResult") -> None:
+    def _notify_debate_end(self, result: DebateResult) -> None:
         """Notify spectator of debate end."""
         if not self._notify_spectator:
             return
@@ -251,7 +251,7 @@ class AnalyticsPhase:
             metric=result.confidence,
         )
 
-    async def _extract_insights(self, result: "DebateResult") -> None:
+    async def _extract_insights(self, result: DebateResult) -> None:
         """Extract and store insights."""
         if not self.insight_store:
             return
@@ -282,7 +282,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.warning(f"insight_extraction_failed error={e}")
 
-    def _determine_winner(self, ctx: "DebateContext") -> None:
+    def _determine_winner(self, ctx: DebateContext) -> None:
         """Determine winner from vote tally."""
         if not ctx.vote_tally:
             return
@@ -294,7 +294,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.debug(f"Winner determination failed: {e}")
 
-    def _update_relationships(self, ctx: "DebateContext") -> None:
+    def _update_relationships(self, ctx: DebateContext) -> None:
         """Update agent relationships for grounded personas."""
         if not self._update_agent_relationships:
             return
@@ -309,7 +309,7 @@ class AnalyticsPhase:
             votes=result.votes,
         )
 
-    async def _analyze_uncertainty(self, ctx: "DebateContext") -> None:
+    async def _analyze_uncertainty(self, ctx: DebateContext) -> None:
         """Analyze uncertainty and disagreement in debate results.
 
         Uses the uncertainty estimator to:
@@ -381,7 +381,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.warning(f"uncertainty_analysis_failed error={e}")
 
-    def _generate_disagreement(self, ctx: "DebateContext") -> None:
+    def _generate_disagreement(self, ctx: DebateContext) -> None:
         """Generate disagreement report."""
         if not self._generate_disagreement_report:
             return
@@ -405,7 +405,7 @@ class AnalyticsPhase:
                     f"count={len(result.disagreement_report.split_opinions)}"
                 )
 
-    async def _generate_verdict(self, ctx: "DebateContext") -> None:
+    async def _generate_verdict(self, ctx: DebateContext) -> None:
         """Generate grounded verdict."""
         if not self._create_grounded_verdict:
             return
@@ -420,7 +420,7 @@ class AnalyticsPhase:
 
             self._emit_grounded_verdict_event(result)
 
-    def _emit_grounded_verdict_event(self, result: "DebateResult") -> None:
+    def _emit_grounded_verdict_event(self, result: DebateResult) -> None:
         """Emit grounded verdict event for frontend."""
         if not self.event_emitter or not result.grounded_verdict:
             return
@@ -438,7 +438,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.debug(f"Failed to emit grounded verdict event: {e}")
 
-    async def _verify_formally(self, result: "DebateResult") -> None:
+    async def _verify_formally(self, result: DebateResult) -> None:
         """Perform formal Z3 verification for decidable claims."""
         if not self._verify_claims_formally:
             return
@@ -448,7 +448,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.debug(f"Formal verification failed: {e}")
 
-    def _analyze_beliefs(self, result: "DebateResult") -> None:
+    def _analyze_beliefs(self, result: DebateResult) -> None:
         """Run belief network analysis for debate cruxes."""
         if not result.grounded_verdict or not result.grounded_verdict.claims:
             return
@@ -487,7 +487,7 @@ class AnalyticsPhase:
         except Exception as e:
             logger.debug(f"Belief analysis failed: {e}")
 
-    def _log_completion(self, ctx: "DebateContext") -> None:
+    def _log_completion(self, ctx: DebateContext) -> None:
         """Log completion and formatted conclusion."""
         result = ctx.result
         logger.info(
@@ -499,7 +499,7 @@ class AnalyticsPhase:
             conclusion = self._format_conclusion(result)
             logger.debug(f"debate_conclusion length={len(conclusion)}")
 
-    def _finalize_recording(self, ctx: "DebateContext") -> None:
+    def _finalize_recording(self, ctx: DebateContext) -> None:
         """Finalize replay recording."""
         if not self.recorder:
             return

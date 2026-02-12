@@ -43,7 +43,7 @@ class SlackThreadManager:
     def platform_name(self) -> str:
         return "slack"
 
-    async def get_thread(self, thread_ts: str, channel_id: str) -> "ThreadInfo":
+    async def get_thread(self, thread_ts: str, channel_id: str) -> ThreadInfo:
         """Get thread information using conversations.replies."""
         from aragora.connectors.chat.thread_manager import ThreadInfo, ThreadNotFoundError
 
@@ -141,7 +141,7 @@ class SlackThreadManager:
 
     async def list_threads(
         self, channel_id: str, limit: int = 20, cursor: str | None = None
-    ) -> tuple[list["ThreadInfo"], str | None]:
+    ) -> tuple[list[ThreadInfo], str | None]:
         """List threads in a channel."""
         from aragora.connectors.chat.thread_manager import ThreadInfo
 
@@ -255,7 +255,7 @@ class SlackThreadManager:
             timestamp=datetime.utcnow(),
         )
 
-    async def get_thread_stats(self, thread_ts: str, channel_id: str) -> "ThreadStats":
+    async def get_thread_stats(self, thread_ts: str, channel_id: str) -> ThreadStats:
         """Get statistics for a thread."""
         from aragora.connectors.chat.thread_manager import ThreadStats
 
@@ -294,7 +294,7 @@ class SlackThreadManager:
 
     async def get_thread_participants(
         self, thread_ts: str, channel_id: str
-    ) -> list["ThreadParticipant"]:
+    ) -> list[ThreadParticipant]:
         """Get participants in a thread."""
         from aragora.connectors.chat.thread_manager import ThreadParticipant
 

@@ -48,7 +48,7 @@ class ConvoyStatus(Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
-    def to_nomic(self) -> "NomicConvoyStatus":
+    def to_nomic(self) -> NomicConvoyStatus:
         """Convert to canonical nomic status."""
         from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
 
@@ -65,9 +65,9 @@ class ConvoyStatus(Enum):
     @classmethod
     def from_nomic(
         cls,
-        nomic_status: "NomicConvoyStatus",
+        nomic_status: NomicConvoyStatus,
         gastown_status: str | None = None,
-    ) -> "ConvoyStatus":
+    ) -> ConvoyStatus:
         """Convert from canonical nomic status.
 
         If gastown_status is provided (from metadata), use that for
@@ -106,7 +106,7 @@ class ConvoyStatus(Enum):
         }[self]
 
     @classmethod
-    def from_workspace_status(cls, value: str) -> "ConvoyStatus":
+    def from_workspace_status(cls, value: str) -> ConvoyStatus:
         """Map a workspace ConvoyStatus value string to gastown status."""
         return {
             "created": cls.PENDING,

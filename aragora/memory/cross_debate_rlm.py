@@ -116,7 +116,7 @@ class DebateMemoryEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DebateMemoryEntry":
+    def from_dict(cls, data: dict[str, Any]) -> DebateMemoryEntry:
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],
@@ -382,7 +382,7 @@ class CrossDebateMemory:
             return MemoryTier.COLD
         return MemoryTier.ARCHIVE
 
-    async def add_debate(self, result: "DebateResult") -> str:
+    async def add_debate(self, result: DebateResult) -> str:
         """
         Add a debate result to memory.
 
@@ -532,7 +532,7 @@ class CrossDebateMemory:
             return entry.tier
         return None
 
-    async def _extract_insights(self, result: "DebateResult") -> list[str]:
+    async def _extract_insights(self, result: DebateResult) -> list[str]:
         """Extract key insights from a debate result."""
         insights = []
 
@@ -552,7 +552,7 @@ class CrossDebateMemory:
 
         return insights[:5]  # Limit to 5 insights
 
-    def _build_debate_context(self, result: "DebateResult") -> str:
+    def _build_debate_context(self, result: DebateResult) -> str:
         """Build full context from debate result."""
         parts = []
 
@@ -997,7 +997,7 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
                 "entries": [e.to_dict() for e in self._entries.values()],
             }
             self.config.storage_path.write_text(json.dumps(data, indent=2))
-        except (OSError, IOError, PermissionError) as e:
+        except (OSError, PermissionError) as e:
             logger.error(f"Failed to save cross-debate memory (I/O): {e}")
         except (TypeError, ValueError) as e:
             logger.error(f"Failed to save cross-debate memory (serialization): {e}")
@@ -1012,7 +1012,7 @@ Key insight: {entry.key_insights[0] if entry.key_insights else "N/A"}
             for entry_data in data.get("entries", []):
                 entry = DebateMemoryEntry.from_dict(entry_data)
                 self._entries[entry.debate_id] = entry
-        except (OSError, IOError, PermissionError) as e:
+        except (OSError, PermissionError) as e:
             logger.error(f"Failed to load cross-debate memory (I/O): {e}")
         except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to load cross-debate memory (parse): {e}")

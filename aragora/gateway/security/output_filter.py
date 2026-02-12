@@ -306,7 +306,7 @@ class OutputFilter:
         ]
 
     @classmethod
-    def create_strict(cls) -> "OutputFilter":
+    def create_strict(cls) -> OutputFilter:
         """Create a filter with all patterns enabled."""
         filter_instance = cls()
         for pattern in filter_instance._patterns:
@@ -314,7 +314,7 @@ class OutputFilter:
         return filter_instance
 
     @classmethod
-    def create_minimal(cls) -> "OutputFilter":
+    def create_minimal(cls) -> OutputFilter:
         """Create a filter with only critical patterns (keys, tokens)."""
         filter_instance = cls(enable_default_patterns=False)
         critical_types = {

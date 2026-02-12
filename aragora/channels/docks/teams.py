@@ -64,7 +64,7 @@ class TeamsDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -118,7 +118,7 @@ class TeamsDock(ChannelDock):
     def _build_payload(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build Teams Adaptive Card payload from normalized message."""

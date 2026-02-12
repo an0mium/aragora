@@ -78,7 +78,7 @@ class MockInsight:
     confidence: float
     agents_involved: list[str]
     evidence: list[str] = field(default_factory=list)
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 @dataclass

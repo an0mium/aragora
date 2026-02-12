@@ -44,7 +44,7 @@ class StepVerification:
     verdict: StepVerdict
     confidence: float
     reasoning: str
-    suggested_fix: Optional[str] = None
+    suggested_fix: str | None = None
     dependencies_verified: bool = True
     verification_time_ms: float = 0.0
 
@@ -144,7 +144,7 @@ CONFIDENCE: [0.0-1.0]
 REASONING: [Your detailed analysis]
 SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise write "None"]"""
 
-    def __init__(self, config: Optional[ThinkPRMConfig] = None):
+    def __init__(self, config: ThinkPRMConfig | None = None):
         """Initialize the verifier.
 
         Args:
@@ -264,7 +264,7 @@ SUGGESTED_FIX: [If INCORRECT or NEEDS_REVISION, what should change. Otherwise wr
         self,
         debate_rounds: list[dict[str, Any]],
         query_fn: Callable,
-        fragility_scores: Optional[dict[int, float]] = None,
+        fragility_scores: dict[int, float] | None = None,
     ) -> ProcessVerificationResult:
         """
         Verify entire debate as a sequence of steps.
@@ -527,7 +527,7 @@ async def verify_single_step(
     agent_id: str,
     query_fn: Callable,
     prior_context: str = "",
-    dependencies: Optional[list[str]] = None,
+    dependencies: list[str] | None = None,
 ) -> StepVerification:
     """
     Convenience function to verify a single step.

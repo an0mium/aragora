@@ -100,7 +100,7 @@ class ComplianceStats:
 class PoliciesAPI:
     """API interface for compliance policy management."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -195,8 +195,8 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: Optional[builtins.list[dict[str, Any]]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        rules: builtins.list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Policy:
         """
         Create a new policy.
@@ -241,8 +241,8 @@ class PoliciesAPI:
         workspace_id: str = "default",
         level: str = "recommended",
         enabled: bool = True,
-        rules: Optional[builtins.list[dict[str, Any]]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        rules: builtins.list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Policy:
         """Async version of create()."""
         body: dict[str, Any] = {
@@ -269,8 +269,8 @@ class PoliciesAPI:
         description: str | None = None,
         level: str | None = None,
         enabled: bool | None = None,
-        rules: Optional[builtins.list[dict[str, Any]]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        rules: builtins.list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Policy:
         """
         Update a policy.
@@ -311,8 +311,8 @@ class PoliciesAPI:
         description: str | None = None,
         level: str | None = None,
         enabled: bool | None = None,
-        rules: Optional[builtins.list[dict[str, Any]]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        rules: builtins.list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Policy:
         """Async version of update()."""
         body: dict[str, Any] = {}
@@ -507,7 +507,7 @@ class PoliciesAPI:
     def check(
         self,
         content: str,
-        frameworks: Optional[builtins.list[str]] = None,
+        frameworks: builtins.list[str] | None = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",
@@ -540,7 +540,7 @@ class PoliciesAPI:
     async def check_async(
         self,
         content: str,
-        frameworks: Optional[builtins.list[str]] = None,
+        frameworks: builtins.list[str] | None = None,
         min_severity: str = "low",
         store_violations: bool = False,
         workspace_id: str = "default",

@@ -102,7 +102,7 @@ class TimeCondition(Condition):
     def __init__(
         self,
         allowed_hours: tuple[int, int] | None = None,  # (start_hour, end_hour)
-        allowed_days: Optional[set[int]] = None,  # 0=Mon, 6=Sun
+        allowed_days: set[int] | None = None,  # 0=Mon, 6=Sun
         timezone_name: str = "UTC",
         start_date: datetime | None = None,
         end_date: datetime | None = None,

@@ -41,11 +41,11 @@ class MockUser:
     id: str = "user-123"
     email: str = "test@example.com"
     name: str = "Test User"
-    org_id: Optional[str] = "org-123"
+    org_id: str | None = "org-123"
     role: str = "member"
     is_active: bool = True
     created_at: datetime = field(default_factory=datetime.utcnow)
-    last_login_at: Optional[datetime] = None
+    last_login_at: datetime | None = None
 
 
 @dataclass

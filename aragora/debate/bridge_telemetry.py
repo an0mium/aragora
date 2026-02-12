@@ -234,7 +234,7 @@ class BridgeTelemetryContext:
         self.operation.error_type = type(error).__name__
         self.operation.error_message = str(error)[:200]
 
-    def __enter__(self) -> "BridgeTelemetryContext":
+    def __enter__(self) -> BridgeTelemetryContext:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -255,7 +255,7 @@ class BridgeTelemetryContext:
 def with_bridge_telemetry(
     bridge_name: str,
     operation: str,
-    extract_metadata: Optional[Callable[..., dict[str, Any]]] = None,
+    extract_metadata: Callable[..., dict[str, Any]] | None = None,
 ) -> Callable[[F], F]:
     """Decorator to add telemetry to bridge methods.
 

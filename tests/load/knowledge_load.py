@@ -202,7 +202,7 @@ class KnowledgeLoadClient:
         self.base_url = base_url.rstrip("/")
         self.metrics = metrics
         self.token = token
-        self.session: Optional[Any] = None
+        self.session: Any | None = None
         self.created_node_ids: list[str] = []
 
     async def _ensure_session(self) -> Any:
@@ -224,8 +224,8 @@ class KnowledgeLoadClient:
         self,
         content: str,
         node_type: str = "insight",
-        workspace_id: Optional[str] = None,
-    ) -> Optional[str]:
+        workspace_id: str | None = None,
+    ) -> str | None:
         """Create a knowledge node."""
         session = await self._ensure_session()
 
@@ -272,7 +272,7 @@ class KnowledgeLoadClient:
             self.metrics.errors.append(f"Create node error: {str(e)[:100]}")
             return None
 
-    async def get_knowledge_node(self, node_id: str) -> Optional[dict[str, Any]]:
+    async def get_knowledge_node(self, node_id: str) -> dict[str, Any] | None:
         """Retrieve a knowledge node."""
         session = await self._ensure_session()
 
@@ -381,7 +381,7 @@ class KnowledgeLoadClient:
         self,
         query: str,
         limit: int = 10,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Search knowledge base."""
         session = await self._ensure_session()
@@ -426,8 +426,8 @@ class KnowledgeLoadClient:
     async def query_knowledge(
         self,
         query: str,
-        context: Optional[dict[str, Any]] = None,
-    ) -> Optional[dict[str, Any]]:
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Query knowledge using semantic understanding."""
         session = await self._ensure_session()
 
@@ -550,8 +550,8 @@ class KnowledgeLoadClient:
     async def collect_evidence(
         self,
         claim: str,
-        source_debate_id: Optional[str] = None,
-    ) -> Optional[dict[str, Any]]:
+        source_debate_id: str | None = None,
+    ) -> dict[str, Any] | None:
         """Collect evidence for a claim."""
         session = await self._ensure_session()
 
@@ -593,7 +593,7 @@ class KnowledgeLoadClient:
     async def validate_evidence(
         self,
         evidence_id: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Validate collected evidence."""
         session = await self._ensure_session()
 

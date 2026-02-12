@@ -79,7 +79,7 @@ class ConvoyStatus(Enum):
         cls,
         nomic_status: NomicConvoyStatus,
         workspace_status: str | None = None,
-    ) -> "ConvoyStatus":
+    ) -> ConvoyStatus:
         """Convert from canonical nomic status.
 
         If workspace_status is provided (from metadata), use that for

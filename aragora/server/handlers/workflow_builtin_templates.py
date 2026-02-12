@@ -260,7 +260,7 @@ def create_code_review_template() -> WorkflowDefinition:
 # =============================================================================
 
 
-def register_builtin_templates(store: "PersistentWorkflowStore") -> None:
+def register_builtin_templates(store: PersistentWorkflowStore) -> None:
     """Register all built-in Python-defined templates.
 
     Args:
@@ -280,7 +280,7 @@ def register_builtin_templates(store: "PersistentWorkflowStore") -> None:
 # =============================================================================
 
 
-def load_yaml_templates(store: "PersistentWorkflowStore") -> int:
+def load_yaml_templates(store: PersistentWorkflowStore) -> int:
     """Load workflow templates from YAML files into persistent store.
 
     Templates are loaded from the workflow/templates directory. Only new
@@ -309,7 +309,7 @@ def load_yaml_templates(store: "PersistentWorkflowStore") -> int:
     except ImportError as e:
         logger.debug(f"Template loader not available: {e}")
         return 0
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.warning(f"Failed to read YAML templates from disk: {e}")
         return 0
     except (ValueError, KeyError, TypeError) as e:
@@ -317,7 +317,7 @@ def load_yaml_templates(store: "PersistentWorkflowStore") -> int:
         return 0
 
 
-def initialize_templates(store: "PersistentWorkflowStore") -> None:
+def initialize_templates(store: PersistentWorkflowStore) -> None:
     """Initialize all templates (built-in and YAML) on module load.
 
     This should be called once when the workflows module initializes.

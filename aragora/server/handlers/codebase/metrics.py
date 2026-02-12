@@ -90,8 +90,8 @@ def _get_or_create_repo_metrics(repo_id: str) -> dict[str, MetricsReport]:
 async def handle_analyze_metrics(
     repo_path: str,
     repo_id: str | None = None,
-    include_patterns: Optional[list[str]] = None,
-    exclude_patterns: Optional[list[str]] = None,
+    include_patterns: list[str] | None = None,
+    exclude_patterns: list[str] | None = None,
     complexity_warning: int = 10,
     complexity_error: int = 20,
     duplication_threshold: int = 6,

@@ -153,7 +153,7 @@ async def run_quick_scan(
             # Scan single file
             findings = scanner.scan_file(str(path))
             result["files_scanned"] = 1
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 result["lines_scanned"] = f.read().count("\n") + 1
         else:
             # Scan directory
@@ -263,7 +263,7 @@ def _generate_mock_result(scan_id: str, repo_path: str, start_time: datetime) ->
     }
 
 
-async def get_quick_scan_result(scan_id: str) -> Optional[dict[str, Any]]:
+async def get_quick_scan_result(scan_id: str) -> dict[str, Any] | None:
     """Get a quick scan result by ID."""
     return _quick_scan_results.get(scan_id)
 

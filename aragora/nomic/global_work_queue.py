@@ -80,7 +80,7 @@ class PrioritizedWork:
     """
 
     sort_priority: tuple[int, datetime, str] = field(compare=True)
-    work_item: "WorkItem" = field(compare=False)
+    work_item: WorkItem = field(compare=False)
 
 
 @dataclass
@@ -135,7 +135,7 @@ class WorkItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkItem":
+    def from_dict(cls, data: dict[str, Any]) -> WorkItem:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -224,7 +224,7 @@ class PriorityCalculator:
     def calculate(
         self,
         work: WorkItem,
-        completed_ids: Optional[set[str]] = None,
+        completed_ids: set[str] | None = None,
     ) -> int:
         """
         Calculate priority for a work item.
@@ -290,8 +290,8 @@ class GlobalWorkQueue:
 
     def __init__(
         self,
-        bead_store: Optional["BeadStore"] = None,
-        convoy_manager: Optional["ConvoyManager"] = None,
+        bead_store: BeadStore | None = None,
+        convoy_manager: ConvoyManager | None = None,
         storage_dir: Path | None = None,
         calculator: PriorityCalculator | None = None,
     ):
@@ -430,7 +430,7 @@ class GlobalWorkQueue:
     async def pop(
         self,
         work_type: WorkType | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> WorkItem | None:
         """
         Get the highest priority ready work item.
@@ -785,8 +785,8 @@ _default_queue: GlobalWorkQueue | None = None
 
 
 async def get_global_work_queue(
-    bead_store: Optional["BeadStore"] = None,
-    convoy_manager: Optional["ConvoyManager"] = None,
+    bead_store: BeadStore | None = None,
+    convoy_manager: ConvoyManager | None = None,
 ) -> GlobalWorkQueue:
     """Get the default global work queue instance."""
     global _default_queue

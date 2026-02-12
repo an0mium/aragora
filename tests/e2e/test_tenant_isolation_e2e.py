@@ -42,7 +42,7 @@ from aragora.server.middleware.user_auth import User, Workspace
 def create_test_user(
     user_id: str,
     email: str,
-    workspace_id: Optional[str],
+    workspace_id: str | None,
     plan: str = "free",
     role: str = "member",
 ) -> User:
@@ -61,7 +61,7 @@ def create_test_workspace(
     owner_id: str,
     plan: str = "free",
     name: str = "Test Workspace",
-    member_ids: Optional[list] = None,
+    member_ids: list | None = None,
 ) -> Workspace:
     """Create a test workspace with plan limits."""
     limits = get_plan_limits(plan)

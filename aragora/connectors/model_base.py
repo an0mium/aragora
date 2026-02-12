@@ -185,7 +185,7 @@ class ConnectorDataclass:
 
     def to_dict(
         self,
-        exclude: Optional[set[str]] = None,
+        exclude: set[str] | None = None,
         use_api_names: bool = False,
     ) -> dict[str, Any]:
         """Serialize the model to a JSON-compatible dictionary.

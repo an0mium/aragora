@@ -140,7 +140,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
 
     def store_pattern(
         self,
-        pattern: "CulturePattern",
+        pattern: CulturePattern,
         workspace_id: str | None = None,
     ) -> str | None:
         """Store a culture pattern in the Knowledge Mound.
@@ -226,7 +226,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
             logger.warning(f"Failed to store culture pattern: {e}")
             return None
 
-    def _pattern_to_content(self, pattern: "CulturePattern") -> str:
+    def _pattern_to_content(self, pattern: CulturePattern) -> str:
         """Convert a CulturePattern to searchable content string."""
         pattern_type = (
             pattern.pattern_type.value
@@ -253,7 +253,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
     def load_patterns(
         self,
         workspace_id: str,
-        pattern_types: Optional[list["CulturePatternType"]] = None,
+        pattern_types: list[CulturePatternType] | None = None,
         min_confidence: float = 0.5,
         limit: int = 50,
     ) -> list[StoredCulturePattern]:
@@ -334,7 +334,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
     def get_dominant_pattern(
         self,
         workspace_id: str,
-        pattern_type: "CulturePatternType",
+        pattern_type: CulturePatternType,
     ) -> StoredCulturePattern | None:
         """Get the dominant pattern for a specific type.
 
@@ -487,7 +487,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
 
     def sync_to_mound(
         self,
-        patterns: list["CulturePattern"],
+        patterns: list[CulturePattern],
         workspace_id: str,
     ) -> int:
         """Sync multiple patterns to the Knowledge Mound.
@@ -514,7 +514,7 @@ class CultureAdapter(KnowledgeMoundAdapter):
     def load_from_mound(
         self,
         workspace_id: str,
-    ) -> "CultureProfile":
+    ) -> CultureProfile:
         """Load a full culture profile from the Knowledge Mound.
 
         Args:

@@ -65,7 +65,7 @@ class AgentGenome:
     debates_participated: int = 0
 
     @classmethod
-    def from_persona(cls, persona: Persona, model: str = "claude") -> "AgentGenome":
+    def from_persona(cls, persona: Persona, model: str = "claude") -> AgentGenome:
         """Create a base genome from an existing Persona."""
         # Convert trait list to weighted dict (all equal weight for base)
         trait_weights = {t: 1.0 for t in persona.traits}
@@ -130,7 +130,7 @@ class AgentGenome:
 
         self.updated_at = datetime.now()
 
-    def similarity_to(self, other: "AgentGenome") -> float:
+    def similarity_to(self, other: AgentGenome) -> float:
         """Calculate genetic similarity to another genome (0-1)."""
         # Trait similarity
         all_traits = set(self.traits.keys()) | set(other.traits.keys())
@@ -173,7 +173,7 @@ class AgentGenome:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AgentGenome":
+    def from_dict(cls, data: dict) -> AgentGenome:
         """Deserialize from dictionary."""
         return cls(
             genome_id=data["genome_id"],

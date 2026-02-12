@@ -95,7 +95,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)
@@ -109,8 +109,8 @@ class GlobalKnowledgeHandler(GlobalKnowledgeOperationsMixin):
 
     def __init__(
         self,
-        mound: Optional[MockKnowledgeMound] = None,
-        user: Optional[MockUser] = None,
+        mound: MockKnowledgeMound | None = None,
+        user: MockUser | None = None,
         is_admin: bool = False,
     ):
         self._mound = mound

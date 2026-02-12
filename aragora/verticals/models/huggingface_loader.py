@@ -525,7 +525,7 @@ class HuggingFaceSpecialistLoader:
         self._loaded_models.clear()
         logger.info("Unloaded all models")
 
-    def get_model_info(self, model_id: str) -> Optional[dict[str, Any]]:
+    def get_model_info(self, model_id: str) -> dict[str, Any] | None:
         """
         Get information about a HuggingFace model.
 

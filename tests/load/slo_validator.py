@@ -143,7 +143,7 @@ class SLOValidator:
         self.profile_name = profile_name
 
     @classmethod
-    def from_profile(cls, profile_name: str) -> "SLOValidator":
+    def from_profile(cls, profile_name: str) -> SLOValidator:
         """Create validator from a named profile."""
         profile = get_profile(profile_name)
         return cls(profile.slo_thresholds, profile_name)
@@ -155,7 +155,7 @@ class SLOValidator:
         http_p99_ms: int = 1000,
         max_error_rate: float = 0.01,
         min_throughput_rps: float = 10.0,
-    ) -> "SLOValidator":
+    ) -> SLOValidator:
         """Create validator with custom thresholds."""
         thresholds = SLOThresholds(
             http_p95_ms=http_p95_ms,
@@ -171,7 +171,7 @@ class SLOValidator:
         total_requests: int,
         failed_requests: int,
         duration_seconds: float,
-        additional_metrics: Optional[dict[str, Any]] = None,
+        additional_metrics: dict[str, Any] | None = None,
     ) -> SLOResult:
         """
         Validate metrics against SLO thresholds.

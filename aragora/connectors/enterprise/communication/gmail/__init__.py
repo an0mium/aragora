@@ -75,8 +75,8 @@ class GmailConnector(  # type: ignore[misc]  # mypy does not support mixin Proto
 
     def __init__(
         self,
-        labels: Optional[list[str]] = None,
-        exclude_labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
+        exclude_labels: list[str] | None = None,
         max_results: int = 100,
         include_spam_trash: bool = False,
         user_id: str = "me",

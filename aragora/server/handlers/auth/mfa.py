@@ -76,7 +76,7 @@ def extract_user_from_request(handler, user_store):
 @auth_rate_limit(requests_per_minute=5, limiter_name="mfa_setup", endpoint_name="MFA setup")
 @handle_errors("MFA setup")
 @log_request("MFA setup")
-def handle_mfa_setup(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_mfa_setup(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Generate MFA secret and provisioning URI for setup."""
     # RBAC check: authentication.create permission required
     if error := handler_instance._check_permission(handler, "authentication.create"):
@@ -149,7 +149,7 @@ def handle_mfa_setup(handler_instance: "AuthHandler", handler) -> HandlerResult:
 @auth_rate_limit(requests_per_minute=5, limiter_name="mfa_enable", endpoint_name="MFA enable")
 @handle_errors("MFA enable")
 @log_request("MFA enable")
-def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_mfa_enable(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Enable MFA after verifying setup code."""
     # RBAC check: authentication.update permission required
     if error := handler_instance._check_permission(handler, "authentication.update"):
@@ -245,7 +245,7 @@ def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult
 @auth_rate_limit(requests_per_minute=5, limiter_name="mfa_disable", endpoint_name="MFA disable")
 @handle_errors("MFA disable")
 @log_request("MFA disable")
-def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_mfa_disable(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Disable MFA for the user."""
     # RBAC check: authentication.update permission required
     if error := handler_instance._check_permission(handler, "authentication.update"):
@@ -353,7 +353,7 @@ def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResul
 )
 @handle_errors("MFA verify")
 @log_request("MFA verify")
-def handle_mfa_verify(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_mfa_verify(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Verify MFA code during login."""
     from aragora.billing.jwt_auth import create_token_pair, validate_mfa_pending_token
 
@@ -492,7 +492,7 @@ def handle_mfa_verify(handler_instance: "AuthHandler", handler) -> HandlerResult
 @auth_rate_limit(requests_per_minute=5, limiter_name="mfa_backup", endpoint_name="MFA backup codes")
 @handle_errors("MFA backup codes")
 @log_request("MFA backup codes")
-def handle_mfa_backup_codes(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_mfa_backup_codes(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Regenerate MFA backup codes."""
     # RBAC check: authentication.read permission required
     if error := handler_instance._check_permission(handler, "authentication.read"):

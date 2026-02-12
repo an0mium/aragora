@@ -175,9 +175,9 @@ class Trainer:
 
     async def collect_trajectory(
         self,
-        rlm: "AragoraRLM",
+        rlm: AragoraRLM,
         query: str,
-        context: "RLMContext",
+        context: RLMContext,
     ) -> Trajectory:
         """
         Collect a single trajectory by running an RLM query.
@@ -271,8 +271,8 @@ class Trainer:
 
     async def collect_trajectories(
         self,
-        rlm: "AragoraRLM",
-        queries: list[tuple[str, "RLMContext"]],
+        rlm: AragoraRLM,
+        queries: list[tuple[str, RLMContext]],
     ) -> list[Trajectory]:
         """
         Collect multiple trajectories.
@@ -372,8 +372,8 @@ class Trainer:
 
     async def train_step(
         self,
-        rlm: "AragoraRLM",
-        queries: list[tuple[str, "RLMContext"]],
+        rlm: AragoraRLM,
+        queries: list[tuple[str, RLMContext]],
     ) -> TrainingMetrics:
         """
         Execute one training step.
@@ -463,10 +463,10 @@ class Trainer:
 
     async def train(
         self,
-        rlm: "AragoraRLM",
-        query_generator: Callable[[], list[tuple[str, "RLMContext"]]],
+        rlm: AragoraRLM,
+        query_generator: Callable[[], list[tuple[str, RLMContext]]],
         epochs: int,
-        on_epoch: Optional[Callable[[int, TrainingMetrics], None]] = None,
+        on_epoch: Callable[[int, TrainingMetrics], None] | None = None,
     ) -> list[TrainingMetrics]:
         """
         Run full training loop.

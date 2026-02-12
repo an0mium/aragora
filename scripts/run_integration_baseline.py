@@ -168,10 +168,10 @@ TIERS = {
 def get_pytest_command(
     tier: TestTier,
     coverage: bool = False,
-    parallel_workers: Optional[int] = None,
-    timeout: Optional[int] = None,
+    parallel_workers: int | None = None,
+    timeout: int | None = None,
     verbose: bool = False,
-    extra_args: Optional[list[str]] = None,
+    extra_args: list[str] | None = None,
 ) -> list[str]:
     """Build pytest command for the given tier."""
     cmd = ["python", "-m", "pytest"]

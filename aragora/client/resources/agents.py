@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class AgentsAPI:
     """API interface for agents."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def list(self) -> builtins.list[AgentProfile]:

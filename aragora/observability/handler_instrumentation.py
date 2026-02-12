@@ -79,7 +79,7 @@ def _safe_record_request(
         logger.debug(f"Failed to record request metrics: {e}")
 
 
-def _safe_start_span(name: str, attributes: Optional[dict[str, Any]] = None) -> Any:
+def _safe_start_span(name: str, attributes: dict[str, Any] | None = None) -> Any:
     """Safely start a tracing span."""
     try:
         from aragora.observability.tracing import get_tracer
@@ -99,7 +99,7 @@ def _safe_start_span(name: str, attributes: Optional[dict[str, Any]] = None) -> 
 class _NoOpContextManager:
     """No-op context manager for when observability is disabled."""
 
-    def __enter__(self) -> "_NoOpContextManager":
+    def __enter__(self) -> _NoOpContextManager:
         return self
 
     def __exit__(self, *args: Any) -> None:

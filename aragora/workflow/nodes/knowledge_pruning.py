@@ -53,7 +53,7 @@ class KnowledgePruningStep(BaseStep):
 
     VALID_ACTIONS = ["archive", "delete", "demote", "flag"]
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
         self._mound = None
 
@@ -178,7 +178,7 @@ class KnowledgeDedupStep(BaseStep):
         result = await step.execute(context)
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -265,7 +265,7 @@ class ConfidenceDecayStep(BaseStep):
         result = await step.execute(context)
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:

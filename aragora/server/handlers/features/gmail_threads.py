@@ -279,7 +279,7 @@ class GmailThreadsHandler(SecureHandler):
         self,
         state: GmailUserState,
         query: str,
-        label_ids: Optional[list[str]],
+        label_ids: list[str] | None,
         max_results: int,
         page_token: str | None,
     ) -> tuple[list[dict[str, Any]], str | None]:

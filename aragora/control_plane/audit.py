@@ -132,7 +132,7 @@ class AuditActor:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditActor":
+    def from_dict(cls, data: dict[str, Any]) -> AuditActor:
         """Create from dictionary."""
         return cls(
             actor_type=ActorType(data.get("type", "system")),
@@ -201,7 +201,7 @@ class AuditEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditEntry":
+    def from_dict(cls, data: dict[str, Any]) -> AuditEntry:
         """Create from dictionary."""
         return cls(
             entry_id=data.get("entry_id", str(uuid.uuid4())),
@@ -233,13 +233,13 @@ class AuditQuery:
     end_time: datetime | None = None
 
     # Filters
-    actions: Optional[list[AuditAction]] = None
-    actor_types: Optional[list[ActorType]] = None
-    actor_ids: Optional[list[str]] = None
-    resource_types: Optional[list[str]] = None
-    resource_ids: Optional[list[str]] = None
-    workspace_ids: Optional[list[str]] = None
-    outcomes: Optional[list[str]] = None
+    actions: list[AuditAction] | None = None
+    actor_types: list[ActorType] | None = None
+    actor_ids: list[str] | None = None
+    resource_types: list[str] | None = None
+    resource_ids: list[str] | None = None
+    workspace_ids: list[str] | None = None
+    outcomes: list[str] | None = None
 
     # Pagination
     limit: int = 100
@@ -391,7 +391,7 @@ class AuditLog:
         resource_type: str,
         resource_id: str,
         workspace_id: str | None = None,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         outcome: str = "success",
         error_message: str | None = None,
     ) -> AuditEntry:
@@ -947,8 +947,8 @@ async def log_policy_decision(
     workspace_id: str | None = None,
     task_id: str | None = None,
     agent_id: str | None = None,
-    violations: Optional[list[str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    violations: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> AuditEntry | None:
     """
     Log a policy decision to the audit trail.

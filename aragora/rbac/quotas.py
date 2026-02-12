@@ -150,7 +150,7 @@ class UsageRecord:
         }
 
     @classmethod
-    def from_storage_dict(cls, data: dict[str, Any]) -> "UsageRecord":
+    def from_storage_dict(cls, data: dict[str, Any]) -> UsageRecord:
         """Reconstruct from storage dictionary."""
         timestamp = data.get("timestamp")
         if isinstance(timestamp, str):

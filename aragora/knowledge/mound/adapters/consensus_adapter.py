@@ -43,9 +43,9 @@ from aragora.knowledge.mound.adapters._types import SyncResult, ValidationSyncRe
 class ConsensusSearchResult:
     """Wrapper for consensus search results with similarity metadata."""
 
-    record: "ConsensusRecord"
+    record: ConsensusRecord
     similarity: float = 0.0
-    dissents: list["DissentRecord"] = None
+    dissents: list[DissentRecord] = None
 
     def __post_init__(self) -> None:
         if self.dissents is None:
@@ -87,7 +87,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
     def __init__(
         self,
-        consensus: "ConsensusMemory",
+        consensus: ConsensusMemory,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -113,7 +113,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
     # set_event_callback, _emit_event, _record_metric inherited from KnowledgeMoundAdapter
 
     @property
-    def consensus(self) -> "ConsensusMemory":
+    def consensus(self) -> ConsensusMemory:
         """Access the underlying ConsensusMemory."""
         return self._consensus
 
@@ -160,8 +160,8 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        cross_refs: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply KM validation to a consensus record (required by ReverseFlowMixin)."""
         record.metadata["km_validated"] = True
@@ -222,7 +222,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
         return results
 
-    def get(self, record_id: str) -> Optional["ConsensusRecord"]:
+    def get(self, record_id: str) -> ConsensusRecord | None:
         """
         Get a specific consensus record by ID.
 
@@ -238,14 +238,14 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
         return self._consensus.get_consensus(record_id)
 
-    async def get_async(self, record_id: str) -> Optional["ConsensusRecord"]:
+    async def get_async(self, record_id: str) -> ConsensusRecord | None:
         """Async version of get for compatibility."""
         return self.get(record_id)
 
     def to_knowledge_item(
         self,
-        record: "ConsensusRecord" | ConsensusSearchResult,
-    ) -> "KnowledgeItem":
+        record: ConsensusRecord | ConsensusSearchResult,
+    ) -> KnowledgeItem:
         """
         Convert a ConsensusRecord to a KnowledgeItem.
 
@@ -320,8 +320,8 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
     def dissent_to_knowledge_item(
         self,
-        dissent: "DissentRecord",
-    ) -> "KnowledgeItem":
+        dissent: DissentRecord,
+    ) -> KnowledgeItem:
         """
         Convert a DissentRecord to a KnowledgeItem.
 
@@ -371,7 +371,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         self,
         topic: str,
         limit: int = 20,
-    ) -> list["DissentRecord"]:
+    ) -> list[DissentRecord]:
         """
         Get dissenting views related to a topic.
 
@@ -388,7 +388,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         self,
         topic: str | None = None,
         limit: int = 10,
-    ) -> list["DissentRecord"]:
+    ) -> list[DissentRecord]:
         """
         Get risk warnings from debates.
 
@@ -420,7 +420,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
     def get_contrarian_views(
         self,
         limit: int = 10,
-    ) -> list["DissentRecord"]:
+    ) -> list[DissentRecord]:
         """
         Get fundamental disagreements from debates.
 
@@ -513,7 +513,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         finally:
             self._record_metric("search", success, time.time() - start)
 
-    def store_consensus(self, record: "ConsensusRecord") -> None:
+    def store_consensus(self, record: ConsensusRecord) -> None:
         """
         Mark a consensus record for KM sync (forward flow).
 
@@ -548,7 +548,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
             },
         )
 
-    def _get_all_consensus_records(self) -> list["ConsensusRecord"]:
+    def _get_all_consensus_records(self) -> list[ConsensusRecord]:
         """Get all consensus records from the underlying ConsensusMemory.
 
         This helper method provides access to all records for sync operations
@@ -601,7 +601,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         result = SyncResult()
 
         # Find all pending records
-        pending_records: list["ConsensusRecord"] = []
+        pending_records: list[ConsensusRecord] = []
         for record in self._get_all_consensus_records():
             if record.metadata.get("km_sync_pending") and record.confidence >= min_confidence:
                 pending_records.append(record)
@@ -791,7 +791,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         """
         return ["elo", "evidence", "belief", "continuum"]
 
-    def _extract_fusible_data(self, km_item: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def _extract_fusible_data(self, km_item: dict[str, Any]) -> dict[str, Any] | None:
         """Extract data from a KM item that can be used for fusion.
 
         Args:
@@ -824,7 +824,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
         self,
         record: Any,
         fusion_result: Any,  # FusedValidation from ops.fusion
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a consensus record.
 

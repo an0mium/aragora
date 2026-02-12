@@ -53,7 +53,7 @@ class DeadlockResolution:
     message: str = ""
     cleared_state: bool = False
     threshold_lowered: bool = False
-    new_threshold: Optional[float] = None
+    new_threshold: float | None = None
 
 
 class DeadlockManager:
@@ -89,7 +89,7 @@ class DeadlockManager:
     def __init__(
         self,
         max_history: int = 10,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
     ):
         """
         Initialize deadlock manager.
@@ -105,7 +105,7 @@ class DeadlockManager:
         self,
         cycle: int,
         outcome: str,
-        details: Optional[dict] = None,
+        details: dict | None = None,
     ) -> None:
         """
         Track cycle outcome for deadlock detection.

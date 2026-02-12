@@ -35,7 +35,7 @@ class MockAnalyticsDashboard:
     def __init__(self):
         self._metrics: list[MockAgentMetrics] = []
 
-    async def get_agent_metrics(self, workspace_id: Optional[str] = None) -> list[MockAgentMetrics]:
+    async def get_agent_metrics(self, workspace_id: str | None = None) -> list[MockAgentMetrics]:
         """Get agent metrics."""
         return self._metrics
 

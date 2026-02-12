@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from aragora.core import Environment, DebateProtocol
 
 # Lazy imports for optional dependencies
-_Arena: Optional[type] = None
+_Arena: type | None = None
 create_arena_hooks = None
 
 try:
@@ -62,25 +62,25 @@ class ArenaFactoryDependencies:
     """
 
     # Streaming
-    stream_emitter: Optional[Any] = None
+    stream_emitter: Any | None = None
     loop_id: str = ""
 
     # Memory systems
-    critique_store: Optional[Any] = None
-    debate_embeddings: Optional[Any] = None
-    insight_store: Optional[Any] = None
-    continuum_memory: Optional[Any] = None
+    critique_store: Any | None = None
+    debate_embeddings: Any | None = None
+    insight_store: Any | None = None
+    continuum_memory: Any | None = None
 
     # Tracking systems
-    position_tracker: Optional[Any] = None
-    position_ledger: Optional[Any] = None
-    calibration_tracker: Optional[Any] = None
-    elo_system: Optional[Any] = None
+    position_tracker: Any | None = None
+    position_ledger: Any | None = None
+    calibration_tracker: Any | None = None
+    elo_system: Any | None = None
 
     # Agent enhancement
-    persona_manager: Optional[Any] = None
-    relationship_tracker: Optional[Any] = None
-    moment_detector: Optional[Any] = None
+    persona_manager: Any | None = None
+    relationship_tracker: Any | None = None
+    moment_detector: Any | None = None
 
 
 class ArenaFactory:
@@ -100,7 +100,7 @@ class ArenaFactory:
     def __init__(
         self,
         deps: ArenaFactoryDependencies,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
     ):
         """Initialize factory with dependencies.
 
@@ -116,10 +116,10 @@ class ArenaFactory:
         environment: Any,
         agents: list,
         protocol: Any,
-        config: Optional[ArenaConfig] = None,
-        agent_weights: Optional[dict] = None,
+        config: ArenaConfig | None = None,
+        agent_weights: dict | None = None,
         **extra_kwargs,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Create an Arena instance with configured dependencies.
 
         Args:
@@ -269,7 +269,7 @@ class ArenaFactory:
         environment: Any,
         agents: list,
         protocol: Any,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Create Arena for tournament mode with minimal integrations.
 
         Tournament debates focus on agent comparison, so we skip
@@ -290,7 +290,7 @@ class ArenaFactory:
         environment: Any,
         agents: list,
         protocol: Any,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Create Arena for scenario debates (fractal sub-debates).
 
         Scenario debates are lightweight explorations that shouldn't

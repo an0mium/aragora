@@ -128,13 +128,13 @@ class PlaywrightConnector:
         self,
         headless: bool = True,
         browser_type: str = "chromium",
-        allowed_domains: Optional[set[str]] = None,
-        blocked_domains: Optional[set[str]] = None,
+        allowed_domains: set[str] | None = None,
+        blocked_domains: set[str] | None = None,
         timeout_ms: int = 30000,
         viewport_width: int = 1280,
         viewport_height: int = 720,
         user_agent: str | None = None,
-        proxy: Optional[dict[str, str]] = None,
+        proxy: dict[str, str] | None = None,
         ignore_https_errors: bool = False,
     ):
         """
@@ -730,7 +730,7 @@ class PlaywrightConnector:
         """Check if connector is initialized."""
         return self._initialized
 
-    async def __aenter__(self) -> "PlaywrightConnector":
+    async def __aenter__(self) -> PlaywrightConnector:
         """Async context manager entry."""
         await self.initialize()
         return self

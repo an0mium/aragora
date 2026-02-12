@@ -24,7 +24,7 @@ class EvalTask:
     labels: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EvalTask":
+    def from_dict(cls, data: dict[str, Any]) -> EvalTask:
         if not isinstance(data, dict):
             raise ValueError("Task data must be a dict")
         task_id = str(data.get("task_id") or data.get("id") or "").strip()

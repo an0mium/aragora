@@ -106,7 +106,7 @@ class RecoveryConfig:
 
     # Escalation
     escalation_threshold: int = 3  # Consecutive failures before escalation
-    escalation_callback: Optional[Callable[[Exception, int], None]] = None
+    escalation_callback: Callable[[Exception, int], None] | None = None
 
 
 class RecoveryStrategy:
@@ -142,10 +142,10 @@ class RecoveryStrategy:
         self._last_error_time: float | None = None
 
         # Circuit breaker (lazy initialized)
-        self._circuit_breaker: Optional["CircuitBreaker"] = None
+        self._circuit_breaker: CircuitBreaker | None = None
 
         # Token refresh callback
-        self._refresh_token_callback: Optional[Callable[[], Any]] = None
+        self._refresh_token_callback: Callable[[], Any] | None = None
 
     def set_token_refresh_callback(
         self,

@@ -103,7 +103,7 @@ class DocumentExplorer:
         config: ExplorerConfig | None = None,
         memory: ExplorationMemory | None = None,
         event_emitter: EventEmitter | None = None,
-        document_loader: Optional[Callable[[str], str]] = None,
+        document_loader: Callable[[str], str] | None = None,
     ):
         """Initialize the document explorer.
 

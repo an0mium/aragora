@@ -114,9 +114,9 @@ class QuotaFallbackMixin:
     DEFAULT_FALLBACK_MODEL: str = "anthropic/claude-sonnet-4"
 
     # Instance-level cached fallback agent (set by _get_cached_fallback_agent)
-    _fallback_agent: Optional["OpenRouterAgent"] = None
+    _fallback_agent: OpenRouterAgent | None = None
 
-    def _get_cached_fallback_agent(self) -> Optional["OpenRouterAgent"]:
+    def _get_cached_fallback_agent(self) -> OpenRouterAgent | None:
         """Get or create a cached OpenRouter fallback agent.
 
         Unlike _get_openrouter_fallback(), this caches the agent for reuse.
@@ -192,7 +192,7 @@ class QuotaFallbackMixin:
         # Check for quota-related keywords in any error
         return any(kw in error_lower for kw in QUOTA_ERROR_KEYWORDS)
 
-    def _get_openrouter_fallback(self) -> Optional["OpenRouterAgent"]:
+    def _get_openrouter_fallback(self) -> OpenRouterAgent | None:
         """Get an OpenRouter fallback agent if available.
 
         Returns:
@@ -450,7 +450,7 @@ class AgentFallbackChain:
     def __init__(
         self,
         providers: list[Any],
-        circuit_breaker: Optional["CircuitBreaker"] = None,
+        circuit_breaker: CircuitBreaker | None = None,
         max_retries: int | None = None,
         max_fallback_time: float | None = None,
     ):

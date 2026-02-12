@@ -31,7 +31,7 @@ class S3Object:
     size: int
     last_modified: datetime
     etag: str
-    content_type: Optional[str] = None
+    content_type: str | None = None
     metadata: dict[str, str] = None
 
     def __post_init__(self):
@@ -84,8 +84,8 @@ class MockS3Connector:
     async def _list_objects(
         self,
         prefix: str = "",
-        continuation_token: Optional[str] = None,
-    ) -> tuple[list[S3Object], Optional[str]]:
+        continuation_token: str | None = None,
+    ) -> tuple[list[S3Object], str | None]:
         """List objects in the bucket."""
         client = await self._get_client()
 
@@ -115,7 +115,7 @@ class MockS3Connector:
         next_token = response.get("NextContinuationToken")
         return objects, next_token
 
-    async def _get_object_content(self, key: str) -> Optional[bytes]:
+    async def _get_object_content(self, key: str) -> bytes | None:
         """Get object content."""
         client = await self._get_client()
 
@@ -209,7 +209,7 @@ class MockS3Connector:
             if not continuation_token:
                 break
 
-    async def fetch(self, item_id: str) -> Optional[Any]:
+    async def fetch(self, item_id: str) -> Any | None:
         """Fetch a specific object."""
         # Parse item ID
         if item_id.startswith("s3-"):

@@ -192,7 +192,7 @@ class MoleculeTransaction:
         molecule_id: str,
         checkpoint_dir: Path,
         snapshot: dict[str, Any] | None = None,
-    ) -> "MoleculeTransaction":
+    ) -> MoleculeTransaction:
         """Begin a new transaction."""
         return cls(
             transaction_id=str(uuid.uuid4()),
@@ -361,11 +361,11 @@ class MoleculeStep:
         cls,
         name: str,
         step_type: str,
-        config: Optional[dict[str, Any]] = None,
-        dependencies: Optional[list[str]] = None,
+        config: dict[str, Any] | None = None,
+        dependencies: list[str] | None = None,
         timeout_seconds: float = 300.0,
         max_attempts: int = 3,
-    ) -> "MoleculeStep":
+    ) -> MoleculeStep:
         """Create a new molecule step."""
         return cls(
             id=str(uuid.uuid4())[:8],
@@ -399,7 +399,7 @@ class MoleculeStep:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MoleculeStep":
+    def from_dict(cls, data: dict[str, Any]) -> MoleculeStep:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],
@@ -471,8 +471,8 @@ class Molecule:
         steps: list[MoleculeStep],
         description: str = "",
         checkpoint_dir: Path | None = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "Molecule":
+        metadata: dict[str, Any] | None = None,
+    ) -> Molecule:
         """Create a new molecule."""
         now = datetime.now(timezone.utc)
         return cls(
@@ -508,7 +508,7 @@ class Molecule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Molecule":
+    def from_dict(cls, data: dict[str, Any]) -> Molecule:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],

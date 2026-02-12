@@ -267,7 +267,7 @@ class UnifiedBackend:
 
     def __init__(
         self,
-        sync_backend: "DatabaseBackend",
+        sync_backend: DatabaseBackend,
         capabilities: BackendCapabilities,
         async_pool_factory: Any = None,
     ):
@@ -282,7 +282,7 @@ class UnifiedBackend:
         self.sync = sync_backend
         self.capabilities = capabilities
         self._async_pool_factory = async_pool_factory
-        self._async_pool: Optional["Pool"] = None
+        self._async_pool: Pool | None = None
 
     @property
     def backend_type(self) -> BackendType:
@@ -299,7 +299,7 @@ class UnifiedBackend:
         """Check if currently using SQLite."""
         return self.capabilities.backend_type == BackendType.SQLITE
 
-    async def get_async_pool(self) -> Optional["Pool"]:
+    async def get_async_pool(self) -> Pool | None:
         """Get the asyncpg connection pool, if available.
 
         For PostgreSQL backends, this returns a connection pool suitable

@@ -40,7 +40,7 @@ class MockRegionState:
     buffered_events: list[RegionalEvent] = field(default_factory=list)
     known_entities: dict[str, dict[str, Any]] = field(default_factory=dict)
     last_leader_heartbeat: float = 0.0
-    leader_id: Optional[str] = None
+    leader_id: str | None = None
 
 
 class MockPartitionableEventBus:
@@ -89,7 +89,7 @@ class MockPartitionableEventBus:
             return False
         return to_region in self.partition_matrix[from_region]
 
-    async def publish(self, event: RegionalEvent, target_region: Optional[str] = None) -> int:
+    async def publish(self, event: RegionalEvent, target_region: str | None = None) -> int:
         """Publish event, respecting partition matrix."""
         self.published_events.append(event)
         delivered = 0

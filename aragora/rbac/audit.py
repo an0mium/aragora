@@ -282,7 +282,7 @@ class AuditEvent:
         return verify_event_signature(self.to_dict(), self.signature)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AuditEvent":
+    def from_dict(cls, data: dict[str, Any]) -> AuditEvent:
         """
         Create an AuditEvent from a dictionary.
 
@@ -614,18 +614,7 @@ class AuthorizationAuditor:
         for handler in self._handlers:
             try:
                 handler(event)
-            except (
-                OSError,
-                IOError,
-                ValueError,
-                TypeError,
-                RuntimeError,
-                AttributeError,
-                KeyError,
-                ConnectionError,
-                TimeoutError,
-                PermissionError,
-            ) as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, KeyError, ConnectionError, TimeoutError, PermissionError) as e:
                 logger.error(f"Error in audit handler: {e}")
                 # Continue to next handler
             except Exception as e:

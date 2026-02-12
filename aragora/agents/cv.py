@@ -261,7 +261,7 @@ class AgentCV:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AgentCV":
+    def from_dict(cls, data: dict[str, Any]) -> AgentCV:
         """Create CV from dictionary representation."""
         reliability_data = data.get("reliability", {})
         reliability = ReliabilityMetrics(
@@ -328,8 +328,8 @@ class CVBuilder:
 
     def __init__(
         self,
-        elo_system: Optional["EloSystem"] = None,
-        calibration_tracker: Optional["CalibrationTracker"] = None,
+        elo_system: EloSystem | None = None,
+        calibration_tracker: CalibrationTracker | None = None,
         performance_monitor: Any | None = None,
     ):
         self.elo_system = elo_system

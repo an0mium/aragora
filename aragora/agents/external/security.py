@@ -92,7 +92,7 @@ class ToolPermissionGate:
     def check_permission(
         self,
         tool_name: str,
-        context: "AuthorizationContext",
+        context: AuthorizationContext,
     ) -> tuple[bool, str]:
         """Check if context has permission to use a tool.
 
@@ -233,7 +233,7 @@ class ExternalAgentSecurityPolicy:
     def check_pre_execution(
         self,
         request: TaskRequest,
-        context: "AuthorizationContext",
+        context: AuthorizationContext,
         adapter_config: ExternalAgentConfig,
     ) -> PolicyCheckResult:
         """Pre-execution policy check.
@@ -318,7 +318,7 @@ class ExternalAgentSecurityPolicy:
         self,
         tool_name: str,
         tool_input: dict[str, Any],
-        context: "AuthorizationContext",
+        context: AuthorizationContext,
     ) -> tuple[bool, str | None]:
         """Gate access to a specific tool invocation.
 

@@ -34,7 +34,7 @@ class MockHandler:
         if self.rfile is None:
             self.rfile = BytesIO(b"{}")
 
-    def get_json_body(self) -> Optional[dict[str, Any]]:
+    def get_json_body(self) -> dict[str, Any] | None:
         """Return mock JSON body."""
         return self._json_body
 

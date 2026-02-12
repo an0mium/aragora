@@ -25,8 +25,8 @@ class MockConsensusOutcome:
     consensus_text: str = "Design a simple cache system"
     implementation_succeeded: bool = True
     rounds_completed: int = 5
-    failure_reason: Optional[str] = None
-    time_to_failure: Optional[float] = None
+    failure_reason: str | None = None
+    time_to_failure: float | None = None
 
 
 class MockOutcomeTracker:

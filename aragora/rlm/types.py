@@ -374,7 +374,7 @@ class RLMStreamEvent:
     error: str | None = None
 
     # Full result (only on completion events)
-    result: Optional["RLMResult"] = None
+    result: RLMResult | None = None
 
     def __post_init__(self) -> None:
         if self.timestamp == 0.0:

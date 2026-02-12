@@ -66,7 +66,7 @@ class BeadStatus(Enum):
         return mapping[self]
 
     @classmethod
-    def from_nomic(cls, nomic_status: NomicBeadStatus) -> "BeadStatus":
+    def from_nomic(cls, nomic_status: NomicBeadStatus) -> BeadStatus:
         """Convert from canonical nomic status."""
         mapping = {
             NomicBeadStatus.PENDING: cls.PENDING,

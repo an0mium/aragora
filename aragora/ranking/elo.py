@@ -123,10 +123,10 @@ __all__ = [
 ]
 
 # Singleton EloSystem instance
-_elo_store: Optional["EloSystem"] = None
+_elo_store: EloSystem | None = None
 
 
-def get_elo_store() -> "EloSystem":
+def get_elo_store() -> EloSystem:
     """Get the global EloSystem singleton instance.
 
     Returns a singleton EloSystem instance, creating it if necessary.
@@ -280,8 +280,8 @@ class EloSystem(KMAdapterMixin):
     def __init__(
         self,
         db_path: str | Path | None = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
-        km_adapter: Optional["EloAdapter"] = None,
+        event_emitter: EventEmitterProtocol | None = None,
+        km_adapter: EloAdapter | None = None,
     ):
         if db_path is None:
             db_path = get_db_path(DatabaseType.ELO)
@@ -656,7 +656,7 @@ class EloSystem(KMAdapterMixin):
         self,
         participants: list[str],
         scores: dict[str, float],
-        ratings: dict[str, "AgentRating"],
+        ratings: dict[str, AgentRating],
         confidence_weight: float,
         k_multipliers: dict[str, float] | None = None,
     ) -> dict[str, float]:
@@ -669,18 +669,18 @@ class EloSystem(KMAdapterMixin):
     def _apply_elo_changes(
         self,
         elo_changes: dict[str, float],
-        ratings: dict[str, "AgentRating"],
+        ratings: dict[str, AgentRating],
         winner: str | None,
         domain: str | None,
         debate_id: str,
-    ) -> tuple[list["AgentRating"], list[tuple[str, float, str]]]:
+    ) -> tuple[list[AgentRating], list[tuple[str, float, str]]]:
         """Apply ELO changes to ratings and prepare for batch save."""
         return apply_elo_changes(elo_changes, ratings, winner, domain, debate_id, DEFAULT_ELO)
 
     def _compute_calibration_k_multipliers(
         self,
         participants: list[str],
-        calibration_tracker: "Any | None" = None,
+        calibration_tracker: Any | None = None,
     ) -> dict[str, float]:
         """Compute per-agent K-factor multipliers based on calibration quality."""
         return compute_calibration_k_multipliers(participants, calibration_tracker)

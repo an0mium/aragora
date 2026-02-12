@@ -118,7 +118,7 @@ class WebhookMixin:
         self,
         headers: dict[str, str],
         body: bytes,
-    ) -> "WebhookEvent":
+    ) -> WebhookEvent:
         """
         Parse a webhook payload into a WebhookEvent.
 

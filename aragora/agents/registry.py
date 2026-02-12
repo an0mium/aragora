@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
 # Module-level cache for agent instances with LRU eviction
 # Key: (model_type, name, role, model, api_key) -> Agent
-_agent_cache: dict[tuple[str, str, str, str | None, str | None], "Agent"] = {}
+_agent_cache: dict[tuple[str, str, str, str | None, str | None], Agent] = {}
 _agent_access_order: list[tuple[str, str, str, str | None, str | None]] = []
 _CACHE_MAX_SIZE = 32
 
@@ -168,7 +168,7 @@ class AgentRegistry:
         api_key: str | None = None,
         use_cache: bool = False,
         **kwargs: Any,
-    ) -> "Agent":
+    ) -> Agent:
         """
         Create an agent by registered type name.
 
@@ -247,7 +247,7 @@ class AgentRegistry:
         role: str = "proposer",
         model: str | None = None,
         api_key: str | None = None,
-    ) -> "Agent":
+    ) -> Agent:
         """
         Get or create a cached agent instance.
 

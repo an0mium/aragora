@@ -57,9 +57,9 @@ def _make_server_context() -> dict:
 
 def _make_handler_obj(
     method: str = "GET",
-    body: Optional[bytes] = None,
+    body: bytes | None = None,
     client_address: tuple = ("127.0.0.1", 12345),
-    headers: Optional[dict] = None,
+    headers: dict | None = None,
 ) -> MagicMock:
     """Build a mock HTTP handler object used by CanvasHandler.handle()."""
     handler = MagicMock()

@@ -219,7 +219,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
 
 
 # Export handler factory (lazy instantiation - server_context required)
-_slack_handler: Optional["SlackHandler"] = None
+_slack_handler: SlackHandler | None = None
 
 
 def get_slack_handler(

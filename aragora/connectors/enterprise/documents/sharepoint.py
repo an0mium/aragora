@@ -130,8 +130,8 @@ class SharePointConnector(EnterpriseConnector):
         site_url: str,
         include_subsites: bool = True,
         include_lists: bool = False,
-        file_extensions: Optional[set[str]] = None,
-        exclude_paths: Optional[list[str]] = None,
+        file_extensions: set[str] | None = None,
+        exclude_paths: list[str] | None = None,
         **kwargs: Any,
     ):
         """
@@ -223,8 +223,8 @@ class SharePointConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API."""
         token = await self._get_access_token()

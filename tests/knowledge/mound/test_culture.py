@@ -89,7 +89,7 @@ def sample_debate_result():
         debate_id: str
         task: str
         proposals: list[Proposal]
-        winner: Optional[str]
+        winner: str | None
         consensus_reached: bool
         confidence: float
         rounds_used: int

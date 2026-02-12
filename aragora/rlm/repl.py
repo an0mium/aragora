@@ -301,7 +301,7 @@ class RLMEnvironment:
         self,
         config: RLMConfig,
         context: RLMContext,
-        agent_call: Optional[Callable[[str, str, str], str]] = None,
+        agent_call: Callable[[str, str, str], str] | None = None,
     ):
         """
         Initialize REPL environment.

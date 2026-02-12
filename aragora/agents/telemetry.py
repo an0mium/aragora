@@ -221,8 +221,8 @@ def setup_default_collectors() -> None:
 
 def with_telemetry(
     operation: str = "generate",
-    extract_input: Optional[Callable[..., str]] = None,
-    extract_output: Optional[Callable[[Any], str]] = None,
+    extract_input: Callable[..., str] | None = None,
+    extract_output: Callable[[Any], str] | None = None,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator wrapping agent operations with telemetry.
 
@@ -398,7 +398,7 @@ class TelemetryContext:
         self.telemetry.error_type = type(error).__name__
         self.telemetry.error_message = str(error)[:200]
 
-    def __enter__(self) -> "TelemetryContext":
+    def __enter__(self) -> TelemetryContext:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:

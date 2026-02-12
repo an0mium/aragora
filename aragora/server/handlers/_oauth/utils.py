@@ -56,37 +56,37 @@ class OAuthHandlerProtocol(Protocol):
         """Get user store from context."""
         ...
 
-    def _redirect_with_error(self, error: str) -> "HandlerResult":
+    def _redirect_with_error(self, error: str) -> HandlerResult:
         """Redirect to error page with error message."""
         ...
 
-    def _redirect_with_tokens(self, redirect_url: str, tokens: Any) -> "HandlerResult":
+    def _redirect_with_tokens(self, redirect_url: str, tokens: Any) -> HandlerResult:
         """Redirect to frontend with tokens in URL query parameters."""
         ...
 
     def _check_permission(
         self, handler: Any, permission_key: str, resource_id: str | None = None
-    ) -> "HandlerResult | None":
+    ) -> HandlerResult | None:
         """Check RBAC permission. Returns error response if denied, None if allowed."""
         ...
 
     def _complete_oauth_flow(
-        self, user_info: "OAuthUserInfo", state_data: dict[str, Any]
-    ) -> "HandlerResult":
+        self, user_info: OAuthUserInfo, state_data: dict[str, Any]
+    ) -> HandlerResult:
         """Complete OAuth flow - create/login user and redirect with tokens."""
         ...
 
-    def _find_user_by_oauth(self, user_store: Any, user_info: "OAuthUserInfo") -> Any:
+    def _find_user_by_oauth(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Find user by OAuth provider ID."""
         ...
 
     def _link_oauth_to_user(
-        self, user_store: Any, user_id: str, user_info: "OAuthUserInfo"
+        self, user_store: Any, user_id: str, user_info: OAuthUserInfo
     ) -> bool:
         """Link OAuth provider to existing user."""
         ...
 
-    def _create_oauth_user(self, user_store: Any, user_info: "OAuthUserInfo") -> Any:
+    def _create_oauth_user(self, user_store: Any, user_info: OAuthUserInfo) -> Any:
         """Create a new user from OAuth info."""
         ...
 
@@ -94,9 +94,9 @@ class OAuthHandlerProtocol(Protocol):
         self,
         user_store: Any,
         user_id: str,
-        user_info: "OAuthUserInfo",
+        user_info: OAuthUserInfo,
         state_data: dict[str, Any],
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Handle linking OAuth account to existing user."""
         ...
 
@@ -107,58 +107,58 @@ class OAuthHandlerProtocol(Protocol):
     # Provider-specific auth start methods (used by AccountManagementMixin)
     def _handle_google_auth_start(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Redirect user to Google OAuth consent screen."""
         ...
 
     def _handle_github_auth_start(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Redirect user to GitHub OAuth consent screen."""
         ...
 
     def _handle_microsoft_auth_start(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Redirect user to Microsoft OAuth consent screen."""
         ...
 
     def _handle_apple_auth_start(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Redirect user to Apple OAuth consent screen."""
         ...
 
     def _handle_oidc_auth_start(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Redirect user to OIDC OAuth consent screen."""
         ...
 
     # Provider-specific callback methods (used by AccountManagementMixin)
     def _handle_google_callback(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Handle Google OAuth callback."""
         ...
 
     def _handle_github_callback(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Handle GitHub OAuth callback."""
         ...
 
     def _handle_microsoft_callback(
         self, handler: Any, query_params: dict[str, Any]
-    ) -> "HandlerResult":
+    ) -> HandlerResult:
         """Handle Microsoft OAuth callback."""
         ...
 
-    def _handle_apple_callback(self, handler: Any, query_params: dict[str, Any]) -> "HandlerResult":
+    def _handle_apple_callback(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """Handle Apple OAuth callback."""
         ...
 
-    def _handle_oidc_callback(self, handler: Any, query_params: dict[str, Any]) -> "HandlerResult":
+    def _handle_oidc_callback(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """Handle OIDC OAuth callback."""
         ...
 

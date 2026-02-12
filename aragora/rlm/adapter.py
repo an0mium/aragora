@@ -115,8 +115,8 @@ class RLMContextAdapter:
 
     def __init__(
         self,
-        compressor: Optional["HierarchicalCompressor"] = None,
-        agent_call: Optional[Callable[[str, str], Any]] = None,
+        compressor: HierarchicalCompressor | None = None,
+        agent_call: Callable[[str, str], Any] | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         enable_circuit_breaker: bool = True,
         failure_threshold: int = DEFAULT_FAILURE_THRESHOLD,
@@ -139,7 +139,7 @@ class RLMContextAdapter:
         self._timeout_seconds = timeout_seconds
 
         # Circuit breaker for resilience
-        self._circuit_breaker: Optional["CircuitBreaker"] = None
+        self._circuit_breaker: CircuitBreaker | None = None
         if enable_circuit_breaker:
             try:
                 from aragora.resilience import CircuitBreaker
@@ -850,9 +850,9 @@ class REPLContextAdapter(RLMContextAdapter):
 
     def __init__(
         self,
-        compressor: Optional["HierarchicalCompressor"] = None,
-        agent_call: Optional[Callable[[str, str], Any]] = None,
-        rlm_agent_call: Optional[Callable[[str, str, str], str]] = None,
+        compressor: HierarchicalCompressor | None = None,
+        agent_call: Callable[[str, str], Any] | None = None,
+        rlm_agent_call: Callable[[str, str, str], str] | None = None,
     ):
         """
         Initialize the REPL context adapter.

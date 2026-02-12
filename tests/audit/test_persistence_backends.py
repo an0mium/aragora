@@ -246,7 +246,7 @@ class TestFileBackend:
         log_files = list((tmp_path / "audit_logs").glob("audit_*.jsonl"))
         assert len(log_files) == 1
 
-        with open(log_files[0], "r") as f:
+        with open(log_files[0]) as f:
             data = json.loads(f.read())
         data["action"] = "tampered"
         with open(log_files[0], "w") as f:

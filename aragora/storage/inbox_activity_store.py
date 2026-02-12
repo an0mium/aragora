@@ -99,7 +99,7 @@ class InboxActivity:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "InboxActivity":
+    def from_dict(cls, data: dict[str, Any]) -> InboxActivity:
         """Create from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):

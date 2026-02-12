@@ -197,7 +197,7 @@ class MarketplaceStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Optional[str | Path] = None,
+        db_path: str | Path | None = None,
         auto_init: bool = True,
     ):
         """Initialize the marketplace store.
@@ -819,7 +819,7 @@ from aragora.storage.marketplace_store_postgres import PostgresMarketplaceStore
 
 
 # Default instance
-_marketplace_store: Optional[MarketplaceStore | PostgresMarketplaceStore] = None
+_marketplace_store: MarketplaceStore | PostgresMarketplaceStore | None = None
 
 
 def get_marketplace_store() -> MarketplaceStore | PostgresMarketplaceStore:

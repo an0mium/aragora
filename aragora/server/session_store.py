@@ -146,7 +146,7 @@ class DebateSession:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DebateSession":
+    def from_dict(cls, data: dict[str, Any]) -> DebateSession:
         """Deserialize session from dictionary."""
         return cls(
             session_id=data["session_id"],
@@ -233,7 +233,7 @@ class VoiceSession:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "VoiceSession":
+    def from_dict(cls, data: dict[str, Any]) -> VoiceSession:
         """Deserialize session from dictionary."""
         return cls(
             session_id=data["session_id"],
@@ -310,7 +310,7 @@ class DeviceSession:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DeviceSession":
+    def from_dict(cls, data: dict[str, Any]) -> DeviceSession:
         """Deserialize session from dictionary."""
         return cls(
             device_id=data["device_id"],
@@ -338,7 +338,7 @@ class SessionStore(ABC):
 
     # Debate state methods
     @abstractmethod
-    def get_debate_state(self, loop_id: str) -> Optional[dict[str, Any]]:
+    def get_debate_state(self, loop_id: str) -> dict[str, Any] | None:
         """Get cached debate state."""
         pass
 
@@ -354,7 +354,7 @@ class SessionStore(ABC):
 
     # Active loop methods
     @abstractmethod
-    def get_active_loop(self, loop_id: str) -> Optional[dict[str, Any]]:
+    def get_active_loop(self, loop_id: str) -> dict[str, Any] | None:
         """Get active loop data."""
         pass
 
@@ -375,7 +375,7 @@ class SessionStore(ABC):
 
     # Auth state methods
     @abstractmethod
-    def get_auth_state(self, connection_id: str) -> Optional[dict[str, Any]]:
+    def get_auth_state(self, connection_id: str) -> dict[str, Any] | None:
         """Get WebSocket auth state."""
         pass
 
@@ -408,12 +408,12 @@ class SessionStore(ABC):
 
     # Debate session methods (for multi-channel session tracking)
     @abstractmethod
-    def get_debate_session(self, session_id: str) -> Optional["DebateSession"]:
+    def get_debate_session(self, session_id: str) -> DebateSession | None:
         """Get a debate session by ID."""
         pass
 
     @abstractmethod
-    def set_debate_session(self, session: "DebateSession") -> None:
+    def set_debate_session(self, session: DebateSession) -> None:
         """Store or update a debate session."""
         pass
 
@@ -425,23 +425,23 @@ class SessionStore(ABC):
     @abstractmethod
     def find_sessions_by_user(
         self, user_id: str, channel: str | None = None
-    ) -> list["DebateSession"]:
+    ) -> list[DebateSession]:
         """Find sessions by user ID, optionally filtered by channel."""
         pass
 
     @abstractmethod
-    def find_sessions_by_debate(self, debate_id: str) -> list["DebateSession"]:
+    def find_sessions_by_debate(self, debate_id: str) -> list[DebateSession]:
         """Find all sessions linked to a debate."""
         pass
 
     # Voice session methods (for always-on voice)
     @abstractmethod
-    def get_voice_session(self, session_id: str) -> Optional["VoiceSession"]:
+    def get_voice_session(self, session_id: str) -> VoiceSession | None:
         """Get a voice session by ID."""
         pass
 
     @abstractmethod
-    def set_voice_session(self, session: "VoiceSession") -> None:
+    def set_voice_session(self, session: VoiceSession) -> None:
         """Store or update a voice session."""
         pass
 
@@ -451,23 +451,23 @@ class SessionStore(ABC):
         pass
 
     @abstractmethod
-    def find_voice_session_by_token(self, reconnect_token: str) -> Optional["VoiceSession"]:
+    def find_voice_session_by_token(self, reconnect_token: str) -> VoiceSession | None:
         """Find voice session by reconnection token."""
         pass
 
     @abstractmethod
-    def find_voice_sessions_by_user(self, user_id: str) -> list["VoiceSession"]:
+    def find_voice_sessions_by_user(self, user_id: str) -> list[VoiceSession]:
         """Find all voice sessions for a user."""
         pass
 
     # Device session methods (for push notifications)
     @abstractmethod
-    def get_device_session(self, device_id: str) -> Optional["DeviceSession"]:
+    def get_device_session(self, device_id: str) -> DeviceSession | None:
         """Get a device session by ID."""
         pass
 
     @abstractmethod
-    def set_device_session(self, session: "DeviceSession") -> None:
+    def set_device_session(self, session: DeviceSession) -> None:
         """Store or update a device session."""
         pass
 
@@ -477,12 +477,12 @@ class SessionStore(ABC):
         pass
 
     @abstractmethod
-    def find_device_by_token(self, push_token: str) -> Optional["DeviceSession"]:
+    def find_device_by_token(self, push_token: str) -> DeviceSession | None:
         """Find device session by push token."""
         pass
 
     @abstractmethod
-    def find_devices_by_user(self, user_id: str) -> list["DeviceSession"]:
+    def find_devices_by_user(self, user_id: str) -> list[DeviceSession]:
         """Find all devices for a user."""
         pass
 
@@ -528,7 +528,7 @@ class InMemorySessionStore(SessionStore):
         return False
 
     # Debate state methods
-    def get_debate_state(self, loop_id: str) -> Optional[dict[str, Any]]:
+    def get_debate_state(self, loop_id: str) -> dict[str, Any] | None:
         with self._debate_lock:
             if loop_id in self._debate_states:
                 self._debate_states_access[loop_id] = time.time()
@@ -557,7 +557,7 @@ class InMemorySessionStore(SessionStore):
             return False
 
     # Active loop methods
-    def get_active_loop(self, loop_id: str) -> Optional[dict[str, Any]]:
+    def get_active_loop(self, loop_id: str) -> dict[str, Any] | None:
         with self._loops_lock:
             if loop_id in self._active_loops:
                 self._active_loops_access[loop_id] = time.time()
@@ -589,7 +589,7 @@ class InMemorySessionStore(SessionStore):
             return list(self._active_loops.keys())
 
     # Auth state methods
-    def get_auth_state(self, connection_id: str) -> Optional[dict[str, Any]]:
+    def get_auth_state(self, connection_id: str) -> dict[str, Any] | None:
         with self._auth_lock:
             if connection_id in self._auth_states:
                 self._auth_states_access[connection_id] = time.time()
@@ -836,7 +836,7 @@ class RedisSessionStore(SessionStore):
         return self._prefix + ":".join(parts)
 
     # Debate state methods
-    def get_debate_state(self, loop_id: str) -> Optional[dict[str, Any]]:
+    def get_debate_state(self, loop_id: str) -> dict[str, Any] | None:
         try:
             data = self._redis.get(self._key("debate", loop_id))
             if data:
@@ -874,7 +874,7 @@ class RedisSessionStore(SessionStore):
 
     # Active loop methods
     # NOTE: Using individual keys with TTL instead of hash to support per-entry expiration
-    def get_active_loop(self, loop_id: str) -> Optional[dict[str, Any]]:
+    def get_active_loop(self, loop_id: str) -> dict[str, Any] | None:
         try:
             data = self._redis.get(self._key("loop", loop_id))
             if data:
@@ -953,7 +953,7 @@ class RedisSessionStore(SessionStore):
             return []
 
     # Auth state methods
-    def get_auth_state(self, connection_id: str) -> Optional[dict[str, Any]]:
+    def get_auth_state(self, connection_id: str) -> dict[str, Any] | None:
         try:
             data = self._redis.get(self._key("auth", connection_id))
             if data:

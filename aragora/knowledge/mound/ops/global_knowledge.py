@@ -40,7 +40,7 @@ SYSTEM_WORKSPACE_ID = "__system__"
 class GlobalKnowledgeProtocol(Protocol):
     """Protocol defining expected interface for GlobalKnowledge mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _meta_store: Any | None
     _cache: Any | None
@@ -48,7 +48,7 @@ class GlobalKnowledgeProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
 
-    async def store(self, request: "IngestionRequest") -> "IngestionResult": ...
+    async def store(self, request: IngestionRequest) -> IngestionResult: ...
 
     async def query(
         self,
@@ -57,11 +57,11 @@ class GlobalKnowledgeProtocol(Protocol):
         filters: Any = None,
         limit: int = 20,
         workspace_id: str | None = None,
-    ) -> "QueryResult": ...
+    ) -> QueryResult: ...
 
     async def get(
         self, node_id: str, workspace_id: str | None = None
-    ) -> Optional["KnowledgeItem"]: ...
+    ) -> KnowledgeItem | None: ...
 
     # Mixin methods that call each other
     async def store_verified_fact(
@@ -69,9 +69,9 @@ class GlobalKnowledgeProtocol(Protocol):
         content: str,
         source: str,
         confidence: float = 0.9,
-        evidence_ids: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
         verified_by: str = "system",
-        topics: Optional[list[str]] = None,
+        topics: list[str] | None = None,
     ) -> str: ...
 
     async def query_global_knowledge(
@@ -79,8 +79,8 @@ class GlobalKnowledgeProtocol(Protocol):
         query: str,
         limit: int = 10,
         min_confidence: float = 0.5,
-        topics: Optional[list[str]] = None,
-    ) -> list["KnowledgeItem"]: ...
+        topics: list[str] | None = None,
+    ) -> list[KnowledgeItem]: ...
 
 
 class GlobalKnowledgeMixin:
@@ -91,9 +91,9 @@ class GlobalKnowledgeMixin:
         content: str,
         source: str,
         confidence: float = 0.9,
-        evidence_ids: Optional[list[str]] = None,
+        evidence_ids: list[str] | None = None,
         verified_by: str | None = None,
-        topics: Optional[list[str]] = None,
+        topics: list[str] | None = None,
     ) -> str:
         """
         Store a verified fact in the global knowledge mound.
@@ -149,8 +149,8 @@ class GlobalKnowledgeMixin:
         query: str,
         limit: int = 20,
         min_confidence: float = 0.0,
-        topics: Optional[list[str]] = None,
-    ) -> list["KnowledgeItem"]:
+        topics: list[str] | None = None,
+    ) -> list[KnowledgeItem]:
         """
         Query the global knowledge mound (verified facts only).
 
@@ -205,7 +205,7 @@ class GlobalKnowledgeMixin:
         workspace_id: str,
         promoted_by: str,
         reason: str,
-        additional_evidence: Optional[list[str]] = None,
+        additional_evidence: list[str] | None = None,
     ) -> str:
         """
         Promote a workspace knowledge item to global verified fact.
@@ -268,8 +268,8 @@ class GlobalKnowledgeMixin:
     async def get_system_facts(
         self,
         limit: int = 100,
-        topics: Optional[list[str]] = None,
-    ) -> list["KnowledgeItem"]:
+        topics: list[str] | None = None,
+    ) -> list[KnowledgeItem]:
         """
         Get all verified facts from the global knowledge mound.
 
@@ -289,10 +289,10 @@ class GlobalKnowledgeMixin:
 
     async def merge_global_results(
         self,
-        workspace_results: list["KnowledgeItem"],
+        workspace_results: list[KnowledgeItem],
         query: str,
         global_limit: int = 5,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """
         Merge workspace query results with relevant global knowledge.
 

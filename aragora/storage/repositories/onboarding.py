@@ -31,7 +31,7 @@ class OnboardingRepository:
     def __init__(
         self,
         db_path: Path | None = None,
-        transaction_fn: Optional[Callable[[], ContextManager[sqlite3.Cursor]]] = None,
+        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]] | None = None,
     ) -> None:
         """
         Initialize the onboarding repository.
@@ -95,7 +95,7 @@ class OnboardingRepository:
         org_id: str | None,
         current_step: str,
         use_case: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Create a new onboarding flow.
@@ -140,7 +140,7 @@ class OnboardingRepository:
         logger.debug(f"Created onboarding flow {flow_id} for user {user_id}")
         return flow_id
 
-    def get_flow(self, user_id: str, org_id: str | None) -> Optional[dict[str, Any]]:
+    def get_flow(self, user_id: str, org_id: str | None) -> dict[str, Any] | None:
         """
         Get onboarding flow for user/org.
 
@@ -167,7 +167,7 @@ class OnboardingRepository:
 
         return self._row_to_flow(row)
 
-    def get_flow_by_id(self, flow_id: str) -> Optional[dict[str, Any]]:
+    def get_flow_by_id(self, flow_id: str) -> dict[str, Any] | None:
         """
         Get onboarding flow by ID.
 

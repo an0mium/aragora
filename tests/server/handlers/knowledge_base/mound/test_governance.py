@@ -57,7 +57,7 @@ class MockRole:
     name: str
     permissions: set[Permission]
     description: str = ""
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -75,7 +75,7 @@ class MockRoleAssignment:
 
     user_id: str
     role_id: str
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,7 +122,7 @@ class MockKnowledgeMound:
 class GovernanceHandler(GovernanceOperationsMixin):
     """Handler implementation for testing GovernanceOperationsMixin."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None):
         self._mound = mound
         self.ctx = {}
 

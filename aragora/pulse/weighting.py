@@ -108,7 +108,7 @@ class SourceWeightingSystem:
 
     def __init__(
         self,
-        source_weights: Optional[dict[str, SourceWeight]] = None,
+        source_weights: dict[str, SourceWeight] | None = None,
         default_credibility: float = 0.50,
         default_authority: float = 0.50,
     ):

@@ -326,7 +326,7 @@ class ApprovalGate(ABC):
         gate_type: GateType,
         enabled: bool = True,
         auto_approve_dev: bool = True,
-        approval_callback: Optional[Callable[[str], bool]] = None,
+        approval_callback: Callable[[str], bool] | None = None,
     ):
         """
         Initialize the gate.
@@ -374,7 +374,7 @@ class ApprovalGate(ABC):
     async def require_approval(
         self,
         artifact: Any,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ApprovalDecision:
         """
         Require approval before proceeding.
@@ -648,7 +648,7 @@ class CommitGate(ApprovalGate):
         self,
         enabled: bool = True,
         aragora_path: Path | None = None,
-        web_ui_callback: Optional[Callable[[dict], bool]] = None,
+        web_ui_callback: Callable[[dict], bool] | None = None,
     ):
         """
         Initialize commit gate.

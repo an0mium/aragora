@@ -51,10 +51,10 @@ class MockEnterpriseConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        items_to_yield: Optional[list[SyncItem]] = None,
-        search_results: Optional[list[Evidence]] = None,
-        fetch_result: Optional[Evidence] = None,
-        raise_on_sync: Optional[Exception] = None,
+        items_to_yield: list[SyncItem] | None = None,
+        search_results: list[Evidence] | None = None,
+        fetch_result: Evidence | None = None,
+        raise_on_sync: Exception | None = None,
         **kwargs,
     ):
         super().__init__(connector_id="test_connector", **kwargs)
@@ -94,7 +94,7 @@ class MockEnterpriseConnector(EnterpriseConnector):
     ) -> list[Evidence]:
         return self._search_results[:limit]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         return self._fetch_result
 
 

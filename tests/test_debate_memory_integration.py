@@ -35,7 +35,7 @@ class MockDebateResult:
     confidence: float = 0.85
     consensus_reached: bool = True
     rounds_used: int = 3
-    winner: Optional[str] = "claude"
+    winner: str | None = "claude"
     scores: dict[str, float] = field(default_factory=dict)
 
 

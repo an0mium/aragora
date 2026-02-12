@@ -34,7 +34,7 @@ class DashboardOperationsMixin:
     _get_mound: Any  # Method from parent class
 
     async def _check_knowledge_permission(
-        self, request: "Request", action: str = "read"
+        self, request: Request, action: str = "read"
     ) -> HandlerResult | None:
         """Check RBAC permission for knowledge operations."""
         permission = f"knowledge.{action}"
@@ -63,7 +63,7 @@ class DashboardOperationsMixin:
             return error_response("Authorization check failed", status=500)
 
     @require_permission("debates:read")
-    async def handle_dashboard_health(self, request: "Request") -> HandlerResult:
+    async def handle_dashboard_health(self, request: Request) -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/health - Get KM health status.
 
@@ -97,7 +97,7 @@ class DashboardOperationsMixin:
             return error_response(str(e))
 
     @require_permission("debates:read")
-    async def handle_dashboard_metrics(self, request: "Request") -> HandlerResult:
+    async def handle_dashboard_metrics(self, request: Request) -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/metrics - Get detailed metrics.
 
@@ -130,7 +130,7 @@ class DashboardOperationsMixin:
             return error_response(str(e))
 
     @require_permission("debates:read")
-    async def handle_dashboard_adapters(self, request: "Request") -> HandlerResult:
+    async def handle_dashboard_adapters(self, request: Request) -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/adapters - Get adapter status.
 
@@ -215,7 +215,7 @@ class DashboardOperationsMixin:
             return error_response(str(e))
 
     @require_permission("debates:read")
-    async def handle_dashboard_queries(self, request: "Request") -> HandlerResult:
+    async def handle_dashboard_queries(self, request: Request) -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/queries - Get federated query stats.
 
@@ -250,7 +250,7 @@ class DashboardOperationsMixin:
             return error_response(str(e))
 
     @require_permission("debates:read")
-    async def handle_dashboard_metrics_reset(self, request: "Request") -> HandlerResult:
+    async def handle_dashboard_metrics_reset(self, request: Request) -> HandlerResult:
         """
         POST /api/knowledge/mound/dashboard/metrics/reset - Reset metrics.
 
@@ -275,7 +275,7 @@ class DashboardOperationsMixin:
             return error_response(str(e))
 
     @require_permission("debates:read")
-    async def handle_dashboard_batcher_stats(self, request: "Request") -> HandlerResult:
+    async def handle_dashboard_batcher_stats(self, request: Request) -> HandlerResult:
         """
         GET /api/knowledge/mound/dashboard/batcher - Get event batcher stats.
 

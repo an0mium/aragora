@@ -145,7 +145,7 @@ def categorize_learning(gain_rate: float, consistency: float) -> str:
 
 
 def get_learning_efficiency(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_name: str,
     domain: str | None = None,
     window_debates: int = 20,
@@ -225,7 +225,7 @@ def get_learning_efficiency(
 
 
 def get_learning_efficiency_batch(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_names: list[str],
     domain: str | None = None,
     window_debates: int = 20,
@@ -298,7 +298,7 @@ def get_learning_efficiency_batch(
 
 
 def apply_learning_bonus(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_name: str,
     domain: str = "general",
     debate_id: str | None = None,
@@ -379,7 +379,7 @@ def apply_learning_bonus(
 
 
 def update_voting_accuracy(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_name: str,
     voted_for_consensus: bool,
     domain: str = "general",
@@ -466,7 +466,7 @@ def update_voting_accuracy(
 
 
 def get_voting_accuracy(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_name: str,
 ) -> dict:
     """
@@ -495,7 +495,7 @@ def get_voting_accuracy(
 
 
 def get_voting_accuracy_batch(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     agent_names: list[str],
 ) -> dict[str, dict]:
     """Get voting accuracy statistics for multiple agents in one query.

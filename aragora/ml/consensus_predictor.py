@@ -105,7 +105,7 @@ class ResponseFeatures:
     stance: str | None = None  # "agree", "disagree", "neutral"
     confidence: float = 0.5
     quality_score: float = 0.5
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
 
 class ConsensusPredictor:
@@ -297,7 +297,7 @@ class ConsensusPredictor:
     def _estimate_convergence_trend(
         self,
         current_similarity: float,
-        previous_similarities: Optional[list[float]] = None,
+        previous_similarities: list[float] | None = None,
     ) -> str:
         """Estimate convergence trend."""
         if previous_similarities is None or len(previous_similarities) < 2:
@@ -338,7 +338,7 @@ class ConsensusPredictor:
         context: str | None = None,
         current_round: int = 1,
         total_rounds: int = 3,
-        previous_similarities: Optional[list[float]] = None,
+        previous_similarities: list[float] | None = None,
     ) -> ConsensusPrediction:
         """Predict consensus likelihood.
 

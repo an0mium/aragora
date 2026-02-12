@@ -339,7 +339,7 @@ class TestImplementPhaseIntegration:
                     with patch.object(phase, "rollback", new_callable=AsyncMock) as mock_rollback:
                         mock_gen.return_value = {"aragora/test.py": "pass"}
                         mock_backup.return_value = {"path": "/backup"}
-                        mock_write.side_effect = IOError("Write failed")
+                        mock_write.side_effect = OSError("Write failed")
 
                         result = await phase.run(design=mock_design_result["design"])
 

@@ -1002,7 +1002,7 @@ class BugDetector:
 
     def __init__(
         self,
-        patterns: Optional[list[BugPattern]] = None,
+        patterns: list[BugPattern] | None = None,
         min_confidence: float = 0.5,
     ):
         """
@@ -1018,8 +1018,8 @@ class BugDetector:
     async def scan_repository(
         self,
         repo_path: str,
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ) -> BugScanResult:
         """
         Scan a repository for bugs.
@@ -1108,8 +1108,8 @@ class BugDetector:
     def _collect_files(
         self,
         path: Path,
-        include_patterns: Optional[list[str]],
-        exclude_patterns: Optional[list[str]],
+        include_patterns: list[str] | None,
+        exclude_patterns: list[str] | None,
     ) -> list[Path]:
         """Collect files to scan."""
         files = []
@@ -1266,7 +1266,7 @@ EXPLANATION: <brief explanation>"""
 
 
 def create_bug_detector(
-    patterns: Optional[list[str]] = None,
+    patterns: list[str] | None = None,
     min_confidence: float = 0.5,
 ) -> BugDetector:
     """

@@ -205,7 +205,7 @@ class ReplaysHandler(BaseHandler):
         events: list[dict[str, Any]] = []
         total_events = 0
         if events_file.exists():
-            with open(events_file, "r") as f:
+            with open(events_file) as f:
                 for i, line in enumerate(f):
                     total_events += 1
                     # Skip until we reach offset

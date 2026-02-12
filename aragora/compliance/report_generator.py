@@ -55,7 +55,7 @@ class ReportSection:
     title: str
     content: str
     data: dict[str, Any] = field(default_factory=dict)
-    subsections: list["ReportSection"] = field(default_factory=list)
+    subsections: list[ReportSection] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

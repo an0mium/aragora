@@ -63,10 +63,10 @@ class SequentialPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "",
-        prompts: Optional[dict[str, str]] = None,
-        stages: Optional[list[dict[str, Any]]] = None,
+        prompts: dict[str, str] | None = None,
+        stages: list[dict[str, Any]] | None = None,
         pass_full_context: bool = True,
         timeout_per_step: float = 120.0,
         **kwargs,

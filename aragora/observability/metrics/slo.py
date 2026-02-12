@@ -70,7 +70,7 @@ __all__ = [
 ]
 
 # Webhook notification callback (set by init_slo_webhooks)
-_webhook_callback: Optional[Callable[[dict[str, Any]], bool]] = None
+_webhook_callback: Callable[[dict[str, Any]], bool] | None = None
 
 # Violation buffer for batching webhook notifications
 _violation_buffer: list[dict[str, Any]] = []
@@ -207,7 +207,7 @@ def record_slo_violation(
     latency_ms: float,
     threshold_ms: float,
     severity: str | None = None,
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
     notify_webhook: bool = True,
 ) -> str:
     """Record an SLO violation with context and optionally notify via webhook.
@@ -475,7 +475,7 @@ def notify_slo_violation(
     latency_ms: float,
     threshold_ms: float,
     severity: str,
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
     cooldown_seconds: float = 60.0,
 ) -> bool:
     """Send SLO violation notification via webhook and registered callbacks.
@@ -556,7 +556,7 @@ def notify_slo_recovery(
     latency_ms: float,
     threshold_ms: float,
     violation_duration_seconds: float,
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> bool:
     """Send SLO recovery notification via webhook and registered callbacks.
 
@@ -613,7 +613,7 @@ def check_and_record_slo_with_recovery(
     operation: str,
     latency_ms: float,
     percentile: str = "p99",
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
     """Check SLO, record metrics, and handle violation/recovery state.
 

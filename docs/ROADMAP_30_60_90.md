@@ -9,7 +9,7 @@
 
 | Surface | Python SDK | TypeScript SDK | Python Client | Server | Tests |
 |---------|-----------|---------------|---------------|--------|-------|
-| **OpenClaw** | 22/22 endpoints | 22/22 endpoints | 22/22 endpoints | 22 handlers | 10 parity + 41 client |
+| **OpenClaw** | 22/22 endpoints | 22/22 endpoints (incl. deleteSession) | 22/22 endpoints | 22 handlers | 10 parity + 41 client |
 | **Blockchain** | 8/8 endpoints | 8/8 endpoints | N/A | 8 impl (0 stubs) | 45 handler + 10 parity |
 | **Debate** | Via client | N/A | Via client | Full | 13,500+ |
 
@@ -152,7 +152,7 @@ All 22 endpoints aligned. Paths corrected (`/actions`, `/sessions/{id}/end`), mi
 - [x] TypeScript OpenClaw SDK: 22/22 endpoints, 0 path mismatches
 - [x] Automated parity tests prevent future contract drift
 - [x] Blockchain endpoints: 8/8 implemented (no more 501s)
-- [x] SDK_PARITY.md updated (blockchain 85.7%)
+- [x] SDK_PARITY.md updated (blockchain 100%, gateway 100%)
 
 ### Day 60
 - [ ] `aragora-debate` on PyPI (test)

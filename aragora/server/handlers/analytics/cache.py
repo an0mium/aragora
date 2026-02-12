@@ -111,7 +111,7 @@ class AnalyticsDashboardCache:
     and supports bulk invalidation by workspace.
     """
 
-    _instance: "AnalyticsDashboardCache | None" = None
+    _instance: AnalyticsDashboardCache | None = None
     _lock = threading.Lock()
 
     def __init__(self):
@@ -120,7 +120,7 @@ class AnalyticsDashboardCache:
         self._initialized = False
 
     @classmethod
-    def get_instance(cls) -> "AnalyticsDashboardCache":
+    def get_instance(cls) -> AnalyticsDashboardCache:
         """Get the singleton cache instance."""
         if cls._instance is None:
             with cls._lock:

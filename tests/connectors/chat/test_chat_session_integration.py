@@ -34,8 +34,8 @@ class MockChatConnector(ChatPlatformConnector):
         self,
         channel_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
-        thread_id: Optional[str] = None,
+        blocks: list[dict[str, Any]] | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         return SendMessageResponse(
@@ -50,7 +50,7 @@ class MockChatConnector(ChatPlatformConnector):
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         return SendMessageResponse(success=True, message_id=message_id, channel_id=channel_id)
@@ -67,7 +67,7 @@ class MockChatConnector(ChatPlatformConnector):
         self,
         command: Any,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any]] | None = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -77,7 +77,7 @@ class MockChatConnector(ChatPlatformConnector):
         self,
         interaction: Any,
         text: str,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any]] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -89,8 +89,8 @@ class MockChatConnector(ChatPlatformConnector):
         content: bytes,
         filename: str,
         content_type: str = "application/octet-stream",
-        title: Optional[str] = None,
-        thread_id: Optional[str] = None,
+        title: str | None = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         return SendMessageResponse(success=True, message_id="file_upload")
@@ -104,10 +104,10 @@ class MockChatConnector(ChatPlatformConnector):
 
     def format_blocks(
         self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        fields: Optional[list[tuple[str, str]]] = None,
-        actions: Optional[list[Any]] = None,
+        title: str | None = None,
+        body: str | None = None,
+        fields: list[tuple[str, str]] | None = None,
+        actions: list[Any] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         return [{"type": "section", "text": body}]
@@ -116,9 +116,9 @@ class MockChatConnector(ChatPlatformConnector):
         self,
         text: str,
         action_id: str,
-        value: Optional[str] = None,
+        value: str | None = None,
         style: str = "default",
-        url: Optional[str] = None,
+        url: str | None = None,
     ) -> dict[str, Any]:
         return {"type": "button", "text": text, "action_id": action_id}
 

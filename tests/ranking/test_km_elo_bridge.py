@@ -61,7 +61,7 @@ class MockEloSystem:
     def get_all_ratings(self) -> list[MockAgentRating]:
         return list(self.ratings.values())
 
-    def get_rating(self, agent_name: str) -> Optional[MockAgentRating]:
+    def get_rating(self, agent_name: str) -> MockAgentRating | None:
         return self.ratings.get(agent_name)
 
 

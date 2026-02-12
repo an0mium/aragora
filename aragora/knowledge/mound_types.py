@@ -116,7 +116,7 @@ class ProvenanceChain:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ProvenanceChain":
+    def from_dict(cls, data: dict[str, Any]) -> ProvenanceChain:
         """Create from dictionary."""
         return cls(
             source_type=ProvenanceType(data["source_type"]),
@@ -237,7 +237,7 @@ class KnowledgeNode:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KnowledgeNode":
+    def from_dict(cls, data: dict[str, Any]) -> KnowledgeNode:
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -272,7 +272,7 @@ class KnowledgeNode:
         )
 
     @classmethod
-    def from_fact(cls, fact: "Fact", workspace_id: str = "") -> "KnowledgeNode":
+    def from_fact(cls, fact: Fact, workspace_id: str = "") -> KnowledgeNode:
         """Create KnowledgeNode from existing Fact."""
         return cls(
             id=f"kn_{fact.id}",
@@ -330,7 +330,7 @@ class KnowledgeRelationship:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KnowledgeRelationship":
+    def from_dict(cls, data: dict[str, Any]) -> KnowledgeRelationship:
         """Create from dictionary."""
         return cls(
             id=data["id"],

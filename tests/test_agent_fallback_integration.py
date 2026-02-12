@@ -37,13 +37,13 @@ class MockAgent:
     response: str = "Generated response"
     _call_count: int = 0
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         self._call_count += 1
         if self.should_fail or self._call_count <= self.fail_count:
             raise RuntimeError(self.failure_message)
         return f"{self.name}: {self.response}"
 
-    async def generate_stream(self, prompt: str, context: Optional[list] = None):
+    async def generate_stream(self, prompt: str, context: list | None = None):
         self._call_count += 1
         if self.should_fail or self._call_count <= self.fail_count:
             raise RuntimeError(self.failure_message)

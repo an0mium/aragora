@@ -64,7 +64,7 @@ class SecurityPattern:
     recommendation: str
     cwe_id: str | None = None  # CWE reference
     owasp_category: str | None = None  # OWASP Top 10 category
-    languages: Optional[list[str]] = None  # Applicable languages (None = all)
+    languages: list[str] | None = None  # Applicable languages (None = all)
     false_positive_hints: list[str] = field(default_factory=list)
 
 
@@ -750,7 +750,7 @@ class SecurityScanner:
         self,
         include_low_severity: bool = True,
         include_info: bool = False,
-        custom_patterns: Optional[list[SecurityPattern]] = None,
+        custom_patterns: list[SecurityPattern] | None = None,
     ):
         """
         Initialize the security scanner.
@@ -792,10 +792,10 @@ class SecurityScanner:
         findings: list[SecurityFinding] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
                 content = f.read()
                 lines = content.split("\n")
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.warning(f"Failed to read {file_path}: {e}")
             return findings
 
@@ -867,8 +867,8 @@ class SecurityScanner:
     def scan_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[list[str]] = None,
-        extensions: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
+        extensions: list[str] | None = None,
     ) -> SecurityReport:
         """
         Scan a directory for security vulnerabilities.
@@ -950,7 +950,7 @@ class SecurityScanner:
         total_lines = 0
         for file_path in files_to_scan:
             try:
-                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                with open(file_path, encoding="utf-8", errors="replace") as f:
                     content = f.read()
                     total_lines += content.count("\n") + 1
 

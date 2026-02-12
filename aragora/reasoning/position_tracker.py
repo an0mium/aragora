@@ -35,7 +35,7 @@ class PositionStance(str, Enum):
     STRONGLY_DISAGREE = "strongly_disagree"
 
     @classmethod
-    def from_confidence(cls, confidence: float, agrees: bool) -> "PositionStance":
+    def from_confidence(cls, confidence: float, agrees: bool) -> PositionStance:
         """Convert confidence score to stance."""
         if confidence >= 0.9:
             return cls.STRONGLY_AGREE if agrees else cls.STRONGLY_DISAGREE

@@ -35,10 +35,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global orchestrator instance
-_orchestrator: Optional["OnboardingOrchestrator"] = None
+_orchestrator: OnboardingOrchestrator | None = None
 
 
-def get_orchestrator() -> "OnboardingOrchestrator":
+def get_orchestrator() -> OnboardingOrchestrator:
     """Get or create the onboarding orchestrator instance."""
     global _orchestrator
     if _orchestrator is None:

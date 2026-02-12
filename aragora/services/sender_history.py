@@ -241,7 +241,7 @@ class SenderHistoryService:
         action: str,
         email_id: str | None = None,
         response_time_minutes: int | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Record an interaction with a sender.
@@ -572,7 +572,7 @@ class SenderHistoryService:
         self,
         user_id: str,
         domain: str,
-    ) -> Optional[tuple[float, int]]:
+    ) -> tuple[float, int] | None:
         """
         Get aggregate reputation for a domain.
 

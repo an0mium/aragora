@@ -178,8 +178,8 @@ class AmazonConnector(EnterpriseConnector):
     async def sync_orders(
         self,
         since: datetime | None = None,
-        status: Optional[list[AmazonOrderStatus]] = None,
-        fulfillment_channels: Optional[list[FulfillmentChannel]] = None,
+        status: list[AmazonOrderStatus] | None = None,
+        fulfillment_channels: list[FulfillmentChannel] | None = None,
     ) -> AsyncIterator[AmazonOrder]:
         """Sync orders from Amazon.
 
@@ -335,7 +335,7 @@ class AmazonConnector(EnterpriseConnector):
 
     async def get_fba_inventory(
         self,
-        skus: Optional[list[str]] = None,
+        skus: list[str] | None = None,
     ) -> list[AmazonInventoryItem]:
         """Get FBA inventory levels.
 

@@ -37,8 +37,8 @@ class CommitPhase:
         require_human_approval: bool = True,
         auto_commit: bool = False,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
     ):
         """
         Initialize the commit phase.

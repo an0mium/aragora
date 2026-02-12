@@ -411,14 +411,14 @@ Services are running. Access points:
 """)
 
     print(
-        """Next steps:
+        f"""Next steps:
   1. Verify health:  curl http://localhost:8080/api/health
   2. Start a debate: aragora ask "Your question here"
-  3. View logs:       docker compose -f {} logs -f
+  3. View logs:       docker compose -f {compose_file} logs -f
 
 To stop services:
-  aragora deploy stop --profile {}
-""".format(compose_file, profile)
+  aragora deploy stop --profile {profile}
+"""
     )
 
 
@@ -572,7 +572,7 @@ def _wait_for_health(compose_cmd: list[str], compose_file: str, project_root: st
         time.sleep(2)
 
     print("\n  [!] Services may not be fully ready yet")
-    print("      Check logs: docker compose -f {} logs".format(compose_file))
+    print(f"      Check logs: docker compose -f {compose_file} logs")
 
 
 async def _cmd_status(args: argparse.Namespace) -> None:

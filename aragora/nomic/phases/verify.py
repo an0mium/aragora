@@ -40,11 +40,11 @@ class VerifyPhase:
         codex: Any | None = None,
         nomic_integration: Any | None = None,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
-        save_state_fn: Optional[Callable[[dict], None]] = None,
-        test_quality_gate: Optional["TestQualityGate"] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
+        save_state_fn: Callable[[dict], None] | None = None,
+        test_quality_gate: TestQualityGate | None = None,
     ):
         """
         Initialize the verify phase.
@@ -391,7 +391,7 @@ Be concise - this is a quality gate, not a full review."""
                 state={"all_passed": True, "changed_files": changed_files},
                 cycle=self.cycle_count,
             )
-        except (OSError, IOError, asyncio.TimeoutError, RuntimeError) as e:
+        except (OSError, asyncio.TimeoutError, RuntimeError) as e:
             self._log(f"  [integration] Staleness check failed: {e}")
         return []
 

@@ -82,7 +82,7 @@ class KnowledgeREPLContext:
 
 
 def load_knowledge_context(
-    mound: "KnowledgeMound",
+    mound: KnowledgeMound,
     workspace_id: str,
     limit: int = 1000,
 ) -> KnowledgeREPLContext:
@@ -601,7 +601,7 @@ def FINAL(answer: str) -> str:
 
 
 def get_knowledge_helpers(
-    mound: Optional["KnowledgeMound"] = None,
+    mound: KnowledgeMound | None = None,
     include_rlm_primitives: bool = False,
 ) -> dict[str, Any]:
     """

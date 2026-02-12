@@ -34,7 +34,7 @@ K_FACTOR = ELO_K_FACTOR
 
 
 def record_match(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     debate_id: str | None = None,
     participants: list[str] | str | None = None,
     scores: dict[str, float] | None = None,
@@ -136,7 +136,7 @@ def record_match(
     return elo_changes
 
 
-def _write_snapshot(elo_system: "EloSystem") -> None:
+def _write_snapshot(elo_system: EloSystem) -> None:
     """Write JSON snapshot for fast reads."""
     snapshot_path = elo_system.db_path.parent / "elo_snapshot.json"
     write_snapshot(snapshot_path, elo_system.get_leaderboard, elo_system.get_recent_matches)
@@ -153,9 +153,9 @@ def _invalidate_handler_cache() -> None:
 
 
 def _emit_elo_events(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     elo_changes: dict[str, float],
-    ratings: dict[str, "AgentRating"],
+    ratings: dict[str, AgentRating],
     debate_id: str,
     domain: str | None,
 ) -> None:
@@ -187,13 +187,13 @@ def _emit_elo_events(
 
 
 def _sync_to_km(
-    elo_system: "EloSystem",
+    elo_system: EloSystem,
     debate_id: str,
     participants: list[str],
     winner: str | None,
     domain: str | None,
     elo_changes: dict[str, float],
-    ratings: dict[str, "AgentRating"],
+    ratings: dict[str, AgentRating],
 ) -> None:
     """Sync match results and ratings to Knowledge Mound."""
     if not elo_system._km_adapter or not elo_changes:

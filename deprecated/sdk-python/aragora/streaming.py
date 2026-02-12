@@ -47,12 +47,12 @@ class WebSocketEvent:
     """A WebSocket event from the Aragora server."""
 
     type: str
-    data: Optional[Dict[str, Any]] = None
-    debate_id: Optional[str] = None
-    timestamp: Optional[str] = None
+    data: dict[str, Any] | None = None
+    debate_id: str | None = None
+    timestamp: str | None = None
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "WebSocketEvent":
+    def from_dict(cls, d: dict[str, Any]) -> WebSocketEvent:
         """Create from dictionary."""
         return cls(
             type=d.get("type", "unknown"),
@@ -73,8 +73,8 @@ class DebateStartEvent:
 
     debate_id: str
     task: str = ""
-    agents: List[str] = None  # type: ignore[assignment]
-    timestamp: Optional[str] = None
+    agents: list[str] = None  # type: ignore[assignment]
+    timestamp: str | None = None
     type: str = "debate_start"
 
     def __post_init__(self):
@@ -89,7 +89,7 @@ class RoundStartEvent:
     debate_id: str
     round_number: int = 0
     phase: str = ""
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "round_start"
 
 
@@ -99,7 +99,7 @@ class RoundEndEvent:
 
     debate_id: str
     round_number: int = 0
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "round_end"
 
 
@@ -112,8 +112,8 @@ class AgentMessageEvent:
     content: str = ""
     round_number: int = 0
     role: str = ""
-    confidence: Optional[float] = None
-    timestamp: Optional[str] = None
+    confidence: float | None = None
+    timestamp: str | None = None
     type: str = "agent_message"
 
 
@@ -125,8 +125,8 @@ class ProposeEvent:
     agent: str = ""
     proposal: str = ""
     round_number: int = 0
-    confidence: Optional[float] = None
-    timestamp: Optional[str] = None
+    confidence: float | None = None
+    timestamp: str | None = None
     type: str = "propose"
 
 
@@ -139,7 +139,7 @@ class CritiqueEvent:
     target_agent: str = ""
     critique: str = ""
     round_number: int = 0
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "critique"
 
 
@@ -151,7 +151,7 @@ class RevisionEvent:
     agent: str = ""
     revision: str = ""
     round_number: int = 0
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "revision"
 
 
@@ -162,9 +162,9 @@ class VoteEvent:
     debate_id: str
     agent: str = ""
     choice: str = ""
-    confidence: Optional[float] = None
+    confidence: float | None = None
     round_number: int = 0
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "vote"
 
 
@@ -174,9 +174,9 @@ class ConsensusEvent:
 
     debate_id: str
     reached: bool = False
-    agreement: Optional[float] = None
-    final_answer: Optional[str] = None
-    timestamp: Optional[str] = None
+    agreement: float | None = None
+    final_answer: str | None = None
+    timestamp: str | None = None
     type: str = "consensus"
 
 
@@ -185,10 +185,10 @@ class DebateEndEvent:
     """Event fired when a debate concludes."""
 
     debate_id: str
-    final_answer: Optional[str] = None
+    final_answer: str | None = None
     consensus_reached: bool = False
     total_rounds: int = 0
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "debate_end"
 
 
@@ -198,8 +198,8 @@ class PhaseChangeEvent:
 
     debate_id: str
     phase: str = ""
-    previous_phase: Optional[str] = None
-    timestamp: Optional[str] = None
+    previous_phase: str | None = None
+    timestamp: str | None = None
     type: str = "phase_change"
 
 
@@ -208,9 +208,9 @@ class ErrorEvent:
     """Event fired when an error occurs."""
 
     message: str = ""
-    code: Optional[str] = None
-    debate_id: Optional[str] = None
-    timestamp: Optional[str] = None
+    code: str | None = None
+    debate_id: str | None = None
+    timestamp: str | None = None
     type: str = "error"
 
 
@@ -218,7 +218,7 @@ class ErrorEvent:
 class HeartbeatEvent:
     """Event fired for connection keepalive."""
 
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     type: str = "heartbeat"
 
 
@@ -241,7 +241,7 @@ TypedWebSocketEvent = (
 )
 
 
-def parse_typed_event(data: Dict[str, Any]) -> TypedWebSocketEvent:
+def parse_typed_event(data: dict[str, Any]) -> TypedWebSocketEvent:
     """Parse raw event data into a typed event object.
 
     Args:
@@ -420,9 +420,9 @@ class AragoraWebSocket:
     def __init__(
         self,
         base_url: str,
-        api_key: Optional[str] = None,
-        ws_url: Optional[str] = None,
-        options: Optional[WebSocketOptions] = None,
+        api_key: str | None = None,
+        ws_url: str | None = None,
+        options: WebSocketOptions | None = None,
     ):
         if not HAS_WEBSOCKETS:
             raise ImportError(
@@ -433,19 +433,19 @@ class AragoraWebSocket:
         self.api_key = api_key
         self._ws_url = ws_url
         self.options = options or WebSocketOptions()
-        self._ws: Optional[WebSocketClientProtocol] = None
+        self._ws: WebSocketClientProtocol | None = None
         self._state = WebSocketState.DISCONNECTED
         self._reconnect_attempts = 0
-        self._handlers: Dict[str, List[EventHandler]] = {}
-        self._heartbeat_task: Optional[asyncio.Task[None]] = None
-        self._receive_task: Optional[asyncio.Task[None]] = None
+        self._handlers: dict[str, list[EventHandler]] = {}
+        self._heartbeat_task: asyncio.Task[None] | None = None
+        self._receive_task: asyncio.Task[None] | None = None
 
     @property
     def state(self) -> WebSocketState:
         """Get current connection state."""
         return self._state
 
-    def _build_ws_url(self, debate_id: Optional[str] = None) -> str:
+    def _build_ws_url(self, debate_id: str | None = None) -> str:
         """Build WebSocket URL from config."""
         if self._ws_url:
             ws_url = self._ws_url
@@ -466,7 +466,7 @@ class AragoraWebSocket:
 
         return ws_url
 
-    async def connect(self, debate_id: Optional[str] = None) -> None:
+    async def connect(self, debate_id: str | None = None) -> None:
         """
         Connect to the WebSocket server.
 
@@ -537,7 +537,7 @@ class AragoraWebSocket:
         except Exception as e:
             logger.debug(f"Heartbeat error: {e}")
 
-    async def send(self, data: Dict[str, Any]) -> None:
+    async def send(self, data: dict[str, Any]) -> None:
         """Send a message to the server."""
         if self._ws and self._state == WebSocketState.CONNECTED:
             await self._ws.send(json.dumps(data))
@@ -579,7 +579,7 @@ class AragoraWebSocket:
     async def once(
         self,
         event_type: str,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> WebSocketEvent:
         """
         Wait for a single event of the specified type.
@@ -649,7 +649,7 @@ class AragoraWebSocket:
 
     async def stream_events(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> AsyncGenerator[WebSocketEvent, None]:
         """
         Stream events as an async generator.
@@ -712,7 +712,7 @@ class AragoraWebSocket:
         finally:
             await self._cleanup()
 
-    async def _reconnect(self, debate_id: Optional[str] = None) -> None:
+    async def _reconnect(self, debate_id: str | None = None) -> None:
         """Attempt to reconnect."""
         self._state = WebSocketState.RECONNECTING
         delay = self.options.reconnect_delay * (2**self._reconnect_attempts)
@@ -729,9 +729,9 @@ class AragoraWebSocket:
 
 async def stream_debate(
     base_url: str,
-    debate_id: Optional[str] = None,
-    api_key: Optional[str] = None,
-    options: Optional[WebSocketOptions] = None,
+    debate_id: str | None = None,
+    api_key: str | None = None,
+    options: WebSocketOptions | None = None,
 ) -> AsyncGenerator[WebSocketEvent, None]:
     """
     Stream debate events.
@@ -774,8 +774,8 @@ async def stream_debate(
 async def stream_debate_by_id(
     base_url: str,
     debate_id: str,
-    api_key: Optional[str] = None,
-    options: Optional[WebSocketOptions] = None,
+    api_key: str | None = None,
+    options: WebSocketOptions | None = None,
 ) -> AsyncGenerator[WebSocketEvent, None]:
     """
     Stream events for a specific debate by ID.

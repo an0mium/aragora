@@ -332,7 +332,7 @@ class ImplementationProfile:
         return None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ImplementationProfile":
+    def from_dict(cls, data: dict[str, Any]) -> ImplementationProfile:
         """Parse an ImplementationProfile from a dictionary."""
         implementers = cls._normalize_list(data.get("implementers"))
         fabric_models = cls._normalize_list(data.get("fabric_models") or data.get("models"))
@@ -587,7 +587,7 @@ class DecisionPlan:
     # Workflow generation
     # -------------------------------------------------------------------------
 
-    def to_workflow_definition(self, *, parallelize: bool = False) -> "WorkflowDefinition":
+    def to_workflow_definition(self, *, parallelize: bool = False) -> WorkflowDefinition:
         """Generate a WorkflowDefinition for the workflow engine.
 
         Creates a DAG of steps that implements the full gold path:

@@ -241,7 +241,7 @@ class CostForecaster:
 
     def __init__(
         self,
-        cost_tracker: Optional["CostTracker"] = None,
+        cost_tracker: CostTracker | None = None,
     ):
         """
         Initialize forecaster.
@@ -251,7 +251,7 @@ class CostForecaster:
         """
         self._cost_tracker = cost_tracker
 
-    def set_cost_tracker(self, tracker: "CostTracker") -> None:
+    def set_cost_tracker(self, tracker: CostTracker) -> None:
         """Set the cost tracker instance."""
         self._cost_tracker = tracker
 

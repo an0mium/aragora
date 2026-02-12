@@ -80,7 +80,7 @@ class DeliberationsHandler(BaseHandler):
         "/api/v1/deliberations/{deliberation_id}",
     ]
 
-    def _get_auth_context(self, request: Any) -> Optional["AuthorizationContext"]:
+    def _get_auth_context(self, request: Any) -> AuthorizationContext | None:
         """Build RBAC authorization context from request.
 
         Returns None if RBAC/JWT auth is not available (allows request in dev mode).
@@ -108,7 +108,7 @@ class DeliberationsHandler(BaseHandler):
 
     def _check_rbac_permission(
         self, request: Any, permission_key: str
-    ) -> Optional[tuple[dict[str, Any], int]]:
+    ) -> tuple[dict[str, Any], int] | None:
         """Check RBAC permission.
 
         Returns None if allowed, or an error response tuple if denied.

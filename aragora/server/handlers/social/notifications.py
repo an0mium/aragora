@@ -373,7 +373,7 @@ class NotificationsHandler(SecureHandler):
 
         # SECURITY: Require 'notifications.read' permission for all GET endpoints
         user_ctx: UserAuthContext | None
-        perm_err: Optional[HandlerResult]
+        perm_err: HandlerResult | None
         user_ctx, perm_err = self.require_permission_or_error(handler, "read")
         if perm_err:
             return perm_err
@@ -413,7 +413,7 @@ class NotificationsHandler(SecureHandler):
 
         # SECURITY: Require 'notifications.write' permission for configuration changes
         user_ctx: UserAuthContext | None
-        perm_err: Optional[HandlerResult]
+        perm_err: HandlerResult | None
         user_ctx, perm_err = self.require_permission_or_error(handler, "write")
         if perm_err:
             return perm_err
@@ -453,7 +453,7 @@ class NotificationsHandler(SecureHandler):
 
         # SECURITY: Require 'notifications.delete' permission
         user_ctx: UserAuthContext | None
-        perm_err: Optional[HandlerResult]
+        perm_err: HandlerResult | None
         user_ctx, perm_err = self.require_permission_or_error(handler, "delete")
         if perm_err:
             return perm_err

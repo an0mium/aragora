@@ -89,12 +89,12 @@ class SecurityValidationResult:
     sanitized: str | None = None
 
     @classmethod
-    def success(cls, value: Any = None, sanitized: str | None = None) -> "SecurityValidationResult":
+    def success(cls, value: Any = None, sanitized: str | None = None) -> SecurityValidationResult:
         """Create a successful validation result."""
         return cls(is_valid=True, value=value, sanitized=sanitized)
 
     @classmethod
-    def failure(cls, error: str) -> "SecurityValidationResult":
+    def failure(cls, error: str) -> SecurityValidationResult:
         """Create a failed validation result."""
         return cls(is_valid=False, error=error)
 
@@ -191,7 +191,7 @@ def execute_regex_with_timeout(
     text: str,
     timeout: float = REGEX_TIMEOUT_SECONDS,
     flags: int = 0,
-) -> Optional[Match[str]]:
+) -> Match[str] | None:
     """
     Execute a regex match with a timeout to prevent ReDoS.
 
@@ -222,7 +222,7 @@ def execute_regex_with_timeout(
     else:
         compiled = pattern
 
-    def do_search() -> Optional[Match[str]]:
+    def do_search() -> Match[str] | None:
         return compiled.search(text)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:

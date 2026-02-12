@@ -46,7 +46,7 @@ class TaxonomyNode:
     description: str | None
     tenant_id: str
     created_at: datetime
-    children: list["TaxonomyNode"] = field(default_factory=list)
+    children: list[TaxonomyNode] = field(default_factory=list)
 
 
 # Default industry taxonomies
@@ -363,9 +363,9 @@ class DomainTaxonomy:
 
     def __init__(
         self,
-        graph_store: "KnowledgeGraphStore",
+        graph_store: KnowledgeGraphStore,
         tenant_id: str = "default",
-        custom_taxonomy: Optional[dict[str, Any]] = None,
+        custom_taxonomy: dict[str, Any] | None = None,
     ):
         """
         Initialize the domain taxonomy.

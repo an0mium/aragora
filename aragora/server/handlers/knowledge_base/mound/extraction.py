@@ -35,13 +35,13 @@ class ExtractionHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class ExtractionOperationsMixin:
     """Mixin providing knowledge extraction API endpoints."""
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """Provided by host class."""
         ...
 
@@ -105,7 +105,7 @@ class ExtractionOperationsMixin:
     async def promote_extracted_knowledge(
         self,
         workspace_id: str,
-        claim_ids: Optional[list[str]] = None,
+        claim_ids: list[str] | None = None,
         min_confidence: float = 0.6,
     ) -> HandlerResult:
         """

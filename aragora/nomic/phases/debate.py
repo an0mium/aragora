@@ -51,7 +51,7 @@ class DebateConfig:
     enable_research: bool = True
 
     @classmethod
-    def from_profile(cls) -> "DebateConfig":
+    def from_profile(cls) -> DebateConfig:
         """Create a DebateConfig from NomicDebateProfile defaults."""
         from aragora.nomic.debate_profile import NomicDebateProfile
 
@@ -157,17 +157,17 @@ class DebatePhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: Optional[list[Any]] = None,
-        arena_factory: Optional[Callable[..., Any]] = None,
-        environment_factory: Optional[Callable[..., Any]] = None,
-        protocol_factory: Optional[Callable[..., Any]] = None,
+        agents: list[Any] | None = None,
+        arena_factory: Callable[..., Any] | None = None,
+        environment_factory: Callable[..., Any] | None = None,
+        protocol_factory: Callable[..., Any] | None = None,
         config: DebateConfig | None = None,
         nomic_integration: Any | None = None,
         cycle_count: int = 0,
         initial_proposal: str | None = None,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
         # Legacy API compatibility
         claude_agent: Any | None = None,
         codex_agent: Any | None = None,
@@ -483,7 +483,7 @@ class DebatePhase:
         recent_changes: str = "",
         learning_context: LearningContext | None = None,
         hooks: PostDebateHooks | None = None,
-        arena_kwargs: Optional[dict[str, Any]] = None,
+        arena_kwargs: dict[str, Any] | None = None,
     ) -> DebateResult:
         """
         Execute the debate phase.

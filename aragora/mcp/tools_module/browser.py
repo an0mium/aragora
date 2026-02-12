@@ -26,8 +26,8 @@ _browser_connector = None
 async def _get_connector(
     headless: bool = True,
     browser_type: str = "chromium",
-    allowed_domains: Optional[list[str]] = None,
-    blocked_domains: Optional[list[str]] = None,
+    allowed_domains: list[str] | None = None,
+    blocked_domains: list[str] | None = None,
 ) -> Any:
     """Get or create browser connector."""
     global _browser_connector

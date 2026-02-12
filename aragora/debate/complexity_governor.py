@@ -269,7 +269,7 @@ class AdaptiveComplexityGovernor:
     def __init__(
         self,
         initial_constraints: GovernorConstraints | None = None,
-        stress_callback: Optional[Callable[[StressLevel], None]] = None,
+        stress_callback: Callable[[StressLevel], None] | None = None,
     ):
         """
         Initialize the governor.

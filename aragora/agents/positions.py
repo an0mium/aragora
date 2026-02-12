@@ -55,7 +55,7 @@ class Position:
         debate_id: str,
         round_num: int,
         domain: str | None = None,
-    ) -> "Position":
+    ) -> Position:
         """Create a new position with generated ID."""
         return cls(
             id=str(uuid.uuid4())[:8],
@@ -68,7 +68,7 @@ class Position:
         )
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "Position":
+    def from_row(cls, row: sqlite3.Row) -> Position:
         """Create a Position from a database row.
 
         Args:

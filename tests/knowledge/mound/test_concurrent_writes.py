@@ -49,7 +49,7 @@ class MockDebateContext:
 
     def __init__(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         confidence: float = 0.85,
         domain: str = "testing",
     ):

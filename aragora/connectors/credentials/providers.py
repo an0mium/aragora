@@ -121,7 +121,7 @@ class AWSSecretsManagerProvider:
 
         # Cache storage
         self._cache: dict[str, CachedCredential] = {}
-        self._secret_cache: Optional[dict[str, Any]] = None
+        self._secret_cache: dict[str, Any] | None = None
         self._secret_cached_at: float = 0
 
         # Client (lazy initialized)

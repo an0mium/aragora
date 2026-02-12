@@ -134,7 +134,7 @@ class ProxyStats:
 class OpenClawAPI:
     """API interface for OpenClaw Enterprise Gateway operations."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -193,6 +193,16 @@ class OpenClawAPI:
     async def end_session_async(self, session_id: str) -> bool:
         """End an active session (async)."""
         response = await self._client._post_async(f"/api/v1/openclaw/sessions/{session_id}/end")
+        return response.get("success", False)
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session by ID."""
+        response = self._client._delete(f"/api/v1/openclaw/sessions/{session_id}")
+        return response.get("success", False)
+
+    async def delete_session_async(self, session_id: str) -> bool:
+        """Delete a session by ID (async)."""
+        response = await self._client._delete_async(f"/api/v1/openclaw/sessions/{session_id}")
         return response.get("success", False)
 
     def get_session(self, session_id: str) -> OpenClawSession:
@@ -701,7 +711,7 @@ class OpenClawAPI:
         )
 
     @staticmethod
-    def _parse_credential(data: dict[str, Any]) -> "Credential":
+    def _parse_credential(data: dict[str, Any]) -> Credential:
         """Parse credential from API response."""
         created_at = None
         if data.get("created_at"):

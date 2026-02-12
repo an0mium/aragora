@@ -111,7 +111,7 @@ class KnowledgeMound(  # type: ignore[misc]
         self,
         config: MoundConfig | None = None,
         workspace_id: str | None = None,
-        event_emitter: "EventEmitterProtocol | None" = None,
+        event_emitter: EventEmitterProtocol | None = None,
     ) -> None:
         """Initialize the Knowledge Mound.
 

@@ -344,7 +344,7 @@ class OAuthToken:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OAuthToken":
+    def from_dict(cls, data: dict[str, Any]) -> OAuthToken:
         """Create from dictionary."""
         return cls(
             access_token=data["access_token"],

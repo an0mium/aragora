@@ -167,7 +167,7 @@ class AgentPool:
         self,
         domain: str = "",
         team_size: int | None = None,
-        exclude: Optional[set[str]] = None,
+        exclude: set[str] | None = None,
     ) -> list[Any]:
         """
         Select a team of agents for a debate.
@@ -323,7 +323,7 @@ class AgentPool:
     def select_critics(
         self,
         proposer: Any,
-        candidates: Optional[list[Any]] = None,
+        candidates: list[Any] | None = None,
         count: int | None = None,
     ) -> list[Any]:
         """

@@ -290,7 +290,7 @@ class PostgresWebhookStore(WebhookStoreBackend):
 
     def __init__(
         self,
-        pool: "Pool",
+        pool: Pool,
         ttl_seconds: int = 86400,
         cleanup_interval: int = 3600,
     ):

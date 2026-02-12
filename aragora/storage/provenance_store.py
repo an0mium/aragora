@@ -111,7 +111,7 @@ class ProvenanceStore(SQLiteStore):
 
     def __init__(
         self,
-        db_path: Optional[str | Path] = None,
+        db_path: str | Path | None = None,
         **kwargs: Any,
     ):
         """Initialize the provenance store.

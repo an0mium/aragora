@@ -159,7 +159,7 @@ class TeamsTokenRefreshScheduler:
         expiry_window_hours: int = DEFAULT_EXPIRY_WINDOW_HOURS,
         client_id: str | None = None,
         client_secret: str | None = None,
-        on_refresh_failure: Optional[Callable[[RefreshResult], None]] = None,
+        on_refresh_failure: Callable[[RefreshResult], None] | None = None,
     ):
         """
         Initialize the token refresh scheduler.

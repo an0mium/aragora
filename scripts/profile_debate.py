@@ -141,7 +141,7 @@ class MockAgent:
         self.stance = "neutral"
         self.tool_manifest = None
 
-    async def generate(self, prompt: str, context: list["Message"] | None = None) -> str:
+    async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a mock response."""
         return f"Mock response from {self.name} for prompt: {prompt[:50]}..."
 
@@ -149,9 +149,9 @@ class MockAgent:
         self,
         proposal: str,
         task: str,
-        context: list["Message"] | None = None,
+        context: list[Message] | None = None,
         target_agent: str | None = None,
-    ) -> "Critique":
+    ) -> Critique:
         """Generate a mock critique."""
         from aragora.core import Critique
 
@@ -165,7 +165,7 @@ class MockAgent:
             reasoning="Mock reasoning for critique",
         )
 
-    async def vote(self, proposals: dict[str, str], task: str) -> "Vote":
+    async def vote(self, proposals: dict[str, str], task: str) -> Vote:
         """Generate a mock vote."""
         from aragora.core import Vote
 

@@ -173,7 +173,7 @@ def track_federation_sync(
         ctx["status"] = "failed"
         logger.warning("Federation sync error for region %s (%s): %s", region_id, direction, e)
         raise
-    except (OSError, IOError, ConnectionError, TimeoutError) as e:
+    except (OSError, ConnectionError, TimeoutError) as e:
         # I/O and network-related errors (common with federation)
         ctx["status"] = "failed"
         logger.warning("Federation sync I/O error for region %s (%s): %s", region_id, direction, e)

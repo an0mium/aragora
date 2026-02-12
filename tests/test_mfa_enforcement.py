@@ -21,10 +21,10 @@ class MockUser:
     role: str = "user"
     plan: str = "free"
     mfa_enabled: bool = False
-    mfa_secret: Optional[str] = None
-    mfa_backup_codes: Optional[str] = None
+    mfa_secret: str | None = None
+    mfa_backup_codes: str | None = None
     metadata: dict = None
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -44,14 +44,14 @@ class MockUserStore:
     def add_user(self, user: MockUser):
         self.users[user.id] = user
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockUser]:
+    def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self.users.get(user_id)
 
 
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, user: Optional[MockUser] = None, user_store: Optional[MockUserStore] = None):
+    def __init__(self, user: MockUser | None = None, user_store: MockUserStore | None = None):
         self.headers = {"Authorization": f"Bearer test_token_{user.id}" if user else ""}
         self._user = user
         self.ctx = {"user_store": user_store}

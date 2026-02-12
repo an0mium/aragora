@@ -381,7 +381,7 @@ class StripeConnector:
     def __init__(
         self,
         credentials: StripeCredentials,
-        circuit_breaker: "CircuitBreaker | None" = None,
+        circuit_breaker: CircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
     ):
         self.credentials = credentials

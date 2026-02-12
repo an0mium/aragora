@@ -330,9 +330,9 @@ class QualitySignalEngine:
         item_id: str,
         raw_confidence: float,
         contributors: list[str],
-        contributor_ratings: Optional[dict[str, Any]] = None,
-        sources: Optional[list[str]] = None,
-        validation_history: Optional[dict[str, list[bool]]] = None,
+        contributor_ratings: dict[str, Any] | None = None,
+        sources: list[str] | None = None,
+        validation_history: dict[str, list[bool]] | None = None,
         domain: str | None = None,
         created_at: datetime | None = None,
     ) -> QualitySignals:
@@ -409,7 +409,7 @@ class QualitySignalEngine:
     def _extract_contributor_calibrations(
         self,
         contributors: list[str],
-        contributor_ratings: Optional[dict[str, Any]],
+        contributor_ratings: dict[str, Any] | None,
         domain: str | None,
     ) -> list[ContributorCalibration]:
         """Extract calibration data from contributor ratings.
@@ -899,7 +899,7 @@ class QualitySignalEngine:
     def batch_compute_signals(
         self,
         items: list[dict[str, Any]],
-        contributor_ratings: Optional[dict[str, Any]] = None,
+        contributor_ratings: dict[str, Any] | None = None,
     ) -> list[QualitySignals]:
         """Compute quality signals for multiple items.
 

@@ -143,7 +143,7 @@ class UsageEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "UsageEvent":
+    def from_dict(cls, data: dict[str, Any]) -> UsageEvent:
         """Create from dictionary."""
         event = cls(
             id=data.get("id", str(uuid4())),

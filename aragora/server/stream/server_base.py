@@ -238,7 +238,7 @@ class ServerBase:
 
         return len(stale_keys)
 
-    def _update_debate_state(self, event: "StreamEvent") -> None:
+    def _update_debate_state(self, event: StreamEvent) -> None:
         """
         Subscriber callback to update debate state from events.
 
@@ -431,7 +431,7 @@ class ServerBase:
                 "created_at": time.time(),
             }
 
-    def get_ws_auth_state(self, ws_id: int) -> Optional[dict[str, Any]]:
+    def get_ws_auth_state(self, ws_id: int) -> dict[str, Any] | None:
         """Get authentication state for a WebSocket connection."""
         with self._ws_auth_lock:
             return self._ws_auth_states.get(ws_id)
@@ -484,7 +484,7 @@ class ServerBase:
                 return True
         return False
 
-    def remove_ws_auth_state(self, ws_id: int) -> Optional[dict[str, Any]]:
+    def remove_ws_auth_state(self, ws_id: int) -> dict[str, Any] | None:
         """Remove authentication state for a WebSocket connection."""
         with self._ws_auth_lock:
             return self._ws_auth_states.pop(ws_id, None)
@@ -560,7 +560,7 @@ class ServerBase:
     # Context Manager Support
     # =========================================================================
 
-    def __enter__(self) -> "ServerBase":
+    def __enter__(self) -> ServerBase:
         """Enter context manager (synchronous).
 
         Returns:
@@ -582,7 +582,7 @@ class ServerBase:
         self._running = False
         self._cleanup_resources()
 
-    async def __aenter__(self) -> "ServerBase":
+    async def __aenter__(self) -> ServerBase:
         """Enter async context manager.
 
         Returns:

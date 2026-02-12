@@ -264,7 +264,7 @@ def create_debate_card(
 def create_voting_card(
     debate_id: str,
     topic: str,
-    options: Optional[list[dict[str, str]]] = None,
+    options: list[dict[str, str]] | None = None,
     deadline: str | None = None,
 ) -> dict[str, Any]:
     """Create an interactive voting card.
@@ -332,9 +332,9 @@ def create_consensus_card(
     final_answer: str,
     confidence: float,
     supporting_agents: list[str],
-    dissenting_agents: Optional[list[str]] = None,
-    key_points: Optional[list[str]] = None,
-    vote_summary: Optional[dict[str, int]] = None,
+    dissenting_agents: list[str] | None = None,
+    key_points: list[str] | None = None,
+    vote_summary: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Create a consensus result card.
 
@@ -516,7 +516,7 @@ def create_debate_progress_card(
     current_round: int,
     total_rounds: int,
     current_phase: str,
-    agent_messages: Optional[list[dict[str, str]]] = None,
+    agent_messages: list[dict[str, str]] | None = None,
     timestamp: datetime | None = None,
 ) -> dict[str, Any]:
     """Create a debate progress update card.
@@ -611,7 +611,7 @@ def create_error_card(
     title: str,
     message: str,
     error_code: str | None = None,
-    retry_action: Optional[dict[str, Any]] = None,
+    retry_action: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create an error notification card.
 
@@ -659,7 +659,7 @@ def create_error_card(
 
 
 def create_help_card(
-    commands: Optional[list[dict[str, str]]] = None,
+    commands: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Create a help/commands card.
 

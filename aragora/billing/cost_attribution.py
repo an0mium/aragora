@@ -255,7 +255,7 @@ class CostAttributor:
 
     def __init__(
         self,
-        cost_tracker: Optional["CostTracker"] = None,
+        cost_tracker: CostTracker | None = None,
         max_entries: int = 10000,
     ):
         """
@@ -313,7 +313,7 @@ class CostAttributor:
 
         logger.info("CostAttributor initialized", max_entries=max_entries)
 
-    def set_cost_tracker(self, cost_tracker: "CostTracker") -> None:
+    def set_cost_tracker(self, cost_tracker: CostTracker) -> None:
         """Set cost tracker for integration."""
         self._cost_tracker = cost_tracker
 
@@ -344,7 +344,7 @@ class CostAttributor:
         operation: str = "",
         source_type: str = "api_call",
         source_id: str = "",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AttributionEntry:
         """
         Record a cost and attribute it to relevant entities.
@@ -810,7 +810,7 @@ class CostAttributor:
 
 # Factory function for easy instantiation
 def create_cost_attributor(
-    cost_tracker: Optional["CostTracker"] = None,
+    cost_tracker: CostTracker | None = None,
 ) -> CostAttributor:
     """
     Create a CostAttributor instance.

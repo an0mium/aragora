@@ -92,7 +92,7 @@ class MetricsCollector:
         self._last_collect_time = now
         return snapshot
 
-    def get_delta(self) -> Optional[dict[str, int]]:
+    def get_delta(self) -> dict[str, int] | None:
         """Get delta since last collection."""
         if self._last_snapshot is None:
             return None

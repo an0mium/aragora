@@ -65,7 +65,7 @@ class EmailDock(ChannelDock):
     async def send_message(
         self,
         channel_id: str,
-        message: "NormalizedMessage",
+        message: NormalizedMessage,
         **kwargs: Any,
     ) -> SendResult:
         """
@@ -117,7 +117,7 @@ class EmailDock(ChannelDock):
                 channel_id=channel_id,
             )
 
-    def _build_email_body(self, message: "NormalizedMessage") -> str:
+    def _build_email_body(self, message: NormalizedMessage) -> str:
         """Build HTML email body from normalized message."""
         from aragora.channels.normalized import MessageFormat
 

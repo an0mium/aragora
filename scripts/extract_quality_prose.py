@@ -468,7 +468,7 @@ def main():
 
     # Load conversations
     print(f"Loading: {args.input}")
-    with open(args.input, "r", encoding="utf-8") as f:
+    with open(args.input, encoding="utf-8") as f:
         data = json.load(f)
 
     # Handle different formats

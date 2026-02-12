@@ -68,9 +68,9 @@ class SchedulerBridge:
 
     def __init__(
         self,
-        config: "ControlPlaneConfig",
-        state_manager: "StateManager",
-        policy_enforcer: "PolicyEnforcer",
+        config: ControlPlaneConfig,
+        state_manager: StateManager,
+        policy_enforcer: PolicyEnforcer,
         scheduler: TaskScheduler | None = None,
     ):
         """
@@ -100,7 +100,7 @@ class SchedulerBridge:
         """Get the task scheduler."""
         return self._scheduler
 
-    def update_policy_manager(self, manager: "ControlPlanePolicyManager") -> None:
+    def update_policy_manager(self, manager: ControlPlanePolicyManager) -> None:
         """Update the scheduler's policy manager reference."""
         self._scheduler._policy_manager = manager
 
@@ -121,10 +121,10 @@ class SchedulerBridge:
         self,
         task_type: str,
         payload: dict[str, Any],
-        required_capabilities: Optional[list[str]] = None,
+        required_capabilities: list[str] | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         workspace_id: str | None = None,
     ) -> str:
         """
@@ -252,7 +252,7 @@ class SchedulerBridge:
     async def complete_task(
         self,
         task_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
         agent_id: str | None = None,
         latency_ms: float | None = None,
         sla_policy_id: str | None = None,

@@ -98,10 +98,10 @@ class BetaBinomialStabilityDetector:
 
     def __init__(
         self,
-        config: Optional[StabilityConfig] = None,
-        agreement_threshold: Optional[float] = None,
-        alpha_prior: Optional[float] = None,
-        beta_prior: Optional[float] = None,
+        config: StabilityConfig | None = None,
+        agreement_threshold: float | None = None,
+        alpha_prior: float | None = None,
+        beta_prior: float | None = None,
     ):
         """Initialize the stability detector.
 
@@ -118,7 +118,7 @@ class BetaBinomialStabilityDetector:
         self.alpha_prior = alpha_prior if alpha_prior is not None else self.config.alpha_prior
         self.beta_prior = beta_prior if beta_prior is not None else self.config.beta_prior
         self._vote_history: list[dict[str, float]] = []
-        self._stable_since: Optional[int] = None
+        self._stable_since: int | None = None
         self._stability_scores: list[float] = []
 
     def calculate_stability(
@@ -155,8 +155,8 @@ class BetaBinomialStabilityDetector:
         self,
         round_votes: dict[str, float],
         round_num: int,
-        muse_divergence: Optional[float] = None,
-        ascot_fragility: Optional[float] = None,
+        muse_divergence: float | None = None,
+        ascot_fragility: float | None = None,
     ) -> StabilityResult:
         """
         Update with new round votes and check stability.

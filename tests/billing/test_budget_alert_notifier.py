@@ -31,8 +31,8 @@ class MockBudgetAlert:
     message: str = "Budget at 75% usage"
     created_at: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
     acknowledged: bool = False
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[float] = None
+    acknowledged_by: str | None = None
+    acknowledged_at: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {

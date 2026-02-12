@@ -78,7 +78,7 @@ class MockUser:
 
     user_id: str = "user-001"
     email: str = "test@example.com"
-    org_id: Optional[str] = "org-001"
+    org_id: str | None = "org-001"
     role: str = "user"
     permissions: list[str] = field(default_factory=list)
     is_authenticated: bool = True
@@ -89,8 +89,8 @@ class MockRequestHandler:
 
     def __init__(
         self,
-        body: Optional[dict] = None,
-        headers: Optional[dict] = None,
+        body: dict | None = None,
+        headers: dict | None = None,
         content_length: int = 0,
     ):
         self._body = body

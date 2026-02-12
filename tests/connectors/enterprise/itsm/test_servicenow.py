@@ -319,7 +319,7 @@ class TestServiceNowBasicAuthentication:
             assert header["Authorization"].startswith("Basic ")
 
             # Verify the encoding
-            expected_creds = base64.b64encode("admin_user:secure_password123".encode()).decode()
+            expected_creds = base64.b64encode(b"admin_user:secure_password123").decode()
             assert header["Authorization"] == f"Basic {expected_creds}"
 
     @pytest.mark.asyncio

@@ -55,14 +55,14 @@ except ImportError:
 _AUTH_AVAILABLE = _AUTH_EXCEPTIONS_AVAILABLE
 
 
-def _get_error_response() -> Callable[[str, int], "HandlerResult"]:
+def _get_error_response() -> Callable[[str, int], HandlerResult]:
     """Lazy import to avoid circular dependency with base module."""
     from aragora.server.handlers.base import error_response
 
     return error_response
 
 
-def error_response(message: str, status: int) -> "HandlerResult":
+def error_response(message: str, status: int) -> HandlerResult:
     """Wrapper for lazy-loaded error_response to avoid repeated imports."""
     return _get_error_response()(message, status)
 
@@ -92,7 +92,7 @@ class SecureEndpointMixin:
     async def require_auth_or_error(
         self,
         request: Any,
-    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[AuthorizationContext | None, HandlerResult | None]:
         """
         Require authentication, returning context or error response.
 
@@ -121,7 +121,7 @@ class SecureEndpointMixin:
         request: Any,
         permission: str,
         resource_id: str | None = None,
-    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[AuthorizationContext | None, HandlerResult | None]:
         """
         Require authentication and a specific permission.
 
@@ -155,7 +155,7 @@ class SecureEndpointMixin:
         request: Any,
         permissions: list[str],
         resource_id: str | None = None,
-    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[AuthorizationContext | None, HandlerResult | None]:
         """
         Require authentication and ANY of the specified permissions.
 
@@ -203,7 +203,7 @@ class SecureEndpointMixin:
         request: Any,
         permissions: list[str],
         resource_id: str | None = None,
-    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[AuthorizationContext | None, HandlerResult | None]:
         """
         Require authentication and ALL of the specified permissions.
 
@@ -243,7 +243,7 @@ class SecureEndpointMixin:
     async def require_admin_or_error(
         self,
         request: Any,
-    ) -> tuple[Optional["AuthorizationContext"], Optional["HandlerResult"]]:
+    ) -> tuple[AuthorizationContext | None, HandlerResult | None]:
         """
         Require authentication and admin role.
 
@@ -268,10 +268,10 @@ class AuthenticatedHandlerMixin:
         current_user: The authenticated user context (set after auth check)
     """
 
-    _current_auth: Optional["AuthorizationContext"] = None
+    _current_auth: AuthorizationContext | None = None
 
     @property
-    def current_user(self) -> Optional["AuthorizationContext"]:
+    def current_user(self) -> AuthorizationContext | None:
         """Get the current authenticated user context."""
         return self._current_auth
 
@@ -289,7 +289,7 @@ class AuthenticatedHandlerMixin:
             return getattr(self._current_auth, "org_id", None)
         return None
 
-    def set_auth_context(self, auth: "AuthorizationContext") -> None:
+    def set_auth_context(self, auth: AuthorizationContext) -> None:
         """Set the authentication context for this request."""
         self._current_auth = auth
 

@@ -32,7 +32,7 @@ class TierOpsMixin:
     """Mixin providing tier operations for ContinuumMemory."""
 
     def mark_red_line(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         reason: str,
         promote_to_glacial: bool = True,
@@ -96,7 +96,7 @@ class TierOpsMixin:
             conn.commit()
             return True
 
-    def get_red_line_memories(self: "ContinuumMemory") -> list[ContinuumMemoryEntry]:
+    def get_red_line_memories(self: ContinuumMemory) -> list[ContinuumMemoryEntry]:
         """Get all red-lined memory entries.
 
         Returns:
@@ -134,7 +134,7 @@ class TierOpsMixin:
             for row in rows
         ]
 
-    def promote(self: "ContinuumMemory", id: str) -> MemoryTier | None:
+    def promote(self: ContinuumMemory, id: str) -> MemoryTier | None:
         """
         Promote a memory to a faster tier.
 
@@ -214,7 +214,7 @@ class TierOpsMixin:
 
         return new_tier
 
-    def demote(self: "ContinuumMemory", id: str) -> MemoryTier | None:
+    def demote(self: ContinuumMemory, id: str) -> MemoryTier | None:
         """
         Demote a memory to a slower tier.
 
@@ -295,7 +295,7 @@ class TierOpsMixin:
         return new_tier
 
     def _emit_tier_event(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         event_type: str,
         memory_id: str,
         from_tier: MemoryTier,
@@ -308,7 +308,7 @@ class TierOpsMixin:
         )
 
     def _promote_batch(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         from_tier: MemoryTier,
         to_tier: MemoryTier,
         ids: list[str],
@@ -322,7 +322,7 @@ class TierOpsMixin:
         return _consolidation.promote_batch(self, from_tier, to_tier, ids)
 
     def _demote_batch(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         from_tier: MemoryTier,
         to_tier: MemoryTier,
         ids: list[str],
@@ -335,7 +335,7 @@ class TierOpsMixin:
         """
         return _consolidation.demote_batch(self, from_tier, to_tier, ids)
 
-    def consolidate(self: "ContinuumMemory") -> dict[str, int]:
+    def consolidate(self: ContinuumMemory) -> dict[str, int]:
         """
         Run tier consolidation: promote/demote memories based on surprise.
 
@@ -344,15 +344,15 @@ class TierOpsMixin:
         """
         return _consolidation.consolidate(self)
 
-    def get_stats(self: "ContinuumMemory") -> dict[str, Any]:
+    def get_stats(self: ContinuumMemory) -> dict[str, Any]:
         """Get statistics about the continuum memory system."""
         return _stats.get_stats(self)
 
-    def export_for_tier(self: "ContinuumMemory", tier: MemoryTier) -> list[dict[str, Any]]:
+    def export_for_tier(self: ContinuumMemory, tier: MemoryTier) -> list[dict[str, Any]]:
         """Export all memories for a specific tier."""
         return _stats.export_for_tier(self, tier)
 
-    def get_memory_pressure(self: "ContinuumMemory") -> float:
+    def get_memory_pressure(self: ContinuumMemory) -> float:
         """
         Calculate memory pressure as a 0-1 score based on tier utilization.
 
@@ -365,7 +365,7 @@ class TierOpsMixin:
         return _stats.get_memory_pressure(self)
 
     def cleanup_expired_memories(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         tier: MemoryTier | None = None,
         archive: bool = True,
         max_age_hours: float | None = None,
@@ -389,7 +389,7 @@ class TierOpsMixin:
         return _stats.cleanup_expired_memories(self, tier, archive, max_age_hours, tenant_id)
 
     def delete(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         archive: bool = True,
         reason: str = "user_deleted",
@@ -412,7 +412,7 @@ class TierOpsMixin:
         return _stats.delete_memory(self, memory_id, archive, reason, force, tenant_id)
 
     def enforce_tier_limits(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         tier: MemoryTier | None = None,
         archive: bool = True,
     ) -> dict[str, int]:
@@ -431,7 +431,7 @@ class TierOpsMixin:
         """
         return _stats.enforce_tier_limits(self, tier, archive)
 
-    def get_archive_stats(self: "ContinuumMemory") -> dict[str, Any]:
+    def get_archive_stats(self: ContinuumMemory) -> dict[str, Any]:
         """Get statistics about archived memories."""
         return _stats.get_archive_stats(self)
 

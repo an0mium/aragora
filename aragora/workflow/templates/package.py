@@ -131,7 +131,7 @@ class TemplateMetadata:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TemplateMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> TemplateMetadata:
         """Create from dictionary."""
         # Convert enums
         if "category" in data and isinstance(data["category"], str):
@@ -228,7 +228,7 @@ class TemplatePackage:
         return json.dumps(self.to_dict(), indent=indent)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TemplatePackage":
+    def from_dict(cls, data: dict[str, Any]) -> TemplatePackage:
         """Create package from dictionary."""
         metadata = TemplateMetadata.from_dict(data["metadata"])
         return cls(
@@ -241,7 +241,7 @@ class TemplatePackage:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "TemplatePackage":
+    def from_json(cls, json_str: str) -> TemplatePackage:
         """Create package from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
@@ -253,7 +253,7 @@ class TemplatePackage:
         return path
 
     @classmethod
-    def load(cls, path: str | Path) -> "TemplatePackage":
+    def load(cls, path: str | Path) -> TemplatePackage:
         """Load package from file."""
         path = Path(path)
         data = json.loads(path.read_text())
@@ -263,9 +263,9 @@ class TemplatePackage:
 def create_package(
     template: dict[str, Any],
     version: str = "1.0.0",
-    author: Optional[str | TemplateAuthor] = None,
+    author: str | TemplateAuthor | None = None,
     description: str | None = None,
-    category: Optional[str | TemplateCategory] = None,
+    category: str | TemplateCategory | None = None,
     tags: list[str] | None = None,
     readme: str = "",
     **kwargs: Any,
@@ -402,7 +402,7 @@ def get_package(
 
 
 def list_packages(
-    category: Optional[str | TemplateCategory] = None,
+    category: str | TemplateCategory | None = None,
     tags: list[str] | None = None,
     include_deprecated: bool = False,
 ) -> list[TemplatePackage]:

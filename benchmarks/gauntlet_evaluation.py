@@ -32,7 +32,7 @@ class Fixture:
     attack_responses: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any], source: Path) -> "Fixture":
+    def from_dict(cls, payload: dict[str, Any], source: Path) -> Fixture:
         fixture_id = payload.get("id") or source.stem
         input_content = payload.get("input_content", "").strip()
         if not input_content:

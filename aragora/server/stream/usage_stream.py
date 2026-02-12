@@ -319,7 +319,7 @@ async def emit_usage_event(
     user_id: str | None = None,
     debate_id: str | None = None,
     operation: str = "",
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> UsageStreamEvent:
     """
     Convenience function to emit a usage event.

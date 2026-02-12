@@ -46,7 +46,7 @@ def _get_audit_fn() -> Any:
 async def list_workflows(
     tenant_id: str = "default",
     category: str | None = None,
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
     search: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -80,7 +80,7 @@ async def list_workflows(
     }
 
 
-async def get_workflow(workflow_id: str, tenant_id: str = "default") -> Optional[dict[str, Any]]:
+async def get_workflow(workflow_id: str, tenant_id: str = "default") -> dict[str, Any] | None:
     """Get a workflow by ID."""
     store = _get_store()
     workflow = store.get_workflow(workflow_id, tenant_id)
@@ -143,7 +143,7 @@ async def update_workflow(
     workflow_id: str,
     data: dict[str, Any],
     tenant_id: str = "default",
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Update an existing workflow.
 

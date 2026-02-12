@@ -84,7 +84,7 @@ class ProposalPhase:
         propulsion_engine: Any = None,
         enable_propulsion: bool = False,
         # Molecule tracking for work unit management (Gastown pattern)
-        molecule_tracker: Optional["MoleculeTracker"] = None,
+        molecule_tracker: MoleculeTracker | None = None,
     ):
         """
         Initialize the proposal phase.
@@ -148,7 +148,7 @@ class ProposalPhase:
             return "empty"
         return "exception"
 
-    async def execute(self, ctx: "DebateContextType") -> None:
+    async def execute(self, ctx: DebateContextType) -> None:
         """
         Execute the proposal phase.
 
@@ -204,7 +204,7 @@ class ProposalPhase:
         # 8. Fire propulsion event (proposals_ready) for push-based flow
         await self._fire_propulsion_event(ctx)
 
-    def _emit_debate_start(self, ctx: "DebateContextType") -> None:
+    def _emit_debate_start(self, ctx: DebateContextType) -> None:
         """Emit debate start hook event."""
         if "on_debate_start" not in self.hooks:
             return
@@ -214,7 +214,7 @@ class ProposalPhase:
             [a.name for a in ctx.agents],
         )
 
-    def _filter_proposers(self, ctx: "DebateContextType") -> list["AgentType"]:
+    def _filter_proposers(self, ctx: DebateContextType) -> list[AgentType]:
         """Filter proposers through circuit breaker."""
         proposers = ctx.proposers
 
@@ -234,7 +234,7 @@ class ProposalPhase:
         return available
 
     async def _generate_proposals_parallel(
-        self, ctx: "DebateContextType", proposers: list["AgentType"]
+        self, ctx: DebateContextType, proposers: list[AgentType]
     ) -> None:
         """Generate proposals in parallel with bounded concurrency."""
 
@@ -251,8 +251,8 @@ class ProposalPhase:
         proposal_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PROPOSALS)
 
         async def generate_proposal_bounded(
-            idx: int, agent: "AgentType"
-        ) -> tuple["AgentType", Any]:
+            idx: int, agent: AgentType
+        ) -> tuple[AgentType, Any]:
             """Generate proposal with semaphore-bounded concurrency."""
             # Optional stagger delay for backward compatibility
             if PROPOSAL_STAGGER_SECONDS > 0 and idx > 0:
@@ -285,8 +285,8 @@ class ProposalPhase:
             self._process_proposal_result(ctx, agent, result_or_error)
 
     async def _generate_single_proposal(
-        self, ctx: "DebateContextType", agent: "AgentType"
-    ) -> tuple["AgentType", Any]:
+        self, ctx: DebateContextType, agent: AgentType
+    ) -> tuple[AgentType, Any]:
         """Generate a single proposal from an agent."""
         if not self._build_proposal_prompt or not self._generate_with_agent:
             return (agent, Exception("Missing callbacks"))
@@ -348,7 +348,7 @@ class ProposalPhase:
             return (agent, e)
 
     def _process_proposal_result(
-        self, ctx: "DebateContextType", agent: "AgentType", result_or_error: Any
+        self, ctx: DebateContextType, agent: AgentType, result_or_error: Any
     ) -> None:
         """Process a proposal result from an agent."""
         from aragora.core import Message
@@ -436,7 +436,7 @@ class ProposalPhase:
                 logger.debug(f"Recorder error for proposal: {e}")
 
     def _record_positions(
-        self, ctx: "DebateContextType", agent: "AgentType", proposal: str
+        self, ctx: DebateContextType, agent: AgentType, proposal: str
     ) -> None:
         """Record positions for truth-grounded personas."""
         debate_id = ctx.debate_id or ctx.env.task[:50]
@@ -468,7 +468,7 @@ class ProposalPhase:
             )
 
     def _get_calibrated_confidence(
-        self, agent_name: str, raw_confidence: float, ctx: "DebateContextType"
+        self, agent_name: str, raw_confidence: float, ctx: DebateContextType
     ) -> float:
         """Apply calibration scaling to confidence value.
 
@@ -504,7 +504,7 @@ class ProposalPhase:
 
         return raw_confidence
 
-    def _emit_message_event(self, agent: "AgentType", content: str) -> None:
+    def _emit_message_event(self, agent: AgentType, content: str) -> None:
         """Emit on_message hook event and agent_message for TTS integration."""
         # Legacy hook for backwards compatibility
         if "on_message" in self.hooks:
@@ -529,7 +529,7 @@ class ProposalPhase:
             except Exception as e:
                 logger.debug(f"Spectator notification failed: {e}")
 
-    async def _fire_propulsion_event(self, ctx: "DebateContextType") -> None:
+    async def _fire_propulsion_event(self, ctx: DebateContextType) -> None:
         """Fire propulsion event to push work to the next stage.
 
         Triggers "proposals_ready" event with all generated proposals,
@@ -576,7 +576,7 @@ class ProposalPhase:
     def _create_proposal_molecules(
         self,
         debate_id: str,
-        proposers: list["AgentType"],
+        proposers: list[AgentType],
         task: str,
     ) -> None:
         """Create proposal molecules for all proposers.

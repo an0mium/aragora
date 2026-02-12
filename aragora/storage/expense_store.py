@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global singleton
-_expense_store: Optional["ExpenseStoreBackend"] = None
+_expense_store: ExpenseStoreBackend | None = None
 _store_lock = threading.RLock()
 
 

@@ -65,11 +65,11 @@ ENABLE_DISTRIBUTED_METRICS = (
 METRICS_AGGREGATION_INTERVAL = int(os.environ.get("ARAGORA_RATE_LIMIT_METRICS_INTERVAL", "60"))
 
 # Global Redis client (lazy-initialized)
-_redis_client: Optional["redis.Redis"] = None
+_redis_client: redis.Redis | None = None
 _redis_init_attempted: bool = False
 
 
-def get_redis_client() -> Optional["redis.Redis"]:
+def get_redis_client() -> redis.Redis | None:
     """
     Get Redis client if configured and available.
 
@@ -265,7 +265,7 @@ class RedisRateLimiter:
 
     def __init__(
         self,
-        redis_client: "redis.Redis",
+        redis_client: redis.Redis,
         default_limit: int = DEFAULT_RATE_LIMIT,
         ip_limit: int = IP_RATE_LIMIT,
         key_prefix: str = "aragora:ratelimit:",

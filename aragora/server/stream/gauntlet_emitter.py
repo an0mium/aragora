@@ -63,7 +63,7 @@ class GauntletStreamEmitter:
 
     def __init__(
         self,
-        broadcast_fn: Optional[Callable[[StreamEvent], None]] = None,
+        broadcast_fn: Callable[[StreamEvent], None] | None = None,
         gauntlet_id: str | None = None,
     ):
         """
@@ -379,7 +379,7 @@ class GauntletStreamEmitter:
 
 
 def create_gauntlet_emitter(
-    broadcast_fn: Optional[Callable[[StreamEvent], None]] = None,
+    broadcast_fn: Callable[[StreamEvent], None] | None = None,
 ) -> GauntletStreamEmitter:
     """
     Create a GauntletStreamEmitter.

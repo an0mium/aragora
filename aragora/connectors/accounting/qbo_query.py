@@ -135,7 +135,7 @@ class QBOQueryBuilder:
         self._limit_val: int = 100
         self._offset_val: int = 0
 
-    def select(self, *fields: str) -> "QBOQueryBuilder":
+    def select(self, *fields: str) -> QBOQueryBuilder:
         """
         Specify fields to select.
 
@@ -156,7 +156,7 @@ class QBOQueryBuilder:
         self._select_fields.extend(fields)
         return self
 
-    def where_eq(self, field: str, value: Any) -> "QBOQueryBuilder":
+    def where_eq(self, field: str, value: Any) -> QBOQueryBuilder:
         """
         Add equality condition.
 
@@ -172,45 +172,45 @@ class QBOQueryBuilder:
         self._conditions.append(f"{field} = {safe_value}")
         return self
 
-    def where_raw(self, condition: str) -> "QBOQueryBuilder":
+    def where_raw(self, condition: str) -> QBOQueryBuilder:
         """Add a pre-sanitized raw condition string."""
         self._conditions.append(condition)
         return self
 
-    def where_gte(self, field: str, value: datetime) -> "QBOQueryBuilder":
+    def where_gte(self, field: str, value: datetime) -> QBOQueryBuilder:
         """Add >= condition for dates."""
         self._validate_field(field)
         safe_date = self._format_date(value)
         self._conditions.append(f"{field} >= '{safe_date}'")
         return self
 
-    def where_lte(self, field: str, value: datetime) -> "QBOQueryBuilder":
+    def where_lte(self, field: str, value: datetime) -> QBOQueryBuilder:
         """Add <= condition for dates."""
         self._validate_field(field)
         safe_date = self._format_date(value)
         self._conditions.append(f"{field} <= '{safe_date}'")
         return self
 
-    def where_ref(self, field: str, ref_id: str) -> "QBOQueryBuilder":
+    def where_ref(self, field: str, ref_id: str) -> QBOQueryBuilder:
         """Add reference ID condition (e.g., CustomerRef)."""
         self._validate_field(field)
         safe_id = self._validate_numeric_id(ref_id)
         self._conditions.append(f"{field} = '{safe_id}'")
         return self
 
-    def where_like(self, field: str, pattern: str) -> "QBOQueryBuilder":
+    def where_like(self, field: str, pattern: str) -> QBOQueryBuilder:
         """Add LIKE condition with sanitized pattern."""
         self._validate_field(field)
         safe_pattern = self._sanitize_string(pattern)
         self._conditions.append(f"{field} LIKE '%{safe_pattern}%'")
         return self
 
-    def limit(self, value: int) -> "QBOQueryBuilder":
+    def limit(self, value: int) -> QBOQueryBuilder:
         """Set max results (capped at 1000)."""
         self._limit_val = max(1, min(int(value), 1000))
         return self
 
-    def offset(self, value: int) -> "QBOQueryBuilder":
+    def offset(self, value: int) -> QBOQueryBuilder:
         """Set starting position (0-indexed, capped at 100000)."""
         self._offset_val = max(0, min(int(value), 100000))
         return self

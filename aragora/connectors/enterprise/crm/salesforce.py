@@ -354,8 +354,8 @@ class SalesforceConnector(EnterpriseConnector):
     def __init__(
         self,
         instance_url: str | None = None,
-        objects: Optional[list[str]] = None,
-        custom_objects: Optional[list[str]] = None,
+        objects: list[str] | None = None,
+        custom_objects: list[str] | None = None,
         soql_filter: str | None = None,
         include_attachments: bool = False,
         include_notes: bool = False,
@@ -520,8 +520,8 @@ class SalesforceConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Salesforce REST API."""
         token = await self._get_access_token()
@@ -726,7 +726,7 @@ class SalesforceConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 25,
-        object_types: Optional[list[str]] = None,
+        object_types: list[str] | None = None,
         **kwargs: Any,
     ) -> list:
         """Search Salesforce using SOSL."""

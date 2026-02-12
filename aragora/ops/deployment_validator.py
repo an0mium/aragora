@@ -46,7 +46,7 @@ class DeploymentNotReadyError(RuntimeError):
     Contains the full ValidationResult for inspection.
     """
 
-    def __init__(self, result: "ValidationResult") -> None:
+    def __init__(self, result: ValidationResult) -> None:
         critical = [i for i in result.issues if i.severity.value == "critical"]
         summary = "; ".join(f"{i.component}: {i.message}" for i in critical)
         super().__init__(f"Deployment validation failed: {summary}")

@@ -40,7 +40,7 @@ class _DebatesHandlerProtocol(Protocol):
         """Read and parse JSON body from request handler."""
         ...
 
-    def _create_debate_executor(self) -> Callable[["BatchItem"], Any]:
+    def _create_debate_executor(self) -> Callable[[BatchItem], Any]:
         """Create a debate executor function for the batch queue."""
         ...
 
@@ -300,7 +300,7 @@ class BatchOperationsMixin:
             logger.error(f"Failed to submit batch: {e}", exc_info=True)
             return error_response(safe_error_message(e, "submit batch"), 500)
 
-    def _create_debate_executor(self: _DebatesHandlerProtocol) -> Callable[["BatchItem"], Any]:
+    def _create_debate_executor(self: _DebatesHandlerProtocol) -> Callable[[BatchItem], Any]:
         """Create a debate executor function for the batch queue."""
 
         async def execute_debate(item: BatchItem) -> Any:

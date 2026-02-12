@@ -93,10 +93,10 @@ class MockRedis:
         self._data: dict[str, Any] = {}
         self._streams: dict[str, list[tuple]] = {}
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         return self._data.get(key)
 
-    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
         self._data[key] = value
         return True
 
@@ -127,8 +127,8 @@ class MockRedis:
     async def xread(
         self,
         streams: dict[str, str],
-        count: Optional[int] = None,
-        block: Optional[int] = None,
+        count: int | None = None,
+        block: int | None = None,
     ) -> list:
         results = []
         for stream, last_id in streams.items():
@@ -213,7 +213,7 @@ class MockStreamServer:
 class MockArena:
     """Mock Arena for testing deliberation execution."""
 
-    def __init__(self, result: Optional[Any] = None):
+    def __init__(self, result: Any | None = None):
         self._result = result
         self.run_called = False
         self.event_hooks: dict[str, Any] = {}

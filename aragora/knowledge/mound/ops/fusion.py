@@ -316,7 +316,7 @@ class AdapterFusionProtocol(ABC):
     async def prepare_for_fusion(
         self,
         item_id: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> AdapterValidation:
         """Prepare a validation for fusion with other adapters.
 

@@ -105,7 +105,7 @@ class RedisCache:
     # Node Caching
     # =========================================================================
 
-    async def get_node(self, node_id: str) -> Optional["KnowledgeItem"]:
+    async def get_node(self, node_id: str) -> KnowledgeItem | None:
         """Get a cached node."""
         self._ensure_connected()
 
@@ -128,7 +128,7 @@ class RedisCache:
     async def set_node(
         self,
         node_id: str,
-        node: "KnowledgeItem",
+        node: KnowledgeItem,
         ttl: int | None = None,
     ) -> None:
         """Cache a node."""
@@ -164,7 +164,7 @@ class RedisCache:
     # Query Caching
     # =========================================================================
 
-    async def get_query(self, cache_key: str) -> Optional["QueryResult"]:
+    async def get_query(self, cache_key: str) -> QueryResult | None:
         """Get a cached query result."""
         self._ensure_connected()
 
@@ -194,7 +194,7 @@ class RedisCache:
     async def set_query(
         self,
         cache_key: str,
-        result: "QueryResult",
+        result: QueryResult,
         ttl: int | None = None,
     ) -> None:
         """Cache a query result."""
@@ -228,7 +228,7 @@ class RedisCache:
     # Culture Caching
     # =========================================================================
 
-    async def get_culture(self, workspace_id: str) -> Optional["CultureProfile"]:
+    async def get_culture(self, workspace_id: str) -> CultureProfile | None:
         """Get cached culture profile."""
         self._ensure_connected()
 
@@ -283,7 +283,7 @@ class RedisCache:
     async def set_culture(
         self,
         workspace_id: str,
-        profile: "CultureProfile",
+        profile: CultureProfile,
         ttl: int | None = None,
     ) -> None:
         """Cache a culture profile."""

@@ -50,53 +50,53 @@ logger = logging.getLogger(__name__)
 class SyncProtocol(Protocol):
     """Protocol defining expected interface for Sync mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
-    _continuum: Optional["ContinuumMemory"]
-    _consensus: Optional["ConsensusMemory"]
-    _facts: Optional["FactStore"]
-    _evidence: Optional["EvidenceStore"]
-    _critique: Optional["CritiqueStore"]
+    _continuum: ContinuumMemory | None
+    _consensus: ConsensusMemory | None
+    _facts: FactStore | None
+    _evidence: EvidenceStore | None
+    _critique: CritiqueStore | None
     _batch_store: Any
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
-    async def store(self, request: "IngestionRequest") -> Any: ...
+    async def store(self, request: IngestionRequest) -> Any: ...
 
     async def sync_from_continuum(
         self,
-        continuum: "ContinuumMemory",
+        continuum: ContinuumMemory,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult": ...
+    ) -> SyncResult: ...
 
     async def sync_from_consensus(
         self,
-        consensus: "ConsensusMemory",
+        consensus: ConsensusMemory,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult": ...
+    ) -> SyncResult: ...
 
     async def sync_from_facts(
         self,
-        facts: "FactStore",
+        facts: FactStore,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult": ...
+    ) -> SyncResult: ...
 
     async def sync_from_evidence(
         self,
-        evidence: "EvidenceStore",
+        evidence: EvidenceStore,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult": ...
+    ) -> SyncResult: ...
 
     async def sync_from_critique(
         self,
-        critique: "CritiqueStore",
+        critique: CritiqueStore,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult": ...
+    ) -> SyncResult: ...
 
 
 # Retry configuration for sync operations
@@ -116,7 +116,7 @@ class SyncOperationsMixin(_SyncMixinBase):
     @with_retry(_SYNC_RETRY_CONFIG)
     async def _batch_store(
         self,
-        requests: list["IngestionRequest"],
+        requests: list[IngestionRequest],
         batch_size: int = 50,
     ) -> tuple[int, int, int, int, list[str]]:
         """
@@ -145,7 +145,7 @@ class SyncOperationsMixin(_SyncMixinBase):
 
             # Create coroutines for the batch
             async def store_single(
-                req: "IngestionRequest",
+                req: IngestionRequest,
             ) -> tuple[bool, bool, int, str | None]:
                 """Store a single request and return status."""
                 try:
@@ -190,10 +190,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
     async def sync_from_continuum(
         self,
-        continuum: "ContinuumMemory",
+        continuum: ContinuumMemory,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Sync knowledge from ContinuumMemory.
 
@@ -287,10 +287,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
     async def sync_from_consensus(
         self,
-        consensus: "ConsensusMemory",
+        consensus: ConsensusMemory,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Sync knowledge from ConsensusMemory.
 
@@ -416,10 +416,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
     async def sync_from_facts(
         self,
-        facts: "FactStore",
+        facts: FactStore,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Sync knowledge from FactStore.
 
@@ -518,10 +518,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
     async def sync_from_evidence(
         self,
-        evidence: "EvidenceStore",
+        evidence: EvidenceStore,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Sync knowledge from EvidenceStore.
 
@@ -609,10 +609,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
     async def sync_from_critique(
         self,
-        critique: "CritiqueStore",
+        critique: CritiqueStore,
         incremental: bool = True,
         batch_size: int = 100,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Sync knowledge from CritiqueStore (critique patterns).
 
@@ -704,7 +704,7 @@ class SyncOperationsMixin(_SyncMixinBase):
             errors=errors,
         )
 
-    async def sync_all(self) -> dict[str, "SyncResult"]:
+    async def sync_all(self) -> dict[str, SyncResult]:
         """
         Sync from all connected memory systems.
 
@@ -755,7 +755,7 @@ class SyncOperationsMixin(_SyncMixinBase):
         since: str | None = None,
         limit: int = 1000,
         batch_size: int = 50,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Handler-compatible incremental sync from ContinuumMemory.
 
@@ -879,7 +879,7 @@ class SyncOperationsMixin(_SyncMixinBase):
         since: str | None = None,
         limit: int = 1000,
         batch_size: int = 50,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Handler-compatible incremental sync from ConsensusMemory.
 
@@ -1019,7 +1019,7 @@ class SyncOperationsMixin(_SyncMixinBase):
         since: str | None = None,
         limit: int = 1000,
         batch_size: int = 50,
-    ) -> "SyncResult":
+    ) -> SyncResult:
         """
         Handler-compatible incremental sync from FactStore.
 
@@ -1138,11 +1138,11 @@ class SyncOperationsMixin(_SyncMixinBase):
 
     async def connect_memory_stores(
         self,
-        continuum: Optional["ContinuumMemory"] = None,
-        consensus: Optional["ConsensusMemory"] = None,
-        facts: Optional["FactStore"] = None,
-        evidence: Optional["EvidenceStore"] = None,
-        critique: Optional["CritiqueStore"] = None,
+        continuum: ContinuumMemory | None = None,
+        consensus: ConsensusMemory | None = None,
+        facts: FactStore | None = None,
+        evidence: EvidenceStore | None = None,
+        critique: CritiqueStore | None = None,
     ) -> dict[str, bool]:
         """
         Connect memory stores for use with incremental sync methods.

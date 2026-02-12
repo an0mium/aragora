@@ -69,11 +69,11 @@ class MockBackupMetadata:
     tables: list[str] = field(default_factory=list)
     duration_seconds: float = 5.0
     verified: bool = True
-    verified_at: Optional[datetime] = None
+    verified_at: datetime | None = None
     restore_tested: bool = True
-    error: Optional[str] = None
+    error: str | None = None
     storage_backend: str = "local"
-    encryption_key_id: Optional[str] = None
+    encryption_key_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     schema_hash: str = ""
     table_checksums: dict[str, str] = field(default_factory=dict)
@@ -131,8 +131,8 @@ class MockComprehensiveResult:
     backup_id: str
     verified: bool
     basic_verification: MockVerificationResult = field(default_factory=MockVerificationResult)
-    schema_validation: Optional[Any] = None
-    integrity_check: Optional[Any] = None
+    schema_validation: Any | None = None
+    integrity_check: Any | None = None
     table_checksums_valid: bool = True
     table_checksum_errors: list[str] = field(default_factory=list)
     all_errors: list[str] = field(default_factory=list)
@@ -167,7 +167,7 @@ class MockRetentionPolicy:
     keep_daily: int = 7
     keep_weekly: int = 4
     keep_monthly: int = 3
-    max_size_bytes: Optional[int] = None
+    max_size_bytes: int | None = None
     min_backups: int = 1
 
 
@@ -185,13 +185,13 @@ class MockBackupManager:
 
     def list_backups(
         self,
-        source_path: Optional[str] = None,
-        status: Optional[Any] = None,
-        since: Optional[datetime] = None,
+        source_path: str | None = None,
+        status: Any | None = None,
+        since: datetime | None = None,
     ) -> list[MockBackupMetadata]:
         return list(self._backups.values())
 
-    def get_latest_backup(self, source_path: Optional[str] = None) -> Optional[MockBackupMetadata]:
+    def get_latest_backup(self, source_path: str | None = None) -> MockBackupMetadata | None:
         backups = self.list_backups()
         return backups[0] if backups else None
 
@@ -199,7 +199,7 @@ class MockBackupManager:
         self,
         source_path: str,
         backup_type: Any = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MockBackupMetadata:
         backup = MockBackupMetadata(
             id="new-backup-001",
@@ -211,7 +211,7 @@ class MockBackupManager:
     def verify_backup(
         self,
         backup_id: str,
-        backup_meta: Optional[Any] = None,
+        backup_meta: Any | None = None,
         test_restore: bool = True,
     ) -> MockVerificationResult:
         return MockVerificationResult(
@@ -226,7 +226,7 @@ class MockBackupManager:
     def verify_restore_comprehensive(
         self,
         backup_id: str,
-        backup_meta: Optional[Any] = None,
+        backup_meta: Any | None = None,
     ) -> MockComprehensiveResult:
         return MockComprehensiveResult(
             backup_id=backup_id,

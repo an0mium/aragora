@@ -69,7 +69,7 @@ class MockRedis:
         self._hashes: dict[str, dict[str, str]] = {}
         self._expiries: dict[str, float] = {}
         self._locks: dict[str, asyncio.Lock] = {}
-        self._fail_on_next: Optional[str] = None
+        self._fail_on_next: str | None = None
         self._fail_count: int = 0
         self._delay_seconds: float = 0.0
         self._operation_log: list[dict[str, Any]] = []
@@ -81,8 +81,8 @@ class MockRedis:
         key: str,
         value: str,
         nx: bool = False,
-        ex: Optional[int] = None,
-    ) -> Optional[bool]:
+        ex: int | None = None,
+    ) -> bool | None:
         """SET command with NX (not exists) and EX (expiry) support."""
         self._operation_log.append(
             {
@@ -123,7 +123,7 @@ class MockRedis:
                 self._expiries[key] = time.time() + ex
             return True
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """GET command with expiry check."""
         self._operation_log.append({"op": "get", "key": key, "time": time.time()})
 
@@ -191,9 +191,9 @@ class MockRedis:
     async def hset(
         self,
         key: str,
-        field: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict] = None,
+        field: str | None = None,
+        value: str | None = None,
+        mapping: dict | None = None,
     ) -> int:
         """HSET command."""
         if self._disconnected:
@@ -1229,9 +1229,9 @@ class TestCallbacks:
         )
         election = LeaderElection(config=config, redis_client=mock_redis)
 
-        received_ids: list[Optional[str]] = []
+        received_ids: list[str | None] = []
 
-        def on_leader_change(node_id: Optional[str]):
+        def on_leader_change(node_id: str | None):
             received_ids.append(node_id)
 
         election.on_leader_change(on_leader_change)

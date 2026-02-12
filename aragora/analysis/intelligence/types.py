@@ -24,7 +24,7 @@ class Language(str, Enum):
     UNKNOWN = "unknown"
 
     @classmethod
-    def from_extension(cls, ext: str) -> "Language":
+    def from_extension(cls, ext: str) -> Language:
         """Detect language from file extension."""
         ext = ext.lower().lstrip(".")
         mapping = {

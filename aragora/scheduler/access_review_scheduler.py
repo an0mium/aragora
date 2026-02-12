@@ -707,8 +707,8 @@ class AccessReviewScheduler:
     async def create_review(
         self,
         review_type: ReviewType,
-        scope_workspaces: Optional[list[str]] = None,
-        scope_users: Optional[list[str]] = None,
+        scope_workspaces: list[str] | None = None,
+        scope_users: list[str] | None = None,
         assigned_reviewer: str | None = None,
         created_by: str = "system",
     ) -> AccessReview:
@@ -1105,7 +1105,7 @@ def get_access_review_scheduler(
 
 async def schedule_access_review(
     review_type: ReviewType = ReviewType.MONTHLY,
-    scope_workspaces: Optional[list[str]] = None,
+    scope_workspaces: list[str] | None = None,
 ) -> AccessReview:
     """Convenience function to schedule an access review."""
     return await get_access_review_scheduler().create_review(

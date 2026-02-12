@@ -183,8 +183,8 @@ class DebateRoundsPhase:
         self._enable_propulsion = enable_propulsion
 
         # Internal state
-        self._partial_messages: list["Message"] = []
-        self._partial_critiques: list["Critique"] = []
+        self._partial_messages: list[Message] = []
+        self._partial_critiques: list[Critique] = []
 
         # Convergence tracker handles convergence, novelty, and RLM ready signals
         self._convergence_tracker = DebateConvergenceTracker(
@@ -226,7 +226,7 @@ class DebateRoundsPhase:
             agent, content, round_num, loop_id,
         )
 
-    async def execute(self, ctx: "DebateContext") -> None:
+    async def execute(self, ctx: DebateContext) -> None:
         """
         Execute the debate rounds phase.
 
@@ -313,7 +313,7 @@ class DebateRoundsPhase:
 
     async def _execute_round(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         perf_monitor,
         round_num: int,
         total_rounds: int,
@@ -505,7 +505,7 @@ class DebateRoundsPhase:
 
         return True  # Continue to next round
 
-    def _get_critics(self, ctx: "DebateContext") -> list["Agent"]:
+    def _get_critics(self, ctx: DebateContext) -> list[Agent]:
         """Get and filter critics for the round."""
         # Get critics - when all agents are proposers, they all critique each other
         critics = [a for a in ctx.agents if a.role in ("critic", "synthesizer")]
@@ -527,8 +527,8 @@ class DebateRoundsPhase:
 
     async def _critique_phase(
         self,
-        ctx: "DebateContext",
-        critics: list["Agent"],
+        ctx: DebateContext,
+        critics: list[Agent],
         round_num: int,
     ) -> None:
         """Execute critique phase with parallel generation."""
@@ -776,8 +776,8 @@ class DebateRoundsPhase:
 
     async def _revision_phase(
         self,
-        ctx: "DebateContext",
-        critics: list["Agent"],
+        ctx: DebateContext,
+        critics: list[Agent],
         round_num: int,
     ) -> None:
         """Execute revision phase with parallel generation."""
@@ -998,7 +998,7 @@ class DebateRoundsPhase:
             loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
             self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
 
-    async def _should_terminate(self, ctx: "DebateContext", round_num: int) -> bool:
+    async def _should_terminate(self, ctx: DebateContext, round_num: int) -> bool:
         """Check if debate should terminate early.
 
         Uses timeout protection on callbacks to prevent indefinite hangs.
@@ -1057,7 +1057,7 @@ class DebateRoundsPhase:
 
         return False
 
-    async def _refresh_evidence_for_round(self, ctx: "DebateContext", round_num: int) -> None:
+    async def _refresh_evidence_for_round(self, ctx: DebateContext, round_num: int) -> None:
         """Refresh evidence based on claims made in the current round."""
         await refresh_evidence_for_round(
             ctx, round_num, self._refresh_evidence, self._skill_registry,
@@ -1065,26 +1065,26 @@ class DebateRoundsPhase:
             self._partial_critiques,
         )
 
-    async def _refresh_with_skills(self, text: str, ctx: "DebateContext") -> int:
+    async def _refresh_with_skills(self, text: str, ctx: DebateContext) -> int:
         """Refresh evidence using skills for claim-specific searches."""
         return await refresh_with_skills(text, ctx, self._skill_registry)
 
-    def get_partial_messages(self) -> list["Message"]:
+    def get_partial_messages(self) -> list[Message]:
         """Get partial messages for timeout recovery."""
         return self._partial_messages
 
-    def get_partial_critiques(self) -> list["Critique"]:
+    def get_partial_critiques(self) -> list[Critique]:
         """Get partial critiques for timeout recovery."""
         return self._partial_critiques
 
-    async def _compress_debate_context(self, ctx: "DebateContext", round_num: int) -> None:
+    async def _compress_debate_context(self, ctx: DebateContext, round_num: int) -> None:
         """Compress debate context using RLM cognitive load limiter."""
         await compress_debate_context(
             ctx, round_num, self._compress_context, self.hooks,
             self._notify_spectator, self._partial_critiques,
         )
 
-    async def _execute_final_synthesis_round(self, ctx: "DebateContext", round_num: int) -> None:
+    async def _execute_final_synthesis_round(self, ctx: DebateContext, round_num: int) -> None:
         """Execute Round 7: Final Synthesis."""
         await execute_final_synthesis_round(
             ctx, round_num, self.circuit_breaker, self._generate_with_agent,
@@ -1093,7 +1093,7 @@ class DebateRoundsPhase:
 
     def _build_final_synthesis_prompt(
         self,
-        agent: "Agent",
+        agent: Agent,
         current_proposal: str,
         all_proposals: dict,
         critiques: list,
@@ -1105,7 +1105,7 @@ class DebateRoundsPhase:
     async def _fire_propulsion_event(
         self,
         event_type: str,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
         data: dict = None,
     ) -> None:

@@ -51,7 +51,7 @@ class MockMessage:
     content: str = "Test response"
     agent: str = "claude"
     round: int = 1
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
 
 
 @dataclass
@@ -98,7 +98,7 @@ class MockKnowledgeMound:
     async def store(
         self,
         item: KnowledgeItem,
-        workspace_id: Optional[str] = None,
+        workspace_id: str | None = None,
     ) -> str:
         """Store a knowledge item."""
         self._items[item.id] = item
@@ -108,8 +108,8 @@ class MockKnowledgeMound:
         self,
         query: str,
         limit: int = 10,
-        workspace_id: Optional[str] = None,
-        min_confidence: Optional[float] = None,
+        workspace_id: str | None = None,
+        min_confidence: float | None = None,
     ) -> list[KnowledgeItem]:
         """Query knowledge items semantically."""
         self._queries.append(query)
@@ -131,7 +131,7 @@ class MockKnowledgeMound:
         """Add a relationship between items."""
         self._relationships.append((from_id, to_id, relationship_type))
 
-    def get_item(self, item_id: str) -> Optional[KnowledgeItem]:
+    def get_item(self, item_id: str) -> KnowledgeItem | None:
         """Get an item by ID."""
         return self._items.get(item_id)
 

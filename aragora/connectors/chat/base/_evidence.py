@@ -44,7 +44,7 @@ class EvidenceMixin:
         include_threads: bool = True,
         min_relevance: float = 0.0,
         **kwargs: Any,
-    ) -> list["ChatEvidence"]:
+    ) -> list[ChatEvidence]:
         """
         Collect chat messages as evidence for debates.
 
@@ -73,7 +73,7 @@ class EvidenceMixin:
         oldest: str | None = None,
         latest: str | None = None,
         **kwargs: Any,
-    ) -> list["ChatMessage"]:
+    ) -> list[ChatMessage]:
         """
         Get message history from a channel.
 
@@ -92,7 +92,7 @@ class EvidenceMixin:
 
     def _message_matches_query(
         self,
-        message: "ChatMessage",
+        message: ChatMessage,
         query: str,
     ) -> bool:
         """Check if a message matches the search query."""
@@ -108,7 +108,7 @@ class EvidenceMixin:
 
     def _compute_message_relevance(
         self,
-        message: "ChatMessage",
+        message: ChatMessage,
         query: str | None = None,
     ) -> float:
         """Compute relevance score for a message."""

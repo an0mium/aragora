@@ -81,7 +81,7 @@ async def _run_postgresql_migrations() -> dict[str, Any]:
     except ImportError as e:
         logger.debug(f"PostgreSQL migrations not available: {e}")
         return {"skipped": True, "reason": "PostgreSQL not configured"}
-    except (RuntimeError, OSError, IOError) as e:
+    except (RuntimeError, OSError) as e:
         logger.error(f"PostgreSQL migration failed: {e}")
         return {"error": str(e)}
 
@@ -121,7 +121,7 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
     except ImportError as e:
         logger.debug(f"SQLite migrations not available: {e}")
         return {"skipped": True, "reason": "SQLite migrations not configured"}
-    except (RuntimeError, OSError, IOError) as e:
+    except (RuntimeError, OSError) as e:
         logger.error(f"SQLite migration failed: {e}")
         return {"error": str(e)}
 

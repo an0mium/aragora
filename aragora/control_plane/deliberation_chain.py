@@ -493,8 +493,8 @@ class ChainExecutor:
 
     def __init__(
         self,
-        coordinator: Optional["ControlPlaneCoordinator"] = None,
-        deliberation_manager: Optional["DeliberationManager"] = None,
+        coordinator: ControlPlaneCoordinator | None = None,
+        deliberation_manager: DeliberationManager | None = None,
         progress_callback: Callable[[ChainExecution], None] | None = None,
     ):
         """
@@ -511,11 +511,11 @@ class ChainExecutor:
         self._active_executions: dict[str, ChainExecution] = {}
         self._pause_flags: dict[str, asyncio.Event] = {}
 
-    def set_coordinator(self, coordinator: "ControlPlaneCoordinator") -> None:
+    def set_coordinator(self, coordinator: ControlPlaneCoordinator) -> None:
         """Set the coordinator after initialization."""
         self._coordinator = coordinator
 
-    def set_deliberation_manager(self, manager: "DeliberationManager") -> None:
+    def set_deliberation_manager(self, manager: DeliberationManager) -> None:
         """Set the deliberation manager after initialization."""
         self._deliberation_manager = manager
 

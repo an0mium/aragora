@@ -271,7 +271,7 @@ class DocumentQueryEngine:
     async def create(
         cls,
         config: QueryConfig | None = None,
-    ) -> "DocumentQueryEngine":
+    ) -> DocumentQueryEngine:
         """
         Create a query engine with default components.
 

@@ -108,7 +108,7 @@ class PostgresGovernanceStore:
         CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON governance_decisions(timestamp DESC);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresGovernanceStore initialized")

@@ -195,7 +195,7 @@ class MockFederationStore:
         return len(items)
 
     async def pull_from_remote(
-        self, region_id: str, since: Optional[datetime] = None
+        self, region_id: str, since: datetime | None = None
     ) -> list[dict]:
         """Simulate pulling items from remote region."""
         # Simulate network latency and return random items

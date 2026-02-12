@@ -281,7 +281,7 @@ def _init_noop_slo_metrics() -> None:
     global SLO_COMPLIANCE, SLO_ERROR_BUDGET, SLO_BURN_RATE
 
     class NoOpGauge:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpGauge":
+        def labels(self, *args: Any, **kwargs: Any) -> NoOpGauge:
             return self
 
         def set(self, value: float) -> None:
@@ -932,7 +932,7 @@ def log_alert_callback(breach: SLOBreach) -> None:
 async def webhook_alert_callback(
     breach: SLOBreach,
     webhook_url: str,
-    headers: Optional[dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """Send SLO alert to a webhook endpoint.
 

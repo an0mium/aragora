@@ -58,7 +58,7 @@ class MakeWebhook:
 
     # Filtering options
     workspace_id: str | None = None
-    event_filter: Optional[dict[str, Any]] = None
+    event_filter: dict[str, Any] | None = None
 
     def matches_event(self, event: dict[str, Any]) -> bool:
         """Check if an event matches this webhook's filters."""
@@ -267,7 +267,7 @@ class MakeIntegration(BaseIntegration):
         module_type: str,
         webhook_url: str,
         workspace_id: str | None = None,
-        event_filter: Optional[dict[str, Any]] = None,
+        event_filter: dict[str, Any] | None = None,
     ) -> MakeWebhook | None:
         """Register a webhook for a trigger module.
 

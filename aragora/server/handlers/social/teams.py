@@ -967,7 +967,7 @@ class TeamsIntegrationHandler(BaseHandler):
         value: dict[str, Any],
         conversation: dict[str, Any],
         service_url: str,
-        from_user: Optional[dict[str, Any]] = None,
+        from_user: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """Handle a vote action from Adaptive Card."""
         vote_value = value.get("vote")
@@ -1071,7 +1071,7 @@ class TeamsIntegrationHandler(BaseHandler):
             ]
 
     def _build_error_card(
-        self, title: str, message: str, suggestions: Optional[list[str]] = None
+        self, title: str, message: str, suggestions: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for errors."""
         try:
@@ -1201,7 +1201,7 @@ class TeamsIntegrationHandler(BaseHandler):
         self,
         topic: str,
         user_name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         debate_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for debate start."""
@@ -1362,7 +1362,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return blocks
 
-    def _read_json_body(self, handler: Any) -> Optional[dict[str, Any]]:
+    def _read_json_body(self, handler: Any) -> dict[str, Any] | None:
         """Read and parse JSON body from request."""
         try:
             content_length = int(handler.headers.get("Content-Length", 0))

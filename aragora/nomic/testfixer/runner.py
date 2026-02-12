@@ -118,7 +118,7 @@ class TestResult:
     duration_seconds: float = 0.0
     started_at: datetime = field(default_factory=datetime.now)
     framework: TestFramework = TestFramework.UNKNOWN
-    diagnostics: "RunDiagnostics | None" = None
+    diagnostics: RunDiagnostics | None = None
 
     @property
     def success(self) -> bool:
@@ -687,7 +687,7 @@ class TestRunner:
                     self.timeout,
                 )
                 stdout_bytes = b""
-                stderr_bytes = f"Test execution timed out after {self.timeout}s".encode("utf-8")
+                stderr_bytes = f"Test execution timed out after {self.timeout}s".encode()
                 exit_code = -1
             else:
                 exit_code = process.returncode if process.returncode is not None else 0

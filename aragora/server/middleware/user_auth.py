@@ -380,7 +380,7 @@ class SupabaseAuthValidator:
                 del self._cache[tok]
             logger.debug("Evicted %d stale JWT cache entries", evict_count + len(expired))
 
-    def _decode_jwt_unsafe(self, token: str) -> Optional[dict[str, Any]]:
+    def _decode_jwt_unsafe(self, token: str) -> dict[str, Any] | None:
         """
         Decode JWT without signature verification.
         WARNING: Only use in development!

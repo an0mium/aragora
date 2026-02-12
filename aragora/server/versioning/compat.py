@@ -56,7 +56,7 @@ def set_version_config(config: VersionConfig) -> None:
     _config = config
 
 
-def extract_version(path: str, headers: Optional[dict[str, str]] = None) -> tuple[APIVersion, bool]:
+def extract_version(path: str, headers: dict[str, str] | None = None) -> tuple[APIVersion, bool]:
     """
     Extract API version from request path or headers.
 

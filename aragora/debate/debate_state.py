@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from aragora.type_protocols import EventEmitterProtocol
 
 
-def _default_environment() -> "Environment":
+def _default_environment() -> Environment:
     """Create a minimal Environment for tests or standalone usage."""
     from aragora.core import Environment
 
@@ -93,10 +93,10 @@ class DebateContext:
     # Immutable Inputs (set once at debate start)
     # =========================================================================
 
-    env: "Environment" = field(default_factory=_default_environment)
+    env: Environment = field(default_factory=_default_environment)
     """The debate environment containing task, context, and configuration."""
 
-    agents: list["Agent"] = field(default_factory=list)
+    agents: list[Agent] = field(default_factory=list)
     """All agents participating in the debate."""
 
     start_time: float = 0.0
@@ -128,7 +128,7 @@ class DebateContext:
     the organization still has budget to continue.
     """
 
-    cancellation_token: Optional["CancellationToken"] = None
+    cancellation_token: CancellationToken | None = None
     """Cancellation token for cooperative cancellation of long-running operations."""
 
     hook_manager: Any | None = None
@@ -147,13 +147,13 @@ class DebateContext:
     # Agent Subsets (computed at phase boundaries)
     # =========================================================================
 
-    proposers: list["Agent"] = field(default_factory=list)
+    proposers: list[Agent] = field(default_factory=list)
     """Agents with proposer role (or fallback to first agent)."""
 
-    critics: list["Agent"] = field(default_factory=list)
+    critics: list[Agent] = field(default_factory=list)
     """Agents that will provide critiques this round."""
 
-    available_agents: list["Agent"] = field(default_factory=list)
+    available_agents: list[Agent] = field(default_factory=list)
     """Agents that passed circuit breaker filter."""
 
     hierarchy_assignments: dict[str, Any] = field(default_factory=dict)
@@ -169,10 +169,10 @@ class DebateContext:
     agent_failures: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     """Agent name -> list of failure records (phase, type, message, timestamp)."""
 
-    context_messages: list["Message"] = field(default_factory=list)
+    context_messages: list[Message] = field(default_factory=list)
     """All messages in debate context (for prompt building)."""
 
-    result: Optional["DebateResult"] = None
+    result: DebateResult | None = None
     """The DebateResult being built up during execution."""
 
     # =========================================================================
@@ -185,17 +185,17 @@ class DebateContext:
     previous_round_responses: dict[str, str] = field(default_factory=dict)
     """Agent name -> previous response (for revision prompts)."""
 
-    round_critiques: list["Critique"] = field(default_factory=list)
+    round_critiques: list[Critique] = field(default_factory=list)
     """Critiques collected in the current round."""
 
     # =========================================================================
     # Timeout Recovery (for partial results on timeout)
     # =========================================================================
 
-    partial_messages: list["Message"] = field(default_factory=list)
+    partial_messages: list[Message] = field(default_factory=list)
     """Messages accumulated for timeout recovery."""
 
-    partial_critiques: list["Critique"] = field(default_factory=list)
+    partial_critiques: list[Critique] = field(default_factory=list)
     """Critiques accumulated for timeout recovery."""
 
     partial_rounds: int = 0
@@ -260,7 +260,7 @@ class DebateContext:
     data_loaders: Any = None
     """Request-scoped DataLoaders for batched queries (DebateLoaders instance)."""
 
-    event_emitter: Optional["EventEmitterProtocol"] = None
+    event_emitter: EventEmitterProtocol | None = None
     """Optional event emitter for WebSocket event streaming."""
 
     loop_id: str = ""
@@ -323,7 +323,7 @@ class DebateContext:
     # Agent Workspaces (isolated per-agent state)
     # =========================================================================
 
-    agent_workspaces: dict[str, "AgentWorkspace"] = field(default_factory=dict)
+    agent_workspaces: dict[str, AgentWorkspace] = field(default_factory=dict)
     """Per-agent isolated workspaces to prevent crosstalk."""
 
     # =========================================================================
@@ -340,14 +340,14 @@ class DebateContext:
     # Helper Methods
     # =========================================================================
 
-    def get_agent_by_name(self, name: str) -> Optional["Agent"]:
+    def get_agent_by_name(self, name: str) -> Agent | None:
         """Look up an agent by name."""
         for agent in self.agents:
             if agent.name == name:
                 return agent
         return None
 
-    def get_workspace(self, agent_id: str) -> "AgentWorkspace":
+    def get_workspace(self, agent_id: str) -> AgentWorkspace:
         """
         Get or create an isolated workspace for an agent.
 
@@ -374,7 +374,7 @@ class DebateContext:
         """Get proposal for an agent, or empty string if none."""
         return self.proposals.get(agent_name, "")
 
-    def add_message(self, msg: "Message") -> None:
+    def add_message(self, msg: Message) -> None:
         """Add a message to both context and partial tracking."""
         self.context_messages.append(msg)
         self.partial_messages.append(msg)
@@ -404,14 +404,14 @@ class DebateContext:
         }
         self.agent_failures.setdefault(agent_name, []).append(record)
 
-    def add_critique(self, critique: "Critique") -> None:
+    def add_critique(self, critique: Critique) -> None:
         """Add a critique to both result and partial tracking."""
         self.round_critiques.append(critique)
         self.partial_critiques.append(critique)
         if self.result:
             self.result.critiques.append(critique)
 
-    def finalize_result(self) -> "DebateResult":
+    def finalize_result(self) -> DebateResult:
         """
         Finalize and return the debate result.
 

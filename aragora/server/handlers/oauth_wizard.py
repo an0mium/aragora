@@ -520,7 +520,7 @@ class OAuthWizardHandler(SecureHandler):
             "required_vars_total": len(provider["required_env_vars"]),
         }
 
-    async def _check_connection(self, provider_id: str) -> Optional[dict[str, Any]]:
+    async def _check_connection(self, provider_id: str) -> dict[str, Any] | None:
         """Check the connection status for a configured provider."""
         try:
             if provider_id == "slack":

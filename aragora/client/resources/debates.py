@@ -36,7 +36,7 @@ def _default_agent_list() -> list[str]:
 class DebatesAPI:
     """API interface for debates."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def create(

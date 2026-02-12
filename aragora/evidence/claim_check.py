@@ -49,7 +49,7 @@ class AtomicClaim:
 
     id: str
     text: str
-    parent_claim_id: Optional[str] = None
+    parent_claim_id: str | None = None
     claim_type: str = "factual"  # factual, causal, comparative, temporal
     confidence: float = 1.0
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -76,7 +76,7 @@ class ClaimVerificationResult:
     status: VerificationStatus
     confidence: float
     matches: list[EvidenceMatch]
-    best_match: Optional[EvidenceMatch]
+    best_match: EvidenceMatch | None
     verification_time_ms: float = 0.0
 
 
@@ -181,7 +181,7 @@ class ClaimDecomposer:
         r"\b(when)\b",
     ]
 
-    def __init__(self, config: Optional[ClaimCheckConfig] = None):
+    def __init__(self, config: ClaimCheckConfig | None = None):
         """Initialize the decomposer.
 
         Args:
@@ -194,7 +194,7 @@ class ClaimDecomposer:
         self,
         claim: str,
         use_llm: bool = False,
-        query_fn: Optional[Callable] = None,
+        query_fn: Callable | None = None,
     ) -> DecompositionResult:
         """
         Decompose a claim into atomic sub-claims.
@@ -289,7 +289,7 @@ class ClaimDecomposer:
 
         return parts
 
-    def _extract_causal(self, text: str) -> Optional[list[tuple[str, str]]]:
+    def _extract_causal(self, text: str) -> list[tuple[str, str]] | None:
         """Extract causal relationships from text."""
         for pattern in self.CAUSAL_PATTERNS:
             match = re.search(pattern, text, re.IGNORECASE)
@@ -345,8 +345,8 @@ EXPLANATION: [Brief explanation]"""
 
     def __init__(
         self,
-        config: Optional[ClaimCheckConfig] = None,
-        embedding_fn: Optional[Callable] = None,
+        config: ClaimCheckConfig | None = None,
+        embedding_fn: Callable | None = None,
     ):
         """Initialize the checker.
 
@@ -362,8 +362,8 @@ EXPLANATION: [Brief explanation]"""
         self,
         claim: AtomicClaim,
         evidence_texts: list[str],
-        evidence_ids: Optional[list[str]] = None,
-        query_fn: Optional[Callable] = None,
+        evidence_ids: list[str] | None = None,
+        query_fn: Callable | None = None,
     ) -> ClaimVerificationResult:
         """
         Verify a single atomic claim against evidence.
@@ -427,8 +427,8 @@ EXPLANATION: [Brief explanation]"""
         claim: AtomicClaim,
         evidence_id: str,
         evidence_text: str,
-        query_fn: Optional[Callable],
-    ) -> Optional[EvidenceMatch]:
+        query_fn: Callable | None,
+    ) -> EvidenceMatch | None:
         """Check if evidence supports/contradicts the claim."""
         claim_text = claim.text.lower()
         evidence_lower = evidence_text.lower()
@@ -508,7 +508,7 @@ EXPLANATION: [Brief explanation]"""
         claim_id: str,
         evidence_id: str,
         evidence_text: str,
-    ) -> Optional[EvidenceMatch]:
+    ) -> EvidenceMatch | None:
         """Parse LLM inference response."""
         lines = response.strip().split("\n")
 
@@ -556,7 +556,7 @@ EXPLANATION: [Brief explanation]"""
         self,
         claim: AtomicClaim,
         matches: list[EvidenceMatch],
-    ) -> tuple[VerificationStatus, float, Optional[EvidenceMatch]]:
+    ) -> tuple[VerificationStatus, float, EvidenceMatch | None]:
         """Aggregate match results into final status and confidence."""
         if not matches:
             return VerificationStatus.INSUFFICIENT_EVIDENCE, 0.0, None
@@ -635,8 +635,8 @@ class ClaimCheckVerifier:
 
     def __init__(
         self,
-        config: Optional[ClaimCheckConfig] = None,
-        embedding_fn: Optional[Callable] = None,
+        config: ClaimCheckConfig | None = None,
+        embedding_fn: Callable | None = None,
     ):
         """Initialize the verifier.
 
@@ -652,8 +652,8 @@ class ClaimCheckVerifier:
         self,
         claim: str,
         evidence: list[str],
-        evidence_ids: Optional[list[str]] = None,
-        query_fn: Optional[Callable] = None,
+        evidence_ids: list[str] | None = None,
+        query_fn: Callable | None = None,
     ) -> FullVerificationResult:
         """
         Fully verify a claim by decomposing and checking each sub-claim.
@@ -747,7 +747,7 @@ class ClaimCheckVerifier:
 
 def create_claim_verifier(
     use_llm: bool = True,
-    embedding_fn: Optional[Callable] = None,
+    embedding_fn: Callable | None = None,
     **kwargs: Any,
 ) -> ClaimCheckVerifier:
     """Create a ClaimCheck verifier with common configuration.

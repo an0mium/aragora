@@ -64,7 +64,7 @@ N1_DETECTION_MODE = _parse_detection_mode(os.environ.get("ARAGORA_N1_DETECTION",
 N1_THRESHOLD = _parse_threshold(os.environ.get("ARAGORA_N1_THRESHOLD", "5"))
 
 # Context variable for tracking queries across async boundaries
-_current_detector: contextvars.ContextVar[Optional["N1QueryDetector"]] = contextvars.ContextVar(
+_current_detector: contextvars.ContextVar[N1QueryDetector | None] = contextvars.ContextVar(
     "n1_detector", default=None
 )
 
@@ -244,7 +244,7 @@ class N1QueryDetector:
         results = self.analyze()
         return [d for d in results.values() if d.query_count >= self.threshold]
 
-    def __enter__(self) -> "N1QueryDetector":
+    def __enter__(self) -> N1QueryDetector:
         """Enter the detection context."""
         self.start_time = time.time()
         self._token = _current_detector.set(self)

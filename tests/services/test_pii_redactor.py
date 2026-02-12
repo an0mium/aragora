@@ -629,9 +629,9 @@ class TestRedactEmail:
     class MockEmailMessage:
         """Mock email message for testing."""
 
-        subject: Optional[str] = None
-        body_text: Optional[str] = None
-        from_address: Optional[str] = None
+        subject: str | None = None
+        body_text: str | None = None
+        from_address: str | None = None
 
     @pytest.fixture
     def redactor(self):

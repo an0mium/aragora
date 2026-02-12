@@ -22,7 +22,7 @@ class EmailReceiptFormatter(ReceiptFormatter):
     def format(
         self,
         receipt: Any,
-        options: Optional[dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Format receipt as HTML email.

@@ -28,7 +28,7 @@ except ImportError:
 
 def _check_email_permission(
     auth_context: Any | None, permission_key: str
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Check RBAC permission for email operations.
 

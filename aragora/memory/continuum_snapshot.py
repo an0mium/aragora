@@ -46,7 +46,7 @@ class ContinuumSnapshotMixin:
 
     def export_snapshot(
         self,
-        tiers: Optional[list["MemoryTier"]] = None,
+        tiers: list[MemoryTier] | None = None,
         include_metadata: bool = True,
         max_entries_per_tier: int = 100,
     ) -> dict[str, Any]:

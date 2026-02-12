@@ -29,7 +29,7 @@ class HealthStatus:
         return self.status == "healthy" and all(self.checks.values())
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HealthStatus":
+    def from_dict(cls, data: dict[str, Any]) -> HealthStatus:
         return cls(
             status=data.get("status", "unknown"),
             version=data.get("version", "unknown"),
@@ -53,7 +53,7 @@ class SystemInfo:
     cpu_percent: float = 0.0
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SystemInfo":
+    def from_dict(cls, data: dict[str, Any]) -> SystemInfo:
         return cls(
             version=data.get("version", "unknown"),
             environment=data.get("environment", "production"),
@@ -80,7 +80,7 @@ class SystemStats:
     consensus_rate: float
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SystemStats":
+    def from_dict(cls, data: dict[str, Any]) -> SystemStats:
         return cls(
             total_debates=data.get("total_debates", 0),
             total_agents=data.get("total_agents", 0),
@@ -110,7 +110,7 @@ class CircuitBreakerStatus:
         return self.state == "open"
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CircuitBreakerStatus":
+    def from_dict(cls, data: dict[str, Any]) -> CircuitBreakerStatus:
         return cls(
             agent_id=data.get("agent_id", ""),
             state=data.get("state", "closed"),
@@ -145,7 +145,7 @@ class SystemAPI:
         print(f"Available agents: {', '.join(info.agents_available)}")
     """
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def health(self) -> HealthStatus:

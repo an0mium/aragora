@@ -207,7 +207,7 @@ class TaskPatternMatcher:
     def get_agent_affinities(
         self,
         pattern: str,
-        critique_store: Optional["CritiqueStore"] = None,
+        critique_store: CritiqueStore | None = None,
     ) -> dict[str, float]:
         """Get agent success rates for a task pattern.
 
@@ -241,7 +241,7 @@ class TaskPatternMatcher:
 
     def _query_agent_pattern_stats(
         self,
-        critique_store: "CritiqueStore",
+        critique_store: CritiqueStore,
         issue_type: str,
     ) -> dict[str, float]:
         """Query CritiqueStore for agent performance in an issue type.
@@ -304,7 +304,7 @@ class TaskPatternMatcher:
     def get_pattern_affinities(
         self,
         pattern: str,
-        critique_store: Optional["CritiqueStore"] = None,
+        critique_store: CritiqueStore | None = None,
     ) -> list[PatternAffinity]:
         """Get detailed affinity data for a pattern.
 

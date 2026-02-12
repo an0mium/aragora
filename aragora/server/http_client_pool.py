@@ -171,7 +171,7 @@ class HTTPClientPool:
     all LLM API provider connections.
     """
 
-    _instance: Optional["HTTPClientPool"] = None
+    _instance: HTTPClientPool | None = None
     _lock = threading.Lock()
 
     def __init__(self, config: HTTPPoolConfig | None = None):
@@ -185,7 +185,7 @@ class HTTPClientPool:
         self._closed = False
 
     @classmethod
-    def get_instance(cls) -> "HTTPClientPool":
+    def get_instance(cls) -> HTTPClientPool:
         """Get singleton instance of the HTTP client pool."""
         if cls._instance is None:
             with cls._lock:

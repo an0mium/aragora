@@ -140,8 +140,8 @@ class ChatWebhookRouter:
 
     def __init__(
         self,
-        event_handler: Optional[Callable[..., Any]] = None,
-        debate_starter: Optional[Callable[..., Any]] = None,
+        event_handler: Callable[..., Any] | None = None,
+        debate_starter: Callable[..., Any] | None = None,
         decision_router: Any | None = None,
     ):
         """
@@ -946,8 +946,8 @@ def _create_decision_router_debate_starter():
 
 
 def get_webhook_router(
-    event_handler: Optional[Callable[..., Any]] = None,
-    debate_starter: Optional[Callable[..., Any]] = None,
+    event_handler: Callable[..., Any] | None = None,
+    debate_starter: Callable[..., Any] | None = None,
     use_decision_router: bool = True,
 ) -> ChatWebhookRouter:
     """

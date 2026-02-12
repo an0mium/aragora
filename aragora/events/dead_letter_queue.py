@@ -104,7 +104,7 @@ class FailedEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FailedEvent":
+    def from_dict(cls, data: dict[str, Any]) -> FailedEvent:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],

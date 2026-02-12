@@ -349,8 +349,8 @@ class DiscountManager:
         max_uses: int | None = None,
         max_uses_per_org: int = 1,
         min_purchase_cents: int = 0,
-        eligible_tiers: Optional[list[str]] = None,
-        eligible_org_ids: Optional[list[str]] = None,
+        eligible_tiers: list[str] | None = None,
+        eligible_org_ids: list[str] | None = None,
         created_by: str | None = None,
     ) -> DiscountCode:
         """

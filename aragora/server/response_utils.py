@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class _HTTPHandlerProtocol(Protocol):
     """Protocol defining the interface expected from HTTP handler classes."""
 
-    _rate_limit_result: Optional["RateLimitResult"]
+    _rate_limit_result: RateLimitResult | None
     _response_status: int
     headers: Any
     wfile: BinaryIO
@@ -49,7 +49,7 @@ class ResponseHelpersMixin:
 
     # Type stubs for mypy - actual implementations come from BaseHTTPRequestHandler
     if TYPE_CHECKING:
-        _rate_limit_result: Optional["RateLimitResult"]
+        _rate_limit_result: RateLimitResult | None
         _response_status: int
         headers: Any
         wfile: BinaryIO

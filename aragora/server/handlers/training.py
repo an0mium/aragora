@@ -976,7 +976,7 @@ class TrainingHandler(BaseHandler):
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to export data for job {job_id}: {e}")
             return error_response(safe_error_message(e, "export training data"), 500)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.exception(f"Failed to export data for job {job_id} (I/O error): {e}")
             return error_response(safe_error_message(e, "export training data"), 500)
 
@@ -1140,6 +1140,6 @@ class TrainingHandler(BaseHandler):
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to get artifacts for job {job_id}: {e}")
             return error_response(safe_error_message(e, "get training artifacts"), 500)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.exception(f"Failed to get artifacts for job {job_id} (I/O error): {e}")
             return error_response(safe_error_message(e, "get training artifacts"), 500)

@@ -54,7 +54,7 @@ class GatewayRuntime(GatewayAPI):
 
     default_agent: str = "default"
     max_inbox_size: int = 10000
-    store: "GatewayStore | None" = None
+    store: GatewayStore | None = None
     canonical_stores: GatewayStores | None = None
     registry: DeviceRegistry = field(init=False)
     inbox: InboxAggregator = field(init=False)

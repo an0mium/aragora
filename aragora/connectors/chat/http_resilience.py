@@ -211,7 +211,7 @@ class HTTPResilienceMixin:
         timeout: float | None = None,
         return_raw: bool = False,
         operation: str = "http_request",
-    ) -> tuple[bool, Optional[dict[str, Any] | bytes], str | None]:
+    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]:
         """
         Make an HTTP request with retry, timeout, and circuit breaker support.
 

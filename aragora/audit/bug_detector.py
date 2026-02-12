@@ -65,7 +65,7 @@ class BugPattern:
     description: str
     explanation: str
     fix_suggestion: str
-    languages: Optional[list[str]] = None
+    languages: list[str] | None = None
     false_positive_hints: list[str] = field(default_factory=list)
 
 
@@ -752,7 +752,7 @@ class BugDetector:
         include_low_severity: bool = True,
         include_info: bool = False,
         include_smells: bool = True,
-        custom_patterns: Optional[list[BugPattern]] = None,
+        custom_patterns: list[BugPattern] | None = None,
     ):
         """
         Initialize the bug detector.
@@ -800,10 +800,10 @@ class BugDetector:
         bugs: list[PotentialBug] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
                 content = f.read()
                 lines = content.split("\n")
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.warning(f"Failed to read {file_path}: {e}")
             return bugs
 
@@ -864,8 +864,8 @@ class BugDetector:
     def detect_in_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[list[str]] = None,
-        extensions: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
+        extensions: list[str] | None = None,
     ) -> BugReport:
         """
         Detect potential bugs in a directory.
@@ -927,7 +927,7 @@ class BugDetector:
         total_lines = 0
         for file_path in files_to_scan:
             try:
-                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                with open(file_path, encoding="utf-8", errors="replace") as f:
                     content = f.read()
                     total_lines += content.count("\n") + 1
 

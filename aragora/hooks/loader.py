@@ -193,7 +193,7 @@ class HookConfigLoader:
         """Get all hooks with a specific tag."""
         return [c for c in self._configs.values() if tag in c.tags and c.enabled]
 
-    def resolve_handler(self, handler_path: str) -> Optional[Callable[..., Any]]:
+    def resolve_handler(self, handler_path: str) -> Callable[..., Any] | None:
         """
         Resolve a handler path to a callable.
 
@@ -237,7 +237,7 @@ class HookConfigLoader:
 
     def apply_to_manager(
         self,
-        manager: "HookManager",
+        manager: HookManager,
         configs: list[HookConfig] | None = None,
     ) -> int:
         """
@@ -468,7 +468,7 @@ def get_hook_loader() -> HookConfigLoader:
 
 
 def setup_arena_hooks(
-    hook_manager: "HookManager",
+    hook_manager: HookManager,
     hooks_dir: str = "hooks",
     recursive: bool = True,
     validate: bool = True,
@@ -533,7 +533,7 @@ def setup_arena_hooks(
 
 
 def setup_arena_hooks_from_config(
-    hook_manager: "HookManager",
+    hook_manager: HookManager,
     yaml_hooks_dir: str = "hooks",
     enable_yaml_hooks: bool = True,
     yaml_hooks_recursive: bool = True,

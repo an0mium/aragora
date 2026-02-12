@@ -118,7 +118,7 @@ class TopicQualityFilter:
         min_text_length: int = 10,
         max_hashtag_ratio: float = 0.30,
         max_emoji_ratio: float = 0.20,
-        additional_blocklist: Optional[set[str]] = None,
+        additional_blocklist: set[str] | None = None,
     ):
         """
         Initialize the quality filter.

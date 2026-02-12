@@ -69,7 +69,7 @@ def get_team_builder() -> TeamBuilder:
     return _team_builder
 
 
-def _create_agent_pool() -> dict[str, "AgentProfile"]:
+def _create_agent_pool() -> dict[str, AgentProfile]:
     """Create a pool of agents with default expertise profiles."""
     pool = {}
     for agent_name, expertise in DEFAULT_AGENT_EXPERTISE.items():

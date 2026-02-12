@@ -73,9 +73,9 @@ class MockDebateContext:
     env: MockEnvironment = field(default_factory=MockEnvironment)
     result: MockResult = field(default_factory=MockResult)
     context_messages: list[Any] = field(default_factory=list)
-    winner_agent: Optional[str] = None
+    winner_agent: str | None = None
     vote_tally: dict[str, float] = field(default_factory=dict)
-    cancellation_token: Optional[Any] = None
+    cancellation_token: Any | None = None
 
 
 # =============================================================================

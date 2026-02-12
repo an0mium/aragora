@@ -89,8 +89,8 @@ class OutcomeMemoryBridge:
         min_confidence_for_update: Minimum debate confidence to affect memory
     """
 
-    outcome_tracker: Optional["OutcomeTracker"] = None
-    continuum_memory: Optional["ContinuumMemory"] = None
+    outcome_tracker: OutcomeTracker | None = None
+    continuum_memory: ContinuumMemory | None = None
 
     # Promotion thresholds
     success_threshold: float = 0.7  # Minimum confidence for promotion
@@ -141,8 +141,8 @@ class OutcomeMemoryBridge:
 
     def process_outcome(
         self,
-        outcome: "ConsensusOutcome",
-        used_memory_ids: Optional[list[str]] = None,
+        outcome: ConsensusOutcome,
+        used_memory_ids: list[str] | None = None,
     ) -> ProcessingResult:
         """Process a debate outcome to update memory tiers and importance.
 
@@ -235,7 +235,7 @@ class OutcomeMemoryBridge:
     def _update_memory(
         self,
         memory_id: str,
-        outcome: "ConsensusOutcome",
+        outcome: ConsensusOutcome,
         was_successful: bool,
     ) -> bool:
         """Update a single memory's statistics based on outcome.
@@ -384,7 +384,7 @@ class OutcomeMemoryBridge:
             logger.warning("Error checking promotion for %s: %s", memory_id, e)
             return None
 
-    def _get_faster_tier(self, current_tier: "MemoryTier") -> "MemoryTier":
+    def _get_faster_tier(self, current_tier: MemoryTier) -> MemoryTier:
         """Get the next faster tier.
 
         Args:
@@ -404,7 +404,7 @@ class OutcomeMemoryBridge:
             logger.warning("get faster tier encountered an error: %s", e)
         return current_tier
 
-    def _get_slower_tier(self, current_tier: "MemoryTier") -> "MemoryTier":
+    def _get_slower_tier(self, current_tier: MemoryTier) -> MemoryTier:
         """Get the next slower tier.
 
         Args:
@@ -471,8 +471,8 @@ class OutcomeMemoryBridge:
 
 
 def create_outcome_bridge(
-    outcome_tracker: Optional["OutcomeTracker"] = None,
-    continuum_memory: Optional["ContinuumMemory"] = None,
+    outcome_tracker: OutcomeTracker | None = None,
+    continuum_memory: ContinuumMemory | None = None,
     **kwargs: Any,
 ) -> OutcomeMemoryBridge:
     """Create an OutcomeMemoryBridge with optional configuration.

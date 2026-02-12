@@ -84,7 +84,7 @@ class OnboardingAnalytics:
 class OnboardingAPI:
     """API interface for user onboarding."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -193,7 +193,7 @@ class OnboardingAPI:
     def update_step(
         self,
         action: str = "next",
-        step_data: Optional[dict[str, Any]] = None,
+        step_data: dict[str, Any] | None = None,
         jump_to_step: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -218,7 +218,7 @@ class OnboardingAPI:
     async def update_step_async(
         self,
         action: str = "next",
-        step_data: Optional[dict[str, Any]] = None,
+        step_data: dict[str, Any] | None = None,
         jump_to_step: str | None = None,
     ) -> dict[str, Any]:
         """Async version of update_step()."""

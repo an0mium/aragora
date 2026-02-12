@@ -41,7 +41,7 @@ class Position:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     @classmethod
-    def from_row(cls, row: tuple) -> "Position":
+    def from_row(cls, row: tuple) -> Position:
         """Create Position from database row.
 
         Expected row format:

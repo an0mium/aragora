@@ -131,11 +131,11 @@ class AutonomicExecutor:
         timeout_escalation_factor: float = 1.5,
         max_timeout: float = 600.0,  # Max timeout cap
         streaming_buffer: StreamingContentBuffer | None = None,
-        wisdom_store: Optional["InsightStore"] = None,
+        wisdom_store: InsightStore | None = None,
         loop_id: str | None = None,
-        immune_system: Optional["TransparentImmuneSystem"] = None,
-        chaos_director: Optional["ChaosDirector"] = None,
-        performance_monitor: Optional["AgentPerformanceMonitor"] = None,
+        immune_system: TransparentImmuneSystem | None = None,
+        chaos_director: ChaosDirector | None = None,
+        performance_monitor: AgentPerformanceMonitor | None = None,
         enable_telemetry: bool = False,
         event_hooks: dict | None = None,  # Optional hooks for emitting events
         power_sampling_config: Any | None = None,
@@ -216,7 +216,7 @@ class AutonomicExecutor:
             except Exception as e:
                 logger.debug(f"[Autonomic] Failed to emit agent error event: {e}")
 
-    def _should_power_sample(self, agent: "Agent", phase: str) -> bool:
+    def _should_power_sample(self, agent: Agent, phase: str) -> bool:
         cfg = self.power_sampling_config
         if cfg is None or not getattr(cfg, "enable_power_sampling", False):
             return False
@@ -302,9 +302,9 @@ class AutonomicExecutor:
 
     async def _generate_with_power_sampling(
         self,
-        agent: "Agent",
+        agent: Agent,
         prompt: str,
-        context: list["Message"],
+        context: list[Message],
     ) -> str:
         sampler = self._get_power_sampler()
         if sampler is None:
@@ -333,7 +333,7 @@ class AutonomicExecutor:
             return await generator(prompt)
 
     @staticmethod
-    def _is_empty_critique(result: "Critique | None") -> bool:
+    def _is_empty_critique(result: Critique | None) -> bool:
         """Return True if a critique is empty or only contains placeholder content."""
         if result is None:
             return True
@@ -418,7 +418,7 @@ class AutonomicExecutor:
                 f"[System: This response was provided by the audience after "
                 f"{failed_agent} failed to respond]"
             )
-        except (KeyError, OSError, IOError) as e:
+        except (KeyError, OSError) as e:
             # Expected database/storage issues
             logger.warning(f"[wisdom] Failed to retrieve wisdom: {e}")
             return None
@@ -499,9 +499,9 @@ class AutonomicExecutor:
 
     async def generate(
         self,
-        agent: "Agent",
+        agent: Agent,
         prompt: str,
-        context: list["Message"],
+        context: list[Message],
         phase: str = "",
         round_num: int = 0,
     ) -> str:
@@ -727,14 +727,14 @@ class AutonomicExecutor:
 
     async def critique(
         self,
-        agent: "Agent",
+        agent: Agent,
         proposal: str,
         task: str,
-        context: list["Message"],
+        context: list[Message],
         phase: str = "",
         round_num: int = 0,
         target_agent: str | None = None,
-    ) -> Optional["Critique"]:
+    ) -> Critique | None:
         """
         Get critique from an agent with autonomic error handling.
 
@@ -881,12 +881,12 @@ class AutonomicExecutor:
 
     async def vote(
         self,
-        agent: "Agent",
+        agent: Agent,
         proposals: dict[str, str],
         task: str,
         phase: str = "",
         round_num: int = 0,
-    ) -> Optional["Vote"]:
+    ) -> Vote | None:
         """
         Get vote from an agent with autonomic error handling.
 
@@ -1020,10 +1020,10 @@ class AutonomicExecutor:
 
     async def generate_with_fallback(
         self,
-        agent: "Agent",
+        agent: Agent,
         prompt: str,
-        context: list["Message"],
-        fallback_agents: list["Agent"] | None = None,
+        context: list[Message],
+        fallback_agents: list[Agent] | None = None,
         max_retries: int = 2,
     ) -> str:
         """

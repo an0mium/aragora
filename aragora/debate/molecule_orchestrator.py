@@ -72,7 +72,7 @@ class AgentProfileWrapper:
     availability: float = 1.0
 
     @classmethod
-    def from_agent(cls, agent: "Agent") -> "AgentProfileWrapper":
+    def from_agent(cls, agent: Agent) -> AgentProfileWrapper:
         """Create wrapper from Arena agent."""
         # Extract capabilities from agent attributes
         capabilities = set()
@@ -149,7 +149,7 @@ class MoleculeOrchestrator:
 
     def __init__(
         self,
-        protocol: Optional["DebateProtocol"] = None,
+        protocol: DebateProtocol | None = None,
         max_attempts: int = 3,
     ):
         """
@@ -169,7 +169,7 @@ class MoleculeOrchestrator:
         else:
             self._max_attempts = max_attempts
 
-    def register_agents(self, agents: list["Agent"]) -> None:
+    def register_agents(self, agents: list[Agent]) -> None:
         """
         Register agents with capability profiles.
 
@@ -192,7 +192,7 @@ class MoleculeOrchestrator:
         debate_id: str,
         round_number: int,
         task: str,
-        agents: list["Agent"],
+        agents: list[Agent],
         include_synthesis: bool = True,
     ) -> list[Molecule]:
         """
@@ -281,7 +281,7 @@ class MoleculeOrchestrator:
         self,
         debate_id: str,
         round_number: int,
-        agents: list["Agent"],
+        agents: list[Agent],
         proposal_molecule_ids: list[str] | None = None,
     ) -> list[Molecule]:
         """
@@ -560,7 +560,7 @@ _default_orchestrator: MoleculeOrchestrator | None = None
 
 
 def get_molecule_orchestrator(
-    protocol: Optional["DebateProtocol"] = None,
+    protocol: DebateProtocol | None = None,
 ) -> MoleculeOrchestrator:
     """Get the default molecule orchestrator instance."""
     global _default_orchestrator

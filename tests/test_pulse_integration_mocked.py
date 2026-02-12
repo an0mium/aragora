@@ -19,7 +19,7 @@ class MockTrendingTopic:
         platform: str,
         volume: int,
         category: str = "tech",
-        url: Optional[str] = None,
+        url: str | None = None,
     ):
         self.topic = topic
         self.platform = platform

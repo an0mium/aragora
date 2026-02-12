@@ -259,7 +259,7 @@ Make only the changes specified. Follow existing code style."""
             agent.system_prompt = system_prompt
         return agent
 
-    def _select_implementer(self, task: "ImplementTask") -> tuple[Any, str]:
+    def _select_implementer(self, task: ImplementTask) -> tuple[Any, str]:
         task_type = str(getattr(task, "task_type", "") or "").lower()
         if self._task_type_router and task_type in self._task_type_router:
             agent_type = self._task_type_router[task_type]
@@ -347,7 +347,7 @@ Make the minimal changes needed to address issues.
 Follow existing code style and tests.""",
         )
 
-    def _select_agent(self, task: "ImplementTask" | str, use_fallback: bool = False):
+    def _select_agent(self, task: ImplementTask | str, use_fallback: bool = False):
         """Select an agent based on strategy, routing, and fallback.
 
         Accepts either an ImplementTask (preferred) or a legacy complexity

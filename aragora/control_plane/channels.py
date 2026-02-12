@@ -169,7 +169,7 @@ class ChannelConfig:
     webhook_headers: dict[str, str] = field(default_factory=dict)
 
     # Filtering
-    event_types: Optional[list[NotificationEventType]] = None  # None = all events
+    event_types: list[NotificationEventType] | None = None  # None = all events
     min_priority: NotificationPriority = NotificationPriority.LOW
 
     def __post_init__(self) -> None:
@@ -201,7 +201,7 @@ class ChannelConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChannelConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ChannelConfig:
         """Deserialize from dictionary."""
         event_types = None
         if data.get("event_types"):
@@ -241,7 +241,7 @@ class NotificationResult:
     correlation_id: str | None = None  # Correlation ID from request
     delivery_status: DeliveryStatus = DeliveryStatus.PENDING
     delivered_at: datetime | None = None
-    provider_response: Optional[dict[str, Any]] = None  # Raw provider response
+    provider_response: dict[str, Any] | None = None  # Raw provider response
     retry_count: int = 0
     next_retry_at: datetime | None = None
 
@@ -764,7 +764,7 @@ class NotificationManager:
         title: str,
         body: str,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         workspace_id: str | None = None,
         link_url: str | None = None,
         link_text: str | None = None,

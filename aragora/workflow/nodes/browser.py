@@ -97,7 +97,7 @@ class BrowserStepConfig:
     wait_until: str = "load"
     timeout_ms: int | None = None
     full_page: bool = False
-    selectors: Optional[dict[str, str]] = None  # For extract_data
+    selectors: dict[str, str] | None = None  # For extract_data
     script: str | None = None  # For execute_script
     attribute: str | None = None  # For get_attribute
     state: str = "visible"  # For wait_for
@@ -113,7 +113,7 @@ class BrowserStepConfig:
     viewport_width: int = 1280
     viewport_height: int = 720
     user_agent: str | None = None
-    proxy: Optional[dict[str, str]] = None
+    proxy: dict[str, str] | None = None
     ignore_https_errors: bool = False
 
 

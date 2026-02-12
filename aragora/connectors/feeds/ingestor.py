@@ -112,7 +112,7 @@ class FeedIngestor:
 
     def __init__(
         self,
-        sources: Optional[list[FeedSource]] = None,
+        sources: list[FeedSource] | None = None,
         cache_ttl: int = 300,  # 5 minutes
         max_concurrent: int = 5,
         timeout: float = 30.0,

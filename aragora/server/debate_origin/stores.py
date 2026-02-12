@@ -100,7 +100,7 @@ class SQLiteOriginStore:
         conn.commit()
         conn.close()
 
-    def get(self, debate_id: str) -> Optional[DebateOrigin]:
+    def get(self, debate_id: str) -> DebateOrigin | None:
         """Get a debate origin by ID."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.execute("SELECT * FROM debate_origins WHERE debate_id = ?", (debate_id,))
@@ -139,7 +139,7 @@ class SQLiteOriginStore:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(_get_sqlite_executor(), self.save, origin)
 
-    async def get_async(self, debate_id: str) -> Optional[DebateOrigin]:
+    async def get_async(self, debate_id: str) -> DebateOrigin | None:
         """Async version of get that doesn't block event loop."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(_get_sqlite_executor(), self.get, debate_id)
@@ -225,7 +225,7 @@ class PostgresOriginStore:
                 expires_at,
             )
 
-    async def get(self, debate_id: str) -> Optional[DebateOrigin]:
+    async def get(self, debate_id: str) -> DebateOrigin | None:
         """Get a debate origin by ID."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(

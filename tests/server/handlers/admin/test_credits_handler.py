@@ -44,8 +44,8 @@ class MockCreditTransaction:
     description: str = "Test credit"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = "admin-user"
-    reference_id: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    reference_id: str | None = None
+    expires_at: datetime | None = None
 
     def to_dict(self) -> dict:
         return {

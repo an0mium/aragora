@@ -125,7 +125,7 @@ class ControlPlaneConfig:
     # Redis HA configuration
     redis_ha_enabled: bool = False
     redis_ha_mode: str = "standalone"
-    redis_ha_settings: Optional["RedisHASettings"] = None
+    redis_ha_settings: RedisHASettings | None = None
 
     # Three-tier watchdog (Gastown pattern)
     enable_watchdog: bool = True
@@ -134,7 +134,7 @@ class ControlPlaneConfig:
     watchdog_auto_escalate: bool = True
 
     @classmethod
-    def from_env(cls) -> "ControlPlaneConfig":
+    def from_env(cls) -> ControlPlaneConfig:
         """Create config from environment variables.
 
         This method checks for Redis HA configuration and uses the HA client
@@ -227,7 +227,7 @@ class StateManager:
         config: ControlPlaneConfig,
         registry: AgentRegistry | None = None,
         health_monitor: HealthMonitor | None = None,
-        km_adapter: Optional["ControlPlaneAdapter"] = None,
+        km_adapter: ControlPlaneAdapter | None = None,
         knowledge_mound: Any | None = None,
         stream_server: Any | None = None,
     ):
@@ -259,7 +259,7 @@ class StateManager:
         )
 
         # Knowledge Mound integration
-        self._km_adapter: Optional["ControlPlaneAdapter"] = None
+        self._km_adapter: ControlPlaneAdapter | None = None
         if self._config.enable_km_integration and HAS_KM_ADAPTER:
             if km_adapter:
                 self._km_adapter = km_adapter
@@ -268,7 +268,7 @@ class StateManager:
                 pass
 
         # Three-tier watchdog integration (Gastown pattern)
-        self._watchdog: Optional["ThreeTierWatchdog"] = None
+        self._watchdog: ThreeTierWatchdog | None = None
         if self._config.enable_watchdog and HAS_WATCHDOG:
             self._watchdog = get_watchdog()
 
@@ -290,7 +290,7 @@ class StateManager:
             )
 
         # Agent factory for auto-creating agents from registry selection
-        self._agent_factory: Optional["AgentFactory"] = None
+        self._agent_factory: AgentFactory | None = None
         if HAS_AGENT_FACTORY:
             self._agent_factory = get_agent_factory()
 
@@ -307,17 +307,17 @@ class StateManager:
         return self._health_monitor
 
     @property
-    def km_adapter(self) -> Optional["ControlPlaneAdapter"]:
+    def km_adapter(self) -> ControlPlaneAdapter | None:
         """Get the Knowledge Mound adapter if configured."""
         return self._km_adapter
 
     @property
-    def watchdog(self) -> Optional["ThreeTierWatchdog"]:
+    def watchdog(self) -> ThreeTierWatchdog | None:
         """Get the Three-Tier Watchdog if configured."""
         return self._watchdog
 
     @property
-    def agent_factory(self) -> Optional["AgentFactory"]:
+    def agent_factory(self) -> AgentFactory | None:
         """Get the agent factory if configured."""
         return self._agent_factory
 
@@ -331,14 +331,14 @@ class StateManager:
         """Check if state manager is connected."""
         return self._connected
 
-    def set_km_adapter(self, adapter: "ControlPlaneAdapter") -> None:
+    def set_km_adapter(self, adapter: ControlPlaneAdapter) -> None:
         """Set the Knowledge Mound adapter."""
         self._km_adapter = adapter
 
     def register_watchdog_handler(
         self,
-        tier: "WatchdogTier",
-        handler: Callable[["WatchdogIssue"], Any],
+        tier: WatchdogTier,
+        handler: Callable[[WatchdogIssue], Any],
     ) -> None:
         """Register a handler for watchdog issues."""
         if self._watchdog:
@@ -422,8 +422,8 @@ class StateManager:
         capabilities: list[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[dict[str, Any]] = None,
-        health_probe: Optional[Callable[[], bool]] = None,
+        metadata: dict[str, Any] | None = None,
+        health_probe: Callable[[], bool] | None = None,
     ) -> AgentInfo:
         """
         Register an agent with the control plane.
@@ -518,7 +518,7 @@ class StateManager:
         self,
         capabilities: list[str | AgentCapability],
         strategy: str = "least_loaded",
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
         task_type: str | None = None,
         use_km_recommendations: bool = True,
     ) -> AgentInfo | None:
@@ -560,7 +560,7 @@ class StateManager:
         self,
         capabilities: list[str | AgentCapability],
         task_type: str,
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
     ) -> AgentInfo | None:
         """Select an agent using KM-based historical recommendations."""
         # Get available agents with required capabilities

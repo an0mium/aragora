@@ -42,7 +42,7 @@ CACHE_TTL = 30
 _dashboard_cache: TTLCache[dict[str, Any]] = TTLCache(maxsize=1000, ttl_seconds=CACHE_TTL)
 
 
-def _get_cached_data(user_id: str, key: str) -> Optional[dict[str, Any]]:
+def _get_cached_data(user_id: str, key: str) -> dict[str, Any] | None:
     """Get cached dashboard data if not expired."""
     cache_key = f"{user_id}:{key}"
     return _dashboard_cache.get(cache_key)

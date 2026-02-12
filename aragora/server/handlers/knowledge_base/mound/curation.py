@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 class CurationHandlerProtocol(Protocol):
     """Protocol for handlers that use CurationOperationsMixin."""
 
-    _mound: Optional["KnowledgeMound"]
+    _mound: KnowledgeMound | None
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class CurationOperationsMixin:
@@ -56,7 +56,7 @@ class CurationOperationsMixin:
             logger.debug("Failed to resolve patched read_json_body: %s", e)
         return self.read_json_body(handler)
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """Provided by host class."""
         ...
 

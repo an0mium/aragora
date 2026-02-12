@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from argparse import Namespace, _SubParsersAction
 
 
-def create_knowledge_parser(subparsers: "_SubParsersAction[argparse.ArgumentParser]") -> None:
+def create_knowledge_parser(subparsers: _SubParsersAction[argparse.ArgumentParser]) -> None:
     """Create the knowledge subparser with all subcommands."""
     knowledge_parser = subparsers.add_parser(
         "knowledge",
@@ -166,7 +166,7 @@ def create_knowledge_parser(subparsers: "_SubParsersAction[argparse.ArgumentPars
     knowledge_parser.set_defaults(func=lambda _: knowledge_parser.print_help())
 
 
-def cmd_query(args: "Namespace") -> int:
+def cmd_query(args: Namespace) -> int:
     """Handle 'knowledge query' command."""
     try:
         from aragora.knowledge import (
@@ -231,7 +231,7 @@ def cmd_query(args: "Namespace") -> int:
     return 0
 
 
-def cmd_facts(args: "Namespace") -> int:
+def cmd_facts(args: Namespace) -> int:
     """Handle 'knowledge facts' command."""
     try:
         from aragora.knowledge import InMemoryFactStore, ValidationStatus
@@ -375,7 +375,7 @@ def cmd_facts(args: "Namespace") -> int:
     return 0
 
 
-def cmd_search(args: "Namespace") -> int:
+def cmd_search(args: Namespace) -> int:
     """Handle 'knowledge search' command."""
     try:
         from aragora.knowledge import InMemoryEmbeddingService
@@ -439,7 +439,7 @@ def cmd_search(args: "Namespace") -> int:
     return 0
 
 
-def cmd_jobs(args: "Namespace") -> int:
+def cmd_jobs(args: Namespace) -> int:
     """Handle 'knowledge jobs' command."""
     try:
         from aragora.knowledge import get_all_jobs, get_job_status
@@ -521,7 +521,7 @@ def cmd_jobs(args: "Namespace") -> int:
     return 0
 
 
-def cmd_process(args: "Namespace") -> int:
+def cmd_process(args: Namespace) -> int:
     """Handle 'knowledge process' command."""
     file_path = Path(args.file)
 
@@ -589,7 +589,7 @@ def cmd_process(args: "Namespace") -> int:
     return 0
 
 
-def cmd_stats(args: "Namespace") -> int:
+def cmd_stats(args: Namespace) -> int:
     """Handle 'knowledge stats' command."""
     try:
         from aragora.knowledge import InMemoryFactStore, InMemoryEmbeddingService
@@ -625,7 +625,7 @@ def cmd_stats(args: "Namespace") -> int:
     return 0
 
 
-def main(args: "Namespace") -> int:
+def main(args: Namespace) -> int:
     """Main entry point for knowledge commands."""
     if not hasattr(args, "func"):
         print("Usage: aragora knowledge <command>")

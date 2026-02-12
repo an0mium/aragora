@@ -142,7 +142,7 @@ class TestCheckDebateStorage:
     def test_storage_io_error(self):
         """Test storage IO error is handled."""
         mock_storage = MagicMock()
-        mock_storage.list_recent.side_effect = IOError("Disk full")
+        mock_storage.list_recent.side_effect = OSError("Disk full")
 
         handler = TestStoresHandler(storage=mock_storage)
 

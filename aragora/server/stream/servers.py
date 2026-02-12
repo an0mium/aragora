@@ -551,7 +551,7 @@ class AiohttpUnifiedServer(  # type: ignore[override]
             org_id=org_id,
         )
 
-    async def _handle_start_debate(self, request) -> "aiohttp.web.Response":
+    async def _handle_start_debate(self, request) -> aiohttp.web.Response:
         """POST /api/debate - Start an ad-hoc debate with specified question.
 
         Accepts JSON body with:

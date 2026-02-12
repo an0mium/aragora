@@ -185,8 +185,8 @@ class KnowledgePipeline:
     def __init__(
         self,
         config: PipelineConfig | None = None,
-        fact_store: Optional[FactStore | InMemoryFactStore] = None,
-        embedding_service: Optional[WeaviateEmbeddingService | InMemoryEmbeddingService] = None,
+        fact_store: FactStore | InMemoryFactStore | None = None,
+        embedding_service: WeaviateEmbeddingService | InMemoryEmbeddingService | None = None,
         agents: list | None = None,
         knowledge_mound: Any | None = None,  # KnowledgeMound if available
     ):
@@ -206,7 +206,7 @@ class KnowledgePipeline:
         self._fact_store = fact_store
         self._embedding_service = embedding_service
         self._agents = agents or []
-        self._query_engine: Optional[DatasetQueryEngine | SimpleQueryEngine] = None
+        self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None
         self._knowledge_mound = knowledge_mound
 
         # Parser
@@ -223,7 +223,7 @@ class KnowledgePipeline:
         }
 
         # Callbacks
-        self._on_progress: Optional[Callable[[str, float, str], None]] = None
+        self._on_progress: Callable[[str, float, str], None] | None = None
 
     def set_progress_callback(self, callback: Callable[[str, float, str], None]) -> None:
         """Set progress callback: callback(document_id, progress, message)."""

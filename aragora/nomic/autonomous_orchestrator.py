@@ -147,7 +147,7 @@ class AgentAssignment:
     status: str = "pending"  # pending, running, completed, failed
     attempt_count: int = 0
     max_attempts: int = 3
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -177,7 +177,7 @@ class AgentRouter:
     2. Which agent type is best suited (based on task complexity)
     """
 
-    def __init__(self, track_configs: Optional[dict[Track, TrackConfig]] = None):
+    def __init__(self, track_configs: dict[Track, TrackConfig] | None = None):
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
         self._file_to_track_cache: dict[str, Track] = {}
 
@@ -264,7 +264,7 @@ class AgentRouter:
         self,
         agent_type: str,
         track: Track,
-    ) -> Optional[dict[str, str]]:
+    ) -> dict[str, str] | None:
         """Determine the coding harness to use for an agent.
 
         For agents with native coding harnesses (claude, codex), returns None.
@@ -437,12 +437,12 @@ class AutonomousOrchestrator:
     def __init__(
         self,
         aragora_path: Path | None = None,
-        track_configs: Optional[dict[Track, TrackConfig]] = None,
+        track_configs: dict[Track, TrackConfig] | None = None,
         workflow_engine: WorkflowEngine | None = None,
         task_decomposer: TaskDecomposer | None = None,
         require_human_approval: bool = False,
         max_parallel_tasks: int = 4,
-        on_checkpoint: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        on_checkpoint: Callable[[str, dict[str, Any]], None] | None = None,
         use_debate_decomposition: bool = False,
         enable_curriculum: bool = True,
         curriculum_config: Any | None = None,
@@ -496,9 +496,9 @@ class AutonomousOrchestrator:
     async def execute_goal(
         self,
         goal: str,
-        tracks: Optional[list[str]] = None,
+        tracks: list[str] | None = None,
         max_cycles: int = 5,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> OrchestrationResult:
         """
         Execute a high-level goal by decomposing and orchestrating subtasks.
@@ -602,7 +602,7 @@ class AutonomousOrchestrator:
     async def _decompose_goal(
         self,
         goal: str,
-        tracks: Optional[list[str]] = None,
+        tracks: list[str] | None = None,
     ) -> TaskDecomposition:
         """Decompose a high-level goal into subtasks."""
         # Enrich goal with track context if provided
@@ -622,7 +622,7 @@ class AutonomousOrchestrator:
     def _create_assignments(
         self,
         decomposition: TaskDecomposition,
-        tracks: Optional[list[str]] = None,
+        tracks: list[str] | None = None,
     ) -> list[AgentAssignment]:
         """Create agent assignments from decomposed subtasks."""
         assignments = []
@@ -946,7 +946,7 @@ class AutonomousOrchestrator:
     async def execute_track(
         self,
         track: str,
-        focus_areas: Optional[list[str]] = None,
+        focus_areas: list[str] | None = None,
         max_cycles: int = 3,
     ) -> OrchestrationResult:
         """

@@ -413,7 +413,7 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
             logger.debug(f"Failed to persist transcription job: {e}")
 
 
-def _get_job(job_id: str) -> Optional[dict[str, Any]]:
+def _get_job(job_id: str) -> dict[str, Any] | None:
     """Get a transcription job from memory cache or durable store."""
     # Check memory cache first
     if job_id in _transcription_jobs:
@@ -723,7 +723,7 @@ class TranscriptionHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid transcription request data: {e}")
             return error_response(safe_error_message(e, "transcription"), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"File I/O error during transcription: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
         except (RuntimeError, AttributeError, ImportError) as e:
@@ -842,7 +842,7 @@ class TranscriptionHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid video transcription request data: {e}")
             return error_response(safe_error_message(e, "transcription"), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"File I/O error during video transcription: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
         except (RuntimeError, AttributeError, ImportError) as e:
@@ -952,7 +952,7 @@ class TranscriptionHandler(BaseHandler):
         except (KeyError, TypeError) as e:
             logger.warning(f"Invalid YouTube transcription request data: {e}")
             return error_response(safe_error_message(e, "transcription"), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"File I/O error during YouTube transcription: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
         except (RuntimeError, AttributeError, ImportError) as e:
@@ -1057,7 +1057,7 @@ class TranscriptionHandler(BaseHandler):
         except (ValueError, KeyError) as e:
             logger.warning(f"Invalid multipart form data: {e}")
             return None, "", {}
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error(f"I/O error parsing multipart data: {e}")
             return None, "", {}
         except (AttributeError, TypeError, RuntimeError) as e:

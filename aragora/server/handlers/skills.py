@@ -71,9 +71,9 @@ class SkillsHandler(BaseHandler):
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._registry: Optional["SkillRegistry"] = None
+        self._registry: SkillRegistry | None = None
 
-    def _get_registry(self) -> Optional["SkillRegistry"]:
+    def _get_registry(self) -> SkillRegistry | None:
         """Get or create the skill registry singleton."""
         if self._registry is None and SKILLS_AVAILABLE and get_skill_registry:
             self._registry = get_skill_registry()

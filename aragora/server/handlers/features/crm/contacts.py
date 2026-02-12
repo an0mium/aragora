@@ -27,7 +27,7 @@ class ContactOperationsMixin:
     behaves predictably in minimal environments.
     """
 
-    def _contacts_stub_enabled(self: "Any") -> bool:
+    def _contacts_stub_enabled(self: Any) -> bool:
         config = getattr(self, "ctx", {}).get("config", {})
         if isinstance(config, dict):
             if "contacts_stub" in config:
@@ -39,10 +39,10 @@ class ContactOperationsMixin:
                 return bool(config["rate_limit_enabled"])
         return False
 
-    def _contacts_unavailable(self: "Any") -> Any:
+    def _contacts_unavailable(self: Any) -> Any:
         return self._error_response(503, "CRM contacts are not available")
 
-    async def _list_all_contacts(self: "Any", request: Any) -> Any:
+    async def _list_all_contacts(self: Any, request: Any) -> Any:
         """List contacts from all connected platforms."""
         if self._contacts_stub_enabled():
             return self._contacts_unavailable()
@@ -63,7 +63,7 @@ class ContactOperationsMixin:
             },
         )
 
-    async def _list_platform_contacts(self: "Any", request: Any, platform: str) -> Any:
+    async def _list_platform_contacts(self: Any, request: Any, platform: str) -> Any:
         """List contacts from a specific platform."""
         if self._contacts_stub_enabled():
             return self._contacts_unavailable()
@@ -93,7 +93,7 @@ class ContactOperationsMixin:
         )
 
     async def _get_contact(
-        self: "Any",
+        self: Any,
         request: Any,
         platform: str,
         contact_id: str | None = None,
@@ -128,7 +128,7 @@ class ContactOperationsMixin:
 
         return self._error_response(404, "Contact not found")
 
-    async def _create_contact(self: "Any", request: Any, platform: str) -> Any:
+    async def _create_contact(self: Any, request: Any, platform: str) -> Any:
         """Create a contact on a platform."""
         if self._contacts_stub_enabled():
             return self._contacts_unavailable()
@@ -181,7 +181,7 @@ class ContactOperationsMixin:
             },
         )
 
-    async def _update_contact(self: "Any", request: Any, platform: str, contact_id: str) -> Any:
+    async def _update_contact(self: Any, request: Any, platform: str, contact_id: str) -> Any:
         """Update a contact on a platform."""
         if self._contacts_stub_enabled():
             return self._contacts_unavailable()
@@ -224,7 +224,7 @@ class ContactOperationsMixin:
 
         return self._json_response(200, {"success": True})
 
-    async def _delete_contact(self: "Any", request: Any, platform: str, contact_id: str) -> Any:
+    async def _delete_contact(self: Any, request: Any, platform: str, contact_id: str) -> Any:
         """Delete a contact on a platform."""
         if self._contacts_stub_enabled():
             return self._contacts_unavailable()

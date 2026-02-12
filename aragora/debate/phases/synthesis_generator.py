@@ -44,7 +44,7 @@ class SynthesisGenerator:
         *,
         protocol: Any = None,
         hooks: dict[str, Any] | None = None,
-        notify_spectator: Optional[Callable[..., Any]] = None,
+        notify_spectator: Callable[..., Any] | None = None,
     ) -> None:
         """Initialize the synthesis generator.
 
@@ -57,7 +57,7 @@ class SynthesisGenerator:
         self.hooks = hooks or {}
         self._notify_spectator = notify_spectator
 
-    async def generate_mandatory_synthesis(self, ctx: "DebateContext") -> bool:
+    async def generate_mandatory_synthesis(self, ctx: DebateContext) -> bool:
         """Generate mandatory final synthesis using Claude Opus 4.5.
 
         This runs after consensus is determined (by any mode) to ensure
@@ -179,7 +179,7 @@ class SynthesisGenerator:
 
     def _emit_synthesis_events(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         synthesis: str,
         synthesis_source: str,
     ) -> None:
@@ -225,7 +225,7 @@ class SynthesisGenerator:
         except Exception as e:
             logger.warning(f"notify_spectator failed: {e}")
 
-    def _generate_export_links(self, ctx: "DebateContext") -> None:
+    def _generate_export_links(self, ctx: DebateContext) -> None:
         """Generate export download links for the debate.
 
         Args:
@@ -255,7 +255,7 @@ class SynthesisGenerator:
         except Exception as e:
             logger.warning(f"on_export_ready hook failed: {e}")
 
-    def _combine_proposals_as_synthesis(self, ctx: "DebateContext") -> str:
+    def _combine_proposals_as_synthesis(self, ctx: DebateContext) -> str:
         """Combine proposals into a synthesis when LLM generation fails.
 
         This is a guaranteed fallback that always produces output.
@@ -305,7 +305,7 @@ class SynthesisGenerator:
         synthesis += "\n*Note: This synthesis was automatically generated from agent proposals.*"
         return synthesis
 
-    def _build_synthesis_prompt(self, ctx: "DebateContext") -> str:
+    def _build_synthesis_prompt(self, ctx: DebateContext) -> str:
         """Build prompt for final synthesis generation.
 
         Args:

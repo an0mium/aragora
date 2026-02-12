@@ -48,7 +48,7 @@ from aragora.persistence.transaction import (
 # ===========================================================================
 
 
-def create_mock_connection(conn_id: Optional[int] = None) -> MagicMock:
+def create_mock_connection(conn_id: int | None = None) -> MagicMock:
     """Create a properly configured mock asyncpg connection.
 
     Args:
@@ -65,7 +65,7 @@ def create_mock_connection(conn_id: Optional[int] = None) -> MagicMock:
     return conn
 
 
-def create_mock_pool(connection: Optional[MagicMock] = None) -> MagicMock:
+def create_mock_pool(connection: MagicMock | None = None) -> MagicMock:
     """Create a mock connection pool."""
     mock_conn = connection or create_mock_connection()
     pool = MagicMock()

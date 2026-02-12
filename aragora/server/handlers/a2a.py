@@ -520,10 +520,10 @@ class A2AHandler(BaseHandler):
 
 
 # Handler factory
-_a2a_handler: Optional["A2AHandler"] = None
+_a2a_handler: A2AHandler | None = None
 
 
-def get_a2a_handler(server_context: dict[str, Any] | None = None) -> "A2AHandler":
+def get_a2a_handler(server_context: dict[str, Any] | None = None) -> A2AHandler:
     """Get or create the A2A handler instance."""
     global _a2a_handler
     if _a2a_handler is None:

@@ -22,15 +22,15 @@ class PersonaFeedback:
 
     def __init__(
         self,
-        persona_manager: Optional["PersonaManagerProtocol"] = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
+        persona_manager: PersonaManagerProtocol | None = None,
+        event_emitter: EventEmitterProtocol | None = None,
         loop_id: str | None = None,
     ):
         self.persona_manager = persona_manager
         self.event_emitter = event_emitter
         self.loop_id = loop_id
 
-    def update_persona_performance(self, ctx: "DebateContext") -> None:
+    def update_persona_performance(self, ctx: DebateContext) -> None:
         """Update PersonaManager with performance feedback."""
         if not self.persona_manager:
             return
@@ -57,7 +57,7 @@ class PersonaFeedback:
             _, msg, exc_info = _build_error_action(e, "persona")
             logger.warning("Persona update failed: %s", msg, exc_info=exc_info)
 
-    def check_trait_emergence(self, ctx: "DebateContext") -> None:
+    def check_trait_emergence(self, ctx: DebateContext) -> None:
         """Check if any new agent traits emerged from performance patterns.
 
         Traits emerge when an agent demonstrates consistent behavior patterns:
@@ -107,7 +107,7 @@ class PersonaFeedback:
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Trait emergence check error: {e}")
 
-    def detect_emerging_traits(self, agent_name: str, ctx: "DebateContext") -> list[dict[str, Any]]:
+    def detect_emerging_traits(self, agent_name: str, ctx: DebateContext) -> list[dict[str, Any]]:
         """Detect traits based on agent performance patterns.
 
         Returns list of trait dicts with name, description, confidence.

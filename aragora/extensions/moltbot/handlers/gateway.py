@@ -29,10 +29,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global gateway instance (lazily initialized)
-_gateway: Optional["LocalGateway"] = None
+_gateway: LocalGateway | None = None
 
 
-def get_gateway() -> "LocalGateway":
+def get_gateway() -> LocalGateway:
     """Get or create the gateway instance."""
     global _gateway
     if _gateway is None:

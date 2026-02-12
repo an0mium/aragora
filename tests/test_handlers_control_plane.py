@@ -27,14 +27,14 @@ class MockCoordinator:
         self._health_monitor.get_all_health.return_value = {}
 
     async def list_agents(
-        self, capability: Optional[str] = None, only_available: bool = True
+        self, capability: str | None = None, only_available: bool = True
     ) -> list:
         agents = list(self._agents.values())
         if capability:
             agents = [a for a in agents if capability in a.capabilities]
         return agents
 
-    async def get_agent(self, agent_id: str) -> Optional[Any]:
+    async def get_agent(self, agent_id: str) -> Any | None:
         return self._agents.get(agent_id)
 
     async def register_agent(
@@ -76,7 +76,7 @@ class MockCoordinator:
         payload: dict,
         required_capabilities: list = None,
         priority: Any = None,
-        timeout_seconds: Optional[int] = None,
+        timeout_seconds: int | None = None,
         metadata: dict = None,
     ) -> str:
         task_id = f"task-{len(self._tasks) + 1}"
@@ -92,7 +92,7 @@ class MockCoordinator:
         }
         return task_id
 
-    async def get_task(self, task_id: str) -> Optional[Any]:
+    async def get_task(self, task_id: str) -> Any | None:
         task_data = self._tasks.get(task_id)
         if not task_data:
             return None
@@ -102,7 +102,7 @@ class MockCoordinator:
 
     async def claim_task(
         self, agent_id: str, capabilities: list = None, block_ms: int = 5000
-    ) -> Optional[Any]:
+    ) -> Any | None:
         for task_id, task_data in self._tasks.items():
             if task_data["status"] == "pending":
                 task_data["status"] = "running"
@@ -151,7 +151,7 @@ class MockCoordinator:
         health.value = "healthy"
         return health
 
-    def get_agent_health(self, agent_id: str) -> Optional[Any]:
+    def get_agent_health(self, agent_id: str) -> Any | None:
         if agent_id in self._agents:
             health = MagicMock()
             health.to_dict.return_value = {

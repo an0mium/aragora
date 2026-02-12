@@ -19,8 +19,8 @@ from aragora.workflow.types import (
 def create_inventory_alert_workflow(
     alert_threshold: int = 20,
     auto_reorder: bool = False,
-    notification_channels: Optional[list[str]] = None,
-    categories: Optional[list[str]] = None,
+    notification_channels: list[str] | None = None,
+    categories: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create an inventory monitoring and alert workflow.
 
@@ -153,7 +153,7 @@ def daily_inventory_check(
 
 def create_vendor_evaluation_workflow(
     vendor_name: str,
-    evaluation_criteria: Optional[list[str]] = None,
+    evaluation_criteria: list[str] | None = None,
     budget_range: str | None = None,
     timeline: str = "30 days",
     require_approval: bool = True,
@@ -273,7 +273,7 @@ def create_vendor_evaluation_workflow(
 def create_tool_selection_workflow(
     category: str,
     candidates: list[str],
-    requirements: Optional[list[str]] = None,
+    requirements: list[str] | None = None,
     budget: str | None = None,
     team_size: int = 10,
 ) -> WorkflowDefinition:

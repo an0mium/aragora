@@ -41,8 +41,8 @@ class KnowledgeProcessingConfig:
     process_async: bool = True  # Process in background
 
     # Callbacks
-    on_complete: Optional[Callable[[ProcessingResult], None]] = None
-    on_error: Optional[Callable[[str, Exception], None]] = None
+    on_complete: Callable[[ProcessingResult], None] | None = None
+    on_error: Callable[[str, Exception], None] | None = None
 
 
 @dataclass

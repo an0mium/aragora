@@ -393,7 +393,7 @@ class WhatsAppIntegration:
 
         return await self.send_message(message)
 
-    async def __aenter__(self) -> "WhatsAppIntegration":
+    async def __aenter__(self) -> WhatsAppIntegration:
         """Async context manager entry."""
         return self
 

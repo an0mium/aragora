@@ -375,7 +375,7 @@ class AuditTrail:
         return output_path
 
     @classmethod
-    def from_json(cls, json_str: str) -> "AuditTrail":
+    def from_json(cls, json_str: str) -> AuditTrail:
         """Load trail from JSON string."""
         data = json.loads(json_str)
 
@@ -389,7 +389,7 @@ class AuditTrail:
         return cls(events=events, **data)
 
     @classmethod
-    def load(cls, path: Path) -> "AuditTrail":
+    def load(cls, path: Path) -> AuditTrail:
         """Load trail from file."""
         return cls.from_json(path.read_text())
 

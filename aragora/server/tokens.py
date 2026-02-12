@@ -222,7 +222,7 @@ class TokenManager:
         user_id: str,
         token_type: TokenType,
         ttl_seconds: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TokenData:
         """
         Generate a new reconnection token.

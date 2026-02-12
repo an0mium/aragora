@@ -83,10 +83,10 @@ class PostgreSQLConnector(EnterpriseConnector):
         port: int = 5432,
         database: str = "postgres",
         schema: str = "public",
-        tables: Optional[list[str]] = None,
+        tables: list[str] | None = None,
         timestamp_column: str | None = None,
         primary_key_column: str = "id",
-        content_columns: Optional[list[str]] = None,
+        content_columns: list[str] | None = None,
         notify_channel: str | None = None,
         pool_size: int = 5,
         **kwargs: Any,
@@ -213,7 +213,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                 return candidate
         return None
 
-    def _row_to_content(self, row: dict[str, Any], columns: Optional[list[str]] = None) -> str:
+    def _row_to_content(self, row: dict[str, Any], columns: list[str] | None = None) -> str:
         """Convert a row to text content for indexing."""
         if columns:
             filtered = {k: v for k, v in row.items() if k in columns}

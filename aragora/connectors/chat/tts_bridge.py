@@ -84,10 +84,10 @@ class TTSBridge:
         """
         self.config = config or TTSConfig()
         self._kwargs = kwargs
-        self._backend: Optional["TTSBackend"] = None
+        self._backend: TTSBackend | None = None
         self._temp_dir: Path | None = None
 
-    def _get_backend(self) -> "TTSBackend":
+    def _get_backend(self) -> TTSBackend:
         """Lazy-load TTS backend."""
         if self._backend is None:
             try:

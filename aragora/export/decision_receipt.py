@@ -877,7 +877,7 @@ class DecisionReceipt:
         return output_path
 
     @classmethod
-    def from_json(cls, json_str: str) -> "DecisionReceipt":
+    def from_json(cls, json_str: str) -> DecisionReceipt:
         """Load receipt from JSON string."""
         data = json.loads(json_str)
 
@@ -894,7 +894,7 @@ class DecisionReceipt:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DecisionReceipt":
+    def from_dict(cls, data: dict[str, Any]) -> DecisionReceipt:
         """Load receipt from dictionary.
 
         Args:
@@ -918,7 +918,7 @@ class DecisionReceipt:
             **data,
         )
 
-    def sign(self, backend: Any | None = None) -> "SignedDecisionReceipt":
+    def sign(self, backend: Any | None = None) -> SignedDecisionReceipt:
         """
         Sign this receipt cryptographically for tamper-evidence.
 
@@ -947,17 +947,17 @@ class DecisionReceipt:
         )
 
     @classmethod
-    def load(cls, path: Path) -> "DecisionReceipt":
+    def load(cls, path: Path) -> DecisionReceipt:
         """Load receipt from file."""
         return cls.from_json(path.read_text())
 
     @classmethod
     def from_debate_result(
         cls,
-        result: "DebateResult",
+        result: DebateResult,
         include_cost: bool = True,
         cost_data: dict[str, Any] | None = None,
-    ) -> "DecisionReceipt":
+    ) -> DecisionReceipt:
         """
         Generate a DecisionReceipt from a standard DebateResult.
 
@@ -1102,7 +1102,7 @@ class DecisionReceiptGenerator:
     """
 
     @staticmethod
-    def from_gauntlet_result(result: "GauntletResult") -> DecisionReceipt:
+    def from_gauntlet_result(result: GauntletResult) -> DecisionReceipt:
         """
         Generate a DecisionReceipt from a GauntletResult.
 
@@ -1203,7 +1203,7 @@ class DecisionReceiptGenerator:
         )
 
 
-def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
+def generate_decision_receipt(result: GauntletResult) -> DecisionReceipt:
     """
     Convenience function to generate a DecisionReceipt.
 
@@ -1223,8 +1223,8 @@ def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
 
 def link_receipt_to_trail(
     receipt: DecisionReceipt,
-    trail: "AuditTrail",
-) -> tuple[DecisionReceipt, "AuditTrail"]:
+    trail: AuditTrail,
+) -> tuple[DecisionReceipt, AuditTrail]:
     """
     Link a DecisionReceipt and AuditTrail bidirectionally.
 
@@ -1334,7 +1334,7 @@ class SignedDecisionReceipt:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SignedDecisionReceipt":
+    def from_dict(cls, data: dict[str, Any]) -> SignedDecisionReceipt:
         """Load from dictionary."""
         receipt = DecisionReceipt.from_dict(data["receipt"])
         meta = data["signature_metadata"]
@@ -1348,6 +1348,6 @@ class SignedDecisionReceipt:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "SignedDecisionReceipt":
+    def from_json(cls, json_str: str) -> SignedDecisionReceipt:
         """Load from JSON string."""
         return cls.from_dict(json.loads(json_str))

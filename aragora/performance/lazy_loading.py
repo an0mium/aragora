@@ -70,10 +70,10 @@ logger = logging.getLogger(__name__)
 
 # Prometheus metrics (lazy initialization)
 _metrics_initialized = False
-_n_plus_one_detections_counter: Optional["Counter"] = None
-_prefetch_operations_counter: Optional["Counter"] = None
-_auto_prefetch_counter: Optional["Counter"] = None
-_load_duration_histogram: Optional["Histogram"] = None
+_n_plus_one_detections_counter: Counter | None = None
+_prefetch_operations_counter: Counter | None = None
+_auto_prefetch_counter: Counter | None = None
+_load_duration_histogram: Histogram | None = None
 
 
 def _init_metrics() -> None:
@@ -206,7 +206,7 @@ class AutoPrefetchBatcher:
 
     def __init__(self):
         """Initialize the auto-prefetch batcher."""
-        self._pending: dict[str, list[tuple[Any, "LazyValue[Any]"]]] = defaultdict(list)
+        self._pending: dict[str, list[tuple[Any, LazyValue[Any]]]] = defaultdict(list)
         self._batch_futures: dict[str, asyncio.Future[None]] = {}
         self._lock = asyncio.Lock()
 
@@ -214,7 +214,7 @@ class AutoPrefetchBatcher:
         self,
         property_name: str,
         obj: Any,
-        lazy_value: "LazyValue[Any]",
+        lazy_value: LazyValue[Any],
         loader: Callable[[], Awaitable[Any]],
     ) -> bool:
         """
@@ -316,7 +316,7 @@ class LazyValue(Generic[T]):
         self._value: T | None = None
         self._loaded = False
         self._loading = False
-        self._load_future: Optional[asyncio.Future[T]] = None
+        self._load_future: asyncio.Future[T] | None = None
 
     @property
     def is_loaded(self) -> bool:
@@ -400,7 +400,7 @@ class LazyDescriptor(Generic[T]):
         # Cast func to the expected wrapper type for update_wrapper
         functools.update_wrapper(cast(Callable[..., Any], self), cast(Callable[..., Any], func))
 
-    def __get__(self, obj: Any, objtype: Any = None) -> LazyValue[T] | "LazyDescriptor[T]":
+    def __get__(self, obj: Any, objtype: Any = None) -> LazyValue[T] | LazyDescriptor[T]:
         """Get LazyValue for the object."""
         if obj is None:
             return self
@@ -444,7 +444,7 @@ def lazy_property(
 
 
 def lazy_property(
-    func: Optional[Callable[[Any], Awaitable[T]]] = None,
+    func: Callable[[Any], Awaitable[T]] | None = None,
     *,
     prefetch_key: str | None = None,
 ) -> LazyDescriptor[T] | Callable[[Callable[[Any], Awaitable[T]]], LazyDescriptor[T]]:

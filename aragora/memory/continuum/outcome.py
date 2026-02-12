@@ -42,7 +42,7 @@ class OutcomeMixin:
     _post_outcome_hooks: list | None = None
 
     def register_post_outcome_hook(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         hook: Any,
     ) -> None:
         """Register a callback to fire after update_outcome completes.
@@ -64,7 +64,7 @@ class OutcomeMixin:
         self._post_outcome_hooks.append(hook)
 
     def _fire_post_outcome_hooks(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         outcome_data: dict[str, Any],
     ) -> None:
         """Fire all registered post-outcome hooks (non-blocking)."""
@@ -86,7 +86,7 @@ class OutcomeMixin:
                 logger.warning("Post-outcome hook failed: %s", hook_err)
 
     def update_outcome(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         id: str,
         success: bool,
         agent_prediction_error: float | None = None,
@@ -224,7 +224,7 @@ class OutcomeMixin:
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def update_outcome_async(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         id: str,
         success: bool,
         agent_prediction_error: float | None = None,
@@ -236,7 +236,7 @@ class OutcomeMixin:
             lambda: self.update_outcome(id, success, agent_prediction_error),
         )
 
-    def get_learning_rate(self: "ContinuumMemory", tier: MemoryTier, update_count: int) -> float:
+    def get_learning_rate(self: ContinuumMemory, tier: MemoryTier, update_count: int) -> float:
         """
         Get tier-specific learning rate with decay.
 
@@ -247,7 +247,7 @@ class OutcomeMixin:
         return config.base_learning_rate * (config.decay_rate**update_count)
 
     def create_pattern_feedback_hook(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
     ) -> Any:
         """Create a hook that feeds outcome data back to pattern confidence.
 
@@ -316,7 +316,7 @@ class OutcomeMixin:
         _pattern_feedback_hook.feedback_log = feedback_log  # type: ignore[attr-defined]
         return _pattern_feedback_hook
 
-    def get_pattern_feedback(self: "ContinuumMemory") -> list[dict[str, Any]]:
+    def get_pattern_feedback(self: ContinuumMemory) -> list[dict[str, Any]]:
         """Get accumulated pattern feedback from all registered feedback hooks.
 
         Returns:

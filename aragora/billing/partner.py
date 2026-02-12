@@ -620,7 +620,7 @@ class PartnerAPI:
         self,
         partner_id: str,
         name: str,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         expires_in_days: int | None = None,
     ) -> tuple[APIKey, str]:
         """

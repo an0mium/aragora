@@ -35,7 +35,7 @@ class HookConfig:
         )
     """
 
-    event_hooks: Optional[dict[str, Any]] = None
+    event_hooks: dict[str, Any] | None = None
     hook_manager: Any | None = None  # HookManager for extended lifecycle hooks
     yaml_hooks_dir: str = "hooks"  # Directory to search for YAML hook definitions
     enable_yaml_hooks: bool = True  # Auto-discover and load YAML hooks on startup
@@ -446,7 +446,7 @@ class TranslationSubConfig:
     multilingual_manager: Any | None = None  # Pre-configured MultilingualDebateManager
     enable_translation: bool = False  # Enable multi-language debate support
     default_language: str = "en"  # Default language code (ISO 639-1)
-    target_languages: Optional[list[str]] = None  # Languages to translate conclusions to
+    target_languages: list[str] | None = None  # Languages to translate conclusions to
     auto_detect_language: bool = True  # Auto-detect source language of messages
     translate_conclusions: bool = True  # Translate final conclusions to target languages
     translation_cache_ttl_seconds: int = 3600  # Translation cache TTL (1 hour default)

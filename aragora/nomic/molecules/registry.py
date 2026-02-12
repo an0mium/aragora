@@ -127,7 +127,7 @@ def create_escalation_molecule(
     source: str = "system",
     reason: str = "threshold_exceeded",
     auto_escalate_after_seconds: float = 300.0,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> Molecule:
     """
     Create a molecule for escalation workflows (Gastown pattern).

@@ -253,7 +253,7 @@ class EmailPriorityAnalyzer:
         from_address: str,
         snippet: str,
         body_text: str = "",
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
         is_read: bool = False,
         is_starred: bool = False,
         thread_count: int = 1,
@@ -636,7 +636,7 @@ class EmailPriorityAnalyzer:
         from_address: str,
         snippet: str,
         body_text: str = "",
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
         is_read: bool = False,
         is_starred: bool = False,
         thread_count: int = 1,
@@ -734,7 +734,7 @@ class EmailFeedbackLearner:
         action: str,
         from_address: str,
         subject: str,
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
     ) -> bool:
         """
         Record a user interaction with an email.

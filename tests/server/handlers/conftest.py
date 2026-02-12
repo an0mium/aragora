@@ -306,8 +306,8 @@ def mock_http_handler():
 
     def _create_handler(
         method: str = "GET",
-        body: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         client_address: tuple = ("127.0.0.1", 12345),
     ) -> MagicMock:
         mock = MagicMock()
@@ -639,7 +639,7 @@ class MockAuthorizationContext:
     workspace_id: str = "test-ws-001"
     roles: list[str] = None
     permissions: list[str] = None
-    api_key_scope: Optional[str] = None
+    api_key_scope: str | None = None
     ip_address: str = "127.0.0.1"
     user_agent: str = "test-agent"
     request_id: str = "req-test-001"
@@ -884,7 +884,7 @@ def authenticated_http_handler(mock_http_handler):
 
     def _create_handler(
         method: str = "GET",
-        body: Optional[dict[str, Any]] = None,
+        body: dict[str, Any] | None = None,
         token: str = "test_api_token_12345",
     ) -> MagicMock:
         return mock_http_handler(
@@ -933,8 +933,8 @@ def async_mock_http_handler():
 
     def _create_handler(
         method: str = "GET",
-        body: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> MagicMock:
         mock = MagicMock()
         mock.command = method

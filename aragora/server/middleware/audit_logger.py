@@ -241,7 +241,7 @@ class FileAuditBackend:
         current_file = self._get_current_file()
         if current_file.exists():
             try:
-                with open(current_file, "r") as f:
+                with open(current_file) as f:
                     lines = f.readlines()
                     if lines:
                         last_event = json.loads(lines[-1])
@@ -299,7 +299,7 @@ class FileAuditBackend:
                 break
 
             try:
-                with open(log_file, "r") as f:
+                with open(log_file) as f:
                     for line in f:
                         if len(results) >= limit:
                             break
@@ -471,7 +471,7 @@ class AuditLogger:
         outcome_reason: str | None = None,
         category: AuditCategory = AuditCategory.SYSTEM,
         severity: AuditSeverity = AuditSeverity.INFO,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> AuditEvent:
         """
         Log an audit event.
@@ -672,7 +672,7 @@ def audit_event(
     outcome: str = "success",
     severity: AuditSeverity = AuditSeverity.INFO,
     category: AuditCategory = AuditCategory.SYSTEM,
-    details: Optional[dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
 ) -> AuditEvent:
     """
     Log an audit event using the global logger.
@@ -922,7 +922,7 @@ def audit_data_modified(
     resource_type: str,
     resource_id: str,
     operation: str,  # "create", "update", "delete"
-    changes: Optional[dict[str, Any]] = None,
+    changes: dict[str, Any] | None = None,
 ) -> AuditEvent:
     """Log a data modification event."""
     return audit_event(

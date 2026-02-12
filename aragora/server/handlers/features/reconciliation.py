@@ -260,7 +260,7 @@ class ReconciliationHandler:
 
     ctx: dict[str, Any]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
         self.ctx = server_context or {}
         self._circuit_breaker = _get_reconciliation_circuit_breaker()

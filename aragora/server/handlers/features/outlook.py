@@ -64,7 +64,7 @@ def _get_connector_key(workspace_id: str, user_id: str) -> str:
 async def _get_or_create_connector(
     workspace_id: str,
     user_id: str,
-    folders: Optional[list[str]] = None,
+    folders: list[str] | None = None,
 ) -> Any:
     """Get existing connector or create new one."""
     key = _get_connector_key(workspace_id, user_id)
@@ -424,8 +424,8 @@ async def handle_send_message(
     subject: str,
     body: str,
     body_type: str = "text",
-    cc_addresses: Optional[list[str]] = None,
-    bcc_addresses: Optional[list[str]] = None,
+    cc_addresses: list[str] | None = None,
+    bcc_addresses: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Send a new email.
@@ -474,7 +474,7 @@ async def handle_reply_message(
     body: str,
     body_type: str = "text",
     reply_all: bool = False,
-    cc_addresses: Optional[list[str]] = None,
+    cc_addresses: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Reply to a message.

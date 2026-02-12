@@ -26,7 +26,7 @@ async def restore_workflow_version(
     workflow_id: str,
     version: str,
     tenant_id: str = "default",
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Restore a workflow to a specific version."""
     store = _get_store()
     old_workflow = store.get_version(workflow_id, version)

@@ -540,7 +540,7 @@ class SkillMarketplace:
         query: str = "",
         category: SkillCategory | None = None,
         tier: SkillTier | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         author_id: str | None = None,
         sort_by: str = "rating",  # rating, downloads, recent
         limit: int = 20,

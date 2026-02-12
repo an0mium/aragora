@@ -88,8 +88,8 @@ class MockSSOProviderType:
 
     value: str = "oidc"
 
-    SAML: "MockSSOProviderType" = None  # type: ignore[assignment]
-    OIDC: "MockSSOProviderType" = None  # type: ignore[assignment]
+    SAML: MockSSOProviderType = None  # type: ignore[assignment]
+    OIDC: MockSSOProviderType = None  # type: ignore[assignment]
 
 
 # Initialize enum-like values
@@ -106,22 +106,22 @@ class MockSSOProvider:
 
     async def get_authorization_url(
         self,
-        state: Optional[str] = None,
-        relay_state: Optional[str] = None,
+        state: str | None = None,
+        relay_state: str | None = None,
         **kwargs,
     ) -> str:
         return f"https://idp.example.com/auth?state={state}&relay_state={relay_state or ''}"
 
     async def authenticate(
         self,
-        code: Optional[str] = None,
-        saml_response: Optional[str] = None,
-        state: Optional[str] = None,
+        code: str | None = None,
+        saml_response: str | None = None,
+        state: str | None = None,
         **kwargs,
     ) -> MockSSOUser:
         return MockSSOUser()
 
-    async def logout(self, user: Any) -> Optional[str]:
+    async def logout(self, user: Any) -> str | None:
         return "https://idp.example.com/logout"
 
     async def get_metadata(self) -> str:
@@ -146,7 +146,7 @@ class MockHTTPHandler:
 
     def __init__(
         self,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         has_send_response: bool = True,
     ):
         self.headers = headers or {}

@@ -1322,7 +1322,7 @@ class OnboardingHandler:
         "/api/onboarding/analytics",
     ]
 
-    def __init__(self, ctx: Optional[dict[str, Any]] = None):
+    def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with server context."""
         self.ctx = ctx or {}
 
@@ -1340,8 +1340,8 @@ class OnboardingHandler:
         self,
         path: str,
         method: str,
-        data: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
+        query_params: dict[str, Any] | None = None,
         user_id: str = "default",
         organization_id: str | None = None,
     ) -> HandlerResult:

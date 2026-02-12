@@ -124,14 +124,14 @@ def mock_knowledge_mound(mock_meta_store, sample_knowledge_item):
     def _ensure_initialized():
         pass
 
-    async def get(node_id: str, workspace_id: Optional[str] = None):
+    async def get(node_id: str, workspace_id: str | None = None):
         return mound._items.get(node_id)
 
     async def store(request):
         item_id = f"item_{uuid4().hex[:8]}"
         return IngestionResult(node_id=item_id, success=True)
 
-    async def query(query: str, workspace_id: Optional[str] = None, limit: int = 20, **kwargs):
+    async def query(query: str, workspace_id: str | None = None, limit: int = 20, **kwargs):
         items = list(mound._items.values())[:limit]
         return QueryResult(items=items, total_count=len(items), query=query)
 

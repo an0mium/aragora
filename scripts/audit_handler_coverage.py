@@ -29,7 +29,7 @@ class HandlerInfo:
     name: str
     category: str
     has_test: bool
-    test_path: Optional[str]
+    test_path: str | None
     test_methods: int
     test_classes: int
     lines: int
@@ -58,7 +58,7 @@ def get_category(path: str) -> str:
 def count_test_methods(filepath: Path) -> tuple[int, int]:
     """Count test methods and classes in a test file."""
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             content = f.read()
         tree = ast.parse(content)
 
@@ -81,7 +81,7 @@ def count_test_methods(filepath: Path) -> tuple[int, int]:
 def count_lines(filepath: Path) -> int:
     """Count lines in a file."""
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             return len(f.readlines())
     except Exception:
         return 0
@@ -101,7 +101,7 @@ def get_coverage_level(test_classes: int, test_methods: int, test_lines: int) ->
         return "comprehensive"
 
 
-def find_test_file(handler_path: str, tests_dir: Path) -> Optional[Path]:
+def find_test_file(handler_path: str, tests_dir: Path) -> Path | None:
     """Find corresponding test file for a handler."""
     # Get handler filename without extension
     handler_name = Path(handler_path).stem

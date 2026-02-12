@@ -126,7 +126,7 @@ class GatewayConfig:
     cors_origins: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_env(cls) -> "GatewayConfig":
+    def from_env(cls) -> GatewayConfig:
         """Create config from environment variables."""
 
         def get_bool(key: str, default: bool) -> bool:

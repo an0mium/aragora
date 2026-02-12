@@ -211,7 +211,7 @@ class OIDCConfig(SSOConfig):
         client_secret: str,
         callback_url: str,
         **kwargs: Any,
-    ) -> "OIDCConfig":
+    ) -> OIDCConfig:
         """Create configuration for Azure AD / Microsoft Entra ID."""
         return cls(
             provider_type=SSOProviderType.AZURE_AD,
@@ -233,7 +233,7 @@ class OIDCConfig(SSOConfig):
         client_secret: str,
         callback_url: str,
         **kwargs: Any,
-    ) -> "OIDCConfig":
+    ) -> OIDCConfig:
         """Create configuration for Okta."""
         # Normalize org_url (remove trailing slash)
         org_url = org_url.rstrip("/")
@@ -256,7 +256,7 @@ class OIDCConfig(SSOConfig):
         callback_url: str,
         hd: str = "",
         **kwargs: Any,
-    ) -> "OIDCConfig":
+    ) -> OIDCConfig:
         """Create configuration for Google Workspace.
 
         Args:
@@ -368,7 +368,7 @@ class OIDCProvider(SSOProvider):
         self._pkce_store: dict[str, str] = {}
 
         # Discovery cache
-        self._discovery_cache: Optional[dict[str, Any]] = None
+        self._discovery_cache: dict[str, Any] | None = None
         self._discovery_cached_at: float = 0
 
         # JWKS client
@@ -448,7 +448,7 @@ class OIDCProvider(SSOProvider):
         self,
         state: str | None = None,
         redirect_uri: str | None = None,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         nonce: str | None = None,
         **kwargs: Any,
     ) -> str:

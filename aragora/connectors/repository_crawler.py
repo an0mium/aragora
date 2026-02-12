@@ -128,7 +128,7 @@ class CrawlConfig:
     )
 
     # File type filtering
-    include_types: Optional[list[FileType]] = None
+    include_types: list[FileType] | None = None
     exclude_types: list[FileType] = field(default_factory=list)
 
     # Size limits
@@ -191,7 +191,7 @@ class CrawledFile:
     dependencies: list[FileDependency] = field(default_factory=list)
     chunks: list[dict[str, Any]] = field(default_factory=list)
     last_modified: datetime | None = None
-    git_blame: Optional[dict[str, Any]] = None
+    git_blame: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -244,7 +244,7 @@ class CrawlResult:
     crawl_duration_ms: float
     errors: list[str]
     warnings: list[str]
-    git_info: Optional[dict[str, Any]] = None
+    git_info: dict[str, Any] | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
@@ -351,7 +351,7 @@ class RepositoryCrawler:
             repo_name = repo_path.name
 
         # Load previous state if incremental
-        changed_files: Optional[set[str]] = None
+        changed_files: set[str] | None = None
         if incremental and self._state:
             changed_files = await self._get_changed_files(repo_path)
             if not changed_files:
@@ -540,7 +540,7 @@ class RepositoryCrawler:
         parts = url.split("/")
         return parts[-1] if parts else "unknown"
 
-    async def _get_git_info(self, repo_path: Path) -> Optional[dict[str, Any]]:
+    async def _get_git_info(self, repo_path: Path) -> dict[str, Any] | None:
         """Get git repository information."""
         git_dir = repo_path / ".git"
         if not git_dir.exists():
@@ -598,7 +598,7 @@ class RepositoryCrawler:
             logger.debug(f"Git command failed: {e}")
             return None
 
-    async def _get_changed_files(self, repo_path: Path) -> Optional[set[str]]:
+    async def _get_changed_files(self, repo_path: Path) -> set[str] | None:
         """Get files changed since last crawl."""
         if not self._state or not self._state.last_commit:
             return None
@@ -620,7 +620,7 @@ class RepositoryCrawler:
     async def _discover_files(
         self,
         repo_path: Path,
-        changed_files: Optional[set[str]] = None,
+        changed_files: set[str] | None = None,
     ) -> list[Path]:
         """Discover files to process."""
         import fnmatch

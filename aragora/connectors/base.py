@@ -116,7 +116,7 @@ class Evidence:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Evidence":
+    def from_dict(cls, data: dict) -> Evidence:
         """Reconstruct Evidence from dictionary (for cache deserialization)."""
         from aragora.reasoning.provenance import SourceType
 
@@ -501,7 +501,7 @@ class BaseConnector(ABC):
         self._base_delay = base_delay
         self._max_delay = max_delay
         # Circuit breaker for failure protection
-        self._circuit_breaker: Optional["CircuitBreaker"] = None
+        self._circuit_breaker: CircuitBreaker | None = None
         self._enable_circuit_breaker = enable_circuit_breaker
 
     def _get_circuit_breaker(self):

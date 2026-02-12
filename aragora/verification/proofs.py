@@ -600,7 +600,7 @@ class VerificationProof:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "VerificationProof":
+    def from_dict(cls, data: dict) -> VerificationProof:
         proof = cls(
             id=data["id"],
             claim_id=data["claim_id"],

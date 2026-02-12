@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 class NomicAPI:
     """API interface for the Nomic self-improvement loop."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # ------------------------------------------------------------------

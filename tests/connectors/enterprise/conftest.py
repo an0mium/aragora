@@ -28,10 +28,10 @@ from aragora.connectors.enterprise.base import (
 class MockCredentialProvider:
     """Mock credential provider for testing."""
 
-    def __init__(self, credentials: Optional[dict[str, str]] = None):
+    def __init__(self, credentials: dict[str, str] | None = None):
         self._credentials = credentials or {}
 
-    async def get_credential(self, key: str) -> Optional[str]:
+    async def get_credential(self, key: str) -> str | None:
         """Return mock credential."""
         return self._credentials.get(key)
 

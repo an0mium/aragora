@@ -485,7 +485,7 @@ class BudgetManager:
         period: BudgetPeriod = BudgetPeriod.MONTHLY,
         description: str = "",
         auto_suspend: bool = True,
-        thresholds: Optional[list[BudgetThreshold]] = None,
+        thresholds: list[BudgetThreshold] | None = None,
         created_by: str | None = None,
     ) -> Budget:
         """Create a new budget.

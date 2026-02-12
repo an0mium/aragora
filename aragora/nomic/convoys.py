@@ -173,12 +173,12 @@ class Convoy:
         bead_ids: list[str],
         description: str = "",
         priority: ConvoyPriority = ConvoyPriority.NORMAL,
-        dependencies: Optional[list[str]] = None,
+        dependencies: list[str] | None = None,
         parent_id: str | None = None,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         convoy_id: str | None = None,
-    ) -> "Convoy":
+    ) -> Convoy:
         """Create a new convoy with optional custom ID and timestamps."""
         now = datetime.now(timezone.utc)
         return cls(
@@ -218,7 +218,7 @@ class Convoy:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Convoy":
+    def from_dict(cls, data: dict[str, Any]) -> Convoy:
         """Deserialize convoy from dictionary."""
         return cls(
             id=data["id"],
@@ -325,9 +325,9 @@ class ConvoyManager:
         bead_ids: list[str],
         description: str = "",
         priority: ConvoyPriority = ConvoyPriority.NORMAL,
-        dependencies: Optional[list[str]] = None,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        dependencies: list[str] | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         convoy_id: str | None = None,
     ) -> Convoy:
         """
@@ -440,9 +440,9 @@ class ConvoyManager:
         convoy_id: str,
         *,
         status: ConvoyStatus | None = None,
-        metadata_updates: Optional[dict[str, Any]] = None,
-        assigned_to: Optional[list[str]] = None,
-        bead_ids: Optional[list[str]] = None,
+        metadata_updates: dict[str, Any] | None = None,
+        assigned_to: list[str] | None = None,
+        bead_ids: list[str] | None = None,
         started_at: datetime | None = None,
         completed_at: datetime | None = None,
         error_message: str | None = None,

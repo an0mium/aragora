@@ -109,8 +109,8 @@ async def create_test_checkpoint(
     phase: str,
     round_num: int,
     messages: list[dict[str, Any]],
-    critiques: Optional[list[dict[str, Any]]] = None,
-    votes: Optional[list[dict[str, Any]]] = None,
+    critiques: list[dict[str, Any]] | None = None,
+    votes: list[dict[str, Any]] | None = None,
 ):
     """Create and save a test checkpoint."""
     from aragora.debate.checkpoint import CheckpointStatus, DebateCheckpoint

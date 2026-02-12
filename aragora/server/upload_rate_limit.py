@@ -41,7 +41,7 @@ class UploadRateLimiter:
         max_per_minute: int = 5,
         max_per_hour: int = 30,
         max_tracked_ips: int = 10000,
-        trusted_proxies: Optional[set[str]] = None,
+        trusted_proxies: set[str] | None = None,
     ):
         """Initialize rate limiter.
 
@@ -57,13 +57,13 @@ class UploadRateLimiter:
         self.max_timestamps = max_per_hour  # Match hourly limit
 
         # IP -> deque of upload timestamps
-        self._upload_counts: "OrderedDict[str, deque]" = OrderedDict()
+        self._upload_counts: OrderedDict[str, deque] = OrderedDict()
         self._lock = threading.Lock()
 
         # Trusted proxies (default: localhost)
         self._trusted_proxies = trusted_proxies or frozenset({"127.0.0.1", "::1", "localhost"})
 
-    def get_client_ip(self, handler: "BaseHTTPRequestHandler") -> str:
+    def get_client_ip(self, handler: BaseHTTPRequestHandler) -> str:
         """Extract client IP from request, respecting trusted proxy headers.
 
         Args:

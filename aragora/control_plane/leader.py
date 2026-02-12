@@ -92,7 +92,7 @@ class LeaderConfig:
     node_id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
 
     @classmethod
-    def from_env(cls) -> "LeaderConfig":
+    def from_env(cls) -> LeaderConfig:
         """Create config from environment variables."""
         return cls(
             redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379"),
@@ -536,7 +536,7 @@ class RegionalLeaderConfig(LeaderConfig):
         return f"{self.key_prefix}region:{self.region_id}:"
 
     @classmethod
-    def from_env(cls) -> "RegionalLeaderConfig":
+    def from_env(cls) -> RegionalLeaderConfig:
         """Create config from environment variables."""
         base = LeaderConfig.from_env()
         return cls(

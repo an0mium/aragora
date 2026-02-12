@@ -309,7 +309,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
         self,
         node_ids: list[str],
         types: list[RelationshipType] | None = None,
-    ) -> dict[str, list["KnowledgeLink"]]:
+    ) -> dict[str, list[KnowledgeLink]]:
         """Get relationships for multiple nodes in a single query.
 
         This is an optimized batch operation that fetches all relationships

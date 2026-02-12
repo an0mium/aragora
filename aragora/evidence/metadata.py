@@ -72,7 +72,7 @@ class Provenance:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Provenance":
+    def from_dict(cls, data: dict[str, Any]) -> Provenance:
         """Create from dictionary."""
         pub_date = data.get("publication_date")
         last_mod = data.get("last_modified")
@@ -127,7 +127,7 @@ class EnrichedMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EnrichedMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> EnrichedMetadata:
         """Create from dictionary."""
         return cls(
             source_type=SourceType(data.get("source_type", "unknown")),
@@ -261,7 +261,7 @@ class MetadataEnricher:
         content: str,
         url: str | None = None,
         source: str | None = None,
-        existing_metadata: Optional[dict[str, Any]] = None,
+        existing_metadata: dict[str, Any] | None = None,
     ) -> EnrichedMetadata:
         """Enrich content with metadata.
 
@@ -354,7 +354,7 @@ class MetadataEnricher:
     def _extract_provenance(
         self,
         url: str | None,
-        existing_metadata: Optional[dict[str, Any]],
+        existing_metadata: dict[str, Any] | None,
     ) -> Provenance:
         """Extract provenance information."""
         provenance = Provenance(url=url)

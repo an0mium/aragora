@@ -78,8 +78,8 @@ class MessageBinding:
     # Optional constraints
     time_window_start: int | None = None  # Hour (0-23)
     time_window_end: int | None = None  # Hour (0-23)
-    allowed_users: Optional[set[str]] = None
-    blocked_users: Optional[set[str]] = None
+    allowed_users: set[str] | None = None
+    blocked_users: set[str] | None = None
 
     # Configuration overrides
     config_overrides: dict[str, Any] = field(default_factory=dict)
@@ -142,7 +142,7 @@ class MessageBinding:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MessageBinding":
+    def from_dict(cls, data: dict[str, Any]) -> MessageBinding:
         return cls(
             provider=data["provider"],
             account_id=data["account_id"],

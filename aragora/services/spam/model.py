@@ -116,7 +116,7 @@ class NaiveBayesClassifier:
         If you have old pickle models, use the migration script or recreate the model.
         """
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.warning(f"Invalid JSON model file {path}: {e}")

@@ -99,7 +99,7 @@ def stream_conversations(path: Path) -> Iterator[dict]:
 
     Handles ChatGPT export format (array of conversation objects).
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         # Skip initial whitespace and '['
         char = f.read(1)
         while char and char in " \t\n\r":
@@ -282,7 +282,7 @@ def load_seed_keywords(seed_path: Path) -> set[str]:
     if not seed_path.exists():
         return set()
 
-    with open(seed_path, "r", encoding="utf-8") as f:
+    with open(seed_path, encoding="utf-8") as f:
         content = f.read()
 
     return extract_keywords(content)

@@ -252,7 +252,7 @@ async def make_resilient_request(
     circuit_breaker: CircuitBreaker | None = None,
     connector_name: str = "api",
     config: ResilientRequestConfig | None = None,
-    on_transient_error: Optional[Callable[[int, float], Awaitable[None]]] = None,
+    on_transient_error: Callable[[int, float], Awaitable[None]] | None = None,
 ) -> T:
     """Make an HTTP request with circuit breaker and retry protection.
 

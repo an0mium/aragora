@@ -134,7 +134,7 @@ class QuotaConfig:
     """How often to clean up old usage data."""
 
     @classmethod
-    def default_limits(cls) -> "QuotaConfig":
+    def default_limits(cls) -> QuotaConfig:
         """Get default quota configuration."""
         return cls(
             limits=[

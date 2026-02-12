@@ -103,7 +103,7 @@ class UserRepository:
     def __init__(
         self,
         transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
-        get_connection_fn: Optional[Callable[[], sqlite3.Connection]] = None,
+        get_connection_fn: Callable[[], sqlite3.Connection] | None = None,
     ) -> None:
         """
         Initialize the user repository.
@@ -125,7 +125,7 @@ class UserRepository:
         name: str = "",
         org_id: str | None = None,
         role: str = "member",
-    ) -> "User":
+    ) -> User:
         """
         Create a new user.
 
@@ -188,14 +188,14 @@ class UserRepository:
         logger.info(f"user_created id={user.id} email={email}")
         return user
 
-    def get_by_id(self, user_id: str) -> Optional["User"]:
+    def get_by_id(self, user_id: str) -> User | None:
         """Get user by ID."""
         with self._transaction() as cursor:
             cursor.execute(f"SELECT {self._USER_COLUMNS} FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
             return self._row_to_user(row) if row else None
 
-    def get_by_email(self, email: str) -> Optional["User"]:
+    def get_by_email(self, email: str) -> User | None:
         """Get user by email."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -204,7 +204,7 @@ class UserRepository:
             row = cursor.fetchone()
             return self._row_to_user(row) if row else None
 
-    def get_by_api_key(self, api_key: str) -> Optional["User"]:
+    def get_by_api_key(self, api_key: str) -> User | None:
         """
         Get user by API key using hash-based lookup.
 
@@ -232,7 +232,7 @@ class UserRepository:
 
         return None
 
-    def get_batch(self, user_ids: list[str]) -> dict[str, "User"]:
+    def get_batch(self, user_ids: list[str]) -> dict[str, User]:
         """
         Fetch multiple users in a single query.
 
@@ -442,7 +442,7 @@ class UserRepository:
             return new_version
 
     @staticmethod
-    def _row_to_user(row: sqlite3.Row) -> "User":
+    def _row_to_user(row: sqlite3.Row) -> User:
         """Convert database row to User object."""
         from aragora.billing.models import User
 
@@ -501,7 +501,7 @@ _user_repository: UserRepository | None = None
 
 
 def get_user_repository(
-    store: Optional["UserStore | PostgresUserStore"] = None,
+    store: UserStore | PostgresUserStore | None = None,
 ) -> UserRepository | None:
     """Get or create the user repository from the configured user store."""
     global _user_repository

@@ -489,7 +489,7 @@ def wrap_exception(
 def log_error(
     error: Exception,
     level: int = logging.ERROR,
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> str:
     """Log an error with context and return the error ID.
 

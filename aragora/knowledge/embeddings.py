@@ -59,7 +59,7 @@ class ChunkMatch:
         }
 
     @classmethod
-    def from_weaviate(cls, obj: Any, workspace_id: str = "") -> "ChunkMatch":
+    def from_weaviate(cls, obj: Any, workspace_id: str = "") -> ChunkMatch:
         """Create from Weaviate search result."""
         props = obj.properties
         return cls(
@@ -197,7 +197,7 @@ class WeaviateEmbeddingService:
             self._client = None
             self._connected = False
 
-    def __enter__(self) -> "WeaviateEmbeddingService":
+    def __enter__(self) -> WeaviateEmbeddingService:
         """Context manager entry."""
         self.connect()
         return self
@@ -491,7 +491,7 @@ class InMemoryEmbeddingService:
         """No-op for in-memory."""
         pass
 
-    def __enter__(self) -> "InMemoryEmbeddingService":
+    def __enter__(self) -> InMemoryEmbeddingService:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:

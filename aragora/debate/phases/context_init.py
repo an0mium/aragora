@@ -32,9 +32,9 @@ _KNOWLEDGE_CACHE_TTL = 300.0  # 5 minutes
 
 # Check for RLM availability (prefer factory for TRUE RLM support)
 # Declare types as unions to handle both import success and failure
-_get_rlm: Optional[Callable[..., Any]] = None
-_RLMConfig: Optional[type[Any]] = None
-_RLMContextClass: Optional[type[Any]] = None
+_get_rlm: Callable[..., Any] | None = None
+_RLMConfig: type[Any] | None = None
+_RLMContextClass: type[Any] | None = None
 HAS_RLM = False
 HAS_OFFICIAL_RLM = False
 
@@ -96,9 +96,7 @@ class ContextInitializer:
         # RLM (Recursive Language Models) for context compression
         enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
         rlm_config: Any = None,  # RLMConfig for compression settings
-        rlm_agent_call: Optional[
-            Callable[[str, str], str]
-        ] = None,  # Agent callback for compression
+        rlm_agent_call: Callable[[str, str], str] | None = None,  # Agent callback for compression
         # Callbacks for orchestrator methods
         fetch_historical_context: Callable | None = None,
         format_patterns_for_prompt: Callable | None = None,
@@ -181,7 +179,7 @@ class ContextInitializer:
         self._fetch_knowledge_context = fetch_knowledge_context
         self._inject_supermemory_context_cb = inject_supermemory_context
 
-    async def initialize(self, ctx: "DebateContext") -> None:
+    async def initialize(self, ctx: DebateContext) -> None:
         """
         Initialize the debate context.
 
@@ -298,7 +296,7 @@ class ContextInitializer:
         if self.enable_rlm_compression and self._rlm and ctx.env.context:
             await self._compress_context_with_rlm(ctx)
 
-    def _inject_fork_history(self, ctx: "DebateContext") -> None:
+    def _inject_fork_history(self, ctx: DebateContext) -> None:
         """Inject fork debate history into partial messages."""
         from aragora.core import Message
 
@@ -318,7 +316,7 @@ class ContextInitializer:
                     )
                 )
 
-    def _inject_trending_topic(self, ctx: "DebateContext") -> None:
+    def _inject_trending_topic(self, ctx: DebateContext) -> None:
         """Inject trending topic context into environment."""
         if not self.trending_topic:
             return
@@ -345,7 +343,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"Trending topic injection failed: {e}")
 
-    async def _inject_pulse_context(self, ctx: "DebateContext") -> None:
+    async def _inject_pulse_context(self, ctx: DebateContext) -> None:
         """Auto-fetch and inject trending topics from Pulse.
 
         Fetches trending topics from configured Pulse ingestors and
@@ -396,7 +394,7 @@ class ContextInitializer:
         except Exception as e:
             logger.warning(f"Recorder start error (non-fatal): {e}")
 
-    async def _fetch_historical(self, ctx: "DebateContext") -> None:
+    async def _fetch_historical(self, ctx: DebateContext) -> None:
         """Fetch historical context for institutional memory."""
         if not self.debate_embeddings or not self._fetch_historical_context:
             return
@@ -412,7 +410,7 @@ class ContextInitializer:
             logger.debug(f"Historical context fetch error: {e}")
             ctx.historical_context_cache = ""
 
-    async def _inject_knowledge_context(self, ctx: "DebateContext") -> None:
+    async def _inject_knowledge_context(self, ctx: DebateContext) -> None:
         """Fetch and inject knowledge from Knowledge Mound.
 
         Queries the unified knowledge superstructure for semantically related
@@ -472,7 +470,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"[knowledge_mound] Knowledge context fetch error: {e}")
 
-    async def _inject_supermemory_context(self, ctx: "DebateContext") -> None:
+    async def _inject_supermemory_context(self, ctx: DebateContext) -> None:
         """Inject external Supermemory context via orchestrator callback."""
         if not self._inject_supermemory_context_cb:
             return
@@ -499,7 +497,7 @@ class ContextInitializer:
             del _knowledge_cache[query_hash]
         return None
 
-    async def _inject_insight_patterns(self, ctx: "DebateContext") -> None:
+    async def _inject_insight_patterns(self, ctx: DebateContext) -> None:
         """Inject learned patterns and high-confidence insights from past debates.
 
         This method now uses the enhanced get_relevant_insights() to find
@@ -560,7 +558,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"Pattern injection error: {e}")
 
-    def _inject_memory_patterns(self, ctx: "DebateContext") -> None:
+    def _inject_memory_patterns(self, ctx: DebateContext) -> None:
         """Inject successful critique patterns from CritiqueStore memory."""
         if not self.memory or not self._get_successful_patterns_from_memory:
             return
@@ -576,7 +574,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"Memory pattern injection error: {e}")
 
-    def _inject_historical_dissents(self, ctx: "DebateContext") -> None:
+    def _inject_historical_dissents(self, ctx: DebateContext) -> None:
         """Inject historical dissenting views from similar past debates.
 
         Uses DissentRetriever to find relevant contrarian perspectives
@@ -617,7 +615,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"Historical dissent injection error: {e}")
 
-    def _inject_belief_cruxes(self, ctx: "DebateContext") -> None:
+    def _inject_belief_cruxes(self, ctx: DebateContext) -> None:
         """Inject belief cruxes from similar past debates.
 
         Retrieves crux claims (key disagreement points) from past debates
@@ -700,7 +698,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"[belief_guidance] Crux injection error: {e}")
 
-    async def _inject_cross_debate_context(self, ctx: "DebateContext") -> None:
+    async def _inject_cross_debate_context(self, ctx: DebateContext) -> None:
         """Inject institutional knowledge from CrossDebateMemory.
 
         Queries the cross-debate memory system for relevant context from past
@@ -749,7 +747,7 @@ class ContextInitializer:
         except Exception as e:
             logger.debug(f"[cross_debate] Context injection error: {e}")
 
-    async def _perform_pre_debate_research(self, ctx: "DebateContext") -> None:
+    async def _perform_pre_debate_research(self, ctx: DebateContext) -> None:
         """Perform pre-debate research if enabled."""
         if not self.protocol or not getattr(self.protocol, "enable_research", False):
             return
@@ -773,7 +771,7 @@ class ContextInitializer:
             logger.warning(f"research_error error={e}")
             # Continue without research - don't break the debate
 
-    async def _collect_evidence(self, ctx: "DebateContext") -> None:
+    async def _collect_evidence(self, ctx: DebateContext) -> None:
         """Collect evidence from configured connectors for debate grounding.
 
         This auto-collects citations and snippets from connectors like:
@@ -922,7 +920,7 @@ class ContextInitializer:
 
         return snippets
 
-    async def await_background_context(self, ctx: "DebateContext") -> None:
+    async def await_background_context(self, ctx: DebateContext) -> None:
         """Await and cleanup background research/evidence tasks.
 
         Called before round 2 to ensure research context is available for critiques.
@@ -962,7 +960,7 @@ class ContextInitializer:
         ctx.background_research_task = None
         ctx.background_evidence_task = None
 
-    def _init_context_messages(self, ctx: "DebateContext") -> None:
+    def _init_context_messages(self, ctx: DebateContext) -> None:
         """Initialize context messages for fork debates."""
         from aragora.core import Message
 
@@ -983,7 +981,7 @@ class ContextInitializer:
         if ctx.context_messages:
             logger.debug(f"fork_context loaded {len(ctx.context_messages)} initial messages")
 
-    def _select_proposers(self, ctx: "DebateContext") -> None:
+    def _select_proposers(self, ctx: DebateContext) -> None:
         """Select proposers from agent list."""
         ctx.proposers = [a for a in ctx.agents if a.role == "proposer"]
 
@@ -991,7 +989,7 @@ class ContextInitializer:
             # Default to first agent if no dedicated proposers
             ctx.proposers = [ctx.agents[0]]
 
-    async def _compress_context_with_rlm(self, ctx: "DebateContext") -> None:
+    async def _compress_context_with_rlm(self, ctx: DebateContext) -> None:
         """
         Compress accumulated context using Recursive Language Models (RLM).
 

@@ -32,7 +32,7 @@ class MockAgent:
     def __init__(
         self,
         agent_id: str,
-        capabilities: Optional[set[str]] = None,
+        capabilities: set[str] | None = None,
         status: str = "ready",
     ):
         self.agent_id = agent_id
@@ -54,7 +54,7 @@ class MockAgentRegistry:
     async def register(
         self,
         agent_id: str,
-        capabilities: Optional[set[str]] = None,
+        capabilities: set[str] | None = None,
         **kwargs,
     ) -> MockAgent:
         """Register an agent."""
@@ -93,7 +93,7 @@ class MockAgentRegistry:
                     await self.mark_offline(agent_id)
         return stale
 
-    def get_agent(self, agent_id: str) -> Optional[MockAgent]:
+    def get_agent(self, agent_id: str) -> MockAgent | None:
         """Get agent by ID."""
         return self._agents.get(agent_id)
 
@@ -114,18 +114,18 @@ class MockTask:
     def __init__(
         self,
         task_id: str,
-        required_capabilities: Optional[set[str]] = None,
+        required_capabilities: set[str] | None = None,
         priority: str = "normal",
     ):
         self.task_id = task_id
         self.required_capabilities = required_capabilities or {"debate"}
         self.priority = priority
         self.status = "pending"
-        self.assigned_agent: Optional[str] = None
+        self.assigned_agent: str | None = None
         self.retry_count = 0
         self.max_retries = 3
         self.created_at = time.time()
-        self.claimed_at: Optional[float] = None
+        self.claimed_at: float | None = None
 
 
 class MockTaskScheduler:
@@ -140,7 +140,7 @@ class MockTaskScheduler:
     async def submit(
         self,
         task_id: str,
-        required_capabilities: Optional[set[str]] = None,
+        required_capabilities: set[str] | None = None,
         priority: str = "normal",
     ) -> MockTask:
         """Submit a new task."""
@@ -220,7 +220,7 @@ class MockTaskScheduler:
         """Get all pending tasks."""
         return [t for t in self._tasks.values() if t.status == "pending"]
 
-    def get_task(self, task_id: str) -> Optional[MockTask]:
+    def get_task(self, task_id: str) -> MockTask | None:
         """Get task by ID."""
         return self._tasks.get(task_id)
 

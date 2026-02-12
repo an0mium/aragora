@@ -218,7 +218,7 @@ Conclusion:""",
     def __init__(
         self,
         config: RLMConfig | None = None,
-        agent_call: Optional[Callable[[str, str], str]] = None,
+        agent_call: Callable[[str, str], str] | None = None,
         event_emitter: Any | None = None,
     ):
         """

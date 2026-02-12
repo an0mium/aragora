@@ -49,7 +49,7 @@ class ForkBridgeHandler:
         self,
         active_loops: dict[str, Any],
         active_loops_lock: threading.Lock,
-        fork_store: Optional[dict[str, Any]] = None,
+        fork_store: dict[str, Any] | None = None,
     ):
         """
         Initialize the fork bridge handler.
@@ -70,7 +70,7 @@ class ForkBridgeHandler:
             self.fork_store[fork_id] = fork_data
             logger.info(f"Fork registered: {fork_id}")
 
-    def get_fork(self, fork_id: str) -> Optional[dict[str, Any]]:
+    def get_fork(self, fork_id: str) -> dict[str, Any] | None:
         """Get fork data by ID."""
         with self._fork_store_lock:
             return self.fork_store.get(fork_id)

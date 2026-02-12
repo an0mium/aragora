@@ -121,7 +121,7 @@ class ScheduledSync:
     status: ScheduleStatus = ScheduleStatus.ACTIVE
     next_run: datetime | None = None
     last_run: datetime | None = None
-    last_result: Optional[dict[str, Any]] = None
+    last_result: dict[str, Any] | None = None
     run_count: int = 0
     error_count: int = 0
     consecutive_errors: int = 0

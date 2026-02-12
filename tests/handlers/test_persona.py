@@ -59,7 +59,7 @@ class MockPersonaManager:
     def get_all_personas(self) -> list[MockPersona]:
         return list(self._personas.values())
 
-    def get_persona(self, agent: str) -> Optional[MockPersona]:
+    def get_persona(self, agent: str) -> MockPersona | None:
         return self._personas.get(agent)
 
     def get_performance_summary(self, agent: str) -> dict:

@@ -329,7 +329,7 @@ class QBOOperationsMixin:
         response = await self._request("GET", f"query?query={query}")
         return response.get("QueryResponse", {}).get("Vendor", [])
 
-    async def get_vendor_by_name(self, name: str) -> Optional[dict[str, Any]]:
+    async def get_vendor_by_name(self, name: str) -> dict[str, Any] | None:
         """
         Get vendor by display name.
 
@@ -450,7 +450,7 @@ class QBOOperationsMixin:
         amount: float,
         due_date: datetime | None = None,
         description: str | None = None,
-        line_items: Optional[list[dict[str, Any]]] = None,
+        line_items: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """
         Create a bill (accounts payable) in QuickBooks.
@@ -535,7 +535,7 @@ class QBOOperationsMixin:
         self,
         customer_id: str,
         amount: float,
-        invoice_ids: Optional[list[str]] = None,
+        invoice_ids: list[str] | None = None,
         payment_method: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -573,7 +573,7 @@ class QBOOperationsMixin:
         vendor_id: str,
         amount: float,
         bank_account_id: str,
-        bill_ids: Optional[list[str]] = None,
+        bill_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Record a payment to a vendor.

@@ -404,7 +404,7 @@ class MultiPartyValidator:
         deadline_hours: int | None = None,
         contradiction_id: str | None = None,
         proposer_id: str = "",
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ValidationRequest:
         """Create a new validation request.
 

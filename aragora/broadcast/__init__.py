@@ -29,7 +29,7 @@ from .script_gen import ScriptSegment, generate_script
 
 
 async def broadcast_debate(
-    trace: "DebateTrace",  # Forward reference to avoid circular import
+    trace: DebateTrace,  # Forward reference to avoid circular import
     output_path: Path | None = None,
     format: str = "mp3",
 ) -> Path | None:
@@ -90,7 +90,7 @@ async def broadcast_debate(
 
 
 def broadcast_debate_sync(
-    trace: "DebateTrace",
+    trace: DebateTrace,
     output_path: Path | None = None,
     format: str = "mp3",
 ) -> Path | None:

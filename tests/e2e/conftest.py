@@ -54,7 +54,7 @@ class E2EConfig:
     test_port: int = 18080
     test_host: str = "127.0.0.1"
     use_temp_db: bool = True
-    db_url: Optional[str] = None
+    db_url: str | None = None
     request_timeout: float = 30.0
     debate_timeout: float = 120.0
     sync_timeout: float = 60.0
@@ -90,8 +90,8 @@ class TestClient:
     async def get(
         self,
         path: str,
-        headers: Optional[dict[str, str]] = None,
-        params: Optional[dict[str, Any]] = None,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         import aiohttp
 
@@ -112,8 +112,8 @@ class TestClient:
     async def post(
         self,
         path: str,
-        json: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         import aiohttp
 
@@ -134,8 +134,8 @@ class TestClient:
     async def put(
         self,
         path: str,
-        json: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         import aiohttp
 
@@ -153,7 +153,7 @@ class TestClient:
                     "text": await response.text(),
                 }
 
-    async def delete(self, path: str, headers: Optional[dict[str, str]] = None) -> dict[str, Any]:
+    async def delete(self, path: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
         import aiohttp
 
         async with aiohttp.ClientSession() as session:
@@ -751,7 +751,7 @@ def mock_agent_factory():
 
     def factory(
         name: str,
-        capabilities: Optional[list[str]] = None,
+        capabilities: list[str] | None = None,
         response: str = "Default response",
         fail_rate: float = 0.0,
         response_delay: float = 0.05,

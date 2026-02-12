@@ -48,7 +48,7 @@ class FileOperationsMixin:
         title: str | None = None,
         thread_id: str | None = None,
         **kwargs: Any,
-    ) -> "FileAttachment":
+    ) -> FileAttachment:
         """
         Upload a file to a channel.
 
@@ -111,7 +111,7 @@ class FileOperationsMixin:
         self,
         file_id: str,
         **kwargs: Any,
-    ) -> "FileAttachment":
+    ) -> FileAttachment:
         """
         Download a file by ID.
 
@@ -172,7 +172,7 @@ class FileOperationsMixin:
         content_type: str = "audio/mpeg",
         reply_to: str | None = None,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Send a voice/audio message to a channel.
 

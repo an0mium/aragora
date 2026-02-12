@@ -52,7 +52,7 @@ class CheckpointHandler(BaseHandler):
         "/api/v1/checkpoints/resumable",
     ]
 
-    def __init__(self, context: Optional[ServerContext] = None):
+    def __init__(self, context: ServerContext | None = None):
         super().__init__(context or {})
         self._checkpoint_manager: CheckpointManager | None = None
 
@@ -438,7 +438,7 @@ class CheckpointHandler(BaseHandler):
                 }
             )
 
-        except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to create checkpoint for {debate_id}: {e}")
             return error_response(f"Failed to create checkpoint: {e}", 500)
 
@@ -536,7 +536,7 @@ class CheckpointHandler(BaseHandler):
 
                 logger.info(f"Paused debate {debate_id} with checkpoint {checkpoint_id}")
 
-            except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.warning(f"Failed to create checkpoint during pause: {e}")
 
         return json_response(

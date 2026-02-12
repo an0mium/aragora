@@ -235,8 +235,8 @@ class OneDriveConnector(EnterpriseConnector):
         access_token: str | None = None,
         refresh_token: str | None = None,
         drive_id: str | None = None,  # Specific drive to use
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ):
         """
         Initialize OneDrive connector.

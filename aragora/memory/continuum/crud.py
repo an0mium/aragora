@@ -34,7 +34,7 @@ class CrudMixin:
     """Mixin providing CRUD operations for ContinuumMemory."""
 
     def add(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         id: str,
         content: str,
         tier: MemoryTier = MemoryTier.SLOW,
@@ -121,7 +121,7 @@ class CrudMixin:
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def add_async(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         id: str,
         content: str,
         tier: MemoryTier = MemoryTier.SLOW,
@@ -143,7 +143,7 @@ class CrudMixin:
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def store(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         key: str,
         content: str,
         tier: str | MemoryTier = MemoryTier.SLOW,
@@ -165,7 +165,7 @@ class CrudMixin:
         )
 
     def get(
-        self: "ContinuumMemory", id: str, tenant_id: str | None = None
+        self: ContinuumMemory, id: str, tenant_id: str | None = None
     ) -> ContinuumMemoryEntry | None:
         """Get a memory entry by ID.
 
@@ -219,16 +219,16 @@ class CrudMixin:
         return entry
 
     @with_retry(_MEMORY_RETRY_CONFIG)
-    async def get_async(self: "ContinuumMemory", id: str) -> ContinuumMemoryEntry | None:
+    async def get_async(self: ContinuumMemory, id: str) -> ContinuumMemoryEntry | None:
         """Async wrapper for get() - offloads blocking I/O to executor."""
         loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.get, id)
 
-    def get_entry(self: "ContinuumMemory", id: str) -> ContinuumMemoryEntry | None:
+    def get_entry(self: ContinuumMemory, id: str) -> ContinuumMemoryEntry | None:
         """Alias for get() for interface compatibility with OutcomeMemoryBridge."""
         return self.get(id)
 
-    def update_entry(self: "ContinuumMemory", entry: ContinuumMemoryEntry) -> bool:
+    def update_entry(self: ContinuumMemory, entry: ContinuumMemoryEntry) -> bool:
         """Update an entry's success/failure counts.
 
         Interface compatibility method for OutcomeMemoryBridge.
@@ -246,17 +246,17 @@ class CrudMixin:
             conn.commit()
             return cursor.rowcount > 0
 
-    async def update_entry_async(self: "ContinuumMemory", entry: ContinuumMemoryEntry) -> bool:
+    async def update_entry_async(self: ContinuumMemory, entry: ContinuumMemoryEntry) -> bool:
         """Async wrapper for update_entry() - offloads blocking I/O to executor."""
         loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.update_entry, entry)
 
     def update(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         content: str | None = None,
         importance: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         surprise_score: float | None = None,
         consolidation_score: float | None = None,
         tenant_id: str | None = None,
@@ -339,11 +339,11 @@ class CrudMixin:
 
     @with_retry(_MEMORY_RETRY_CONFIG)
     async def update_async(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         content: str | None = None,
         importance: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         surprise_score: float | None = None,
         consolidation_score: float | None = None,
         tenant_id: str | None = None,
@@ -364,7 +364,7 @@ class CrudMixin:
         )
 
     def promote_entry(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         new_tier: MemoryTier,
         tenant_id: str | None = None,
@@ -412,7 +412,7 @@ class CrudMixin:
             return cursor.rowcount > 0
 
     async def promote_entry_async(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         new_tier: MemoryTier,
         tenant_id: str | None = None,
@@ -424,7 +424,7 @@ class CrudMixin:
         )
 
     def demote_entry(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         new_tier: MemoryTier,
         tenant_id: str | None = None,
@@ -472,7 +472,7 @@ class CrudMixin:
             return cursor.rowcount > 0
 
     async def demote_entry_async(
-        self: "ContinuumMemory",
+        self: ContinuumMemory,
         memory_id: str,
         new_tier: MemoryTier,
         tenant_id: str | None = None,

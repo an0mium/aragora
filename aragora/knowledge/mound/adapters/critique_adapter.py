@@ -86,7 +86,7 @@ class CritiqueKMSyncResult:
 class CritiqueSearchResult:
     """Wrapper for critique pattern search results."""
 
-    pattern: "Pattern"
+    pattern: Pattern
     relevance_score: float = 0.0
     matched_category: bool = False
 
@@ -118,7 +118,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        store: "CritiqueStore",
+        store: CritiqueStore,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -142,7 +142,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
         self._store = store
 
     @property
-    def store(self) -> "CritiqueStore":
+    def store(self) -> CritiqueStore:
         """Access the underlying CritiqueStore."""
         return self._store
 
@@ -152,7 +152,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
         limit: int = 10,
         issue_type: str | None = None,
         min_success: int = 1,
-    ) -> list["Pattern"]:
+    ) -> list[Pattern]:
         """
         Search critique patterns by query.
 
@@ -219,7 +219,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
 
         return patterns
 
-    def get(self, pattern_id: str) -> Optional["Pattern"]:
+    def get(self, pattern_id: str) -> Pattern | None:
         """
         Get a specific pattern by ID.
 
@@ -242,14 +242,14 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
                 return pattern
         return None
 
-    async def get_async(self, pattern_id: str) -> Optional["Pattern"]:
+    async def get_async(self, pattern_id: str) -> Pattern | None:
         """Async version of get for compatibility."""
         return self.get(pattern_id)
 
     def to_knowledge_item(
         self,
-        pattern: "Pattern",
-    ) -> "KnowledgeItem":
+        pattern: Pattern,
+    ) -> KnowledgeItem:
         """
         Convert a Pattern to a KnowledgeItem.
 
@@ -306,7 +306,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
     def get_agent_reputation(
         self,
         agent_name: str,
-    ) -> Optional["AgentReputation"]:
+    ) -> AgentReputation | None:
         """
         Get reputation data for an agent.
 
@@ -324,7 +324,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
     def get_top_agents(
         self,
         limit: int = 10,
-    ) -> list["AgentReputation"]:
+    ) -> list[AgentReputation]:
         """
         Get top agents by reputation.
 
@@ -360,7 +360,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
         self,
         issue_type: str,
         limit: int = 20,
-    ) -> list["Pattern"]:
+    ) -> list[Pattern]:
         """
         Get patterns for a specific issue type.
 
@@ -380,7 +380,7 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
     def get_surprising_patterns(
         self,
         limit: int = 10,
-    ) -> list["Pattern"]:
+    ) -> list[Pattern]:
         """
         Get patterns with high surprise scores.
 

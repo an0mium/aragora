@@ -44,7 +44,7 @@ class FreshnessConfig:
     min_freshness: float = 0.05  # Minimum freshness floor
 
     # Platform-specific half-lives (override global)
-    platform_half_lives: Optional[dict[str, float]] = None
+    platform_half_lives: dict[str, float] | None = None
 
 
 # Default platform-specific half-lives (in hours)
@@ -154,7 +154,7 @@ class FreshnessCalculator:
     def score_topics(
         self,
         topics: list[TrendingTopic],
-        timestamps: Optional[dict[str, float]] = None,
+        timestamps: dict[str, float] | None = None,
         reference_time: float | None = None,
     ) -> list[FreshnessScore]:
         """
@@ -182,7 +182,7 @@ class FreshnessCalculator:
     def filter_stale(
         self,
         topics: list[TrendingTopic],
-        timestamps: Optional[dict[str, float]] = None,
+        timestamps: dict[str, float] | None = None,
         min_freshness: float = 0.1,
     ) -> list[FreshnessScore]:
         """

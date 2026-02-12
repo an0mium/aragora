@@ -93,10 +93,10 @@ class RequestLifecycleManager:
     def __init__(
         self,
         handler: Any,  # UnifiedHandler instance
-        tracing: Optional["TracingService"] = None,
-        record_metrics_fn: Optional[Callable[[str, str, int, float], None]] = None,
-        log_request_fn: Optional[Callable[[str, str, int, float], None]] = None,
-        normalize_endpoint_fn: Optional[Callable[[str], str]] = None,
+        tracing: TracingService | None = None,
+        record_metrics_fn: Callable[[str, str, int, float], None] | None = None,
+        log_request_fn: Callable[[str, str, int, float], None] | None = None,
+        normalize_endpoint_fn: Callable[[str], str] | None = None,
     ):
         """Initialize the lifecycle manager.
 
@@ -327,7 +327,7 @@ def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:
     """
     from aragora.server.prometheus import record_http_request
 
-    _record_endpoint_request: Optional[Callable[[str, str, int, float], None]] = None
+    _record_endpoint_request: Callable[[str, str, int, float], None] | None = None
     try:
         from aragora.server.handlers.endpoint_analytics import record_endpoint_request
 

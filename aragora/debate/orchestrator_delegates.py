@@ -122,7 +122,7 @@ class ArenaDelegatesMixin:
             logger = logging.getLogger(__name__)
             logger.debug(f"[supermemory] Context injection failed: {e}")
 
-    async def _ingest_debate_outcome(self, result: "DebateResult") -> None:
+    async def _ingest_debate_outcome(self, result: DebateResult) -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.
 
         Delegates to ArenaKnowledgeManager.ingest_outcome().
@@ -138,7 +138,7 @@ class ArenaDelegatesMixin:
         debate_id: str,
         topic: str,
         seed_from_km: bool = True,
-    ) -> Optional["BeliefNetwork"]:
+    ) -> BeliefNetwork | None:
         """Initialize BeliefNetwork. Delegates to orchestrator_memory."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
@@ -148,7 +148,7 @@ class ArenaDelegatesMixin:
     # Hook / Bead Delegates
     # ------------------------------------------------------------------
 
-    async def _create_debate_bead(self, result: "DebateResult") -> str | None:
+    async def _create_debate_bead(self, result: DebateResult) -> str | None:
         """Create a Bead to track this debate decision. Delegates to orchestrator_hooks."""
         from aragora.debate.orchestrator_hooks import create_debate_bead
 
@@ -163,7 +163,7 @@ class ArenaDelegatesMixin:
         )
 
     async def _update_debate_bead(
-        self, bead_id: str, result: "DebateResult", success: bool
+        self, bead_id: str, result: DebateResult, success: bool
     ) -> None:
         """Update a pending debate bead. Delegates to orchestrator_hooks."""
         from aragora.debate.orchestrator_hooks import update_debate_bead
@@ -199,7 +199,7 @@ class ArenaDelegatesMixin:
     # Supabase / Memory Delegates
     # ------------------------------------------------------------------
 
-    def _queue_for_supabase_sync(self, ctx: "DebateContext", result: "DebateResult") -> None:
+    def _queue_for_supabase_sync(self, ctx: DebateContext, result: DebateResult) -> None:
         """Queue debate result for background Supabase sync. Delegates to orchestrator_memory."""
         from aragora.debate.orchestrator_memory import queue_for_supabase_sync
 
@@ -208,8 +208,8 @@ class ArenaDelegatesMixin:
     async def compress_debate_messages(
         self,
         messages: list[Message],
-        critiques: Optional[list[Critique]] = None,
-    ) -> tuple[list[Message], Optional[list[Critique]]]:
+        critiques: list[Critique] | None = None,
+    ) -> tuple[list[Message], list[Critique] | None]:
         """Compress debate messages using RLM cognitive load limiter.
 
         Delegates to orchestrator_memory.compress_debate_messages().
@@ -224,13 +224,13 @@ class ArenaDelegatesMixin:
     # Output Delegates
     # ------------------------------------------------------------------
 
-    def _format_conclusion(self, result: "DebateResult") -> str:
+    def _format_conclusion(self, result: DebateResult) -> str:
         """Format debate conclusion. Delegates to orchestrator_output."""
         from aragora.debate.orchestrator_setup import format_conclusion
 
         return format_conclusion(result)
 
-    async def _translate_conclusions(self, result: "DebateResult") -> None:
+    async def _translate_conclusions(self, result: DebateResult) -> None:
         """Translate conclusions. Delegates to orchestrator_output."""
         from aragora.debate.orchestrator_setup import translate_conclusions
 
@@ -263,7 +263,7 @@ class ArenaDelegatesMixin:
         debate_id: str,
         round_num: int,
         confidence: float = DEBATE_DEFAULTS.coordinator_min_confidence_for_mound,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> None:
         """Record position. Delegates to GroundedOperations."""
         self._grounded_ops.record_position(
@@ -276,16 +276,16 @@ class ArenaDelegatesMixin:
         )
 
     def _update_agent_relationships(
-        self, debate_id: str, participants: list[str], winner: Optional[str], votes: list[Vote]
+        self, debate_id: str, participants: list[str], winner: str | None, votes: list[Vote]
     ) -> None:
         """Update relationships. Delegates to GroundedOperations."""
         self._grounded_ops.update_relationships(debate_id, participants, winner, votes)
 
-    def _create_grounded_verdict(self, result: "DebateResult") -> Any:
+    def _create_grounded_verdict(self, result: DebateResult) -> Any:
         """Create verdict. Delegates to GroundedOperations."""
         return self._grounded_ops.create_grounded_verdict(result)
 
-    async def _verify_claims_formally(self, result: "DebateResult") -> None:
+    async def _verify_claims_formally(self, result: DebateResult) -> None:
         """Verify claims with Z3. Delegates to GroundedOperations."""
         await self._grounded_ops.verify_claims_formally(result)
 
@@ -322,7 +322,7 @@ class ArenaDelegatesMixin:
         return await self._context_delegator.gather_trending_context()
 
     async def _refresh_evidence_for_round(
-        self, combined_text: str, ctx: "DebateContext", round_num: int
+        self, combined_text: str, ctx: DebateContext, round_num: int
     ) -> int:
         """Refresh evidence based on claims made during a debate round."""
         return await self._context_delegator.refresh_evidence_for_round(
@@ -416,7 +416,7 @@ class ArenaDelegatesMixin:
     # Checkpoint Delegates
     # ------------------------------------------------------------------
 
-    def _store_debate_outcome_as_memory(self, result: "DebateResult") -> None:
+    def _store_debate_outcome_as_memory(self, result: DebateResult) -> None:
         """Store debate outcome. Delegates to CheckpointOperations."""
         belief_cruxes = getattr(result, "belief_cruxes", None)
         if belief_cruxes:
@@ -429,11 +429,11 @@ class ArenaDelegatesMixin:
         """Store evidence. Delegates to CheckpointOperations."""
         self._checkpoint_ops.store_evidence(evidence_snippets, task)
 
-    def _update_continuum_memory_outcomes(self, result: "DebateResult") -> None:
+    def _update_continuum_memory_outcomes(self, result: DebateResult) -> None:
         """Update memory outcomes. Delegates to CheckpointOperations."""
         self._checkpoint_ops.update_memory_outcomes(result)
 
-    async def _create_checkpoint(self, ctx: "DebateContext", round_num: int) -> None:
+    async def _create_checkpoint(self, ctx: DebateContext, round_num: int) -> None:
         """Create checkpoint. Delegates to CheckpointOperations."""
         await self._checkpoint_ops.create_checkpoint(
             ctx, round_num, self.env, self.agents, self.protocol
@@ -551,8 +551,8 @@ class ArenaDelegatesMixin:
     @classmethod
     async def run_security_debate(
         cls,
-        event: "SecurityEvent",
-        agents: Optional[list[Agent]] = None,
+        event: SecurityEvent,
+        agents: list[Agent] | None = None,
         confidence_threshold: float = DEBATE_DEFAULTS.strong_consensus_confidence,
         timeout_seconds: int = 300,
         org_id: str = "default",

@@ -139,8 +139,8 @@ class DropboxConnector(EnterpriseConnector):
         access_token: str | None = None,
         refresh_token: str | None = None,
         root_path: str = "",
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ):
         """
         Initialize Dropbox connector.
@@ -301,7 +301,7 @@ class DropboxConnector(EnterpriseConnector):
     async def _api_request(
         self,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         is_content: bool = False,
     ) -> dict[str, Any]:
         """Make an authenticated API request."""
@@ -529,7 +529,7 @@ class DropboxConnector(EnterpriseConnector):
         self,
         query: str,
         max_results: int = 50,
-        file_extensions: Optional[list[str]] = None,
+        file_extensions: list[str] | None = None,
     ) -> AsyncIterator[DropboxFile]:
         """
         Search for files.

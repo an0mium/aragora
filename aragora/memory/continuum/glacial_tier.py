@@ -76,7 +76,7 @@ class GlacialTierMixin:
         content: str,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
-    ) -> "ContinuumMemoryEntry":
+    ) -> ContinuumMemoryEntry:
         """
         Store a memory in the glacial tier.
 
@@ -157,7 +157,7 @@ class GlacialTierMixin:
         content: str,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
-    ) -> "ContinuumMemoryEntry":
+    ) -> ContinuumMemoryEntry:
         """Async wrapper for store_glacial()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -170,7 +170,7 @@ class GlacialTierMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve memories from the glacial tier with 30-day decay.
 
@@ -252,7 +252,7 @@ class GlacialTierMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for retrieve_glacial()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(

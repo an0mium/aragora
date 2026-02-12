@@ -85,9 +85,9 @@ class EvidenceRefresher:
 
     async def refresh_for_round(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
-        partial_critiques: list["Critique"],
+        partial_critiques: list[Critique],
     ) -> int:
         """
         Refresh evidence based on claims made in the current round.
@@ -178,7 +178,7 @@ class EvidenceRefresher:
     async def _refresh_with_skills(
         self,
         text: str,
-        ctx: "DebateContext",
+        ctx: DebateContext,
     ) -> int:
         """Refresh evidence using skills for claim-specific searches.
 

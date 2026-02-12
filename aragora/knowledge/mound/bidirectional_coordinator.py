@@ -147,7 +147,7 @@ class BidirectionalCoordinator:
         forward_method: str,
         reverse_method: str | None = None,
         priority: int = 0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """
         Register an adapter with the coordinator.
@@ -261,7 +261,7 @@ class BidirectionalCoordinator:
     async def _sync_adapter_forward(
         self,
         registration: AdapterRegistration,
-        km_items: Optional[list[dict[str, Any]]] = None,
+        km_items: list[dict[str, Any]] | None = None,
     ) -> SyncResult:
         """
         Run forward sync for a single adapter (source → KM).
@@ -485,7 +485,7 @@ class BidirectionalCoordinator:
 
     async def sync_all_from_km(
         self,
-        km_items: Optional[list[dict[str, Any]]] = None,
+        km_items: list[dict[str, Any]] | None = None,
     ) -> list[SyncResult]:
         """
         Reverse sync: KM → All sources.
@@ -564,7 +564,7 @@ class BidirectionalCoordinator:
 
     async def run_bidirectional_sync(
         self,
-        km_items: Optional[list[dict[str, Any]]] = None,
+        km_items: list[dict[str, Any]] | None = None,
     ) -> BidirectionalSyncReport:
         """
         Run complete bidirectional sync cycle.

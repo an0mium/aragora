@@ -52,7 +52,7 @@ class TeamsThreadManager:
         self,
         thread_id: str,
         channel_id: str,
-    ) -> "ThreadInfo":
+    ) -> ThreadInfo:
         """
         Get thread metadata for a Teams message thread.
 
@@ -204,7 +204,7 @@ class TeamsThreadManager:
         self,
         channel_id: str,
         limit: int = 20,
-    ) -> list["ThreadInfo"]:
+    ) -> list[ThreadInfo]:
         """
         List recent threads (root messages) in a channel.
 
@@ -318,7 +318,7 @@ class TeamsThreadManager:
         self,
         thread_id: str,
         channel_id: str,
-    ) -> "ThreadStats":
+    ) -> ThreadStats:
         """
         Get statistics for a thread.
 

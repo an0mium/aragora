@@ -64,9 +64,9 @@ class NomicLoop:
         self,
         aragora_path: Path,
         max_cycles: int = 1,
-        protected_files: Optional[list[str]] = None,
+        protected_files: list[str] | None = None,
         require_human_approval: bool = False,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
         checkpoint_dir: Path | None = None,
         max_files_per_cycle: int = 20,
         max_consecutive_failures: int = 3,
@@ -282,7 +282,7 @@ class NomicLoop:
 
     async def run_debate_phase(
         self,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Run the debate phase where agents propose improvements.
@@ -305,7 +305,7 @@ class NomicLoop:
 
     async def run_design_phase(
         self,
-        debate_result: Optional[dict[str, Any]] = None,
+        debate_result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Run the design phase to plan implementation.
@@ -330,7 +330,7 @@ class NomicLoop:
 
     async def run_implement_phase(
         self,
-        design_result: Optional[dict[str, Any]] = None,
+        design_result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Run the implementation phase to write code changes.
@@ -353,7 +353,7 @@ class NomicLoop:
 
     async def run_verify_phase(
         self,
-        impl_result: Optional[dict[str, Any]] = None,
+        impl_result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Run the verification phase to test changes.
@@ -443,7 +443,7 @@ class NomicLoop:
 
     async def request_human_approval(
         self,
-        changes: Optional[dict[str, Any]] = None,
+        changes: dict[str, Any] | None = None,
     ) -> bool:
         """
         Request human approval for changes.

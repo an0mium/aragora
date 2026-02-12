@@ -279,14 +279,14 @@ class CachingRecommender:
 
     def analyze(
         self,
-        usage_data: list["TokenUsage"],
+        usage_data: list[TokenUsage],
         workspace_id: str,
     ) -> list[OptimizationRecommendation]:
         """Analyze usage for caching opportunities."""
         recommendations = []
 
         # Group by operation type
-        by_operation: dict[str, list["TokenUsage"]] = defaultdict(list)
+        by_operation: dict[str, list[TokenUsage]] = defaultdict(list)
         for usage in usage_data:
             by_operation[usage.operation].append(usage)
 
@@ -385,7 +385,7 @@ class BatchingOptimizer:
 
     def analyze(
         self,
-        usage_data: list["TokenUsage"],
+        usage_data: list[TokenUsage],
         workspace_id: str,
     ) -> list[OptimizationRecommendation]:
         """Analyze usage for batching opportunities."""
@@ -493,7 +493,7 @@ class CostOptimizer:
 
     def __init__(
         self,
-        cost_tracker: Optional["CostTracker"] = None,
+        cost_tracker: CostTracker | None = None,
     ):
         """
         Initialize optimizer.
@@ -510,7 +510,7 @@ class CostOptimizer:
         self._recommendations: dict[str, OptimizationRecommendation] = {}
         self._workspace_recs: dict[str, list[str]] = defaultdict(list)
 
-    def set_cost_tracker(self, tracker: "CostTracker") -> None:
+    def set_cost_tracker(self, tracker: CostTracker) -> None:
         """Set the cost tracker instance."""
         self._cost_tracker = tracker
 
@@ -571,7 +571,7 @@ class CostOptimizer:
         self,
         workspace_id: str,
         days: int,
-    ) -> list["TokenUsage"]:
+    ) -> list[TokenUsage]:
         """Get usage data from cost tracker."""
         # Access the usage buffer from cost tracker
         usage_data = []
@@ -583,7 +583,7 @@ class CostOptimizer:
 
     def _build_patterns(
         self,
-        usage_data: list["TokenUsage"],
+        usage_data: list[TokenUsage],
     ) -> list[UsagePattern]:
         """Build usage patterns from raw data."""
         pattern_map: dict[tuple[str, str, str], UsagePattern] = {}

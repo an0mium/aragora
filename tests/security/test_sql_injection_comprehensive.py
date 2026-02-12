@@ -320,7 +320,7 @@ class TestTableColumnInjection:
                 continue
 
             filepath = os.path.join(handlers_dir, filename)
-            with open(filepath, "r") as f:
+            with open(filepath) as f:
                 content = f.read()
 
             # Check for dynamic table name patterns (should not exist)
@@ -358,7 +358,7 @@ class TestTableColumnInjection:
                 continue
 
             filepath = os.path.join(handlers_dir, filename)
-            with open(filepath, "r") as f:
+            with open(filepath) as f:
                 content = f.read()
 
             # Check for dynamic column name patterns
@@ -624,7 +624,7 @@ class TestRegressionSafety:
                     continue
 
                 filepath = os.path.join(root, filename)
-                with open(filepath, "r") as f:
+                with open(filepath) as f:
                     lines = f.readlines()
 
                 for i, line in enumerate(lines, 1):
@@ -658,7 +658,7 @@ class TestRegressionSafety:
                     continue
 
                 filepath = os.path.join(root, filename)
-                with open(filepath, "r") as f:
+                with open(filepath) as f:
                     content = f.read()
 
                 # Count queries with WHERE clause (these need parameters if using user input)

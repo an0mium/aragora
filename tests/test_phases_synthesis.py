@@ -23,10 +23,10 @@ class MockResult:
     """Mock DebateResult for testing."""
 
     confidence: float = 0.8
-    winner: Optional[str] = None
-    synthesis: Optional[str] = None
-    final_answer: Optional[str] = None
-    debate_id: Optional[str] = None
+    winner: str | None = None
+    synthesis: str | None = None
+    final_answer: str | None = None
+    debate_id: str | None = None
     export_links: dict = field(default_factory=dict)
 
 
@@ -44,11 +44,11 @@ class MockContext:
     """Mock DebateContext for testing."""
 
     proposals: dict = field(default_factory=dict)
-    env: Optional[MockEnv] = None
-    result: Optional[MockResult] = None
+    env: MockEnv | None = None
+    result: MockResult | None = None
     context_messages: list = field(default_factory=list)
     critiques: list = field(default_factory=list)
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
 
 
 class TestSynthesisPromptBuilding:

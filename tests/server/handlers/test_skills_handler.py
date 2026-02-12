@@ -51,10 +51,10 @@ class MockSkillManifest:
 
     name: str
     version: str = "1.0.0"
-    description: Optional[str] = None
+    description: str | None = None
     capabilities: list[MockSkillCapability] = field(default_factory=list)
-    input_schema: Optional[dict] = None
-    output_schema: Optional[dict] = None
+    input_schema: dict | None = None
+    output_schema: dict | None = None
     rate_limit_per_minute: int = 60
     max_execution_time_seconds: float = 30.0  # Changed from timeout_seconds
     tags: list[str] = field(default_factory=list)
@@ -66,9 +66,9 @@ class MockSkillResult:
 
     status: MockSkillStatus
     data: Any = None  # Changed from output
-    error_message: Optional[str] = None  # Changed from error
-    metadata: Optional[dict] = None
-    duration_seconds: Optional[float] = None  # Changed from execution_time_ms
+    error_message: str | None = None  # Changed from error
+    metadata: dict | None = None
+    duration_seconds: float | None = None  # Changed from execution_time_ms
 
 
 @dataclass
@@ -79,7 +79,7 @@ class MockSkillMetrics:
     successful_invocations: int = 0
     failed_invocations: int = 0
     average_latency_ms: float = 0.0
-    last_invoked: Optional[datetime] = None
+    last_invoked: datetime | None = None
 
 
 class MockSkill:
@@ -99,14 +99,14 @@ class MockSkillRegistry:
     def register(self, skill: MockSkill) -> None:
         self._skills[skill.manifest.name] = skill
 
-    def get(self, name: str) -> Optional[MockSkill]:
+    def get(self, name: str) -> MockSkill | None:
         return self._skills.get(name)
 
     def list_skills(self) -> list[MockSkillManifest]:
         """Return list of manifests (matches real SkillRegistry behavior)."""
         return [skill.manifest for skill in self._skills.values()]
 
-    def get_metrics(self, name: str) -> Optional[dict[str, Any]]:
+    def get_metrics(self, name: str) -> dict[str, Any] | None:
         """Return metrics as dict (matches real SkillRegistry behavior)."""
         metrics = self._metrics.get(name)
         if metrics is None:

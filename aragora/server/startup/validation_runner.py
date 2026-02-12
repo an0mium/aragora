@@ -38,7 +38,7 @@ class StartupValidationError(RuntimeError):
     a cleaner interface for startup-specific validation failures.
     """
 
-    def __init__(self, message: str, result: "ValidationResult | None" = None) -> None:
+    def __init__(self, message: str, result: ValidationResult | None = None) -> None:
         super().__init__(message)
         self.result = result
 
@@ -66,7 +66,7 @@ def _is_production() -> bool:
 
 async def run_startup_validation(
     strict: bool | None = None,
-) -> "ValidationResult | None":
+) -> ValidationResult | None:
     """Run deployment validation during server startup.
 
     This function should be called early in the server startup sequence,
@@ -174,7 +174,7 @@ async def run_startup_validation(
         return None
 
 
-def run_startup_validation_sync(strict: bool | None = None) -> "ValidationResult | None":
+def run_startup_validation_sync(strict: bool | None = None) -> ValidationResult | None:
     """Synchronous wrapper for run_startup_validation.
 
     This function runs the async validation in a new event loop if no loop

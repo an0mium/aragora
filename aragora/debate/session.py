@@ -110,9 +110,9 @@ class DebateSession:
 
     id: str
     state: DebateSessionState
-    env: "Environment"
-    agents: list["Agent"]
-    protocol: "DebateProtocol"
+    env: Environment
+    agents: list[Agent]
+    protocol: DebateProtocol
 
     # Timing
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -124,7 +124,7 @@ class DebateSession:
     current_round: int = 0
     total_rounds: int = 0
     checkpoint_id: str | None = None
-    result: Optional["DebateResult"] = None
+    result: DebateResult | None = None
     error_message: str | None = None
 
     # Cancellation
@@ -134,19 +134,19 @@ class DebateSession:
     _arena: Any = field(default=None, repr=False)
     _task: asyncio.Task | None = field(default=None, repr=False)
     _event_handlers: list[Callable[[SessionEvent], None]] = field(default_factory=list, repr=False)
-    _checkpoint_manager: Optional["CheckpointManager"] = field(default=None, repr=False)
+    _checkpoint_manager: CheckpointManager | None = field(default=None, repr=False)
     _pause_event: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
     _resume_event: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
 
     @classmethod
     async def create(
         cls,
-        env: "Environment",
-        agents: list["Agent"],
-        protocol: "DebateProtocol",
-        checkpoint_manager: Optional["CheckpointManager"] = None,
+        env: Environment,
+        agents: list[Agent],
+        protocol: DebateProtocol,
+        checkpoint_manager: CheckpointManager | None = None,
         session_id: str | None = None,
-    ) -> "DebateSession":
+    ) -> DebateSession:
         """
         Create a new debate session.
 
@@ -185,11 +185,11 @@ class DebateSession:
     @classmethod
     async def from_checkpoint(
         cls,
-        checkpoint: "DebateCheckpoint",
-        agents: list["Agent"],
-        protocol: "DebateProtocol",
-        checkpoint_manager: Optional["CheckpointManager"] = None,
-    ) -> "DebateSession":
+        checkpoint: DebateCheckpoint,
+        agents: list[Agent],
+        protocol: DebateProtocol,
+        checkpoint_manager: CheckpointManager | None = None,
+    ) -> DebateSession:
         """
         Restore a session from a checkpoint.
 
@@ -499,7 +499,7 @@ class DebateSession:
 
         logger.info(f"session_cancelled id={self.id} reason={reason}")
 
-    async def wait_for_completion(self, timeout: float | None = None) -> Optional["DebateResult"]:
+    async def wait_for_completion(self, timeout: float | None = None) -> DebateResult | None:
         """
         Wait for the session to complete.
 
@@ -576,7 +576,7 @@ class SessionManager:
 
     def __init__(
         self,
-        checkpoint_manager: Optional["CheckpointManager"] = None,
+        checkpoint_manager: CheckpointManager | None = None,
         max_sessions: int = 100,
     ):
         """
@@ -593,9 +593,9 @@ class SessionManager:
 
     async def create_session(
         self,
-        env: "Environment",
-        agents: list["Agent"],
-        protocol: "DebateProtocol",
+        env: Environment,
+        agents: list[Agent],
+        protocol: DebateProtocol,
     ) -> DebateSession:
         """
         Create a new session.

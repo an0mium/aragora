@@ -62,7 +62,7 @@ class MockVote:
 class MockCircuitBreaker:
     """Mock circuit breaker for testing."""
 
-    def __init__(self, blocked_agents: Optional[list[str]] = None):
+    def __init__(self, blocked_agents: list[str] | None = None):
         self.blocked_agents = blocked_agents or []
         self.successes: list[str] = []
         self.failures: list[str] = []

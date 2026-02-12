@@ -198,7 +198,7 @@ def generate_metrics() -> str:
         # Metric value or type errors during collection
         logger.warning("Error collecting observability metrics (value/type): %s", e)
         lines.append(f"# Error collecting observability metrics: {e}")
-    except (OSError, IOError) as e:
+    except OSError as e:
         # I/O errors during metric collection
         logger.warning("Error collecting observability metrics (I/O): %s", e)
         lines.append(f"# Error collecting observability metrics: {e}")

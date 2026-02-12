@@ -153,7 +153,7 @@ class TaskDecomposer:
     def __init__(
         self,
         config: DecomposerConfig | None = None,
-        extract_subtasks_fn: Optional[Callable[[str], list[dict]]] = None,
+        extract_subtasks_fn: Callable[[str], list[dict]] | None = None,
     ):
         """Initialize the decomposer.
 
@@ -171,7 +171,7 @@ class TaskDecomposer:
     def analyze(
         self,
         task_description: str,
-        debate_result: Optional["DebateResult"] = None,
+        debate_result: DebateResult | None = None,
         depth: int = 0,
     ) -> TaskDecomposition:
         """Analyze a task and determine if decomposition is needed.
@@ -244,7 +244,7 @@ class TaskDecomposer:
     def _calculate_complexity(
         self,
         task: str,
-        debate_result: Optional["DebateResult"] = None,
+        debate_result: DebateResult | None = None,
     ) -> int:
         """Calculate complexity score (1-10) for a task.
 
@@ -345,7 +345,7 @@ class TaskDecomposer:
     def _generate_subtasks(
         self,
         task: str,
-        debate_result: Optional["DebateResult"] = None,
+        debate_result: DebateResult | None = None,
     ) -> list[SubTask]:
         """Generate subtasks for a complex task.
 
@@ -379,7 +379,7 @@ class TaskDecomposer:
     def _heuristic_decomposition(
         self,
         task: str,
-        debate_result: Optional["DebateResult"] = None,
+        debate_result: DebateResult | None = None,
     ) -> list[SubTask]:
         """Generate subtasks using heuristics.
 
@@ -486,7 +486,7 @@ class TaskDecomposer:
     async def analyze_with_debate(
         self,
         goal: str,
-        agents: Optional[list[Any]] = None,
+        agents: list[Any] | None = None,
         context: str = "",
         depth: int = 0,
     ) -> TaskDecomposition:
@@ -584,7 +584,7 @@ class TaskDecomposer:
 
     async def _run_debate_with_fallback(
         self,
-        env: "Environment",
+        env: Environment,
         agents: list[Any],
         protocol: Any,
         goal: str,

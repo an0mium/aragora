@@ -46,7 +46,7 @@ class BaseStrategy(ABC):
     def __init__(
         self,
         config: RLMConfig,
-        agent_call: Optional[Callable[[str, str, str], str]] = None,
+        agent_call: Callable[[str, str, str], str] | None = None,
     ):
         self.config = config
         self.agent_call = agent_call
@@ -671,7 +671,7 @@ STRATEGIES: dict[DecompositionStrategy, type[BaseStrategy]] = {
 def get_strategy(
     strategy_type: DecompositionStrategy,
     config: RLMConfig,
-    agent_call: Optional[Callable[[str, str, str], str]] = None,
+    agent_call: Callable[[str, str, str], str] | None = None,
 ) -> BaseStrategy:
     """Get a strategy instance by type."""
     strategy_class = STRATEGIES.get(strategy_type, AutoStrategy)

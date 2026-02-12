@@ -41,7 +41,7 @@ class ToolCapturePolicy:
         return True
 
     @classmethod
-    def from_env(cls) -> "ToolCapturePolicy":
+    def from_env(cls) -> ToolCapturePolicy:
         allow = _parse_list_env("ARAGORA_MEMORY_CAPTURE_TOOLS")
         deny = _parse_list_env("ARAGORA_MEMORY_SKIP_TOOLS")
         case_sensitive_raw = os.environ.get("ARAGORA_MEMORY_CAPTURE_CASE_SENSITIVE", "false")
@@ -84,7 +84,7 @@ class ToolMemoryCaptureConfig:
     max_detail_chars: int = 800
 
     @classmethod
-    def from_env(cls) -> "ToolMemoryCaptureConfig":
+    def from_env(cls) -> ToolMemoryCaptureConfig:
         enabled = os.environ.get("ARAGORA_MEMORY_CAPTURE_ENABLED", "false").lower() == "true"
         tier = os.environ.get("ARAGORA_MEMORY_CAPTURE_TIER", "fast")
         importance = float(os.environ.get("ARAGORA_MEMORY_CAPTURE_IMPORTANCE", "0.4"))

@@ -42,7 +42,7 @@ class MockRedis:
         self._data: dict[str, Any] = {}
         self._hashes: dict[str, dict[str, str]] = {}
         self._expiries: dict[str, float] = {}
-        self._fail_on_next: Optional[str] = None
+        self._fail_on_next: str | None = None
         self._delay_seconds: float = 0.0
         self._operation_log: list[dict[str, Any]] = []
         self._closed = False
@@ -52,7 +52,7 @@ class MockRedis:
         key: str,
         value: str,
         nx: bool = False,
-        ex: Optional[int] = None,
+        ex: int | None = None,
     ) -> bool:
         """Mock SET with NX and EX options."""
         self._operation_log.append(
@@ -81,7 +81,7 @@ class MockRedis:
             self._expiries[key] = time.time() + ex
         return True
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """Mock GET."""
         self._operation_log.append({"op": "get", "key": key, "time": time.time()})
 
@@ -140,9 +140,9 @@ class MockRedis:
     async def hset(
         self,
         key: str,
-        field: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict] = None,
+        field: str | None = None,
+        value: str | None = None,
+        mapping: dict | None = None,
         **kwargs,
     ) -> int:
         """Mock HSET - supports both (key, field, value) and (key, mapping=dict) forms."""
@@ -339,9 +339,9 @@ class TestLeaderReelection:
         election2 = LeaderElection(config=config2, redis_client=mock_redis)
 
         # Track leader changes
-        leader_changes: list[Optional[str]] = []
+        leader_changes: list[str | None] = []
 
-        def on_change(node_id: Optional[str]) -> None:
+        def on_change(node_id: str | None) -> None:
             leader_changes.append(node_id)
 
         election2.on_leader_change(on_change)

@@ -481,7 +481,7 @@ class MatrixIntegration:
             logger.error("Matrix join room request timed out")
             return False
 
-    async def __aenter__(self) -> "MatrixIntegration":
+    async def __aenter__(self) -> MatrixIntegration:
         """Async context manager entry."""
         return self
 

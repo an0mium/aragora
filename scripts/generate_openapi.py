@@ -139,7 +139,7 @@ def convert_path_to_openapi(path: str) -> str:
     return path
 
 
-def extract_method_info(handler_cls: type, method_name: str) -> Optional[dict[str, Any]]:
+def extract_method_info(handler_cls: type, method_name: str) -> dict[str, Any] | None:
     """Extract endpoint info from handler method."""
     method = getattr(handler_cls, method_name, None)
     if method is None:

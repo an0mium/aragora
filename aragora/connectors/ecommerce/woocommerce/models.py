@@ -104,7 +104,7 @@ class WooCommerceCredentials:
     timeout: int = 30
 
     @classmethod
-    def from_env(cls) -> "WooCommerceCredentials":
+    def from_env(cls) -> WooCommerceCredentials:
         """Create credentials from environment variables."""
         import os
 

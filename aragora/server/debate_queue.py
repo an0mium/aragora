@@ -127,7 +127,7 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
 
 
 def sanitize_webhook_headers(
-    headers: Optional[dict[str, Any]],
+    headers: dict[str, Any] | None,
 ) -> tuple[dict[str, str], str | None]:
     """Validate and sanitize webhook headers."""
     if headers is None:
@@ -186,7 +186,7 @@ class BatchItem:
     item_id: str = field(default_factory=lambda: f"item_{uuid.uuid4().hex[:8]}")
     status: ItemStatus = ItemStatus.QUEUED
     debate_id: str | None = None
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str | None = None
     started_at: float | None = None
     completed_at: float | None = None
@@ -215,7 +215,7 @@ class BatchItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BatchItem":
+    def from_dict(cls, data: dict[str, Any]) -> BatchItem:
         """Create from dictionary (e.g., parsed JSON)."""
         question = str(data.get("question", "")).strip()
         if not question:
@@ -384,14 +384,14 @@ class DebateQueue:
 
         return batch.batch_id
 
-    def get_batch_status(self, batch_id: str) -> Optional[dict[str, Any]]:
+    def get_batch_status(self, batch_id: str) -> dict[str, Any] | None:
         """Get status of a batch."""
         batch = self._batches.get(batch_id)
         if batch:
             return batch.to_dict()
         return None
 
-    def get_batch_summary(self, batch_id: str) -> Optional[dict[str, Any]]:
+    def get_batch_summary(self, batch_id: str) -> dict[str, Any] | None:
         """Get summary of a batch (without individual items)."""
         batch = self._batches.get(batch_id)
         if batch:

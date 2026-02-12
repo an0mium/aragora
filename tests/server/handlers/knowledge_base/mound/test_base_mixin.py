@@ -62,7 +62,7 @@ class ValidHandler:
 
     ctx: dict[str, Any] = {}
 
-    def _get_mound(self) -> Optional[MockKnowledgeMound]:
+    def _get_mound(self) -> MockKnowledgeMound | None:
         return MockKnowledgeMound()
 
 
@@ -75,7 +75,7 @@ class InvalidHandler:
 class PartialHandler:
     """Handler with _get_mound but missing ctx."""
 
-    def _get_mound(self) -> Optional[MockKnowledgeMound]:
+    def _get_mound(self) -> MockKnowledgeMound | None:
         return None
 
 

@@ -27,7 +27,7 @@ class NoOpMetric:
     that silently do nothing.
     """
 
-    def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
+    def labels(self, *args: Any, **kwargs: Any) -> NoOpMetric:
         """Return self for method chaining."""
         return self
 

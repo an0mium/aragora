@@ -273,7 +273,7 @@ class TestPIIRedactionRule:
     def test_redact_hash_matches_sha256_prefix(self):
         rule = PIIRedactionRule(field_pattern=r".*", redaction_type=RedactionType.HASH)
         result = rule.redact("test")
-        expected = hashlib.sha256("test".encode()).hexdigest()[:16]
+        expected = hashlib.sha256(b"test").hexdigest()[:16]
         assert result == f"[HASH:{expected}]"
 
     # -- REMOVE redaction --
@@ -337,7 +337,7 @@ class TestPIIRedactionRule:
     def test_redact_tokenize_matches_sha256_prefix(self):
         rule = PIIRedactionRule(field_pattern=r".*", redaction_type=RedactionType.TOKENIZE)
         result = rule.redact("mydata")
-        expected = hashlib.sha256("mydata".encode()).hexdigest()[:12]
+        expected = hashlib.sha256(b"mydata").hexdigest()[:12]
         assert result == f"[TOKEN:{expected}]"
 
     # -- Custom handler --

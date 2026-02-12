@@ -88,7 +88,7 @@ class DistributedDebateEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DistributedDebateEvent":
+    def from_dict(cls, data: dict[str, Any]) -> DistributedDebateEvent:
         """Deserialize from dictionary."""
         return cls(
             event_type=DistributedDebateEventType(data["event_type"]),

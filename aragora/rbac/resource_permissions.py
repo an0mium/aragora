@@ -309,8 +309,8 @@ class ResourcePermissionStore:
         self,
         cache_ttl: int = 300,
         enable_cache: bool = True,
-        cache_backend: "RBACDistributedCache | None" = None,
-        hierarchy_registry: "HierarchyRegistry | None" = None,
+        cache_backend: RBACDistributedCache | None = None,
+        hierarchy_registry: HierarchyRegistry | None = None,
     ) -> None:
         """
         Initialize the resource permission store.
@@ -676,7 +676,7 @@ class ResourcePermissionStore:
 
         return (None, False)
 
-    def set_hierarchy_registry(self, registry: "HierarchyRegistry") -> None:
+    def set_hierarchy_registry(self, registry: HierarchyRegistry) -> None:
         """
         Set the hierarchy registry for hierarchical lookups.
 

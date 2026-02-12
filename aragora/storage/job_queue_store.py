@@ -69,7 +69,7 @@ class QueuedJob:
     max_attempts: int = 3
     worker_id: str | None = None
     error: str | None = None
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     user_id: str | None = None
     workspace_id: str | None = None
 
@@ -95,7 +95,7 @@ class QueuedJob:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "QueuedJob":
+    def from_dict(cls, data: dict[str, Any]) -> QueuedJob:
         """Create from dictionary."""
         status = data.get("status", "pending")
         if isinstance(status, str):
@@ -120,7 +120,7 @@ class QueuedJob:
         )
 
     @classmethod
-    def from_row(cls, row: tuple) -> "QueuedJob":
+    def from_row(cls, row: tuple) -> QueuedJob:
         """Create from database row."""
         return cls(
             id=row[0],
@@ -154,7 +154,7 @@ class JobStoreBackend(ABC):
     async def dequeue(
         self,
         worker_id: str,
-        job_types: Optional[list[str]] = None,
+        job_types: list[str] | None = None,
     ) -> QueuedJob | None:
         """
         Get the next available job and mark it as processing.
@@ -182,7 +182,7 @@ class JobStoreBackend(ABC):
     async def complete(
         self,
         job_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
     ) -> None:
         """Mark a job as completed."""
         pass
@@ -351,7 +351,7 @@ class SQLiteJobStore(JobStoreBackend):
     async def dequeue(
         self,
         worker_id: str,
-        job_types: Optional[list[str]] = None,
+        job_types: list[str] | None = None,
     ) -> QueuedJob | None:
         """Get the next available job and mark it as processing."""
         conn = self._get_conn()
@@ -452,7 +452,7 @@ class SQLiteJobStore(JobStoreBackend):
     async def complete(
         self,
         job_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
     ) -> None:
         """Mark a job as completed."""
         conn = self._get_conn()
@@ -625,7 +625,7 @@ class PostgresJobQueueStore(JobStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_job_pending ON job_queue(status, priority DESC, created_at);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresJobQueueStore initialized")
@@ -683,7 +683,7 @@ class PostgresJobQueueStore(JobStoreBackend):
     async def dequeue(
         self,
         worker_id: str,
-        job_types: Optional[list[str]] = None,
+        job_types: list[str] | None = None,
     ) -> QueuedJob | None:
         """Get the next available job and mark it as processing."""
         time.time()
@@ -807,7 +807,7 @@ class PostgresJobQueueStore(JobStoreBackend):
     async def complete(
         self,
         job_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
     ) -> None:
         """Mark a job as completed."""
         async with self._pool.acquire() as conn:

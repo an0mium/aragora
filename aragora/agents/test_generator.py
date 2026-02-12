@@ -136,7 +136,7 @@ Follow testing best practices:
             **kwargs,
         )
 
-    async def generate(self, prompt: str, context: Optional[list[Any]] = None) -> str:
+    async def generate(self, prompt: str, context: list[Any] | None = None) -> str:
         """Generate test suggestions for the given prompt.
 
         TestGeneratorAgent uses structured methods like suggest_tests()
@@ -149,7 +149,7 @@ Follow testing best practices:
         self,
         proposal: str,
         task: str,
-        context: Optional[list[Any]] = None,
+        context: list[Any] | None = None,
         target_agent: str | None = None,
     ) -> Critique:
         """Critique is not supported for TestGeneratorAgent.

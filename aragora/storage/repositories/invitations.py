@@ -43,7 +43,7 @@ class InvitationRepository:
         """
         self._transaction = transaction_fn
 
-    def create_invitation(self, invitation: "OrganizationInvitation") -> bool:
+    def create_invitation(self, invitation: OrganizationInvitation) -> bool:
         """
         Create a new organization invitation.
 
@@ -74,7 +74,7 @@ class InvitationRepository:
             )
         return True
 
-    def get_by_id(self, invitation_id: str) -> Optional["OrganizationInvitation"]:
+    def get_by_id(self, invitation_id: str) -> OrganizationInvitation | None:
         """Get invitation by ID."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -84,7 +84,7 @@ class InvitationRepository:
             row = cursor.fetchone()
             return self._row_to_invitation(row) if row else None
 
-    def get_by_token(self, token: str) -> Optional["OrganizationInvitation"]:
+    def get_by_token(self, token: str) -> OrganizationInvitation | None:
         """Get invitation by token."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -94,7 +94,7 @@ class InvitationRepository:
             row = cursor.fetchone()
             return self._row_to_invitation(row) if row else None
 
-    def get_by_email(self, org_id: str, email: str) -> Optional["OrganizationInvitation"]:
+    def get_by_email(self, org_id: str, email: str) -> OrganizationInvitation | None:
         """Get pending invitation by org and email."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -108,7 +108,7 @@ class InvitationRepository:
             row = cursor.fetchone()
             return self._row_to_invitation(row) if row else None
 
-    def get_for_org(self, org_id: str) -> list["OrganizationInvitation"]:
+    def get_for_org(self, org_id: str) -> list[OrganizationInvitation]:
         """Get all invitations for an organization."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -117,7 +117,7 @@ class InvitationRepository:
             )
             return [self._row_to_invitation(row) for row in cursor.fetchall()]
 
-    def get_pending_by_email(self, email: str) -> list["OrganizationInvitation"]:
+    def get_pending_by_email(self, email: str) -> list[OrganizationInvitation]:
         """Get all pending invitations for an email address."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -192,7 +192,7 @@ class InvitationRepository:
             return cursor.rowcount
 
     @staticmethod
-    def _row_to_invitation(row: sqlite3.Row) -> "OrganizationInvitation":
+    def _row_to_invitation(row: sqlite3.Row) -> OrganizationInvitation:
         """Convert database row to OrganizationInvitation object."""
         from aragora.billing.models import OrganizationInvitation
 

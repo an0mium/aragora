@@ -28,7 +28,7 @@ class MockWorkspace:
 class MockWorkspaceStore:
     """Mock workspace store for testing."""
 
-    def __init__(self, workspaces: Optional[list[MockWorkspace]] = None):
+    def __init__(self, workspaces: list[MockWorkspace] | None = None):
         self.workspaces = workspaces or []
         self.refresh_calls: list[str] = []
         self.should_fail_refresh: bool = False
@@ -39,7 +39,7 @@ class MockWorkspaceStore:
 
     def refresh_workspace_token(
         self, workspace_id: str, client_id: str, client_secret: str
-    ) -> Optional[MockWorkspace]:
+    ) -> MockWorkspace | None:
         """Mock token refresh."""
         self.refresh_calls.append(workspace_id)
 

@@ -303,7 +303,7 @@ def check_backup_directory(aragora_path: Path) -> PreflightCheck:
 
 
 def run_preflight_checks(
-    aragora_path: Optional[Path] = None, protected_files: Optional[list[str]] = None
+    aragora_path: Path | None = None, protected_files: list[str] | None = None
 ) -> PreflightReport:
     """
     Run all pre-flight health checks.
@@ -358,7 +358,7 @@ def run_preflight_checks(
     return report
 
 
-def preflight_cli(aragora_path: Optional[Path] = None) -> bool:
+def preflight_cli(aragora_path: Path | None = None) -> bool:
     """
     Run pre-flight checks and print report.
 

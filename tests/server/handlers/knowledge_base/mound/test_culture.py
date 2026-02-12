@@ -81,7 +81,7 @@ class MockCultureProfile:
 
     workspace_id: str
     patterns: dict[str, Any] = field(default_factory=dict)
-    generated_at: Optional[datetime] = None
+    generated_at: datetime | None = None
     total_observations: int = 0
 
 
@@ -97,7 +97,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)
@@ -109,7 +109,7 @@ class MockHandler:
 class CultureHandler(CultureOperationsMixin):
     """Handler implementation for testing CultureOperationsMixin."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None):
         self._mound = mound
         self.ctx = {}
 

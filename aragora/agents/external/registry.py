@@ -29,8 +29,8 @@ class ExternalAdapterSpec:
     """
 
     name: str
-    adapter_class: type["ExternalAgentAdapter"]
-    config_class: type["ExternalAgentConfig"]
+    adapter_class: type[ExternalAgentAdapter]
+    config_class: type[ExternalAgentConfig]
     description: str | None = None
     requires: str | None = None  # External dependency description
     env_vars: str | None = None  # Required environment variables
@@ -70,7 +70,7 @@ class ExternalAgentRegistry:
         cls,
         name: str,
         *,
-        config_class: type["ExternalAgentConfig"],
+        config_class: type[ExternalAgentConfig],
         description: str | None = None,
         requires: str | None = None,
         env_vars: str | None = None,
@@ -117,9 +117,9 @@ class ExternalAgentRegistry:
     def create(
         cls,
         adapter_name: str,
-        config: "ExternalAgentConfig | None" = None,
+        config: ExternalAgentConfig | None = None,
         **kwargs: Any,
-    ) -> "ExternalAgentAdapter":
+    ) -> ExternalAgentAdapter:
         """Create an adapter instance by name.
 
         Args:
@@ -191,7 +191,7 @@ class ExternalAgentRegistry:
         }
 
     @classmethod
-    def list_specs(cls) -> list["ExternalAdapterSpec"]:
+    def list_specs(cls) -> list[ExternalAdapterSpec]:
         """List all registered adapter specs.
 
         Returns:

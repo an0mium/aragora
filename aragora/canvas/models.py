@@ -385,7 +385,7 @@ class Canvas:
         node_type: CanvasNodeType,
         position: Position | None = None,
         label: str = "",
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> CanvasNode:
         """Add a new node to the canvas."""

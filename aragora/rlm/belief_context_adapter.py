@@ -102,7 +102,7 @@ class BeliefContextAdapter:
 
     def __init__(
         self,
-        belief_network: Optional[BeliefNetwork] = None,
+        belief_network: BeliefNetwork | None = None,
         km_adapter: Any = None,
         min_confidence_threshold: float = 0.7,
         max_results: int = 20,
@@ -498,7 +498,7 @@ class BeliefContextAdapter:
 
 # Factory function
 def get_belief_context_adapter(
-    belief_network: Optional[BeliefNetwork] = None,
+    belief_network: BeliefNetwork | None = None,
 ) -> BeliefContextAdapter:
     """Get or create a belief context adapter instance."""
     return BeliefContextAdapter(belief_network=belief_network)

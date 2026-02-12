@@ -70,12 +70,12 @@ def _require_user_auth(func):
     return wrapper
 
 
-def _get_evidence_enrichment(finding: "AuditFinding") -> Any:
+def _get_evidence_enrichment(finding: AuditFinding) -> Any:
     """Get evidence enrichment from finding using getattr to avoid type errors."""
     return getattr(finding, "_evidence_enrichment", None)
 
 
-def _set_evidence_enrichment(finding: "AuditFinding", enrichment: Any) -> None:
+def _set_evidence_enrichment(finding: AuditFinding, enrichment: Any) -> None:
     """Set evidence enrichment on finding using setattr to avoid type errors."""
     setattr(finding, "_evidence_enrichment", enrichment)
 
@@ -129,7 +129,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
 
         return None
 
-    def _get_document_store(self) -> Optional["DocumentStore"]:
+    def _get_document_store(self) -> DocumentStore | None:
         """Get document store from handler context."""
         return self.ctx.get("document_store")
 
@@ -248,7 +248,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         document_content: str | None,
         related_documents: dict[str, str],
         config_dict: dict[str, Any],
-        document_store: Optional["DocumentStore"],
+        document_store: DocumentStore | None,
     ) -> dict[str, Any]:
         """Run evidence enrichment for a finding."""
         auditor = get_document_auditor()
@@ -347,7 +347,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
         self,
         finding_ids: list[str],
         config_dict: dict[str, Any],
-        document_store: Optional["DocumentStore"],
+        document_store: DocumentStore | None,
     ) -> dict[str, Any]:
         """Run batch evidence enrichment."""
         auditor = get_document_auditor()

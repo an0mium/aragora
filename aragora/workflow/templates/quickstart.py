@@ -27,7 +27,7 @@ def create_yes_no_workflow(
     question: str,
     context: str | None = None,
     confidence_threshold: float = 0.7,
-    agents: Optional[list[str]] = None,
+    agents: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create a quick yes/no decision workflow.
 
@@ -211,7 +211,7 @@ def create_pros_cons_workflow(
 def create_risk_assessment_workflow(
     scenario: str,
     context: str | None = None,
-    risk_categories: Optional[list[str]] = None,
+    risk_categories: list[str] | None = None,
     include_mitigation: bool = True,
 ) -> WorkflowDefinition:
     """Create a risk assessment workflow.
@@ -323,7 +323,7 @@ def create_brainstorm_workflow(
     goal: str | None = None,
     num_ideas: int = 10,
     prioritize: bool = True,
-    perspectives: Optional[list[str]] = None,
+    perspectives: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create a brainstorming session workflow.
 

@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class DealOperationsMixin:
     """Mixin providing deal operations for CRMHandler."""
 
-    async def _list_all_deals(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _list_all_deals(self: CRMHandler, request: Any) -> HandlerResult:
         """List deals from all connected platforms."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -90,7 +90,7 @@ class DealOperationsMixin:
         )
 
     async def _fetch_platform_deals(
-        self: "CRMHandler",
+        self: CRMHandler,
         platform: str,
         limit: int = 100,
         stage: str | None = None,
@@ -118,7 +118,7 @@ class DealOperationsMixin:
         return []
 
     async def _list_platform_deals(
-        self: "CRMHandler", request: Any, platform: str
+        self: CRMHandler, request: Any, platform: str
     ) -> HandlerResult:
         """List deals from a specific platform."""
         # Check circuit breaker
@@ -156,7 +156,7 @@ class DealOperationsMixin:
         )
 
     async def _get_deal(
-        self: "CRMHandler", request: Any, platform: str, deal_id: str
+        self: CRMHandler, request: Any, platform: str, deal_id: str
     ) -> HandlerResult:
         """Get a specific deal."""
         # Check circuit breaker
@@ -196,7 +196,7 @@ class DealOperationsMixin:
 
         return self._error_response(400, "Unsupported platform")
 
-    async def _create_deal(self: "CRMHandler", request: Any, platform: str) -> HandlerResult:
+    async def _create_deal(self: CRMHandler, request: Any, platform: str) -> HandlerResult:
         """Create a new deal."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():

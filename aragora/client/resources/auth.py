@@ -71,7 +71,7 @@ class MFASetupResult:
 class AuthAPI:
     """API interface for authentication and MFA."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -393,7 +393,7 @@ class AuthAPI:
     def create_api_key(
         self,
         name: str,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         expires_in_days: int | None = None,
     ) -> dict[str, Any]:
         """
@@ -418,7 +418,7 @@ class AuthAPI:
     async def create_api_key_async(
         self,
         name: str,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         expires_in_days: int | None = None,
     ) -> dict[str, Any]:
         """Async version of create_api_key()."""

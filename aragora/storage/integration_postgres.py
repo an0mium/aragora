@@ -75,7 +75,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_mappings_platform ON user_id_mappings(platform);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresIntegrationStore initialized")

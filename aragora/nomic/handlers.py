@@ -212,7 +212,7 @@ async def debate_handler(
     event: Event,
     *,
     debate_phase: Any,
-    learning_context_builder: Optional[Callable[[], Any]] = None,
+    learning_context_builder: Callable[[], Any] | None = None,
     post_debate_hooks: Any | None = None,
 ) -> tuple[NomicState, dict[str, Any]]:
     """
@@ -285,7 +285,7 @@ async def design_handler(
     event: Event,
     *,
     design_phase: Any,
-    belief_context_builder: Optional[Callable[[], Any]] = None,
+    belief_context_builder: Callable[[], Any] | None = None,
 ) -> tuple[NomicState, dict[str, Any]]:
     """
     Handler for the DESIGN state.
@@ -592,7 +592,7 @@ def create_context_handler(
 
 def create_debate_handler(
     debate_phase: Any,
-    learning_context_builder: Optional[Callable[[], Any]] = None,
+    learning_context_builder: Callable[[], Any] | None = None,
     post_debate_hooks: Any | None = None,
 ) -> StateHandler:
     """
@@ -621,7 +621,7 @@ def create_debate_handler(
 
 def create_design_handler(
     design_phase: Any,
-    belief_context_builder: Optional[Callable[[], Any]] = None,
+    belief_context_builder: Callable[[], Any] | None = None,
 ) -> StateHandler:
     """
     Create a design handler bound to a DesignPhase instance.
@@ -753,7 +753,7 @@ def create_handlers(
     kilocode_available: bool = False,
     kilocode_agent_factory: Callable | None = None,
     cycle_count: int = 0,
-    log_fn: Optional[Callable[[str], None]] = None,
+    log_fn: Callable[[str], None] | None = None,
     stream_emit_fn: Callable | None = None,
     record_replay_fn: Callable | None = None,
     auto_commit: bool = False,

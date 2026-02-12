@@ -158,7 +158,7 @@ class StoresMixin:
                     "status": "not_initialized",
                     "hint": "Will auto-create on first debate",
                 }, True
-        except (sqlite3.Error, OSError, IOError) as e:
+        except (sqlite3.Error, OSError) as e:
             logger.warning(f"Debate storage database error: {type(e).__name__}: {e}")
             return {
                 "healthy": False,
@@ -197,7 +197,7 @@ class StoresMixin:
                     "status": "not_initialized",
                     "hint": "Run: python scripts/seed_agents.py",
                 }, True
-        except (sqlite3.Error, OSError, IOError) as e:
+        except (sqlite3.Error, OSError) as e:
             logger.warning(f"ELO system database error: {type(e).__name__}: {e}")
             return {
                 "healthy": False,

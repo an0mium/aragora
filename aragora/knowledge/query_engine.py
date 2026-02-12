@@ -111,8 +111,8 @@ class DatasetQueryEngine:
 
     def __init__(
         self,
-        fact_store: Optional[FactStore | InMemoryFactStore] = None,
-        embedding_service: Optional[WeaviateEmbeddingService | InMemoryEmbeddingService] = None,
+        fact_store: FactStore | InMemoryFactStore | None = None,
+        embedding_service: WeaviateEmbeddingService | InMemoryEmbeddingService | None = None,
         agents: list[AgentProtocol] | None = None,
         default_agent: AgentProtocol | None = None,
     ):
@@ -130,7 +130,7 @@ class DatasetQueryEngine:
         self._default_agent = default_agent
 
         # Progress callback
-        self._progress_callback: Optional[Callable[[str, float], None]] = None
+        self._progress_callback: Callable[[str, float], None] | None = None
 
     def set_progress_callback(self, callback: Callable[[str, float], None]) -> None:
         """Set a callback for progress updates.
@@ -677,8 +677,8 @@ class SimpleQueryEngine:
 
     def __init__(
         self,
-        fact_store: Optional[FactStore | InMemoryFactStore] = None,
-        embedding_service: Optional[WeaviateEmbeddingService | InMemoryEmbeddingService] = None,
+        fact_store: FactStore | InMemoryFactStore | None = None,
+        embedding_service: WeaviateEmbeddingService | InMemoryEmbeddingService | None = None,
     ):
         """Initialize simple engine."""
         self._fact_store = fact_store or InMemoryFactStore()

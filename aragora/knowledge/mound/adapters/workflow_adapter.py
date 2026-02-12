@@ -70,7 +70,7 @@ class WorkflowOutcome:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
-    def from_workflow_result(cls, result: "WorkflowResult", **extra: Any) -> "WorkflowOutcome":
+    def from_workflow_result(cls, result: WorkflowResult, **extra: Any) -> WorkflowOutcome:
         """Create a WorkflowOutcome from a WorkflowResult."""
         step_summaries = []
         failed_steps = 0
@@ -240,7 +240,7 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
 
         return results[:limit]
 
-    def to_knowledge_item(self, outcome: WorkflowOutcome) -> "KnowledgeItem":
+    def to_knowledge_item(self, outcome: WorkflowOutcome) -> KnowledgeItem:
         """Convert a WorkflowOutcome to a KnowledgeItem."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
         from aragora.knowledge.unified.types import ConfidenceLevel
@@ -383,8 +383,8 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        cross_refs: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         record.metadata["km_validated"] = True
         record.metadata["km_validation_confidence"] = km_confidence
@@ -416,7 +416,7 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         record.metadata["fusion_applied"] = True
         record.metadata["fusion_timestamp"] = datetime.now(timezone.utc).isoformat()

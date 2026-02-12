@@ -62,7 +62,7 @@ class PermissionCheck:
 class RBACAPI:
     """API interface for Role-Based Access Control (RBAC)."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # -------------------------------------------------------------------------

@@ -71,7 +71,7 @@ class ImpersonationAuditEntry:
     admin_user_id: str
     target_user_id: str | None
     reason: str | None
-    action_details: Optional[dict[str, Any]]
+    action_details: dict[str, Any] | None
     ip_address: str
     user_agent: str
     success: bool
@@ -117,8 +117,8 @@ class ImpersonationManager:
 
     def __init__(
         self,
-        audit_callback: Optional[Callable[[ImpersonationAuditEntry], None]] = None,
-        notification_callback: Optional[Callable[[str, str, str], None]] = None,
+        audit_callback: Callable[[ImpersonationAuditEntry], None] | None = None,
+        notification_callback: Callable[[str, str, str], None] | None = None,
         require_2fa_for_admin_targets: bool = True,
         max_concurrent_sessions: int = 3,
     ):
@@ -677,8 +677,8 @@ def get_impersonation_manager() -> ImpersonationManager:
 
 
 def configure_impersonation_manager(
-    audit_callback: Optional[Callable[[ImpersonationAuditEntry], None]] = None,
-    notification_callback: Optional[Callable[[str, str, str], None]] = None,
+    audit_callback: Callable[[ImpersonationAuditEntry], None] | None = None,
+    notification_callback: Callable[[str, str, str], None] | None = None,
     require_2fa_for_admin_targets: bool = True,
     max_concurrent_sessions: int = 3,
 ) -> ImpersonationManager:

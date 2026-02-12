@@ -180,7 +180,7 @@ class PostgresUserStore(
         "resource_id, old_value, new_value, metadata, ip_address, user_agent"
     )
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         """
         Initialize PostgresUserStore.
 
@@ -192,7 +192,7 @@ class PostgresUserStore(
         logger.info("PostgresUserStore initialized")
 
     @property
-    def _pool(self) -> "Pool":
+    def _pool(self) -> Pool:
         """Get the connection pool, auto-refreshing from the shared pool if it has been replaced.
 
         When the shared pool is force-refreshed (e.g., after InterfaceError recovery),
@@ -211,7 +211,7 @@ class PostgresUserStore(
         return self.__pool
 
     @_pool.setter
-    def _pool(self, value: "Pool") -> None:
+    def _pool(self, value: Pool) -> None:
         self.__pool = value
 
     async def initialize(self) -> None:

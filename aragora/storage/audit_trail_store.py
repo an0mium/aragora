@@ -253,7 +253,7 @@ class AuditTrailStore:
         )
         logger.debug(f"Saved audit trail: {trail_id}")
 
-    def get_trail(self, trail_id: str) -> Optional[dict[str, Any]]:
+    def get_trail(self, trail_id: str) -> dict[str, Any] | None:
         """
         Get an audit trail by ID.
 
@@ -274,7 +274,7 @@ class AuditTrailStore:
             return json.loads(row[0])
         return None
 
-    def get_trail_by_gauntlet(self, gauntlet_id: str) -> Optional[dict[str, Any]]:
+    def get_trail_by_gauntlet(self, gauntlet_id: str) -> dict[str, Any] | None:
         """Get audit trail by gauntlet ID."""
         if self._backend is None:
             return None
@@ -416,7 +416,7 @@ class AuditTrailStore:
         )
         logger.debug(f"Saved decision receipt: {receipt_id}")
 
-    def get_receipt(self, receipt_id: str) -> Optional[dict[str, Any]]:
+    def get_receipt(self, receipt_id: str) -> dict[str, Any] | None:
         """
         Get a decision receipt by ID.
 
@@ -437,7 +437,7 @@ class AuditTrailStore:
             return json.loads(row[0])
         return None
 
-    def get_receipt_by_gauntlet(self, gauntlet_id: str) -> Optional[dict[str, Any]]:
+    def get_receipt_by_gauntlet(self, gauntlet_id: str) -> dict[str, Any] | None:
         """Get decision receipt by gauntlet ID."""
         if self._backend is None:
             return None

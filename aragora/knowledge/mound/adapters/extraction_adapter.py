@@ -184,8 +184,8 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        mound: Optional["KnowledgeMound"] = None,
-        config: Optional[ExtractionConfig] = None,
+        mound: KnowledgeMound | None = None,
+        config: ExtractionConfig | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -226,7 +226,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
         self._total_relationships_extracted = 0
         self._total_promoted = 0
 
-    def set_mound(self, mound: "KnowledgeMound") -> None:
+    def set_mound(self, mound: KnowledgeMound) -> None:
         """Set the Knowledge Mound instance.
 
         Args:
@@ -353,7 +353,7 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
 
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def extract_one(debate: dict[str, Any]) -> Optional[ExtractionResult]:
+        async def extract_one(debate: dict[str, Any]) -> ExtractionResult | None:
             async with semaphore:
                 try:
                     return await self.extract_from_debate(

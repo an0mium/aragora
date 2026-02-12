@@ -1029,7 +1029,7 @@ class EmailIntegration:
 
         return "\n".join(lines)
 
-    async def __aenter__(self) -> "EmailIntegration":
+    async def __aenter__(self) -> EmailIntegration:
         """Async context manager entry."""
         return self
 

@@ -61,8 +61,8 @@ class CalendarEvent:
     attendees: list[dict[str, Any]] = field(default_factory=list)
     html_link: str | None = None
     hangout_link: str | None = None
-    conference_data: Optional[dict[str, Any]] = None
-    recurrence: Optional[list[str]] = None
+    conference_data: dict[str, Any] | None = None
+    recurrence: list[str] | None = None
     recurring_event_id: str | None = None
     created: datetime | None = None
     updated: datetime | None = None
@@ -175,7 +175,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
         max_results: int = 250,
         **kwargs,
     ):
@@ -558,7 +558,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> dict[str, list[FreeBusySlot]]:
         """
         Get free/busy information for calendars.
@@ -597,7 +597,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> bool:
         """
         Check if user is available during a time range.
@@ -621,7 +621,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
     async def get_upcoming_events(
         self,
         hours: int = 24,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> list[CalendarEvent]:
         """
         Get upcoming events within a time window.
@@ -660,7 +660,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
         self,
         proposed_start: datetime,
         proposed_end: datetime,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> list[CalendarEvent]:
         """
         Find events that conflict with a proposed time.

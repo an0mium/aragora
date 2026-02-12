@@ -43,7 +43,7 @@ class GraphNode:
 
     id: str
     content: str
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     confidence: float = 1.0
     source_type: str = "unknown"
@@ -160,12 +160,12 @@ class GraphStoreProtocol(Protocol):
     async def get_neighbors(
         self,
         node_id: str,
-        relationship_types: Optional[list[RelationshipType]] = None,
+        relationship_types: list[RelationshipType] | None = None,
     ) -> list[tuple[str, RelationshipType, float]]:
         """Get neighboring nodes with relationship type and weight."""
         ...
 
-    async def get_node(self, node_id: str) -> Optional[GraphNode]:
+    async def get_node(self, node_id: str) -> GraphNode | None:
         """Get a node by ID."""
         ...
 
@@ -197,7 +197,7 @@ class GraphRAGRetriever:
         self,
         vector_store: VectorStoreProtocol,
         graph_store: GraphStoreProtocol,
-        config: Optional[GraphRAGConfig] = None,
+        config: GraphRAGConfig | None = None,
     ):
         """Initialize the retriever.
 
@@ -214,8 +214,8 @@ class GraphRAGRetriever:
     async def retrieve(
         self,
         query: str,
-        context: Optional[dict[str, Any]] = None,
-        override_config: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
+        override_config: dict[str, Any] | None = None,
     ) -> GraphRAGResult:
         """
         Perform hybrid vector + graph retrieval.

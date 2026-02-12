@@ -184,8 +184,8 @@ class ContinuumMemoryEntry:
 class AwaitableList(list[ContinuumMemoryEntry]):
     """List wrapper that can be awaited for async compatibility."""
 
-    def __await__(self) -> Generator[Any, None, "AwaitableList"]:
-        async def _wrap() -> "AwaitableList":
+    def __await__(self) -> Generator[Any, None, AwaitableList]:
+        async def _wrap() -> AwaitableList:
             return self
 
         return _wrap().__await__()

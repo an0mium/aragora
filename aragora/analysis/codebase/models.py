@@ -23,7 +23,7 @@ class VulnerabilitySeverity(str, Enum):
     UNKNOWN = "unknown"
 
     @classmethod
-    def from_cvss(cls, score: float) -> "VulnerabilitySeverity":
+    def from_cvss(cls, score: float) -> VulnerabilitySeverity:
         """Convert CVSS score to severity level."""
         if score >= 9.0:
             return cls.CRITICAL

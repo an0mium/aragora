@@ -36,7 +36,7 @@ class UsageRepository:
     def __init__(
         self,
         transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
-        get_org_fn: Optional[Callable[[str], Optional["Organization"]]] = None,
+        get_org_fn: Callable[[str], Organization | None] | None = None,
     ) -> None:
         """
         Initialize the usage repository.

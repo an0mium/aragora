@@ -118,7 +118,7 @@ class ArgumentCartographer:
         content: str,
         role: str,
         round_num: int,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Process a debate message and update the graph.
@@ -215,7 +215,7 @@ class ArgumentCartographer:
         return node_id
 
     def update_from_consensus(
-        self, result: str, round_num: int, vote_counts: Optional[dict[str, int]] = None
+        self, result: str, round_num: int, vote_counts: dict[str, int] | None = None
     ) -> str:
         """Record the consensus outcome."""
         node_id = f"consensus_{round_num}"

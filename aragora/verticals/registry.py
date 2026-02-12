@@ -21,7 +21,7 @@ class VerticalSpec:
     """Specification for a registered vertical."""
 
     vertical_id: str
-    specialist_class: type["VerticalSpecialistAgent"]
+    specialist_class: type[VerticalSpecialistAgent]
     config: VerticalConfig
     description: str
 
@@ -56,7 +56,7 @@ class VerticalRegistry:
         *,
         config: VerticalConfig,
         description: str = "",
-    ) -> Callable[[type["VerticalSpecialistAgent"]], type["VerticalSpecialistAgent"]]:
+    ) -> Callable[[type[VerticalSpecialistAgent]], type[VerticalSpecialistAgent]]:
         """
         Decorator to register a vertical specialist class.
 
@@ -70,8 +70,8 @@ class VerticalRegistry:
         """
 
         def decorator(
-            specialist_cls: type["VerticalSpecialistAgent"],
-        ) -> type["VerticalSpecialistAgent"]:
+            specialist_cls: type[VerticalSpecialistAgent],
+        ) -> type[VerticalSpecialistAgent]:
             spec = VerticalSpec(
                 vertical_id=vertical_id,
                 specialist_class=specialist_cls,
@@ -92,7 +92,7 @@ class VerticalRegistry:
         role: AgentRole = "analyst",
         api_key: str | None = None,
         **kwargs: Any,
-    ) -> "VerticalSpecialistAgent":
+    ) -> VerticalSpecialistAgent:
         """
         Create a vertical specialist instance.
 

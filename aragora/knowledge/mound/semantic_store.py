@@ -207,7 +207,7 @@ class SemanticStore(SQLiteStore):
                     sock.settimeout(0.5)
                     if sock.connect_ex((host, port)) == 0:
                         return ollama
-            except (socket.error, OSError, ImportError):
+            except (OSError, ImportError):
                 pass  # Ollama not reachable, will use fallback
             # Fall back to hash-based embeddings
             logger.warning(
@@ -440,7 +440,7 @@ class SemanticStore(SQLiteStore):
         limit: int = 10,
         domain_filter: str | None = None,
         min_similarity: float = 0.3,
-        source_types: Optional[list[str]] = None,
+        source_types: list[str] | None = None,
     ) -> list[SemanticSearchResult]:
         """
         Search for semantically similar items.
@@ -482,7 +482,7 @@ class SemanticStore(SQLiteStore):
         tenant_id: str,
         candidate_limit: int,
         domain_filter: str | None,
-        source_types: Optional[list[str]],
+        source_types: list[str] | None,
     ) -> list[SemanticSearchResult]:
         """Synchronous similarity search with candidate filtering."""
         import json

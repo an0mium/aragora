@@ -219,9 +219,9 @@ def update_circuit_breaker_count(open_count: int) -> None:
 
 
 def nomic_metrics_callback(
-    from_state: "NomicState",
-    to_state: "NomicState",
-    event: "Event",
+    from_state: NomicState,
+    to_state: NomicState,
+    event: Event,
     duration_seconds: float = 0.0,
     cycle_id: str = "unknown",
 ) -> None:
@@ -264,7 +264,7 @@ def create_metrics_callback(cycle_id: str = "unknown"):
     """
     state_entry_times: dict[str, float] = {}
 
-    def callback(from_state: "NomicState", to_state: "NomicState", event: "Event") -> None:
+    def callback(from_state: NomicState, to_state: NomicState, event: Event) -> None:
         # Calculate duration
         duration = 0.0
         if from_state.name in state_entry_times:

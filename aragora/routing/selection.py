@@ -187,7 +187,7 @@ class AgentSelector:
         self,
         elo_system: Any | None = None,
         persona_manager: Any | None = None,
-        probe_filter: Optional["ProbeFilter"] = None,
+        probe_filter: ProbeFilter | None = None,
         calibration_tracker: Any | None = None,
         performance_monitor: Any | None = None,
     ):
@@ -223,7 +223,7 @@ class AgentSelector:
         if name in self.bench:
             self.bench.remove(name)
 
-    def set_probe_filter(self, probe_filter: "ProbeFilter"):
+    def set_probe_filter(self, probe_filter: ProbeFilter):
         """Set or update the probe filter for reliability scoring."""
         self.probe_filter = probe_filter
         # Refresh scores immediately
@@ -909,7 +909,7 @@ class AgentSelector:
         cls,
         elo_system: Any | None = None,
         persona_manager: Any | None = None,
-    ) -> "AgentSelector":
+    ) -> AgentSelector:
         """
         Create an AgentSelector with default agent expertise profiles.
 

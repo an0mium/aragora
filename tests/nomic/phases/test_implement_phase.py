@@ -622,7 +622,7 @@ class TestImplementPhaseRun:
                     with patch.object(phase, "rollback", new_callable=AsyncMock) as mock_rollback:
                         mock_gen.return_value = {"test.py": "pass"}
                         mock_backup.return_value = {"path": "/backup", "files": []}
-                        mock_write.side_effect = IOError("Disk full")
+                        mock_write.side_effect = OSError("Disk full")
 
                         result = await phase.run(design="Test")
 

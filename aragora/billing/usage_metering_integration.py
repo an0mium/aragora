@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 async def record_debate_tokens(
     org_id: str,
     debate_id: str,
-    agents: list["Agent"],
+    agents: list[Agent],
     user_id: str | None = None,
     rounds: int = 0,
     duration_seconds: int = 0,

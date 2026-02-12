@@ -80,7 +80,7 @@ class Position:
         return {"x": self.x, "y": self.y}
 
     @classmethod
-    def from_dict(cls, data: dict[str, float]) -> "Position":
+    def from_dict(cls, data: dict[str, float]) -> Position:
         """Create from dictionary."""
         return cls(x=data.get("x", 0.0), y=data.get("y", 0.0))
 
@@ -97,7 +97,7 @@ class NodeSize:
         return {"width": self.width, "height": self.height}
 
     @classmethod
-    def from_dict(cls, data: dict[str, float]) -> "NodeSize":
+    def from_dict(cls, data: dict[str, float]) -> NodeSize:
         """Create from dictionary."""
         return cls(width=data.get("width", 200.0), height=data.get("height", 100.0))
 
@@ -131,7 +131,7 @@ class VisualNodeData:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "VisualNodeData":
+    def from_dict(cls, data: dict[str, Any]) -> VisualNodeData:
         """Create from dictionary."""
         return cls(
             position=Position.from_dict(data.get("position", {})),
@@ -171,7 +171,7 @@ class VisualEdgeData:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "VisualEdgeData":
+    def from_dict(cls, data: dict[str, Any]) -> VisualEdgeData:
         """Create from dictionary."""
         return cls(
             edge_type=EdgeType(data.get("edge_type", "data_flow")),
@@ -217,7 +217,7 @@ class CanvasSettings:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CanvasSettings":
+    def from_dict(cls, data: dict[str, Any]) -> CanvasSettings:
         """Create from dictionary."""
         return cls(
             width=data.get("width", 4000.0),
@@ -315,7 +315,7 @@ class StepDefinition:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StepDefinition":
+    def from_dict(cls, data: dict[str, Any]) -> StepDefinition:
         """Create from dictionary."""
         import uuid
 
@@ -369,7 +369,7 @@ class TransitionRule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TransitionRule":
+    def from_dict(cls, data: dict[str, Any]) -> TransitionRule:
         """Create from dictionary."""
         import uuid
 
@@ -487,7 +487,7 @@ class WorkflowDefinition:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkflowDefinition":
+    def from_dict(cls, data: dict[str, Any]) -> WorkflowDefinition:
         """Create from dictionary."""
         created_at = data.get("created_at")
         updated_at = data.get("updated_at")
@@ -527,12 +527,12 @@ class WorkflowDefinition:
         return str(result) if result else ""
 
     @classmethod
-    def from_yaml(cls, yaml_str: str) -> "WorkflowDefinition":
+    def from_yaml(cls, yaml_str: str) -> WorkflowDefinition:
         """Create workflow from YAML string."""
         data = yaml.safe_load(yaml_str)
         return cls.from_dict(data)
 
-    def clone(self, new_id: str | None = None, new_name: str | None = None) -> "WorkflowDefinition":
+    def clone(self, new_id: str | None = None, new_name: str | None = None) -> WorkflowDefinition:
         """Create a copy of this workflow with optional new ID/name."""
         import uuid
 
@@ -623,8 +623,8 @@ class WorkflowConfig:
 
     # Tracing and metrics
     enable_tracing: bool = True
-    trace_callback: Optional[Callable[[str, dict[str, Any]], None]] = None
-    metrics_callback: Optional[Callable[[str, float], None]] = None
+    trace_callback: Callable[[str, dict[str, Any]], None] | None = None
+    metrics_callback: Callable[[str, float], None] | None = None
 
     # Parallel execution
     max_parallel_steps: int = 10

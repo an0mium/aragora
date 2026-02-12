@@ -83,7 +83,7 @@ class LegalHandler:
 
     ctx: dict[str, Any]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
         self.ctx = server_context or {}
 
@@ -677,7 +677,7 @@ class LegalHandler:
 # =============================================================================
 
 
-def create_legal_handler(server_context: Optional[dict[str, Any]] = None) -> LegalHandler:
+def create_legal_handler(server_context: dict[str, Any] | None = None) -> LegalHandler:
     """Create a legal handler instance."""
     return LegalHandler(server_context)
 

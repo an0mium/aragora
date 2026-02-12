@@ -111,13 +111,13 @@ class JiraConnector(EnterpriseConnector):
     def __init__(
         self,
         base_url: str,
-        projects: Optional[list[str]] = None,
+        projects: list[str] | None = None,
         jql: str | None = None,
         include_subtasks: bool = True,
         include_comments: bool = True,
         include_attachments: bool = False,
-        exclude_statuses: Optional[list[str]] = None,
-        exclude_types: Optional[list[str]] = None,
+        exclude_statuses: list[str] | None = None,
+        exclude_types: list[str] | None = None,
         **kwargs: Any,
     ):
         """
@@ -190,8 +190,8 @@ class JiraConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
         api_version: str = "3",
     ) -> dict[str, Any]:
         """Make a request to Jira REST API."""

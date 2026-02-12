@@ -127,7 +127,7 @@ class ScheduledTrigger:
     def __init__(
         self,
         storage_path: Path | None = None,
-        debate_creator: Optional[Callable[..., Coroutine]] = None,
+        debate_creator: Callable[..., Coroutine] | None = None,
     ):
         """
         Initialize scheduled trigger manager.
@@ -150,7 +150,7 @@ class ScheduledTrigger:
         cron_expression: str | None = None,
         enabled: bool = True,
         max_runs: int | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ScheduledTriggerConfig:
         """
         Add a scheduled trigger.
@@ -315,9 +315,9 @@ class AlertAnalyzer:
     def __init__(
         self,
         storage_path: Path | None = None,
-        alert_callback: Optional[Callable[[Alert], None]] = None,
-        debate_creator: Optional[Callable[..., Coroutine]] = None,
-        auto_debate_severities: Optional[set[AlertSeverity]] = None,
+        alert_callback: Callable[[Alert], None] | None = None,
+        debate_creator: Callable[..., Coroutine] | None = None,
+        auto_debate_severities: set[AlertSeverity] | None = None,
     ):
         """
         Initialize alert analyzer.
@@ -369,7 +369,7 @@ class AlertAnalyzer:
         metric_name: str,
         value: float,
         source: str = "system",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Alert | None:
         """
         Check a metric against thresholds and generate alert if needed.
@@ -438,7 +438,7 @@ class AlertAnalyzer:
         title: str,
         description: str,
         source: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Alert:
         """Create and store an alert."""
         import hashlib
@@ -689,7 +689,7 @@ class AnomalyDetector:
         window_size: int = 100,
         z_threshold: float = 3.0,
         min_data_points: int = 20,
-        alert_callback: Optional[Callable[[Anomaly], None]] = None,
+        alert_callback: Callable[[Anomaly], None] | None = None,
     ):
         """
         Initialize anomaly detector.
@@ -797,7 +797,7 @@ class AnomalyDetector:
     def get_baseline_stats(
         self,
         metric_name: str,
-    ) -> Optional[dict[str, float]]:
+    ) -> dict[str, float] | None:
         """Get baseline statistics for a metric."""
         data = self._metrics.get(metric_name)
         if not data or len(data) < self.min_data_points:

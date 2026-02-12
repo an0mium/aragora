@@ -71,7 +71,7 @@ class EvidenceGrounder:
 
     def __init__(
         self,
-        evidence_pack: Optional[EvidencePack] = None,
+        evidence_pack: EvidencePack | None = None,
         citation_extractor: Optional["CitationExtractor"] = None,
         claim_checker: Optional["ClaimCheck"] = None,
     ):
@@ -410,7 +410,7 @@ class EvidenceGrounder:
 
 
 def create_evidence_grounder(
-    evidence_pack: Optional[EvidencePack] = None,
+    evidence_pack: EvidencePack | None = None,
     citation_extractor: Optional["CitationExtractor"] = None,
     claim_checker: Optional["ClaimCheck"] = None,
 ) -> EvidenceGrounder:

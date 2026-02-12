@@ -37,13 +37,13 @@ class PruningHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+    def _get_mound(self) -> KnowledgeMound | None: ...
 
 
 class PruningOperationsMixin:
     """Mixin providing pruning API endpoints."""
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """Provided by host class."""
         ...
 

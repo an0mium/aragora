@@ -108,15 +108,15 @@ class MockUserStore:
     def add_organization(self, org: MockOrganization):
         self._orgs[org.id] = org
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockUser]:
+    def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self._users.get(user_id)
 
     def list_all_users(
         self,
         limit: int = 50,
         offset: int = 0,
-        org_id_filter: Optional[str] = None,
-        role_filter: Optional[str] = None,
+        org_id_filter: str | None = None,
+        role_filter: str | None = None,
         active_only: bool = False,
     ) -> tuple[list[MockUser], int]:
         users = list(self._users.values())
@@ -133,7 +133,7 @@ class MockUserStore:
         self,
         limit: int = 50,
         offset: int = 0,
-        tier_filter: Optional[str] = None,
+        tier_filter: str | None = None,
     ) -> tuple[list[MockOrganization], int]:
         orgs = list(self._orgs.values())
         if tier_filter:
@@ -148,7 +148,7 @@ class MockUserStore:
             "tier_distribution": {"free": 1, "pro": 0, "enterprise": 0},
         }
 
-    def update_user(self, user_id: str, **kwargs) -> Optional[MockUser]:
+    def update_user(self, user_id: str, **kwargs) -> MockUser | None:
         user = self._users.get(user_id)
         if user:
             for key, value in kwargs.items():
@@ -167,7 +167,7 @@ class MockAuthContext:
         self,
         user_id: str,
         is_authenticated: bool = True,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
     ):
         self.user_id = user_id
         self.is_authenticated = is_authenticated
@@ -179,7 +179,7 @@ class MockHandler:
 
     def __init__(
         self,
-        body: Optional[dict] = None,
+        body: dict | None = None,
         command: str = "GET",
     ):
         self.command = command

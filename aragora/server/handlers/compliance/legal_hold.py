@@ -46,7 +46,7 @@ def get_audit_store():  # type: ignore[override]
         return _base_get_audit_store()
 
 
-def _extract_user_id_from_headers(headers: Optional[dict[str, str]]) -> str:
+def _extract_user_id_from_headers(headers: dict[str, str] | None) -> str:
     """
     Extract user ID from Authorization header.
 
@@ -119,7 +119,7 @@ class LegalHoldMixin:
     async def _create_legal_hold(
         self,
         body: dict[str, Any],
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ) -> HandlerResult:
         """
         Create a new legal hold.

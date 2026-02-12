@@ -133,7 +133,7 @@ class AccessGrant:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AccessGrant":
+    def from_dict(cls, data: dict[str, Any]) -> AccessGrant:
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -542,7 +542,7 @@ class UnifiedQueryRequest:
     search_mode: Literal["semantic", "keyword", "hybrid"] = "hybrid"
 
     # Filters
-    sources: Optional[list[KnowledgeSource]] = None
+    sources: list[KnowledgeSource] | None = None
     domain_filter: str | None = None  # e.g., "legal" or "legal/contracts"
     min_confidence: float | None = None
     min_importance: float | None = None
@@ -550,7 +550,7 @@ class UnifiedQueryRequest:
     # Graph expansion
     include_graph: bool = False
     graph_depth: int = 1
-    relationship_types: Optional[list[RelationshipType]] = None
+    relationship_types: list[RelationshipType] | None = None
 
     # Pagination
     limit: int = 20
@@ -565,7 +565,7 @@ class UnifiedQueryResult:
     Includes items, graph relationships, and query metadata.
     """
 
-    items: list[KnowledgeItem | "EnhancedKnowledgeItem"]
+    items: list[KnowledgeItem | EnhancedKnowledgeItem]
     total_count: int
     query: str
     tenant_id: str

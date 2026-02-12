@@ -24,7 +24,7 @@ class FeatureDependency:
     description: str
     required_modules: list[str] = field(default_factory=list)
     required_config: list[str] = field(default_factory=list)
-    check_fn: Optional[Callable[[], bool]] = None
+    check_fn: Callable[[], bool] | None = None
 
 
 # Feature dependency registry
@@ -100,7 +100,7 @@ class FeatureValidationResult:
 ValidationResult = FeatureValidationResult
 
 
-def validate_feature_dependencies(config: "ArenaConfig") -> FeatureValidationResult:
+def validate_feature_dependencies(config: ArenaConfig) -> FeatureValidationResult:
     """Validate that enabled features have their dependencies met.
 
     Args:
@@ -197,7 +197,7 @@ def validate_feature_dependencies(config: "ArenaConfig") -> FeatureValidationRes
     return result
 
 
-def validate_and_warn(config: "ArenaConfig") -> None:
+def validate_and_warn(config: ArenaConfig) -> None:
     """Validate config and log warnings. Does not raise errors.
 
     This is a convenience function for non-strict validation that

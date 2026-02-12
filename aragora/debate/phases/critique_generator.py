@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 class CritiqueResult:
     """Result of a single critique generation attempt."""
 
-    critic: "Agent"
+    critic: Agent
     target_agent: str
-    critique: Optional["Critique"]
+    critique: Critique | None
     error: Exception | None
 
     @property
@@ -39,7 +39,7 @@ class CritiqueResult:
         return self.critique is not None and self.error is None
 
 
-def _is_effectively_empty_critique(critique: "Critique") -> bool:
+def _is_effectively_empty_critique(critique: Critique) -> bool:
     """Return True if critique only contains placeholder/empty content."""
     issues = [i.strip() for i in critique.issues if isinstance(i, str) and i.strip()]
     suggestions = [s.strip() for s in critique.suggestions if isinstance(s, str) and s.strip()]
@@ -89,7 +89,7 @@ class CritiqueGenerator:
         heartbeat_callback: Callable | None = None,
         max_concurrent: int = MAX_CONCURRENT_CRITIQUES,
         # Molecule tracking for work unit management (Gastown pattern)
-        molecule_tracker: Optional["MoleculeTracker"] = None,
+        molecule_tracker: MoleculeTracker | None = None,
     ):
         """
         Initialize the critique generator.
@@ -130,12 +130,12 @@ class CritiqueGenerator:
 
     async def execute_critique_phase(
         self,
-        ctx: "DebateContext",
-        critics: list["Agent"],
+        ctx: DebateContext,
+        critics: list[Agent],
         round_num: int,
-        partial_messages: list["Message"],
-        partial_critiques: list["Critique"],
-    ) -> tuple[list["Message"], list["Critique"]]:
+        partial_messages: list[Message],
+        partial_critiques: list[Critique],
+    ) -> tuple[list[Message], list[Critique]]:
         """
         Execute critique phase with parallel generation.
 
@@ -162,7 +162,7 @@ class CritiqueGenerator:
         # Create critique tasks based on topology with bounded concurrency
         critique_semaphore = asyncio.Semaphore(self._max_concurrent)
 
-        async def generate_critique(critic: "Agent", proposal_agent: str, proposal: str):
+        async def generate_critique(critic: Agent, proposal_agent: str, proposal: str):
             """Generate critique and return CritiqueResult."""
             logger.debug(f"critique_generating critic={critic.name} target={proposal_agent}")
             base_timeout = getattr(critic, "timeout", AGENT_TIMEOUT_SECONDS)
@@ -242,7 +242,7 @@ class CritiqueGenerator:
                     error=e,
                 )
 
-        async def generate_critique_bounded(critic: "Agent", proposal_agent: str, proposal: str):
+        async def generate_critique_bounded(critic: Agent, proposal_agent: str, proposal: str):
             """Wrap critique generation with semaphore for bounded concurrency."""
             async with critique_semaphore:
                 # Mark molecule as in_progress
@@ -321,14 +321,14 @@ class CritiqueGenerator:
     def _process_critique_result(
         self,
         crit_result: CritiqueResult,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
         result: Any,
-        new_messages: list["Message"],
-        new_critiques: list["Critique"],
-        partial_messages: list["Message"],
-        partial_critiques: list["Critique"],
-    ) -> Optional["Critique"]:
+        new_messages: list[Message],
+        new_critiques: list[Critique],
+        partial_messages: list[Message],
+        partial_critiques: list[Critique],
+    ) -> Critique | None:
         """Process a single critique result."""
         from aragora.core import Critique, Message
 

@@ -47,7 +47,7 @@ class ImplementationStep(BaseStep):
         stop_on_failure: bool - Whether to abort on task failure (default True)
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> dict[str, Any]:
@@ -190,7 +190,7 @@ class VerificationStep(BaseStep):
         test_paths: list[str] - Specific test paths to run
     """
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> dict[str, Any]:

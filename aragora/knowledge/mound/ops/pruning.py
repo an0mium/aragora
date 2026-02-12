@@ -148,7 +148,7 @@ class PruningOperationsMixin:
     async def _get_nodes_for_workspace(self, workspace_id: str, limit: int) -> list[Any]:
         return await super()._get_nodes_for_workspace(workspace_id, limit)  # type: ignore[misc]
 
-    async def _save_prune_history(self, history: "PruneHistory") -> None:
+    async def _save_prune_history(self, history: PruneHistory) -> None:
         await super()._save_prune_history(history)  # type: ignore[misc]
 
     async def get_prunable_items(

@@ -40,8 +40,8 @@ class EmailActionConnector(Protocol):
         to: list[str],
         subject: str,
         body: str,
-        cc: Optional[list[str]] = None,
-        bcc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
         reply_to: str | None = None,
         html_body: str | None = None,
     ) -> dict[str, Any]: ...
@@ -50,7 +50,7 @@ class EmailActionConnector(Protocol):
         self,
         original_message_id: str,
         body: str,
-        cc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
         html_body: str | None = None,
     ) -> dict[str, Any]: ...
 
@@ -147,11 +147,11 @@ class SendEmailRequest:
     to: list[str]
     subject: str
     body: str
-    cc: Optional[list[str]] = None
-    bcc: Optional[list[str]] = None
+    cc: list[str] | None = None
+    bcc: list[str] | None = None
     reply_to: str | None = None
     html_body: str | None = None
-    attachments: Optional[list[dict[str, Any]]] = None
+    attachments: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -282,7 +282,7 @@ class EmailActionsService:
         provider: str | EmailProvider,
         message_ids: list[str],
         status: ActionStatus,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         error_message: str | None = None,
         duration_ms: float | None = None,
     ) -> ActionLog:
@@ -399,7 +399,7 @@ class EmailActionsService:
         user_id: str,
         message_id: str,
         body: str,
-        cc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
         html_body: str | None = None,
     ) -> ActionResult:
         """Reply to an email.

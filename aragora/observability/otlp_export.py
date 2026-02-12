@@ -111,7 +111,7 @@ class OTLPConfig:
             raise ValueError(f"export_timeout_ms must be positive, got {self.export_timeout_ms}")
 
     @classmethod
-    def from_env(cls) -> "OTLPConfig":
+    def from_env(cls) -> OTLPConfig:
         """Create configuration from environment variables.
 
         Returns:

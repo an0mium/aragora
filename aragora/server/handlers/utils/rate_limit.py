@@ -473,7 +473,7 @@ def clear_all_limiters() -> int:
 
 def rate_limit(
     rpm: int = 60,
-    key_func: Optional[Callable[[Any], str]] = None,
+    key_func: Callable[[Any], str] | None = None,
     limiter_name: str | None = None,
     *,
     requests_per_minute: int | None = None,
@@ -529,9 +529,9 @@ def rate_limit(
 
         # Get appropriate limiter based on configuration
         # Use separate variables to help mypy with type narrowing in nested functions
-        distributed_limiter_instance: Optional[DistributedRateLimiter] = None
-        distributed_limiter_adapter: Optional[_DistributedLimiterAdapter] = None
-        local_limiter_instance: Optional[RateLimiter] = None
+        distributed_limiter_instance: DistributedRateLimiter | None = None
+        distributed_limiter_adapter: _DistributedLimiterAdapter | None = None
+        local_limiter_instance: RateLimiter | None = None
         if should_use_distributed:
             distributed_limiter_instance = get_distributed_limiter()
             # Configure endpoint on distributed limiter
@@ -787,7 +787,7 @@ def rate_limit(
 
 def auth_rate_limit(
     rpm: int = 5,
-    key_func: Optional[Callable[[Any], str]] = None,
+    key_func: Callable[[Any], str] | None = None,
     limiter_name: str | None = None,
     *,
     requests_per_minute: int | None = None,

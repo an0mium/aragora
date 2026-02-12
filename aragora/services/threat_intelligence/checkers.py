@@ -158,7 +158,7 @@ class ThreatCheckersMixin:
 
         return result
 
-    def _check_url_patterns(self, url: str) -> Optional[dict[str, Any]]:
+    def _check_url_patterns(self, url: str) -> dict[str, Any] | None:
         """Check URL against local malicious patterns."""
         for pattern in self._malicious_patterns:
             if pattern.search(url):
@@ -181,7 +181,7 @@ class ThreatCheckersMixin:
 
         return None
 
-    async def _check_url_virustotal(self, url: str) -> Optional[dict[str, Any]]:
+    async def _check_url_virustotal(self, url: str) -> dict[str, Any] | None:
         """Check URL with VirusTotal API."""
         if self._is_circuit_open("virustotal"):
             logger.debug("VirusTotal circuit breaker open, skipping")
@@ -229,7 +229,7 @@ class ThreatCheckersMixin:
 
         return None
 
-    async def _submit_url_virustotal(self, url: str) -> Optional[dict[str, Any]]:
+    async def _submit_url_virustotal(self, url: str) -> dict[str, Any] | None:
         """Submit a URL to VirusTotal for scanning."""
         if not await self._check_rate_limit("virustotal"):
             return None
@@ -261,7 +261,7 @@ class ThreatCheckersMixin:
 
         return None
 
-    async def _check_url_phishtank(self, url: str) -> Optional[dict[str, Any]]:
+    async def _check_url_phishtank(self, url: str) -> dict[str, Any] | None:
         """Check URL with PhishTank API."""
         if self._is_circuit_open("phishtank"):
             logger.debug("PhishTank circuit breaker open, skipping")
@@ -307,7 +307,7 @@ class ThreatCheckersMixin:
 
         return None
 
-    async def _check_url_urlhaus(self, url: str) -> Optional[dict[str, Any]]:
+    async def _check_url_urlhaus(self, url: str) -> dict[str, Any] | None:
         """Check URL with URLhaus API."""
         if self._is_circuit_open("urlhaus"):
             logger.debug("URLhaus circuit breaker open, skipping")

@@ -166,9 +166,9 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
 
     async def ingest_receipt(
         self,
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         workspace_id: str | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
     ) -> ReceiptIngestionResult:
         """
         Ingest a decision receipt into the Knowledge Mound.
@@ -316,8 +316,8 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
 
     def _verification_to_knowledge_item(
         self,
-        verification: "ReceiptVerification",
-        receipt: "DecisionReceipt",
+        verification: ReceiptVerification,
+        receipt: DecisionReceipt,
         workspace_id: str | None,
         tags: list[str],
     ) -> KnowledgeItem:
@@ -353,7 +353,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
     def _finding_to_knowledge_item(
         self,
         finding: Any,  # Can be ReceiptFinding or dict from gauntlet receipt
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         workspace_id: str | None,
         tags: list[str],
     ) -> KnowledgeItem:
@@ -431,7 +431,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
 
     def _get_receipt_field(
         self,
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         field: str,
         default: Any = None,
     ) -> Any:
@@ -487,7 +487,7 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
 
     def _receipt_to_summary_item(
         self,
-        receipt: "DecisionReceipt",
+        receipt: DecisionReceipt,
         workspace_id: str | None,
         tags: list[str],
     ) -> KnowledgeItem:

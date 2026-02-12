@@ -187,7 +187,7 @@ class EncryptedData:
         )
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "EncryptedData":
+    def from_bytes(cls, data: bytes) -> EncryptedData:
         """Deserialize from bytes."""
         offset = 0
 
@@ -230,7 +230,7 @@ class EncryptedData:
         return base64.b64encode(self.to_bytes()).decode("ascii")
 
     @classmethod
-    def from_base64(cls, data: str) -> "EncryptedData":
+    def from_base64(cls, data: str) -> EncryptedData:
         """Deserialize from base64 string."""
         return cls.from_bytes(base64.b64decode(data))
 
@@ -396,7 +396,7 @@ class EncryptionService:
     def encrypt(
         self,
         plaintext: str | bytes,
-        associated_data: Optional[str | bytes] = None,
+        associated_data: str | bytes | None = None,
         key_id: str | None = None,
     ) -> EncryptedData:
         """
@@ -436,7 +436,7 @@ class EncryptionService:
     def decrypt(
         self,
         encrypted: EncryptedData | str | bytes,
-        associated_data: Optional[str | bytes] = None,
+        associated_data: str | bytes | None = None,
     ) -> bytes:
         """
         Decrypt data.
@@ -475,7 +475,7 @@ class EncryptionService:
     def decrypt_string(
         self,
         encrypted: EncryptedData | str | bytes,
-        associated_data: Optional[str | bytes] = None,
+        associated_data: str | bytes | None = None,
     ) -> str:
         """Decrypt and return as string."""
         return self.decrypt(encrypted, associated_data).decode("utf-8")
@@ -483,7 +483,7 @@ class EncryptionService:
     def decrypt_value(
         self,
         encrypted: EncryptedData | str | bytes,
-        associated_data: Optional[str | bytes] = None,
+        associated_data: str | bytes | None = None,
     ) -> str:
         """Decrypt a stored value (alias for decrypt_string).
 
@@ -602,7 +602,7 @@ class EncryptionService:
     def re_encrypt(
         self,
         encrypted: EncryptedData | str | bytes,
-        associated_data: Optional[str | bytes] = None,
+        associated_data: str | bytes | None = None,
         new_key_id: str | None = None,
     ) -> EncryptedData:
         """

@@ -51,7 +51,7 @@ class TenantRateLimiter:
 
     def __init__(
         self,
-        action_limits: Optional[dict[str, int]] = None,
+        action_limits: dict[str, int] | None = None,
         default_limit: int = DEFAULT_RATE_LIMIT,
         max_tenants: int = 10000,
     ) -> None:

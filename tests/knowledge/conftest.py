@@ -27,7 +27,7 @@ class MockMetaStore:
             content_hash = hashlib.sha256(node.content.encode()).hexdigest()[:32]
             self._content_hashes[content_hash] = node.id
 
-    def get_node(self, node_id: str) -> Optional[Any]:
+    def get_node(self, node_id: str) -> Any | None:
         """Get a node by ID."""
         return self._nodes.get(node_id)
 
@@ -38,7 +38,7 @@ class MockMetaStore:
             return True
         return False
 
-    def find_by_content_hash(self, content_hash: str, workspace_id: str) -> Optional[Any]:
+    def find_by_content_hash(self, content_hash: str, workspace_id: str) -> Any | None:
         """Find node by content hash."""
         node_id = self._content_hashes.get(content_hash)
         if node_id:
@@ -177,7 +177,7 @@ class MockRedisCache:
         """Close connection."""
         pass
 
-    async def get_node(self, node_id: str) -> Optional[Any]:
+    async def get_node(self, node_id: str) -> Any | None:
         """Get cached node."""
         return self._nodes.get(node_id)
 
@@ -189,7 +189,7 @@ class MockRedisCache:
         """Invalidate cached node."""
         self._nodes.pop(node_id, None)
 
-    async def get_query(self, cache_key: str) -> Optional[Any]:
+    async def get_query(self, cache_key: str) -> Any | None:
         """Get cached query result."""
         return self._queries.get(cache_key)
 
@@ -203,7 +203,7 @@ class MockRedisCache:
             k: v for k, v in self._queries.items() if not k.startswith(f"{workspace_id}:")
         }
 
-    async def get_culture(self, workspace_id: str) -> Optional[Any]:
+    async def get_culture(self, workspace_id: str) -> Any | None:
         """Get cached culture profile."""
         return self._culture.get(workspace_id)
 

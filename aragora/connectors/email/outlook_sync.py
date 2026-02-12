@@ -155,7 +155,7 @@ class OutlookSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OutlookSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> OutlookSyncState:
         """Create from dictionary."""
         state = cls(
             tenant_id=data.get("tenant_id", ""),
@@ -193,7 +193,7 @@ class OutlookWebhookPayload:
     raw_data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_graph(cls, notification: dict[str, Any]) -> "OutlookWebhookPayload":
+    def from_graph(cls, notification: dict[str, Any]) -> OutlookWebhookPayload:
         """
         Parse Microsoft Graph change notification.
 
@@ -225,8 +225,8 @@ class OutlookWebhookPayload:
 class OutlookSyncedMessage:
     """A message that was synced and prioritized."""
 
-    message: "EmailMessage"
-    priority_result: Optional["EmailPriorityResult"] = None
+    message: EmailMessage
+    priority_result: EmailPriorityResult | None = None
     sync_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     account_id: str = ""
     is_new: bool = True
@@ -250,10 +250,10 @@ class OutlookSyncService:
         tenant_id: str,
         user_id: str,
         config: OutlookSyncConfig | None = None,
-        outlook_connector: Optional["OutlookConnector"] = None,
-        prioritizer: Optional["EmailPrioritizer"] = None,
-        on_message_synced: Optional[Callable[[OutlookSyncedMessage], None]] = None,
-        on_batch_complete: Optional[Callable[[list[OutlookSyncedMessage]], None]] = None,
+        outlook_connector: OutlookConnector | None = None,
+        prioritizer: EmailPrioritizer | None = None,
+        on_message_synced: Callable[[OutlookSyncedMessage], None] | None = None,
+        on_batch_complete: Callable[[list[OutlookSyncedMessage]], None] | None = None,
     ):
         """
         Initialize Outlook sync service.
@@ -680,7 +680,7 @@ class OutlookSyncService:
 
     async def _process_message(
         self,
-        message: "EmailMessage",
+        message: EmailMessage,
         is_new: bool = True,
         change_type: str = "created",
     ) -> OutlookSyncedMessage | None:
@@ -981,7 +981,7 @@ async def start_outlook_sync(
     user_id: str,
     refresh_token: str,
     config: OutlookSyncConfig | None = None,
-    on_message: Optional[Callable[[OutlookSyncedMessage], None]] = None,
+    on_message: Callable[[OutlookSyncedMessage], None] | None = None,
 ) -> OutlookSyncService:
     """
     Quick start function for Outlook sync.

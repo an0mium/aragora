@@ -79,9 +79,9 @@ class TenantContext:
 
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
-        self._token: Optional[Token[str | None]] = None
+        self._token: Token[str | None] | None = None
 
-    def __enter__(self) -> "TenantContext":
+    def __enter__(self) -> TenantContext:
         self._token = _current_tenant.set(self.tenant_id)
         return self
 
@@ -93,7 +93,7 @@ class TenantContext:
     ) -> None:
         _current_tenant.reset(self._token)
 
-    async def __aenter__(self) -> "TenantContext":
+    async def __aenter__(self) -> TenantContext:
         self._token = _current_tenant.set(self.tenant_id)
         return self
 

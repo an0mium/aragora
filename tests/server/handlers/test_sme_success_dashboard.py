@@ -33,7 +33,7 @@ class FakeUser:
     org_id: str = "org_123"
     role: str = "admin"
     is_authenticated: bool = True
-    error_reason: Optional[str] = None
+    error_reason: str | None = None
 
 
 @dataclass

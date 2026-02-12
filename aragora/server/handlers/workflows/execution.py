@@ -275,7 +275,7 @@ def _build_event_callback(
 
 async def execute_workflow(
     workflow_id: str,
-    inputs: Optional[dict[str, Any]] = None,
+    inputs: dict[str, Any] | None = None,
     tenant_id: str = "default",
     user_id: str | None = None,
     org_id: str | None = None,
@@ -378,7 +378,7 @@ async def execute_workflow(
         )
         store.save_execution(execution)
         raise
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.error(f"Storage error during workflow execution: {e}")
         execution.update(
             {
@@ -402,7 +402,7 @@ async def execute_workflow(
         raise
 
 
-async def get_execution(execution_id: str) -> Optional[dict[str, Any]]:
+async def get_execution(execution_id: str) -> dict[str, Any] | None:
     """Get execution status and result."""
     store = _get_store()
     return store.get_execution(execution_id)

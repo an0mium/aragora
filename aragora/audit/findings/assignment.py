@@ -107,7 +107,7 @@ class FindingAssignment:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FindingAssignment":
+    def from_dict(cls, data: dict[str, Any]) -> FindingAssignment:
         """Create from dictionary."""
 
         return cls(

@@ -340,7 +340,7 @@ class AragoraTeamsBot:
         self,
         result: CommandResult,
         command: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Convert CommandResult to Teams adaptive card using template functions."""
         if not result.success:
             return create_error_card(

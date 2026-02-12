@@ -20,10 +20,10 @@ import pytest
 class MockHandler:
     """Mock HTTP handler for tests."""
 
-    def __init__(self, json_body: Optional[dict[str, Any]] = None):
+    def __init__(self, json_body: dict[str, Any] | None = None):
         self._json_body = json_body
 
-    def get_json_body(self) -> Optional[dict[str, Any]]:
+    def get_json_body(self) -> dict[str, Any] | None:
         return self._json_body
 
 
@@ -45,7 +45,7 @@ class MockForkHandler:
                     # Bind the method to self
                     setattr(self, method_name, method.__get__(self, type(self)))
 
-    def read_json_body(self, handler: Any, max_size: int = None) -> Optional[dict]:
+    def read_json_body(self, handler: Any, max_size: int = None) -> dict | None:
         if hasattr(handler, "_json_body"):
             return handler._json_body
         return None
@@ -53,7 +53,7 @@ class MockForkHandler:
     def get_storage(self):
         return self._storage
 
-    def get_nomic_dir(self) -> Optional[Path]:
+    def get_nomic_dir(self) -> Path | None:
         return self._nomic_dir
 
 

@@ -39,7 +39,7 @@ class MockMemoryTier:
         self._storage: OrderedDict[str, MemoryEntry] = OrderedDict()
         self._lock = asyncio.Lock()
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         async with self._lock:
             entry = self._storage.get(key)
             if entry is None:
@@ -86,7 +86,7 @@ class MockContinuumMemory:
         self.glacial = MockMemoryTier("glacial", ttl=604800, max_entries=50000)
         self.tiers = [self.fast, self.medium, self.slow, self.glacial]
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         for tier in self.tiers:
             value = await tier.get(key)
             if value is not None:

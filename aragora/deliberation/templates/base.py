@@ -132,7 +132,7 @@ class DeliberationTemplate:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DeliberationTemplate":
+    def from_dict(cls, data: dict[str, Any]) -> DeliberationTemplate:
         """Create from dictionary (e.g., YAML loaded data)."""
         # Parse enums
         category = TemplateCategory.GENERAL

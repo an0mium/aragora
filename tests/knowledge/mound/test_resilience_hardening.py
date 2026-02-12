@@ -46,8 +46,8 @@ class TestBatchTimeouts:
                 self,
                 record: Any,
                 km_confidence: float,
-                cross_refs: Optional[list[str]] = None,
-                metadata: Optional[dict[str, Any]] = None,
+                cross_refs: list[str] | None = None,
+                metadata: dict[str, Any] | None = None,
             ) -> bool:
                 record["validated"] = True
                 return True

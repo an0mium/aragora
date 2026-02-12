@@ -560,7 +560,7 @@ def rotate_and_reencrypt_store(
 
 
 def rotate_encryption_key(
-    stores: Optional[list[str]] = None,
+    stores: list[str] | None = None,
     dry_run: bool = False,
 ) -> KeyRotationResult:
     """
@@ -685,7 +685,7 @@ def rotate_encryption_key(
     return result
 
 
-def _get_integration_store_config() -> Optional[dict[str, Any]]:
+def _get_integration_store_config() -> dict[str, Any] | None:
     """Get configuration for integration store re-encryption."""
     try:
         from aragora.storage.integration_store import get_integration_store
@@ -711,7 +711,7 @@ def _get_integration_store_config() -> Optional[dict[str, Any]]:
         return None
 
 
-def _get_gmail_store_config() -> Optional[dict[str, Any]]:
+def _get_gmail_store_config() -> dict[str, Any] | None:
     """Get configuration for Gmail store re-encryption."""
     try:
         from aragora.storage.gmail_token_store import get_gmail_token_store
@@ -730,7 +730,7 @@ def _get_gmail_store_config() -> Optional[dict[str, Any]]:
         return None
 
 
-def _get_sync_store_config() -> Optional[dict[str, Any]]:
+def _get_sync_store_config() -> dict[str, Any] | None:
     """Get configuration for sync store re-encryption."""
     try:
         from aragora.connectors.enterprise.sync_store import get_sync_store

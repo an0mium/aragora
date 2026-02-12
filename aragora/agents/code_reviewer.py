@@ -710,7 +710,7 @@ class CodeReviewOrchestrator:
     async def review_pr(
         self,
         pr_url: str,
-        review_types: Optional[list[str]] = None,
+        review_types: list[str] | None = None,
         post_comments: bool = False,
     ) -> ReviewResult:
         """

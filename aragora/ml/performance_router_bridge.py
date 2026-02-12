@@ -82,8 +82,8 @@ class PerformanceRouterBridge:
     4. Feeds consistency metrics into reliability scoring
     """
 
-    performance_monitor: Optional["AgentPerformanceMonitor"] = None
-    agent_router: Optional["AgentRouter"] = None
+    performance_monitor: AgentPerformanceMonitor | None = None
+    agent_router: AgentRouter | None = None
     config: PerformanceRouterBridgeConfig = field(default_factory=PerformanceRouterBridgeConfig)
 
     # Internal state
@@ -146,7 +146,7 @@ class PerformanceRouterBridge:
 
         return result
 
-    def _sync_agent_performance(self, agent_name: str, stats: "AgentStats") -> int:
+    def _sync_agent_performance(self, agent_name: str, stats: AgentStats) -> int:
         """Sync a single agent's performance into the router.
 
         Args:
@@ -193,7 +193,7 @@ class PerformanceRouterBridge:
 
         return records_added
 
-    def _infer_task_type(self, agent_name: str) -> "TaskType":
+    def _infer_task_type(self, agent_name: str) -> TaskType:
         """Infer the typical task type for an agent.
 
         Args:
@@ -223,7 +223,7 @@ class PerformanceRouterBridge:
 
         return TaskType.GENERAL
 
-    def _update_agent_capabilities(self, agent_name: str, stats: "AgentStats") -> None:
+    def _update_agent_capabilities(self, agent_name: str, stats: AgentStats) -> None:
         """Update router's agent capabilities based on telemetry.
 
         Args:
@@ -357,8 +357,8 @@ class PerformanceRouterBridge:
 
 
 def create_performance_router_bridge(
-    performance_monitor: Optional["AgentPerformanceMonitor"] = None,
-    agent_router: Optional["AgentRouter"] = None,
+    performance_monitor: AgentPerformanceMonitor | None = None,
+    agent_router: AgentRouter | None = None,
     auto_sync: bool = True,
     **config_kwargs: Any,
 ) -> PerformanceRouterBridge:

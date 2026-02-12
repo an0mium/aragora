@@ -36,11 +36,11 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 # Module-level singleton
-_protocol_store: Optional["ProtocolMessageStore"] = None
+_protocol_store: ProtocolMessageStore | None = None
 _store_lock = threading.Lock()
 
 
-def get_protocol_store(db_path: str | None = None) -> "ProtocolMessageStore":
+def get_protocol_store(db_path: str | None = None) -> ProtocolMessageStore:
     """Get or create the global protocol message store."""
     global _protocol_store
     with _store_lock:
@@ -56,7 +56,7 @@ class QueryFilters:
     debate_id: str | None = None
     agent_id: str | None = None
     message_type: ProtocolMessageType | None = None
-    message_types: Optional[list[ProtocolMessageType]] = None
+    message_types: list[ProtocolMessageType] | None = None
     round_number: int | None = None
     min_round: int | None = None
     max_round: int | None = None
@@ -463,7 +463,7 @@ class ProtocolMessageStore:
         return None
 
     async def get_debate_timeline(
-        self, debate_id: str, include_types: Optional[list[ProtocolMessageType]] = None
+        self, debate_id: str, include_types: list[ProtocolMessageType] | None = None
     ) -> list[ProtocolMessage]:
         """
         Get full timeline of messages for a debate.
@@ -742,7 +742,7 @@ class AsyncProtocolMessageStore:
         return await self._run_in_executor(functools.partial(_get_sync))
 
     async def get_debate_timeline(
-        self, debate_id: str, include_types: Optional[list[ProtocolMessageType]] = None
+        self, debate_id: str, include_types: list[ProtocolMessageType] | None = None
     ) -> list[ProtocolMessage]:
         """Get full timeline of messages for a debate (async, non-blocking).
 

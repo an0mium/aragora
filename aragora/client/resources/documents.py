@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 class DocumentsAPI:
     """API interface for document management and auditing."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -416,7 +416,7 @@ class DocumentsAPI:
     def create_audit(
         self,
         document_ids: builtins.list[str],
-        audit_types: Optional[builtins.list[str]] = None,
+        audit_types: builtins.list[str] | None = None,
         model: str = "gemini-1.5-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:
@@ -446,7 +446,7 @@ class DocumentsAPI:
     async def create_audit_async(
         self,
         document_ids: builtins.list[str],
-        audit_types: Optional[builtins.list[str]] = None,
+        audit_types: builtins.list[str] | None = None,
         model: str = "gemini-1.5-flash",
         **options: Any,
     ) -> AuditSessionCreateResponse:

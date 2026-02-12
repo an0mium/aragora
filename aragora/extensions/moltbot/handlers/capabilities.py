@@ -30,10 +30,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global capability matcher instance
-_matcher: Optional["CapabilityMatcherProtocol"] = None
+_matcher: CapabilityMatcherProtocol | None = None
 
 
-def get_capability_matcher() -> "CapabilityMatcherProtocol":
+def get_capability_matcher() -> CapabilityMatcherProtocol:
     """Get or create the capability matcher instance."""
     global _matcher
     if _matcher is None:

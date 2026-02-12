@@ -41,14 +41,14 @@ class MockUser:
     password_hash: str = "hashed_password"
     password_salt: str = "salt"
     role: str = "user"
-    org_id: Optional[str] = None
+    org_id: str | None = None
     is_active: bool = True
-    api_key: Optional[str] = None
-    api_key_created_at: Optional[datetime] = None
+    api_key: str | None = None
+    api_key_created_at: datetime | None = None
     mfa_enabled: bool = False
-    mfa_secret: Optional[str] = None
-    mfa_backup_codes: Optional[str] = None
-    last_login_at: Optional[datetime] = None
+    mfa_secret: str | None = None
+    mfa_backup_codes: str | None = None
+    last_login_at: datetime | None = None
 
     def verify_password(self, password: str) -> bool:
         """Mock password verification."""

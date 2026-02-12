@@ -67,7 +67,7 @@ class StructuredContent(BaseModel):
     type: str = Field(default="text")  # text, code, json, reasoning, etc.
     content: str = Field(default="", max_length=MAX_CONTENT_LENGTH)
     language: str | None = Field(default=None)  # For code blocks
-    metadata: Optional[dict[str, Any]] = Field(default=None)
+    metadata: dict[str, Any] | None = Field(default=None)
 
     @field_validator("content", mode="before")
     @classmethod
@@ -83,7 +83,7 @@ class StructuredContent(BaseModel):
 
     @field_validator("metadata", mode="before")
     @classmethod
-    def limit_metadata(cls, v: Any) -> Optional[dict[str, Any]]:
+    def limit_metadata(cls, v: Any) -> dict[str, Any] | None:
         """Limit metadata size to prevent memory issues."""
         if v is None:
             return None
@@ -113,7 +113,7 @@ class AgentResponseSchema(BaseModel):
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     ready_signal: ReadySignal | None = Field(default=None)
     structured_blocks: list[StructuredContent] = Field(default_factory=list)
-    metadata: Optional[dict[str, Any]] = Field(default=None)
+    metadata: dict[str, Any] | None = Field(default=None)
 
     @field_validator("content", mode="before")
     @classmethod
@@ -153,7 +153,7 @@ class AgentResponseSchema(BaseModel):
 
     @field_validator("metadata", mode="before")
     @classmethod
-    def limit_metadata(cls, v: Any) -> Optional[dict[str, Any]]:
+    def limit_metadata(cls, v: Any) -> dict[str, Any] | None:
         """Limit metadata size."""
         if v is None:
             return None
@@ -165,7 +165,7 @@ class AgentResponseSchema(BaseModel):
         return result
 
     @model_validator(mode="after")
-    def extract_ready_signal(self) -> "AgentResponseSchema":
+    def extract_ready_signal(self) -> AgentResponseSchema:
         """Extract ready signal from content if not explicitly provided."""
         if self.ready_signal is None:
             self.ready_signal = _parse_ready_signal(self.content)
@@ -178,8 +178,8 @@ class ValidationResult:
 
     is_valid: bool
     response: AgentResponseSchema | None = None
-    errors: Optional[list[str]] = None
-    warnings: Optional[list[str]] = None
+    errors: list[str] | None = None
+    warnings: list[str] | None = None
 
     def __post_init__(self) -> None:
         if self.errors is None:
@@ -260,7 +260,7 @@ def validate_agent_response(
     agent_name: str,
     role: str = "proposer",
     round_number: int = 0,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> ValidationResult:
     """Validate an agent response.
 

@@ -49,7 +49,7 @@ class DebateStrategy:
 
     def __init__(
         self,
-        continuum_memory: Optional["ContinuumMemory"] = None,
+        continuum_memory: ContinuumMemory | None = None,
         quick_validation_rounds: int = 2,
         standard_rounds: int = 3,
         exploration_rounds: int = 5,
@@ -291,7 +291,7 @@ class DebateStrategy:
             relevant_memories=[],
         )
 
-    def get_relevant_context(self, task: str, limit: int = 3) -> list["ContinuumMemoryEntry"]:
+    def get_relevant_context(self, task: str, limit: int = 3) -> list[ContinuumMemoryEntry]:
         """Get relevant memories to include as debate context.
 
         Prioritizes glacial and slow tier memories with high success rates.

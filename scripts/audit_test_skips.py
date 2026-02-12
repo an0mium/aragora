@@ -33,7 +33,7 @@ class SkipMarker:
     marker_type: str  # 'skip', 'skipif', 'pytest.skip'
     reason: str
     category: str
-    condition: Optional[str] = None
+    condition: str | None = None
 
 
 # Category patterns - order matters (first match wins)
@@ -165,7 +165,7 @@ def extract_string_value(node: ast.expr) -> str:
     return ""
 
 
-def parse_decorator(decorator: ast.expr, file_path: str, line: int) -> Optional[SkipMarker]:
+def parse_decorator(decorator: ast.expr, file_path: str, line: int) -> SkipMarker | None:
     """Parse a decorator node to extract skip information."""
     # Handle @pytest.mark.skip and @pytest.mark.skipif
     if isinstance(decorator, ast.Call):

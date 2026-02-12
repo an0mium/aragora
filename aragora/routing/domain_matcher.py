@@ -385,7 +385,7 @@ class DomainDetector:
         self,
         custom_keywords: dict[str, list[str] | None] = None,
         use_llm: bool = True,
-        client: Optional["anthropic.Anthropic"] = None,
+        client: anthropic.Anthropic | None = None,
         use_cache: bool = True,
     ):
         """Initialize with optional custom domain keywords.
@@ -408,7 +408,7 @@ class DomainDetector:
         self._use_cache = use_cache
 
     @property
-    def client(self) -> Optional["anthropic.Anthropic"]:
+    def client(self) -> anthropic.Anthropic | None:
         """Get or create the Anthropic client."""
         if self._client is None and self.use_llm:
             try:
@@ -610,7 +610,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
         self,
         task_text: str,
         task_id: str | None = None,
-    ) -> "TaskRequirements":
+    ) -> TaskRequirements:
         """
         Create TaskRequirements from task text with auto-detected domains.
 

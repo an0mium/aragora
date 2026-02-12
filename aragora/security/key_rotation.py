@@ -127,7 +127,7 @@ class KeyRotationConfig:
     """Alias for notify_days_before (backward compatibility)."""
 
     @classmethod
-    def from_env(cls) -> "KeyRotationConfig":
+    def from_env(cls) -> KeyRotationConfig:
         """Create config from environment variables.
 
         Environment variables:
@@ -202,7 +202,7 @@ class KeyRotationResult:
     records_re_encrypted: int = 0
 
     @classmethod
-    def from_job(cls, job: KeyRotationJob) -> "KeyRotationResult":
+    def from_job(cls, job: KeyRotationJob) -> KeyRotationResult:
         """Create a KeyRotationResult from a KeyRotationJob."""
         started = job.started_at or job.scheduled_at
         completed = job.completed_at or datetime.now(timezone.utc)

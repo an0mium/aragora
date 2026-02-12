@@ -353,8 +353,8 @@ class DistributedDebateCoordinator:
     async def start_debate(
         self,
         task: str,
-        agents: Optional[list[str]] = None,
-        context: Optional[dict[str, Any]] = None,
+        agents: list[str] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> DistributedDebateResult:
         """
         Start a new distributed debate.
@@ -570,7 +570,7 @@ class DistributedDebateCoordinator:
         debate_id: str,
         round_number: int = 0,
         agent_id: str | None = None,
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
     ) -> None:
         """Publish a debate event to the event bus."""
         if not self._event_bus:

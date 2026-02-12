@@ -599,7 +599,7 @@ class CodebaseAuditor:
         base_ref: str = "HEAD~1",
         head_ref: str = "HEAD",
         include_untracked: bool = False,
-    ) -> "IncrementalAuditResult":
+    ) -> IncrementalAuditResult:
         """
         Audit only files changed in a git diff.
 

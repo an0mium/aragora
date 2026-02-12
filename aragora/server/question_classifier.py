@@ -200,7 +200,7 @@ class QuestionClassification:
 class QuestionClassifier:
     """Classifies questions and assigns appropriate debate personas."""
 
-    def __init__(self, client: Optional["anthropic.AsyncAnthropic"] = None):
+    def __init__(self, client: anthropic.AsyncAnthropic | None = None):
         """Initialize the classifier.
 
         Args:
@@ -210,7 +210,7 @@ class QuestionClassifier:
         self._client = client
 
     @property
-    def client(self) -> "anthropic.AsyncAnthropic":
+    def client(self) -> anthropic.AsyncAnthropic:
         """Get or create the AsyncAnthropic client."""
         if self._client is None:
             if AsyncAnthropic is None:

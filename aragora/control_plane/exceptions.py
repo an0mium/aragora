@@ -28,7 +28,7 @@ class ControlPlaneError(AragoraError):
     def __init__(
         self,
         message: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         recoverable: bool = True,
     ):
         # Add recoverable flag to details for AragoraError
@@ -54,7 +54,7 @@ class SchedulerConnectionError(ControlPlaneError):
         self,
         message: str = "Failed to connect to scheduler backend",
         backend: str = "redis",
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details, recoverable=True)
         self.backend = backend
@@ -66,7 +66,7 @@ class PolicyCacheConnectionError(ControlPlaneError):
     def __init__(
         self,
         message: str = "Failed to connect to policy cache",
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details, recoverable=True)
 

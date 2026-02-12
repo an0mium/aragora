@@ -402,7 +402,7 @@ class ResearchIntegrationConfig:
 
 
 # Global configuration instance
-_global_config: Optional[ResearchIntegrationConfig] = None
+_global_config: ResearchIntegrationConfig | None = None
 
 
 def get_research_config() -> ResearchIntegrationConfig:

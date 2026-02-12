@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class _ReverseFlowHostProtocol(Protocol):
     """Protocol for host class of ReverseFlowMixin."""
 
-    _elo_system: Optional[Any]
+    _elo_system: Any | None
     _km_patterns: dict[str, list[KMEloPattern]]
     _pending_km_adjustments: list[EloAdjustmentRecommendation]
     _applied_km_adjustments: list[EloAdjustmentRecommendation]
@@ -51,7 +51,7 @@ class ReverseFlowMixin:
     """
 
     # Attribute declarations for mypy (provided by host class)
-    _elo_system: Optional[Any]
+    _elo_system: Any | None
     _km_patterns: dict[str, list[KMEloPattern]]
     _pending_km_adjustments: list[EloAdjustmentRecommendation]
     _applied_km_adjustments: list[EloAdjustmentRecommendation]

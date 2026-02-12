@@ -84,8 +84,8 @@ class MockConsensusRecord:
     timestamp: datetime = None
     debate_duration_seconds: float = 0.0
     rounds: int = 0
-    supersedes: Optional[str] = None
-    superseded_by: Optional[str] = None
+    supersedes: str | None = None
+    superseded_by: str | None = None
     metadata: dict[str, Any] = None
 
     def __post_init__(self):

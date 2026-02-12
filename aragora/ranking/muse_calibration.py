@@ -89,7 +89,7 @@ class MUSECalculator:
         print(f"Best subset: {result.best_subset}")
     """
 
-    def __init__(self, config: Optional[MUSEConfig] = None):
+    def __init__(self, config: MUSEConfig | None = None):
         """Initialize MUSE calculator.
 
         Args:
@@ -101,7 +101,7 @@ class MUSECalculator:
     def calculate_ensemble_uncertainty(
         self,
         agent_responses: dict[str, dict[str, Any]],
-        historical_calibration: Optional[dict[str, float]] = None,
+        historical_calibration: dict[str, float] | None = None,
     ) -> MUSEResult:
         """
         Calculate MUSE uncertainty score for an ensemble of responses.

@@ -369,7 +369,7 @@ class RedditIngestor(PulseIngestor):
 
     DEFAULT_SUBREDDITS = ["technology", "programming", "science", "worldnews"]
 
-    def __init__(self, subreddits: Optional[list[str]] = None, **kwargs):
+    def __init__(self, subreddits: list[str] | None = None, **kwargs):
         super().__init__(**kwargs)
         self.subreddits = subreddits or self.DEFAULT_SUBREDDITS
         self.base_url = "https://www.reddit.com"
@@ -763,7 +763,7 @@ class ArxivIngestor(PulseIngestor):
     Useful for academic and research-focused debate topics.
     """
 
-    def __init__(self, categories: Optional[list[str]] = None, **kwargs):
+    def __init__(self, categories: list[str] | None = None, **kwargs):
         """Initialize ArXiv ingestor.
 
         Args:
@@ -1149,7 +1149,7 @@ class SubstackIngestor(PulseIngestor):
         ("https://www.oneusefulthing.org/feed", "ai"),
     ]
 
-    def __init__(self, feeds: Optional[list[tuple]] = None, **kwargs):
+    def __init__(self, feeds: list[tuple] | None = None, **kwargs):
         """Initialize Substack ingestor.
 
         Args:

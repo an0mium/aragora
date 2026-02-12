@@ -118,7 +118,7 @@ class HL7Field:
 
     value: str
     components: list[str] = field(default_factory=list)
-    repetitions: list["HL7Field"] = field(default_factory=list)
+    repetitions: list[HL7Field] = field(default_factory=list)
 
     @classmethod
     def parse(
@@ -127,7 +127,7 @@ class HL7Field:
         component_sep: str = "^",
         repetition_sep: str = "~",
         subcomponent_sep: str = "&",
-    ) -> "HL7Field":
+    ) -> HL7Field:
         """Parse a field value into components and repetitions."""
         # Handle repetitions first
         if repetition_sep in raw:
@@ -167,7 +167,7 @@ class HL7Segment:
         raw: str,
         field_sep: str = "|",
         encoding_chars: str = "^~\\&",
-    ) -> "HL7Segment":
+    ) -> HL7Segment:
         """Parse a segment line into fields."""
         if not raw:
             raise ValueError("Empty segment")
@@ -233,7 +233,7 @@ class MSHSegment:
     version_id: str = "2.5.1"
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "MSHSegment":
+    def from_segment(cls, segment: HL7Segment) -> MSHSegment:
         """Create MSH from parsed segment."""
         # Parse datetime from MSH-7
         dt_str = segment.get_field_value(7)
@@ -291,7 +291,7 @@ class PIDSegment:
     ssn: str = ""  # PID-19
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "PIDSegment":
+    def from_segment(cls, segment: HL7Segment) -> PIDSegment:
         """Create PID from parsed segment."""
         # Parse date of birth
         dob_str = segment.get_field_value(7)
@@ -353,7 +353,7 @@ class PV1Segment:
     visit_number: str = ""  # PV1-19
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "PV1Segment":
+    def from_segment(cls, segment: HL7Segment) -> PV1Segment:
         """Create PV1 from parsed segment."""
         # Parse admit datetime (PV1-44)
         admit_str = segment.get_field_value(44)
@@ -419,7 +419,7 @@ class OBXSegment:
     observation_method: str = ""  # OBX-17
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "OBXSegment":
+    def from_segment(cls, segment: HL7Segment) -> OBXSegment:
         """Create OBX from parsed segment."""
         # Parse observation datetime (OBX-14)
         obs_str = segment.get_field_value(14)
@@ -471,7 +471,7 @@ class ORCSegment:
     ordering_provider: str = ""  # ORC-12
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "ORCSegment":
+    def from_segment(cls, segment: HL7Segment) -> ORCSegment:
         """Create ORC from parsed segment."""
         # Parse transaction datetime (ORC-9)
         dt_str = segment.get_field_value(9)
@@ -524,7 +524,7 @@ class OBRSegment:
     result_status: str = ""  # OBR-25
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "OBRSegment":
+    def from_segment(cls, segment: HL7Segment) -> OBRSegment:
         """Create OBR from parsed segment."""
 
         def parse_dt(val: str) -> datetime | None:
@@ -591,7 +591,7 @@ class SCHSegment:
     filler_status_code: str = ""  # SCH-25
 
     @classmethod
-    def from_segment(cls, segment: HL7Segment) -> "SCHSegment":
+    def from_segment(cls, segment: HL7Segment) -> SCHSegment:
         """Create SCH from parsed segment."""
         return cls(
             placer_appointment_id=segment.get_field_value(1),
@@ -1052,7 +1052,7 @@ class HL7v2Connector(EnterpriseConnector):
         mllp_host: str = "0.0.0.0",
         mllp_port: int = 2575,
         # Message filtering
-        message_types: Optional[list[str]] = None,  # Filter by type (e.g., ["ADT", "ORU"])
+        message_types: list[str] | None = None,  # Filter by type (e.g., ["ADT", "ORU"])
         # PHI handling
         enable_phi_redaction: bool = True,
         redact_dates: bool = True,

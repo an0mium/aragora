@@ -164,8 +164,8 @@ class PersistentVoiceManager:
         self._running: bool = False
 
         # Callbacks
-        self._on_session_expired: Optional[Callable[[PersistentVoiceSession], None]] = None
-        self._on_heartbeat_timeout: Optional[Callable[[PersistentVoiceSession], None]] = None
+        self._on_session_expired: Callable[[PersistentVoiceSession], None] | None = None
+        self._on_heartbeat_timeout: Callable[[PersistentVoiceSession], None] | None = None
 
     # ==========================================================================
     # Lifecycle
@@ -212,7 +212,7 @@ class PersistentVoiceManager:
         persistent: bool = True,
         ttl_hours: float = 24,
         audio_format: str = "pcm_16khz",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> PersistentVoiceSession:
         """
         Create a new voice session.

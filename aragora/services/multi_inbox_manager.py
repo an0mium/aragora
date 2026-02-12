@@ -96,7 +96,7 @@ class InboxAccount:
 class UnifiedEmail:
     """Email with multi-account context."""
 
-    email: "EmailMessage"
+    email: EmailMessage
     account_id: str
     account_type: AccountType
 
@@ -106,7 +106,7 @@ class UnifiedEmail:
     is_cross_account_important: bool = False
 
     # Prioritization result
-    priority_result: Optional["EmailPriorityResult"] = None
+    priority_result: EmailPriorityResult | None = None
     unified_score: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -236,7 +236,7 @@ class MultiInboxManager:
 
         # Connected accounts
         self._accounts: dict[str, InboxAccount] = {}
-        self._connectors: dict[str, "GmailConnector"] = {}
+        self._connectors: dict[str, GmailConnector] = {}
 
         # Cross-account sender profiles
         self._sender_profiles: dict[str, CrossAccountSenderProfile] = {}
@@ -334,7 +334,7 @@ class MultiInboxManager:
         self,
         account_id: str,
         max_messages: int = 100,
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
     ) -> int:
         """
         Sync messages from a specific account.
@@ -415,7 +415,7 @@ class MultiInboxManager:
         self,
         limit: int = 50,
         include_read: bool = False,
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
     ) -> list[UnifiedEmail]:
         """
         Get unified, prioritized inbox across all accounts.
@@ -751,7 +751,7 @@ class MultiInboxManager:
 # Factory function
 async def create_multi_inbox_manager(
     user_id: str = "default",
-    accounts: Optional[list[dict[str, Any]]] = None,
+    accounts: list[dict[str, Any]] | None = None,
 ) -> MultiInboxManager:
     """
     Create and initialize a multi-inbox manager.

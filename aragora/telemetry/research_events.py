@@ -62,11 +62,11 @@ class TelemetryEvent:
 
     event_type: TelemetryEventType
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    debate_id: Optional[str] = None
-    workspace_id: Optional[str] = None
-    round_number: Optional[int] = None
+    debate_id: str | None = None
+    workspace_id: str | None = None
+    round_number: int | None = None
     properties: dict[str, Any] = field(default_factory=dict)
-    duration_ms: Optional[float] = None
+    duration_ms: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for serialization."""
@@ -93,7 +93,7 @@ def stability_check_event(
     muse_gated: bool,
     ascot_gated: bool,
     recommendation: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a stability check telemetry event."""
     return TelemetryEvent(
@@ -118,7 +118,7 @@ def early_termination_event(
     total_rounds_planned: int,
     rounds_saved: int,
     stability_score: float,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create an early termination telemetry event."""
     return TelemetryEvent(
@@ -144,7 +144,7 @@ def routing_decision_event(
     confidence: float,
     doc_tokens: int,
     query_features: dict[str, Any],
-    fallback_mode: Optional[str],
+    fallback_mode: str | None,
     duration_ms: float,
 ) -> TelemetryEvent:
     """Create a routing decision telemetry event."""
@@ -173,7 +173,7 @@ def muse_calculation_event(
     subset_size: int,
     subset_agents: list[str],
     duration_ms: float,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a MUSE calculation telemetry event."""
     return TelemetryEvent(
@@ -199,7 +199,7 @@ def prm_step_verified_event(
     verdict: str,
     confidence: float,
     duration_ms: float,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a PRM step verified telemetry event."""
     return TelemetryEvent(
@@ -225,8 +225,8 @@ def prm_error_detected_event(
     verdict: str,
     confidence: float,
     is_late_stage: bool,
-    suggested_fix: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    suggested_fix: str | None = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a PRM error detected telemetry event."""
     return TelemetryEvent(
@@ -253,7 +253,7 @@ def ascot_fragility_event(
     dependency_depth: int,
     error_risk: float,
     scrutiny_level: str,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create an ASCoT fragility calculation event."""
     return TelemetryEvent(
@@ -277,7 +277,7 @@ def role_assignment_event(
     agent_id: str,
     role: str,
     confidence: float,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a role assignment telemetry event."""
     return TelemetryEvent(
@@ -299,7 +299,7 @@ def team_composed_event(
     coverage_score: float,
     topic_alignment: float,
     roles: list[dict[str, Any]],
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a team composition telemetry event."""
     return TelemetryEvent(
@@ -349,7 +349,7 @@ def claim_verified_event(
     verification_method: str,
     supporting_count: int,
     contradicting_count: int,
-    workspace_id: Optional[str] = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create a claim verification telemetry event."""
     return TelemetryEvent(
@@ -372,8 +372,8 @@ def integration_error_event(
     integration_name: str,
     error_type: str,
     error_message: str,
-    debate_id: Optional[str] = None,
-    workspace_id: Optional[str] = None,
+    debate_id: str | None = None,
+    workspace_id: str | None = None,
 ) -> TelemetryEvent:
     """Create an integration error telemetry event."""
     return TelemetryEvent(

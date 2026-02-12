@@ -21,8 +21,8 @@ class BeadSpec:
 
     title: str
     description: str = ""
-    priority: "BeadPriority | int | None" = None
-    bead_type: "BeadType | str | None" = None
+    priority: BeadPriority | int | None = None
+    bead_type: BeadType | str | None = None
     dependencies: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -35,7 +35,7 @@ class ConvoySpec:
     title: str
     description: str = ""
     beads: list[BeadSpec] = field(default_factory=list)
-    priority: "ConvoyPriority | int | None" = None
+    priority: ConvoyPriority | int | None = None
     dependencies: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)

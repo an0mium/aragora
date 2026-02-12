@@ -31,7 +31,7 @@ class TokenBlacklist:
     or a shared database for the blacklist.
     """
 
-    _instance: Optional["TokenBlacklist"] = None
+    _instance: TokenBlacklist | None = None
     _lock = threading.Lock()
     _initialized: bool
     _blacklist: dict[str, float]
@@ -39,7 +39,7 @@ class TokenBlacklist:
     _cleanup_interval: int
     _last_cleanup: float
 
-    def __new__(cls) -> "TokenBlacklist":
+    def __new__(cls) -> TokenBlacklist:
         """Singleton pattern for global blacklist."""
         if cls._instance is None:
             with cls._lock:
@@ -158,7 +158,7 @@ def get_token_blacklist() -> TokenBlacklist:
     return _token_blacklist
 
 
-def get_persistent_blacklist() -> "BlacklistBackend":
+def get_persistent_blacklist() -> BlacklistBackend:
     """
     Get the persistent blacklist backend.
 

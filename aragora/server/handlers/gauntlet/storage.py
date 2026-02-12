@@ -47,10 +47,10 @@ _USE_DURABLE_QUEUE = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() not
 )
 
 # Persistent storage singleton
-_storage: Optional["GauntletStorage"] = None
+_storage: GauntletStorage | None = None
 
 # WebSocket broadcast function (set by unified server when streaming is enabled)
-_gauntlet_broadcast_fn: Optional[Callable[..., Any]] = None
+_gauntlet_broadcast_fn: Callable[..., Any] | None = None
 
 
 def set_gauntlet_broadcast_fn(broadcast_fn: Callable[..., Any]) -> None:
@@ -59,12 +59,12 @@ def set_gauntlet_broadcast_fn(broadcast_fn: Callable[..., Any]) -> None:
     _gauntlet_broadcast_fn = broadcast_fn
 
 
-def get_gauntlet_broadcast_fn() -> Optional[Callable[..., Any]]:
+def get_gauntlet_broadcast_fn() -> Callable[..., Any] | None:
     """Get the broadcast function for WebSocket streaming."""
     return _gauntlet_broadcast_fn
 
 
-def _get_storage() -> "GauntletStorage":
+def _get_storage() -> GauntletStorage:
     """Get or create the persistent storage instance."""
     global _storage
     if _storage is None:

@@ -311,7 +311,7 @@ class DebateResult:
     consensus_strength: str = ""
     consensus_variance: float = 0.0
     # Disagreement surfacing (Heavy3-inspired)
-    disagreement_report: Optional["DisagreementReport"] = None
+    disagreement_report: DisagreementReport | None = None
     # Evidence grounding (Heavy3-inspired)
     grounded_verdict: Any | None = None  # GroundedVerdict from aragora.reasoning.citations
     # Belief network analysis - identifies key claims that drive disagreement
@@ -410,7 +410,7 @@ class DebateResult:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DebateResult":
+    def from_dict(cls, data: dict[str, Any]) -> DebateResult:
         """Deserialize from a dictionary."""
         return cls(
             id=data.get("id") or data.get("debate_id", ""),
@@ -519,7 +519,7 @@ class Environment:
     task: str
     context: str = ""  # additional context
     roles: list[str] = field(default_factory=lambda: ["proposer", "critic", "synthesizer"])
-    success_fn: Optional[Callable[[str], float]] = None  # 0-1 score
+    success_fn: Callable[[str], float] | None = None  # 0-1 score
     max_rounds: int = 3
     require_consensus: bool = False
     consensus_threshold: float = 0.7  # fraction of agents that must agree

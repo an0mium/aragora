@@ -79,7 +79,7 @@ class CredentialMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CredentialMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> CredentialMetadata:
         """Create from dictionary."""
 
         def parse_dt(val: str | None) -> datetime | None:
@@ -164,7 +164,7 @@ class RotationPolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RotationPolicy":
+    def from_dict(cls, data: dict[str, Any]) -> RotationPolicy:
         """Create from dictionary."""
         return cls(
             interval_days=data.get("interval_days", 90),
@@ -177,7 +177,7 @@ class RotationPolicy:
         )
 
     @classmethod
-    def strict(cls) -> "RotationPolicy":
+    def strict(cls) -> RotationPolicy:
         """Create a strict rotation policy for high-security credentials."""
         return cls(
             interval_days=30,
@@ -189,7 +189,7 @@ class RotationPolicy:
         )
 
     @classmethod
-    def standard(cls) -> "RotationPolicy":
+    def standard(cls) -> RotationPolicy:
         """Create a standard rotation policy."""
         return cls(
             interval_days=90,
@@ -201,7 +201,7 @@ class RotationPolicy:
         )
 
     @classmethod
-    def relaxed(cls) -> "RotationPolicy":
+    def relaxed(cls) -> RotationPolicy:
         """Create a relaxed rotation policy for development."""
         return cls(
             interval_days=365,
@@ -272,7 +272,7 @@ class StoredCredential:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StoredCredential":
+    def from_dict(cls, data: dict[str, Any]) -> StoredCredential:
         """Create from dictionary."""
         encrypted = data.get("encrypted_value", b"")
         if isinstance(encrypted, str):

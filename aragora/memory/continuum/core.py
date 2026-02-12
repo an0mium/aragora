@@ -103,7 +103,7 @@ class ContinuumMemory(
     SCHEMA_VERSION: int = CONTINUUM_SCHEMA_VERSION
 
     # Type annotations for lazy-initialized attributes (HybridMemorySearch is lazy-imported)
-    _hybrid_search: Optional[Any] = None
+    _hybrid_search: Any | None = None
 
     INITIAL_SCHEMA = INITIAL_SCHEMA
     SCHEMA_MIGRATIONS = SCHEMA_MIGRATIONS
@@ -112,10 +112,10 @@ class ContinuumMemory(
         self,
         db_path: str | Path | None = None,
         tier_manager: TierManager | None = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
+        event_emitter: EventEmitterProtocol | None = None,
         storage_path: str | None = None,
         base_dir: str | None = None,
-        km_adapter: Optional["ContinuumAdapter"] = None,
+        km_adapter: ContinuumAdapter | None = None,
     ) -> None:
         if db_path is None:
             db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
@@ -139,7 +139,7 @@ class ContinuumMemory(
         self._tier_manager: TierManager = tier_manager or get_tier_manager()
 
         # Optional event emitter for WebSocket streaming
-        self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
+        self.event_emitter: EventEmitterProtocol | None = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
         # TypedDict constructor returns dict; mypy cannot verify nested TypedDict compatibility
@@ -167,7 +167,7 @@ class ContinuumMemory(
         self._tier_lock: threading.Lock = threading.Lock()
 
         # Optional Knowledge Mound adapter for bidirectional integration
-        self._km_adapter: Optional["ContinuumAdapter"] = km_adapter
+        self._km_adapter: ContinuumAdapter | None = km_adapter
 
     def register_migrations(self, manager: SchemaManager) -> None:
         """Register schema migrations for ContinuumMemory."""

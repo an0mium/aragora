@@ -98,7 +98,7 @@ class OTelBridgeConfig:
     insecure: bool = False
 
     @classmethod
-    def from_env(cls) -> "OTelBridgeConfig":
+    def from_env(cls) -> OTelBridgeConfig:
         """Create configuration from environment variables.
 
         Prioritizes standard OTEL_* variables over ARAGORA_* ones.

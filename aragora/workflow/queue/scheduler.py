@@ -91,7 +91,7 @@ class DependencyGraph:
         # All registered tasks
         self._tasks: set[str] = set()
 
-    def add_task(self, task_id: str, depends_on: Optional[list[str]] = None) -> None:
+    def add_task(self, task_id: str, depends_on: list[str] | None = None) -> None:
         """Add a task with its dependencies."""
         self._tasks.add(task_id)
 
@@ -230,8 +230,8 @@ class DependencyScheduler:
         self._rebalance_task: asyncio.Task | None = None
 
         # Callbacks
-        self._on_workflow_complete: Optional[Callable[[str], None]] = None
-        self._on_task_scheduled: Optional[Callable[[WorkflowTask], None]] = None
+        self._on_workflow_complete: Callable[[str], None] | None = None
+        self._on_task_scheduled: Callable[[WorkflowTask], None] | None = None
 
     async def start(self) -> None:
         """Start the scheduler."""

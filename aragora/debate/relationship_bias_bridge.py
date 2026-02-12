@@ -92,11 +92,11 @@ class RelationshipBiasBridge:
     4. Provides diversity recommendations for team selection
     """
 
-    relationship_tracker: Optional["RelationshipTracker"] = None
+    relationship_tracker: RelationshipTracker | None = None
     config: RelationshipBiasBridgeConfig = field(default_factory=RelationshipBiasBridgeConfig)
 
     # Cache for relationship metrics
-    _metrics_cache: dict[tuple[str, str], "RelationshipMetrics"] = field(
+    _metrics_cache: dict[tuple[str, str], RelationshipMetrics] = field(
         default_factory=dict, repr=False
     )
 
@@ -187,7 +187,7 @@ class RelationshipBiasBridge:
 
     def compute_vote_weight_adjustments(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         proposals: dict[str, str],
     ) -> dict[str, float]:
         """Compute vote weight adjustments based on relationships.
@@ -244,7 +244,7 @@ class RelationshipBiasBridge:
         self,
         available_agents: list[str],
         team_size: int,
-        required_agents: Optional[list[str]] = None,
+        required_agents: list[str] | None = None,
     ) -> list[list[str]]:
         """Suggest diverse team compositions.
 
@@ -286,7 +286,7 @@ class RelationshipBiasBridge:
 
     def get_echo_chamber_pairs(
         self,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
     ) -> list[tuple[str, str, float]]:
         """Get all agent pairs that form potential echo chambers.
 
@@ -323,7 +323,7 @@ class RelationshipBiasBridge:
         self,
         agent_a: str,
         agent_b: str,
-    ) -> Optional["RelationshipMetrics"]:
+    ) -> RelationshipMetrics | None:
         """Get relationship metrics, using cache.
 
         Args:
@@ -427,7 +427,7 @@ class RelationshipBiasBridge:
 
 
 def create_relationship_bias_bridge(
-    relationship_tracker: Optional["RelationshipTracker"] = None,
+    relationship_tracker: RelationshipTracker | None = None,
     **config_kwargs: Any,
 ) -> RelationshipBiasBridge:
     """Create and configure a RelationshipBiasBridge.

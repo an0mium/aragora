@@ -92,7 +92,7 @@ class MockNode:
 
     id: str
     content: str
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "content": self.content, "metadata": self.metadata}
@@ -107,7 +107,7 @@ class MockAccessGrant:
     grantee_id: str
     permissions: list[str]
     granted_by: str
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -133,7 +133,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)
@@ -145,7 +145,7 @@ class MockHandler:
 class VisibilityHandler(VisibilityOperationsMixin):
     """Handler implementation for testing VisibilityOperationsMixin."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None, user: Optional[MockUser] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None, user: MockUser | None = None):
         self._mound = mound
         self._user = user or MockUser()
         self.ctx = {}

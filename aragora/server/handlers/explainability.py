@@ -126,7 +126,7 @@ class BatchDebateResult:
 
     debate_id: str
     status: str  # success, error, not_found
-    explanation: Optional[dict[str, Any]] = None
+    explanation: dict[str, Any] | None = None
     error: str | None = None
     processing_time_ms: float = 0.0
 
@@ -1046,10 +1046,10 @@ h3 {{ color: #666; }}
 
 
 # Handler factory
-_explainability_handler: Optional["ExplainabilityHandler"] = None
+_explainability_handler: ExplainabilityHandler | None = None
 
 
-def get_explainability_handler(server_context: dict | None = None) -> "ExplainabilityHandler":
+def get_explainability_handler(server_context: dict | None = None) -> ExplainabilityHandler:
     """Get or create the explainability handler instance."""
     global _explainability_handler
     if _explainability_handler is None:

@@ -119,7 +119,7 @@ class GoogleHomeConnector(DeviceConnector):
         )
 
         # Service account credentials
-        self._credentials: Optional[dict[str, Any]] = None
+        self._credentials: dict[str, Any] | None = None
         self._access_token: str | None = None
         self._token_expires_at: float = 0
 
@@ -395,7 +395,7 @@ class GoogleHomeConnector(DeviceConnector):
     def build_google_response(
         self,
         response: VoiceDeviceResponse,
-        session_params: Optional[dict[str, Any]] = None,
+        session_params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Build a Google Actions response from VoiceDeviceResponse.

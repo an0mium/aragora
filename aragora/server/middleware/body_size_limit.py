@@ -192,7 +192,7 @@ class BodySizeCheckResult:
     max_allowed: int | None = None
 
     @classmethod
-    def ok(cls) -> "BodySizeCheckResult":
+    def ok(cls) -> BodySizeCheckResult:
         """Return a successful check result."""
         return cls(allowed=True)
 
@@ -202,7 +202,7 @@ class BodySizeCheckResult:
         content_length: int,
         max_allowed: int,
         include_size: bool = True,
-    ) -> "BodySizeCheckResult":
+    ) -> BodySizeCheckResult:
         """Return a failure result for payload too large."""
         if include_size:
             max_mb = max_allowed / (1024 * 1024)
@@ -222,7 +222,7 @@ class BodySizeCheckResult:
         )
 
     @classmethod
-    def invalid_content_length(cls, value: str) -> "BodySizeCheckResult":
+    def invalid_content_length(cls, value: str) -> BodySizeCheckResult:
         """Return a failure result for invalid Content-Length header."""
         return cls(
             allowed=False,
@@ -231,7 +231,7 @@ class BodySizeCheckResult:
         )
 
     @classmethod
-    def negative_content_length(cls) -> "BodySizeCheckResult":
+    def negative_content_length(cls) -> BodySizeCheckResult:
         """Return a failure result for negative Content-Length."""
         return cls(
             allowed=False,
@@ -330,7 +330,7 @@ class BodySizeLimitMiddleware:
         body: BinaryIO,
         path: str = "",
         max_size_override: int | None = None,
-    ) -> "LimitedBodyReader":
+    ) -> LimitedBodyReader:
         """Wrap a body reader to enforce size limits during chunked reads.
 
         Args:

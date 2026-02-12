@@ -22,9 +22,9 @@ class InboxServicesMixin:
     """Mixin providing inbox email service integration methods."""
 
     # Stub attributes expected from the composing class
-    gmail_connector: "GmailConnector | None"
-    prioritizer: "EmailPrioritizer | None"
-    sender_history: "SenderHistoryService | None"
+    gmail_connector: GmailConnector | None
+    prioritizer: EmailPrioritizer | None
+    sender_history: SenderHistoryService | None
 
     async def _fetch_prioritized_emails(
         self,
@@ -378,7 +378,7 @@ class InboxServicesMixin:
 
     async def _reprioritize_emails(
         self,
-        email_ids: Optional[list[str]],
+        email_ids: list[str] | None,
         force_tier: str | None = None,
     ) -> dict[str, Any]:
         """

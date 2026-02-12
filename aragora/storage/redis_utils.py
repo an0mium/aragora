@@ -36,7 +36,7 @@ _cached_client: Any | None = None
 _initialized = False
 
 
-def get_redis_client(redis_url: str | None = None) -> Optional["RedisClientProtocol"]:
+def get_redis_client(redis_url: str | None = None) -> RedisClientProtocol | None:
     """
     Get Redis client, preferring cluster mode when configured.
 

@@ -83,7 +83,7 @@ class MockQueue:
         job.priority = priority
         return job.id
 
-    async def get_status(self, job_id: str) -> Optional[MockJob]:
+    async def get_status(self, job_id: str) -> MockJob | None:
         return self._jobs.get(job_id)
 
     async def cancel(self, job_id: str) -> bool:

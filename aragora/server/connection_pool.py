@@ -125,7 +125,7 @@ class ConnectionPoolManager:
     - Metrics collection
     """
 
-    _instance: Optional["ConnectionPoolManager"] = None
+    _instance: ConnectionPoolManager | None = None
     _lock = threading.Lock()
 
     def __init__(self, config: PoolConfig | None = None):
@@ -142,7 +142,7 @@ class ConnectionPoolManager:
         self._stop_health_check = threading.Event()
 
     @classmethod
-    def get_instance(cls, config: PoolConfig | None = None) -> "ConnectionPoolManager":
+    def get_instance(cls, config: PoolConfig | None = None) -> ConnectionPoolManager:
         """Get singleton instance."""
         if cls._instance is None:
             with cls._lock:

@@ -61,7 +61,7 @@ def _get_workflow_engine():
 async def _execute_workflow_async(
     workflow: Any,
     execution_id: str,
-    inputs: Optional[dict[str, Any]] = None,
+    inputs: dict[str, Any] | None = None,
     tenant_id: str = "default",
 ) -> None:
     """
@@ -123,7 +123,7 @@ async def _execute_workflow_async(
 
 def _start_workflow_execution(
     workflow: Any,
-    inputs: Optional[dict[str, Any]] = None,
+    inputs: dict[str, Any] | None = None,
     tenant_id: str = "default",
 ) -> str:
     """

@@ -50,7 +50,7 @@ class KnowledgeMoundCheckpointStore:
 
     def __init__(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMound,
         workspace_id: str | None = None,
     ):
         """

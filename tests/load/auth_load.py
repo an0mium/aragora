@@ -139,9 +139,9 @@ class AuthLoadClient:
     def __init__(self, base_url: str, metrics: AuthLoadMetrics):
         self.base_url = base_url.rstrip("/")
         self.metrics = metrics
-        self.session: Optional[Any] = None
-        self.access_token: Optional[str] = None
-        self.refresh_token: Optional[str] = None
+        self.session: Any | None = None
+        self.access_token: str | None = None
+        self.refresh_token: str | None = None
 
     async def _ensure_session(self) -> Any:
         """Ensure aiohttp session exists."""
@@ -162,7 +162,7 @@ class AuthLoadClient:
         self,
         email: str,
         password: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Attempt to login with credentials."""
         session = await self._ensure_session()
 
@@ -249,7 +249,7 @@ class AuthLoadClient:
             self.metrics.errors.append(f"Refresh error: {str(e)[:100]}")
             return False
 
-    async def get_session_info(self) -> Optional[dict[str, Any]]:
+    async def get_session_info(self) -> dict[str, Any] | None:
         """Get current session information."""
         session = await self._ensure_session()
 
@@ -297,7 +297,7 @@ class AuthLoadClient:
             self.metrics.errors.append(f"Logout error: {str(e)[:100]}")
             return False
 
-    async def initiate_mfa_challenge(self) -> Optional[str]:
+    async def initiate_mfa_challenge(self) -> str | None:
         """Initiate MFA challenge."""
         session = await self._ensure_session()
 
@@ -322,7 +322,7 @@ class AuthLoadClient:
             self.metrics.errors.append(f"MFA error: {str(e)[:100]}")
             return None
 
-    async def initiate_sso(self, provider: str = "google") -> Optional[str]:
+    async def initiate_sso(self, provider: str = "google") -> str | None:
         """Initiate SSO flow."""
         session = await self._ensure_session()
 

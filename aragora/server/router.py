@@ -89,11 +89,11 @@ class RequestRouter:
             cache_size: Maximum number of dispatch results to cache
         """
         self._routes: list[Route] = []
-        self._handlers: list["BaseHandler"] = []
+        self._handlers: list[BaseHandler] = []
         # O(1) lookup for exact routes (path -> list of routes by method)
         self._exact_routes: dict[str, dict[str, Route]] = {}
         # Dispatch cache: (method, path) -> (handler, path_params)
-        self._dispatch_cache: dict[tuple[str, str], tuple["BaseHandler", dict]] = {}
+        self._dispatch_cache: dict[tuple[str, str], tuple[BaseHandler, dict]] = {}
         self._cache_size = cache_size
         # Statistics
         self._cache_hits = 0

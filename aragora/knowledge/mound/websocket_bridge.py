@@ -93,8 +93,8 @@ class KMSubscriptionManager:
     def subscribe(
         self,
         client_id: str,
-        event_types: Optional[list[str]] = None,
-        sources: Optional[list[str]] = None,
+        event_types: list[str] | None = None,
+        sources: list[str] | None = None,
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
     ) -> KMSubscription:
@@ -148,10 +148,10 @@ class KMSubscriptionManager:
     def update_subscription(
         self,
         client_id: str,
-        add_types: Optional[list[str]] = None,
-        remove_types: Optional[list[str]] = None,
-        add_sources: Optional[list[str]] = None,
-        remove_sources: Optional[list[str]] = None,
+        add_types: list[str] | None = None,
+        remove_types: list[str] | None = None,
+        add_sources: list[str] | None = None,
+        remove_sources: list[str] | None = None,
     ) -> KMSubscription | None:
         """
         Update an existing subscription.
@@ -249,7 +249,7 @@ class KMWebSocketBridge:
 
     def __init__(
         self,
-        broadcaster: Optional["WebSocketBroadcaster"] = None,
+        broadcaster: WebSocketBroadcaster | None = None,
         batch_interval_ms: float = 100.0,
         max_batch_size: int = 50,
         passthrough_events: list[str] | None = None,
@@ -287,7 +287,7 @@ class KMWebSocketBridge:
         # Create adapter callback wrapper
         self._adapter_batcher = AdapterEventBatcher(self._batcher, prefix="km")
 
-    def set_broadcaster(self, broadcaster: "WebSocketBroadcaster") -> None:
+    def set_broadcaster(self, broadcaster: WebSocketBroadcaster) -> None:
         """Set the broadcaster after initialization."""
         self._broadcaster = broadcaster
 
@@ -331,8 +331,8 @@ class KMWebSocketBridge:
     def subscribe(
         self,
         client_id: str,
-        event_types: Optional[list[str]] = None,
-        sources: Optional[list[str]] = None,
+        event_types: list[str] | None = None,
+        sources: list[str] | None = None,
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
     ) -> KMSubscription:
@@ -442,7 +442,7 @@ def set_km_bridge(bridge: KMWebSocketBridge) -> None:
 
 
 def create_km_bridge(
-    broadcaster: Optional["WebSocketBroadcaster"] = None,
+    broadcaster: WebSocketBroadcaster | None = None,
     **kwargs,
 ) -> KMWebSocketBridge:
     """

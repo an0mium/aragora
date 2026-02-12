@@ -146,8 +146,8 @@ class NotionConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Notion API."""
         from aragora.server.http_client_pool import get_http_pool
@@ -967,7 +967,7 @@ class NotionConnector(EnterpriseConnector):
         title: str,
         content: str | None = None,
         parent_type: str = "page_id",
-        properties: Optional[dict[str, Any]] = None,
+        properties: dict[str, Any] | None = None,
     ) -> NotionPage | None:
         """
         Create a new Notion page.
@@ -1013,7 +1013,7 @@ class NotionConnector(EnterpriseConnector):
     async def update_page(
         self,
         page_id: str,
-        properties: Optional[dict[str, Any]] = None,
+        properties: dict[str, Any] | None = None,
         archived: bool | None = None,
     ) -> NotionPage | None:
         """

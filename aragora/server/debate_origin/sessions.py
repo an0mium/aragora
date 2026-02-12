@@ -26,7 +26,7 @@ async def _create_and_link_session(
     manager,
     platform: str,
     user_id: str,
-    metadata: Optional[dict[str, Any]],
+    metadata: dict[str, Any] | None,
     debate_id: str,
 ) -> None:
     """Helper to create and link session in async context."""

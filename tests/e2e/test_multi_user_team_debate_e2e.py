@@ -56,8 +56,8 @@ def get_status(result: HandlerResult) -> int:
 
 
 def create_mock_request(
-    body: Optional[dict] = None,
-    headers: Optional[dict] = None,
+    body: dict | None = None,
+    headers: dict | None = None,
     method: str = "POST",
     path: str = "/",
     client_address: tuple = ("127.0.0.1", 54321),

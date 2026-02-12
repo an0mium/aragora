@@ -99,7 +99,7 @@ class ChannelSubscription:
         }
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "ChannelSubscription":
+    def from_row(cls, row: sqlite3.Row) -> ChannelSubscription:
         """Create from database row."""
         event_types_raw = json.loads(row["event_types"] or "[]")
         event_types = []
@@ -143,7 +143,7 @@ class ChannelSubscriptionStore:
     Thread-safe implementation with connection pooling.
     """
 
-    _instances: dict[str, "ChannelSubscriptionStore"] = {}
+    _instances: dict[str, ChannelSubscriptionStore] = {}
 
     def __init__(self, db_path: str | None = None):
         """Initialize the store.
@@ -351,10 +351,10 @@ class ChannelSubscriptionStore:
     def update(
         self,
         subscription_id: str,
-        event_types: Optional[list[EventType]] = None,
+        event_types: list[EventType] | None = None,
         is_active: bool | None = None,
         channel_name: str | None = None,
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ) -> ChannelSubscription | None:
         """Update a subscription.
 

@@ -67,10 +67,10 @@ class VoteWeightCalculator:
 
     def __init__(
         self,
-        reputation_source: Optional[Callable[[str], float]] = None,
+        reputation_source: Callable[[str], float] | None = None,
         reliability_weights: dict[str, float] | None = None,
-        consistency_source: Optional[Callable[[str], float]] = None,
-        calibration_source: Optional[Callable[[str], float]] = None,
+        consistency_source: Callable[[str], float] | None = None,
+        calibration_source: Callable[[str], float] | None = None,
     ):
         """Initialize weight calculator.
 
@@ -149,8 +149,8 @@ class VotingPhase:
 
     def __init__(
         self,
-        protocol: "DebateProtocol",
-        similarity_backend: Optional["SimilarityBackend"] = None,
+        protocol: DebateProtocol,
+        similarity_backend: SimilarityBackend | None = None,
     ):
         """Initialize voting phase.
 
@@ -161,7 +161,7 @@ class VotingPhase:
         self.protocol = protocol
         self._similarity_backend = similarity_backend
 
-    def group_similar_votes(self, votes: list["Vote"]) -> dict[str, list[str]]:
+    def group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
         """Group semantically similar vote choices.
 
         This prevents artificial disagreement when agents vote for the
@@ -221,8 +221,8 @@ class VotingPhase:
         return {k: v for k, v in groups.items() if len(v) > 1}
 
     def apply_vote_grouping(
-        self, votes: list["Vote"], groups: dict[str, list[str]]
-    ) -> list["Vote"]:
+        self, votes: list[Vote], groups: dict[str, list[str]]
+    ) -> list[Vote]:
         """Apply vote grouping to normalize vote choices.
 
         Args:
@@ -259,7 +259,7 @@ class VotingPhase:
 
         return normalized
 
-    def compute_vote_distribution(self, votes: list["Vote"]) -> dict[str, dict[str, Any]]:
+    def compute_vote_distribution(self, votes: list[Vote]) -> dict[str, dict[str, Any]]:
         """Compute vote distribution statistics.
 
         Args:
@@ -298,7 +298,7 @@ class VotingPhase:
 
     def determine_winner(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         require_majority: bool = False,
         min_margin: float = 0.0,
     ) -> str | None:
@@ -339,11 +339,11 @@ class VotingPhase:
 
     def count_weighted_votes(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         weight_calculator: VoteWeightCalculator | None = None,
         user_votes: list[dict[str, Any] | None] = None,
         user_vote_weight: float = 0.5,
-        user_vote_multiplier: Optional[Callable[[int, Any], float]] = None,
+        user_vote_multiplier: Callable[[int, Any], float] | None = None,
     ) -> WeightedVoteResult:
         """Count votes with optional weighting.
 
@@ -460,7 +460,7 @@ class VotingPhase:
 
     def check_unanimous(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         voting_errors: int = 0,
     ) -> WeightedVoteResult:
         """Check for unanimous consensus (no weighting).

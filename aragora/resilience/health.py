@@ -88,7 +88,7 @@ class ComponentHealthStatus:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ComponentHealthStatus":
+    def from_dict(cls, data: dict[str, Any]) -> ComponentHealthStatus:
         """Create from dictionary."""
         return cls(
             healthy=data["healthy"],

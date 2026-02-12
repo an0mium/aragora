@@ -76,9 +76,9 @@ class KnowledgeMound:
     def __init__(
         self,
         workspace_id: str = "default",
-        db_path: Optional[str | Path] = None,
+        db_path: str | Path | None = None,
         weaviate_config: dict[str, Any] | None = None,
-        embedding_fn: Optional[Callable[[str], list[float]]] = None,
+        embedding_fn: Callable[[str], list[float]] | None = None,
     ):
         """
         Initialize the Knowledge Mound.

@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 CODEBASE_CONTEXT_TIMEOUT = float(os.getenv("ARAGORA_CODEBASE_CONTEXT_TIMEOUT", "60.0"))
 
 # Define fallback values before imports to avoid redefinition errors
-_get_rlm: Optional[Callable[[], Any]] = None
-_get_compressor: Optional[Callable[[], Any]] = None
+_get_rlm: Callable[[], Any] | None = None
+_get_compressor: Callable[[], Any] | None = None
 
 # Check for RLM availability (use factory for consistent initialization)
 try:
@@ -410,7 +410,7 @@ class ContentProcessor:
                     + "\n\n---\n\n".join(aragora_context_parts[:4])
                 )
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.warning("Failed to load Aragora context (file error): %s", e)
         except (ValueError, RuntimeError) as e:
             logger.warning("Failed to load Aragora context: %s", e)
@@ -597,7 +597,7 @@ class ContentProcessor:
         combined_text: str,
         evidence_collector: Any,
         task: str,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
     ) -> tuple[int, Any]:
         """Refresh evidence based on claims made during a debate round.
 

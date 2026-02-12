@@ -28,7 +28,7 @@ async def resolve_approval(
     status: str,
     responder_id: str,
     notes: str = "",
-    checklist_updates: Optional[dict[str, bool]] = None,
+    checklist_updates: dict[str, bool] | None = None,
 ) -> bool:
     """Resolve a human approval request."""
     from aragora.server.handlers import workflows as workflows_module
@@ -50,7 +50,7 @@ async def resolve_approval(
     )
 
 
-async def get_approval(request_id: str) -> Optional[dict[str, Any]]:
+async def get_approval(request_id: str) -> dict[str, Any] | None:
     """Get an approval request by ID."""
     from aragora.server.handlers import workflows as workflows_module
 

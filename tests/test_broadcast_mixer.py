@@ -123,7 +123,7 @@ class TestPydubMixer:
         output_path = tmp_path / "output.mp3"
 
         mock_audio = MagicMock()
-        mock_audio.empty.side_effect = IOError("Disk full")
+        mock_audio.empty.side_effect = OSError("Disk full")
 
         with patch("aragora.broadcast.mixer.PYDUB_AVAILABLE", True):
             with patch("aragora.broadcast.mixer.AudioSegment", mock_audio, create=True):
@@ -266,7 +266,7 @@ class TestFFmpegMixer:
         audio_file.write_bytes(b"fake audio")
         output_path = tmp_path / "output.mp3"
 
-        with patch("tempfile.NamedTemporaryFile", side_effect=IOError("Disk full")):
+        with patch("tempfile.NamedTemporaryFile", side_effect=OSError("Disk full")):
             result = mix_audio_with_ffmpeg([audio_file], output_path)
 
         assert result is False

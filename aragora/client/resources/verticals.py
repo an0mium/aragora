@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class VerticalsAPI:
     """API interface for vertical specialist operations."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def list(self, keyword: str | None = None) -> list[dict[str, Any]]:

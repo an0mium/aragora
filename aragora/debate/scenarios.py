@@ -89,7 +89,7 @@ class Scenario:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Scenario":
+    def from_dict(cls, data: dict) -> Scenario:
         return cls(
             id=data["id"],
             name=data["name"],
@@ -234,12 +234,12 @@ class ScenarioMatrix:
         self.scenarios: list[Scenario] = []
         self.dimensions: dict[str, list[Any]] = {}
 
-    def add_scenario(self, scenario: Scenario) -> "ScenarioMatrix":
+    def add_scenario(self, scenario: Scenario) -> ScenarioMatrix:
         """Add a single scenario."""
         self.scenarios.append(scenario)
         return self
 
-    def add_dimension(self, name: str, values: list[Any]) -> "ScenarioMatrix":
+    def add_dimension(self, name: str, values: list[Any]) -> ScenarioMatrix:
         """Add a dimension for grid generation."""
         self.dimensions[name] = values
         return self
@@ -248,7 +248,7 @@ class ScenarioMatrix:
         self,
         scenario_type: ScenarioType = ScenarioType.CUSTOM,
         name_template: str = "{dims}",
-    ) -> "ScenarioMatrix":
+    ) -> ScenarioMatrix:
         """Generate scenarios from cartesian product of dimensions."""
 
         if not self.dimensions:
@@ -281,7 +281,7 @@ class ScenarioMatrix:
         baseline_params: dict[str, Any],
         vary_params: dict[str, list[Any]],
         scenario_type: ScenarioType = ScenarioType.CUSTOM,
-    ) -> "ScenarioMatrix":
+    ) -> ScenarioMatrix:
         """Generate scenarios for sensitivity analysis (vary one at a time)."""
 
         # Add baseline
@@ -320,7 +320,7 @@ class ScenarioMatrix:
         return sorted(self.scenarios, key=lambda s: -s.priority)
 
     @classmethod
-    def from_presets(cls, preset: str) -> "ScenarioMatrix":
+    def from_presets(cls, preset: str) -> ScenarioMatrix:
         """Create matrix from common presets."""
 
         matrix = cls(name=preset)
@@ -536,7 +536,7 @@ class MatrixDebateRunner:
         task: str,
         matrix: ScenarioMatrix,
         base_context: str = "",
-        on_scenario_complete: Optional[Callable[[ScenarioResult], None]] = None,
+        on_scenario_complete: Callable[[ScenarioResult], None] | None = None,
     ) -> MatrixResult:
         """Run debates for all scenarios in the matrix."""
 

@@ -57,7 +57,7 @@ class MockAragoraRLM:
         self,
         success_rate: float = 0.8,
         avg_confidence: float = 0.7,
-        strategies: Optional[list[str]] = None,
+        strategies: list[str] | None = None,
     ):
         self.success_rate = success_rate
         self.avg_confidence = avg_confidence
@@ -73,7 +73,7 @@ class MockAragoraRLM:
         self,
         query: str,
         context: Any,
-        strategy: Optional[str] = None,
+        strategy: str | None = None,
         max_iterations: int = 5,
         **kwargs,
     ) -> MockRLMResult:
@@ -272,7 +272,7 @@ class MockTrainer:
     async def train(
         self,
         queries_per_epoch: list[list[tuple[str, Any]]],
-        checkpoint_dir: Optional[Path] = None,
+        checkpoint_dir: Path | None = None,
         checkpoint_interval: int = 5,
     ) -> list[dict[str, float]]:
         """Run full training loop."""

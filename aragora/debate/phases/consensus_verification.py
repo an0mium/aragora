@@ -61,7 +61,7 @@ class ConsensusVerifier:
 
     async def apply_verification_bonuses(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         vote_counts: dict[str, float],
         proposals: dict[str, str],
         choice_mapping: dict[str, str],
@@ -155,7 +155,7 @@ class ConsensusVerifier:
 
         return vote_counts
 
-    async def _update_elo_from_verification(self, ctx: "DebateContext") -> None:
+    async def _update_elo_from_verification(self, ctx: DebateContext) -> None:
         """Update agent ELO ratings based on verification results.
 
         When claims are formally verified, the authoring agent's ELO is adjusted:
@@ -305,7 +305,7 @@ class ConsensusVerifier:
 
     def _emit_verification_event(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         agent_name: str,
         verified_count: int,
         bonus: float,

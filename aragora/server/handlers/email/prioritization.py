@@ -192,7 +192,7 @@ async def handle_email_feedback(
     action: str,
     user_id: str = "default",
     workspace_id: str = "default",
-    email_data: Optional[dict[str, Any]] = None,
+    email_data: dict[str, Any] | None = None,
     auth_context: Any | None = _AUTH_CONTEXT_UNSET,
 ) -> dict[str, Any]:
     """

@@ -45,9 +45,9 @@ class VersionedAPIHandler(Protocol):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         """Handle the request."""
@@ -82,9 +82,9 @@ class GauntletSecureHandler(ABC):
     @abstractmethod
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         """Handle the request. Override in subclasses."""
@@ -184,9 +184,9 @@ class GauntletSchemaHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
@@ -245,9 +245,9 @@ class GauntletAllSchemasHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
@@ -294,9 +294,9 @@ class GauntletTemplatesListHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
@@ -373,9 +373,9 @@ class GauntletTemplateHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
@@ -444,9 +444,9 @@ class GauntletReceiptExportHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check - export is a read operation
@@ -664,9 +664,9 @@ class GauntletHeatmapExportHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
@@ -791,9 +791,9 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
 
     async def handle(
         self,
-        body: Optional[dict[str, Any]],
-        path_params: Optional[dict[str, str]] = None,
-        query_params: Optional[dict[str, str]] = None,
+        body: dict[str, Any] | None,
+        path_params: dict[str, str] | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check - validation is a read operation

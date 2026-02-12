@@ -173,7 +173,7 @@ class ExpertiseMixin:
         self,
         agent_name: str,
         domain: str | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get expertise record for an agent.
 

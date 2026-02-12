@@ -27,11 +27,11 @@ CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
 
 def get_calibration_leaderboard(
-    db: "EloDatabase",
-    calibration_cache: "TTLCache",
+    db: EloDatabase,
+    calibration_cache: TTLCache,
     limit: int = 20,
     use_cache: bool = True,
-) -> list["AgentRating"]:
+) -> list[AgentRating]:
     """
     Get agents ranked by calibration score.
 
@@ -96,7 +96,7 @@ def get_calibration_leaderboard(
 
 
 def get_agent_calibration_history(
-    db: "EloDatabase",
+    db: EloDatabase,
     agent_name: str,
     limit: int = 50,
 ) -> list[dict]:

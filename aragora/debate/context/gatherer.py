@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 CONTEXT_GATHER_TIMEOUT = float(os.getenv("ARAGORA_CONTEXT_TIMEOUT", "150.0"))
 
 # Check for Knowledge Mound availability
-_KnowledgeMound: Optional[type] = None
+_KnowledgeMound: type | None = None
 
 try:
     from aragora.knowledge.mound import KnowledgeMound as _ImportedKnowledgeMound
@@ -50,7 +50,7 @@ except ImportError:
 KnowledgeMound = _KnowledgeMound
 
 # Check for Threat Intelligence Enrichment availability
-_ThreatIntelEnrichment: Optional[type] = None
+_ThreatIntelEnrichment: type | None = None
 
 try:
     from aragora.security.threat_intel_enrichment import (
@@ -94,7 +94,7 @@ class ContextGatherer:
 
     def __init__(
         self,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
         prompt_builder: Any | None = None,
         project_root: Path | None = None,
         enable_rlm_compression: bool = True,
@@ -571,7 +571,7 @@ class ContextGatherer:
         combined_text: str,
         evidence_collector: Any,
         task: str,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
     ) -> tuple[int, Any]:
         """Refresh evidence based on claims made during a debate round.
 

@@ -73,7 +73,7 @@ class PostgresMigrationRunner:
 
     def __init__(
         self,
-        pool: Optional["Pool"] = None,
+        pool: Pool | None = None,
         dsn: str | None = None,
     ):
         """
@@ -87,7 +87,7 @@ class PostgresMigrationRunner:
         self._dsn = dsn or os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
         self._migrations: dict[int, dict[str, Any]] = {}
 
-    async def _get_pool(self) -> "Pool":
+    async def _get_pool(self) -> Pool:
         """Get or create connection pool."""
         if not ASYNCPG_AVAILABLE:
             raise RuntimeError(
@@ -106,7 +106,7 @@ class PostgresMigrationRunner:
         self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
         return self._pool
 
-    async def _ensure_migrations_table(self, conn: "Connection") -> None:
+    async def _ensure_migrations_table(self, conn: Connection) -> None:
         """Create migrations tracking table if it doesn't exist."""
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {self.MIGRATIONS_TABLE} (
@@ -117,13 +117,13 @@ class PostgresMigrationRunner:
             )
         """)
 
-    async def _get_applied_versions(self, conn: "Connection") -> set[int]:
+    async def _get_applied_versions(self, conn: Connection) -> set[int]:
         """Get set of applied migration versions."""
         rows = await conn.fetch(f"SELECT version FROM {self.MIGRATIONS_TABLE}")
         return {row["version"] for row in rows}
 
     async def _record_migration(
-        self, conn: "Connection", version: int, name: str, checksum: str | None = None
+        self, conn: Connection, version: int, name: str, checksum: str | None = None
     ) -> None:
         """Record that a migration was applied."""
         await conn.execute(
@@ -156,10 +156,10 @@ class PostgresMigrationRunner:
         """
         checksum = self._compute_checksum(up_sql)
 
-        async def migrate(conn: "Connection") -> None:
+        async def migrate(conn: Connection) -> None:
             await conn.execute(up_sql)
 
-        async def rollback(conn: "Connection") -> None:
+        async def rollback(conn: Connection) -> None:
             if down_sql:
                 await conn.execute(down_sql)
             else:

@@ -45,7 +45,7 @@ class MockSelectionFeedbackLoop:
         """Get current adjustment."""
         return self._selection_adjustments.get(agent_name, 0.0)
 
-    def get_agent_state(self, agent_name: str) -> Optional[object]:
+    def get_agent_state(self, agent_name: str) -> object | None:
         """Get agent state."""
         return self._agent_states.get(agent_name)
 

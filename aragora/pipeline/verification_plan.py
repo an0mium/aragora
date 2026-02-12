@@ -251,7 +251,7 @@ class VerificationPlanGenerator:
 
     __test__ = False  # Not a pytest test class
 
-    def __init__(self, artifact: "DebateArtifact") -> None:
+    def __init__(self, artifact: DebateArtifact) -> None:
         self.artifact: DebateArtifact = artifact
 
     def generate(self) -> VerificationPlan:

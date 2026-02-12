@@ -74,7 +74,7 @@ class MockDebateResult:
     final_answer: str = ""
     consensus_reached: bool = False
     confidence: float = 0.0
-    winner: Optional[str] = None
+    winner: str | None = None
     consensus_strength: str = ""
     consensus_variance: float = 0.0
     votes: list = field(default_factory=list)
@@ -98,7 +98,7 @@ class MockDebateContext:
     context_messages: list = field(default_factory=list)
     env: MockEnvironment = field(default_factory=MockEnvironment)
     vote_tally: dict = field(default_factory=dict)
-    winner_agent: Optional[str] = None
+    winner_agent: str | None = None
     loop_id: str = "test-loop"
     debate_id: str = "test-debate"
     event_emitter: Any = None

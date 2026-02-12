@@ -70,7 +70,7 @@ class TranscriptionSegment:
     start: float  # seconds
     end: float  # seconds
     text: str
-    tokens: Optional[list[int]] = None
+    tokens: list[int] | None = None
     temperature: float | None = None
     avg_logprob: float | None = None
     compression_ratio: float | None = None
@@ -93,7 +93,7 @@ class TranscriptionResult:
 
     # Optional metadata
     model: str | None = None
-    word_timestamps: Optional[list[dict[str, Any]]] = None
+    word_timestamps: list[dict[str, Any]] | None = None
     processing_time: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -145,7 +145,7 @@ class TranscriptionConfig:
     output_format: str = "verbose_json"  # text, json, verbose_json, srt, vtt
 
     @classmethod
-    def from_env(cls) -> "TranscriptionConfig":
+    def from_env(cls) -> TranscriptionConfig:
         """Create config from environment variables."""
         backend_order = os.getenv("ARAGORA_WHISPER_BACKEND_ORDER")
         if backend_order:

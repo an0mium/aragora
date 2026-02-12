@@ -87,7 +87,7 @@ class RevisionGenerator:
         rhetorical_observer: Any | None = None,
         max_concurrent: int = MAX_CONCURRENT_REVISIONS,
         # Molecule tracking for work unit management (Gastown pattern)
-        molecule_tracker: Optional["MoleculeTracker"] = None,
+        molecule_tracker: MoleculeTracker | None = None,
     ):
         """
         Initialize the revision generator.
@@ -124,10 +124,10 @@ class RevisionGenerator:
 
     async def execute_revision_phase(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
-        all_critiques: list["Critique"],
-        partial_messages: list["Message"],
+        all_critiques: list[Critique],
+        partial_messages: list[Message],
     ) -> dict[str, str]:
         """
         Execute revision phase with parallel generation.
@@ -157,7 +157,7 @@ class RevisionGenerator:
         # Semaphore for bounded concurrency
         revision_semaphore = asyncio.Semaphore(self._max_concurrent)
 
-        async def generate_revision_bounded(agent: "Agent", revision_prompt: str):
+        async def generate_revision_bounded(agent: Agent, revision_prompt: str):
             """Wrap revision generation with semaphore for bounded concurrency."""
             base_timeout = getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)
             timeout = get_complexity_governor().get_scaled_timeout(float(base_timeout))
@@ -371,7 +371,7 @@ class RevisionGenerator:
         self,
         debate_id: str,
         round_num: int,
-        agents: list["Agent"],
+        agents: list[Agent],
     ) -> None:
         """Create revision molecules for all agents.
 

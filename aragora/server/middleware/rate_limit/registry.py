@@ -26,7 +26,7 @@ class RateLimiterRegistry:
 
     def __init__(self):
         self._limiters: dict[str, RateLimiter | RedisRateLimiter] = {}
-        self._default_limiter: Optional[RateLimiter | RedisRateLimiter] = None
+        self._default_limiter: RateLimiter | RedisRateLimiter | None = None
         self._use_redis: bool | None = None
 
     def get_default(self) -> RateLimiter | RedisRateLimiter:

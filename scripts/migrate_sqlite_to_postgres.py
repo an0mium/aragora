@@ -399,7 +399,7 @@ def main():
         logger.info("DRY RUN - No changes will be made")
 
     # Connect to PostgreSQL
-    pg_conn: Optional[Any] = None
+    pg_conn: Any | None = None
     if not args.dry_run:
         logger.info("Connecting to PostgreSQL...")
         pg_conn = create_postgres_connection(args.target_url)

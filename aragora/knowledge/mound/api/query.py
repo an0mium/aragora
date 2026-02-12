@@ -31,7 +31,7 @@ class _MockSpan:
     def set_tag(self, key: str, value: Any) -> None:
         pass
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         pass
 
     def set_error(self, error: Exception) -> None:
@@ -84,7 +84,7 @@ logger = logging.getLogger(__name__)
 class QueryProtocol(Protocol):
     """Protocol defining expected interface for Query mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _cache: Any | None
     _vector_store: Any | None
@@ -98,51 +98,51 @@ class QueryProtocol(Protocol):
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
-    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+    async def get(self, node_id: str) -> KnowledgeItem | None: ...
     async def _query_local(
-        self, query: str, filters: Optional["QueryFilters"], limit: int, workspace_id: str
-    ) -> list["KnowledgeItem"]: ...
+        self, query: str, filters: QueryFilters | None, limit: int, workspace_id: str
+    ) -> list[KnowledgeItem]: ...
     async def _query_continuum(
-        self, query: str, filters: Optional["QueryFilters"], limit: int
-    ) -> list["KnowledgeItem"]: ...
+        self, query: str, filters: QueryFilters | None, limit: int
+    ) -> list[KnowledgeItem]: ...
     async def _query_consensus(
-        self, query: str, filters: Optional["QueryFilters"], limit: int
-    ) -> list["KnowledgeItem"]: ...
+        self, query: str, filters: QueryFilters | None, limit: int
+    ) -> list[KnowledgeItem]: ...
     async def _query_facts(
-        self, query: str, filters: Optional["QueryFilters"], limit: int, workspace_id: str
-    ) -> list["KnowledgeItem"]: ...
+        self, query: str, filters: QueryFilters | None, limit: int, workspace_id: str
+    ) -> list[KnowledgeItem]: ...
     async def _query_evidence(
-        self, query: str, filters: Optional["QueryFilters"], limit: int, workspace_id: str
-    ) -> list["KnowledgeItem"]: ...
+        self, query: str, filters: QueryFilters | None, limit: int, workspace_id: str
+    ) -> list[KnowledgeItem]: ...
     async def _query_critique(
-        self, query: str, filters: Optional["QueryFilters"], limit: int
-    ) -> list["KnowledgeItem"]: ...
+        self, query: str, filters: QueryFilters | None, limit: int
+    ) -> list[KnowledgeItem]: ...
     async def _get_relationships(
-        self, node_id: str, types: Optional[list["RelationshipType"]] = None
-    ) -> list["KnowledgeLink"]: ...
+        self, node_id: str, types: list[RelationshipType] | None = None
+    ) -> list[KnowledgeLink]: ...
     async def _get_relationships_batch(
-        self, node_ids: list[str], types: Optional[list["RelationshipType"]] = None
-    ) -> dict[str, list["KnowledgeLink"]]: ...
-    def _node_to_item(self, node: Any) -> "KnowledgeItem": ...
-    def _vector_result_to_item(self, result: Any) -> "KnowledgeItem": ...
+        self, node_ids: list[str], types: list[RelationshipType] | None = None
+    ) -> dict[str, list[KnowledgeLink]]: ...
+    def _node_to_item(self, node: Any) -> KnowledgeItem: ...
+    def _vector_result_to_item(self, result: Any) -> KnowledgeItem: ...
 
     # Self-referential methods used by other methods in mixin
     async def query(
         self,
         query: str,
-        sources: Sequence["SourceFilter"] = ("all",),
-        filters: Optional["QueryFilters"] = None,
+        sources: Sequence[SourceFilter] = ("all",),
+        filters: QueryFilters | None = None,
         limit: int = 20,
         offset: int = 0,
         workspace_id: str | None = None,
-    ) -> "QueryResult": ...
+    ) -> QueryResult: ...
     async def query_graph(
         self,
         start_id: str,
-        relationship_types: Optional[list["RelationshipType"]] = None,
+        relationship_types: list[RelationshipType] | None = None,
         depth: int = 2,
         max_nodes: int = 50,
-    ) -> "GraphQueryResult": ...
+    ) -> GraphQueryResult: ...
     async def export_graph_d3(
         self,
         start_node_id: str | None = None,
@@ -151,11 +151,11 @@ class QueryProtocol(Protocol):
     ) -> dict[str, Any]: ...
     async def _filter_by_visibility(
         self,
-        items: list["KnowledgeItem"],
+        items: list[KnowledgeItem],
         actor_id: str,
         actor_workspace_id: str,
         actor_org_id: str | None = None,
-    ) -> list["KnowledgeItem"]: ...
+    ) -> list[KnowledgeItem]: ...
     def _has_access_grant(
         self,
         grants: list[dict[str, Any]],
@@ -178,12 +178,12 @@ class QueryOperationsMixin(_QueryMixinBase):
     async def query(
         self,
         query: str,
-        sources: Sequence["SourceFilter"] = ("all",),
-        filters: Optional["QueryFilters"] = None,
+        sources: Sequence[SourceFilter] = ("all",),
+        filters: QueryFilters | None = None,
         limit: int = 20,
         offset: int = 0,
         workspace_id: str | None = None,
-    ) -> "QueryResult":
+    ) -> QueryResult:
         """
         Query across all configured knowledge sources.
 
@@ -406,7 +406,7 @@ class QueryOperationsMixin(_QueryMixinBase):
         self,
         workspace_id: str | None = None,
         limit: int = 50,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """
         Get most recently updated knowledge nodes.
 
@@ -447,7 +447,7 @@ class QueryOperationsMixin(_QueryMixinBase):
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
         allow_fallback: bool = True,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """Semantic similarity search using vector embeddings."""
         self._ensure_initialized()
 
@@ -496,7 +496,7 @@ class QueryOperationsMixin(_QueryMixinBase):
         query: str,
         limit: int,
         workspace_id: str,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """Hybrid retrieval using GraphRAG (vector + graph)."""
         if not self._semantic_store:
             return []
@@ -620,10 +620,10 @@ class QueryOperationsMixin(_QueryMixinBase):
     async def query_graph(
         self,
         start_id: str,
-        relationship_types: Optional[list["RelationshipType"]] = None,
+        relationship_types: list[RelationshipType] | None = None,
         depth: int = 2,
         max_nodes: int = 50,
-    ) -> "GraphQueryResult":
+    ) -> GraphQueryResult:
         """Traverse knowledge graph from a starting node.
 
         Uses level-by-level traversal with batch relationship fetching
@@ -911,11 +911,11 @@ class QueryOperationsMixin(_QueryMixinBase):
         actor_id: str,
         actor_workspace_id: str,
         actor_org_id: str | None = None,
-        sources: Sequence["SourceFilter"] = ("all",),
-        filters: Optional["QueryFilters"] = None,
+        sources: Sequence[SourceFilter] = ("all",),
+        filters: QueryFilters | None = None,
         limit: int = 20,
         workspace_id: str | None = None,
-    ) -> "QueryResult":
+    ) -> QueryResult:
         """
         Query across knowledge sources with visibility filtering.
 
@@ -972,11 +972,11 @@ class QueryOperationsMixin(_QueryMixinBase):
 
     async def _filter_by_visibility(
         self,
-        items: list["KnowledgeItem"],
+        items: list[KnowledgeItem],
         actor_id: str,
         actor_workspace_id: str,
         actor_org_id: str | None = None,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """
         Filter items based on visibility and access grants.
 
@@ -1072,7 +1072,7 @@ class QueryOperationsMixin(_QueryMixinBase):
         actor_id: str,
         actor_workspace_id: str,
         limit: int = 50,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """
         Get items that have been explicitly shared with the actor.
 

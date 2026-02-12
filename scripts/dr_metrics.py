@@ -214,7 +214,7 @@ async def measure_restore_time(backup_path: Path, restore_path: Path) -> tuple[f
         return end_time - start_time, integrity_ok
 
 
-async def get_latest_backup_age() -> Optional[float]:
+async def get_latest_backup_age() -> float | None:
     """Get the age of the latest backup in seconds."""
     try:
         from aragora.backup.manager import BackupManager

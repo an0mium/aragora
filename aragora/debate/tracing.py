@@ -40,7 +40,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Context variable for current span propagation
-_current_span: contextvars.ContextVar["Span"] = contextvars.ContextVar("current_span", default=None)
+_current_span: contextvars.ContextVar[Span] = contextvars.ContextVar("current_span", default=None)
 
 # Context variable for debate correlation ID
 _debate_context: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
@@ -90,7 +90,7 @@ class Span:
         """Set multiple span attributes."""
         self.attributes.update(attributes)
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         """Add an event to the span."""
         self.events.append(
             {

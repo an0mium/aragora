@@ -595,7 +595,7 @@ def init_compliance_monitoring(
     check_interval_seconds: float = 300.0,
     alert_on_critical: bool = True,
     alert_on_major: bool = True,
-    enabled_frameworks: Optional[set[str]] = None,
+    enabled_frameworks: set[str] | None = None,
 ) -> ComplianceMonitor:
     """
     Initialize continuous compliance monitoring.

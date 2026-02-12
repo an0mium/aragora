@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @require_permission("extensions:read")
-async def handle_extensions_status(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_extensions_status(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/status
 
@@ -66,7 +66,7 @@ async def handle_extensions_status(ctx: "AuthorizationContext") -> dict[str, Any
 
 
 @require_permission("extensions:read")
-async def handle_extensions_stats(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/stats
 
@@ -131,7 +131,7 @@ async def handle_extensions_stats(ctx: "AuthorizationContext") -> dict[str, Any]
 
 
 @require_permission("workspaces:read")
-async def handle_gastown_workspaces_list(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_gastown_workspaces_list(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/gastown/workspaces
 
@@ -165,7 +165,7 @@ async def handle_gastown_workspaces_list(ctx: "AuthorizationContext") -> dict[st
 
 @require_permission("workspaces:write")
 async def handle_gastown_workspace_create(
-    ctx: "AuthorizationContext",
+    ctx: AuthorizationContext,
     data: dict[str, Any],
 ) -> dict[str, Any]:
     """
@@ -201,7 +201,7 @@ async def handle_gastown_workspace_create(
 
 
 @require_permission("convoys:read")
-async def handle_gastown_convoys_list(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_gastown_convoys_list(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/gastown/convoys
 
@@ -239,7 +239,7 @@ async def handle_gastown_convoys_list(ctx: "AuthorizationContext") -> dict[str, 
 
 
 @require_permission("inbox:read")
-async def handle_moltbot_inbox_messages(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_moltbot_inbox_messages(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/moltbot/inbox/messages
 
@@ -276,7 +276,7 @@ async def handle_moltbot_inbox_messages(ctx: "AuthorizationContext") -> dict[str
 
 
 @require_permission("devices:read")
-async def handle_moltbot_gateway_devices(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_moltbot_gateway_devices(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/moltbot/gateway/devices
 
@@ -309,7 +309,7 @@ async def handle_moltbot_gateway_devices(ctx: "AuthorizationContext") -> dict[st
 
 
 @require_permission("onboarding:read")
-async def handle_moltbot_onboarding_flows(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_moltbot_onboarding_flows(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/moltbot/onboarding/flows
 
@@ -358,7 +358,7 @@ async def handle_moltbot_onboarding_flows(ctx: "AuthorizationContext") -> dict[s
 
 
 @require_permission("agents:read")
-async def handle_fabric_agents_list(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_fabric_agents_list(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/fabric/agents
 
@@ -390,7 +390,7 @@ async def handle_fabric_agents_list(ctx: "AuthorizationContext") -> dict[str, An
 
 
 @require_permission("tasks:read")
-async def handle_fabric_tasks_list(ctx: "AuthorizationContext") -> dict[str, Any]:
+async def handle_fabric_tasks_list(ctx: AuthorizationContext) -> dict[str, Any]:
     """
     GET /api/extensions/fabric/tasks
 

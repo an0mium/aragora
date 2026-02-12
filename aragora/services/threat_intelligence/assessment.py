@@ -362,7 +362,7 @@ class ThreatAssessmentMixin:
     async def check_email_content(
         self,
         email_body: str,
-        email_headers: Optional[dict[str, str]] = None,
+        email_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Check email content for threats."""
         results: dict[str, Any] = {

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class VerificationAPI:
     """API interface for formal verification of claims."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     def verify(

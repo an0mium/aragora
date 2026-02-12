@@ -102,8 +102,8 @@ class WorkflowTask:
         cls,
         workflow_id: str,
         step_id: str,
-        step_config: Optional[dict[str, Any]] = None,
-        depends_on: Optional[list[str]] = None,
+        step_config: dict[str, Any] | None = None,
+        depends_on: list[str] | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         **kwargs: Any,
     ) -> WorkflowTask:

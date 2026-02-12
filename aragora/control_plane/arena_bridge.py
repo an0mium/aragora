@@ -162,9 +162,9 @@ class ArenaEventAdapter:
     def __init__(
         self,
         task_id: str,
-        stream_server: Optional["ControlPlaneStreamServer"] = None,
-        shared_state: Optional["SharedControlPlaneState"] = None,
-        sla_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        stream_server: ControlPlaneStreamServer | None = None,
+        shared_state: SharedControlPlaneState | None = None,
+        sla_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ):
         """
         Initialize the event adapter.
@@ -450,7 +450,7 @@ class ArenaEventAdapter:
 
     async def on_debate_complete(
         self,
-        result: Optional["DebateResult"],
+        result: DebateResult | None,
         success: bool,
         error: str | None = None,
     ) -> None:
@@ -499,10 +499,10 @@ class ArenaControlPlaneBridge:
 
     def __init__(
         self,
-        stream_server: Optional["ControlPlaneStreamServer"] = None,
-        shared_state: Optional["SharedControlPlaneState"] = None,
-        elo_callback: Optional[Callable[[dict[str, AgentPerformance]], None]] = None,
-        sla_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        stream_server: ControlPlaneStreamServer | None = None,
+        shared_state: SharedControlPlaneState | None = None,
+        elo_callback: Callable[[dict[str, AgentPerformance]], None] | None = None,
+        sla_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ):
         """
         Initialize the bridge.
@@ -521,7 +521,7 @@ class ArenaControlPlaneBridge:
     async def execute_via_arena(
         self,
         task: DeliberationTask,
-        agents: list["Agent"],
+        agents: list[Agent],
         workspace_id: str | None = None,
     ) -> DeliberationOutcome:
         """
@@ -928,7 +928,7 @@ class ArenaControlPlaneBridge:
 
     def _extract_agent_performance(
         self,
-        result: "DebateResult",
+        result: DebateResult,
         adapter_metrics: dict[str, AgentMetrics],
     ) -> dict[str, AgentPerformance]:
         """Extract per-agent performance metrics from DebateResult."""
@@ -982,9 +982,9 @@ def set_arena_bridge(bridge: ArenaControlPlaneBridge) -> None:
 
 
 def init_arena_bridge(
-    stream_server: Optional["ControlPlaneStreamServer"] = None,
-    shared_state: Optional["SharedControlPlaneState"] = None,
-    elo_callback: Optional[Callable[[dict[str, AgentPerformance]], None]] = None,
+    stream_server: ControlPlaneStreamServer | None = None,
+    shared_state: SharedControlPlaneState | None = None,
+    elo_callback: Callable[[dict[str, AgentPerformance]], None] | None = None,
 ) -> ArenaControlPlaneBridge:
     """Initialize and set the global arena bridge."""
     bridge = ArenaControlPlaneBridge(

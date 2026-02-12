@@ -107,7 +107,7 @@ class KnowledgeVectorConfig:
     index_relationships: bool = True
 
     @classmethod
-    def from_env(cls, workspace_id: str | None = None) -> "KnowledgeVectorConfig":
+    def from_env(cls, workspace_id: str | None = None) -> KnowledgeVectorConfig:
         """Create config from environment variables."""
         return cls(
             url=os.getenv("WEAVIATE_URL", "http://localhost:8080"),
@@ -238,7 +238,7 @@ class KnowledgeVectorStore:
 
     async def index_node(
         self,
-        node: "KnowledgeNode",
+        node: KnowledgeNode,
         embedding: list[float],
     ) -> str:
         """
@@ -292,9 +292,9 @@ class KnowledgeVectorStore:
 
     async def index_nodes(
         self,
-        nodes: list["KnowledgeNode"],
+        nodes: list[KnowledgeNode],
         embeddings: list[list[float]],
-        on_progress: Optional[Callable[[int, int], None]] = None,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> list[str]:
         """
         Batch index multiple knowledge nodes.

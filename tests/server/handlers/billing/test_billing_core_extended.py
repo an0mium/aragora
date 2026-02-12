@@ -257,7 +257,7 @@ class TestLogAudit:
 
     def test_handles_audit_logging_failure(self, billing_handler, mock_user_store):
         """IOError during audit logging is caught."""
-        mock_user_store.log_audit_event.side_effect = IOError("disk full")
+        mock_user_store.log_audit_event.side_effect = OSError("disk full")
         # Should not raise
         billing_handler._log_audit(
             mock_user_store,
@@ -873,7 +873,7 @@ class TestInvoiceFinalized:
         }
 
         with patch("aragora.billing.usage_sync.get_usage_sync_service") as mock_sync:
-            mock_sync.return_value.flush_period.side_effect = IOError("store down")
+            mock_sync.return_value.flush_period.side_effect = OSError("store down")
             result = billing_handler._handle_invoice_finalized(event, mock_user_store)
 
         assert result.status_code == 200

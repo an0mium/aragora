@@ -133,7 +133,7 @@ class VoteCollector:
 
     def _check_clear_majority(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         total_agents: int,
     ) -> tuple[bool, str | None]:
         """
@@ -200,10 +200,10 @@ class VoteCollector:
 
     async def _collect_single_permutation_votes(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         proposals: dict[str, str],
         permutation_idx: int,
-    ) -> list["Vote"]:
+    ) -> list[Vote]:
         """Collect votes for a single proposal permutation.
 
         Args:
@@ -214,10 +214,10 @@ class VoteCollector:
         Returns:
             List of Vote objects from agents
         """
-        votes: list["Vote"] = []
+        votes: list[Vote] = []
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent") -> tuple[Any, Any] | None:
+        async def cast_vote(agent: Agent) -> tuple[Any, Any] | None:
             """Cast a vote for a single agent."""
             logger.debug(f"agent_voting_permutation agent={agent.name} perm={permutation_idx}")
             try:
@@ -261,7 +261,7 @@ class VoteCollector:
 
         return votes
 
-    async def _collect_votes_with_shuffling(self, ctx: "DebateContext") -> list["Vote"]:
+    async def _collect_votes_with_shuffling(self, ctx: DebateContext) -> list[Vote]:
         """Collect votes using position shuffling to mitigate position bias.
 
         Generates multiple permutations of the proposal order, collects votes
@@ -293,7 +293,7 @@ class VoteCollector:
         )
 
         # Collect votes on each permutation
-        votes_by_agent: dict[str, list["Vote"]] = {}
+        votes_by_agent: dict[str, list[Vote]] = {}
 
         for perm_idx, shuffled_proposals in enumerate(permutations):
             perm_votes = await self._collect_single_permutation_votes(
@@ -327,7 +327,7 @@ class VoteCollector:
 
         return averaged_votes
 
-    async def collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
+    async def collect_votes(self, ctx: DebateContext) -> list[Vote]:
         """Collect votes from all agents with outer timeout protection.
 
         Uses VOTE_COLLECTION_TIMEOUT to prevent total vote collection time from
@@ -363,10 +363,10 @@ class VoteCollector:
                 )
                 return []
 
-        votes: list["Vote"] = []
+        votes: list[Vote] = []
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent") -> tuple[Any, Any]:
+        async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for a single agent with timeout protection."""
             logger.debug(f"agent_voting agent={agent.name}")
             try:
@@ -456,7 +456,7 @@ class VoteCollector:
 
         return votes
 
-    async def collect_votes_with_errors(self, ctx: "DebateContext") -> tuple[list["Vote"], int]:
+    async def collect_votes_with_errors(self, ctx: DebateContext) -> tuple[list[Vote], int]:
         """Collect votes with error tracking for unanimity mode.
 
         Used for unanimity mode where we need to track errors.
@@ -471,11 +471,11 @@ class VoteCollector:
         if not self._vote_with_agent:
             return [], 0
 
-        votes: list["Vote"] = []
+        votes: list[Vote] = []
         voting_errors = 0
         task = ctx.env.task if ctx.env else ""
 
-        async def cast_vote(agent: "Agent") -> tuple[Any, Any]:
+        async def cast_vote(agent: Agent) -> tuple[Any, Any]:
             """Cast a vote for unanimous consensus with timeout protection."""
             logger.debug(f"agent_voting_unanimous agent={agent.name}")
             try:
@@ -541,9 +541,9 @@ class VoteCollector:
 
     def _handle_vote_success(
         self,
-        ctx: "DebateContext",
-        agent: "Agent",
-        vote: "Vote",
+        ctx: DebateContext,
+        agent: Agent,
+        vote: Vote,
         unanimous: bool = False,
     ) -> None:
         """Handle successful vote: notifications, hooks, recording.
@@ -599,7 +599,7 @@ class VoteCollector:
                 logger.debug(f"Position tracking error for vote: {e}")
 
     def compute_vote_groups(
-        self, votes: list["Vote"]
+        self, votes: list[Vote]
     ) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Group similar votes and create choice mapping.
 

@@ -41,12 +41,12 @@ class MockUser:
     role: str = "admin"
     is_admin: bool = True
     mfa_enabled: bool = False
-    mfa_secret: Optional[str] = None
-    mfa_backup_codes: Optional[str] = None
+    mfa_secret: str | None = None
+    mfa_backup_codes: str | None = None
     metadata: dict = field(default_factory=dict)
     is_service_account: bool = True
-    mfa_bypass_approved_at: Optional[datetime] = None
-    mfa_bypass_expires_at: Optional[datetime] = None
+    mfa_bypass_approved_at: datetime | None = None
+    mfa_bypass_expires_at: datetime | None = None
 
 
 def _make_bypass_user(**kwargs) -> MockUser:
@@ -65,7 +65,7 @@ class MockUserStore:
     def __init__(self):
         self.users: dict[str, MockUser] = {}
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockUser]:
+    def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self.users.get(user_id)
 
 

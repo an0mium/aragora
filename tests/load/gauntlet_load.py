@@ -188,7 +188,7 @@ class GauntletClient:
         self.base_url = base_url.rstrip("/")
         self.metrics = metrics
         self.token = token
-        self.session: Optional[Any] = None
+        self.session: Any | None = None
 
     async def _ensure_session(self) -> Any:
         """Ensure aiohttp session exists."""
@@ -210,7 +210,7 @@ class GauntletClient:
         spec: str,
         profile: str = "quick",
         input_type: str = "spec",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Start a Gauntlet run."""
         session = await self._ensure_session()
 
@@ -248,7 +248,7 @@ class GauntletClient:
             self.metrics.api_errors += 1
             return None
 
-    async def get_gauntlet_status(self, gauntlet_id: str) -> Optional[dict[str, Any]]:
+    async def get_gauntlet_status(self, gauntlet_id: str) -> dict[str, Any] | None:
         """Get Gauntlet run status."""
         session = await self._ensure_session()
 
@@ -275,7 +275,7 @@ class GauntletClient:
         gauntlet_id: str,
         timeout: float = 120.0,
         poll_interval: float = 2.0,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Wait for Gauntlet run to complete."""
         end_time = time.time() + timeout
 

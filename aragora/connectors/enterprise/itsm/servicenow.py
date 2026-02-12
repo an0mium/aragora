@@ -194,11 +194,11 @@ class ServiceNowConnector(EnterpriseConnector):
     def __init__(
         self,
         instance_url: str,
-        tables: Optional[list[str]] = None,
+        tables: list[str] | None = None,
         query: str | None = None,
         include_comments: bool = True,
         include_knowledge: bool = False,
-        exclude_states: Optional[list[str]] = None,
+        exclude_states: list[str] | None = None,
         use_oauth: bool = False,
         **kwargs: Any,
     ):
@@ -309,8 +309,8 @@ class ServiceNowConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to ServiceNow REST API."""
         headers = await self._get_auth_header()
@@ -857,8 +857,8 @@ class ServiceNowConnector(EnterpriseConnector):
         self,
         table: str,
         sys_id: str,
-        fields: Optional[list[str]] = None,
-    ) -> Optional[dict[str, Any]]:
+        fields: list[str] | None = None,
+    ) -> dict[str, Any] | None:
         """
         Resolve a reference field to its full record.
 
@@ -891,7 +891,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         return None
 
-    async def get_user_details(self, user_sys_id: str) -> Optional[dict[str, str]]:
+    async def get_user_details(self, user_sys_id: str) -> dict[str, str] | None:
         """
         Get user details from sys_user table.
 

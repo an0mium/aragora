@@ -64,11 +64,11 @@ class DeprecationRegistry:
     Singleton pattern for global deprecation tracking.
     """
 
-    _instance: Optional["DeprecationRegistry"] = None
+    _instance: DeprecationRegistry | None = None
     _deprecations: dict[str, DeprecationInfo]
     _call_counts: dict[str, int]
 
-    def __new__(cls) -> "DeprecationRegistry":
+    def __new__(cls) -> DeprecationRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._deprecations = {}

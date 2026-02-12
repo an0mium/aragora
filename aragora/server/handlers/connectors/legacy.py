@@ -60,7 +60,7 @@ except ImportError:
 
 def _check_permission(
     auth_context: Any | None, permission_key: str, resource_id: str | None = None
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Check if the authorization context has the required permission.
 
@@ -220,7 +220,7 @@ async def handle_get_connector(
     connector_id: str,
     tenant_id: str = "default",
     auth_context: Any | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Get connector details.
 
@@ -258,7 +258,7 @@ async def handle_get_connector(
 async def handle_create_connector(
     connector_type: str,
     config: dict[str, Any],
-    schedule: Optional[dict[str, Any]] = None,
+    schedule: dict[str, Any] | None = None,
     tenant_id: str = "default",
     auth_context: Any | None = None,
 ) -> dict[str, Any]:
@@ -319,7 +319,7 @@ async def handle_update_connector(
     updates: dict[str, Any],
     tenant_id: str = "default",
     auth_context: Any | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Update connector configuration.
 
@@ -468,7 +468,7 @@ async def handle_trigger_sync(
     full_sync: bool = False,
     tenant_id: str = "default",
     auth_context: Any | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Trigger a sync operation.
 
@@ -519,7 +519,7 @@ async def handle_get_sync_status(
     connector_id: str,
     tenant_id: str = "default",
     auth_context: Any | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Get current sync status.
 
@@ -752,7 +752,7 @@ async def handle_list_workflow_templates(
 async def handle_get_workflow_template(
     template_id: str,
     auth_context: Any | None = None,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Get a specific workflow template.
 

@@ -111,7 +111,7 @@ class MigrationContext:
 
     def __init__(
         self,
-        migrator: "KnowledgeMoundMigrator",
+        migrator: KnowledgeMoundMigrator,
         migration_id: str,
     ):
         self._migrator = migrator
@@ -121,7 +121,7 @@ class MigrationContext:
         self._started_at: datetime | None = None
         self._completed = False
 
-    async def __aenter__(self) -> "MigrationContext":
+    async def __aenter__(self) -> MigrationContext:
         """Enter migration context."""
         self._started_at = datetime.now()
         logger.info(f"Starting migration: {self._migration_id}")
@@ -195,7 +195,7 @@ class KnowledgeMoundMigrator:
 
     async def migrate_continuum_memory(
         self,
-        source: "ContinuumMemory",
+        source: ContinuumMemory,
         workspace_id: str = "default",
         tier_filter: list[MemoryTier] | None = None,
         min_importance: float = 0.0,
@@ -298,7 +298,7 @@ class KnowledgeMoundMigrator:
 
     def _continuum_entry_to_node(
         self,
-        entry: "ContinuumMemoryEntry",
+        entry: ContinuumMemoryEntry,
         workspace_id: str,
     ) -> KnowledgeNode:
         """Convert ContinuumMemoryEntry to KnowledgeNode."""
@@ -344,7 +344,7 @@ class KnowledgeMoundMigrator:
 
     async def migrate_consensus_memory(
         self,
-        source: "ConsensusMemory",
+        source: ConsensusMemory,
         workspace_id: str = "default",
         include_dissent: bool = True,
         min_confidence: float = 0.0,
@@ -480,7 +480,7 @@ class KnowledgeMoundMigrator:
 
     def _consensus_record_to_node(
         self,
-        record: "ConsensusRecord",
+        record: ConsensusRecord,
         workspace_id: str,
     ) -> KnowledgeNode:
         """Convert ConsensusRecord to KnowledgeNode."""
@@ -531,7 +531,7 @@ class KnowledgeMoundMigrator:
 
     def _dissent_record_to_node(
         self,
-        dissent: "DissentRecord",
+        dissent: DissentRecord,
         workspace_id: str,
     ) -> KnowledgeNode:
         """Convert DissentRecord to KnowledgeNode."""
@@ -564,8 +564,8 @@ class KnowledgeMoundMigrator:
     async def migrate_all(
         self,
         workspace_id: str = "default",
-        continuum_source: Optional["ContinuumMemory"] = None,
-        consensus_source: Optional["ConsensusMemory"] = None,
+        continuum_source: ContinuumMemory | None = None,
+        consensus_source: ConsensusMemory | None = None,
     ) -> dict[str, MigrationResult]:
         """
         Migrate all memory systems to Knowledge Mound.
@@ -602,8 +602,8 @@ class KnowledgeMoundMigrator:
     async def dry_run(
         self,
         workspace_id: str = "default",
-        continuum_source: Optional["ContinuumMemory"] = None,
-        consensus_source: Optional["ConsensusMemory"] = None,
+        continuum_source: ContinuumMemory | None = None,
+        consensus_source: ConsensusMemory | None = None,
     ) -> dict[str, dict[str, Any]]:
         """
         Perform a dry run to estimate migration scope.

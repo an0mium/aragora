@@ -149,11 +149,11 @@ class ConstitutionVerifier:
     def __init__(
         self,
         constitution_path: Path = DEFAULT_CONSTITUTION_PATH,
-        public_key: Optional[bytes] = None,
+        public_key: bytes | None = None,
     ):
         self.path = Path(constitution_path)
         self.public_key = public_key or self._load_public_key()
-        self._constitution: Optional[Constitution] = None
+        self._constitution: Constitution | None = None
         self._load_constitution()
 
     def _load_public_key(self) -> bytes:
@@ -179,7 +179,7 @@ class ConstitutionVerifier:
             self._constitution = None
 
     @property
-    def constitution(self) -> Optional[Constitution]:
+    def constitution(self) -> Constitution | None:
         """Get loaded Constitution."""
         return self._constitution
 
@@ -360,7 +360,7 @@ class ConstitutionVerifier:
         rule: ConstitutionRule,
         file_path: str,
         content: str,
-    ) -> Optional[ConstitutionViolation]:
+    ) -> ConstitutionViolation | None:
         """Check if content violates a specific rule."""
         rule_id = rule.id
 

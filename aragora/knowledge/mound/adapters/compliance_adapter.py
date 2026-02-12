@@ -65,8 +65,8 @@ class CheckOutcome:
 
     @classmethod
     def from_check_result(
-        cls, result: "ComplianceCheckResult", check_id: str = ""
-    ) -> "CheckOutcome":
+        cls, result: ComplianceCheckResult, check_id: str = ""
+    ) -> CheckOutcome:
         """Create a CheckOutcome from a ComplianceCheckResult."""
         issues_summary = []
         critical_count = 0
@@ -118,7 +118,7 @@ class ViolationOutcome:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_violation(cls, violation: "Violation") -> "ViolationOutcome":
+    def from_violation(cls, violation: Violation) -> ViolationOutcome:
         """Create a ViolationOutcome from a Violation."""
         return cls(
             violation_id=getattr(violation, "id", ""),
@@ -311,7 +311,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
 
         return results[:limit]
 
-    def check_to_knowledge_item(self, check: CheckOutcome) -> "KnowledgeItem":
+    def check_to_knowledge_item(self, check: CheckOutcome) -> KnowledgeItem:
         """Convert a CheckOutcome to a KnowledgeItem."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
         from aragora.knowledge.unified.types import ConfidenceLevel
@@ -343,7 +343,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
             },
         )
 
-    def violation_to_knowledge_item(self, violation: ViolationOutcome) -> "KnowledgeItem":
+    def violation_to_knowledge_item(self, violation: ViolationOutcome) -> KnowledgeItem:
         """Convert a ViolationOutcome to a KnowledgeItem."""
         from aragora.knowledge.mound.types import KnowledgeItem, KnowledgeSource
         from aragora.knowledge.unified.types import ConfidenceLevel
@@ -385,7 +385,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
             },
         )
 
-    def to_knowledge_item(self, record: Any) -> "KnowledgeItem":
+    def to_knowledge_item(self, record: Any) -> KnowledgeItem:
         """Convert any record to a KnowledgeItem (dispatch by type)."""
         if isinstance(record, CheckOutcome):
             return self.check_to_knowledge_item(record)
@@ -517,8 +517,8 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        cross_refs: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         record.metadata["km_validated"] = True
         record.metadata["km_validation_confidence"] = km_confidence
@@ -551,7 +551,7 @@ class ComplianceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         record.metadata["fusion_applied"] = True
         record.metadata["fusion_timestamp"] = datetime.now(timezone.utc).isoformat()

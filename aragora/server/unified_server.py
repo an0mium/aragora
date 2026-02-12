@@ -571,7 +571,7 @@ class UnifiedHandler(  # type: ignore[misc]
             self.end_headers()
             self.wfile.write(content)
             return True
-        except (OSError, IOError):
+        except OSError:
             return False
 
     # Note: _send_json, _add_cors_headers, _add_security_headers, _add_rate_limit_headers,
@@ -660,7 +660,7 @@ class UnifiedServer:
         # HTTP server reference for graceful shutdown
         self._http_server: ThreadingHTTPServer | None = None
         # Uvicorn server reference for graceful shutdown
-        self._uvicorn_server: "uvicorn.Server | None" = None
+        self._uvicorn_server: uvicorn.Server | None = None
 
         # Create WebSocket servers
         self.stream_server: DebateStreamServer = DebateStreamServer(host=ws_host, port=ws_port)
@@ -672,7 +672,7 @@ class UnifiedServer:
         )
 
         # Create Canvas WebSocket server
-        self.canvas_stream: Optional["CanvasStreamServer"] = None
+        self.canvas_stream: CanvasStreamServer | None = None
         try:
             from aragora.server.stream.canvas_stream import CanvasStreamServer
 
@@ -681,7 +681,7 @@ class UnifiedServer:
             logger.warning("Canvas stream server not available")
 
         # Initialize Supabase persistence if available
-        self.persistence: Optional["SupabaseClient"] = init_persistence(enable_persistence)
+        self.persistence: SupabaseClient | None = init_persistence(enable_persistence)
 
         # Setup HTTP handler with base resources
         UnifiedHandler.storage = storage

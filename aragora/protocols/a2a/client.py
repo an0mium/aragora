@@ -72,7 +72,7 @@ class A2AClient:
         # HTTP client
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "A2AClient":
+    async def __aenter__(self) -> A2AClient:
         """Async context manager entry."""
         self._client = httpx.AsyncClient(timeout=self._timeout)
         return self
@@ -148,11 +148,11 @@ class A2AClient:
         self,
         agent_name: str,
         instruction: str,
-        context: Optional[list[ContextItem]] = None,
+        context: list[ContextItem] | None = None,
         capability: AgentCapability | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_ms: int | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TaskResult:
         """
         Invoke an agent synchronously.
@@ -215,7 +215,7 @@ class A2AClient:
         self,
         agent_name: str,
         instruction: str,
-        context: Optional[list[ContextItem]] = None,
+        context: list[ContextItem] | None = None,
         capability: AgentCapability | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """

@@ -19,7 +19,7 @@ class HilbertProofNode:
     claim: str
     depth: int
     result: FormalProofResult | None = None
-    children: list["HilbertProofNode"] = field(default_factory=list)
+    children: list[HilbertProofNode] = field(default_factory=list)
 
     @property
     def is_verified(self) -> bool:

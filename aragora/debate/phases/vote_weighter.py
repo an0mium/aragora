@@ -35,13 +35,13 @@ class VoteWeighterDeps:
     # CalibrationTracker for confidence adjustments
     calibration_tracker: Any | None = None
     # Protocol for user vote weight config
-    protocol: Optional["DebateProtocol"] = None
+    protocol: DebateProtocol | None = None
     # User votes list
     user_votes: list[dict] = field(default_factory=list)
     # Callback to drain user events
-    drain_user_events: Optional[Callable[[], None]] = None
+    drain_user_events: Callable[[], None] | None = None
     # Callback for user vote intensity multiplier
-    user_vote_multiplier: Optional[Callable[[int, Any], float]] = None
+    user_vote_multiplier: Callable[[int, Any], float] | None = None
 
 
 class VoteWeighter:
@@ -81,9 +81,9 @@ class VoteWeighter:
 
     def apply_calibration_to_votes(
         self,
-        votes: list["Vote"],
-        ctx: "DebateContext",
-    ) -> list["Vote"]:
+        votes: list[Vote],
+        ctx: DebateContext,
+    ) -> list[Vote]:
         """Apply calibration adjustments to vote confidences.
 
         Adjusts each vote's confidence based on the agent's historical
@@ -146,7 +146,7 @@ class VoteWeighter:
 
     def count_weighted_votes(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         choice_mapping: dict[str, str],
         vote_weight_cache: dict[str, float],
     ) -> tuple[dict[str, float], float]:
@@ -228,7 +228,7 @@ class VoteWeighter:
 
     def compute_vote_results(
         self,
-        votes: list["Vote"],
+        votes: list[Vote],
         choice_mapping: dict[str, str],
         vote_weight_cache: dict[str, float],
         include_user_votes: bool = True,

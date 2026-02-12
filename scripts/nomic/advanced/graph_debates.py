@@ -42,7 +42,7 @@ class GraphDebateRunner:
         enabled: bool = False,
         available: bool = False,
         orchestrator_class: Any = None,
-        log_fn: Optional[Callable[[str], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
     ):
         """
         Initialize graph debate runner.
@@ -67,7 +67,7 @@ class GraphDebateRunner:
         self,
         task: str,
         agents: list[Any],
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         Run a graph-based debate.
 

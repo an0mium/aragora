@@ -96,7 +96,7 @@ class TaskQueueExecutorAdapter:
     async def execute(
         self,
         definition: WorkflowDefinition,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
         workflow_id: str | None = None,
     ) -> WorkflowResult:
         """

@@ -85,7 +85,7 @@ class JudgeScore:
 class JudgeScoringMixin:
     """Mixin providing scoring utilities for judge selection."""
 
-    def __init__(self, elo_system: Optional["EloSystem"] = None):
+    def __init__(self, elo_system: EloSystem | None = None):
         self._elo_system = elo_system
 
     def get_calibration_weight(self, agent_name: str) -> float:
@@ -133,7 +133,7 @@ class JudgeScoringMixin:
             logger.debug(f"Composite score calculation failed for {agent_name}: {e}")
             return 0.0
 
-    def get_all_scores(self, agents: Sequence["Agent"]) -> list[JudgeScore]:
+    def get_all_scores(self, agents: Sequence[Agent]) -> list[JudgeScore]:
         """Get scores for all agents.
 
         Args:
@@ -179,10 +179,10 @@ class JudgeSelectionStrategy(ABC):
     @abstractmethod
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """Select a judge from available agents.
 
         Args:
@@ -201,10 +201,10 @@ class LastAgentStrategy(JudgeSelectionStrategy):
 
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """Select synthesizer if available, else last agent."""
         synthesizers = [a for a in agents if getattr(a, "role", None) == "synthesizer"]
         if synthesizers:
@@ -217,10 +217,10 @@ class RandomStrategy(JudgeSelectionStrategy):
 
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """Select a random agent as judge."""
         return random.choice(list(agents)) if agents else None
 
@@ -228,15 +228,15 @@ class RandomStrategy(JudgeSelectionStrategy):
 class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select highest ELO-rated agent as judge."""
 
-    def __init__(self, elo_system: Optional["EloSystem"] = None):
+    def __init__(self, elo_system: EloSystem | None = None):
         JudgeScoringMixin.__init__(self, elo_system)
 
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """Select agent with highest ELO rating."""
         if not self._elo_system or not agents:
             return random.choice(list(agents)) if agents else None
@@ -262,15 +262,15 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select based on composite score (ELO + calibration)."""
 
-    def __init__(self, elo_system: Optional["EloSystem"] = None):
+    def __init__(self, elo_system: EloSystem | None = None):
         JudgeScoringMixin.__init__(self, elo_system)
 
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """Select agent with best composite score."""
         if not self._elo_system or not agents:
             return random.choice(list(agents)) if agents else None
@@ -300,19 +300,19 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 
     def __init__(
         self,
-        elo_system: Optional["EloSystem"] = None,
-        consensus_memory: Optional["ConsensusMemory"] = None,
+        elo_system: EloSystem | None = None,
+        consensus_memory: ConsensusMemory | None = None,
     ):
         JudgeScoringMixin.__init__(self, elo_system)
         self._consensus_memory = consensus_memory
 
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
         cruxes: list[dict] | None = None,
-    ) -> "Agent":
+    ) -> Agent:
         """Select agent who historically dissented on similar cruxes.
 
         Args:
@@ -360,8 +360,8 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     def _find_historical_dissenters(
         self,
         cruxes: list[dict],
-        agents: Sequence["Agent"],
-    ) -> list["Agent"]:
+        agents: Sequence[Agent],
+    ) -> list[Agent]:
         """Find agents who historically dissented on similar topics.
 
         Args:
@@ -403,7 +403,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         # Convert names back to agent objects
         return [a for a in agents if a.name in dissenters]
 
-    def _rank_by_elo(self, agents: Sequence["Agent"]) -> list["Agent"]:
+    def _rank_by_elo(self, agents: Sequence[Agent]) -> list[Agent]:
         """Rank agents by ELO score descending.
 
         Args:
@@ -435,9 +435,9 @@ class VotedStrategy(JudgeSelectionStrategy):
 
     def __init__(
         self,
-        generate_fn: Callable[["Agent", str, list["Message"]], Awaitable[str]],
-        build_vote_prompt_fn: Callable[[list["Agent"], dict[str, str]], str],
-        sanitize_fn: Optional[Callable[[str, str], str]] = None,
+        generate_fn: Callable[[Agent, str, list[Message]], Awaitable[str]],
+        build_vote_prompt_fn: Callable[[list[Agent], dict[str, str]], str],
+        sanitize_fn: Callable[[str, str], str] | None = None,
     ):
         """
         Initialize voted strategy.
@@ -453,10 +453,10 @@ class VotedStrategy(JudgeSelectionStrategy):
 
     async def select(
         self,
-        agents: Sequence["Agent"],
+        agents: Sequence[Agent],
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """Have agents vote on who should judge."""
         if not agents:
             return None
@@ -523,14 +523,14 @@ class JudgeSelector(JudgeScoringMixin):
 
     def __init__(
         self,
-        agents: Sequence["Agent"],
-        elo_system: Optional["EloSystem"] = None,
+        agents: Sequence[Agent],
+        elo_system: EloSystem | None = None,
         judge_selection: str = "random",
         generate_fn: Callable | None = None,
         build_vote_prompt_fn: Callable | None = None,
         sanitize_fn: Callable | None = None,
-        circuit_breaker: Optional["CircuitBreaker"] = None,
-        consensus_memory: Optional["ConsensusMemory"] = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        consensus_memory: ConsensusMemory | None = None,
     ):
         """
         Initialize the judge selector.
@@ -571,7 +571,7 @@ class JudgeSelector(JudgeScoringMixin):
                 sanitize_fn=sanitize_fn,
             )
 
-    def _filter_available_agents(self, agents: Sequence["Agent"]) -> list["Agent"]:
+    def _filter_available_agents(self, agents: Sequence[Agent]) -> list[Agent]:
         """
         Filter agents by circuit breaker availability.
 
@@ -603,8 +603,8 @@ class JudgeSelector(JudgeScoringMixin):
     async def select_judge(
         self,
         proposals: dict[str, str],
-        context: list["Message"],
-    ) -> "Agent":
+        context: list[Message],
+    ) -> Agent:
         """
         Select a judge using the configured strategy.
 
@@ -637,9 +637,9 @@ class JudgeSelector(JudgeScoringMixin):
     async def get_judge_candidates(
         self,
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
         max_candidates: int = 3,
-    ) -> list["Agent"]:
+    ) -> list[Agent]:
         """
         Get an ordered list of judge candidates for fallback selection.
 
@@ -683,13 +683,13 @@ class JudgeSelector(JudgeScoringMixin):
     def from_protocol(
         cls,
         protocol: JudgeProtocol,
-        agents: Sequence["Agent"],
-        elo_system: Optional["EloSystem"] = None,
+        agents: Sequence[Agent],
+        elo_system: EloSystem | None = None,
         generate_fn: Callable | None = None,
         build_vote_prompt_fn: Callable | None = None,
         sanitize_fn: Callable | None = None,
-        circuit_breaker: Optional["CircuitBreaker"] = None,
-    ) -> "JudgeSelector":
+        circuit_breaker: CircuitBreaker | None = None,
+    ) -> JudgeSelector:
         """
         Create JudgeSelector from a debate protocol.
 
@@ -818,7 +818,7 @@ class JudgePanel:
 
     def __init__(
         self,
-        judges: list["Agent"],
+        judges: list[Agent],
         strategy: JudgingStrategy = JudgingStrategy.MAJORITY,
         judge_weights: dict[str, float] | None = None,
     ):
@@ -998,7 +998,7 @@ class JudgePanel:
         self,
         proposals: dict[str, str],
         task: str,
-        context: list["Message"],
+        context: list[Message],
         generate_fn: Callable,
         deliberation_rounds: int = 2,
         build_assessment_prompt: Callable | None = None,
@@ -1069,7 +1069,7 @@ class JudgePanel:
         self,
         proposals: dict[str, str],
         task: str,
-        context: list["Message"],
+        context: list[Message],
         generate_fn: Callable,
         build_prompt: Callable | None = None,
     ) -> dict[str, dict]:
@@ -1095,7 +1095,7 @@ class JudgePanel:
 
         import asyncio
 
-        async def get_assessment(judge: "Agent") -> tuple[str, dict[str, Any] | None]:
+        async def get_assessment(judge: Agent) -> tuple[str, dict[str, Any] | None]:
             try:
                 response = await generate_fn(judge, prompt, context)
                 # Parse assessment (simple extraction)
@@ -1134,7 +1134,7 @@ class JudgePanel:
         assessments: dict[str, dict],
         proposals: dict[str, str],
         task: str,
-        context: list["Message"],
+        context: list[Message],
         generate_fn: Callable,
         round_num: int,
         build_prompt: Callable | None = None,
@@ -1157,7 +1157,7 @@ class JudgePanel:
 
         import asyncio
 
-        async def deliberate(judge: "Agent") -> tuple[str, dict[str, Any] | None]:
+        async def deliberate(judge: Agent) -> tuple[str, dict[str, Any] | None]:
             try:
                 # Build deliberation prompt with other judges' assessments
                 other_assessments = {k: v for k, v in assessments.items() if k != judge.name}
@@ -1219,7 +1219,7 @@ class JudgePanel:
         assessments: dict[str, dict],
         proposals: dict[str, str],
         task: str,
-        context: list["Message"],
+        context: list[Message],
         generate_fn: Callable,
     ) -> None:
         """Collect final votes from judges after deliberation.
@@ -1305,12 +1305,12 @@ Deliberation response:"""
 
 
 def create_judge_panel(
-    candidates: list["Agent"],
-    participants: list["Agent"] | None = None,
+    candidates: list[Agent],
+    participants: list[Agent] | None = None,
     domain: str = "general",
     strategy: JudgingStrategy = JudgingStrategy.MAJORITY,
     count: int = 3,
-    elo_system: Optional["EloSystem"] = None,
+    elo_system: EloSystem | None = None,
     exclude_participants: bool = True,
 ) -> JudgePanel:
     """

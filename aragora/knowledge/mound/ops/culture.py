@@ -33,16 +33,16 @@ logger = logging.getLogger(__name__)
 class CultureProtocol(Protocol):
     """Protocol defining expected interface for Culture mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _culture_accumulator: Any | None
     _cache: Any | None
     _initialized: bool
-    _org_culture_manager: Optional["OrganizationCultureManager"]
+    _org_culture_manager: OrganizationCultureManager | None
 
     def _ensure_initialized(self) -> None: ...
 
-    def get_org_culture_manager(self) -> "OrganizationCultureManager": ...
+    def get_org_culture_manager(self) -> OrganizationCultureManager: ...
 
 
 # Use Protocol as base class only for type checking
@@ -58,7 +58,7 @@ class CultureOperationsMixin(_CultureMixinBase):
     async def get_culture_profile(
         self,
         workspace_id: str | None = None,
-    ) -> "CultureProfile":
+    ) -> CultureProfile:
         """Get aggregated culture profile for a workspace."""
         from aragora.knowledge.mound.types import CultureProfile
 
@@ -91,7 +91,7 @@ class CultureOperationsMixin(_CultureMixinBase):
     async def observe_debate(
         self,
         debate_result: Any,
-    ) -> list["CulturePattern"]:
+    ) -> list[CulturePattern]:
         """Extract and store cultural patterns from a completed debate."""
         self._ensure_initialized()
 
@@ -118,7 +118,7 @@ class CultureOperationsMixin(_CultureMixinBase):
     # Organization-Level Culture
     # =========================================================================
 
-    def get_org_culture_manager(self) -> "OrganizationCultureManager":
+    def get_org_culture_manager(self) -> OrganizationCultureManager:
         """
         Get the organization culture manager.
 
@@ -128,7 +128,7 @@ class CultureOperationsMixin(_CultureMixinBase):
         self._ensure_initialized()
 
         # Access _org_culture_manager attribute from composed class
-        manager: Optional["OrganizationCultureManager"] = getattr(
+        manager: OrganizationCultureManager | None = getattr(
             self, "_org_culture_manager", None
         )
         if manager is None:
@@ -149,8 +149,8 @@ class CultureOperationsMixin(_CultureMixinBase):
     async def get_org_culture(
         self,
         org_id: str,
-        workspace_ids: Optional[list[str]] = None,
-    ) -> "OrganizationCulture":
+        workspace_ids: list[str] | None = None,
+    ) -> OrganizationCulture:
         """
         Get the organization culture profile.
 
@@ -173,7 +173,7 @@ class CultureOperationsMixin(_CultureMixinBase):
         title: str,
         content: str,
         created_by: str,
-    ) -> "CultureDocument":
+    ) -> CultureDocument:
         """
         Add an explicit culture document.
 
@@ -204,7 +204,7 @@ class CultureOperationsMixin(_CultureMixinBase):
         pattern_id: str,
         promoted_by: str,
         title: str | None = None,
-    ) -> "CultureDocument":
+    ) -> CultureDocument:
         """
         Promote a workspace pattern to organization culture.
 

@@ -120,8 +120,8 @@ class PIIRedactor:
 
     def __init__(
         self,
-        enabled_types: Optional[list[PIIType]] = None,
-        preserve_domains: Optional[list[str]] = None,
+        enabled_types: list[PIIType] | None = None,
+        preserve_domains: list[str] | None = None,
         log_redactions: bool = True,
     ):
         """
@@ -368,7 +368,7 @@ class PIIRedactor:
     def redact_dict(
         self,
         data: dict[str, Any],
-        fields_to_redact: Optional[list[str]] = None,
+        fields_to_redact: list[str] | None = None,
     ) -> tuple[dict[str, Any], dict[str, RedactionResult]]:
         """
         Redact PII from dictionary fields.
@@ -403,7 +403,7 @@ _default_redactor: PIIRedactor | None = None
 
 
 def get_pii_redactor(
-    preserve_domains: Optional[list[str]] = None,
+    preserve_domains: list[str] | None = None,
 ) -> PIIRedactor:
     """Get or create the default PII redactor."""
     global _default_redactor

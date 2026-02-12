@@ -181,8 +181,8 @@ class IntegratedControlPlane:
         capabilities: list[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[dict[str, Any]] = None,
-        health_probe: Optional[Callable[[], bool]] = None,
+        metadata: dict[str, Any] | None = None,
+        health_probe: Callable[[], bool] | None = None,
     ) -> AgentInfo:
         """
         Register an agent with automatic sync to shared state.
@@ -314,10 +314,10 @@ class IntegratedControlPlane:
         self,
         task_type: str,
         payload: dict[str, Any],
-        required_capabilities: Optional[list[str]] = None,
+        required_capabilities: list[str] | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: float | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Submit a task with sync to shared state.
@@ -366,7 +366,7 @@ class IntegratedControlPlane:
     async def complete_task(
         self,
         task_id: str,
-        result: Optional[dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
         agent_id: str | None = None,
         latency_ms: float | None = None,
     ) -> bool:
@@ -471,11 +471,11 @@ class IntegratedControlPlane:
         self,
         question: str,
         context: str | None = None,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         priority: str = "normal",
         timeout_seconds: float = 300.0,
         max_rounds: int = 5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Submit a deliberation as a first-class control plane task.
@@ -532,7 +532,7 @@ class IntegratedControlPlane:
         self,
         task_id: str,
         timeout: float | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Wait for a deliberation to complete.
 

@@ -45,7 +45,7 @@ class PolicyViolationError(Exception):
 
     def __init__(
         self,
-        result: "PolicyEvaluationResult",
+        result: PolicyEvaluationResult,
         task_type: str | None = None,
         agent_id: str | None = None,
         region: str | None = None,
@@ -94,7 +94,7 @@ class SLARequirements:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SLARequirements":
+    def from_dict(cls, data: dict[str, Any]) -> SLARequirements:
         """Deserialize from dict."""
         return cls(
             max_execution_seconds=data.get("max_execution_seconds", 300.0),
@@ -147,7 +147,7 @@ class RegionConstraint:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RegionConstraint":
+    def from_dict(cls, data: dict[str, Any]) -> RegionConstraint:
         """Deserialize from dict."""
         return cls(
             allowed_regions=data.get("allowed_regions", []),
@@ -275,7 +275,7 @@ class ControlPlanePolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ControlPlanePolicy":
+    def from_dict(cls, data: dict[str, Any]) -> ControlPlanePolicy:
         """Deserialize from dict."""
         region_constraint = None
         if data.get("region_constraint"):

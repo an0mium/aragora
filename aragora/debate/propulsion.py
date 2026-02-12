@@ -152,7 +152,7 @@ class RegisteredHandler:
     name: str
     handler: PropulsionHandler
     priority: PropulsionPriority
-    filter_fn: Optional[Callable[[PropulsionPayload], bool]] = None
+    filter_fn: Callable[[PropulsionPayload], bool] | None = None
 
 
 class PropulsionEngine:
@@ -205,7 +205,7 @@ class PropulsionEngine:
         *,
         name: str | None = None,
         priority: PropulsionPriority = PropulsionPriority.NORMAL,
-        filter_fn: Optional[Callable[[PropulsionPayload], bool]] = None,
+        filter_fn: Callable[[PropulsionPayload], bool] | None = None,
     ) -> Callable[[], None]:
         """
         Register a handler for a propulsion event type.

@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class QueryHandlerProtocol(Protocol):
     """Protocol for handlers that use QueryOperationsMixin."""
 
-    def _get_query_engine(self) -> "DatasetQueryEngine | SimpleQueryEngine": ...
+    def _get_query_engine(self) -> DatasetQueryEngine | SimpleQueryEngine: ...
 
 
 class QueryOperationsMixin:

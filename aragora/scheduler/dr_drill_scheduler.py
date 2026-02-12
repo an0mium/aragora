@@ -698,7 +698,7 @@ class DRDrillScheduler:
     async def execute_drill(
         self,
         drill_type: DrillType,
-        components: Optional[list[ComponentType]] = None,
+        components: list[ComponentType] | None = None,
         initiated_by: str = "system",
     ) -> DRDrillResult:
         """Execute a DR drill.
@@ -817,7 +817,7 @@ class DRDrillScheduler:
         return drill
 
     def _plan_drill_steps(
-        self, drill_type: DrillType, components: Optional[list[ComponentType]]
+        self, drill_type: DrillType, components: list[ComponentType] | None
     ) -> list[DrillStep]:
         """Plan steps for a drill."""
         steps = []
@@ -1100,7 +1100,7 @@ def get_dr_drill_scheduler(
 
 async def schedule_dr_drill(
     drill_type: DrillType = DrillType.BACKUP_RESTORATION,
-    components: Optional[list[ComponentType]] = None,
+    components: list[ComponentType] | None = None,
 ) -> DRDrillResult:
     """Convenience function to schedule a DR drill."""
     return await get_dr_drill_scheduler().execute_drill(

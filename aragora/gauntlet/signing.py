@@ -64,7 +64,7 @@ class SignatoryInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SignatoryInfo":
+    def from_dict(cls, data: dict[str, Any]) -> SignatoryInfo:
         return cls(
             name=data["name"],
             email=data["email"],
@@ -97,7 +97,7 @@ class SignatureMetadata:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SignatureMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> SignatureMetadata:
         signatory = None
         if data.get("signatory"):
             signatory = SignatoryInfo.from_dict(data["signatory"])
@@ -129,7 +129,7 @@ class SignedReceipt:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SignedReceipt":
+    def from_dict(cls, data: dict[str, Any]) -> SignedReceipt:
         return cls(
             receipt_data=data["receipt"],
             signature=data["signature"],
@@ -137,7 +137,7 @@ class SignedReceipt:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "SignedReceipt":
+    def from_json(cls, json_str: str) -> SignedReceipt:
         return cls.from_dict(json.loads(json_str))
 
 
@@ -197,7 +197,7 @@ class HMACSigner(SigningBackend):
         return hmac.compare_digest(expected, signature)
 
     @classmethod
-    def from_env(cls, env_var: str = "ARAGORA_RECEIPT_SIGNING_KEY") -> "HMACSigner":
+    def from_env(cls, env_var: str = "ARAGORA_RECEIPT_SIGNING_KEY") -> HMACSigner:
         """Create signer from environment variable (hex-encoded key)."""
         key_hex = os.environ.get(env_var)
         if key_hex:
@@ -267,7 +267,7 @@ class RSASigner(SigningBackend):
             return False
 
     @classmethod
-    def generate_keypair(cls, key_id: str | None = None) -> "RSASigner":
+    def generate_keypair(cls, key_id: str | None = None) -> RSASigner:
         """Generate a new RSA key pair."""
         if not CRYPTO_AVAILABLE:
             raise ImportError("cryptography package required for RSA signing")
@@ -341,7 +341,7 @@ class Ed25519Signer(SigningBackend):
             return False
 
     @classmethod
-    def generate_keypair(cls, key_id: str | None = None) -> "Ed25519Signer":
+    def generate_keypair(cls, key_id: str | None = None) -> Ed25519Signer:
         """Generate a new Ed25519 key pair."""
         if not CRYPTO_AVAILABLE:
             raise ImportError("cryptography package required for Ed25519 signing")
@@ -540,7 +540,7 @@ class TimestampToken:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TimestampToken":
+    def from_dict(cls, data: dict[str, Any]) -> TimestampToken:
         return cls(
             tsa_url=data["tsa_url"],
             timestamp=data["timestamp"],
@@ -739,7 +739,7 @@ class LegalHold:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "LegalHold":
+    def from_dict(cls, data: dict[str, Any]) -> LegalHold:
         return cls(
             hold_id=data["hold_id"],
             receipt_id=data["receipt_id"],

@@ -78,7 +78,7 @@ class PostDebatePattern(WorkflowPattern):
         self,
         name: str = "Post-Debate Workflow",
         config: PostDebateConfig | None = None,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "Process debate outcome",
         **kwargs,
     ):

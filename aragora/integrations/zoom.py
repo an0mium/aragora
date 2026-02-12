@@ -88,7 +88,7 @@ class ZoomConfig:
             self.bot_jid = os.environ.get("ZOOM_BOT_JID", "")
 
     @classmethod
-    def from_env(cls) -> "ZoomConfig":
+    def from_env(cls) -> ZoomConfig:
         """Create config from environment variables."""
         return cls()
 
@@ -112,7 +112,7 @@ class ZoomMeetingInfo:
     recording_url: str | None = None
 
     @classmethod
-    def from_api_response(cls, data: dict[str, Any]) -> "ZoomMeetingInfo":
+    def from_api_response(cls, data: dict[str, Any]) -> ZoomMeetingInfo:
         """Create from Zoom API response."""
         start_time = None
         if data.get("start_time"):
@@ -142,7 +142,7 @@ class ZoomWebhookEvent:
     account_id: str
 
     @classmethod
-    def from_request(cls, data: dict[str, Any]) -> "ZoomWebhookEvent":
+    def from_request(cls, data: dict[str, Any]) -> ZoomWebhookEvent:
         """Create from webhook request body."""
         return cls(
             event_type=data.get("event", ""),
@@ -563,7 +563,7 @@ class ZoomIntegration:
 
         return await self.send_chat_message(to_jid, "\n".join(lines), is_channel)
 
-    async def __aenter__(self) -> "ZoomIntegration":
+    async def __aenter__(self) -> ZoomIntegration:
         """Async context manager entry."""
         return self
 

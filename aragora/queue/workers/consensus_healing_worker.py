@@ -127,8 +127,8 @@ class ConsensusHealingWorker:
         self,
         worker_id: str | None = None,
         config: HealingConfig | None = None,
-        on_healing_needed: Optional[Callable[[HealingCandidate], None]] = None,
-        on_healing_complete: Optional[Callable[[HealingResult], None]] = None,
+        on_healing_needed: Callable[[HealingCandidate], None] | None = None,
+        on_healing_complete: Callable[[HealingResult], None] | None = None,
     ):
         """
         Initialize consensus healing worker.

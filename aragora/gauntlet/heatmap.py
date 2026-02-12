@@ -60,7 +60,7 @@ class RiskHeatmap:
     highest_risk_severity: str | None = None
 
     @classmethod
-    def from_result(cls, result: GauntletResult) -> "RiskHeatmap":
+    def from_result(cls, result: GauntletResult) -> RiskHeatmap:
         """Create heatmap from GauntletResult."""
         # Collect all categories
         category_set: set[str] = set()
@@ -116,7 +116,7 @@ class RiskHeatmap:
         )
 
     @classmethod
-    def from_mode_result(cls, result: Any) -> "RiskHeatmap":
+    def from_mode_result(cls, result: Any) -> RiskHeatmap:
         """Create heatmap from aragora.gauntlet.GauntletResult."""
         findings = list(getattr(result, "all_findings", []))
         categories = sorted({f.category for f in findings})

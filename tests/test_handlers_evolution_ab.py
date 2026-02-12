@@ -46,7 +46,7 @@ class MockABTest:
         status: MockABTestStatus = MockABTestStatus.ACTIVE,
         baseline_wins: int = 0,
         evolved_wins: int = 0,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ):
         self.id = test_id
         self.agent = agent
@@ -82,7 +82,7 @@ class MockABTestResult:
         winner: str = "evolved",
         confidence: float = 0.95,
         recommendation: str = "Promote evolved version",
-        stats: Optional[dict] = None,
+        stats: dict | None = None,
     ):
         self.test_id = test_id
         self.winner = winner
@@ -99,11 +99,11 @@ class MockABTestManager:
         self.tests: dict[str, MockABTest] = {}
         self._test_counter = 0
 
-    def get_test(self, test_id: str) -> Optional[MockABTest]:
+    def get_test(self, test_id: str) -> MockABTest | None:
         """Get a specific test."""
         return self.tests.get(test_id)
 
-    def get_active_test(self, agent: str) -> Optional[MockABTest]:
+    def get_active_test(self, agent: str) -> MockABTest | None:
         """Get active test for an agent."""
         for test in self.tests.values():
             if test.agent == agent and test.status == MockABTestStatus.ACTIVE:
@@ -120,7 +120,7 @@ class MockABTestManager:
         agent: str,
         baseline_version: int,
         evolved_version: int,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> MockABTest:
         """Start a new A/B test."""
         # Check for existing active test
@@ -145,7 +145,7 @@ class MockABTestManager:
         debate_id: str,
         variant: str,
         won: bool,
-    ) -> Optional[MockABTest]:
+    ) -> MockABTest | None:
         """Record a debate result."""
         test = self.get_active_test(agent)
         if not test:

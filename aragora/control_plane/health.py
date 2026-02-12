@@ -169,7 +169,7 @@ class HealthMonitor:
         self,
         agent_id: str,
         probe: Callable[[], bool],
-        circuit_breaker_config: Optional[dict[str, Any]] = None,
+        circuit_breaker_config: dict[str, Any] | None = None,
     ) -> None:
         """
         Register a health probe for an agent.

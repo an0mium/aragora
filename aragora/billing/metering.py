@@ -119,7 +119,7 @@ class BillingEvent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BillingEvent":
+    def from_dict(cls, data: dict[str, Any]) -> BillingEvent:
         """Create from dictionary."""
         event = cls(
             id=data.get("id", str(uuid4())),

@@ -78,7 +78,7 @@ class CalibrationTrackerProtocol(Protocol):
     by comparing predicted confidence to actual outcomes.
     """
 
-    def get_calibration(self, agent: str) -> Optional[dict[str, Any]]:
+    def get_calibration(self, agent: str) -> dict[str, Any] | None:
         """Get calibration data for an agent."""
         ...
 
@@ -161,7 +161,7 @@ class RelationshipTrackerProtocol(Protocol):
     enabling alliance detection and relationship analysis.
     """
 
-    def get_relationship(self, agent_a: str, agent_b: str) -> Optional[dict[str, Any]]:
+    def get_relationship(self, agent_a: str, agent_b: str) -> dict[str, Any] | None:
         """Get relationship data between two agents."""
         ...
 
@@ -186,10 +186,10 @@ class RelationshipTrackerProtocol(Protocol):
     def update_from_debate(
         self,
         debate_id: str = "",
-        participants: Optional[list[str]] = None,
+        participants: list[str] | None = None,
         winner: str | None = None,
-        votes: Optional[dict[str, Any]] = None,
-        critiques: Optional[list[Any]] = None,
+        votes: dict[str, Any] | None = None,
+        critiques: list[Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Update relationships based on debate voting patterns."""
@@ -209,7 +209,7 @@ class MomentDetectorProtocol(Protocol):
         content: str,
         context: dict[str, Any],
         threshold: float = 0.7,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Detect if content represents a significant moment."""
         ...
 
@@ -223,7 +223,7 @@ class MomentDetectorProtocol(Protocol):
         loser: str = "",
         debate_id: str = "",
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Detect if outcome represents an upset victory."""
         ...
 
@@ -235,13 +235,13 @@ class MomentDetectorProtocol(Protocol):
         domain: str = "",
         debate_id: str = "",
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Detect if a prediction was vindicated."""
         ...
 
     def record_moment(
         self,
-        moment: Optional[dict[str, Any]] = None,
+        moment: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str | None:
         """Record a significant moment. Returns moment ID."""
@@ -256,7 +256,7 @@ class PersonaManagerProtocol(Protocol):
     communication style, expertise areas, and traits.
     """
 
-    def get_persona(self, agent_name: str) -> Optional[dict[str, Any]]:
+    def get_persona(self, agent_name: str) -> dict[str, Any] | None:
         """Get persona configuration for an agent."""
         ...
 
@@ -320,7 +320,7 @@ class PositionTrackerProtocol(Protocol):
         agent_name: str,
         position: str,
         confidence: float = 1.0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Record an agent's position."""
         ...
@@ -328,7 +328,7 @@ class PositionTrackerProtocol(Protocol):
     def get_position(
         self,
         agent_name: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get an agent's current position."""
         ...
 

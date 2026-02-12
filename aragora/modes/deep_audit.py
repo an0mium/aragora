@@ -135,7 +135,7 @@ class DeepAuditOrchestrator:
         self,
         agents: list[Agent],
         config: DeepAuditConfig | None = None,
-        research_fn: Optional[Callable[[str], Awaitable[str]]] = None,
+        research_fn: Callable[[str], Awaitable[str]] | None = None,
     ):
         self.agents = agents
         self.config = config or DeepAuditConfig()
@@ -218,7 +218,7 @@ class DeepAuditOrchestrator:
         self,
         task: str,
         result: DebateResult,
-        findings: Optional["DisagreementReport"] = None,
+        findings: DisagreementReport | None = None,
     ) -> str:
         """
         Run synthesizer cross-examination of all findings.

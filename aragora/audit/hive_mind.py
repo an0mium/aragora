@@ -103,7 +103,7 @@ class WorkerResult:
 
     task_id: str
     worker_name: str
-    findings: list["AuditFinding"] = field(default_factory=list)
+    findings: list[AuditFinding] = field(default_factory=list)
     raw_response: str = ""
     duration_seconds: float = 0.0
     success: bool = True
@@ -131,7 +131,7 @@ class HiveMindConfig:
     chunk_batch_size: int = 10
 
     # Progress
-    progress_callback: Optional[Callable[[str, int, int], None]] = None
+    progress_callback: Callable[[str, int, int], None] | None = None
 
 
 @dataclass
@@ -142,20 +142,20 @@ class HiveMindResult:
     total_tasks: int
     completed_tasks: int
     failed_tasks: int
-    findings: list["AuditFinding"] = field(default_factory=list)
-    verified_findings: list["AuditFinding"] = field(default_factory=list)
+    findings: list[AuditFinding] = field(default_factory=list)
+    verified_findings: list[AuditFinding] = field(default_factory=list)
     worker_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
     duration_seconds: float = 0.0
     success: bool = True
     errors: list[str] = field(default_factory=list)
 
     @property
-    def critical_findings(self) -> list["AuditFinding"]:
+    def critical_findings(self) -> list[AuditFinding]:
         """Get critical severity findings."""
         return [f for f in self.findings if f.severity.value == "critical"]
 
     @property
-    def high_findings(self) -> list["AuditFinding"]:
+    def high_findings(self) -> list[AuditFinding]:
         """Get high severity findings."""
         return [f for f in self.findings if f.severity.value == "high"]
 
@@ -172,20 +172,20 @@ class QueenOrchestrator:
     - Aggregates findings and triggers consensus verification
     """
 
-    queen_agent: "Agent"
+    queen_agent: Agent
     config: HiveMindConfig = field(default_factory=HiveMindConfig)
-    delegation_strategy: Optional["DelegationStrategy"] = None
-    hook_manager: Optional["HookManager"] = None
+    delegation_strategy: DelegationStrategy | None = None
+    hook_manager: HookManager | None = None
 
     # Internal state
     _task_queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue())
     _active_workers: dict[str, bool] = field(default_factory=dict)
     _worker_stats: dict[str, dict[str, Any]] = field(default_factory=dict)
-    _findings: list["AuditFinding"] = field(default_factory=list)
+    _findings: list[AuditFinding] = field(default_factory=list)
 
     async def decompose_audit(
         self,
-        session: "AuditSession",
+        session: AuditSession,
         chunks: list[dict[str, Any]],
     ) -> list[WorkerTask]:
         """
@@ -240,7 +240,7 @@ class QueenOrchestrator:
     async def dispatch_tasks(
         self,
         tasks: list[WorkerTask],
-        workers: Sequence["Agent"],
+        workers: Sequence[Agent],
     ) -> None:
         """
         Dispatch tasks to workers based on delegation strategy.
@@ -273,7 +273,7 @@ class QueenOrchestrator:
 
     async def run_worker_loop(
         self,
-        worker: "Agent",
+        worker: Agent,
         session_id: str,
     ) -> list[WorkerResult]:
         """
@@ -351,7 +351,7 @@ class QueenOrchestrator:
 
     async def _execute_worker_task(
         self,
-        worker: "Agent",
+        worker: Agent,
         task: WorkerTask,
         session_id: str,
     ) -> WorkerResult:
@@ -437,7 +437,7 @@ If no issues found, respond with: NO FINDINGS"""
         task: WorkerTask,
         worker_name: str,
         session_id: str,
-    ) -> list["AuditFinding"]:
+    ) -> list[AuditFinding]:
         """Parse findings from worker response."""
         from aragora.audit.document_auditor import AuditFinding, FindingSeverity, AuditType
 
@@ -513,11 +513,11 @@ class AuditHiveMind:
     - Byzantine consensus verification for critical findings
     """
 
-    queen: "Agent"
-    workers: Sequence["Agent"]
+    queen: Agent
+    workers: Sequence[Agent]
     config: HiveMindConfig = field(default_factory=HiveMindConfig)
-    delegation_strategy: Optional["DelegationStrategy"] = None
-    hook_manager: Optional["HookManager"] = None
+    delegation_strategy: DelegationStrategy | None = None
+    hook_manager: HookManager | None = None
 
     def __post_init__(self) -> None:
         """Initialize the queen orchestrator."""
@@ -530,7 +530,7 @@ class AuditHiveMind:
 
     async def audit_documents(
         self,
-        session: "AuditSession",
+        session: AuditSession,
         chunks: list[dict[str, Any]],
     ) -> HiveMindResult:
         """
@@ -611,9 +611,9 @@ class AuditHiveMind:
 
     async def _verify_findings_consensus(
         self,
-        findings: list["AuditFinding"],
+        findings: list[AuditFinding],
         session_id: str,
-    ) -> list["AuditFinding"]:
+    ) -> list[AuditFinding]:
         """
         Verify critical findings using Byzantine consensus.
 

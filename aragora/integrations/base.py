@@ -152,7 +152,7 @@ class BaseIntegration(ABC):
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def __aenter__(self) -> "BaseIntegration":
+    async def __aenter__(self) -> BaseIntegration:
         """Async context manager entry."""
         return self
 

@@ -62,7 +62,7 @@ class ConcreteAsanaConnector(AsanaConnector):
         # For testing - returns empty list
         return []
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         """Implement abstract fetch method."""
         return None
 

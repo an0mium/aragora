@@ -174,7 +174,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item.
 
         Args:
@@ -205,7 +205,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a belief record.
 
@@ -255,7 +255,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        network: Optional["BeliefNetwork"] = None,
+        network: BeliefNetwork | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -380,17 +380,17 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         return source_id
 
     @property
-    def network(self) -> Optional["BeliefNetwork"]:
+    def network(self) -> BeliefNetwork | None:
         """Access the underlying BeliefNetwork."""
         return self._network
 
-    def set_network(self, network: "BeliefNetwork") -> None:
+    def set_network(self, network: BeliefNetwork) -> None:
         """Set the belief network to use."""
         self._network = network
 
     def store_converged_belief(
         self,
-        node: "BeliefNode",
+        node: BeliefNode,
         debate_id: str | None = None,
     ) -> str | None:
         """
@@ -497,9 +497,9 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_crux(
         self,
-        crux: "CruxClaim",
+        crux: CruxClaim,
         debate_id: str | None = None,
-        topics: Optional[list[str]] = None,
+        topics: list[str] | None = None,
     ) -> str | None:
         """
         Store a crux claim in the Knowledge Mound.
@@ -574,7 +574,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         verified: bool,
         verification_method: str,
         debate_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str | None:
         """
         Store a provenance chain in the Knowledge Mound.
@@ -616,7 +616,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         logger.info(f"Stored provenance chain: {prov_id}")
         return prov_id
 
-    def get_belief(self, belief_id: str) -> Optional[dict[str, Any]]:
+    def get_belief(self, belief_id: str) -> dict[str, Any] | None:
         """
         Get a specific belief by ID.
 
@@ -630,7 +630,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             belief_id = f"{self.BELIEF_PREFIX}{belief_id}"
         return self._beliefs.get(belief_id)
 
-    def get_crux(self, crux_id: str) -> Optional[dict[str, Any]]:
+    def get_crux(self, crux_id: str) -> dict[str, Any] | None:
         """
         Get a specific crux by ID.
 
@@ -770,7 +770,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         return results
 
-    def to_knowledge_item(self, belief: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, belief: dict[str, Any]) -> KnowledgeItem:
         """
         Convert a belief dict to a KnowledgeItem.
 
@@ -826,7 +826,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             importance=confidence_val,
         )
 
-    def crux_to_knowledge_item(self, crux: dict[str, Any]) -> "KnowledgeItem":
+    def crux_to_knowledge_item(self, crux: dict[str, Any]) -> KnowledgeItem:
         """
         Convert a crux dict to a KnowledgeItem.
 
@@ -1093,7 +1093,7 @@ class BeliefAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     async def get_km_validated_priors(
         self,
         claim_type: str,
-        km_items: Optional[list[dict[str, Any]]] = None,
+        km_items: list[dict[str, Any]] | None = None,
     ) -> KMPriorRecommendation:
         """
         Get KM-validated prior probability for a claim type.

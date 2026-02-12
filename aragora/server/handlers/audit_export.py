@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 _audit_log = None
 
 
-def get_audit_log() -> "AuditLog":
+def get_audit_log() -> AuditLog:
     """Get or create audit log instance."""
     global _audit_log
     if _audit_log is None:
@@ -217,7 +217,7 @@ async def handle_audit_export(request: web.Request) -> web.Response:
             )
 
         # Read file content
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             content = f.read()
 
         logger.info(

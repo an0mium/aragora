@@ -346,7 +346,7 @@ class QualityScorer:
     def score_batch(
         self,
         texts: Sequence[str],
-        contexts: Optional[Sequence[str]] = None,
+        contexts: Sequence[str] | None = None,
     ) -> list[QualityScore]:
         """Score multiple responses.
 
@@ -366,7 +366,7 @@ class QualityScorer:
         self,
         texts: Sequence[str],
         threshold: float = 0.7,
-        contexts: Optional[Sequence[str]] = None,
+        contexts: Sequence[str] | None = None,
     ) -> list[tuple[str, QualityScore]]:
         """Filter texts by quality threshold.
 

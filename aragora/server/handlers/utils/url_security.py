@@ -117,7 +117,7 @@ def validate_webhook_url(url: str, allow_localhost: bool = False) -> tuple[bool,
     except socket.gaierror:
         # DNS resolution failed - this is actually okay, the request will fail naturally
         pass
-    except socket.timeout:
+    except TimeoutError:
         return False, "DNS resolution timed out"
     except OSError:
         # Other socket errors - allow and let request handle it

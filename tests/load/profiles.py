@@ -410,7 +410,7 @@ PROFILES: dict[str, LoadProfile] = {
 }
 
 
-def get_profile(name: Optional[str] = None) -> LoadProfile:
+def get_profile(name: str | None = None) -> LoadProfile:
     """
     Get a load test profile by name.
 
@@ -461,11 +461,11 @@ class LoadTestEnvironment:
     base_url: str
     api_token: str
     profile: LoadProfile
-    workspace_id: Optional[str] = None
-    tenant_id: Optional[str] = None
+    workspace_id: str | None = None
+    tenant_id: str | None = None
 
     @classmethod
-    def from_env(cls, profile_name: Optional[str] = None) -> "LoadTestEnvironment":
+    def from_env(cls, profile_name: str | None = None) -> LoadTestEnvironment:
         """Create environment configuration from environment variables."""
         return cls(
             base_url=os.environ.get("ARAGORA_BASE_URL", "http://localhost:8080"),

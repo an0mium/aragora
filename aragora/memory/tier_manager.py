@@ -190,7 +190,7 @@ class TierManager:
 
     def __init__(
         self,
-        configs: Optional[dict[MemoryTier, TierConfig]] = None,
+        configs: dict[MemoryTier, TierConfig] | None = None,
         promotion_cooldown_hours: float = 24.0,
         min_updates_for_demotion: int = 10,
     ):

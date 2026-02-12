@@ -34,10 +34,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Global inbox instance (lazily initialized)
-_inbox: Optional["InboxManager"] = None
+_inbox: InboxManager | None = None
 
 
-def get_inbox() -> "InboxManager":
+def get_inbox() -> InboxManager:
     """Get or create the inbox manager instance."""
     global _inbox
     if _inbox is None:

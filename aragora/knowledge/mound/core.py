@@ -95,7 +95,7 @@ class KnowledgeMoundCore:
         self,
         config: MoundConfig | None = None,
         workspace_id: str | None = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
+        event_emitter: EventEmitterProtocol | None = None,
     ) -> None:
         """
         Initialize the Knowledge Mound core.
@@ -117,11 +117,11 @@ class KnowledgeMoundCore:
         self._semantic_store: Any | None = None  # Local semantic index
 
         # Connected memory systems
-        self._continuum: Optional["ContinuumMemory"] = None
-        self._consensus: Optional["ConsensusMemory"] = None
-        self._facts: Optional["FactStore"] = None
-        self._evidence: Optional["EvidenceStore"] = None
-        self._critique: Optional["CritiqueStore"] = None
+        self._continuum: ContinuumMemory | None = None
+        self._consensus: ConsensusMemory | None = None
+        self._facts: FactStore | None = None
+        self._evidence: EvidenceStore | None = None
+        self._critique: CritiqueStore | None = None
 
         # Staleness detector and culture accumulator
         self._staleness_detector: Any | None = None
@@ -351,7 +351,7 @@ class KnowledgeMoundCore:
         logger.info("Knowledge Mound closed")
 
     @asynccontextmanager
-    async def session(self) -> AsyncIterator["KnowledgeMoundCore"]:
+    async def session(self) -> AsyncIterator[KnowledgeMoundCore]:
         """Context manager for managed lifecycle."""
         await self.initialize()
         try:
@@ -589,7 +589,7 @@ class KnowledgeMoundCore:
             self._meta_store.save_relationship(rel)
 
     async def _get_relationships(
-        self, node_id: str, types: Optional[list[RelationshipType]] = None
+        self, node_id: str, types: list[RelationshipType] | None = None
     ) -> list[KnowledgeLink]:
         """Get relationships for a node."""
         if hasattr(self._meta_store, "get_relationships_async"):
@@ -599,7 +599,7 @@ class KnowledgeMoundCore:
             return [self._rel_to_link(r) for r in rels]
 
     async def _get_relationships_batch(
-        self, node_ids: list[str], types: Optional[list[RelationshipType]] = None
+        self, node_ids: list[str], types: list[RelationshipType] | None = None
     ) -> dict[str, list[KnowledgeLink]]:
         """Get relationships for multiple nodes in a single batch operation.
 
@@ -669,7 +669,7 @@ class KnowledgeMoundCore:
     async def _search_similar(
         self,
         workspace_id: str,
-        embedding: Optional[list[float]] = None,
+        embedding: list[float] | None = None,
         query: str | None = None,
         top_k: int = 20,
         min_score: float = 0.8,

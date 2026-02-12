@@ -148,7 +148,7 @@ class BankTransaction(ConnectorDataclass):
 
     # Metadata
     payment_channel: str | None = None  # online, in_store, other
-    location: Optional[dict[str, Any]] = None
+    location: dict[str, Any] | None = None
     iso_currency_code: str = "USD"
 
     def to_dict(self, exclude=None, use_api_names=False) -> dict[str, Any]:
@@ -398,8 +398,8 @@ class PlaidConnector:
         self,
         user_id: str,
         tenant_id: str,
-        products: Optional[list[str]] = None,
-        country_codes: Optional[list[str]] = None,
+        products: list[str] | None = None,
+        country_codes: list[str] | None = None,
         language: str = "en",
         redirect_uri: str | None = None,
     ) -> dict[str, Any]:
@@ -553,7 +553,7 @@ class PlaidConnector:
         credentials: PlaidCredentials,
         start_date: date,
         end_date: date,
-        account_ids: Optional[list[str]] = None,
+        account_ids: list[str] | None = None,
         include_pending: bool = True,
     ) -> tuple[list[BankTransaction], int]:
         """
@@ -810,7 +810,7 @@ class PlaidConnector:
     async def categorize_with_agents(
         self,
         transactions: list[BankTransaction],
-        qbo_accounts: Optional[list[dict[str, Any]]] = None,
+        qbo_accounts: list[dict[str, Any]] | None = None,
     ) -> list[BankTransaction]:
         """
         Use multi-agent debate to categorize ambiguous transactions.

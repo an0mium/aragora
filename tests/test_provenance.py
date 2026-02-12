@@ -693,7 +693,7 @@ class TestMerkleTreeBuild:
         tree = MerkleTree()
         root = tree.build([])
 
-        expected = hashlib.sha256("".encode()).hexdigest()
+        expected = hashlib.sha256(b"").hexdigest()
         assert root == expected
 
     def test_single_record_gives_leaf_hash(self, sample_records):

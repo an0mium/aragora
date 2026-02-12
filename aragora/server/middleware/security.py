@@ -286,12 +286,12 @@ class ValidationResult:
     error_code: int = 400
 
     @classmethod
-    def ok(cls) -> "ValidationResult":
+    def ok(cls) -> ValidationResult:
         """Return successful validation result."""
         return cls(valid=True)
 
     @classmethod
-    def error(cls, message: str, code: int = 400) -> "ValidationResult":
+    def error(cls, message: str, code: int = 400) -> ValidationResult:
         """Return failed validation result."""
         return cls(valid=False, error_message=message, error_code=code)
 

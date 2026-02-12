@@ -68,7 +68,7 @@ class RetryPolicy:
         self,
         func: Callable,
         *args: Any,
-        on_retry: Optional[Callable[[int, Exception], None]] = None,
+        on_retry: Callable[[int, Exception], None] | None = None,
         **kwargs: Any,
     ) -> Any:
         """
@@ -157,7 +157,7 @@ class SyncSchedule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SyncSchedule":
+    def from_dict(cls, data: dict[str, Any]) -> SyncSchedule:
         return cls(
             schedule_type=data.get("schedule_type", "interval"),
             interval_minutes=data.get("interval_minutes", 60),
@@ -223,7 +223,7 @@ class SyncJob:
     connector_id: str
     tenant_id: str
     schedule: SyncSchedule
-    connector: Optional["EnterpriseConnector"] = None
+    connector: EnterpriseConnector | None = None
 
     # Runtime state
     last_run: datetime | None = None
@@ -232,8 +232,8 @@ class SyncJob:
     consecutive_failures: int = 0
 
     # Callbacks
-    on_complete: Optional[Callable[["SyncResult"], None]] = None
-    on_error: Optional[Callable[[Exception], None]] = None
+    on_complete: Callable[[SyncResult], None] | None = None
+    on_error: Callable[[Exception], None] | None = None
 
     def __post_init__(self) -> None:
         if self.next_run is None and self.schedule.enabled:
@@ -321,7 +321,7 @@ class SyncScheduler:
         self._max_history_entries = max_history_entries
 
         self._jobs: dict[str, SyncJob] = {}
-        self._connectors: dict[str, "EnterpriseConnector"] = {}
+        self._connectors: dict[str, EnterpriseConnector] = {}
         # Use deque with maxlen for bounded history (FIFO eviction)
         self._history: deque[SyncHistory] = deque(maxlen=max_history_entries)
         self._running_syncs: dict[str, asyncio.Task[str]] = {}
@@ -333,7 +333,7 @@ class SyncScheduler:
 
     def register_connector(
         self,
-        connector: "EnterpriseConnector",
+        connector: EnterpriseConnector,
         schedule: SyncSchedule | None = None,
         tenant_id: str = "default",
     ) -> SyncJob:

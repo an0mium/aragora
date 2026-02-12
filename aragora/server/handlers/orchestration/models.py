@@ -46,7 +46,7 @@ class KnowledgeContextSource:
     max_items: int = 50
 
     @classmethod
-    def from_string(cls, source_str: str) -> "KnowledgeContextSource":
+    def from_string(cls, source_str: str) -> KnowledgeContextSource:
         """Parse from 'type:id' format."""
         if ":" not in source_str:
             return cls(source_type="document", source_id=source_str)
@@ -63,7 +63,7 @@ class OutputChannel:
     thread_id: str | None = None  # Optional thread/conversation ID
 
     @classmethod
-    def from_string(cls, channel_str: str) -> "OutputChannel":
+    def from_string(cls, channel_str: str) -> OutputChannel:
         """Parse from 'type:id' or 'type:id:thread_id' format.
 
         Special handling for URLs (webhook:https://...) to avoid splitting on
@@ -120,7 +120,7 @@ class OrchestrationRequest:
     request_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OrchestrationRequest":
+    def from_dict(cls, data: dict[str, Any]) -> OrchestrationRequest:
         """Create from request payload."""
         # Parse knowledge sources
         knowledge_sources = []

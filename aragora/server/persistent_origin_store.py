@@ -91,7 +91,7 @@ class OriginRecord:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OriginRecord":
+    def from_dict(cls, data: dict[str, Any]) -> OriginRecord:
         return cls(
             origin_id=data["origin_id"],
             origin_type=data["origin_type"],
@@ -285,7 +285,7 @@ class PersistentOriginStore:
         user_id: str,
         thread_id: str | None = None,
         message_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         ttl_seconds: int | None = None,
     ) -> OriginRecord:
         """
@@ -370,7 +370,7 @@ class PersistentOriginStore:
     async def mark_result_sent(
         self,
         origin_id: str,
-        result_data: Optional[dict[str, Any]] = None,
+        result_data: dict[str, Any] | None = None,
     ) -> bool:
         """
         Mark that the result has been sent for an origin.

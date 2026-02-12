@@ -210,7 +210,7 @@ class SecretsConfig:
     cache_ttl_seconds: int = 300
 
     @classmethod
-    def from_env(cls) -> "SecretsConfig":
+    def from_env(cls) -> SecretsConfig:
         """Load config from environment."""
         use_flag = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "")
         if use_flag:

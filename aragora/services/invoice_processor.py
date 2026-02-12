@@ -1080,7 +1080,7 @@ class InvoiceProcessor:
         invoice_number: str = "",
         invoice_date: datetime | None = None,
         due_date: datetime | None = None,
-        line_items: Optional[list[dict[str, Any]]] = None,
+        line_items: list[dict[str, Any]] | None = None,
         po_number: str | None = None,
     ) -> InvoiceData:
         """
@@ -1161,7 +1161,7 @@ class InvoiceProcessor:
         total_amount: float,
         order_date: datetime | None = None,
         expected_delivery: datetime | None = None,
-        line_items: Optional[list[dict[str, Any]]] = None,
+        line_items: list[dict[str, Any]] | None = None,
     ) -> PurchaseOrder:
         """Add a purchase order for matching."""
         po_id = f"po_{uuid4().hex[:12]}"

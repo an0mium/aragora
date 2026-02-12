@@ -35,7 +35,7 @@ class TestStorageBackendProtocol:
             ) -> str:
                 return "slug"
 
-            def get(self, slug: str) -> Optional[dict[str, Any]]:
+            def get(self, slug: str) -> dict[str, Any] | None:
                 return None
 
             def list_debates(self, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
@@ -80,7 +80,7 @@ class TestMemoryBackendProtocol:
                 self,
                 content: str,
                 importance: float = 0.5,
-                metadata: Optional[dict[str, Any]] = None,
+                metadata: dict[str, Any] | None = None,
             ) -> str:
                 return "mem-123"
 
@@ -88,7 +88,7 @@ class TestMemoryBackendProtocol:
                 self,
                 query: str,
                 limit: int = 10,
-                tier: Optional[str] = None,
+                tier: str | None = None,
             ) -> list[dict[str, Any]]:
                 return []
 
@@ -122,14 +122,14 @@ class TestEloBackendProtocol:
             def update_ratings(
                 self,
                 debate_id: str,
-                winner: Optional[str],
+                winner: str | None,
                 participants: list[str],
                 scores: dict[str, float],
             ) -> dict[str, float]:
                 return {p: 0.0 for p in participants}
 
             def get_leaderboard(
-                self, limit: int = 20, domain: Optional[str] = None
+                self, limit: int = 20, domain: str | None = None
             ) -> list[dict[str, Any]]:
                 return []
 
@@ -161,11 +161,11 @@ class TestConsensusBackendProtocol:
                 confidence: float,
                 supporting_agents: list[str],
                 evidence: list[str],
-                debate_id: Optional[str] = None,
+                debate_id: str | None = None,
             ) -> int:
                 return 123
 
-            def get_consensus(self, topic: str) -> Optional[dict[str, Any]]:
+            def get_consensus(self, topic: str) -> dict[str, Any] | None:
                 return None
 
             def record_dissent(

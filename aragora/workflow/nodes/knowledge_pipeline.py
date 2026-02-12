@@ -71,7 +71,7 @@ class KnowledgePipelineStep(BaseStep):
     CHUNK_STRATEGIES = ["semantic", "sliding", "recursive", "sentence"]
     CONNECTOR_TYPES = ["local_docs", "web", "github", "confluence", "notion"]
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
         self._pipeline: Any | None = None
         self._documents_processed = 0

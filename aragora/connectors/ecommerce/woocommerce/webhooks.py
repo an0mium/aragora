@@ -45,7 +45,7 @@ async def create_webhook(
     delivery_url: str,
     secret: str = "",
     status: str = "active",
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Register a new webhook.
 
     Args:

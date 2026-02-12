@@ -413,7 +413,7 @@ class AuditTrailHandler(BaseHandler):
                 }
             )
 
-    async def _load_trail_from_gauntlet(self, trail_id: str) -> Optional[dict[str, Any]]:
+    async def _load_trail_from_gauntlet(self, trail_id: str) -> dict[str, Any] | None:
         """
         Try to load audit trail from gauntlet results.
 
@@ -450,7 +450,7 @@ class AuditTrailHandler(BaseHandler):
 
         return None
 
-    async def _load_receipt_from_gauntlet(self, receipt_id: str) -> Optional[dict[str, Any]]:
+    async def _load_receipt_from_gauntlet(self, receipt_id: str) -> dict[str, Any] | None:
         """
         Try to load decision receipt from gauntlet results.
 

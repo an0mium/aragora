@@ -24,7 +24,7 @@ class Endpoint:
     method: str
     path: str
 
-    def normalized(self) -> "Endpoint":
+    def normalized(self) -> Endpoint:
         return Endpoint(self.method, normalize_path(self.path))
 
     def display(self) -> str:

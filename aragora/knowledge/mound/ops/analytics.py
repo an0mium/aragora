@@ -32,7 +32,7 @@ class KnowledgeMoundProtocol(Protocol):
         workspace_id: str,
         query: str,
         limit: int = 100,
-    ) -> "QueryResult":
+    ) -> QueryResult:
         """Query knowledge items."""
         ...
 
@@ -311,7 +311,7 @@ class KnowledgeAnalytics:
         user_id: str | None = None,
         workspace_id: str | None = None,
         query: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> UsageEvent:
         """Record a usage event.
 

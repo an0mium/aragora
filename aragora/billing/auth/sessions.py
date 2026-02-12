@@ -70,7 +70,7 @@ class JWTSession:
 
     # MFA tracking for step-up authentication
     mfa_verified_at: float | None = None  # Unix timestamp of last MFA verification
-    mfa_methods_used: Optional[list[str]] = None  # ['totp', 'backup_code', etc.]
+    mfa_methods_used: list[str] | None = None  # ['totp', 'backup_code', etc.]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -125,7 +125,7 @@ class JWTSession:
             return None
         return int(time.time() - self.mfa_verified_at)
 
-    def record_mfa_verification(self, methods: Optional[list[str]] = None) -> None:
+    def record_mfa_verification(self, methods: list[str] | None = None) -> None:
         """
         Record that MFA was successfully verified for this session.
 
@@ -302,7 +302,7 @@ class JWTSessionManager:
             return True
 
     def update_mfa_verification(
-        self, user_id: str, token_jti: str, methods: Optional[list[str]] = None
+        self, user_id: str, token_jti: str, methods: list[str] | None = None
     ) -> bool:
         """Record MFA verification for a session (step-up auth)."""
         with self._lock:

@@ -80,7 +80,7 @@ class DebateBatchConfig:
     stagger_delay: float = 0.0
     """Delay between starting each operation to avoid API burst."""
 
-    circuit_breaker: Optional["CircuitBreaker"] = None
+    circuit_breaker: CircuitBreaker | None = None
     """Optional circuit breaker for agent availability filtering."""
 
     hooks: dict[str, Callable] = field(default_factory=dict)
@@ -127,8 +127,8 @@ class DebateBatchResult(Generic[R]):
 
 
 async def batch_with_agents(
-    agents: list["Agent"],
-    process_fn: Callable[["Agent"], Awaitable[R]],
+    agents: list[Agent],
+    process_fn: Callable[[Agent], Awaitable[R]],
     config: DebateBatchConfig | None = None,
     operation_name: str = "operation",
 ) -> DebateBatchResult[R]:
@@ -177,7 +177,7 @@ async def batch_with_agents(
 
     # Build wrapper that tracks agent info
 
-    async def process_with_tracking(agent: "Agent") -> tuple[str, R]:
+    async def process_with_tracking(agent: Agent) -> tuple[str, R]:
         """Wrap process_fn to track agent info, apply stagger, and record SLO metrics."""
         import time as time_mod
 
@@ -280,11 +280,11 @@ async def batch_with_agents(
 
 
 async def batch_generate_critiques(
-    critics: list["Agent"],
+    critics: list[Agent],
     proposals: dict[str, str],
-    generate_fn: Callable[["Agent", str, str], Awaitable["Critique"]],
+    generate_fn: Callable[[Agent, str, str], Awaitable[Critique]],
     config: DebateBatchConfig | None = None,
-) -> list["Critique"]:
+) -> list[Critique]:
     """
     Generate critiques from multiple critics in parallel.
 
@@ -308,7 +308,7 @@ async def batch_generate_critiques(
     cfg = config or DebateBatchConfig()
 
     # Build list of (critic, proposer, proposal) tuples
-    critique_tasks: list[tuple["Agent", str, str]] = []
+    critique_tasks: list[tuple[Agent, str, str]] = []
     for proposer_name, proposal in proposals.items():
         for critic in critics:
             if critic.name != proposer_name:  # Don't critique self
@@ -324,7 +324,7 @@ async def batch_generate_critiques(
         def early_stop_fn(results: list) -> bool:
             return len(results) >= cfg.min_required
 
-    async def generate_with_tracking(task_tuple: tuple) -> "Critique":
+    async def generate_with_tracking(task_tuple: tuple) -> Critique:
         import time as time_mod
 
         critic, proposer_name, proposal = task_tuple
@@ -365,12 +365,12 @@ async def batch_generate_critiques(
 
 
 async def batch_collect_votes(
-    agents: list["Agent"],
+    agents: list[Agent],
     proposals: dict[str, str],
-    vote_fn: Callable[["Agent", dict[str, str]], Awaitable["Vote"]],
+    vote_fn: Callable[[Agent, dict[str, str]], Awaitable[Vote]],
     config: DebateBatchConfig | None = None,
     majority_threshold: float = 0.5,
-) -> tuple[list["Vote"], bool, str | None]:
+) -> tuple[list[Vote], bool, str | None]:
     """
     Collect votes from agents with RLM-style early termination.
 
@@ -395,7 +395,7 @@ async def batch_collect_votes(
         )
     """
     cfg = config or DebateBatchConfig()
-    collected_votes: list["Vote"] = []
+    collected_votes: list[Vote] = []
     total_agents = len(agents)
     early_stopped = False
     winning_choice: str | None = None
@@ -438,7 +438,7 @@ async def batch_collect_votes(
 
         return False
 
-    async def cast_vote(agent: "Agent") -> "Vote":
+    async def cast_vote(agent: Agent) -> Vote:
         import time as time_mod
 
         if cfg.stagger_delay > 0:

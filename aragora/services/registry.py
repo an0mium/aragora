@@ -53,8 +53,8 @@ class ServiceDescriptor:
     service_type: type
     scope: ServiceScope = ServiceScope.SINGLETON
     instance: Any | None = None
-    factory: Optional[Callable[[], Any]] = None
-    on_shutdown: Optional[Callable[[Any], None]] = None
+    factory: Callable[[], Any] | None = None
+    on_shutdown: Callable[[Any], None] | None = None
     registered_at: float = field(default_factory=time.time)
     resolve_count: int = 0
     last_resolved_at: float | None = None
@@ -135,7 +135,7 @@ class ServiceRegistry:
         registry.reset()
     """
 
-    _instance: Optional["ServiceRegistry"] = None
+    _instance: ServiceRegistry | None = None
     _lock: threading.Lock = threading.Lock()
 
     def __init__(self) -> None:
@@ -145,7 +145,7 @@ class ServiceRegistry:
         self._service_lock = threading.RLock()
 
     @classmethod
-    def get(cls) -> "ServiceRegistry":
+    def get(cls) -> ServiceRegistry:
         """
         Get the singleton registry instance.
 

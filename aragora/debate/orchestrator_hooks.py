@@ -56,7 +56,7 @@ async def _resolve_bead_store(
 
 
 async def create_debate_bead(
-    result: "DebateResult",
+    result: DebateResult,
     protocol: Any,
     env: Any,
     bead_store_holder: Any,
@@ -194,7 +194,7 @@ async def create_pending_debate_bead(
 
 async def update_debate_bead(
     bead_id: str,
-    result: "DebateResult",
+    result: DebateResult,
     success: bool,
     bead_store_holder: Any,
 ) -> None:

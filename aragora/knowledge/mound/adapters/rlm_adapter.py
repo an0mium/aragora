@@ -146,7 +146,7 @@ class RlmAdapter(KnowledgeMoundAdapter):
         value_score: float,
         content_markers: list[str],
         content_type: str = "general",
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str | None:
         """
         Store a compression pattern in the Knowledge Mound.
@@ -211,7 +211,7 @@ class RlmAdapter(KnowledgeMoundAdapter):
         )
         return pattern_id
 
-    def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:
+    def get_pattern(self, pattern_id: str) -> dict[str, Any] | None:
         """
         Get a specific pattern by ID.
 

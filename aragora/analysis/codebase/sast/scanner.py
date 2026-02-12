@@ -240,7 +240,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
     async def scan_repository(
         self,
         repo_path: str,
-        rule_sets: Optional[list[str]] = None,
+        rule_sets: list[str] | None = None,
         scan_id: str | None = None,
         progress_callback: ProgressCallback | None = None,
         min_confidence: float | None = None,
@@ -670,7 +670,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
         findings: list[SASTFinding] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
                 lines = content.split("\n")
 
@@ -834,7 +834,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
 # Convenience function for quick scans
 async def scan_for_vulnerabilities(
     path: str,
-    rule_sets: Optional[list[str]] = None,
+    rule_sets: list[str] | None = None,
     min_confidence: float = 0.5,
     progress_callback: ProgressCallback | None = None,
 ) -> SASTScanResult:

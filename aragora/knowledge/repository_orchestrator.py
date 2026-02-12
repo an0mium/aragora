@@ -56,7 +56,7 @@ class IndexResult:
     errors: list[str]
     warnings: list[str]
     duration_ms: float
-    git_info: Optional[dict[str, Any]] = None
+    git_info: dict[str, Any] | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class SharingProtocol(Protocol):
     """Protocol defining expected interface for Sharing mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _meta_store: Any | None
     _cache: Any | None
@@ -47,7 +47,7 @@ class SharingProtocol(Protocol):
 
     async def get(
         self, node_id: str, workspace_id: str | None = None
-    ) -> Optional["KnowledgeItem"]: ...
+    ) -> KnowledgeItem | None: ...
 
     async def get_share_grants(
         self,
@@ -73,9 +73,9 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         from_workspace_id: str,
         to_workspace_id: str,
         shared_by: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
         expires_at: datetime | None = None,
-    ) -> "AccessGrant":
+    ) -> AccessGrant:
         """
         Share a knowledge item with another workspace.
 
@@ -158,9 +158,9 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         from_workspace_id: str,
         user_id: str,
         shared_by: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
         expires_at: datetime | None = None,
-    ) -> "AccessGrant":
+    ) -> AccessGrant:
         """
         Share a knowledge item with a specific user.
 
@@ -225,7 +225,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         workspace_id: str,
         user_id: str | None = None,
         limit: int = 50,
-    ) -> list["KnowledgeItem"]:
+    ) -> list[KnowledgeItem]:
         """
         Get knowledge items shared with this workspace or user.
 
@@ -241,7 +241,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
 
         self._ensure_initialized()
 
-        items: list["KnowledgeItem"] = []
+        items: list[KnowledgeItem] = []
         seen_ids = set()
 
         if hasattr(self._meta_store, "get_grants_for_grantee_async"):
@@ -309,7 +309,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         item_id: str | None = None,
         shared_by: str | None = None,
         workspace_id: str | None = None,
-    ) -> list["AccessGrant"]:
+    ) -> list[AccessGrant]:
         """
         Get sharing grants, optionally filtered by item, grantor, or workspace.
 
@@ -353,7 +353,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         new_permissions: list[str] | None = None,
         permissions: list[str] | None = None,
         expires_at: datetime | None = None,
-    ) -> Optional["AccessGrant"]:
+    ) -> AccessGrant | None:
         """
         Update permissions and/or expiration for an existing share grant.
 
@@ -446,7 +446,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         item_title: str,
         from_user_id: str,
         to_workspace_id: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
     ) -> None:
         """
         Send notification about workspace sharing (best effort).
@@ -471,7 +471,7 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         item_title: str,
         from_user_id: str,
         to_user_id: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
     ) -> None:
         """
         Send notification to a user about item sharing (best effort).
@@ -554,9 +554,9 @@ class KnowledgeSharingMixin(_SharingMixinBase):
         grantee_id: str,
         grantee_type: str,
         granted_by: str,
-        permissions: Optional[list[str]] = None,
+        permissions: list[str] | None = None,
         expires_at: datetime | None = None,
-    ) -> "AccessGrant":
+    ) -> AccessGrant:
         """
         Grant access to a knowledge item.
 

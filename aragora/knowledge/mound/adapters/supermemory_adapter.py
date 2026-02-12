@@ -109,8 +109,8 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        client: Optional["SupermemoryClient"] = None,
-        config: Optional["SupermemoryConfig"] = None,
+        client: SupermemoryClient | None = None,
+        config: SupermemoryConfig | None = None,
         min_importance_threshold: float = 0.7,
         max_context_items: int = 10,
         enable_privacy_filter: bool = True,
@@ -134,7 +134,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         self._enable_privacy_filter = enable_privacy_filter
         self._privacy_filter: Any = None
 
-    def _ensure_client(self) -> Optional["SupermemoryClient"]:
+    def _ensure_client(self) -> SupermemoryClient | None:
         """Lazily initialize the client if not provided."""
         if self._client is not None:
             return self._client
@@ -270,7 +270,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
 
     async def sync_debate_outcome(
         self,
-        debate_result: "DebateResult",
+        debate_result: DebateResult,
         container_tag: str | None = None,
     ) -> SyncOutcomeResult:
         """Persist debate outcome to Supermemory.

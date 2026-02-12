@@ -150,7 +150,7 @@ class SelectionFeedbackLoop:
         winner: str | None,
         domain: str = "general",
         confidence: float = 0.0,
-        response_times: Optional[dict[str, float]] = None,
+        response_times: dict[str, float] | None = None,
     ) -> dict[str, float]:
         """
         Process a debate outcome and update agent feedback states.

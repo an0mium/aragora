@@ -111,7 +111,7 @@ class RedisCheckpointStore:
         """Build Redis key for workflow checkpoint index."""
         return f"{self.WORKFLOW_INDEX_PREFIX}:{workflow_id}"
 
-    async def save(self, checkpoint: "WorkflowCheckpoint") -> str:
+    async def save(self, checkpoint: WorkflowCheckpoint) -> str:
         """
         Save a checkpoint to Redis.
 
@@ -170,7 +170,7 @@ class RedisCheckpointStore:
                 raise ConnectionTimeoutError(f"Redis checkpoint save timed out: {e}") from e
             raise
 
-    async def load(self, checkpoint_id: str) -> Optional["WorkflowCheckpoint"]:
+    async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """
         Load a checkpoint by ID.
 
@@ -218,7 +218,7 @@ class RedisCheckpointStore:
             logger.error(f"Failed to load checkpoint {checkpoint_id} from Redis: {e}")
             return None
 
-    async def load_latest(self, workflow_id: str) -> Optional["WorkflowCheckpoint"]:
+    async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """
         Load the most recent checkpoint for a workflow.
 
@@ -309,7 +309,7 @@ class RedisCheckpointStore:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
 
-    def _checkpoint_to_dict(self, checkpoint: "WorkflowCheckpoint") -> dict[str, Any]:
+    def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:
         """Convert checkpoint to dictionary."""
         if hasattr(checkpoint, "to_dict"):
             return checkpoint.to_dict()
@@ -332,7 +332,7 @@ class RedisCheckpointStore:
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 
-    def _dict_to_checkpoint(self, data: dict[str, Any]) -> "WorkflowCheckpoint":
+    def _dict_to_checkpoint(self, data: dict[str, Any]) -> WorkflowCheckpoint:
         """Convert dictionary to WorkflowCheckpoint."""
         created_at = data.get("created_at", "")
         if isinstance(created_at, str) and created_at:

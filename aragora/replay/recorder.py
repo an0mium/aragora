@@ -102,7 +102,7 @@ class ReplayRecorder:
                 self.meta.event_count = self._event_count
             with open(self.meta_path, "w", encoding="utf-8") as f:
                 f.write(self.meta.to_json())
-        except (IOError, OSError) as e:
+        except OSError as e:
             logger.warning(f"Failed to write replay metadata to {self.meta_path}: {e}")
 
     def _elapsed_ms(self) -> int:

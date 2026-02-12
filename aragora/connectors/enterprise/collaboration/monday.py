@@ -430,8 +430,8 @@ class MondayConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        workspace_ids: Optional[list[int]] = None,
-        board_ids: Optional[list[int]] = None,
+        workspace_ids: list[int] | None = None,
+        board_ids: list[int] | None = None,
         max_results: int = 100,
         **kwargs: Any,
     ):
@@ -538,7 +538,7 @@ class MondayConnector(EnterpriseConnector):
     async def _graphql_request(
         self,
         query: str,
-        variables: Optional[dict[str, Any]] = None,
+        variables: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute a GraphQL request."""
         token = await self._get_token()
@@ -882,7 +882,7 @@ class MondayConnector(EnterpriseConnector):
         board_id: int,
         item_name: str,
         group_id: str | None = None,
-        column_values: Optional[dict[str, Any]] = None,
+        column_values: dict[str, Any] | None = None,
     ) -> MondayItem:
         """
         Create a new item.
@@ -1058,7 +1058,7 @@ class MondayConnector(EnterpriseConnector):
         self,
         parent_item_id: int,
         subitem_name: str,
-        column_values: Optional[dict[str, Any]] = None,
+        column_values: dict[str, Any] | None = None,
     ) -> MondayItem:
         """Create a subitem under a parent item."""
         import json
@@ -1182,7 +1182,7 @@ class MondayConnector(EnterpriseConnector):
     async def search_items(
         self,
         query_text: str,
-        board_ids: Optional[list[int]] = None,
+        board_ids: list[int] | None = None,
         limit: int = 25,
     ) -> list[MondayItem]:
         """

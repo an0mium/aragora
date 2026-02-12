@@ -128,7 +128,7 @@ class BeliefDistribution:
         """Expected value treating true=1, false=0, unknown=0.5."""
         return self.p_true + 0.5 * self.p_unknown
 
-    def kl_divergence(self, other: "BeliefDistribution") -> float:
+    def kl_divergence(self, other: BeliefDistribution) -> float:
         """KL divergence from self to other."""
         kl = 0.0
         for p_self, p_other in [
@@ -150,7 +150,7 @@ class BeliefDistribution:
         }
 
     @classmethod
-    def from_confidence(cls, confidence: float, lean_true: bool = True) -> "BeliefDistribution":
+    def from_confidence(cls, confidence: float, lean_true: bool = True) -> BeliefDistribution:
         """Create distribution from a confidence score."""
         if lean_true:
             return cls(p_true=confidence, p_false=1 - confidence)
@@ -158,12 +158,12 @@ class BeliefDistribution:
             return cls(p_true=1 - confidence, p_false=confidence)
 
     @classmethod
-    def uniform(cls) -> "BeliefDistribution":
+    def uniform(cls) -> BeliefDistribution:
         """Create uniform (maximum uncertainty) distribution."""
         return cls(p_true=0.5, p_false=0.5, p_unknown=0.0)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BeliefDistribution":
+    def from_dict(cls, data: dict) -> BeliefDistribution:
         """Deserialize from dictionary."""
         return cls(
             p_true=data.get("p_true", 0.5),
@@ -243,7 +243,7 @@ class BeliefNode:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BeliefNode":
+    def from_dict(cls, data: dict) -> BeliefNode:
         """Deserialize from dictionary."""
         return cls(
             node_id=data["node_id"],
@@ -361,7 +361,7 @@ class BeliefNetwork:
         max_iterations: int = BELIEF_MAX_ITERATIONS,
         convergence_threshold: float = BELIEF_CONVERGENCE_THRESHOLD,
         event_emitter: Any | None = None,
-        km_adapter: Optional[_BeliefAdapterProtocol] = None,
+        km_adapter: _BeliefAdapterProtocol | None = None,
         km_min_confidence: float = 0.8,
     ):
         self.debate_id = debate_id or str(uuid.uuid4())
@@ -585,7 +585,7 @@ class BeliefNetwork:
 
         return factor
 
-    def from_claims_kernel(self, kernel: ClaimsKernel) -> "BeliefNetwork":
+    def from_claims_kernel(self, kernel: ClaimsKernel) -> BeliefNetwork:
         """Build belief network from a claims kernel."""
         # Add all claims as nodes
         for claim in kernel.claims.values():
@@ -1003,7 +1003,7 @@ class BeliefNetwork:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BeliefNetwork":
+    def from_dict(cls, data: dict) -> BeliefNetwork:
         """Deserialize network from dictionary."""
         network = cls(
             debate_id=data.get("debate_id"),

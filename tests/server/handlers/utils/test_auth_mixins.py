@@ -59,9 +59,9 @@ class MockAuthorizationContext:
     def __init__(
         self,
         user_id: str = "test-user",
-        org_id: Optional[str] = "test-org",
-        roles: Optional[set] = None,
-        permissions: Optional[set] = None,
+        org_id: str | None = "test-org",
+        roles: set | None = None,
+        permissions: set | None = None,
     ):
         self.user_id = user_id
         self.org_id = org_id
@@ -86,7 +86,7 @@ class MockSecureHandler(SecureEndpointMixin):
 
     def __init__(
         self,
-        auth_context: Optional[MockAuthorizationContext] = None,
+        auth_context: MockAuthorizationContext | None = None,
         raise_unauthorized: bool = False,
         raise_forbidden: bool = False,
         raise_unexpected: bool = False,
@@ -112,7 +112,7 @@ class MockSecureHandler(SecureEndpointMixin):
         return self._auth_context
 
     def check_permission(
-        self, auth_context: Any, permission: str, resource_id: Optional[str] = None
+        self, auth_context: Any, permission: str, resource_id: str | None = None
     ) -> None:
         if self._raise_forbidden:
             from aragora.server.handlers.utils.auth_mixins import _ForbiddenError

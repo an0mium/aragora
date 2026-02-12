@@ -37,7 +37,7 @@ def test_chatgpt_format_detection():
     """Test that ChatGPT format is correctly detected."""
     connector = ConversationIngestorConnector()
 
-    with open(CHATGPT_EXPORT, "r") as f:
+    with open(CHATGPT_EXPORT) as f:
         data = json.load(f)
 
     assert connector._is_chatgpt_format(data), "Should detect ChatGPT format"
@@ -49,7 +49,7 @@ def test_claude_format_detection():
     """Test that Claude format is correctly detected."""
     connector = ConversationIngestorConnector()
 
-    with open(CLAUDE_EXPORT, "r") as f:
+    with open(CLAUDE_EXPORT) as f:
         data = json.load(f)
 
     assert connector._is_claude_format(data), "Should detect Claude format"

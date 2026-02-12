@@ -108,7 +108,7 @@ class MockComputerPolicy:
 class MockRequestHandler:
     """Mock HTTP request handler."""
 
-    def __init__(self, body: Optional[dict] = None, headers: Optional[dict] = None):
+    def __init__(self, body: dict | None = None, headers: dict | None = None):
         self._body = body
         self.headers = headers or {}
 

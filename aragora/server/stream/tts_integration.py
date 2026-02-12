@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Module-level singleton
-_tts_integration: Optional["TTSIntegration"] = None
+_tts_integration: TTSIntegration | None = None
 
 
 class TTSIntegration:
@@ -50,7 +50,7 @@ class TTSIntegration:
 
     def __init__(
         self,
-        voice_handler: Optional["VoiceStreamHandler"] = None,
+        voice_handler: VoiceStreamHandler | None = None,
         max_concurrent_synthesis: int = 3,
         min_interval_seconds: float = 0.5,
     ):
@@ -70,7 +70,7 @@ class TTSIntegration:
         self._lock = asyncio.Lock()
         self._enabled = True
 
-    def set_voice_handler(self, handler: "VoiceStreamHandler") -> None:
+    def set_voice_handler(self, handler: VoiceStreamHandler) -> None:
         """Set or update the voice handler."""
         self._voice_handler = handler
         logger.info("[TTS Integration] Voice handler configured")
@@ -94,7 +94,7 @@ class TTSIntegration:
             return False
         return self._voice_handler.is_tts_available
 
-    def register(self, event_bus: "EventBus") -> None:
+    def register(self, event_bus: EventBus) -> None:
         """
         Register the TTS handler with the event bus.
 
@@ -104,7 +104,7 @@ class TTSIntegration:
         event_bus.subscribe("agent_message", self._handle_agent_message)
         logger.info("[TTS Integration] Registered with EventBus for agent_message events")
 
-    async def _handle_agent_message(self, event: "DebateEvent") -> None:
+    async def _handle_agent_message(self, event: DebateEvent) -> None:
         """
         Handle agent_message events by synthesizing TTS.
 
@@ -272,8 +272,8 @@ def set_tts_integration(integration: TTSIntegration) -> None:
 
 
 def init_tts_integration(
-    voice_handler: Optional["VoiceStreamHandler"] = None,
-    event_bus: Optional["EventBus"] = None,
+    voice_handler: VoiceStreamHandler | None = None,
+    event_bus: EventBus | None = None,
 ) -> TTSIntegration:
     """
     Initialize and configure TTS integration.

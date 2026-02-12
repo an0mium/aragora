@@ -170,7 +170,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item."""
         metadata = km_item.get("metadata", {})
         confidence = km_item.get("confidence") or metadata.get("confidence")
@@ -189,7 +189,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to an insight or flip record."""
         try:
@@ -332,7 +332,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_insight(
         self,
-        insight: "Insight",
+        insight: Insight,
         min_confidence: float = None,
     ) -> str | None:
         """
@@ -387,7 +387,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_debate_insights(
         self,
-        debate_insights: "DebateInsights",
+        debate_insights: DebateInsights,
         min_confidence: float = None,
     ) -> list[str]:
         """
@@ -412,7 +412,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_flip(
         self,
-        flip: "FlipEvent",
+        flip: FlipEvent,
     ) -> str:
         """
         Store a flip event in the Knowledge Mound.
@@ -462,7 +462,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def store_flips_batch(
         self,
-        flips: list["FlipEvent"],
+        flips: list[FlipEvent],
     ) -> list[str]:
         """
         Store multiple flip events.
@@ -481,7 +481,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         pattern_text: str,
         occurrence_count: int,
         avg_severity: float = 0.5,
-        debate_ids: Optional[list[str]] = None,
+        debate_ids: list[str] | None = None,
     ) -> str | None:
         """
         Store a pattern cluster in the Knowledge Mound.
@@ -532,7 +532,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         )
         return pattern_id
 
-    def get_insight(self, insight_id: str) -> Optional[dict[str, Any]]:
+    def get_insight(self, insight_id: str) -> dict[str, Any] | None:
         """
         Get a specific insight by ID.
 
@@ -546,7 +546,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             insight_id = f"{self.INSIGHT_PREFIX}{insight_id}"
         return self._insights.get(insight_id)
 
-    def get_flip(self, flip_id: str) -> Optional[dict[str, Any]]:
+    def get_flip(self, flip_id: str) -> dict[str, Any] | None:
         """
         Get a specific flip event by ID.
 
@@ -750,7 +750,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         return results[:limit]
 
-    def to_knowledge_item(self, insight: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, insight: dict[str, Any]) -> KnowledgeItem:
         """
         Convert an insight dict to a KnowledgeItem.
 
@@ -804,7 +804,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             importance=confidence_val,
         )
 
-    def flip_to_knowledge_item(self, flip: dict[str, Any]) -> "KnowledgeItem":
+    def flip_to_knowledge_item(self, flip: dict[str, Any]) -> KnowledgeItem:
         """
         Convert a flip dict to a KnowledgeItem.
 
@@ -1053,7 +1053,7 @@ class InsightsAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     async def get_agent_flip_baselines(
         self,
         agent_name: str,
-        km_items: Optional[list[dict[str, Any]]] = None,
+        km_items: list[dict[str, Any]] | None = None,
     ) -> KMAgentFlipBaseline:
         """
         Get KM-validated flip baseline for an agent.

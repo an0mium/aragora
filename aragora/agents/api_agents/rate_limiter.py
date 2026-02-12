@@ -217,7 +217,7 @@ class OpenRouterRateLimiter:
             "rejected": bucket_stats.get("rejected", 0),
         }
 
-    def request(self, timeout: float = 30.0) -> "RateLimitContext":
+    def request(self, timeout: float = 30.0) -> RateLimitContext:
         """Context manager for rate-limited API requests.
 
         Provides cleaner async with syntax for acquiring and optionally
@@ -294,7 +294,7 @@ class RateLimitContext:
         self._timeout = timeout
         self._acquired = False
 
-    async def __aenter__(self) -> "RateLimitContext":
+    async def __aenter__(self) -> RateLimitContext:
         """Acquire rate limit on context entry."""
         self._acquired = await self._limiter.acquire(self._timeout)
         return self
@@ -458,7 +458,7 @@ class ProviderRateLimiter:
             "rejected": bucket_stats.get("rejected", 0),
         }
 
-    def request(self, timeout: float = 30.0) -> "ProviderRateLimitContext":
+    def request(self, timeout: float = 30.0) -> ProviderRateLimitContext:
         """Context manager for rate-limited API requests."""
         return ProviderRateLimitContext(self, timeout)
 
@@ -512,7 +512,7 @@ class ProviderRateLimitContext:
         self._timeout = timeout
         self._acquired = False
 
-    async def __aenter__(self) -> "ProviderRateLimitContext":
+    async def __aenter__(self) -> ProviderRateLimitContext:
         """Acquire rate limit on context entry."""
         self._acquired = await self._limiter.acquire(self._timeout)
         return self

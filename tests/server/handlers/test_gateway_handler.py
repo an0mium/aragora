@@ -51,15 +51,15 @@ class MockDeviceRegistry:
 
     async def list_devices(
         self,
-        status: Optional[Any] = None,
-        device_type: Optional[str] = None,
+        status: Any | None = None,
+        device_type: str | None = None,
     ) -> list[MockDeviceNode]:
         devices = list(self._devices.values())
         if device_type:
             devices = [d for d in devices if d.device_type == device_type]
         return devices
 
-    async def get(self, device_id: str) -> Optional[MockDeviceNode]:
+    async def get(self, device_id: str) -> MockDeviceNode | None:
         return self._devices.get(device_id)
 
     async def register(self, device: MockDeviceNode) -> str:
@@ -96,7 +96,7 @@ class MockAgentRouter:
 class MockRequestHandler:
     """Mock HTTP request handler."""
 
-    def __init__(self, body: Optional[dict] = None, headers: Optional[dict] = None):
+    def __init__(self, body: dict | None = None, headers: dict | None = None):
         self._body = body
         self.headers = headers or {}
 

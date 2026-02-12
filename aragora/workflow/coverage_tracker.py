@@ -240,10 +240,10 @@ class WorkflowCoverageTracker:
     Thread-safe singleton that accumulates coverage data across test runs.
     """
 
-    _instance: Optional["WorkflowCoverageTracker"] = None
+    _instance: WorkflowCoverageTracker | None = None
     _lock = threading.Lock()
 
-    def __new__(cls) -> "WorkflowCoverageTracker":
+    def __new__(cls) -> WorkflowCoverageTracker:
         """Create singleton instance."""
         with cls._lock:
             if cls._instance is None:
@@ -275,7 +275,7 @@ class WorkflowCoverageTracker:
             self._test_names.clear()
 
     def track_step(
-        self, step_type: str, test_name: str, metadata: Optional[dict[str, Any]] = None
+        self, step_type: str, test_name: str, metadata: dict[str, Any] | None = None
     ) -> None:
         """Track coverage of a step type."""
         with self._data_lock:
@@ -289,7 +289,7 @@ class WorkflowCoverageTracker:
             logger.debug(f"Tracked step '{step_type}' in test '{test_name}'")
 
     def track_pattern(
-        self, pattern: str, test_name: str, metadata: Optional[dict[str, Any]] = None
+        self, pattern: str, test_name: str, metadata: dict[str, Any] | None = None
     ) -> None:
         """Track coverage of an execution pattern."""
         with self._data_lock:
@@ -303,7 +303,7 @@ class WorkflowCoverageTracker:
             logger.debug(f"Tracked pattern '{pattern}' in test '{test_name}'")
 
     def track_template(
-        self, template: str, test_name: str, metadata: Optional[dict[str, Any]] = None
+        self, template: str, test_name: str, metadata: dict[str, Any] | None = None
     ) -> None:
         """Track coverage of a workflow template."""
         with self._data_lock:
@@ -317,7 +317,7 @@ class WorkflowCoverageTracker:
             logger.debug(f"Tracked template '{template}' in test '{test_name}'")
 
     def track_config(
-        self, config_dimension: str, test_name: str, metadata: Optional[dict[str, Any]] = None
+        self, config_dimension: str, test_name: str, metadata: dict[str, Any] | None = None
     ) -> None:
         """Track coverage of a configuration dimension."""
         with self._data_lock:
@@ -404,25 +404,25 @@ def get_tracker() -> WorkflowCoverageTracker:
     return _tracker
 
 
-def track_step(step_type: str, test_name: str, metadata: Optional[dict[str, Any]] = None) -> None:
+def track_step(step_type: str, test_name: str, metadata: dict[str, Any] | None = None) -> None:
     """Convenience function to track step coverage."""
     get_tracker().track_step(step_type, test_name, metadata)
 
 
-def track_pattern(pattern: str, test_name: str, metadata: Optional[dict[str, Any]] = None) -> None:
+def track_pattern(pattern: str, test_name: str, metadata: dict[str, Any] | None = None) -> None:
     """Convenience function to track pattern coverage."""
     get_tracker().track_pattern(pattern, test_name, metadata)
 
 
 def track_template(
-    template: str, test_name: str, metadata: Optional[dict[str, Any]] = None
+    template: str, test_name: str, metadata: dict[str, Any] | None = None
 ) -> None:
     """Convenience function to track template coverage."""
     get_tracker().track_template(template, test_name, metadata)
 
 
 def track_config(
-    config_dimension: str, test_name: str, metadata: Optional[dict[str, Any]] = None
+    config_dimension: str, test_name: str, metadata: dict[str, Any] | None = None
 ) -> None:
     """Convenience function to track config coverage."""
     get_tracker().track_config(config_dimension, test_name, metadata)

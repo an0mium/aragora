@@ -298,7 +298,7 @@ class PersistentWorkflowStore:
         self,
         tenant_id: str = "default",
         category: str | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -555,7 +555,7 @@ class PersistentWorkflowStore:
     def list_templates(
         self,
         category: str | None = None,
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         limit: int = 50,
     ) -> list[WorkflowDefinition]:
         """List workflow templates."""
@@ -644,7 +644,7 @@ class PersistentWorkflowStore:
         finally:
             conn.close()
 
-    def get_execution(self, execution_id: str) -> Optional[dict[str, Any]]:
+    def get_execution(self, execution_id: str) -> dict[str, Any] | None:
         """Get an execution by ID."""
         conn = self._get_conn()
         try:
@@ -844,7 +844,7 @@ async def get_async_workflow_store(
     return _workflow_store_instance
 
 
-async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
+async def create_postgres_workflow_store() -> PostgresWorkflowStore:
     """
     Create and initialize a PostgreSQL workflow store.
 

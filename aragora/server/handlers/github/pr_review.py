@@ -206,7 +206,7 @@ class GitHubClient:
     def __init__(self, token: str | None = None):
         self.token = token or os.environ.get("GITHUB_TOKEN")
         self.base_url = "https://api.github.com"
-        self._connector: Optional["GitHubConnector"] = None
+        self._connector: GitHubConnector | None = None
         self._init_connector()
 
     def _init_connector(self) -> None:
@@ -330,7 +330,7 @@ class GitHubClient:
         pr_number: int,
         event: ReviewVerdict,
         body: str,
-        comments: Optional[list[dict[str, Any]]] = None,
+        comments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Submit a review to GitHub."""
         from aragora.server.http_client_pool import get_http_pool
@@ -793,7 +793,7 @@ async def _perform_review(
 async def _perform_debate_review(
     pr_details: PRDetails,
     review_type: str,
-) -> Optional[tuple[list[ReviewComment], ReviewVerdict, str]]:
+) -> tuple[list[ReviewComment], ReviewVerdict, str] | None:
     """
     Perform code review using multi-agent debate.
 
@@ -1034,7 +1034,7 @@ async def handle_submit_review(
     pr_number: int,
     event: str,
     body: str,
-    comments: Optional[list[dict[str, Any]]] = None,
+    comments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Submit a review to GitHub.

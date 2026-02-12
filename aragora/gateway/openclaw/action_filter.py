@@ -628,7 +628,7 @@ class ActionFilter:
         self,
         action: str,
         context: dict[str, Any] | None = None,
-        auth_context: "AuthorizationContext | None" = None,
+        auth_context: AuthorizationContext | None = None,
     ) -> FilterDecision:
         """
         Check if an action is allowed.
@@ -764,7 +764,7 @@ class ActionFilter:
         self,
         actions: list[str],
         context: dict[str, Any] | None = None,
-        auth_context: "AuthorizationContext | None" = None,
+        auth_context: AuthorizationContext | None = None,
     ) -> dict[str, FilterDecision]:
         """
         Check multiple actions at once.
@@ -1074,7 +1074,7 @@ class ActionFilter:
     def _record_decision(
         self,
         decision: FilterDecision,
-        auth_context: "AuthorizationContext | None" = None,
+        auth_context: AuthorizationContext | None = None,
     ) -> None:
         """Record a decision for audit."""
         with self._stats_lock:

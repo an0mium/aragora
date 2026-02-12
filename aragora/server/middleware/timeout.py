@@ -117,7 +117,7 @@ def configure_timeout(
     default_timeout: float | None = None,
     slow_timeout: float | None = None,
     max_timeout: float | None = None,
-    endpoint_overrides: Optional[dict[str, float]] = None,
+    endpoint_overrides: dict[str, float] | None = None,
 ) -> RequestTimeoutConfig:
     """Configure request timeout settings.
 
@@ -201,7 +201,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 def with_timeout(
     timeout: float | None = None,
-    error_response: Optional[Callable[[float, str], Any]] = None,
+    error_response: Callable[[float, str], Any] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator to add timeout to sync handler functions.
@@ -278,7 +278,7 @@ def with_timeout(
 
 def async_with_timeout(
     timeout: float | None = None,
-    error_response: Optional[Callable[[float, str], Any]] = None,
+    error_response: Callable[[float, str], Any] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator to add timeout to async handler functions.

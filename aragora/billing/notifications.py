@@ -492,7 +492,7 @@ We'd love to hear your feedback. What could we have done better?
         org_id: str,
         org_name: str,
         email: str,
-        previous_tier: "SubscriptionTier",
+        previous_tier: SubscriptionTier,
         invoice_url: str | None = None,
     ) -> NotificationResult:
         """

@@ -45,14 +45,14 @@ class ContextDelegator:
 
     def __init__(
         self,
-        context_gatherer: Optional["ContextGatherer"] = None,
-        memory_manager: Optional["MemoryManager"] = None,
-        cache: Optional["DebateStateCache"] = None,
-        evidence_grounder: Optional["EvidenceGrounder"] = None,
+        context_gatherer: ContextGatherer | None = None,
+        memory_manager: MemoryManager | None = None,
+        cache: DebateStateCache | None = None,
+        evidence_grounder: EvidenceGrounder | None = None,
         continuum_memory: Any = None,
         env: Any = None,
         auth_context: Any | None = None,
-        extract_domain_fn: Optional[Callable[..., Any]] = None,
+        extract_domain_fn: Callable[..., Any] | None = None,
     ) -> None:
         self.context_gatherer = context_gatherer
         self.memory_manager = memory_manager

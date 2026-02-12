@@ -74,14 +74,14 @@ class TypedHandler(BaseHandler):
     """
 
     # Server context containing shared resources (narrowed from BaseHandler.ctx: dict[str, Any])
-    ctx: "ServerContext"  # type: ignore[assignment]  # Subclass narrows dict to ServerContext TypedDict
+    ctx: ServerContext  # type: ignore[assignment]  # Subclass narrows dict to ServerContext TypedDict
 
     # Class-level dependency injection points for testing
     # These can be overridden in test fixtures
     _user_store_factory: Callable[[], Any] | None = None
     _storage_factory: Callable[[], Any] | None = None
 
-    def __init__(self, server_context: "ServerContext"):
+    def __init__(self, server_context: ServerContext):
         """Initialize with server context.
 
         Args:
@@ -172,7 +172,7 @@ class TypedHandler(BaseHandler):
 
     # Type-safe dependency access
 
-    def get_user_store(self) -> Optional["UserStore"]:
+    def get_user_store(self) -> UserStore | None:
         """Get user store instance with type safety.
 
         Returns:
@@ -182,7 +182,7 @@ class TypedHandler(BaseHandler):
             return self._user_store_factory()
         return self.ctx.get("user_store")
 
-    def get_storage(self) -> Optional["DebateStorage"]:
+    def get_storage(self) -> DebateStorage | None:
         """Get debate storage instance."""
         if self._storage_factory:
             return self._storage_factory()
@@ -191,10 +191,10 @@ class TypedHandler(BaseHandler):
     @classmethod
     def with_dependencies(
         cls,
-        server_context: "ServerContext",
-        user_store: Optional["UserStore"] = None,
-        storage: Optional["DebateStorage"] = None,
-    ) -> "TypedHandler":
+        server_context: ServerContext,
+        user_store: UserStore | None = None,
+        storage: DebateStorage | None = None,
+    ) -> TypedHandler:
         """
         Factory method for creating handlers with injected dependencies.
 
@@ -677,7 +677,7 @@ class ResourceHandler(PermissionHandler):
             "DELETE": f"{name}:delete",
         }
 
-    def __init__(self, server_context: "ServerContext"):
+    def __init__(self, server_context: ServerContext):
         super().__init__(server_context)
         # Override REQUIRED_PERMISSIONS with resource-specific ones
         self.__class__.REQUIRED_PERMISSIONS = self._get_resource_permissions()

@@ -49,8 +49,20 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
+      - name: Check version not already published
+        id: version-check
+        run: |
+          PACKAGE_NAME=$(npm pkg get name | tr -d '"')
+          LOCAL=$(npm pkg get version | tr -d '"')
+          PUBLISHED=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "none")
+          if [ "$PUBLISHED" = "$LOCAL" ]; then
+            echo "::error::Version $LOCAL already published to npm"
+            exit 1
+          fi
+          echo "Publishing $PACKAGE_NAME@$LOCAL (current published: $PUBLISHED)"
+
       - name: Publish to npm
-        run: npm publish --access public || echo "::warning::Package may already be published at this version"
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

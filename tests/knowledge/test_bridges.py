@@ -45,7 +45,7 @@ class MockKnowledgeMound:
         self.nodes[node_id] = node
         return node_id
 
-    async def get_node(self, node_id: str) -> Optional[Any]:
+    async def get_node(self, node_id: str) -> Any | None:
         """Get a node by ID."""
         return self.nodes.get(node_id)
 

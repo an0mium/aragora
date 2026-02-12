@@ -82,7 +82,7 @@ class ABTestRubric:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ABTestRubric":
+    def from_dict(cls, data: dict[str, Any]) -> ABTestRubric:
         """Parse rubric from a dictionary."""
         return cls(
             name=str(data.get("name", "default")),
@@ -121,7 +121,7 @@ def _extract_log_metadata(metadata: dict | None) -> dict[str, Any]:
 
 def _build_ab_test_log_event(
     event: str,
-    test: "ABTest",
+    test: ABTest,
     **extra: Any,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
@@ -239,7 +239,7 @@ class ABTest:
         return None
 
     @classmethod
-    def from_row(cls, row: tuple) -> "ABTest":
+    def from_row(cls, row: tuple) -> ABTest:
         """Create from database row."""
         return cls(
             id=row[0],

@@ -172,7 +172,7 @@ class VoiceHandler:
 
         return context
 
-    async def _verify_signature(self, request: "Request", params: dict[str, str]) -> bool:
+    async def _verify_signature(self, request: Request, params: dict[str, str]) -> bool:
         """
         Verify Twilio webhook signature.
 
@@ -228,7 +228,7 @@ class VoiceHandler:
             logger.error(f"Twilio signature verification failed: {e}")
             return False
 
-    async def _get_post_params(self, request: "Request") -> dict[str, str]:
+    async def _get_post_params(self, request: Request) -> dict[str, str]:
         """Extract POST parameters from request."""
         try:
             data = await request.post()
@@ -241,7 +241,7 @@ class VoiceHandler:
     # Inbound Call Handler
     # =========================================================================
 
-    async def handle_inbound(self, request: "Request") -> "Response":
+    async def handle_inbound(self, request: Request) -> Response:
         """
         Handle inbound call webhook.
 
@@ -292,7 +292,7 @@ class VoiceHandler:
     # Gather (Speech Recognition) Handler
     # =========================================================================
 
-    async def handle_gather(self, request: "Request") -> "Response":
+    async def handle_gather(self, request: Request) -> Response:
         """
         Handle speech gather result.
 
@@ -334,7 +334,7 @@ class VoiceHandler:
 
         return web.Response(text=twiml, content_type=TWIML_CONTENT_TYPE)
 
-    async def handle_gather_confirm(self, request: "Request") -> "Response":
+    async def handle_gather_confirm(self, request: Request) -> Response:
         """
         Handle confirmation digit press.
 
@@ -379,7 +379,7 @@ class VoiceHandler:
     # Status Callback Handler
     # =========================================================================
 
-    async def handle_status(self, request: "Request") -> "Response":
+    async def handle_status(self, request: Request) -> Response:
         """
         Handle call status callback.
 
@@ -419,7 +419,7 @@ class VoiceHandler:
     # Device Runtime Integration
     # =========================================================================
 
-    async def handle_device_association(self, request: "Request") -> "Response":
+    async def handle_device_association(self, request: Request) -> Response:
         """
         Associate a call with a device.
 
@@ -520,7 +520,7 @@ class VoiceHandler:
 
 
 def setup_voice_routes(
-    app: "Application",
+    app: Application,
     handler: VoiceHandler | None = None,
     device_registry: DeviceRegistry | None = None,
 ) -> VoiceHandler:

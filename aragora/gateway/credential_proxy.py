@@ -67,9 +67,9 @@ class ExternalCredential:
     oauth_token: str = ""
     refresh_token: str = ""
     scopes: list[str] = field(default_factory=list)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -179,7 +179,7 @@ class CredentialProxy:
 
     def __init__(
         self,
-        permission_checker: Optional["PermissionChecker"] = None,
+        permission_checker: PermissionChecker | None = None,
         default_rate_limit: int = 60,  # requests per minute
         audit_enabled: bool = True,
         cache_ttl: float = 60.0,  # seconds

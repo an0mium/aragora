@@ -38,7 +38,7 @@ class MockWorkflowStep:
     def __init__(
         self,
         name: str = "mock",
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         self._name = name
         self._config = config or {}
@@ -77,7 +77,7 @@ class MockAgentStep:
     def __init__(
         self,
         name: str = "mock_agent",
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         self._name = name
         self._config = config or {}
@@ -104,7 +104,7 @@ class MockDebateStep:
     def __init__(
         self,
         name: str = "mock_debate",
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         self._name = name
         self._config = config or {}
@@ -134,7 +134,7 @@ class FailingWorkflowStep:
     def __init__(
         self,
         name: str = "failing",
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         self._name = name
         self._config = config or {}
@@ -155,7 +155,7 @@ class SlowWorkflowStep:
     def __init__(
         self,
         name: str = "slow",
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         self._name = name
         self._config = config or {}

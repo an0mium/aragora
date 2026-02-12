@@ -140,7 +140,7 @@ class EventRateLimiter:
 
 
 # Global event rate limiter
-_event_rate_limiter: Optional["EventRateLimiter"] = None
+_event_rate_limiter: EventRateLimiter | None = None
 
 
 def get_event_rate_limiter() -> EventRateLimiter | None:
@@ -173,7 +173,7 @@ class DeliveryResult:
 
 
 def dispatch_webhook(
-    webhook: "WebhookConfig",
+    webhook: WebhookConfig,
     payload: dict,
     timeout: float = REQUEST_TIMEOUT,
 ) -> tuple[bool, int, str | None]:
@@ -257,7 +257,7 @@ def dispatch_webhook(
 
 
 def dispatch_webhook_with_retry(
-    webhook: "WebhookConfig",
+    webhook: WebhookConfig,
     payload: dict,
     max_retries: int = MAX_RETRIES,
     initial_delay: float = INITIAL_RETRY_DELAY,
@@ -341,7 +341,7 @@ def dispatch_webhook_with_retry(
 
 
 def _dispatch_with_retry_impl(
-    webhook: "WebhookConfig",
+    webhook: WebhookConfig,
     payload: dict,
     max_retries: int,
     initial_delay: float,
@@ -428,7 +428,7 @@ class WebhookDispatcher:
         self._rate_limited = 0
         self._lock = threading.Lock()
 
-    def subscribe_to_stream(self, event_emitter: "SyncEventEmitter") -> None:
+    def subscribe_to_stream(self, event_emitter: SyncEventEmitter) -> None:
         """
         Subscribe to an event emitter to receive events.
 
@@ -436,7 +436,7 @@ class WebhookDispatcher:
             event_emitter: SyncEventEmitter instance to subscribe to
         """
 
-        def on_event(event: "StreamEvent"):
+        def on_event(event: StreamEvent):
             if not self._shutdown:
                 self.dispatch_event(event.type.value, event.to_dict())
 
@@ -489,7 +489,7 @@ class WebhookDispatcher:
                 payload.copy(),
             )
 
-    def _deliver_webhook(self, webhook: "WebhookConfig", payload: dict) -> None:
+    def _deliver_webhook(self, webhook: WebhookConfig, payload: dict) -> None:
         """Deliver webhook in background thread."""
         from aragora.server.handlers.webhooks import get_webhook_store
 

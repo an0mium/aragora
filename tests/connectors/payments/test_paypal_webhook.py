@@ -359,9 +359,7 @@ class TestPayPalWebhookEdgeCases:
         valid_signature = base64.b64encode(
             hmac.new(
                 secret.encode("utf-8"),
-                f"trans-123|{future_timestamp}|{webhook_id}|{zlib.crc32(event_body.encode()) & 0xFFFFFFFF}".encode(
-                    "utf-8"
-                ),
+                f"trans-123|{future_timestamp}|{webhook_id}|{zlib.crc32(event_body.encode()) & 0xFFFFFFFF}".encode(),
                 hashlib.sha256,
             ).digest()
         ).decode("utf-8")

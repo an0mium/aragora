@@ -265,7 +265,7 @@ class ChatPlatformConnector(
         """
         return None
 
-    def capabilities(self) -> "ConnectorCapabilities":
+    def capabilities(self) -> ConnectorCapabilities:
         """
         Report the capabilities of this chat platform connector.
 

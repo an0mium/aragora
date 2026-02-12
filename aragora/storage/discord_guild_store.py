@@ -83,7 +83,7 @@ class DiscordGuild:
         }
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "DiscordGuild":
+    def from_row(cls, row: sqlite3.Row) -> DiscordGuild:
         """Create from database row."""
         scopes_str = row["scopes"] or ""
         scopes = scopes_str.split(",") if scopes_str else []

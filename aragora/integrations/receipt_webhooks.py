@@ -120,7 +120,7 @@ class ReceiptWebhookNotifier:
         verdict: str,
         confidence: float,
         hash: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         rounds: int | None = None,
         findings_count: int | None = None,
     ) -> None:

@@ -365,7 +365,7 @@ class APAutomation:
 
     async def optimize_payment_timing(
         self,
-        invoices: Optional[list[PayableInvoice]] = None,
+        invoices: list[PayableInvoice] | None = None,
         available_cash: Decimal | None = None,
     ) -> PaymentSchedule:
         """
@@ -467,7 +467,7 @@ class APAutomation:
 
     async def batch_payments(
         self,
-        invoices: Optional[list[PayableInvoice]] = None,
+        invoices: list[PayableInvoice] | None = None,
         payment_date: datetime | None = None,
         payment_method: PaymentMethod = PaymentMethod.ACH,
     ) -> BatchPayment:

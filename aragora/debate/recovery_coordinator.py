@@ -126,8 +126,8 @@ class RecoveryCoordinator:
         debate_id: str,
         witness: DebateWitness | None = None,
         config: RecoveryConfig | None = None,
-        on_action: Optional[Callable[[RecoveryEvent], Any]] = None,
-        on_message: Optional[Callable[[ProtocolMessage], Any]] = None,
+        on_action: Callable[[RecoveryEvent], Any] | None = None,
+        on_message: Callable[[ProtocolMessage], Any] | None = None,
     ):
         """
         Initialize the recovery coordinator.
@@ -367,7 +367,7 @@ class RecoveryCoordinator:
         decision: RecoveryDecision,
         trigger_type: str,
         trigger_id: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> RecoveryEvent:
         """Execute a recovery decision."""
         async with self._lock:
@@ -618,8 +618,8 @@ class RecoveryCoordinator:
 async def create_debate_observer(
     debate_id: str,
     agents: list[str],
-    replacement_pool: Optional[list[str]] = None,
-    on_protocol_message: Optional[Callable[[ProtocolMessage], Any]] = None,
+    replacement_pool: list[str] | None = None,
+    on_protocol_message: Callable[[ProtocolMessage], Any] | None = None,
 ) -> tuple[DebateWitness, DeadlockDetector, RecoveryCoordinator]:
     """
     Create an integrated observer system for a debate.

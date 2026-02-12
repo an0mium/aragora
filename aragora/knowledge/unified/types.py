@@ -70,7 +70,7 @@ class ConfidenceLevel(str, Enum):
     UNVERIFIED = "unverified"  # Not yet verified
 
     @classmethod
-    def from_float(cls, value: float) -> "ConfidenceLevel":
+    def from_float(cls, value: float) -> ConfidenceLevel:
         """Convert a float confidence score (0-1) to a ConfidenceLevel."""
         if value >= 0.9:
             return cls.VERIFIED
@@ -103,7 +103,7 @@ class KnowledgeItem:
 
     # Optional fields depending on source
     importance: float | None = None  # 0-1 importance score
-    embedding: Optional[list[float]] = None  # Vector embedding
+    embedding: list[float] | None = None  # Vector embedding
 
     # Cross-reference tracking
     cross_references: list[str] = field(default_factory=list)  # IDs of related items
@@ -124,7 +124,7 @@ class KnowledgeItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "KnowledgeItem":
+    def from_dict(cls, data: dict[str, Any]) -> KnowledgeItem:
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -176,15 +176,15 @@ class KnowledgeLink:
 class QueryFilters:
     """Filters for Knowledge Mound queries."""
 
-    sources: Optional[list[KnowledgeSource]] = None  # Filter by source type
+    sources: list[KnowledgeSource] | None = None  # Filter by source type
     min_confidence: ConfidenceLevel | None = None
     min_importance: float | None = None
     created_after: datetime | None = None
     created_before: datetime | None = None
     workspace_id: str | None = None
     debate_id: str | None = None
-    document_ids: Optional[list[str]] = None
-    tags: Optional[list[str]] = None
+    document_ids: list[str] | None = None
+    tags: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API serialization."""

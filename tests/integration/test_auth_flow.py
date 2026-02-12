@@ -87,8 +87,8 @@ def registered_user(user_store) -> User:
 
 
 def create_mock_request(
-    body: Optional[dict] = None,
-    headers: Optional[dict] = None,
+    body: dict | None = None,
+    headers: dict | None = None,
     method: str = "POST",
 ) -> MagicMock:
     """Create a mock HTTP request handler."""

@@ -649,7 +649,7 @@ class Field:
     name: str
     alias: str | None = None
     arguments: dict[str, Any] = field(default_factory=dict)
-    selections: list["Field"] = field(default_factory=list)
+    selections: list[Field] = field(default_factory=list)
     directives: list[str] = field(default_factory=list)
 
 

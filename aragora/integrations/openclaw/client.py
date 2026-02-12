@@ -374,7 +374,7 @@ class OpenClawClient:
             await self._session.close()
             self._session = None
 
-    async def __aenter__(self) -> "OpenClawClient":
+    async def __aenter__(self) -> OpenClawClient:
         """Async context manager entry."""
         return self
 

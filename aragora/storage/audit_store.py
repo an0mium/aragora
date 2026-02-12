@@ -64,7 +64,7 @@ class AuditStore:
     def __init__(
         self,
         db_path: Path | str = "audit.db",
-        get_connection: Optional[Callable[[], sqlite3.Connection]] = None,
+        get_connection: Callable[[], sqlite3.Connection] | None = None,
         backend: str | None = None,
         database_url: str | None = None,
     ):

@@ -107,8 +107,8 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        orchestrator: Optional["ComputerUseOrchestrator"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        orchestrator: ComputerUseOrchestrator | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         workspace_id: str = "default",
         event_callback: EventCallback | None = None,
         min_confidence_threshold: float = 0.6,
@@ -155,7 +155,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
     async def store_task_result(
         self,
-        result: "TaskResult",
+        result: TaskResult,
         agent_id: str | None = None,
     ) -> str | None:
         """

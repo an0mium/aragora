@@ -1222,7 +1222,7 @@ def list_templates() -> list[dict]:
 def template_to_protocol(
     template: DebateTemplate,
     overrides: dict | None = None,
-) -> "DebateProtocol":
+) -> DebateProtocol:
     """Convert a DebateTemplate to a DebateProtocol.
 
     Maps template structure to protocol mechanics:

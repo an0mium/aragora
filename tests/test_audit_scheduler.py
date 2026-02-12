@@ -664,7 +664,7 @@ class TestWebhookHandling:
             payload = {"event": "push"}
             payload_bytes = json.dumps(payload, sort_keys=True).encode()
             signature = hmac.new(
-                "test-secret".encode(),
+                b"test-secret",
                 payload_bytes,
                 hashlib.sha256,
             ).hexdigest()
@@ -1075,7 +1075,7 @@ class TestWebhookSignature:
 
         payload_bytes = json.dumps(payload, sort_keys=True).encode()
         signature = hmac.new(
-            "wrong-secret".encode(),
+            b"wrong-secret",
             payload_bytes,
             hashlib.sha256,
         ).hexdigest()

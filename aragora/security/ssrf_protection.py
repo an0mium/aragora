@@ -164,16 +164,16 @@ class SSRFValidationResult:
     is_safe: bool
     url: str
     error: str = ""
-    resolved_ip: Optional[str] = None
+    resolved_ip: str | None = None
     warnings: list[str] = field(default_factory=list)
 
     @classmethod
-    def safe(cls, url: str, resolved_ip: Optional[str] = None) -> "SSRFValidationResult":
+    def safe(cls, url: str, resolved_ip: str | None = None) -> SSRFValidationResult:
         """Create a safe validation result."""
         return cls(is_safe=True, url=url, resolved_ip=resolved_ip)
 
     @classmethod
-    def unsafe(cls, url: str, error: str) -> "SSRFValidationResult":
+    def unsafe(cls, url: str, error: str) -> SSRFValidationResult:
         """Create an unsafe validation result."""
         return cls(is_safe=False, url=url, error=error)
 
@@ -276,16 +276,16 @@ def _resolve_hostname(hostname: str, timeout: float = 2.0) -> list[str]:
             return ips
         finally:
             socket.setdefaulttimeout(old_timeout)
-    except (socket.gaierror, socket.timeout, OSError) as e:
+    except (TimeoutError, socket.gaierror, OSError) as e:
         logger.debug(f"DNS resolution failed for {hostname}: {e}")
         return []
 
 
 def validate_url(
     url: str,
-    allowed_protocols: Optional[set[str] | frozenset[str]] = None,
-    allowed_domains: Optional[set[str] | frozenset[str]] = None,
-    blocked_domains: Optional[set[str] | frozenset[str]] = None,
+    allowed_protocols: set[str] | frozenset[str] | None = None,
+    allowed_domains: set[str] | frozenset[str] | None = None,
+    blocked_domains: set[str] | frozenset[str] | None = None,
     resolve_dns: bool = False,
     allow_private_ips: bool = False,
     dns_timeout: float = 2.0,
@@ -392,7 +392,7 @@ def validate_url(
 
 def is_url_safe(
     url: str,
-    allowed_domains: Optional[set[str]] = None,
+    allowed_domains: set[str] | None = None,
     resolve_dns: bool = False,
 ) -> bool:
     """Simple check if URL is safe from SSRF attacks.
@@ -411,7 +411,7 @@ def is_url_safe(
 
 def validate_webhook_url(
     url: str,
-    allowed_domains: Optional[set[str] | frozenset[str]] = None,
+    allowed_domains: set[str] | frozenset[str] | None = None,
     service_name: str = "webhook",
 ) -> SSRFValidationResult:
     """Validate a webhook URL with strict settings.

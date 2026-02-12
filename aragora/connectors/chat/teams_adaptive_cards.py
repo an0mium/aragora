@@ -82,7 +82,7 @@ class TeamsAdaptiveCards:
 
     @classmethod
     def wrap_as_card(
-        cls, body: list[dict[str, Any]], actions: Optional[list[dict[str, Any]]] = None
+        cls, body: list[dict[str, Any]], actions: list[dict[str, Any]] | None = None
     ) -> dict[str, Any]:
         """Wrap body elements as a full Adaptive Card."""
         card: dict[str, Any] = {
@@ -359,7 +359,7 @@ class TeamsAdaptiveCards:
         topic: str,
         verdict: str,
         debate_id: str,
-        options: Optional[list[str]] = None,
+        options: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a card for voting on a debate outcome."""
         if options is None:
@@ -648,8 +648,8 @@ class TeamsAdaptiveCards:
         cls,
         title: str,
         message: str,
-        suggestions: Optional[list[str]] = None,
-        retry_action: Optional[dict[str, Any]] = None,
+        suggestions: list[str] | None = None,
+        retry_action: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create an error card with troubleshooting suggestions."""
         body: list[dict[str, Any]] = [

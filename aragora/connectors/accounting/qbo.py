@@ -311,7 +311,7 @@ class QuickBooksConnector(QBOOperationsMixin):
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         max_retries: int = 3,
         base_delay: float = 0.5,
     ) -> dict[str, Any]:

@@ -121,8 +121,8 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         include_prs: bool = True,
         include_issues: bool = True,
         include_discussions: bool = False,
-        file_extensions: Optional[set[str]] = None,
-        exclude_paths: Optional[list[str]] = None,
+        file_extensions: set[str] | None = None,
+        exclude_paths: list[str] | None = None,
         **kwargs: Any,
     ):
         # Validate repo format

@@ -83,7 +83,7 @@ class GitHubWebhookEvent:
         event_type: str,
         delivery_id: str,
         payload: dict[str, Any],
-    ) -> "GitHubWebhookEvent":
+    ) -> GitHubWebhookEvent:
         """Create event from webhook request."""
         try:
             parsed_type = GitHubEventType(event_type)

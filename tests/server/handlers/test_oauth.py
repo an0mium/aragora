@@ -69,7 +69,7 @@ class MockUser:
     id: str = "user-123"
     email: str = "test@example.com"
     name: str = "Test User"
-    org_id: Optional[str] = None
+    org_id: str | None = None
     role: str = "member"
     is_active: bool = True
     password_hash: str = "hashed"

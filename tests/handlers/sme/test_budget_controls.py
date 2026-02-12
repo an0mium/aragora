@@ -70,13 +70,13 @@ class MockBudget:
     allow_overage: bool = False
     overage_rate_multiplier: float = 1.5
     overage_spent_usd: float = 0.0
-    max_overage_usd: Optional[float] = None
+    max_overage_usd: float | None = None
     created_at: float = 1700000000.0
     updated_at: float = 1700000000.0
-    created_by: Optional[str] = "user-123"
+    created_by: str | None = "user-123"
     thresholds: list[dict[str, Any]] = field(default_factory=list)
     override_user_ids: list[str] = field(default_factory=list)
-    override_until: Optional[float] = None
+    override_until: float | None = None
 
     @property
     def usage_percentage(self) -> float:
@@ -89,7 +89,7 @@ class MockBudget:
         return max(0.0, self.amount_usd - self.spent_usd)
 
     def can_spend_extended(
-        self, amount_usd: float, user_id: Optional[str] = None
+        self, amount_usd: float, user_id: str | None = None
     ) -> MockSpendResult:
         """Mock spend check."""
         if self.spent_usd + amount_usd > self.amount_usd:
@@ -139,8 +139,8 @@ class MockBudgetAlert:
     action: str = "warn"
     triggered_at: float = 1700000000.0
     acknowledged: bool = False
-    acknowledged_at: Optional[float] = None
-    acknowledged_by: Optional[str] = None
+    acknowledged_at: float | None = None
+    acknowledged_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -167,8 +167,8 @@ class MockBudgetTransaction:
     amount_usd: float = 10.0
     description: str = "Debate run"
     timestamp: float = 1700000000.0
-    user_id: Optional[str] = "user-123"
-    debate_id: Optional[str] = "debate-123"
+    user_id: str | None = "user-123"
+    debate_id: str | None = "debate-123"
     is_overage: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -197,9 +197,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[bytes] = None,
-        query_params: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
+        body: bytes | None = None,
+        query_params: dict[str, str] | None = None,
     ):
         # Initialize dict with query params
         super().__init__(query_params or {})

@@ -62,17 +62,17 @@ class StreamAPIHandlersMixin:
 
     # Type stubs for attributes expected from the parent class
     nomic_dir: Path | None
-    elo_system: Optional["EloSystem"]
-    insight_store: Optional["InsightStore"]
-    flip_detector: Optional["FlipDetector"]
-    persona_manager: Optional["PersonaManager"]
-    debate_embeddings: Optional["DebateEmbeddingsDatabase"]
+    elo_system: EloSystem | None
+    insight_store: InsightStore | None
+    flip_detector: FlipDetector | None
+    persona_manager: PersonaManager | None
+    debate_embeddings: DebateEmbeddingsDatabase | None
     active_loops: dict[str, Any]
     _active_loops_lock: threading.Lock
-    cartographers: dict[str, "ArgumentCartographer"]
+    cartographers: dict[str, ArgumentCartographer]
     _cartographers_lock: threading.Lock
-    audience_inbox: Optional["AudienceInbox"]
-    emitter: "SyncEventEmitter"
+    audience_inbox: AudienceInbox | None
+    emitter: SyncEventEmitter
     _cors_headers: Callable[[str | None], dict[str, str]]
 
     # =========================================================================

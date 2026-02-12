@@ -59,7 +59,7 @@ class MockWorkflowContext:
 class MockBaseStep:
     """Stand-in for BaseStep since the real one can't be imported."""
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         self._name = name
         self._config = config or {}
 

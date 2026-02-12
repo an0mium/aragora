@@ -150,7 +150,7 @@ class DecisionReceipt:
         expected_hash = self._calculate_hash()
         return expected_hash == self.artifact_hash
 
-    def sign(self, signer: Optional["ReceiptSigner"] = None) -> "DecisionReceipt":
+    def sign(self, signer: ReceiptSigner | None = None) -> DecisionReceipt:
         """
         Sign this receipt and return self with signature populated.
 
@@ -172,7 +172,7 @@ class DecisionReceipt:
 
         return self
 
-    def verify_signature(self, signer: Optional["ReceiptSigner"] = None) -> bool:
+    def verify_signature(self, signer: ReceiptSigner | None = None) -> bool:
         """
         Verify the cryptographic signature on this receipt.
 
@@ -280,7 +280,7 @@ class DecisionReceipt:
 """
 
     @classmethod
-    def from_result(cls, result: "GauntletResult") -> "DecisionReceipt":
+    def from_result(cls, result: GauntletResult) -> DecisionReceipt:
         """Create receipt from GauntletResult."""
         receipt_id = str(uuid.uuid4())
 
@@ -357,7 +357,7 @@ class DecisionReceipt:
         cls,
         result: Any,
         input_hash: str | None = None,
-    ) -> "DecisionReceipt":
+    ) -> DecisionReceipt:
         """Create receipt from aragora.gauntlet.GauntletResult."""
         receipt_id = str(uuid.uuid4())
 
@@ -473,7 +473,7 @@ class DecisionReceipt:
         )
 
     @classmethod
-    def from_gauntlet_result(cls, result: Any) -> "DecisionReceipt":
+    def from_gauntlet_result(cls, result: Any) -> DecisionReceipt:
         """Create receipt from aragora.gauntlet.config.GauntletResult.
 
         This handles the GauntletResult dataclass from config.py which has
@@ -564,7 +564,7 @@ class DecisionReceipt:
         cls,
         result: Any,
         input_hash: str | None = None,
-    ) -> "DecisionReceipt":
+    ) -> DecisionReceipt:
         """Create receipt from aragora.core_types.DebateResult.
 
         Used for auto-generating decision receipts after debate completion
@@ -727,7 +727,7 @@ class DecisionReceipt:
         *,
         pr_url: str | None = None,
         reviewer_agents: list[str] | None = None,
-    ) -> "DecisionReceipt":
+    ) -> DecisionReceipt:
         """Create a decision receipt from a PR review result.
 
         Bridges the gap between ``aragora.cli.review.extract_review_findings()``
@@ -992,7 +992,7 @@ class DecisionReceipt:
         outcome: Any,
         plan: Any | None = None,
         input_hash: str | None = None,
-    ) -> "DecisionReceipt":
+    ) -> DecisionReceipt:
         """Create receipt from PlanOutcome after decision plan execution.
 
         Used for generating cryptographic receipts after a DecisionPlan
@@ -1217,7 +1217,7 @@ class DecisionReceipt:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DecisionReceipt":
+    def from_dict(cls, data: dict) -> DecisionReceipt:
         """Reconstruct a DecisionReceipt from a dictionary."""
         consensus_data = data.get("consensus_proof")
         consensus = ConsensusProof(**consensus_data) if isinstance(consensus_data, dict) else None

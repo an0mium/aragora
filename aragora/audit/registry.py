@@ -63,7 +63,7 @@ class PresetConfig:
     parameters: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_yaml(cls, yaml_content: str) -> "PresetConfig":
+    def from_yaml(cls, yaml_content: str) -> PresetConfig:
         """Load preset from YAML content."""
         data = yaml.safe_load(yaml_content)
         return cls(
@@ -77,9 +77,9 @@ class PresetConfig:
         )
 
     @classmethod
-    def from_file(cls, path: Path) -> "PresetConfig":
+    def from_file(cls, path: Path) -> PresetConfig:
         """Load preset from YAML file."""
-        with open(path, "r") as f:
+        with open(path) as f:
             return cls.from_yaml(f.read())
 
 
@@ -93,10 +93,10 @@ class AuditRegistry:
     Thread-safe singleton pattern.
     """
 
-    _instance: Optional["AuditRegistry"] = None
+    _instance: AuditRegistry | None = None
     _initialized: bool = False
 
-    def __new__(cls) -> "AuditRegistry":
+    def __new__(cls) -> AuditRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -105,15 +105,15 @@ class AuditRegistry:
         if self._initialized:
             return
 
-        self._auditors: dict[str, "BaseAuditor"] = {}
-        self._auditor_classes: dict[str, type["BaseAuditor"]] = {}
+        self._auditors: dict[str, BaseAuditor] = {}
+        self._auditor_classes: dict[str, type[BaseAuditor]] = {}
         self._presets: dict[str, PresetConfig] = {}
         self._legacy_auditors: dict[str, Any] = {}
         self._initialized = True
 
     def register(
         self,
-        auditor: "BaseAuditor",
+        auditor: BaseAuditor,
         *,
         override: bool = False,
     ) -> None:
@@ -139,7 +139,7 @@ class AuditRegistry:
 
     def register_class(
         self,
-        auditor_class: type["BaseAuditor"],
+        auditor_class: type[BaseAuditor],
         *,
         override: bool = False,
     ) -> None:
@@ -186,7 +186,7 @@ class AuditRegistry:
         }
         logger.debug(f"Registered legacy auditor: {audit_type_id}")
 
-    def get(self, audit_type_id: str) -> Optional["BaseAuditor"]:
+    def get(self, audit_type_id: str) -> BaseAuditor | None:
         """
         Get an auditor by ID.
 
@@ -318,7 +318,7 @@ class AuditRegistry:
 
     def get_auditors_for_preset(
         self, preset_name: str
-    ) -> list[tuple[str, Optional["BaseAuditor"]]]:
+    ) -> list[tuple[str, BaseAuditor | None]]:
         """
         Get all auditors specified by a preset.
 
@@ -530,12 +530,12 @@ def get_registry() -> AuditRegistry:
 # Convenience functions
 
 
-def register_auditor(auditor: "BaseAuditor", override: bool = False) -> None:
+def register_auditor(auditor: BaseAuditor, override: bool = False) -> None:
     """Register an auditor with the global registry."""
     audit_registry.register(auditor, override=override)
 
 
-def get_auditor(audit_type_id: str) -> Optional["BaseAuditor"]:
+def get_auditor(audit_type_id: str) -> BaseAuditor | None:
     """Get an auditor from the global registry."""
     return audit_registry.get(audit_type_id)
 

@@ -83,7 +83,7 @@ class ConsensusMemoryProtocol(Protocol):
         self,
         topic: str,
         domain: str | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get current consensus on a topic."""
         ...
 
@@ -101,15 +101,15 @@ class ConsensusMemoryProtocol(Protocol):
         conclusion: str = "",
         strength: str = "",
         confidence: float = 0.0,
-        participating_agents: Optional[list[str]] = None,
-        agreeing_agents: Optional[list[str]] = None,
-        dissenting_agents: Optional[list[str]] = None,
-        key_claims: Optional[list[str]] = None,
+        participating_agents: list[str] | None = None,
+        agreeing_agents: list[str] | None = None,
+        dissenting_agents: list[str] | None = None,
+        key_claims: list[str] | None = None,
         domain: str = "",
-        tags: Optional[list[str]] = None,
+        tags: list[str] | None = None,
         debate_duration: float = 0.0,
         rounds: int = 0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         """Store a consensus outcome. Returns consensus record."""
@@ -127,7 +127,7 @@ class ConsensusMemoryProtocol(Protocol):
     def store_vote(
         self,
         debate_id: str = "",
-        vote_data: Optional[dict[str, Any]] = None,
+        vote_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Store vote data for a debate."""
@@ -163,7 +163,7 @@ class DebateEmbeddingsProtocol(Protocol):
         self,
         debate_id: str,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Index a debate for future retrieval."""
         ...
@@ -192,7 +192,7 @@ class FlipDetectorProtocol(Protocol):
         old_position: str,
         new_position: str,
         threshold: float = 0.3,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Detect if positions represent a significant flip."""
         ...
 

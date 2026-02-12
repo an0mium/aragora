@@ -258,7 +258,7 @@ class SemanticSearchMixin:
         limit: int = 10,
         min_similarity: float = 0.6,
         tenant_id: str | None = None,
-        fallback_fn: Optional[Callable[..., list[dict[str, Any]]]] = None,
+        fallback_fn: Callable[..., list[dict[str, Any]]] | None = None,
     ) -> list[dict[str, Any]]:
         """Perform semantic vector search over records.
 

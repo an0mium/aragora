@@ -84,7 +84,7 @@ class OpenClawActionStep(BaseStep):
 
     step_type = "openclaw_action"
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
         cfg = config or {}
         self._step_config = OpenClawActionConfig(
@@ -337,7 +337,7 @@ class OpenClawSessionStep(BaseStep):
 
     step_type = "openclaw_session"
 
-    def __init__(self, name: str, config: Optional[dict[str, Any]] = None):
+    def __init__(self, name: str, config: dict[str, Any] | None = None):
         super().__init__(name, config)
 
     def validate_config(self) -> bool:

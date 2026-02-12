@@ -65,7 +65,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
 
     def __init__(
         self,
-        evidence_store_callback: Optional[Callable[..., Any]] = None,
+        evidence_store_callback: Callable[..., Any] | None = None,
         prompt_builder: Any | None = None,
         project_root: Path | None = None,
         enable_rlm_compression: bool = True,
@@ -506,7 +506,7 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
                     + "\n\n---\n\n".join(aragora_context_parts[:4])
                 )
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             # Expected: file system issues reading docs
             logger.warning("Failed to load Aragora context (file error): %s", e)
         except (ValueError, RuntimeError) as e:

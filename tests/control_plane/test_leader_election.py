@@ -73,7 +73,7 @@ class MockRedis:
         self._data: dict[str, str] = {}
         self._hashes: dict[str, dict[str, str]] = {}
         self._expiries: dict[str, float] = {}
-        self._fail_on_next: Optional[str] = None
+        self._fail_on_next: str | None = None
         self._delay_seconds: float = 0.0
         self._operation_log: list[dict[str, Any]] = []
 
@@ -82,8 +82,8 @@ class MockRedis:
         key: str,
         value: str,
         nx: bool = False,
-        ex: Optional[int] = None,
-    ) -> Optional[bool]:
+        ex: int | None = None,
+    ) -> bool | None:
         """SET command with NX and EX support."""
         self._operation_log.append(
             {"op": "set", "key": key, "value": value, "nx": nx, "ex": ex, "time": time.time()}
@@ -109,7 +109,7 @@ class MockRedis:
             self._expiries[key] = time.time() + ex
         return True
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """GET command."""
         self._operation_log.append({"op": "get", "key": key, "time": time.time()})
 
@@ -163,9 +163,9 @@ class MockRedis:
     async def hset(
         self,
         key: str,
-        field: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict] = None,
+        field: str | None = None,
+        value: str | None = None,
+        mapping: dict | None = None,
     ) -> int:
         """HSET command."""
         if self._fail_on_next == "hset":
@@ -667,9 +667,9 @@ class TestElectionFlow:
         config = LeaderConfig(retry_interval=0.01, node_id="test-node")
         election = LeaderElection(config=config, redis_client=mock_redis)
 
-        received_node_ids: list[Optional[str]] = []
+        received_node_ids: list[str | None] = []
 
-        def on_change(node_id: Optional[str]):
+        def on_change(node_id: str | None):
             received_node_ids.append(node_id)
 
         election.on_leader_change(on_change)

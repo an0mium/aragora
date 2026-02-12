@@ -54,7 +54,7 @@ class HiveMindPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "",
         consensus_mode: str = "synthesis",  # weighted, majority, synthesis
         consensus_threshold: float = 0.7,

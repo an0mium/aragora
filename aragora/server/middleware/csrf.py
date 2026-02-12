@@ -498,7 +498,7 @@ class CSRFMiddleware:
 
         return None
 
-    def validate_request(self, handler: Any, path: str | None = None) -> "CSRFValidationResult":
+    def validate_request(self, handler: Any, path: str | None = None) -> CSRFValidationResult:
         """Validate a request for CSRF protection.
 
         Args:
@@ -657,7 +657,7 @@ def csrf_protect(func: Callable | None = None, *, config: CSRFConfig | None = No
         middleware = CSRFMiddleware(config)
 
         @wraps(fn)
-        def wrapper(*args, **kwargs) -> "HandlerResult":
+        def wrapper(*args, **kwargs) -> HandlerResult:
             from aragora.server.handlers.base import error_response
 
             # Extract handler from args

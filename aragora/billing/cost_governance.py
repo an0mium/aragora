@@ -89,7 +89,7 @@ class ModelRestriction:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ModelRestriction":
+    def from_dict(cls, data: dict[str, Any]) -> ModelRestriction:
         """Create from dictionary."""
         return cls(
             model_pattern=data["model_pattern"],
@@ -126,7 +126,7 @@ class SpendingLimit:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SpendingLimit":
+    def from_dict(cls, data: dict[str, Any]) -> SpendingLimit:
         """Create from dictionary."""
         return cls(
             daily_limit_usd=(
@@ -180,7 +180,7 @@ class TimeRestriction:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TimeRestriction":
+    def from_dict(cls, data: dict[str, Any]) -> TimeRestriction:
         """Create from dictionary."""
         return cls(
             allowed_hours_start=data.get("allowed_hours_start", 0),
@@ -299,7 +299,7 @@ class CostGovernancePolicy:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CostGovernancePolicy":
+    def from_dict(cls, data: dict[str, Any]) -> CostGovernancePolicy:
         """Create from dictionary."""
         model_restrictions = [
             ModelRestriction.from_dict(r) for r in data.get("model_restrictions", [])
@@ -435,8 +435,8 @@ class CostGovernanceEngine:
 
     def __init__(
         self,
-        cost_tracker: Optional["CostTracker"] = None,
-        cost_attributor: Optional["CostAttributor"] = None,
+        cost_tracker: CostTracker | None = None,
+        cost_attributor: CostAttributor | None = None,
     ):
         """
         Initialize cost governance engine.
@@ -976,8 +976,8 @@ class CostGovernanceEngine:
 
 # Factory function
 def create_cost_governance_engine(
-    cost_tracker: Optional["CostTracker"] = None,
-    cost_attributor: Optional["CostAttributor"] = None,
+    cost_tracker: CostTracker | None = None,
+    cost_attributor: CostAttributor | None = None,
 ) -> CostGovernanceEngine:
     """Create a CostGovernanceEngine instance."""
     return CostGovernanceEngine(

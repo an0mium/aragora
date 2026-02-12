@@ -37,7 +37,7 @@ class MockPostgreSQLBackend:
     backend_type = "postgresql"
 
     # Class-level lock state (shared between instances to simulate distributed lock)
-    _global_lock_holder: Optional[str] = None
+    _global_lock_holder: str | None = None
     _global_lock = threading.Lock()
     _lock_id = None
 
@@ -61,7 +61,7 @@ class MockPostgreSQLBackend:
         cursor = self._conn.execute(sql.replace("%s", "?"), params)
         return cursor.fetchall()
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         self._executed_statements.append(sql)
 
         # Simulate pg_try_advisory_lock behavior

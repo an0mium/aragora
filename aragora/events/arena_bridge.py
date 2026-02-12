@@ -70,7 +70,7 @@ class ArenaEventBridge:
 
     def __init__(
         self,
-        event_bus: "EventBus",
+        event_bus: EventBus,
         cross_manager: CrossSubscriberManager | None = None,
     ) -> None:
         """
@@ -102,7 +102,7 @@ class ArenaEventBridge:
         self._connected = True
         logger.info(f"ArenaEventBridge connected: {len(EVENT_TYPE_MAP)} event types bridged")
 
-    def _on_event(self, event: "DebateEvent") -> None:
+    def _on_event(self, event: DebateEvent) -> None:
         """
         Handle incoming EventBus events.
 
@@ -122,7 +122,7 @@ class ArenaEventBridge:
 
     def _convert_to_stream_event(
         self,
-        event: "DebateEvent",
+        event: DebateEvent,
         event_type: StreamEventType,
     ) -> StreamEvent:
         """
@@ -162,7 +162,7 @@ class ArenaEventBridge:
         return self._connected
 
 
-def create_arena_bridge(event_bus: "EventBus") -> ArenaEventBridge:
+def create_arena_bridge(event_bus: EventBus) -> ArenaEventBridge:
     """
     Factory function to create and connect an ArenaEventBridge.
 

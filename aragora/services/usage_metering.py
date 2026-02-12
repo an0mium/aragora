@@ -254,7 +254,7 @@ class UsageMeter:
         user_id: str | None = None,
         debate_id: str | None = None,
         endpoint: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> TokenUsageRecord:
         """
         Record token usage for billing.
@@ -329,7 +329,7 @@ class UsageMeter:
         total_cost: Decimal | None = None,
         duration_seconds: int = 0,
         user_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> DebateUsageRecord:
         """
         Record debate usage for billing.
@@ -397,7 +397,7 @@ class UsageMeter:
         status_code: int = 200,
         response_time_ms: int = 0,
         user_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ApiCallRecord:
         """
         Record API call for metering.

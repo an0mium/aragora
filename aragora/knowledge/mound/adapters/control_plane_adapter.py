@@ -99,8 +99,8 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        coordinator: Optional["ControlPlaneCoordinator"] = None,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        coordinator: ControlPlaneCoordinator | None = None,
+        knowledge_mound: KnowledgeMound | None = None,
         workspace_id: str = "default",
         event_callback: EventCallback | None = None,
         enable_dual_write: bool = False,
@@ -762,7 +762,7 @@ class ControlPlaneAdapter(KnowledgeMoundAdapter):
         self,
         task_type: str,
         available_agents: list[str],
-        required_capabilities: Optional[list[str]] = None,
+        required_capabilities: list[str] | None = None,
         top_n: int = 3,
     ) -> list[dict[str, Any]]:
         """

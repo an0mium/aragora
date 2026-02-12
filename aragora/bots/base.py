@@ -117,23 +117,23 @@ class CommandResult:
 
     success: bool
     message: str | None = None
-    data: Optional[dict[str, Any]] = None
+    data: dict[str, Any] | None = None
     error: str | None = None
     attachments: list[dict[str, Any]] = field(default_factory=list)
     ephemeral: bool = False  # Only visible to the user who triggered
 
     # Platform-specific formatting
-    slack_blocks: Optional[list[dict[str, Any]]] = None
-    discord_embed: Optional[dict[str, Any]] = None
-    teams_card: Optional[dict[str, Any]] = None
+    slack_blocks: list[dict[str, Any]] | None = None
+    discord_embed: dict[str, Any] | None = None
+    teams_card: dict[str, Any] | None = None
 
     @classmethod
-    def ok(cls, message: str, **kwargs: Any) -> "CommandResult":
+    def ok(cls, message: str, **kwargs: Any) -> CommandResult:
         """Create a successful result."""
         return cls(success=True, message=message, **kwargs)
 
     @classmethod
-    def fail(cls, error: str, **kwargs: Any) -> "CommandResult":
+    def fail(cls, error: str, **kwargs: Any) -> CommandResult:
         """Create a failed result."""
         return cls(success=False, error=error, **kwargs)
 
@@ -232,7 +232,7 @@ class BaseBotClient(ABC):
         channel_id: str,
         text: str,
         thread_id: str | None = None,
-        attachments: Optional[list[dict[str, Any]]] = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> str | None:
         """Send a message to a channel. Returns message ID if successful."""
         pass
@@ -263,7 +263,7 @@ class BaseBotClient(ABC):
         channel_id: str,
         message_id: str,
         text: str,
-        attachments: Optional[list[dict[str, Any]]] = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Update an existing message."""
         pass
@@ -328,7 +328,7 @@ class BotEventHandler(ABC):
         """Handle a parsed command."""
         pass
 
-    async def on_error(self, error: Exception, context: Optional[dict[str, Any]] = None) -> None:
+    async def on_error(self, error: Exception, context: dict[str, Any] | None = None) -> None:
         """Handle errors during event processing."""
         logger.error(f"Bot error: {error}", exc_info=True, extra={"context": context})
 
@@ -344,7 +344,7 @@ class DefaultBotEventHandler(BotEventHandler):
         self,
         client: BaseBotClient,
         command_prefix: str = "/",
-        debate_keywords: Optional[list[str]] = None,
+        debate_keywords: list[str] | None = None,
     ):
         super().__init__(client)
         self.command_prefix = command_prefix

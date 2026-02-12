@@ -235,7 +235,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         return connector is not None
 
     def _build_status_response(
-        self, extra_status: Optional[dict[str, Any]] = None
+        self, extra_status: dict[str, Any] | None = None
     ) -> HandlerResult:
         """Build Google Chat-specific status response."""
         status = {
@@ -1082,10 +1082,10 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
 
 # Export handler factory
-_google_chat_handler: Optional["GoogleChatHandler"] = None
+_google_chat_handler: GoogleChatHandler | None = None
 
 
-def get_google_chat_handler(server_context: dict[str, Any] | None = None) -> "GoogleChatHandler":
+def get_google_chat_handler(server_context: dict[str, Any] | None = None) -> GoogleChatHandler:
     """Get or create the Google Chat handler instance."""
     global _google_chat_handler
     if _google_chat_handler is None:

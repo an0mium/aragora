@@ -14,7 +14,7 @@ class UnifiedInboxStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
@@ -47,7 +47,7 @@ class UnifiedInboxStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         pass
 
     @abstractmethod
@@ -92,5 +92,5 @@ class UnifiedInboxStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         pass

@@ -92,7 +92,7 @@ class DecisionResultEntry:
     @classmethod
     def from_dict(
         cls, data: dict[str, Any], ttl_seconds: int = DEFAULT_TTL_SECONDS
-    ) -> "DecisionResultEntry":
+    ) -> DecisionResultEntry:
         """Create from dictionary."""
         return cls(
             request_id=data["request_id"],
@@ -368,7 +368,7 @@ class DecisionResultStore:
         # Enforce max entries with LRU eviction
         self._enforce_max_entries()
 
-    def get(self, request_id: str) -> Optional[dict[str, Any]]:
+    def get(self, request_id: str) -> dict[str, Any] | None:
         """
         Get a decision result by request ID.
 
@@ -664,7 +664,7 @@ _store_lock = threading.Lock()
 
 
 def get_decision_result_store(
-    db_path: Optional[str | Path] = None,
+    db_path: str | Path | None = None,
     backend: str | None = None,
     database_url: str | None = None,
     **kwargs,

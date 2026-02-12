@@ -90,9 +90,9 @@ class BindingsHandler(BaseHandler):
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._router: Optional["BindingRouter"] = None
+        self._router: BindingRouter | None = None
 
-    def _get_router(self) -> Optional["BindingRouter"]:
+    def _get_router(self) -> BindingRouter | None:
         """Get or create the binding router singleton."""
         if self._router is None and BINDINGS_AVAILABLE and get_binding_router:
             self._router = get_binding_router()

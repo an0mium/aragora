@@ -56,19 +56,27 @@ class OpenclawAPI:
         """End an active OpenClaw session."""
         return self._client.request("POST", f"/api/v1/openclaw/sessions/{session_id}/end")
 
+    def delete_session(self, session_id: str) -> dict[str, Any]:
+        """Delete an OpenClaw session."""
+        return self._client.request("DELETE", f"/api/v1/openclaw/sessions/{session_id}")
+
     # Action management
     def execute_action(
         self,
         session_id: str,
         action_type: str,
-        params: dict[str, Any] | None = None,
+        input_data: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute an action in an OpenClaw session."""
         payload: dict[str, Any] = {
             "session_id": session_id,
             "action_type": action_type,
-            "params": params or {},
         }
+        if input_data is not None:
+            payload["input_data"] = input_data
+        if metadata is not None:
+            payload["metadata"] = metadata
         return self._client.request("POST", "/api/v1/openclaw/actions", json=payload)
 
     def get_action(self, action_id: str) -> dict[str, Any]:
@@ -80,9 +88,12 @@ class OpenclawAPI:
         return self._client.request("POST", f"/api/v1/openclaw/actions/{action_id}/cancel")
 
     # Policy and approvals
-    def get_policy_rules(self) -> dict[str, Any]:
+    def get_policy_rules(self, enabled: bool | None = None) -> dict[str, Any]:
         """List policy rules."""
-        return self._client.request("GET", "/api/v1/openclaw/policy/rules")
+        params: dict[str, Any] = {}
+        if enabled is not None:
+            params["enabled"] = enabled
+        return self._client.request("GET", "/api/v1/openclaw/policy/rules", params=params or None)
 
     def add_policy_rule(self, rule: dict[str, Any]) -> dict[str, Any]:
         """Create a policy rule."""
@@ -124,12 +135,20 @@ class OpenclawAPI:
         )
 
     # Credential lifecycle
-    def list_credentials(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    def list_credentials(
+        self,
+        credential_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
         """List credential metadata."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if credential_type:
+            params["credential_type"] = credential_type
         return self._client.request(
             "GET",
             "/api/v1/openclaw/credentials",
-            params={"limit": limit, "offset": offset},
+            params=params,
         )
 
     def store_credential(
@@ -137,6 +156,7 @@ class OpenclawAPI:
         name: str,
         credential_type: str,
         value: str,
+        expires_at: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Store a credential."""
@@ -145,16 +165,18 @@ class OpenclawAPI:
             "credential_type": credential_type,
             "value": value,
         }
+        if expires_at is not None:
+            payload["expires_at"] = expires_at
         if metadata is not None:
             payload["metadata"] = metadata
         return self._client.request("POST", "/api/v1/openclaw/credentials", json=payload)
 
-    def rotate_credential(self, credential_id: str, value: str) -> dict[str, Any]:
-        """Rotate a credential value."""
+    def rotate_credential(self, credential_id: str, new_value: str) -> dict[str, Any]:
+        """Rotate a credential with a new value."""
         return self._client.request(
             "POST",
             f"/api/v1/openclaw/credentials/{credential_id}/rotate",
-            json={"value": value},
+            json={"new_value": new_value},
         )
 
     def delete_credential(self, credential_id: str) -> dict[str, Any]:
@@ -170,12 +192,31 @@ class OpenclawAPI:
         """Get OpenClaw gateway metrics."""
         return self._client.request("GET", "/api/v1/openclaw/metrics")
 
-    def audit(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    def audit(
+        self,
+        event_type: str | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
         """Get OpenClaw audit events."""
+        params: dict[str, Any] = {"limit": limit}
+        if event_type:
+            params["event_type"] = event_type
+        if user_id:
+            params["user_id"] = user_id
+        if session_id:
+            params["session_id"] = session_id
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
         return self._client.request(
             "GET",
             "/api/v1/openclaw/audit",
-            params={"limit": limit, "offset": offset},
+            params=params,
         )
 
     def stats(self) -> dict[str, Any]:
@@ -223,19 +264,27 @@ class AsyncOpenclawAPI:
         """End an active OpenClaw session."""
         return await self._client.request("POST", f"/api/v1/openclaw/sessions/{session_id}/end")
 
+    async def delete_session(self, session_id: str) -> dict[str, Any]:
+        """Delete an OpenClaw session."""
+        return await self._client.request("DELETE", f"/api/v1/openclaw/sessions/{session_id}")
+
     # Action management
     async def execute_action(
         self,
         session_id: str,
         action_type: str,
-        params: dict[str, Any] | None = None,
+        input_data: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute an action in an OpenClaw session."""
         payload: dict[str, Any] = {
             "session_id": session_id,
             "action_type": action_type,
-            "params": params or {},
         }
+        if input_data is not None:
+            payload["input_data"] = input_data
+        if metadata is not None:
+            payload["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/openclaw/actions", json=payload)
 
     async def get_action(self, action_id: str) -> dict[str, Any]:
@@ -247,9 +296,14 @@ class AsyncOpenclawAPI:
         return await self._client.request("POST", f"/api/v1/openclaw/actions/{action_id}/cancel")
 
     # Policy and approvals
-    async def get_policy_rules(self) -> dict[str, Any]:
+    async def get_policy_rules(self, enabled: bool | None = None) -> dict[str, Any]:
         """List policy rules."""
-        return await self._client.request("GET", "/api/v1/openclaw/policy/rules")
+        params: dict[str, Any] = {}
+        if enabled is not None:
+            params["enabled"] = enabled
+        return await self._client.request(
+            "GET", "/api/v1/openclaw/policy/rules", params=params or None
+        )
 
     async def add_policy_rule(self, rule: dict[str, Any]) -> dict[str, Any]:
         """Create a policy rule."""
@@ -291,12 +345,20 @@ class AsyncOpenclawAPI:
         )
 
     # Credential lifecycle
-    async def list_credentials(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    async def list_credentials(
+        self,
+        credential_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
         """List credential metadata."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if credential_type:
+            params["credential_type"] = credential_type
         return await self._client.request(
             "GET",
             "/api/v1/openclaw/credentials",
-            params={"limit": limit, "offset": offset},
+            params=params,
         )
 
     async def store_credential(

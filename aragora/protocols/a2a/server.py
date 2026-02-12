@@ -33,7 +33,7 @@ class TaskHandler:
         self,
         capability: AgentCapability,
         handler: Callable[[TaskRequest], Coroutine[Any, Any, TaskResult]],
-        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[dict[str, Any]]]] = None,
+        stream_handler: Callable[[TaskRequest], AsyncIterator[dict[str, Any]]] | None = None,
     ):
         self.capability = capability
         self.handler = handler
@@ -121,7 +121,7 @@ class A2AServer:
         self,
         capability: AgentCapability,
         handler: Callable[[TaskRequest], Coroutine[Any, Any, TaskResult]],
-        stream_handler: Optional[Callable[[TaskRequest], AsyncIterator[dict[str, Any]]]] = None,
+        stream_handler: Callable[[TaskRequest], AsyncIterator[dict[str, Any]]] | None = None,
     ) -> None:
         """
         Register a task handler for a capability.

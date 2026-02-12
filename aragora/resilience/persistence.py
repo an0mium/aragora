@@ -83,7 +83,7 @@ def init_circuit_breaker_persistence(db_path: str = "circuit_breaker.db") -> Non
     logger.info(f"Circuit breaker persistence initialized: {_DB_PATH}")
 
 
-def persist_circuit_breaker(name: str, cb: "CircuitBreaker") -> None:
+def persist_circuit_breaker(name: str, cb: CircuitBreaker) -> None:
     """Persist a single circuit breaker to SQLite.
 
     Args:

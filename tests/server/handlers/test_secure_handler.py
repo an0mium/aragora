@@ -1188,7 +1188,7 @@ class TestSessionHijackingPrevention:
         # Verify hash is deterministic
         assert session_id == hashlib.sha256(token.encode()).hexdigest()[:32]
         # Verify different tokens produce different session IDs
-        different_session = hashlib.sha256("different-token".encode()).hexdigest()[:32]
+        different_session = hashlib.sha256(b"different-token").hexdigest()[:32]
         assert session_id != different_session
 
     def test_workspace_membership_validation(self):

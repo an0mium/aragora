@@ -45,7 +45,7 @@ CACHE_ENABLED = os.environ.get("ARAGORA_QUERY_CACHE_ENABLED", "true").lower() ==
 CACHE_MAX_SIZE = int(os.environ.get("ARAGORA_QUERY_CACHE_MAX_SIZE", "1000"))
 
 # Context variable for request-scoped cache
-_cache_context: contextvars.ContextVar[Optional["RequestScopedCache"]] = contextvars.ContextVar(
+_cache_context: contextvars.ContextVar[RequestScopedCache | None] = contextvars.ContextVar(
     "request_cache", default=None
 )
 
@@ -299,7 +299,7 @@ class RequestScopedCache:
         """Get current cache size."""
         return len(self._cache)
 
-    def __enter__(self) -> "RequestScopedCache":
+    def __enter__(self) -> RequestScopedCache:
         """Enter the cache context."""
         self._token = _cache_context.set(self)
         return self

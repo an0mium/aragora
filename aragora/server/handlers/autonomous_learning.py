@@ -168,17 +168,17 @@ class TrainingSession:
     mode: LearningMode
     status: SessionStatus
     created_at: datetime
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     owner_id: str = "system"
-    tenant_id: Optional[str] = None
+    tenant_id: str | None = None
     config: dict[str, Any] = field(default_factory=dict)
     metrics: dict[str, float] = field(default_factory=dict)
     epochs_completed: int = 0
     total_epochs: int = 100
     current_loss: float = 0.0
     best_loss: float = float("inf")
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     @property
     def progress_percent(self) -> float:
@@ -217,9 +217,9 @@ class LearningMetric:
     metric_type: MetricType
     value: float
     timestamp: datetime
-    session_id: Optional[str] = None
-    agent_id: Optional[str] = None
-    debate_id: Optional[str] = None
+    session_id: str | None = None
+    agent_id: str | None = None
+    debate_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -248,8 +248,8 @@ class DetectedPattern:
     agents_involved: list[str] = field(default_factory=list)
     frequency: int = 1
     is_validated: bool = False
-    validated_by: Optional[str] = None
-    validated_at: Optional[datetime] = None
+    validated_by: str | None = None
+    validated_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -281,7 +281,7 @@ class ExtractedKnowledge:
     source_debates: list[str]
     confidence: float
     extracted_at: datetime
-    agent_id: Optional[str] = None
+    agent_id: str | None = None
     topics: list[str] = field(default_factory=list)
     is_verified: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -314,7 +314,7 @@ class LearningFeedback:
     comment: str
     submitted_by: str
     submitted_at: datetime
-    rating: Optional[int] = None  # 1-5 scale
+    rating: int | None = None  # 1-5 scale
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

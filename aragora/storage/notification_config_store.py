@@ -190,7 +190,7 @@ class StoredEmailConfig:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StoredEmailConfig":
+    def from_dict(cls, data: dict[str, Any]) -> StoredEmailConfig:
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
@@ -215,7 +215,7 @@ class StoredTelegramConfig:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StoredTelegramConfig":
+    def from_dict(cls, data: dict[str, Any]) -> StoredTelegramConfig:
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
@@ -235,7 +235,7 @@ class StoredEmailRecipient:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StoredEmailRecipient":
+    def from_dict(cls, data: dict[str, Any]) -> StoredEmailRecipient:
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 

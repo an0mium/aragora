@@ -34,7 +34,7 @@ class _MockSpan:
     def set_tag(self, key: str, value: Any) -> None:
         pass
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> None:
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         pass
 
     def set_error(self, error: Exception) -> None:
@@ -104,7 +104,7 @@ logger = logging.getLogger(__name__)
 class CRUDProtocol(Protocol):
     """Protocol defining expected interface for CRUD mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _cache: Any | None
     _semantic_store: Any | None
@@ -114,7 +114,7 @@ class CRUDProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
     async def _save_node(self, node_data: dict[str, Any]) -> None: ...
-    async def _get_node(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+    async def _get_node(self, node_id: str) -> KnowledgeItem | None: ...
     async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None: ...
     async def _delete_node(self, node_id: str) -> bool: ...
     async def _archive_node(self, node_id: str) -> None: ...
@@ -133,12 +133,12 @@ class CRUDProtocol(Protocol):
     ) -> Any: ...
 
     # Mixin methods that call each other - included for type checking
-    async def store(self, request: "IngestionRequest") -> "IngestionResult": ...
-    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+    async def store(self, request: IngestionRequest) -> IngestionResult: ...
+    async def get(self, node_id: str) -> KnowledgeItem | None: ...
     async def add(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         workspace_id: str | None = None,
         node_type: str = "fact",
         confidence: float = 0.7,
@@ -156,7 +156,7 @@ else:
 class CRUDOperationsMixin(_CRUDMixinBase):
     """Mixin providing CRUD operations for KnowledgeMound."""
 
-    async def store(self, request: "IngestionRequest") -> "IngestionResult":
+    async def store(self, request: IngestionRequest) -> IngestionResult:
         """
         Store a new knowledge item with full provenance tracking.
 
@@ -306,7 +306,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                 relationships_created=relationships_created,
             )
 
-    async def get(self, node_id: str) -> Optional["KnowledgeItem"]:
+    async def get(self, node_id: str) -> KnowledgeItem | None:
         """Get a knowledge node by ID.
 
         Args:
@@ -348,7 +348,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
             span.set_tag("found", node is not None)
             return node
 
-    async def update(self, node_id: str, updates: dict[str, Any]) -> Optional["KnowledgeItem"]:
+    async def update(self, node_id: str, updates: dict[str, Any]) -> KnowledgeItem | None:
         """Update a knowledge node.
 
         Args:
@@ -456,7 +456,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
     async def add(
         self,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         workspace_id: str | None = None,
         node_type: str = "fact",
         confidence: float = 0.7,
@@ -575,7 +575,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
         from_id: str,
         to_id: str,
         relationship_type: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """
         Add a relationship between two knowledge nodes.

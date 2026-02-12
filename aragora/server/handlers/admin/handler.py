@@ -129,7 +129,7 @@ def admin_secure_endpoint(
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(
-            self: "AdminHandler",
+            self: AdminHandler,
             request: Any,
             *args: Any,
             **kwargs: Any,

@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 class PipelineOperationsMixin:
     """Mixin providing pipeline, lead sync, enrichment and search operations."""
 
-    async def _get_pipeline(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _get_pipeline(self: CRMHandler, request: Any) -> HandlerResult:
         """Get sales pipeline summary."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -120,7 +120,7 @@ class PipelineOperationsMixin:
             },
         )
 
-    async def _sync_lead(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _sync_lead(self: CRMHandler, request: Any) -> HandlerResult:
         """Sync a lead from an external source (e.g., LinkedIn Ads, form submission)."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():
@@ -194,7 +194,7 @@ class PipelineOperationsMixin:
             cb.record_failure()
             return self._error_response(500, f"Failed to sync lead: {e}")
 
-    async def _enrich_contact(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _enrich_contact(self: CRMHandler, request: Any) -> HandlerResult:
         """Enrich contact data using available sources."""
         try:
             body = await self._get_json_body(request)
@@ -218,7 +218,7 @@ class PipelineOperationsMixin:
 
         return self._json_response(200, enriched_data)
 
-    async def _search_crm(self: "CRMHandler", request: Any) -> HandlerResult:
+    async def _search_crm(self: CRMHandler, request: Any) -> HandlerResult:
         """Search across CRM data."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():

@@ -39,19 +39,19 @@ class MockStoredReceipt:
 
     receipt_id: str = "receipt-001"
     gauntlet_id: str = "gauntlet-001"
-    debate_id: Optional[str] = "debate-001"
+    debate_id: str | None = "debate-001"
     created_at: float = 1700000000.0
-    expires_at: Optional[float] = 1800000000.0
+    expires_at: float | None = 1800000000.0
     verdict: str = "APPROVED"
     confidence: float = 0.85
     risk_level: str = "MEDIUM"
     risk_score: float = 0.35
     checksum: str = "sha256:abc123"
-    signature: Optional[str] = None
-    signature_algorithm: Optional[str] = None
-    signature_key_id: Optional[str] = None
-    signed_at: Optional[float] = None
-    audit_trail_id: Optional[str] = "audit-001"
+    signature: str | None = None
+    signature_algorithm: str | None = None
+    signature_key_id: str | None = None
+    signed_at: float | None = None
+    audit_trail_id: str | None = "audit-001"
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,11 +89,11 @@ class MockSignatureVerificationResult:
 
     receipt_id: str
     is_valid: bool
-    algorithm: Optional[str] = None
-    key_id: Optional[str] = None
-    signed_at: Optional[float] = None
+    algorithm: str | None = None
+    key_id: str | None = None
+    signed_at: float | None = None
     verified_at: float = 1700001000.0
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -116,7 +116,7 @@ class MockReceiptStore:
         self.receipts: dict[str, MockStoredReceipt] = {}
         self._next_id = 0
 
-    def save(self, receipt_dict: dict, signed_receipt: Optional[dict] = None) -> str:
+    def save(self, receipt_dict: dict, signed_receipt: dict | None = None) -> str:
         receipt_id = receipt_dict.get("receipt_id", f"receipt-{self._next_id}")
         self._next_id += 1
         self.receipts[receipt_id] = MockStoredReceipt(
@@ -130,10 +130,10 @@ class MockReceiptStore:
         )
         return receipt_id
 
-    def get(self, receipt_id: str) -> Optional[MockStoredReceipt]:
+    def get(self, receipt_id: str) -> MockStoredReceipt | None:
         return self.receipts.get(receipt_id)
 
-    def get_by_gauntlet(self, gauntlet_id: str) -> Optional[MockStoredReceipt]:
+    def get_by_gauntlet(self, gauntlet_id: str) -> MockStoredReceipt | None:
         for receipt in self.receipts.values():
             if receipt.gauntlet_id == gauntlet_id:
                 return receipt
@@ -143,10 +143,10 @@ class MockReceiptStore:
         self,
         limit: int = 20,
         offset: int = 0,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
-        date_from: Optional[float] = None,
-        date_to: Optional[float] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
         signed_only: bool = False,
         sort_by: str = "created_at",
         order: str = "desc",
@@ -162,10 +162,10 @@ class MockReceiptStore:
 
     def count(
         self,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
-        date_from: Optional[float] = None,
-        date_to: Optional[float] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
+        date_from: float | None = None,
+        date_to: float | None = None,
         signed_only: bool = False,
     ) -> int:
         results = list(self.receipts.values())
@@ -1056,7 +1056,7 @@ class MockReceiptShareStore:
         token: str,
         receipt_id: str,
         expires_at: float,
-        max_accesses: Optional[int] = None,
+        max_accesses: int | None = None,
     ) -> None:
         self.shares[token] = {
             "token": token,
@@ -1066,7 +1066,7 @@ class MockReceiptShareStore:
             "access_count": 0,
         }
 
-    def get_by_token(self, token: str) -> Optional[dict[str, Any]]:
+    def get_by_token(self, token: str) -> dict[str, Any] | None:
         return self.shares.get(token)
 
     def increment_access(self, token: str) -> None:

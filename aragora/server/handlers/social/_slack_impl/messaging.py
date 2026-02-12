@@ -263,7 +263,7 @@ class MessagingMixin:
         channel: str,
         text: str,
         thread_ts: str | None = None,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any]] | None = None,
     ) -> str | None:
         """Post a message to Slack using the Web API.
 

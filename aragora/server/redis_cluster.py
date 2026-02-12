@@ -282,7 +282,7 @@ class RedisClusterClient:
             logger.debug(f"Cluster detection result (standalone): {type(e).__name__}: {e}")
             return False
 
-    def _create_client(self) -> Optional["RedisClientProtocol"]:
+    def _create_client(self) -> RedisClientProtocol | None:
         """Create appropriate Redis client based on mode."""
         if not self.config.nodes:
             logger.warning("No Redis nodes configured")
@@ -339,7 +339,7 @@ class RedisClusterClient:
             logger.error(f"Failed to connect to Redis: {e}")
             return None
 
-    def get_client(self) -> Optional["RedisClientProtocol"]:
+    def get_client(self) -> RedisClientProtocol | None:
         """Get or create Redis client (thread-safe lazy initialization)."""
         if self._client is not None:
             return self._client
@@ -844,7 +844,7 @@ def is_cluster_available() -> bool:
     return client is not None and client.is_available
 
 
-def get_redis_client() -> Optional["RedisClientProtocol"]:
+def get_redis_client() -> RedisClientProtocol | None:
     """Get a Redis client from the cluster client.
 
     This is a convenience function that returns the underlying Redis client

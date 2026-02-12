@@ -51,13 +51,13 @@ class EvidenceStrategy(CachingStrategy):
         self._project_root = project_root or Path.cwd()
         self._prompt_builder = prompt_builder
         self._evidence_store_callback = evidence_store_callback
-        self._evidence_packs: dict[str, "EvidencePack"] = {}
+        self._evidence_packs: dict[str, EvidencePack] = {}
 
     def set_prompt_builder(self, prompt_builder: Any) -> None:
         """Set the prompt builder for evidence injection."""
         self._prompt_builder = prompt_builder
 
-    def get_evidence_pack(self, task: str) -> Optional["EvidencePack"]:
+    def get_evidence_pack(self, task: str) -> EvidencePack | None:
         """Get cached evidence pack for a task."""
         key = self._get_cache_key(task)
         return self._evidence_packs.get(key)

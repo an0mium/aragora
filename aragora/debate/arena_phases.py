@@ -30,7 +30,7 @@ from aragora.reasoning.evidence_grounding import EvidenceGrounder
 from aragora.debate.phase_executor import PhaseConfig, PhaseExecutor
 
 # Optional genesis import for evolution
-_PopulationManager: Optional[type[Any]] = None
+_PopulationManager: type[Any] | None = None
 try:
     from aragora.genesis.breeding import PopulationManager
 
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from aragora.debate.orchestrator import Arena
 
 
-def _create_verify_claims_callback(arena: "Arena"):
+def _create_verify_claims_callback(arena: Arena):
     """
     Create a verification callback for the consensus phase.
 
@@ -172,7 +172,7 @@ def _create_verify_claims_callback(arena: "Arena"):
     return verify_claims
 
 
-def init_phases(arena: "Arena") -> None:
+def init_phases(arena: Arena) -> None:
     """Initialize phase classes for orchestrator decomposition."""
     # Voting phase (handles vote grouping, weighted counting, consensus detection)
     arena.voting_phase = VotingPhase(
@@ -464,7 +464,7 @@ def init_phases(arena: "Arena") -> None:
     )
 
 
-def _create_checkpoint_callbacks(arena: "Arena") -> tuple:
+def _create_checkpoint_callbacks(arena: Arena) -> tuple:
     """Create pre/post phase callbacks for checkpointing.
 
     Returns:
@@ -500,7 +500,7 @@ def _create_checkpoint_callbacks(arena: "Arena") -> tuple:
     return pre_phase_callback, None
 
 
-def create_phase_executor(arena: "Arena") -> PhaseExecutor:
+def create_phase_executor(arena: Arena) -> PhaseExecutor:
     """Create and configure the PhaseExecutor for debate execution.
 
     Calculates dynamic timeout based on agents and rounds, then creates

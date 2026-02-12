@@ -143,7 +143,7 @@ class MergedConfig:
     )
 
     # Type annotations for all slots (required by mypy for __slots__ classes)
-    protocol: Optional["DebateProtocol"]
+    protocol: DebateProtocol | None
     enable_adaptive_rounds: bool
     debate_strategy: Any
     enable_agent_hierarchy: bool
@@ -257,18 +257,18 @@ class MergedConfig:
 def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     *,
     # Config objects
-    debate_config: Optional["DebateConfig"],
-    agent_config: Optional["AgentConfig"],
-    memory_config: Optional["MemoryConfig"],
-    streaming_config: Optional["StreamingConfig"],
-    observability_config: Optional["ObservabilityConfig"],
+    debate_config: DebateConfig | None,
+    agent_config: AgentConfig | None,
+    memory_config: MemoryConfig | None,
+    streaming_config: StreamingConfig | None,
+    observability_config: ObservabilityConfig | None,
     # Focused config objects (override individual params in their group)
-    knowledge_config: Optional["KnowledgeConfig"] = None,
-    supermemory_config: Optional["SupermemoryConfig"] = None,
-    evolution_config: Optional["EvolutionConfig"] = None,
-    ml_config: Optional["MLConfig"] = None,
+    knowledge_config: KnowledgeConfig | None = None,
+    supermemory_config: SupermemoryConfig | None = None,
+    evolution_config: EvolutionConfig | None = None,
+    ml_config: MLConfig | None = None,
     # Individual params (defaults from __init__ signature)
-    protocol: Optional["DebateProtocol"],
+    protocol: DebateProtocol | None,
     enable_adaptive_rounds: bool,
     debate_strategy: Any,
     enable_agent_hierarchy: bool,

@@ -37,7 +37,7 @@ class ConditionConfig:
     negate: bool = False
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConditionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ConditionConfig:
         """Create ConditionConfig from dictionary."""
         return cls(
             field=data["field"],
@@ -76,7 +76,7 @@ class ActionConfig:
     timeout: float | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ActionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ActionConfig:
         """Create ActionConfig from dictionary."""
         return cls(
             handler=data["handler"],
@@ -130,7 +130,7 @@ class HookConfig:
     source_file: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], source_file: str | None = None) -> "HookConfig":
+    def from_dict(cls, data: dict[str, Any], source_file: str | None = None) -> HookConfig:
         """Create HookConfig from dictionary."""
         # Parse action
         action_data = data.get("action", {})

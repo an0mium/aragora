@@ -238,7 +238,7 @@ def validate_workspace_id(
 
 
 def validate_topics(
-    topics: Optional[list[str]],
+    topics: list[str] | None,
     limits: ValidationLimits = DEFAULT_LIMITS,
 ) -> list[str]:
     """Validate topics list.
@@ -270,7 +270,7 @@ def validate_topics(
 
 
 def validate_metadata(
-    metadata: Optional[dict[str, Any]],
+    metadata: dict[str, Any] | None,
     limits: ValidationLimits = DEFAULT_LIMITS,
 ) -> dict[str, Any]:
     """Validate metadata dict.

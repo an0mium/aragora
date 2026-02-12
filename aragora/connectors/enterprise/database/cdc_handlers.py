@@ -64,9 +64,9 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         self.workspace_id = workspace_id
         self.auto_ingest = auto_ingest
         self.delete_on_remove = delete_on_remove
-        self._mound: Optional["KnowledgeMound"] = None
+        self._mound: KnowledgeMound | None = None
 
-    async def _get_mound(self) -> "KnowledgeMound":
+    async def _get_mound(self) -> KnowledgeMound:
         """Get or create Knowledge Mound instance."""
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
@@ -98,7 +98,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
             logger.error(f"Failed to handle change event: {e}")
             return False
 
-    async def _handle_upsert(self, mound: "KnowledgeMound", event: ChangeEvent) -> None:
+    async def _handle_upsert(self, mound: KnowledgeMound, event: ChangeEvent) -> None:
         """Handle insert/update/replace events."""
         from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
 
@@ -131,7 +131,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         await store(request)
         logger.debug(f"Ingested change event {event.id} to Knowledge Mound")
 
-    async def _handle_delete(self, mound: "KnowledgeMound", event: ChangeEvent) -> None:
+    async def _handle_delete(self, mound: KnowledgeMound, event: ChangeEvent) -> None:
         """Handle delete events."""
         # Mark the knowledge as outdated by searching and updating
         doc_id = event.document_id or str(event.primary_key)
@@ -180,7 +180,7 @@ class CallbackHandler(ChangeEventHandler):
 class CompositeHandler(ChangeEventHandler):
     """Handler that delegates to multiple handlers."""
 
-    def __init__(self, handlers: Optional[list[ChangeEventHandler]] = None):
+    def __init__(self, handlers: list[ChangeEventHandler] | None = None):
         self.handlers = handlers or []
 
     def add_handler(self, handler: ChangeEventHandler) -> None:

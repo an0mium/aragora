@@ -150,7 +150,7 @@ def handler_mixin(mock_elo_system, mock_insight_store, mock_flip_detector):
             self.audience_inbox = None
             self.emitter = None
 
-        def _cors_headers(self, origin: Optional[str] = None) -> dict[str, str]:
+        def _cors_headers(self, origin: str | None = None) -> dict[str, str]:
             return {
                 "Access-Control-Allow-Origin": origin or "*",
                 "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

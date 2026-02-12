@@ -50,7 +50,7 @@ class KMPersistenceMixin:
     # Knowledge Item Conversion
     # =========================================================================
 
-    def to_knowledge_item(self, rating: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, rating: dict[str, Any]) -> KnowledgeItem:
         """
         Convert a rating dict to a KnowledgeItem.
 

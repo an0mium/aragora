@@ -86,9 +86,9 @@ class ContextCompressor:
 
     async def compress_context(
         self,
-        ctx: "DebateContext",
+        ctx: DebateContext,
         round_num: int,
-        partial_critiques: list["Critique"],
+        partial_critiques: list[Critique],
     ) -> tuple[int, int]:
         """
         Compress debate context using RLM cognitive load limiter.
@@ -158,7 +158,7 @@ class ContextCompressor:
             # Continue without compression - don't break the debate
             return (original_count, original_count)
 
-    def should_compress(self, ctx: "DebateContext") -> bool:
+    def should_compress(self, ctx: DebateContext) -> bool:
         """
         Check if context should be compressed.
 

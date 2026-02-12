@@ -68,7 +68,7 @@ class TenantConfig:
     tokens_per_debate: int = 50_000
 
     @classmethod
-    def for_tier(cls, tier: TenantTier) -> "TenantConfig":
+    def for_tier(cls, tier: TenantTier) -> TenantConfig:
         """Get default configuration for a tier."""
         configs = {
             TenantTier.FREE: cls(
@@ -221,7 +221,7 @@ class Tenant:
         name: str,
         owner_email: str,
         tier: TenantTier = TenantTier.FREE,
-    ) -> "Tenant":
+    ) -> Tenant:
         """Create a new tenant."""
         slug = cls._generate_slug(name)
         tenant_id = cls._generate_id(slug)

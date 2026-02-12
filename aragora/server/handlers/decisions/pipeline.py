@@ -148,7 +148,7 @@ class DecisionPipelineHandler(SecureHandler):
 
     @handle_errors("decision pipeline GET")
     def handle(
-        self, path: str, query_params: dict[str, Any], handler: "HTTPRequestHandler"
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle GET requests for decision pipeline."""
         # Check circuit breaker
@@ -184,7 +184,7 @@ class DecisionPipelineHandler(SecureHandler):
         return None
 
     def _handle_list_plans(
-        self, query_params: dict[str, Any], handler: "HTTPRequestHandler"
+        self, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult:
         """List decision plans with optional status filter."""
         from aragora.pipeline.decision_plan import PlanStatus
@@ -216,7 +216,7 @@ class DecisionPipelineHandler(SecureHandler):
             }
         )
 
-    def _handle_get_plan(self, plan_id: str, handler: "HTTPRequestHandler") -> HandlerResult:
+    def _handle_get_plan(self, plan_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Get details of a specific decision plan."""
         from aragora.pipeline.executor import get_outcome, get_plan
 
@@ -236,7 +236,7 @@ class DecisionPipelineHandler(SecureHandler):
 
         return json_response(result)
 
-    def _handle_get_outcome(self, plan_id: str, handler: "HTTPRequestHandler") -> HandlerResult:
+    def _handle_get_outcome(self, plan_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Get the execution outcome for a completed plan."""
         from aragora.pipeline.executor import get_outcome, get_plan
 
@@ -261,7 +261,7 @@ class DecisionPipelineHandler(SecureHandler):
 
     @handle_errors("decision pipeline POST")
     def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: "HTTPRequestHandler"
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle POST requests for decision pipeline."""
         # Check circuit breaker
@@ -296,7 +296,7 @@ class DecisionPipelineHandler(SecureHandler):
 
         return None
 
-    def _handle_create_plan(self, handler: "HTTPRequestHandler", user: Any) -> HandlerResult:
+    def _handle_create_plan(self, handler: HTTPRequestHandler, user: Any) -> HandlerResult:
         """Create a DecisionPlan from a completed debate."""
         body = self.read_json_body(handler)
         if body is None:
@@ -429,7 +429,7 @@ class DecisionPipelineHandler(SecureHandler):
         )
 
     def _handle_approve_plan(
-        self, plan_id: str, handler: "HTTPRequestHandler", user: Any
+        self, plan_id: str, handler: HTTPRequestHandler, user: Any
     ) -> HandlerResult:
         """Approve a decision plan for execution."""
         from aragora.pipeline.decision_plan import PlanStatus
@@ -474,7 +474,7 @@ class DecisionPipelineHandler(SecureHandler):
         )
 
     def _handle_reject_plan(
-        self, plan_id: str, handler: "HTTPRequestHandler", user: Any
+        self, plan_id: str, handler: HTTPRequestHandler, user: Any
     ) -> HandlerResult:
         """Reject a decision plan."""
         from aragora.pipeline.decision_plan import PlanStatus
@@ -514,7 +514,7 @@ class DecisionPipelineHandler(SecureHandler):
         )
 
     def _handle_execute_plan(
-        self, plan_id: str, handler: "HTTPRequestHandler", user: Any
+        self, plan_id: str, handler: HTTPRequestHandler, user: Any
     ) -> HandlerResult:
         """Execute an approved decision plan."""
         import asyncio

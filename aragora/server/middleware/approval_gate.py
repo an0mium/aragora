@@ -192,8 +192,8 @@ async def create_approval_request(
     resource_type: str = "",
     resource_id: str = "",
     description: str = "",
-    checklist: Optional[list[str]] = None,
-    context: Optional[dict[str, Any]] = None,
+    checklist: list[str] | None = None,
+    context: dict[str, Any] | None = None,
     timeout_hours: float = 24.0,
 ) -> OperationApprovalRequest:
     """
@@ -275,7 +275,7 @@ async def resolve_approval(
     request_id: str,
     approved: bool,
     approver_id: str,
-    checklist_status: Optional[dict[str, bool]] = None,
+    checklist_status: dict[str, bool] | None = None,
     rejection_reason: str = "",
 ) -> bool:
     """
@@ -377,7 +377,7 @@ async def get_pending_approvals(
 def require_approval(
     operation: str,
     risk_level: OperationRiskLevel = OperationRiskLevel.HIGH,
-    checklist: Optional[list[str]] = None,
+    checklist: list[str] | None = None,
     description: str = "",
     resource_type_param: str | None = None,
     resource_id_param: str | None = None,

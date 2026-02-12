@@ -28,7 +28,7 @@ class MockTenant:
 class MockTenantStore:
     """Mock tenant store for testing."""
 
-    def __init__(self, tenants: Optional[list[MockTenant]] = None):
+    def __init__(self, tenants: list[MockTenant] | None = None):
         self.tenants = tenants or []
         self.refresh_calls: list[str] = []
         self.should_fail_refresh: bool = False
@@ -39,7 +39,7 @@ class MockTenantStore:
 
     def refresh_workspace_token(
         self, tenant_id: str, client_id: str, client_secret: str
-    ) -> Optional[MockTenant]:
+    ) -> MockTenant | None:
         """Mock token refresh."""
         self.refresh_calls.append(tenant_id)
 

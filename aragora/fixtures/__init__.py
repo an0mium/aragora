@@ -80,7 +80,7 @@ def get_demo_statistics() -> dict:
     }
 
 
-def load_demo_consensus(consensus_memory: Optional["ConsensusMemory"] = None) -> int:
+def load_demo_consensus(consensus_memory: ConsensusMemory | None = None) -> int:
     """
     Load demo consensus data into the database.
 

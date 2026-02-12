@@ -56,7 +56,7 @@ class ChannelUserMixin:
         self,
         file_id: str,
         **kwargs: Any,
-    ) -> "VoiceMessage | None":
+    ) -> VoiceMessage | None:
         """
         Retrieve a voice message for transcription.
 
@@ -78,7 +78,7 @@ class ChannelUserMixin:
         self,
         channel_id: str,
         **kwargs: Any,
-    ) -> "ChatChannel | None":
+    ) -> ChatChannel | None:
         """
         Get information about a channel.
 
@@ -96,7 +96,7 @@ class ChannelUserMixin:
         self,
         user_id: str,
         **kwargs: Any,
-    ) -> "ChatUser | None":
+    ) -> ChatUser | None:
         """
         Get information about a user.
 
@@ -114,7 +114,7 @@ class ChannelUserMixin:
         self,
         user_id: str,
         **kwargs: Any,
-    ) -> "ChatUser | None":
+    ) -> ChatUser | None:
         """
         Get detailed user profile information.
 
@@ -137,7 +137,7 @@ class ChannelUserMixin:
         limit: int = 100,
         cursor: str | None = None,
         **kwargs: Any,
-    ) -> tuple[list["ChatUser"], str | None]:
+    ) -> tuple[list[ChatUser], str | None]:
         """
         List users in a channel or workspace.
 
@@ -166,7 +166,7 @@ class ChannelUserMixin:
         is_private: bool = False,
         description: str | None = None,
         **kwargs: Any,
-    ) -> "ChatChannel | None":
+    ) -> ChatChannel | None:
         """
         Create a new channel.
 
@@ -192,7 +192,7 @@ class ChannelUserMixin:
         text: str,
         blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Send a direct message to a user.
 
@@ -337,7 +337,7 @@ class ChannelUserMixin:
         self,
         channel_id: str,
         **kwargs: Any,
-    ) -> list["ChatMessage"]:
+    ) -> list[ChatMessage]:
         """
         Get all pinned messages in a channel.
 
@@ -367,7 +367,7 @@ class ChannelUserMixin:
         blocks: list[dict[str, Any] | None] = None,
         thread_name: str | None = None,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Create a thread reply to a message.
 
@@ -411,7 +411,7 @@ class ChannelUserMixin:
         text: str = "",
         response_url: str | None = None,
         **kwargs: Any,
-    ) -> "BotCommand":
+    ) -> BotCommand:
         """
         Handle an incoming slash command.
 

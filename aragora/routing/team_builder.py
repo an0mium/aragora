@@ -60,10 +60,10 @@ class TeamBuilder:
 
     def select_team(
         self,
-        scored_agents: list[tuple["AgentProfile", float]],
-        requirements: "TaskRequirements",
+        scored_agents: list[tuple[AgentProfile, float]],
+        requirements: TaskRequirements,
         score_for_task_fn: Any,
-    ) -> "TeamComposition":
+    ) -> TeamComposition:
         """
         Select an optimal team from scored candidates.
 
@@ -126,11 +126,11 @@ class TeamBuilder:
 
     def select_diverse_team(
         self,
-        scored: list[tuple["AgentProfile", float]],
+        scored: list[tuple[AgentProfile, float]],
         min_size: int,
         max_size: int,
         diversity_pref: float,
-    ) -> list["AgentProfile"]:
+    ) -> list[AgentProfile]:
         """
         Select a diverse team from scored candidates.
 
@@ -146,7 +146,7 @@ class TeamBuilder:
         if len(scored) <= min_size:
             return [a for a, _ in scored]
 
-        team: list["AgentProfile"] = []
+        team: list[AgentProfile] = []
         remaining = list(scored)
 
         while len(team) < max_size and remaining:
@@ -163,7 +163,7 @@ class TeamBuilder:
                     team_traits.update(a.traits)
 
                 # Find most different agent
-                best_diff: Optional["AgentProfile"] = None
+                best_diff: AgentProfile | None = None
                 best_diff_score: float = -1.0
 
                 for agent, score in remaining:
@@ -186,7 +186,7 @@ class TeamBuilder:
 
         return team
 
-    def calculate_diversity(self, team: list["AgentProfile"]) -> float:
+    def calculate_diversity(self, team: list[AgentProfile]) -> float:
         """
         Calculate team diversity score.
 
@@ -218,8 +218,8 @@ class TeamBuilder:
 
     def assign_roles(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
     ) -> dict[str, str]:
         """
         Assign debate roles to team members.
@@ -270,7 +270,7 @@ class TeamBuilder:
 
     def assign_hybrid_roles(
         self,
-        team: list["AgentProfile"],
+        team: list[AgentProfile],
         phase: str,
     ) -> dict[str, str]:
         """
@@ -310,9 +310,9 @@ class TeamBuilder:
 
     def _generate_rationale(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
-        all_scored: list[tuple["AgentProfile", float]],
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
+        all_scored: list[tuple[AgentProfile, float]],
     ) -> str:
         """Generate human-readable selection rationale."""
         lines = [

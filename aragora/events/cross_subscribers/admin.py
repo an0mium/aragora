@@ -189,7 +189,7 @@ class AdminMixin:
         self._filters[name] = filter_func
         return True
 
-    def get_filter(self, name: str) -> Optional[Callable[[StreamEvent], bool]]:
+    def get_filter(self, name: str) -> Callable[[StreamEvent], bool] | None:
         """Get the filter function for a subscriber."""
         return self._filters.get(name)
 

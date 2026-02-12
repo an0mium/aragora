@@ -380,10 +380,10 @@ class SecretsScanner:
 
     def __init__(
         self,
-        patterns: Optional[list[SecretPattern]] = None,
-        skip_extensions: Optional[set[str]] = None,
-        skip_dirs: Optional[set[str]] = None,
-        skip_files: Optional[set[str]] = None,
+        patterns: list[SecretPattern] | None = None,
+        skip_extensions: set[str] | None = None,
+        skip_dirs: set[str] | None = None,
+        skip_files: set[str] | None = None,
         max_concurrency: int = 20,
         max_file_size_mb: float = 10.0,
         enable_entropy_detection: bool = True,
@@ -552,9 +552,9 @@ class SecretsScanner:
         findings: list[SecretFinding] = []
 
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-        except (OSError, IOError):
+        except OSError:
             return findings
 
         relative_path = os.path.relpath(file_path, repo_path)
@@ -805,7 +805,7 @@ class SecretsScanner:
     async def scan_directory(
         self,
         dir_path: str,
-        exclude_patterns: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
     ) -> SecretsScanResult:
         """
         Scan a directory for secrets with custom exclusion patterns.
@@ -974,7 +974,7 @@ async def scan_file_for_secrets(file_path: str) -> list[SecretFinding]:
 # Convenience function for directory scanning
 async def scan_directory_for_secrets(
     dir_path: str,
-    exclude_patterns: Optional[list[str]] = None,
+    exclude_patterns: list[str] | None = None,
 ) -> SecretsScanResult:
     """
     Convenience function to scan a directory for secrets.

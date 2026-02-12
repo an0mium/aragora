@@ -46,7 +46,7 @@ class MockContinuumMemory:
         self.items[item_id] = MockMemoryItem(id=item_id, content=content, **kwargs)
         return item_id
 
-    async def retrieve(self, item_id: str) -> Optional[MockMemoryItem]:
+    async def retrieve(self, item_id: str) -> MockMemoryItem | None:
         return self.items.get(item_id)
 
     async def list_items(self, limit: int = 100) -> list[MockMemoryItem]:

@@ -573,7 +573,7 @@ class TestCheckpointPublicAPI:
     async def test_save_checkpoint_handles_error(self, environment, mock_agents, protocol):
         """save_checkpoint handles errors gracefully."""
         arena = Arena(environment, mock_agents, protocol, enable_checkpointing=True)
-        arena.checkpoint_manager.create_checkpoint = AsyncMock(side_effect=IOError("Disk full"))
+        arena.checkpoint_manager.create_checkpoint = AsyncMock(side_effect=OSError("Disk full"))
 
         result = await arena.save_checkpoint(
             debate_id="test-debate",

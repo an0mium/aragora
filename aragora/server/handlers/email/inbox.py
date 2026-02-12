@@ -31,7 +31,7 @@ PERM_EMAIL_UPDATE = "email:update"
 async def handle_fetch_and_rank_inbox(
     user_id: str = "default",
     workspace_id: str = "default",
-    labels: Optional[list[str]] = None,
+    labels: list[str] | None = None,
     limit: int = 50,
     include_read: bool = False,
     auth_context: Any | None = None,

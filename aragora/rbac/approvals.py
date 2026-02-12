@@ -684,17 +684,7 @@ class ApprovalWorkflow:
         except ImportError as e:
             logger.warning(f"PermissionChecker not available: {e}")
             return []
-        except (
-            OSError,
-            IOError,
-            ValueError,
-            RuntimeError,
-            TypeError,
-            KeyError,
-            AttributeError,
-            ConnectionError,
-            TimeoutError,
-        ) as e:
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError, AttributeError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Error finding default approvers: {e}")
             return []
         except Exception as e:

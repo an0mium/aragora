@@ -148,8 +148,8 @@ class MockLLMJudge:
         self,
         query: str,
         response: str,
-        context: Optional[str] = None,
-        reference: Optional[str] = None,
+        context: str | None = None,
+        reference: str | None = None,
     ) -> MockEvaluationResult:
         return MockEvaluationResult()
 
@@ -158,9 +158,9 @@ class MockLLMJudge:
         query: str,
         response_a: str,
         response_b: str,
-        context: Optional[str] = None,
-        response_a_id: Optional[str] = None,
-        response_b_id: Optional[str] = None,
+        context: str | None = None,
+        response_a_id: str | None = None,
+        response_b_id: str | None = None,
     ) -> MockPairwiseResult:
         return MockPairwiseResult(
             response_a_id=response_a_id or "A",
@@ -175,7 +175,7 @@ class MockJudgeConfig:
         self,
         use_case: str = "default",
         pass_threshold: float = 3.5,
-        dimensions: Optional[list] = None,
+        dimensions: list | None = None,
     ):
         self.use_case = use_case
         self.pass_threshold = pass_threshold
@@ -184,7 +184,7 @@ class MockJudgeConfig:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[dict[str, Any]] = None,
+    body: dict[str, Any] | None = None,
     path: str = "/api/v1/evaluate",
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""

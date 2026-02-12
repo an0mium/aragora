@@ -260,7 +260,7 @@ class WebSocketHandlerMixin:
                 )
             )
 
-    async def _handle_voice_websocket(self, request) -> "aiohttp.web.StreamResponse":
+    async def _handle_voice_websocket(self, request) -> aiohttp.web.StreamResponse:
         """Handle voice streaming WebSocket connections.
 
         Route: /ws/voice/{debate_id}
@@ -294,7 +294,7 @@ class WebSocketHandlerMixin:
 
         return ws
 
-    async def _websocket_handler(self, request) -> "aiohttp.web.StreamResponse":
+    async def _websocket_handler(self, request) -> aiohttp.web.StreamResponse:
         """Handle WebSocket connections with security validation and optional auth."""
         import aiohttp
         import aiohttp.web as web

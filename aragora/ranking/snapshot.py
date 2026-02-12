@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def write_snapshot(
     snapshot_path: Path,
-    leaderboard_getter: Callable[[int], list["AgentRating"]],
+    leaderboard_getter: Callable[[int], list[AgentRating]],
     matches_getter: Callable[[int], list[dict]],
     leaderboard_limit: int = 100,
     matches_limit: int = 50,

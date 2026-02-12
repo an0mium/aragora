@@ -94,8 +94,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        spreadsheet_ids: Optional[list[str]] = None,
-        folder_ids: Optional[list[str]] = None,
+        spreadsheet_ids: list[str] | None = None,
+        folder_ids: list[str] | None = None,
         include_formulas: bool = False,
         include_hidden_sheets: bool = False,
         max_rows_per_sheet: int = 50000,
@@ -181,7 +181,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         self,
         url: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Make a request to Google API."""
@@ -652,7 +652,7 @@ class GoogleSheetsConnector(EnterpriseConnector):
         self,
         spreadsheet_id: str,
         sheet_name: str | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get a sheet as a DataFrame-like structure.
 

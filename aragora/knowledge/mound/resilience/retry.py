@@ -123,7 +123,7 @@ def with_retry(
 
 def with_timeout(
     timeout_seconds: float,
-    fallback: Optional[Callable[..., Any]] = None,
+    fallback: Callable[..., Any] | None = None,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
     Decorator for adding timeout to async functions.

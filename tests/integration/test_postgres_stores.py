@@ -44,7 +44,7 @@ pytestmark = [
 ]
 
 # Global pool to avoid recreating for each test
-_global_pool: Optional[asyncpg.Pool] = None
+_global_pool: asyncpg.Pool | None = None
 
 
 @pytest.fixture

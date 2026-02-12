@@ -90,8 +90,8 @@ class ReceiptDeliveryHook:
 
     async def on_post_debate(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
+        ctx: DebateContext,
+        result: DebateResult,
     ) -> None:
         """Called after a debate completes.
 
@@ -182,9 +182,9 @@ class ReceiptDeliveryHook:
 
     async def _generate_receipt(
         self,
-        ctx: "DebateContext",
-        result: "DebateResult",
-    ) -> Optional[dict[str, Any]]:
+        ctx: DebateContext,
+        result: DebateResult,
+    ) -> dict[str, Any] | None:
         """Generate a decision receipt from the debate result."""
         try:
             import hashlib

@@ -173,7 +173,7 @@ class RLMContextManager:
 
     async def prepare_round_context(
         self,
-        debate_context: "DebateContext",
+        debate_context: DebateContext,
         round_num: int,
     ) -> str:
         """
@@ -209,7 +209,7 @@ class RLMContextManager:
             # Hierarchical compression
             return await self._apply_hierarchical_compression(debate_context, round_num)
 
-    def _build_full_context(self, debate_context: "DebateContext") -> str:
+    def _build_full_context(self, debate_context: DebateContext) -> str:
         """Build full context from all messages."""
         parts = []
 
@@ -233,7 +233,7 @@ class RLMContextManager:
 
     async def _apply_sliding_window(
         self,
-        debate_context: "DebateContext",
+        debate_context: DebateContext,
         round_num: int,
     ) -> str:
         """Apply sliding window compression."""
@@ -263,7 +263,7 @@ class RLMContextManager:
 
     async def _apply_hierarchical_compression(
         self,
-        debate_context: "DebateContext",
+        debate_context: DebateContext,
         round_num: int,
     ) -> str:
         """Apply hierarchical RLM compression.
@@ -326,7 +326,7 @@ class RLMContextManager:
 
     def _build_old_rounds_content(
         self,
-        debate_context: "DebateContext",
+        debate_context: DebateContext,
         window_start: int,
     ) -> str:
         """Build content from older rounds for compression."""

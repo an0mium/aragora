@@ -91,7 +91,7 @@ class CircuitBreakerConfig:
     failure_rate_threshold: float | None = None  # 0.0-1.0
     window_size: float = 60.0
     excluded_exceptions: tuple[type[Exception], ...] = ()
-    on_state_change: Optional[Callable[[str, CircuitState, CircuitState], None]] = None
+    on_state_change: Callable[[str, CircuitState, CircuitState], None] | None = None
 
 
 @dataclass

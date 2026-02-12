@@ -99,9 +99,9 @@ def generate_permutations(
 
 
 def average_permutation_votes(
-    votes_by_agent: dict[str, list["Vote"]],
+    votes_by_agent: dict[str, list[Vote]],
     proposals: dict[str, str],
-) -> list["Vote"]:
+) -> list[Vote]:
     """Average votes across multiple permutations.
 
     Takes votes collected from multiple orderings and produces a single
@@ -179,7 +179,7 @@ class SelfVoteConfig:
 
 
 def detect_self_vote(
-    vote: "Vote",
+    vote: Vote,
     proposals: dict[str, str],
 ) -> bool:
     """Detect if an agent voted for their own proposal.
@@ -224,7 +224,7 @@ def detect_self_vote(
 
 def apply_self_vote_penalty(
     weights: dict[str, float],
-    votes: list["Vote"],
+    votes: list[Vote],
     proposals: dict[str, str],
     config: SelfVoteConfig,
 ) -> dict[str, float]:
@@ -429,7 +429,7 @@ class ProcessEvaluator:
     def __init__(
         self,
         config: ProcessEvaluationConfig | None = None,
-        generate_fn: Optional[Callable[..., Any]] = None,
+        generate_fn: Callable[..., Any] | None = None,
     ):
         """Initialize process evaluator.
 
@@ -445,7 +445,7 @@ class ProcessEvaluator:
         agent_name: str,
         proposal: str,
         task: str,
-        evidence_pack: Optional["EvidencePack"] = None,
+        evidence_pack: EvidencePack | None = None,
     ) -> ProcessEvaluationResult:
         """Evaluate a proposal against the rubric.
 
@@ -501,7 +501,7 @@ class ProcessEvaluator:
         proposal: str,
         criterion: EvaluationCriterion,
         task: str,
-        evidence_pack: Optional["EvidencePack"],
+        evidence_pack: EvidencePack | None,
     ) -> float:
         """Evaluate a single criterion using pattern matching or LLM."""
         # Fast path: pattern-based evaluation for some criteria
@@ -529,7 +529,7 @@ class ProcessEvaluator:
     def _score_evidence_usage(
         self,
         proposal: str,
-        evidence_pack: Optional["EvidencePack"],
+        evidence_pack: EvidencePack | None,
     ) -> float:
         """Score evidence citation quality."""
         citations = re.findall(r"EVID-([a-zA-Z0-9]+)", proposal)
@@ -718,7 +718,7 @@ Respond with ONLY a number from 0-10."""
     def _verify_evidence_citations(
         self,
         proposal: str,
-        evidence_pack: "EvidencePack",
+        evidence_pack: EvidencePack,
     ) -> dict[str, Any]:
         """Verify citations in proposal match available evidence.
 
@@ -750,7 +750,7 @@ Respond with ONLY a number from 0-10."""
     async def _run_tool_verification(
         self,
         proposal: str,
-        evidence_pack: Optional["EvidencePack"],
+        evidence_pack: EvidencePack | None,
     ) -> dict[str, Any]:
         """Run tool-based verification (code execution, evidence re-check)."""
         results: dict[str, Any] = {}

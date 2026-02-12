@@ -113,7 +113,7 @@ class StaticFileHandler:
                 return content_type
         return "text/html"
 
-    def serve_file(self, filename: str) -> Optional[tuple[int, dict, bytes]]:
+    def serve_file(self, filename: str) -> tuple[int, dict, bytes] | None:
         """Serve a static file with security protections.
 
         Args:
@@ -155,7 +155,7 @@ class StaticFileHandler:
         except PermissionError:
             logger.warning(f"Permission denied: {filename}")
             return None
-        except (IOError, OSError) as e:
+        except OSError as e:
             logger.error(f"File read error: {e}")
             return None
 

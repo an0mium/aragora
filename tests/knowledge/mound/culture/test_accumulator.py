@@ -119,7 +119,7 @@ def sample_debate_result():
         debate_id: str
         task: str
         proposals: list
-        winner: Optional[str]
+        winner: str | None
         consensus_reached: bool
         confidence: float
         rounds_used: int
@@ -157,7 +157,7 @@ def sample_debate_result_no_winner():
         debate_id: str
         task: str
         proposals: list
-        winner: Optional[str]
+        winner: str | None
         consensus_reached: bool
         confidence: float
         rounds_used: int
@@ -191,7 +191,7 @@ def sample_debate_result_high_confidence():
         debate_id: str
         task: str
         proposals: list
-        winner: Optional[str]
+        winner: str | None
         consensus_reached: bool
         confidence: float
         rounds_used: int
@@ -800,7 +800,7 @@ class TestCultureAccumulatorExtractObservation:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.95
             rounds_used: int = 1
@@ -819,7 +819,7 @@ class TestCultureAccumulatorExtractObservation:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.75
             rounds_used: int = 1
@@ -838,7 +838,7 @@ class TestCultureAccumulatorExtractObservation:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.55
             rounds_used: int = 1
@@ -857,7 +857,7 @@ class TestCultureAccumulatorExtractObservation:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = False
             confidence: float = 0.35
             rounds_used: int = 5
@@ -887,7 +887,7 @@ class TestCultureAccumulatorExtractObservation:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.8
             rounds_used: int = 1
@@ -921,7 +921,7 @@ class TestCultureAccumulatorExtractObservation:
             debate_id: str = "test"
             topic: str = "Topic from attribute"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.8
             rounds_used: int = 1
@@ -2984,7 +2984,7 @@ class TestCultureAccumulatorEdgeCases:
             debate_id: str = "test_empty"
             task: str = ""
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.7
             rounds_used: int = 2
@@ -3007,7 +3007,7 @@ class TestCultureAccumulatorEdgeCases:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.9
             rounds_used: int = 1
@@ -3025,7 +3025,7 @@ class TestCultureAccumulatorEdgeCases:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.7
             rounds_used: int = 1
@@ -3043,7 +3043,7 @@ class TestCultureAccumulatorEdgeCases:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = True
             confidence: float = 0.5
             rounds_used: int = 1
@@ -3061,7 +3061,7 @@ class TestCultureAccumulatorEdgeCases:
             debate_id: str = "test"
             task: str = "test"
             proposals: list = None
-            winner: Optional[str] = None
+            winner: str | None = None
             consensus_reached: bool = False
             confidence: float = 0.49
             rounds_used: int = 5
@@ -3772,7 +3772,7 @@ class TestCultureAccumulatorIntegration:
             debate_id: str
             task: str
             proposals: list
-            winner: Optional[str]
+            winner: str | None
             consensus_reached: bool = True
             confidence: float = 0.85
             rounds_used: int = 2

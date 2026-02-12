@@ -93,7 +93,7 @@ class PassFailCriteria:
     min_confidence: float = 0.5
 
     @classmethod
-    def strict(cls) -> "PassFailCriteria":
+    def strict(cls) -> PassFailCriteria:
         """Strict criteria - no critical or high findings allowed."""
         return cls(
             max_critical_findings=0,
@@ -106,7 +106,7 @@ class PassFailCriteria:
         )
 
     @classmethod
-    def lenient(cls) -> "PassFailCriteria":
+    def lenient(cls) -> PassFailCriteria:
         """Lenient criteria - allows some findings."""
         return cls(
             max_critical_findings=1,
@@ -279,7 +279,7 @@ class GauntletConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "GauntletConfig":
+    def from_dict(cls, data: dict) -> GauntletConfig:
         """Create from dictionary."""
         # Convert string values back to enums
         if "attack_categories" in data:
@@ -295,7 +295,7 @@ class GauntletConfig:
         return cls(**data)
 
     @classmethod
-    def security_focused(cls) -> "GauntletConfig":
+    def security_focused(cls) -> GauntletConfig:
         """Create security-focused configuration."""
         return cls(
             attack_categories=[
@@ -313,7 +313,7 @@ class GauntletConfig:
         )
 
     @classmethod
-    def compliance_focused(cls) -> "GauntletConfig":
+    def compliance_focused(cls) -> GauntletConfig:
         """Create compliance-focused configuration."""
         return cls(
             attack_categories=[
@@ -331,7 +331,7 @@ class GauntletConfig:
         )
 
     @classmethod
-    def quick(cls) -> "GauntletConfig":
+    def quick(cls) -> GauntletConfig:
         """Create quick validation configuration."""
         return cls(
             attack_categories=[AttackCategory.SECURITY, AttackCategory.LOGIC],

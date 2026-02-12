@@ -121,7 +121,7 @@ class MockFact:
     statement: str
     confidence: float = 0.5
     evidence_ids: list[str] = field(default_factory=list)
-    consensus_proof_id: Optional[str] = None
+    consensus_proof_id: str | None = None
     source_documents: list[str] = field(default_factory=list)
     workspace_id: str = "default"
     validation_status: ValidationStatus = ValidationStatus.UNVERIFIED
@@ -129,7 +129,7 @@ class MockFact:
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    superseded_by: Optional[str] = None
+    superseded_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -252,8 +252,8 @@ class FactsHandler(FactsOperationsMixin):
 
     def __init__(
         self,
-        fact_store: Optional[MockFactStore] = None,
-        query_engine: Optional[MockQueryEngine] = None,
+        fact_store: MockFactStore | None = None,
+        query_engine: MockQueryEngine | None = None,
     ):
         self._store = fact_store
         self._engine = query_engine
@@ -273,7 +273,7 @@ class FactsHandler(FactsOperationsMixin):
 class FactsHandlerNoAuth(FactsOperationsMixin):
     """Handler that returns auth error."""
 
-    def __init__(self, fact_store: Optional[MockFactStore] = None):
+    def __init__(self, fact_store: MockFactStore | None = None):
         self._store = fact_store
         self.ctx = {}
 
@@ -292,8 +292,8 @@ class FactsHandlerNoAuth(FactsOperationsMixin):
 
 def create_mock_http_handler(
     method: str = "GET",
-    body: Optional[dict[str, Any]] = None,
-    headers: Optional[dict[str, str]] = None,
+    body: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> MagicMock:
     """Create a mock HTTP handler."""
     mock = MagicMock()

@@ -289,7 +289,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _get_auth_context(
         self, handler: Any
-    ) -> "AuthorizationContext" | _UnauthenticatedSentinel | None:
+    ) -> AuthorizationContext | _UnauthenticatedSentinel | None:
         """Build AuthorizationContext from validated JWT token.
 
         SECURITY: Only accepts JWT-based authentication. Header-based auth
@@ -662,7 +662,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             result = self._run_async_fn()(coro)
             return json_response(result)
-        except (OSError, IOError) as e:
+        except OSError as e:
             if coro is not None and hasattr(coro, "close"):
                 coro.close()
             logger.error("Storage error listing workflows: %s", e)
@@ -736,7 +736,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return json_response(result, status=201)
         except ValueError as e:
             return error_response(str(e), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error creating workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -771,7 +771,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except ValueError as e:
             return error_response(str(e), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error updating workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -803,7 +803,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             if deleted:
                 return json_response({"deleted": True, "id": workflow_id})
             return error_response(f"Workflow not found: {workflow_id}", 404)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error deleting workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -849,7 +849,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         except (ConnectionError, TimeoutError) as e:
             logger.error("Connection error executing workflow: %s", e)
             return error_response("Execution service unavailable", 503)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error executing workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -916,7 +916,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 }
             )
 
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error simulating workflow: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -948,7 +948,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                     "message": "No executions found for this workflow",
                 }
             )
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error getting workflow status: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -979,7 +979,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response({"versions": versions, "workflow_id": workflow_id})
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error getting workflow versions: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1013,7 +1013,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 logger.info("Restored workflow %s to version %s", workflow_id, version)
                 return json_response({"restored": True, "workflow": result})
             return error_response(f"Version not found: {version}", 404)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error restoring workflow version: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1044,7 +1044,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 logger.info("Terminated execution %s", execution_id)
                 return json_response({"terminated": True, "execution_id": execution_id})
             return error_response(f"Cannot terminate execution: {execution_id}", 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error terminating execution: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1070,7 +1070,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response({"templates": templates, "count": len(templates)})
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error listing templates: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1098,7 +1098,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 )
             )
             return json_response({"approvals": approvals, "count": len(approvals)})
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error listing approvals: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1145,7 +1145,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                     "count": len(executions),
                 }
             )
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error listing executions: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1176,7 +1176,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return error_response(f"Execution not found: {execution_id}", 404)
 
             return json_response(execution)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error getting execution: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:
@@ -1220,7 +1220,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response(f"Approval request not found: {request_id}", 404)
         except ValueError as e:
             return error_response(str(e), 400)
-        except (OSError, IOError) as e:
+        except OSError as e:
             logger.error("Storage error resolving approval: %s", e)
             return error_response("Storage error", 503)
         except (KeyError, TypeError, AttributeError) as e:

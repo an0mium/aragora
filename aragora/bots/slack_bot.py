@@ -372,7 +372,7 @@ class AragoraSlackBot:
         self,
         result: CommandResult,
         command: str,
-    ) -> Optional[list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """Convert CommandResult to Slack blocks."""
         if result.slack_blocks:
             return result.slack_blocks

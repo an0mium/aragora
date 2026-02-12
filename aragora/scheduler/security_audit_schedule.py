@@ -33,13 +33,13 @@ logger = logging.getLogger(__name__)
 
 
 def add_daily_security_scan(
-    scheduler: "AuditScheduler",
+    scheduler: AuditScheduler,
     cron: str = "0 2 * * *",
     path: str = "aragora/",
     debate_on_critical: bool = True,
     name: str = "daily_security_scan",
     workspace_id: str | None = None,
-) -> "ScheduledJob":
+) -> ScheduledJob:
     """
     Add a daily security scan schedule.
 
@@ -198,7 +198,7 @@ async def run_security_scan_with_debate(
     return result
 
 
-def setup_default_security_schedules(scheduler: "AuditScheduler") -> list["ScheduledJob"]:
+def setup_default_security_schedules(scheduler: AuditScheduler) -> list[ScheduledJob]:
     """
     Set up default security scan schedules.
 

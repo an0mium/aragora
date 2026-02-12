@@ -44,7 +44,7 @@ from aragora.utils.async_utils import run_async
 logger = logging.getLogger(__name__)
 
 # Global singleton
-_federation_registry_store: Optional["FederationRegistryStoreBackend"] = None
+_federation_registry_store: FederationRegistryStoreBackend | None = None
 _store_lock = threading.RLock()
 
 
@@ -115,7 +115,7 @@ class FederatedRegionConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FederatedRegionConfig":
+    def from_dict(cls, data: dict[str, Any]) -> FederatedRegionConfig:
         """Create from dictionary."""
         return cls(
             region_id=data.get("region_id", ""),
@@ -143,7 +143,7 @@ class FederatedRegionConfig:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> "FederatedRegionConfig":
+    def from_json(cls, json_str: str) -> FederatedRegionConfig:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
@@ -692,7 +692,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         ON federated_regions(enabled);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         """Initialize PostgreSQL federation registry store.
 
         Args:

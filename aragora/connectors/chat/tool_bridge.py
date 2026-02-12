@@ -72,7 +72,7 @@ class ToolInvocation:
     platform: Platform
     started_at: datetime
     completed_at: datetime | None = None
-    result: Optional[dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     error: str | None = None
     progress: float = 0.0
     progress_message: str | None = None
@@ -87,7 +87,7 @@ class ProgressUpdate:
     message: str
     status: ToolStatus
     timestamp: datetime
-    partial_result: Optional[dict[str, Any]] = None
+    partial_result: dict[str, Any] | None = None
 
 
 class ResultFormatter:

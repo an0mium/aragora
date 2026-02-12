@@ -37,15 +37,15 @@ class ArenaDelegation:
 
     def __init__(
         self,
-        checkpoint_ops: "CheckpointOperations",
-        context_delegator: "ContextDelegator",
-        audience_manager: "AudienceManager",
-        agent_pool: "AgentPool",
-        roles_manager: "RolesManager",
-        spectator: Optional["SpectatorStream"] = None,
-        grounded_ops: Optional["GroundedOperations"] = None,
-        knowledge_ops: Optional["KnowledgeMoundOperations"] = None,
-        prompt_builder: Optional["PromptBuilder"] = None,
+        checkpoint_ops: CheckpointOperations,
+        context_delegator: ContextDelegator,
+        audience_manager: AudienceManager,
+        agent_pool: AgentPool,
+        roles_manager: RolesManager,
+        spectator: SpectatorStream | None = None,
+        grounded_ops: GroundedOperations | None = None,
+        knowledge_ops: KnowledgeMoundOperations | None = None,
+        prompt_builder: PromptBuilder | None = None,
     ):
         self._checkpoint_ops = checkpoint_ops
         self._context_delegator = context_delegator
@@ -66,7 +66,7 @@ class ArenaDelegation:
     # ==================== Checkpoint Operations ====================
 
     def store_debate_outcome(
-        self, result: "DebateResult", task: str, belief_cruxes: list | None = None
+        self, result: DebateResult, task: str, belief_cruxes: list | None = None
     ) -> None:
         """Store debate outcome. Delegates to CheckpointOperations."""
         processed_cruxes = None
@@ -78,7 +78,7 @@ class ArenaDelegation:
         """Store evidence. Delegates to CheckpointOperations."""
         self._checkpoint_ops.store_evidence(evidence_snippets, task)
 
-    def update_memory_outcomes(self, result: "DebateResult") -> None:
+    def update_memory_outcomes(self, result: DebateResult) -> None:
         """Update memory outcomes. Delegates to CheckpointOperations."""
         self._checkpoint_ops.update_memory_outcomes(result)
 
@@ -190,7 +190,7 @@ class ArenaDelegation:
                 round_num=round_num,
             )
 
-    def create_grounded_verdict(self, result: "DebateResult") -> Any:
+    def create_grounded_verdict(self, result: DebateResult) -> Any:
         """Create grounded verdict. Delegates to GroundedOperations."""
         if self._grounded_ops:
             return self._grounded_ops.create_grounded_verdict(result)
@@ -211,7 +211,7 @@ class ArenaDelegation:
             )
         return None
 
-    async def ingest_debate_outcome(self, result: "DebateResult") -> None:
+    async def ingest_debate_outcome(self, result: DebateResult) -> None:
         """Ingest debate outcome into knowledge. Delegates to KnowledgeMoundOperations."""
         if self._knowledge_ops:
             await self._knowledge_ops.ingest_debate_outcome(result)

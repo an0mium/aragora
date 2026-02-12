@@ -41,14 +41,14 @@ class MockRedis:
         self._data.clear()
         self._streams.clear()
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         return self._data.get(key)
 
     async def set(
         self,
         key: str,
         value: str,
-        ex: Optional[int] = None,
+        ex: int | None = None,
     ) -> bool:
         self._data[key] = value
         return True

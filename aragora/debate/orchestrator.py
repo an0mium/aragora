@@ -10,6 +10,7 @@ import asyncio
 from collections import deque
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
+import warnings  # noqa: F401 - used for deprecation warnings in __init__
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.debate.arena_config import (
@@ -176,28 +177,28 @@ class Arena(ArenaDelegatesMixin):
     """
 
     # Phase class attributes (initialized by init_phases)
-    voting_phase: "VotingPhase"
-    citation_extractor: Optional["CitationExtractor"]
-    evidence_grounder: "EvidenceGrounder"
-    prompt_builder: "PromptBuilder"
-    memory_manager: "MemoryManager"
-    context_gatherer: "ContextGatherer"
-    context_initializer: "ContextInitializer"
-    proposal_phase: "ProposalPhase"
-    debate_rounds_phase: "DebateRoundsPhase"
-    consensus_phase: "ConsensusPhase"
-    analytics_phase: "AnalyticsPhase"
-    feedback_phase: "FeedbackPhase"
+    voting_phase: VotingPhase
+    citation_extractor: CitationExtractor | None
+    evidence_grounder: EvidenceGrounder
+    prompt_builder: PromptBuilder
+    memory_manager: MemoryManager
+    context_gatherer: ContextGatherer
+    context_initializer: ContextInitializer
+    proposal_phase: ProposalPhase
+    debate_rounds_phase: DebateRoundsPhase
+    consensus_phase: ConsensusPhase
+    analytics_phase: AnalyticsPhase
+    feedback_phase: FeedbackPhase
 
     # Lifecycle/cache attributes (initialized by orchestrator_lifecycle helpers)
-    _cache: "DebateStateCache"
-    _lifecycle: "LifecycleManager"
-    _event_emitter: "_EventEmitter"
-    _checkpoint_ops: "CheckpointOperations"
+    _cache: DebateStateCache
+    _lifecycle: LifecycleManager
+    _event_emitter: _EventEmitter
+    _checkpoint_ops: CheckpointOperations
 
     # Convergence attributes (initialized by orchestrator_convergence.init_convergence)
-    convergence_detector: Optional[Any]
-    _convergence_debate_id: Optional[str]
+    convergence_detector: Any | None
+    _convergence_debate_id: str | None
     _previous_round_responses: dict[str, str]
 
     # Role attributes (initialized by orchestrator_roles.init_roles_and_stances)
@@ -291,10 +292,10 @@ class Arena(ArenaDelegatesMixin):
     supermemory_adapter: Any
     supermemory_inject_on_start: bool
     supermemory_max_context_items: int
-    supermemory_context_container_tag: Optional[str]
+    supermemory_context_container_tag: str | None
     supermemory_sync_on_conclusion: bool
     supermemory_min_confidence_for_sync: float
-    supermemory_outcome_container_tag: Optional[str]
+    supermemory_outcome_container_tag: str | None
     supermemory_enable_privacy_filter: bool
     supermemory_enable_resilience: bool
     supermemory_enable_km_adapter: bool
@@ -324,41 +325,41 @@ class Arena(ArenaDelegatesMixin):
         self,
         environment: Environment,
         agents: list[Agent],
-        protocol: Optional[DebateProtocol] = None,
+        protocol: DebateProtocol | None = None,
         # Config Objects (Preferred)
-        debate_config: Optional["DebateConfig"] = None,
-        agent_config: Optional["AgentConfig"] = None,
-        memory_config: Optional["MemoryConfig"] = None,
-        streaming_config: Optional["StreamingConfig"] = None,
-        observability_config: Optional["ObservabilityConfig"] = None,
+        debate_config: DebateConfig | None = None,
+        agent_config: AgentConfig | None = None,
+        memory_config: MemoryConfig | None = None,
+        streaming_config: StreamingConfig | None = None,
+        observability_config: ObservabilityConfig | None = None,
         # Focused Config Objects (override individual params in their group)
-        knowledge_config: Optional["KnowledgeConfig"] = None,
-        supermemory_config: Optional["SupermemoryConfig"] = None,
-        evolution_config: Optional["EvolutionConfig"] = None,
-        ml_config: Optional["MLConfig"] = None,
+        knowledge_config: KnowledgeConfig | None = None,
+        supermemory_config: SupermemoryConfig | None = None,
+        evolution_config: EvolutionConfig | None = None,
+        ml_config: MLConfig | None = None,
         # Individual Parameters (Legacy)
         memory: Any = None,
-        event_hooks: Optional[dict[str, Any]] = None,
+        event_hooks: dict[str, Any] | None = None,
         hook_manager: Any = None,
-        event_emitter: Optional["EventEmitterProtocol"] = None,
-        spectator: Optional[SpectatorStream] = None,
+        event_emitter: EventEmitterProtocol | None = None,
+        spectator: SpectatorStream | None = None,
         debate_embeddings: Any = None,
         insight_store: Any = None,
         recorder: Any = None,
-        agent_weights: Optional[dict[str, float]] = None,
+        agent_weights: dict[str, float] | None = None,
         position_tracker: Any = None,
         position_ledger: Any = None,
         enable_position_ledger: bool = False,
-        elo_system: Optional["EloSystem"] = None,
+        elo_system: EloSystem | None = None,
         persona_manager: Any = None,
-        vertical: Optional[str] = None,
+        vertical: str | None = None,
         vertical_persona_manager: Any = None,
         auto_detect_vertical: bool = True,
         dissent_retriever: Any = None,
-        consensus_memory: Optional["ConsensusMemory"] = None,
+        consensus_memory: ConsensusMemory | None = None,
         flip_detector: Any = None,
         calibration_tracker: Any = None,
-        continuum_memory: Optional["ContinuumMemory"] = None,
+        continuum_memory: ContinuumMemory | None = None,
         relationship_tracker: Any = None,
         moment_detector: Any = None,
         tier_analytics_tracker: Any = None,
@@ -383,11 +384,11 @@ class Arena(ArenaDelegatesMixin):
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.8,
         revalidation_check_interval_seconds: int = 3600,
-        revalidation_scheduler: Optional["RevalidationScheduler"] = None,
+        revalidation_scheduler: RevalidationScheduler | None = None,
         loop_id: str = "",
         strict_loop_scoping: bool = False,
-        circuit_breaker: Optional[CircuitBreaker] = None,
-        initial_messages: Optional[list[Message]] = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        initial_messages: list[Message] | None = None,
         trending_topic: Any = None,
         pulse_manager: Any = None,
         auto_fetch_trending: bool = False,
@@ -402,7 +403,7 @@ class Arena(ArenaDelegatesMixin):
         propulsion_engine: Any = None,
         enable_propulsion: bool = False,
         breakpoint_manager: Any = None,
-        checkpoint_manager: Optional["CheckpointManager"] = None,
+        checkpoint_manager: CheckpointManager | None = None,
         enable_checkpointing: bool = True,
         performance_monitor: Any = None,
         enable_performance_monitor: bool = True,
@@ -412,7 +413,7 @@ class Arena(ArenaDelegatesMixin):
         agent_selector: Any = None,
         use_performance_selection: bool = False,
         enable_agent_hierarchy: bool = True,
-        hierarchy_config: Optional[HierarchyConfig] = None,
+        hierarchy_config: HierarchyConfig | None = None,
         prompt_evolver: Any = None,
         enable_prompt_evolution: bool = False,
         org_id: str = "",
@@ -425,23 +426,23 @@ class Arena(ArenaDelegatesMixin):
         auto_export_training: bool = False,
         training_export_min_confidence: float = 0.75,
         enable_ml_delegation: bool = True,
-        ml_delegation_strategy: Optional["MLDelegationStrategy"] = None,
+        ml_delegation_strategy: MLDelegationStrategy | None = None,
         ml_delegation_weight: float = 0.3,
         enable_quality_gates: bool = True,
         quality_gate_threshold: float = 0.6,
         enable_consensus_estimation: bool = True,
         consensus_early_termination_threshold: float = 0.85,
         use_rlm_limiter: bool = True,
-        rlm_limiter: Optional["RLMCognitiveLoadLimiter"] = None,
+        rlm_limiter: RLMCognitiveLoadLimiter | None = None,
         rlm_compression_threshold: int = 3000,
         rlm_max_recent_messages: int = 5,
         rlm_summary_level: str = "SUMMARY",
         rlm_compression_round_threshold: int = 3,
         enable_adaptive_rounds: bool = False,
-        debate_strategy: Optional["DebateStrategy"] = None,
+        debate_strategy: DebateStrategy | None = None,
         cross_debate_memory: Any = None,
         enable_cross_debate_memory: bool = True,
-        post_debate_workflow: Optional["Workflow"] = None,
+        post_debate_workflow: Workflow | None = None,
         enable_post_debate_workflow: bool = False,
         post_debate_workflow_threshold: float = 0.7,
         fabric: Any = None,
@@ -736,7 +737,7 @@ class Arena(ArenaDelegatesMixin):
         agents: list[Agent],
         protocol: DebateProtocol = None,
         config: ArenaConfig = None,
-    ) -> "Arena":
+    ) -> Arena:
         """Create an Arena from an ArenaConfig for cleaner dependency injection."""
         from aragora.debate.feature_validator import validate_and_warn
 
@@ -751,18 +752,18 @@ class Arena(ArenaDelegatesMixin):
         cls,
         environment: Environment,
         agents: list[Agent],
-        protocol: Optional[DebateProtocol] = None,
+        protocol: DebateProtocol | None = None,
         *,
-        debate_config: Optional["DebateConfig"] = None,
-        agent_config: Optional["AgentConfig"] = None,
-        memory_config: Optional["MemoryConfig"] = None,
-        streaming_config: Optional["StreamingConfig"] = None,
-        observability_config: Optional["ObservabilityConfig"] = None,
-        knowledge_config: Optional["KnowledgeConfig"] = None,
-        supermemory_config: Optional["SupermemoryConfig"] = None,
-        evolution_config: Optional["EvolutionConfig"] = None,
-        ml_config: Optional["MLConfig"] = None,
-    ) -> "Arena":
+        debate_config: DebateConfig | None = None,
+        agent_config: AgentConfig | None = None,
+        memory_config: MemoryConfig | None = None,
+        streaming_config: StreamingConfig | None = None,
+        observability_config: ObservabilityConfig | None = None,
+        knowledge_config: KnowledgeConfig | None = None,
+        supermemory_config: SupermemoryConfig | None = None,
+        evolution_config: EvolutionConfig | None = None,
+        ml_config: MLConfig | None = None,
+    ) -> Arena:
         """Create an Arena from grouped config objects."""
         return cls(
             environment=environment,
@@ -784,15 +785,15 @@ class Arena(ArenaDelegatesMixin):
         cls,
         environment: Environment,
         agents: list[Agent],
-        protocol: Optional[DebateProtocol] = None,
+        protocol: DebateProtocol | None = None,
         *,
-        config: Optional[ArenaConfig] = None,
-        debate_config: Optional["DebateConfig"] = None,
-        agent_config: Optional["AgentConfig"] = None,
-        memory_config: Optional["MemoryConfig"] = None,
-        streaming_config: Optional["StreamingConfig"] = None,
-        observability_config: Optional["ObservabilityConfig"] = None,
-    ) -> "Arena":
+        config: ArenaConfig | None = None,
+        debate_config: DebateConfig | None = None,
+        agent_config: AgentConfig | None = None,
+        memory_config: MemoryConfig | None = None,
+        streaming_config: StreamingConfig | None = None,
+        observability_config: ObservabilityConfig | None = None,
+    ) -> Arena:
         """Create an Arena with a clean, consolidated interface.
 
         This is the recommended entry point for new code. It accepts at most
@@ -907,7 +908,7 @@ class Arena(ArenaDelegatesMixin):
     ) -> None:
         _setup_init_agent_hierarchy(self, enable_agent_hierarchy, hierarchy_config)
 
-    def _assign_hierarchy_roles(self, ctx: "DebateContext", task_type: str | None = None) -> None:
+    def _assign_hierarchy_roles(self, ctx: DebateContext, task_type: str | None = None) -> None:
         _agents_assign_hierarchy_roles(ctx, self.enable_agent_hierarchy, self._hierarchy, task_type)
 
     def _init_rlm_limiter(self, **kwargs: Any) -> None:
@@ -974,12 +975,12 @@ class Arena(ArenaDelegatesMixin):
         self,
         debate_id: str,
         phase: str = "manual",
-        messages: Optional[list[Message]] = None,
-        critiques: Optional[list[Critique]] = None,
-        votes: Optional[list[Vote]] = None,
+        messages: list[Message] | None = None,
+        critiques: list[Critique] | None = None,
+        votes: list[Vote] | None = None,
         current_round: int = 0,
-        current_consensus: Optional[str] = None,
-    ) -> Optional[str]:
+        current_consensus: str | None = None,
+    ) -> str | None:
         return await _cp_save_checkpoint(
             checkpoint_manager=self.checkpoint_manager,
             debate_id=debate_id,
@@ -998,7 +999,7 @@ class Arena(ArenaDelegatesMixin):
         self,
         checkpoint_id: str,
         resumed_by: str = "system",
-    ) -> Optional["DebateContext"]:
+    ) -> DebateContext | None:
         return await _cp_restore_from_checkpoint(
             checkpoint_manager=self.checkpoint_manager,
             checkpoint_id=checkpoint_id,
@@ -1012,7 +1013,7 @@ class Arena(ArenaDelegatesMixin):
 
     async def list_checkpoints(
         self,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
         limit: int = 100,
     ) -> list[dict]:
         return await _cp_list_checkpoints(
@@ -1032,14 +1033,14 @@ class Arena(ArenaDelegatesMixin):
     # Async Context Manager & Lifecycle
     # =========================================================================
 
-    async def __aenter__(self) -> "Arena":
+    async def __aenter__(self) -> Arena:
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         await self._cleanup()
 
@@ -1056,7 +1057,7 @@ class Arena(ArenaDelegatesMixin):
             self.context_gatherer.clear_cache()
         self._cleanup_convergence_cache()
 
-    async def _setup_agent_channels(self, ctx: "DebateContext", debate_id: str) -> None:
+    async def _setup_agent_channels(self, ctx: DebateContext, debate_id: str) -> None:
         await _setup_agent_channels(self, ctx, debate_id)
 
     async def _teardown_agent_channels(self) -> None:

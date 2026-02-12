@@ -56,7 +56,7 @@ class Deadlock:
     debate_id: str
     involved_agents: list[str]
     involved_arguments: list[str]
-    cycle_path: Optional[list[str]] = None  # For cycle-type deadlocks
+    cycle_path: list[str] | None = None  # For cycle-type deadlocks
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     severity: str = "medium"  # low, medium, high, critical
     description: str = ""
@@ -506,7 +506,7 @@ def create_argument_node(
     round_number: int,
     argument_type: str,
     parent_id: str | None = None,
-    targets: Optional[list[str]] = None,
+    targets: list[str] | None = None,
 ) -> ArgumentNode:
     """Create an argument node with content hash."""
     import hashlib

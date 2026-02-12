@@ -544,7 +544,7 @@ def _extract_handler(*args: Any, **kwargs: Any) -> Any:
     return None
 
 
-def _error_response(message: str, status: int = 403) -> "HandlerResult":
+def _error_response(message: str, status: int = 403) -> HandlerResult:
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 

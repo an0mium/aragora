@@ -141,7 +141,7 @@ class CernerAdapter(EHRAdapter):
     async def get_patient_records(  # type: ignore[override]  # Cerner adds resource_types filter to base signature
         self,
         patient_id: str,
-        resource_types: Optional[list[str]] = None,
+        resource_types: list[str] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """
         Get all clinical records for a patient.

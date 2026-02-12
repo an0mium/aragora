@@ -263,7 +263,7 @@ def create_performance_review_workflow(
     review_period: str = "Q4 2024",
     self_assessment: str | None = None,
     manager_notes: str | None = None,
-    goals_met: Optional[list[str]] = None,
+    goals_met: list[str] | None = None,
 ) -> WorkflowDefinition:
     """Create a performance review workflow.
 
@@ -387,7 +387,7 @@ def create_performance_review_workflow(
 def create_remote_work_policy_workflow(
     company_size: int = 50,
     current_policy: str | None = None,
-    concerns: Optional[list[str]] = None,
+    concerns: list[str] | None = None,
     industry: str = "tech",
 ) -> WorkflowDefinition:
     """Create a remote work policy review workflow.

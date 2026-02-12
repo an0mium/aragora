@@ -300,17 +300,20 @@ class StandaloneGatewayServer:
         addrs = ", ".join(str(sock.getsockname()) for sock in server.sockets)
         logger.info("OpenClaw Gateway serving on %s", addrs)
 
-        print("\n" + "=" * 60)
-        print("ARAGORA OPENCLAW GOVERNANCE GATEWAY")
-        print("=" * 60)
-        print(f"\n  Listening: http://{self.host}:{self.port}")
-        print(f"  Health:    http://{self.host}:{self.port}/health")
-        print(f"  Policy:    {self.default_policy} (default)")
-        if self.policy_file:
-            print(f"  Rules:     {self.policy_file}")
-        print(f"\n  API Base:  http://{self.host}:{self.port}/api/gateway/openclaw/")
-        print("\n  Press Ctrl+C to stop")
-        print("=" * 60 + "\n")
+        logger.info(
+            "OpenClaw Gateway started: host=%s port=%d policy=%s rules=%s",
+            self.host,
+            self.port,
+            self.default_policy,
+            self.policy_file or "none",
+        )
+        logger.info(
+            "Health endpoint: http://%s:%d/health | API base: http://%s:%d/api/gateway/openclaw/",
+            self.host,
+            self.port,
+            self.host,
+            self.port,
+        )
 
         async with server:
             await server.serve_forever()
@@ -368,7 +371,7 @@ def cmd_openclaw_serve(args: argparse.Namespace) -> None:
     )
 
     def handle_signal(signum, _frame):
-        print("\nShutting down gateway...")
+        logger.info("Shutting down gateway...")
         sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_signal)
@@ -377,7 +380,7 @@ def cmd_openclaw_serve(args: argparse.Namespace) -> None:
     try:
         asyncio.run(server.start())
     except KeyboardInterrupt:
-        print("\nGateway stopped.")
+        logger.info("Gateway stopped.")
 
 
 def main() -> None:

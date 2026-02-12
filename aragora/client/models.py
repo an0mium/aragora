@@ -37,7 +37,7 @@ class DebateStatus(str, Enum):
     STARTING = "starting"
 
     @classmethod
-    def _missing_(cls, value: object) -> "DebateStatus | None":
+    def _missing_(cls, value: object) -> DebateStatus | None:
         """Handle legacy server status values.
 
         Maps internal server statuses (active, concluded, archived) to
@@ -98,7 +98,7 @@ class ConsensusResult(BaseModel):
     votes: list[Vote] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _sync_fields(self) -> "ConsensusResult":
+    def _sync_fields(self) -> ConsensusResult:
         if self.agreement is None and self.confidence is not None:
             self.agreement = self.confidence
         if self.confidence is None and self.agreement is not None:
@@ -142,7 +142,7 @@ class Debate(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _derive_consensus(self) -> "Debate":
+    def _derive_consensus(self) -> Debate:
         if self.consensus is None and self.consensus_proof:
             proof = self.consensus_proof or {}
             vote_breakdown = proof.get("vote_breakdown") or {}
@@ -232,7 +232,7 @@ class Finding(BaseModel):
     suggestion: str | None = None
 
     @model_validator(mode="after")
-    def _normalize_fields(self) -> "Finding":
+    def _normalize_fields(self) -> Finding:
         if self.title is None and self.description:
             self.title = self.description
         if self.description is None and self.title:
@@ -281,7 +281,7 @@ class GauntletReceipt(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _sync_scores(self) -> "GauntletReceipt":
+    def _sync_scores(self) -> GauntletReceipt:
         if self.risk_score is None and self.score is not None:
             self.risk_score = self.score
         if self.score is None and self.risk_score is not None:

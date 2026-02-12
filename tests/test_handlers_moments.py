@@ -20,9 +20,9 @@ class MockMoment:
     description: str
     significance_score: float
     debate_id: str
-    other_agents: Optional[list] = None
-    metadata: Optional[dict] = None
-    created_at: Optional[str] = None
+    other_agents: list | None = None
+    metadata: dict | None = None
+    created_at: str | None = None
 
 
 class TestMomentsHandlerRouting:

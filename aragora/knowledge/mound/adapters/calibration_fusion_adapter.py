@@ -160,7 +160,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         self,
         predictions: list[AgentPrediction],
         debate_id: str = "",
-        weights: Optional[dict[str, float]] = None,
+        weights: dict[str, float] | None = None,
         strategy: CalibrationFusionStrategy = CalibrationFusionStrategy.WEIGHTED_AVERAGE,
         store: bool = True,
     ) -> CalibrationConsensus:
@@ -320,7 +320,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
     def to_knowledge_item(
         self,
         consensus: CalibrationConsensus,
-    ) -> "KnowledgeItem":
+    ) -> KnowledgeItem:
         """
         Convert a CalibrationConsensus to a KnowledgeItem.
 
@@ -426,7 +426,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         """
         return ["elo", "consensus", "belief", "evidence", "ranking"]
 
-    def _extract_fusible_data(self, km_item: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def _extract_fusible_data(self, km_item: dict[str, Any]) -> dict[str, Any] | None:
         """Extract data from a KM item that can be used for fusion.
 
         Args:
@@ -463,7 +463,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,  # FusedValidation from ops.fusion
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a calibration record.
 
@@ -532,7 +532,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
 
     def sync_to_km(
         self,
-        consensus_list: Optional[list[CalibrationConsensus]] = None,
+        consensus_list: list[CalibrationConsensus] | None = None,
         limit: int = 100,
     ) -> CalibrationSyncResult:
         """

@@ -194,8 +194,8 @@ class ThreatIntelEnrichment:
 
     def __init__(
         self,
-        threat_intel_client: Optional["ThreatIntelligenceService"] = None,
-        cve_client: Optional["CVEClient"] = None,
+        threat_intel_client: ThreatIntelligenceService | None = None,
+        cve_client: CVEClient | None = None,
         enabled: bool = ENRICHMENT_ENABLED,
         max_indicators: int = MAX_INDICATORS,
         cache_ttl_seconds: int = 3600,
@@ -237,7 +237,7 @@ class ThreatIntelEnrichment:
                 f"cve_client={self._cve_client is not None})"
             )
 
-    def _create_threat_intel_client(self) -> Optional["ThreatIntelligenceService"]:
+    def _create_threat_intel_client(self) -> ThreatIntelligenceService | None:
         """Create a ThreatIntelligenceService if dependencies available."""
         try:
             from aragora.services.threat_intelligence import ThreatIntelligenceService
@@ -252,7 +252,7 @@ class ThreatIntelEnrichment:
             logger.warning(f"[threat_intel] Failed to create ThreatIntelligenceService: {e}")
             return None
 
-    def _create_cve_client(self) -> Optional["CVEClient"]:
+    def _create_cve_client(self) -> CVEClient | None:
         """Create a CVEClient if dependencies available."""
         try:
             from aragora.analysis.codebase.cve_client import CVEClient
@@ -435,7 +435,7 @@ class ThreatIntelEnrichment:
         self._set_cached(cache_key, context)
         return context
 
-    async def _lookup_cve(self, cve_id: str) -> Optional[dict[str, Any]]:
+    async def _lookup_cve(self, cve_id: str) -> dict[str, Any] | None:
         """Look up CVE details."""
         if not self._cve_client:
             return None
@@ -793,7 +793,7 @@ class ThreatIntelEnrichment:
 async def enrich_security_context(
     topic: str,
     existing_context: str = "",
-    threat_intel_client: Optional["ThreatIntelligenceService"] = None,
+    threat_intel_client: ThreatIntelligenceService | None = None,
 ) -> str | None:
     """
     Quick convenience function for threat intel enrichment.

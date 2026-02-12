@@ -56,7 +56,7 @@ class TelemetryConfig:
     Defaults to CONTROLLED for security.
     """
 
-    _instance: Optional["TelemetryConfig"] = None
+    _instance: TelemetryConfig | None = None
 
     def __init__(self, level: TelemetryLevel | None = None):
         """
@@ -71,7 +71,7 @@ class TelemetryConfig:
             self._level = self._load_from_env()
 
     @classmethod
-    def get_instance(cls) -> "TelemetryConfig":
+    def get_instance(cls) -> TelemetryConfig:
         """Get singleton instance via ServiceRegistry.
 
         Falls back to class-level singleton if ServiceRegistry unavailable.

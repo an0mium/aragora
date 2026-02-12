@@ -31,7 +31,7 @@ class KnowledgeMoundHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def _get_mound(self) -> Optional["KnowledgeMound"]:
+    def _get_mound(self) -> KnowledgeMound | None:
         """
         Get the Knowledge Mound instance.
 

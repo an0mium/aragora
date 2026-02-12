@@ -198,7 +198,7 @@ async def run_sast_scan(
     target_path: str,
     scan_id: str,
     tenant_id: str,
-    languages: Optional[list[str]] = None,
+    languages: list[str] | None = None,
 ) -> list[Finding]:
     """Run SAST vulnerability scan."""
     # Defense-in-depth: validate path even if handler already checked

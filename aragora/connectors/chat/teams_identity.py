@@ -99,7 +99,7 @@ class TeamsUserIdentityBridge:
         self,
         aad_object_id: str,
         tenant_id: str,
-    ) -> Optional["SSOUser"]:
+    ) -> SSOUser | None:
         """
         Resolve a Teams user to an Aragora SSOUser.
 
@@ -157,7 +157,7 @@ class TeamsUserIdentityBridge:
         teams_user: TeamsUserInfo,
         aragora_user_id: str | None = None,
         create_if_missing: bool = True,
-    ) -> Optional["SSOUser"]:
+    ) -> SSOUser | None:
         """
         Sync a Teams user to Aragora.
 

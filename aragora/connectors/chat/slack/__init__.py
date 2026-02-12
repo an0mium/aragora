@@ -179,7 +179,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
         cursor: str | None = None,
         return_cursor: bool = False,
         **kwargs: Any,
-    ) -> list["ChatUser"] | tuple[list["ChatUser"], str | None]:
+    ) -> list[ChatUser] | tuple[list[ChatUser], str | None]:
         """List users with an optional pagination cursor.
 
         By default, return just the list of users for API parity with other

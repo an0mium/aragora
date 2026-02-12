@@ -79,7 +79,7 @@ class ContextFormatter:
     def __init__(
         self,
         deps: FormatterDependencies,
-        log_fn: Optional[Callable[..., None]] = None,
+        log_fn: Callable[..., None] | None = None,
     ):
         """
         Initialize context formatter.

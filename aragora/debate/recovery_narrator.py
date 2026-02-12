@@ -250,7 +250,7 @@ class RecoveryNarrator:
 
     def __init__(
         self,
-        broadcast_callback: Optional[Callable[[dict], Any]] = None,
+        broadcast_callback: Callable[[dict], Any] | None = None,
     ):
         """
         Initialize the narrator.

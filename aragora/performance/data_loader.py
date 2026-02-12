@@ -108,7 +108,7 @@ class DataLoader(Generic[K, V]):
         *,
         max_batch_size: int = 100,
         cache: bool = True,
-        cache_key_fn: Optional[Callable[[K], str]] = None,
+        cache_key_fn: Callable[[K], str] | None = None,
         name: str = "DataLoader",
         batch_timeout_ms: float = 50.0,
         max_queue_size: int = 10000,
@@ -367,7 +367,7 @@ class BatchResolver:
         self._loaders[name] = loader
         return loader
 
-    def get(self, name: str) -> Optional[DataLoader[Any, Any]]:
+    def get(self, name: str) -> DataLoader[Any, Any] | None:
         """Get a registered DataLoader by name."""
         return self._loaders.get(name)
 

@@ -31,7 +31,7 @@ from aragora.deletion_coordinator import get_deletion_coordinator
 logger = logging.getLogger(__name__)
 
 
-def extract_user_id_from_headers(headers: Optional[dict[str, str]]) -> str:
+def extract_user_id_from_headers(headers: dict[str, str] | None) -> str:
     """
     Extract user ID from Authorization header.
 

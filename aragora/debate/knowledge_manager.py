@@ -48,7 +48,7 @@ class ArenaKnowledgeManager:
 
     def __init__(
         self,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        knowledge_mound: KnowledgeMound | None = None,
         enable_retrieval: bool = False,
         enable_ingestion: bool = False,
         # Supermemory integration (external memory)
@@ -66,7 +66,7 @@ class ArenaKnowledgeManager:
         enable_auto_revalidation: bool = False,
         revalidation_staleness_threshold: float = 0.7,
         revalidation_check_interval_seconds: int = 3600,
-        notify_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        notify_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ):
         """Initialize the knowledge manager.
 
@@ -100,7 +100,7 @@ class ArenaKnowledgeManager:
         self._notify_callback = notify_callback
 
         # Components initialized during initialize()
-        self._knowledge_ops: Optional["KnowledgeMoundOperations"] = None
+        self._knowledge_ops: KnowledgeMoundOperations | None = None
         self._km_metrics: Any | None = None
         self.knowledge_bridge_hub: Any | None = None
         self.revalidation_scheduler: Any | None = None
@@ -296,7 +296,7 @@ class ArenaKnowledgeManager:
         self,
         debate_id: str,
         domain: str,
-        env: "Environment",
+        env: Environment,
         agents: list,
         protocol: Any,
     ) -> None:
@@ -438,7 +438,7 @@ class ArenaKnowledgeManager:
             task, limit, auth_context=auth_context
         )
 
-    async def ingest_outcome(self, result: "DebateResult", env: "Environment") -> None:
+    async def ingest_outcome(self, result: DebateResult, env: Environment) -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.
 
         Args:

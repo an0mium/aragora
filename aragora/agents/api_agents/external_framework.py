@@ -119,7 +119,7 @@ class ExternalFrameworkAgent(APIAgent):
         circuit_breaker_threshold: int = 5,
         circuit_breaker_cooldown: float = 60.0,
         # Credential proxy integration
-        credential_proxy: "CredentialProxy | None" = None,
+        credential_proxy: CredentialProxy | None = None,
         credential_id: str | None = None,
     ) -> None:
         """Initialize external framework agent.

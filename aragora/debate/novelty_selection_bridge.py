@@ -108,8 +108,8 @@ class NoveltySelectionBridge:
     4. Feeds into SelectionFeedbackLoop adjustments
     """
 
-    novelty_tracker: Optional["NoveltyTracker"] = None
-    selection_feedback: Optional["SelectionFeedbackLoop"] = None
+    novelty_tracker: NoveltyTracker | None = None
+    selection_feedback: SelectionFeedbackLoop | None = None
     config: NoveltySelectionBridgeConfig = field(default_factory=NoveltySelectionBridgeConfig)
 
     # Internal state
@@ -118,7 +118,7 @@ class NoveltySelectionBridge:
 
     def record_round_novelty(
         self,
-        novelty_result: "NoveltyResult",
+        novelty_result: NoveltyResult,
         debate_id: str | None = None,
     ) -> dict[str, float]:
         """Record novelty results from a debate round.
@@ -394,8 +394,8 @@ class NoveltySelectionBridge:
 
 
 def create_novelty_selection_bridge(
-    novelty_tracker: Optional["NoveltyTracker"] = None,
-    selection_feedback: Optional["SelectionFeedbackLoop"] = None,
+    novelty_tracker: NoveltyTracker | None = None,
+    selection_feedback: SelectionFeedbackLoop | None = None,
     **config_kwargs: Any,
 ) -> NoveltySelectionBridge:
     """Create and configure a NoveltySelectionBridge.

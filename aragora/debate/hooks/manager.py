@@ -134,78 +134,78 @@ class DebateHooks(Protocol):
     """Protocol for debate lifecycle hooks."""
 
     def on_pre_debate(
-        self, ctx: "DebateContext", agents: list["Agent"]
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, agents: list[Agent]
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_post_debate(
-        self, ctx: "DebateContext", result: "DebateResult"
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, result: DebateResult
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_pre_round(
-        self, ctx: "DebateContext", round_num: int
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, round_num: int
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_post_round(
-        self, ctx: "DebateContext", round_num: int, proposals: dict[str, str]
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, round_num: int, proposals: dict[str, str]
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_pre_critique(
-        self, ctx: "DebateContext", agent: "Agent", target: str
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, agent: Agent, target: str
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_post_critique(
-        self, ctx: "DebateContext", critique: "Critique"
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, critique: Critique
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_post_vote(
-        self, ctx: "DebateContext", vote: "Vote"
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+        self, ctx: DebateContext, vote: Vote
+    ) -> Coroutine[Any, Any, None] | None: ...
 
 
 class AuditHooks(Protocol):
     """Protocol for audit-specific hooks."""
 
-    def on_finding(self, finding: "AuditFinding") -> Optional[Coroutine[Any, Any, None]]: ...
+    def on_finding(self, finding: AuditFinding) -> Coroutine[Any, Any, None] | None: ...
 
     def on_contradiction(
         self, agent_a: str, agent_b: str, claim: str, round_num: int
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_inconsistency(
         self, agent: str, round_a: int, round_b: int, claims: tuple[str, str]
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_evidence(
         self, source: str, claim: str, strength: float
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+    ) -> Coroutine[Any, Any, None] | None: ...
 
     def on_progress(
         self, phase: str, completed: int, total: int
-    ) -> Optional[Coroutine[Any, Any, None]]: ...
+    ) -> Coroutine[Any, Any, None] | None: ...
 
 
 class PropulsionHooks(Protocol):
     """Protocol for propulsion hooks (Gastown pattern - push-based work assignment)."""
 
-    def on_ready(self, agent: str, capabilities: list[str]) -> Optional[Coroutine[Any, Any, None]]:
+    def on_ready(self, agent: str, capabilities: list[str]) -> Coroutine[Any, Any, None] | None:
         """Called when an agent signals readiness for work."""
         ...
 
     def on_propel(
         self, source_stage: str, target_stage: str, payload: dict[str, Any]
-    ) -> Optional[Coroutine[Any, Any, None]]:
+    ) -> Coroutine[Any, Any, None] | None:
         """Called to push work to the next stage in a pipeline."""
         ...
 
     def on_escalate(
         self, severity: str, source: str, reason: str, context: dict[str, Any]
-    ) -> Optional[Coroutine[Any, Any, None]]:
+    ) -> Coroutine[Any, Any, None] | None:
         """Called when an escalation is triggered (severity threshold crossed)."""
         ...
 
     def on_molecule_complete(
         self, molecule_id: str, steps_completed: int, result: dict[str, Any]
-    ) -> Optional[Coroutine[Any, Any, None]]:
+    ) -> Coroutine[Any, Any, None] | None:
         """Called when a multi-step workflow (molecule) completes."""
         ...
 
@@ -225,7 +225,7 @@ class HookManager:
 
     _hooks: dict[str, list[RegisteredHook]] = field(default_factory=lambda: defaultdict(list))
     _enabled: bool = True
-    _error_handler: Optional[Callable[[str, Exception], None]] = None
+    _error_handler: Callable[[str, Exception], None] | None = None
 
     def register(
         self,
@@ -292,7 +292,7 @@ class HookManager:
                 return True
         return False
 
-    def clear(self, hook_type: Optional[str | HookType] = None) -> None:
+    def clear(self, hook_type: str | HookType | None = None) -> None:
         """
         Clear all hooks of a type, or all hooks if type is None.
 
@@ -458,7 +458,7 @@ class HookManager:
         """Disable hook triggering (hooks are still registered)."""
         self._enabled = False
 
-    def set_error_handler(self, handler: Optional[Callable[[str, Exception], None]]) -> None:
+    def set_error_handler(self, handler: Callable[[str, Exception], None] | None) -> None:
         """Set a custom error handler for hook failures."""
         self._error_handler = handler
 
@@ -480,7 +480,7 @@ class HookManager:
 
 def create_hook_manager(
     *,
-    error_handler: Optional[Callable[[str, Exception], None]] = None,
+    error_handler: Callable[[str, Exception], None] | None = None,
 ) -> HookManager:
     """
     Create a new HookManager with optional configuration.
@@ -535,7 +535,7 @@ def create_logging_hooks(
 
 def create_checkpoint_hooks(
     manager: HookManager,
-    checkpoint_fn: Callable[["DebateContext", int], None],
+    checkpoint_fn: Callable[[DebateContext, int], None],
 ) -> None:
     """
     Register checkpoint hooks for debate persistence.
@@ -545,7 +545,7 @@ def create_checkpoint_hooks(
         checkpoint_fn: Function to call with (context, round_num)
     """
 
-    def on_round_end(ctx: "DebateContext", round_num: int, **kwargs: Any) -> None:
+    def on_round_end(ctx: DebateContext, round_num: int, **kwargs: Any) -> None:
         checkpoint_fn(ctx, round_num)
 
     manager.register(
@@ -558,7 +558,7 @@ def create_checkpoint_hooks(
 
 def create_finding_hooks(
     manager: HookManager,
-    on_finding: Callable[["AuditFinding"], None],
+    on_finding: Callable[[AuditFinding], None],
     severity_threshold: float = 0.0,
 ) -> None:
     """
@@ -570,7 +570,7 @@ def create_finding_hooks(
         severity_threshold: Minimum severity to trigger (0-10)
     """
 
-    def check_and_notify(finding: "AuditFinding") -> None:
+    def check_and_notify(finding: AuditFinding) -> None:
         if hasattr(finding, "severity") and finding.severity >= severity_threshold:
             on_finding(finding)
 

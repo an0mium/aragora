@@ -27,7 +27,7 @@ class TestFixerAttemptStore:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
         logger.debug("store.append path=%s type=%s", self.path, record.get("type"))
 
-    def record_attempt(self, attempt: "FixAttempt") -> None:
+    def record_attempt(self, attempt: FixAttempt) -> None:
         diagnostics: dict[str, Any] | None = None
         if attempt.test_result_after and attempt.test_result_after.diagnostics:
             diagnostics = attempt.test_result_after.diagnostics.to_dict()
@@ -62,7 +62,7 @@ class TestFixerAttemptStore:
             }
         )
 
-    def record_run(self, result: "FixLoopResult") -> None:
+    def record_run(self, result: FixLoopResult) -> None:
         final_diagnostics: dict[str, Any] | None = None
         if result.final_test_result and result.final_test_result.diagnostics:
             final_diagnostics = result.final_test_result.diagnostics.to_dict()

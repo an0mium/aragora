@@ -52,7 +52,7 @@ class MigrationResult:
     tables_migrated: list[str]
     rows_migrated: int
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     duration_seconds: float = 0.0
 
 
@@ -400,7 +400,7 @@ class DatabaseMigrator:
             db_path = self.target_dir / db_name
             try:
                 # Read schema SQL
-                with open(schema_path, "r") as f:
+                with open(schema_path) as f:
                     schema_sql = f.read()
 
                 # Create database with schema
@@ -412,7 +412,7 @@ class DatabaseMigrator:
             except sqlite3.Error as e:
                 logger.error(f"Failed to create schema for {db_name}: {e}")
                 return False
-            except IOError as e:
+            except OSError as e:
                 logger.error(f"Failed to read schema {schema_file}: {e}")
                 return False
 
@@ -617,7 +617,7 @@ class DatabaseMigrator:
             return False
 
         try:
-            with open(manifest_path, "r") as f:
+            with open(manifest_path) as f:
                 manifest = json.load(f)
 
             logger.info(f"Rolling back to backup from {manifest.get('timestamp', 'unknown')}")

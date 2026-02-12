@@ -48,11 +48,11 @@ class MockAuthContext:
             "*",
         }
     )
-    api_key_scope: Optional[str] = None
+    api_key_scope: str | None = None
     ip_address: str = "127.0.0.1"
     user_agent: str = "test-agent"
     request_id: str = "req-test-001"
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     user_email: str = "test@example.com"
     workspace_id: str = "ws-001"
 
@@ -65,11 +65,11 @@ class MockDeniedAuthContext:
     org_id: str = "org-789"
     roles: list = field(default_factory=lambda: ["viewer"])
     permissions: set = field(default_factory=set)
-    api_key_scope: Optional[str] = None
+    api_key_scope: str | None = None
     ip_address: str = "127.0.0.1"
     user_agent: str = "test-agent"
     request_id: str = "req-test-002"
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
     user_email: str = "viewer@example.com"
     workspace_id: str = "ws-001"
 
@@ -82,10 +82,10 @@ class MockSyncJob:
     connector_id: str
     tenant_id: str
     schedule: Any
-    last_run: Optional[datetime] = None
-    next_run: Optional[datetime] = None
+    last_run: datetime | None = None
+    next_run: datetime | None = None
     consecutive_failures: int = 0
-    current_run_id: Optional[str] = None
+    current_run_id: str | None = None
 
     def _calculate_next_run(self):
         pass
@@ -107,7 +107,7 @@ class MockSyncSchedule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MockSyncSchedule":
+    def from_dict(cls, data: dict[str, Any]) -> MockSyncSchedule:
         return cls(
             schedule_type=data.get("schedule_type", "interval"),
             interval_minutes=data.get("interval_minutes", 60),
@@ -125,7 +125,7 @@ class MockSyncHistory:
     tenant_id: str
     status: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     items_synced: int = 0
     errors: list = field(default_factory=list)
 
@@ -156,7 +156,7 @@ class MockSyncScheduler:
     def list_jobs(self, tenant_id: str = "default") -> list[MockSyncJob]:
         return [j for j in self._jobs.values() if j.tenant_id == tenant_id]
 
-    def get_job(self, job_id: str) -> Optional[MockSyncJob]:
+    def get_job(self, job_id: str) -> MockSyncJob | None:
         return self._jobs.get(job_id)
 
     def register_connector(self, connector, schedule=None, tenant_id="default"):
@@ -177,7 +177,7 @@ class MockSyncScheduler:
 
     async def trigger_sync(
         self, connector_id: str, tenant_id: str = "default", full_sync: bool = False
-    ) -> Optional[str]:
+    ) -> str | None:
         job_id = f"{tenant_id}:{connector_id}"
         if job_id not in self._jobs:
             return None

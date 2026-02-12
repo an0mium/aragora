@@ -253,7 +253,7 @@ def _init_noop_metrics() -> None:
 class _NoOpMetric:
     """No-op metric for when Prometheus is unavailable."""
 
-    def labels(self, *args: Any, **kwargs: Any) -> "_NoOpMetric":
+    def labels(self, *args: Any, **kwargs: Any) -> _NoOpMetric:
         return self
 
     def inc(self, amount: float = 1) -> None:

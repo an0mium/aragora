@@ -21,8 +21,8 @@ from aragora.persistence.db_config import get_nomic_dir
 logger = logging.getLogger(__name__)
 
 # Type aliases for optional imports
-_PdfReaderClass: Optional[type[Any]] = None
-_DocxDocumentClass: Optional[type[Any]] = None
+_PdfReaderClass: type[Any] | None = None
+_DocxDocumentClass: type[Any] | None = None
 
 # =============================================================================
 # Security: Path Traversal Protection
@@ -340,7 +340,7 @@ class DocumentStore:
             except KeyError as e:
                 logger.warning(f"Missing required field in {doc_path}: {e}")
                 continue
-            except (IOError, OSError) as e:
+            except OSError as e:
                 logger.warning(f"Failed to read document {doc_path}: {e}")
                 continue
         return docs

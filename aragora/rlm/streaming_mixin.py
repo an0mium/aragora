@@ -33,7 +33,7 @@ class _RLMHostProtocol(Protocol):
     by defining the methods and attributes it expects from AragoraRLM.
     """
 
-    _compressor: "HierarchicalCompressor"
+    _compressor: HierarchicalCompressor
 
     async def query(
         self,
@@ -157,7 +157,7 @@ class RLMStreamingMixin:
         context: RLMContext,
         strategy: str = "auto",
         max_iterations: int = 3,
-        feedback_generator: Optional[Callable[[RLMResult], str]] = None,
+        feedback_generator: Callable[[RLMResult], str] | None = None,
     ) -> AsyncIterator[RLMStreamEvent]:
         """
         Stream iterative refinement with events for each iteration.

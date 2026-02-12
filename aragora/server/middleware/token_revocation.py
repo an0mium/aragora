@@ -339,7 +339,7 @@ def revoke_token(
     reason: str = "",
     revoked_by: str = "system",
     ttl_seconds: int = 86400,  # 24 hours default
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> RevocationEntry:
     """
     Revoke a token.

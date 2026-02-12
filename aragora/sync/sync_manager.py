@@ -41,9 +41,9 @@ class SyncManager:
 
     def __init__(
         self,
-        document_store: Optional["DocumentStore"] = None,
+        document_store: DocumentStore | None = None,
         config: SyncConfig | None = None,
-        on_progress: Optional[Callable[[str, int, int], None]] = None,
+        on_progress: Callable[[str, int, int], None] | None = None,
     ):
         """
         Initialize the sync manager.

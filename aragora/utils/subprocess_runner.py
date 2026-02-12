@@ -273,7 +273,7 @@ class SandboxedCommand:
 async def run_sandboxed(
     cmd: Sequence[str],
     *,
-    cwd: Optional[str | Path] = None,
+    cwd: str | Path | None = None,
     timeout: float = DEFAULT_TIMEOUT,
     capture_output: bool = True,
     check: bool = False,
@@ -376,7 +376,7 @@ async def run_sandboxed(
 def run_sandboxed_sync(
     cmd: Sequence[str],
     *,
-    cwd: Optional[str | Path] = None,
+    cwd: str | Path | None = None,
     timeout: float = DEFAULT_TIMEOUT,
     capture_output: bool = True,
     check: bool = False,

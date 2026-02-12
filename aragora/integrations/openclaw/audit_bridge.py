@@ -86,7 +86,7 @@ class OpenClawAuditBridge:
 
     def __init__(
         self,
-        knowledge_mound: "KnowledgeMound | None" = None,
+        knowledge_mound: KnowledgeMound | None = None,
         workspace_id: str = "default",
         signing_key: str | None = None,
         event_callback: Callable[[AuditRecord], None] | None = None,

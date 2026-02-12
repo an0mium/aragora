@@ -267,7 +267,7 @@ class TestUserRead:
         user = await store.get_user_by_api_key_async("my-secret-key")
         assert user is not None
         # Verify the hash was computed correctly
-        expected_hash = hashlib.sha256("my-secret-key".encode()).hexdigest()
+        expected_hash = hashlib.sha256(b"my-secret-key").hexdigest()
         call_args = mock_conn.fetchrow.call_args
         assert call_args[0][1] == expected_hash
         assert call_args[0][2] == "my-secret-key"

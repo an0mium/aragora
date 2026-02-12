@@ -105,7 +105,7 @@ class MockUserContext:
     user_id: str = "user_123"
     org_id: str = "org_456"
     email: str = "test@example.com"
-    error_reason: Optional[str] = None
+    error_reason: str | None = None
 
 
 @dataclass

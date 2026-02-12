@@ -100,7 +100,7 @@ class DebateReplayer:
 
         for file_path in self.storage_dir.glob("debate_*.json"):
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
 
                 debate_info = {
@@ -138,7 +138,7 @@ class DebateReplayer:
             return None
 
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Reconstruct DebateResult from dict

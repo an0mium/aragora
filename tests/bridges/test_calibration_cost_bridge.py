@@ -70,7 +70,7 @@ class MockCalibrationTracker:
         self._summaries: dict[str, MockCalibrationSummary] = {}
         self._agents: list[str] = []
 
-    def get_calibration_summary(self, agent: str) -> Optional[MockCalibrationSummary]:
+    def get_calibration_summary(self, agent: str) -> MockCalibrationSummary | None:
         """Get calibration summary."""
         return self._summaries.get(agent)
 

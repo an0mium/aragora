@@ -102,7 +102,7 @@ class PostgresMarketplaceStore:
         CREATE INDEX IF NOT EXISTS idx_categories_count ON categories(template_count DESC);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         """Initialize the PostgreSQL marketplace store.
 
         Args:

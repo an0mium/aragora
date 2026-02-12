@@ -51,7 +51,7 @@ class InMemorySQLiteBackend:
         cursor = self._conn.execute(sql, params)
         return cursor.fetchall()
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         cursor = self._conn.execute(sql, params)
         return cursor.fetchone()
 

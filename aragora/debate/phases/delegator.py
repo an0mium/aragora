@@ -166,9 +166,9 @@ class DebateDelegator:
 
     def __init__(
         self,
-        agent_pool: list["Agent"],
+        agent_pool: list[Agent],
         config: DelegationConfig | None = None,
-        generate_fn: Optional[Callable[["Agent", str], Awaitable[str]]] = None,
+        generate_fn: Callable[[Agent, str], Awaitable[str]] | None = None,
     ):
         """Initialize the delegator.
 
@@ -217,7 +217,7 @@ class DebateDelegator:
         prompt = analysis_prompt or self._build_analysis_prompt(task, context)
 
         # Delegate in parallel using llm_batch
-        async def analyze_with_agent(agent: "Agent") -> AnalysisResult:
+        async def analyze_with_agent(agent: Agent) -> AnalysisResult:
             """Execute analysis with a single agent."""
             logger.debug(f"delegation_analysis_start agent={agent.name}")
 
@@ -268,8 +268,8 @@ class DebateDelegator:
         self,
         task: str,
         context: str,
-        agents: list["Agent"] | None = None,
-        parse_fn: Optional[Callable[[str, str], R]] = None,
+        agents: list[Agent] | None = None,
+        parse_fn: Callable[[str, str], R] | None = None,
     ) -> DelegationResult[R]:
         """
         Delegate a generic task to multiple agents.
@@ -300,7 +300,7 @@ Context:
 
 Please provide your response to the task."""
 
-        async def execute_task(agent: "Agent") -> R:
+        async def execute_task(agent: Agent) -> R:
             if self._generate_fn:
                 response = await self._generate_fn(agent, prompt)
             else:
@@ -330,7 +330,7 @@ Please provide your response to the task."""
     async def synthesize_analyses(
         self,
         analyses: list[AnalysisResult],
-        synthesizer: Optional["Agent"] = None,
+        synthesizer: Agent | None = None,
     ) -> SynthesisResult:
         """
         Synthesize multiple analyses into a coherent result.

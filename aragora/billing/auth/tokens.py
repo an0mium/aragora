@@ -73,7 +73,7 @@ class JWTPayload:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "JWTPayload":
+    def from_dict(cls, data: dict[str, Any]) -> JWTPayload:
         """Create from dictionary."""
         return cls(
             sub=data.get("sub", ""),

@@ -162,7 +162,7 @@ async def demo_bug_detection(path: str) -> None:
         print()
 
 
-async def demo_code_review(sample_code: Optional[str] = None) -> None:
+async def demo_code_review(sample_code: str | None = None) -> None:
     """Demonstrate code review capabilities."""
     print_header("CODE REVIEW")
 
@@ -353,7 +353,7 @@ async def demo_audit(path: str) -> None:
     print(result.agent_summary or "No summary generated.")
 
 
-async def main(path: str, demos: Optional[list] = None) -> None:
+async def main(path: str, demos: list | None = None) -> None:
     """Run the code intelligence demo."""
     start_time = datetime.now()
 

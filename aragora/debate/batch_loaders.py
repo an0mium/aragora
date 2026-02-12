@@ -31,7 +31,7 @@ from aragora.performance import DataLoader, BatchResolver
 logger = logging.getLogger(__name__)
 
 # Context variable for request-scoped loaders
-_loaders_context: contextvars.ContextVar[Optional["DebateLoaders"]] = contextvars.ContextVar(
+_loaders_context: contextvars.ContextVar[DebateLoaders | None] = contextvars.ContextVar(
     "debate_loaders", default=None
 )
 
@@ -94,8 +94,8 @@ class DebateLoaders:
         self._token: contextvars.Token | None = None
 
         # Initialize loaders
-        self._elo_loader: Optional[DataLoader[str, ELORating | None]] = None
-        self._stats_loader: Optional[DataLoader[str, AgentStats | None]] = None
+        self._elo_loader: DataLoader[str, ELORating | None] | None = None
+        self._stats_loader: DataLoader[str, AgentStats | None] | None = None
         self._resolver = BatchResolver()
 
     @property
@@ -276,7 +276,7 @@ class DebateLoaders:
         stats["resolver"] = self._resolver.stats()
         return stats
 
-    def __enter__(self) -> "DebateLoaders":
+    def __enter__(self) -> DebateLoaders:
         """Enter context - set as current loaders."""
         self._token = _loaders_context.set(self)
         return self

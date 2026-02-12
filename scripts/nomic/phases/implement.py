@@ -45,17 +45,17 @@ class ImplementPhase:
     def __init__(
         self,
         aragora_path: Path,
-        plan_generator: Optional[Callable[[str, Path], Any]] = None,
-        executor: Optional[Any] = None,
-        progress_loader: Optional[Callable[[Path], Any]] = None,
-        progress_saver: Optional[Callable[[Any, Path], None]] = None,
-        progress_clearer: Optional[Callable[[Path], None]] = None,
-        protected_files: Optional[list[str]] = None,
+        plan_generator: Callable[[str, Path], Any] | None = None,
+        executor: Any | None = None,
+        progress_loader: Callable[[Path], Any] | None = None,
+        progress_saver: Callable[[Any, Path], None] | None = None,
+        progress_clearer: Callable[[Path], None] | None = None,
+        protected_files: list[str] | None = None,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
-        save_state_fn: Optional[Callable[[dict], None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
+        save_state_fn: Callable[[dict], None] | None = None,
     ):
         """
         Initialize the implement phase.
@@ -389,7 +389,7 @@ CRITICAL SAFETY RULES:
                 diff_summary="",
             )
 
-    async def _git_stash_create(self) -> Optional[str]:
+    async def _git_stash_create(self) -> str | None:
         """Create a git stash for rollback."""
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -405,7 +405,7 @@ CRITICAL SAFETY RULES:
         except Exception:
             return None
 
-    async def _git_stash_pop(self, stash_ref: Optional[str]) -> bool:
+    async def _git_stash_pop(self, stash_ref: str | None) -> bool:
         """Pop a git stash to rollback changes."""
         if not stash_ref:
             return False

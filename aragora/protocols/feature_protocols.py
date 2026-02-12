@@ -101,7 +101,7 @@ class PulseManagerProtocol(Protocol):
 
     def get_trending(
         self,
-        sources: Optional[list[str]] = None,
+        sources: list[str] | None = None,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Get trending topics from specified sources."""
@@ -206,7 +206,7 @@ class InsightStoreProtocol(Protocol):
         content: str,
         source_debate_id: str,
         confidence: float,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Store an insight. Returns insight ID."""
         ...
@@ -265,8 +265,8 @@ class BroadcastPipelineProtocol(Protocol):
     def queue_broadcast(
         self,
         debate_id: str,
-        platforms: Optional[list[str]] = None,
-        options: Optional[dict[str, Any]] = None,
+        platforms: list[str] | None = None,
+        options: dict[str, Any] | None = None,
     ) -> str:
         """Queue a debate for broadcast. Returns job ID."""
         ...
@@ -302,7 +302,7 @@ class EvidenceCollectorProtocol(Protocol):
     def collect(
         self,
         query: str,
-        sources: Optional[list[str]] = None,
+        sources: list[str] | None = None,
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         """Collect evidence for a query."""

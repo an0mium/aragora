@@ -242,7 +242,7 @@ class SQLConnector(BaseConnector):
     async def execute_query(
         self,
         query: str,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
     ) -> SQLQueryResult:
         """
         Execute a parameterized SQL query.
@@ -386,7 +386,7 @@ class SQLConnector(BaseConnector):
         self,
         query: str,
         limit: int = 10,
-        params: Optional[Sequence[Any]] = None,
+        params: Sequence[Any] | None = None,
         content_column: str = "content",
         title_column: str = "title",
         id_column: str = "id",
@@ -464,7 +464,7 @@ class SQLConnector(BaseConnector):
             finally:
                 self._connection = None
 
-    async def __aenter__(self) -> "SQLConnector":
+    async def __aenter__(self) -> SQLConnector:
         """Async context manager entry."""
         return self
 

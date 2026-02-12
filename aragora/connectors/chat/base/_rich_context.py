@@ -48,7 +48,7 @@ class RichContextMixin:
         include_participants: bool = True,
         thread_id: str | None = None,
         **kwargs: Any,
-    ) -> "ChannelContext":
+    ) -> ChannelContext:
         """
         Fetch recent context from a channel for deliberation.
 
@@ -307,7 +307,7 @@ class RichContextMixin:
 
         return rich_context
 
-    def _extract_topics(self, messages: list["ChatMessage"]) -> list[dict[str, Any]]:
+    def _extract_topics(self, messages: list[ChatMessage]) -> list[dict[str, Any]]:
         """
         Extract discussion topics from messages.
 
@@ -324,7 +324,7 @@ class RichContextMixin:
 
         return _extract_topics_impl(messages)
 
-    def _analyze_sentiment(self, messages: list["ChatMessage"]) -> dict[str, Any]:
+    def _analyze_sentiment(self, messages: list[ChatMessage]) -> dict[str, Any]:
         """
         Basic sentiment analysis of messages.
 
@@ -341,7 +341,7 @@ class RichContextMixin:
 
         return _analyze_sentiment_impl(messages)
 
-    def _calculate_activity_patterns(self, messages: list["ChatMessage"]) -> dict[str, Any]:
+    def _calculate_activity_patterns(self, messages: list[ChatMessage]) -> dict[str, Any]:
         """
         Calculate activity patterns from messages.
 

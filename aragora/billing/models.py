@@ -162,7 +162,7 @@ def _hash_password_sha256(password: str, salt: str | None = None) -> tuple[str, 
     """
     if salt is None:
         salt = secrets.token_hex(32)
-    hash_input = f"{salt}{password}".encode("utf-8")
+    hash_input = f"{salt}{password}".encode()
     password_hash = hashlib.sha256(hash_input).hexdigest()
     return password_hash, salt
 
@@ -595,7 +595,7 @@ class User:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "User":
+    def from_dict(cls, data: dict[str, Any]) -> User:
         """Create from dictionary."""
         import json
 
@@ -816,7 +816,7 @@ class Organization:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Organization":
+    def from_dict(cls, data: dict[str, Any]) -> Organization:
         """Create from dictionary."""
         org = cls(
             id=data.get("id", str(uuid4())),
@@ -927,7 +927,7 @@ class Subscription:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Subscription":
+    def from_dict(cls, data: dict[str, Any]) -> Subscription:
         """Create from dictionary."""
         sub = cls(
             id=data.get("id", str(uuid4())),
@@ -1030,7 +1030,7 @@ class OrganizationInvitation:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OrganizationInvitation":
+    def from_dict(cls, data: dict[str, Any]) -> OrganizationInvitation:
         """Create from dictionary."""
         inv = cls(
             id=data.get("id", str(uuid4())),

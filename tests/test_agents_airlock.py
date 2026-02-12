@@ -43,10 +43,10 @@ class MockAgent:
     name: str = "mock-agent"
     model: str = "mock-model"
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         return f"Response to: {prompt}"
 
-    async def critique(self, proposal: str, task: str, context: Optional[list] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list | None = None) -> Critique:
         return Critique(
             agent=self.name,
             target_agent="other",
@@ -75,11 +75,11 @@ class SlowAgent(MockAgent):
         super().__init__(**kwargs)
         self.delay = delay
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         await asyncio.sleep(self.delay)
         return f"Slow response to: {prompt}"
 
-    async def critique(self, proposal: str, task: str, context: Optional[list] = None) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list | None = None) -> Critique:
         await asyncio.sleep(self.delay)
         return await super().critique(proposal, task, context)
 
@@ -96,7 +96,7 @@ class FailingAgent(MockAgent):
         self.error = error or RuntimeError("Agent failed")
         self.call_count = 0
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         self.call_count += 1
         raise self.error
 
@@ -109,7 +109,7 @@ class FlakeyAgent(MockAgent):
         self.fail_count = fail_count
         self.call_count = 0
 
-    async def generate(self, prompt: str, context: Optional[list] = None) -> str:
+    async def generate(self, prompt: str, context: list | None = None) -> str:
         self.call_count += 1
         if self.call_count <= self.fail_count:
             raise RuntimeError(f"Failure {self.call_count}")

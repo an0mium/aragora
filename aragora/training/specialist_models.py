@@ -312,7 +312,7 @@ class SpecialistModel:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SpecialistModel":
+    def from_dict(cls, data: dict[str, Any]) -> SpecialistModel:
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -609,7 +609,7 @@ class SpecialistTrainingPipeline:
     def __init__(
         self,
         registry: SpecialistModelRegistry,
-        tinker_client: Optional["TinkerClient"] = None,
+        tinker_client: TinkerClient | None = None,
     ):
         """
         Initialize training pipeline.
@@ -799,7 +799,7 @@ class SpecialistTrainingPipeline:
 
         # Load SFT data
         if sft_file.exists():
-            with open(sft_file, "r") as f:
+            with open(sft_file) as f:
                 for line in f:
                     if line.strip():
                         training_data.append(json.loads(line))

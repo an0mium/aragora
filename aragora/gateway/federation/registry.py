@@ -104,7 +104,7 @@ class FrameworkCapability:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FrameworkCapability":
+    def from_dict(cls, data: dict[str, Any]) -> FrameworkCapability:
         """Deserialize capability from dictionary."""
         return cls(
             name=data["name"],
@@ -241,7 +241,7 @@ class ExternalFramework:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ExternalFramework":
+    def from_dict(cls, data: dict[str, Any]) -> ExternalFramework:
         """Deserialize framework from dictionary."""
         return cls(
             framework_id=data.get("framework_id", ""),

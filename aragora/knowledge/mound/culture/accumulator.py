@@ -66,7 +66,7 @@ class CultureDocument:
     category: CultureDocumentCategory
     title: str
     content: str
-    embeddings: Optional[list[float]] = None
+    embeddings: list[float] | None = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     created_by: str = ""
@@ -153,7 +153,7 @@ class CultureAccumulator:
 
     def __init__(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMound,
         min_observations_for_pattern: int = 3,
     ):
         """
@@ -733,7 +733,7 @@ class OrganizationCultureManager:
 
     def __init__(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMound,
         culture_accumulator: CultureAccumulator | None = None,
     ):
         """
@@ -763,7 +763,7 @@ class OrganizationCultureManager:
         title: str,
         content: str,
         created_by: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> CultureDocument:
         """
         Add an explicit culture document.
@@ -1048,7 +1048,7 @@ class OrganizationCultureManager:
     async def get_organization_culture(
         self,
         org_id: str,
-        workspace_ids: Optional[list[str]] = None,
+        workspace_ids: list[str] | None = None,
     ) -> OrganizationCulture:
         """
         Get the complete organization culture profile.

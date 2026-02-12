@@ -195,7 +195,7 @@ class LogConfig:
     static_fields: dict = field(default_factory=dict)
 
     @classmethod
-    def from_env(cls) -> "LogConfig":
+    def from_env(cls) -> LogConfig:
         """Create config from environment variables."""
         env = os.getenv("ARAGORA_ENV", "development")
         return cls(

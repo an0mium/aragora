@@ -166,7 +166,7 @@ class OpenClawMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OpenClawMessage":
+    def from_dict(cls, data: dict[str, Any]) -> OpenClawMessage:
         """Create message from dictionary."""
         channel = data.get("channel", "web")
         try:
@@ -232,7 +232,7 @@ class OpenClawAction:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OpenClawAction":
+    def from_dict(cls, data: dict[str, Any]) -> OpenClawAction:
         """Create action from dictionary."""
         action_type = data.get("action_type", "custom")
         try:
@@ -312,7 +312,7 @@ class OpenClawSession:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OpenClawSession":
+    def from_dict(cls, data: dict[str, Any]) -> OpenClawSession:
         """Create session from dictionary."""
         channel = data.get("channel", "web")
         try:

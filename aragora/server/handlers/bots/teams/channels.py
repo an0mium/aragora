@@ -39,7 +39,7 @@ class TeamsChannelManager:
     - Member management
     """
 
-    def __init__(self, bot: "TeamsBot | None" = None):
+    def __init__(self, bot: TeamsBot | None = None):
         """Initialize the channel manager.
 
         Args:

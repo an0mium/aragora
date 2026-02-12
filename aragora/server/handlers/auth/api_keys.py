@@ -73,7 +73,7 @@ def extract_user_from_request(handler, user_store):
     requests_per_minute=3, limiter_name="auth_api_key_gen", endpoint_name="API key generation"
 )
 @handle_errors("generate API key")
-def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_generate_api_key(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Generate a new API key for the user."""
     # RBAC check: api_key.create permission required
     if error := handler_instance._check_permission(handler, "api_key.create"):
@@ -160,7 +160,7 @@ def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> Handler
     requests_per_minute=5, limiter_name="auth_revoke_api_key", endpoint_name="API key revocation"
 )
 @handle_errors("revoke API key")
-def handle_revoke_api_key(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_revoke_api_key(handler_instance: AuthHandler, handler) -> HandlerResult:
     """Revoke the user's API key."""
     # RBAC check: api_key.revoke permission required
     if error := handler_instance._check_permission(handler, "api_key.revoke"):
@@ -219,7 +219,7 @@ def handle_revoke_api_key(handler_instance: "AuthHandler", handler) -> HandlerRe
     requests_per_minute=10, limiter_name="auth_list_api_keys", endpoint_name="API key listing"
 )
 @handle_errors("list API keys")
-def handle_list_api_keys(handler_instance: "AuthHandler", handler) -> HandlerResult:
+def handle_list_api_keys(handler_instance: AuthHandler, handler) -> HandlerResult:
     """List API keys for the current user."""
     # RBAC check: reuse api_key.create permission for self-service listing
     if error := handler_instance._check_permission(handler, "api_key.create"):
@@ -259,7 +259,7 @@ def handle_list_api_keys(handler_instance: "AuthHandler", handler) -> HandlerRes
 )
 @handle_errors("revoke API key (prefix)")
 def handle_revoke_api_key_prefix(
-    handler_instance: "AuthHandler", handler, prefix: str
+    handler_instance: AuthHandler, handler, prefix: str
 ) -> HandlerResult:
     """Revoke the user's API key by prefix."""
     if error := handler_instance._check_permission(handler, "api_key.revoke"):

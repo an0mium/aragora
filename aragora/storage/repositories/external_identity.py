@@ -427,7 +427,7 @@ class ExternalIdentityRepository:
         tenant_id: str | None = None,
         email: str | None = None,
         display_name: str | None = None,
-        raw_claims: Optional[dict[str, Any]] = None,
+        raw_claims: dict[str, Any] | None = None,
     ) -> ExternalIdentity:
         """Link an external identity to a user, updating if exists.
 

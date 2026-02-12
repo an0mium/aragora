@@ -87,7 +87,7 @@ class SchedulerConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SchedulerConfig":
+    def from_dict(cls, data: dict[str, Any]) -> SchedulerConfig:
         """Create from dictionary."""
         return cls(
             poll_interval_seconds=data.get("poll_interval_seconds", 300),
@@ -156,7 +156,7 @@ class SchedulerMetrics:
 # Type alias for debate creator callback
 DebateCreatorFn = Callable[
     [str, int, float],  # topic_text, rounds, consensus_threshold
-    Coroutine[Any, Any, Optional[dict[str, Any]]],  # Returns debate result or None
+    Coroutine[Any, Any, dict[str, Any] | None],  # Returns debate result or None
 ]
 
 
@@ -327,7 +327,7 @@ class PulseDebateScheduler:
         pulse_manager: PulseManager,
         store: ScheduledDebateStore,
         config: SchedulerConfig | None = None,
-        km_adapter: Optional["PulseAdapter"] = None,
+        km_adapter: PulseAdapter | None = None,
     ):
         """Initialize the scheduler.
 
@@ -353,7 +353,7 @@ class PulseDebateScheduler:
 
         logger.info("PulseDebateScheduler initialized")
 
-    def set_km_adapter(self, adapter: "PulseAdapter") -> None:
+    def set_km_adapter(self, adapter: PulseAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 
         Args:

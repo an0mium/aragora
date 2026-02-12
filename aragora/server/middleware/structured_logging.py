@@ -571,7 +571,7 @@ class RequestLoggingMiddleware:
         method: str,
         path: str,
         client_ip: str,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
         """Log request start and return context.

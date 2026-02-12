@@ -27,8 +27,8 @@ class DisagreementActions:
     should_reject: bool = False
     should_fork: bool = False
     rejection_reasons: list[str] = field(default_factory=list)
-    fork_topic: Optional[str] = None
-    escalate_to: Optional[str] = None
+    fork_topic: str | None = None
+    escalate_to: str | None = None
 
 
 @dataclass
@@ -76,8 +76,8 @@ class DisagreementHandler:
 
     def __init__(
         self,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit: Optional[Callable] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit: Callable | None = None,
     ):
         """
         Initialize disagreement handler.

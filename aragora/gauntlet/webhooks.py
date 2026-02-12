@@ -105,7 +105,7 @@ class WebhookManager:
         self._configs: dict[str, WebhookConfig] = {}
         self._delivery_queue: asyncio.Queue[tuple[str, WebhookPayload]] = asyncio.Queue()
         self._running = False
-        self._worker_task: Optional[asyncio.Task[None]] = None
+        self._worker_task: asyncio.Task[None] | None = None
         self._circuit_breaker: dict[
             str, tuple[int, float]
         ] = {}  # url -> (failures, last_failure_time)

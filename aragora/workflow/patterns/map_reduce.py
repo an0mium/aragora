@@ -58,7 +58,7 @@ class MapReducePattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "",
         split_strategy: str = "chunks",  # chunks, lines, sections, files
         chunk_size: int = 4000,

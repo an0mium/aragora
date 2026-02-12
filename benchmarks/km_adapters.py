@@ -130,7 +130,7 @@ class KMAdapterBenchmark:
         self,
         iterations: int = 100,
         concurrent: int = 10,
-        adapters: Optional[list[str]] = None,
+        adapters: list[str] | None = None,
     ):
         self.iterations = iterations
         self.concurrent = concurrent
@@ -143,7 +143,7 @@ class KMAdapterBenchmark:
             "belief",
         ]
         self.results: list[BenchmarkResult] = []
-        self._temp_dir: Optional[tempfile.TemporaryDirectory] = None
+        self._temp_dir: tempfile.TemporaryDirectory | None = None
 
     async def setup(self) -> None:
         """Set up benchmark environment."""

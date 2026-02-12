@@ -124,7 +124,7 @@ class TeamsConversationReference:
         return reference
 
     @classmethod
-    def from_activity(cls, activity: dict[str, Any]) -> "TeamsConversationReference":
+    def from_activity(cls, activity: dict[str, Any]) -> TeamsConversationReference:
         """
         Create a conversation reference from a Bot Framework activity.
 

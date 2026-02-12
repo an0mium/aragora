@@ -632,7 +632,7 @@ class SecretsRotationScheduler:
         description: str = "",
         rotation_interval_days: int | None = None,
         owner: str | None = None,
-        tags: Optional[dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> SecretMetadata:
         """Register a secret for managed rotation.
 

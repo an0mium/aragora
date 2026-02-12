@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 class _MoundProtocol(Protocol):
     """Protocol for KnowledgeMound interface needed by extraction."""
 
-    async def store(self, request: Any) -> "IngestionResult": ...
+    async def store(self, request: Any) -> IngestionResult: ...
 
 
 logger = logging.getLogger(__name__)
@@ -510,9 +510,9 @@ class DebateKnowledgeExtractor:
 
     async def promote_to_mound(
         self,
-        mound: "_MoundProtocol",
+        mound: _MoundProtocol,
         workspace_id: str,
-        claims: Optional[list[ExtractedClaim]] = None,
+        claims: list[ExtractedClaim] | None = None,
         min_confidence: float | None = None,
     ) -> int:
         """Promote extracted claims to Knowledge Mound.
@@ -608,7 +608,7 @@ class ExtractionMixin:
     async def promote_extracted_knowledge(
         self,
         workspace_id: str,
-        claims: Optional[list[ExtractedClaim]] = None,
+        claims: list[ExtractedClaim] | None = None,
         min_confidence: float | None = None,
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""

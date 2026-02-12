@@ -87,8 +87,8 @@ class MockRelationship:
     to_node_id: str
     relationship_type: str
     strength: float = 1.0
-    created_at: Optional[datetime] = None
-    created_by: Optional[str] = None
+    created_at: datetime | None = None
+    created_by: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -104,7 +104,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)
@@ -116,7 +116,7 @@ class MockHandler:
 class RelationshipHandler(RelationshipOperationsMixin):
     """Handler implementation for testing RelationshipOperationsMixin."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None, user: Optional[MockUser] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None, user: MockUser | None = None):
         self._mound = mound
         self._user = user or MockUser()
         self.ctx = {}

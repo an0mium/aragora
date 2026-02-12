@@ -108,7 +108,7 @@ class OTelConfig:
             raise ValueError(f"export_timeout_ms must be positive, got {self.export_timeout_ms}")
 
     @classmethod
-    def from_env(cls) -> "OTelConfig":
+    def from_env(cls) -> OTelConfig:
         """Create configuration from environment variables.
 
         Prioritizes standard OTEL_* variables over ARAGORA_* ones.
@@ -495,7 +495,7 @@ def get_tracer(
 @contextmanager
 def start_span(
     name: str,
-    attributes: Optional[dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
     tracer_name: str = "aragora",
 ) -> Iterator[Any]:
     """Create a traced span as a context manager.
@@ -854,22 +854,22 @@ def export_debate_span_to_otel(span: Any) -> None:
 class _NoOpSpan:
     """No-op span for when OpenTelemetry is not available."""
 
-    def set_attribute(self, key: str, value: Any) -> "_NoOpSpan":
+    def set_attribute(self, key: str, value: Any) -> _NoOpSpan:
         return self
 
-    def set_attributes(self, attributes: dict[str, Any]) -> "_NoOpSpan":
+    def set_attributes(self, attributes: dict[str, Any]) -> _NoOpSpan:
         return self
 
-    def add_event(self, name: str, attributes: Optional[dict[str, Any]] = None) -> "_NoOpSpan":
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> _NoOpSpan:
         return self
 
-    def record_exception(self, exception: BaseException, **kwargs: Any) -> "_NoOpSpan":
+    def record_exception(self, exception: BaseException, **kwargs: Any) -> _NoOpSpan:
         return self
 
-    def set_status(self, *args: Any, **kwargs: Any) -> "_NoOpSpan":
+    def set_status(self, *args: Any, **kwargs: Any) -> _NoOpSpan:
         return self
 
-    def update_name(self, name: str) -> "_NoOpSpan":
+    def update_name(self, name: str) -> _NoOpSpan:
         return self
 
     def end(self, end_time: Any = None) -> None:
@@ -878,10 +878,10 @@ class _NoOpSpan:
     def is_recording(self) -> bool:
         return False
 
-    def get_span_context(self) -> "_NoOpSpanContext":
+    def get_span_context(self) -> _NoOpSpanContext:
         return _NoOpSpanContext()
 
-    def __enter__(self) -> "_NoOpSpan":
+    def __enter__(self) -> _NoOpSpan:
         return self
 
     def __exit__(self, *args: Any) -> None:

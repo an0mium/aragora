@@ -547,7 +547,7 @@ class CachePreset:
         self.ttl_seconds = ttl_seconds
         self.maxsize = maxsize
         self.description = description
-        self._cache: Optional[TTLCache[Any]] = None
+        self._cache: TTLCache[Any] | None = None
 
     @property
     def cache(self) -> TTLCache[Any]:
@@ -620,7 +620,7 @@ class CacheManager:
         all_stats = manager.get_all_stats()
     """
 
-    _instance: Optional["CacheManager"] = None
+    _instance: CacheManager | None = None
     _lock = threading.Lock()
 
     # Domain-grouped preset configurations
@@ -727,7 +727,7 @@ class CacheManager:
         self._init_lock = threading.Lock()
 
     @classmethod
-    def get_instance(cls) -> "CacheManager":
+    def get_instance(cls) -> CacheManager:
         """Get the singleton instance of CacheManager."""
         if cls._instance is None:
             with cls._lock:

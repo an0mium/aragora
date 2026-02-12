@@ -82,7 +82,7 @@ class SlackResponseCapture:
         """Add a response_url POST."""
         self.response_url_posts.append(data)
 
-    def get_final_result(self) -> Optional[dict[str, Any]]:
+    def get_final_result(self) -> dict[str, Any] | None:
         """Get the final debate result message."""
         for post in reversed(self.response_url_posts):
             text = post.get("text", "")

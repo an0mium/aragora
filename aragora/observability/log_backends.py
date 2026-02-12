@@ -136,7 +136,7 @@ class LocalFileBackend(AuditLogBackend):
             return
 
         try:
-            with open(self.log_file, "r") as f:
+            with open(self.log_file) as f:
                 offset = 0
                 for line in f:
                     if line.strip():
@@ -185,7 +185,7 @@ class LocalFileBackend(AuditLogBackend):
             return None
 
         try:
-            with open(self.log_file, "r") as f:
+            with open(self.log_file) as f:
                 f.seek(offset)
                 line = f.readline()
                 if line:
@@ -207,7 +207,7 @@ class LocalFileBackend(AuditLogBackend):
             return None
 
         try:
-            with open(self.log_file, "r") as f:
+            with open(self.log_file) as f:
                 f.seek(offset)
                 line = f.readline()
                 if line:
@@ -262,7 +262,7 @@ class LocalFileBackend(AuditLogBackend):
         results = []
         skipped = 0
 
-        with open(self.log_file, "r") as f:
+        with open(self.log_file) as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -344,7 +344,7 @@ class LocalFileBackend(AuditLogBackend):
             return 0
 
         count = 0
-        with open(self.log_file, "r") as f:
+        with open(self.log_file) as f:
             for line in f:
                 if not line.strip():
                     continue

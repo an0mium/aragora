@@ -218,13 +218,13 @@ class WebhookConfig:
         return json.dumps(asdict(self))
 
     @classmethod
-    def from_json(cls, json_str: str) -> "WebhookConfig":
+    def from_json(cls, json_str: str) -> WebhookConfig:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(**data)
 
     @classmethod
-    def from_row(cls, row: tuple) -> "WebhookConfig":
+    def from_row(cls, row: tuple) -> WebhookConfig:
         """Create from database row."""
         return cls(
             id=row[0],
@@ -294,7 +294,7 @@ class WebhookConfigStoreBackend(ABC):
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[_list[str]] = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -396,7 +396,7 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[_list[str]] = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -640,7 +640,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[_list[str]] = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -858,7 +858,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[_list[str]] = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -942,7 +942,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         CREATE INDEX IF NOT EXISTS idx_webhook_configs_active ON webhook_configs(active);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         self._pool = pool
         self._initialized = False
         logger.info("PostgresWebhookConfigStore initialized")
@@ -1132,7 +1132,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[_list[str]] = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -1146,7 +1146,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         self,
         webhook_id: str,
         url: str | None = None,
-        events: Optional[_list[str]] = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         name: str | None = None,
         description: str | None = None,

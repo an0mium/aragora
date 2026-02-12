@@ -64,7 +64,7 @@ class OutlookCalendarEvent:
     online_meeting_url: str | None = None
     online_meeting_provider: str | None = None
     is_online_meeting: bool = False
-    recurrence: Optional[dict[str, Any]] = None
+    recurrence: dict[str, Any] | None = None
     series_master_id: str | None = None
     response_status: str | None = None
     sensitivity: str = "normal"  # normal, personal, private, confidential
@@ -193,7 +193,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
         max_results: int = 250,
         user_id: str = "me",
         **kwargs,
@@ -716,7 +716,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        email_addresses: Optional[list[str]] = None,
+        email_addresses: list[str] | None = None,
     ) -> dict[str, list[OutlookFreeBusySlot]]:
         """
         Get free/busy schedule information.
@@ -778,7 +778,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> dict[str, list[OutlookFreeBusySlot]]:
         """
         Get free/busy information for calendars.
@@ -833,7 +833,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         time_min: datetime,
         time_max: datetime,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> bool:
         """
         Check if user is available during a time range.
@@ -860,7 +860,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
     async def get_upcoming_events(
         self,
         hours: int = 24,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> list[OutlookCalendarEvent]:
         """
         Get upcoming events within a time window.
@@ -899,7 +899,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
         self,
         proposed_start: datetime,
         proposed_end: datetime,
-        calendar_ids: Optional[list[str]] = None,
+        calendar_ids: list[str] | None = None,
     ) -> list[OutlookCalendarEvent]:
         """
         Find events that conflict with a proposed time.

@@ -75,7 +75,7 @@ class AragoraClient:
         self.timeout = timeout or self.DEFAULT_TIMEOUT
         self._session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self) -> "AragoraClient":
+    async def __aenter__(self) -> AragoraClient:
         """Enter async context manager."""
         await self._ensure_session()
         return self
@@ -245,7 +245,7 @@ class AragoraClient:
         Returns:
             ReviewResult
         """
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             spec = f.read()
         return await self.review(spec, personas=personas, rounds=rounds, **kwargs)
 

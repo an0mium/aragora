@@ -60,7 +60,7 @@ class TemplateRegistry:
     def list(
         self,
         category: TemplateCategory | None = None,
-        tags: Optional[builtins.list[str]] = None,
+        tags: builtins.list[str] | None = None,
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -104,7 +104,7 @@ class TemplateRegistry:
     def count(
         self,
         category: TemplateCategory | None = None,
-        tags: Optional[builtins.list[str]] = None,
+        tags: builtins.list[str] | None = None,
     ) -> int:
         """Count templates with optional filtering."""
         return len(self.list(category=category, tags=tags, limit=10000))
@@ -150,7 +150,7 @@ class TemplateRegistry:
         except ImportError:
             logger.warning("PyYAML not installed, cannot load YAML templates")
             return 0
-        except (OSError, IOError, ValueError, Exception) as e:
+        except (OSError, ValueError, Exception) as e:
             logger.error(f"Failed to load templates from {yaml_path}: {e}")
             return 0
 
@@ -189,7 +189,7 @@ def get_template(name: str) -> DeliberationTemplate | None:
 
 def list_templates(
     category: str | None = None,
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
     search: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -217,7 +217,7 @@ def load_templates_from_yaml(path: Path) -> int:
     return _global_registry.load_from_yaml(path)
 
 
-def get_template_dict(name: str) -> Optional[dict[str, Any]]:
+def get_template_dict(name: str) -> dict[str, Any] | None:
     """Get a template as a dictionary."""
     template = get_template(name)
     return template.to_dict() if template else None

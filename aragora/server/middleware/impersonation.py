@@ -93,7 +93,7 @@ class ImpersonationContext:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_session(cls, session: ImpersonationSession) -> "ImpersonationContext":
+    def from_session(cls, session: ImpersonationSession) -> ImpersonationContext:
         """Create context from an impersonation session."""
         return cls(
             is_impersonated=True,
@@ -166,7 +166,7 @@ def _get_session_id_from_header(handler: Any) -> str | None:
     return None
 
 
-def _error_response(message: str, status: int = 403) -> "HandlerResult":
+def _error_response(message: str, status: int = 403) -> HandlerResult:
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 

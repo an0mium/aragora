@@ -83,7 +83,7 @@ class KnowledgeMoundAccessControl:
 
     def __init__(
         self,
-        checker: "PermissionChecker | None" = None,
+        checker: PermissionChecker | None = None,
         enforce_tenant_isolation: bool = True,
         audit_access: bool = True,
     ) -> None:
@@ -100,7 +100,7 @@ class KnowledgeMoundAccessControl:
         self._access_log: list[KnowledgeAccessResult] = []
 
     @property
-    def checker(self) -> "PermissionChecker | None":
+    def checker(self) -> PermissionChecker | None:
         """Get the permission checker, initializing lazily if needed."""
         if self._checker is None:
             try:
@@ -133,7 +133,7 @@ class KnowledgeMoundAccessControl:
 
     def _check_permission(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         permission: str,
         resource_id: str | None = None,
     ) -> KnowledgeAccessResult:
@@ -201,7 +201,7 @@ class KnowledgeMoundAccessControl:
 
     async def can_read(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         item_id: str | None = None,
     ) -> bool:
         """Check if context can read knowledge items.
@@ -218,7 +218,7 @@ class KnowledgeMoundAccessControl:
 
     async def can_write(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         item_id: str | None = None,
     ) -> bool:
         """Check if context can write/create knowledge items.
@@ -235,7 +235,7 @@ class KnowledgeMoundAccessControl:
 
     async def can_update(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         item_id: str,
     ) -> bool:
         """Check if context can update a knowledge item.
@@ -252,7 +252,7 @@ class KnowledgeMoundAccessControl:
 
     async def can_delete(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         item_id: str,
     ) -> bool:
         """Check if context can delete a knowledge item.
@@ -269,7 +269,7 @@ class KnowledgeMoundAccessControl:
 
     async def can_share(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         item_id: str,
     ) -> bool:
         """Check if context can share a knowledge item.
@@ -286,7 +286,7 @@ class KnowledgeMoundAccessControl:
 
     async def can_admin(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
     ) -> bool:
         """Check if context has admin access to Knowledge Mound.
 
@@ -301,7 +301,7 @@ class KnowledgeMoundAccessControl:
 
     def filter_by_tenant(
         self,
-        ctx: "AuthorizationContext | None",
+        ctx: AuthorizationContext | None,
         items: list[Any],
     ) -> list[Any]:
         """Filter items to only those accessible by the tenant.

@@ -130,7 +130,7 @@ def is_excluded(file_path: str, function_name: str) -> bool:
     return False
 
 
-def get_permission_for_handler(file_path: str, function_name: str) -> Optional[str]:
+def get_permission_for_handler(file_path: str, function_name: str) -> str | None:
     """Determine the appropriate permission for a handler."""
     # Check exclusions first
     if is_excluded(file_path, function_name):

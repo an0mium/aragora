@@ -61,7 +61,7 @@ class ContentModerationError(Exception):
         message: str,
         verdict: SpamVerdict = SpamVerdict.SPAM,
         confidence: float = 0.0,
-        reasons: Optional[list[str]] = None,
+        reasons: list[str] | None = None,
     ):
         super().__init__(message)
         self.verdict = verdict
@@ -155,7 +155,7 @@ class SpamModerationConfig:
     log_all_checks: bool = False  # Log every check (verbose)
 
     @classmethod
-    def from_env(cls) -> "SpamModerationConfig":
+    def from_env(cls) -> SpamModerationConfig:
         """Load configuration from environment variables."""
         return cls(
             enabled=os.getenv("ARAGORA_SPAM_CHECK_ENABLED", "true").lower() == "true",
@@ -211,7 +211,7 @@ class SpamModerationConfig:
 # Moderation Review Queue (in-memory)
 # =============================================================================
 
-_REVIEW_QUEUE: "OrderedDict[str, ModerationQueueItem]" = OrderedDict()
+_REVIEW_QUEUE: OrderedDict[str, ModerationQueueItem] = OrderedDict()
 _REVIEW_QUEUE_LOCK = Lock()
 _REVIEW_QUEUE_MAX = int(os.getenv("ARAGORA_MODERATION_QUEUE_MAX", "1000"))
 
@@ -284,7 +284,7 @@ class SpamModerationIntegration:
 
     def __init__(
         self,
-        classifier: Optional["SpamClassifier"] = None,
+        classifier: SpamClassifier | None = None,
         config: SpamModerationConfig | None = None,
     ):
         """
@@ -368,7 +368,7 @@ class SpamModerationIntegration:
     async def check_content(
         self,
         content: str,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> SpamCheckResult:
         """
         Check content for spam.
@@ -478,7 +478,7 @@ class SpamModerationIntegration:
         self,
         proposal: str,
         context: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SpamCheckResult:
         """
         Check debate proposal for spam before processing.
@@ -541,7 +541,7 @@ class SpamModerationIntegration:
 
     def _classification_to_result(
         self,
-        classification: "SpamClassificationResult",
+        classification: SpamClassificationResult,
         content_hash: str,
         start_time: float,
     ) -> SpamCheckResult:
@@ -662,7 +662,7 @@ def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
 async def check_debate_content(
     proposal: str,
     context: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> SpamCheckResult:
     """
     Convenience function to check debate content for spam.

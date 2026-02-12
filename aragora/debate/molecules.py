@@ -134,7 +134,7 @@ class Molecule:
         round_number: int,
         input_data: dict[str, Any] | None = None,
         depends_on: list[str] | None = None,
-    ) -> "Molecule":
+    ) -> Molecule:
         """Create a new molecule."""
         return cls(
             molecule_id=f"mol-{uuid.uuid4().hex[:8]}",
@@ -207,7 +207,7 @@ class Molecule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Molecule":
+    def from_dict(cls, data: dict[str, Any]) -> Molecule:
         """Deserialize from dictionary."""
         return cls(
             molecule_id=data["molecule_id"],

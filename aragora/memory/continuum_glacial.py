@@ -105,12 +105,12 @@ class ContinuumGlacialMixin:
     def retrieve(
         self,
         query: str | None = None,
-        tiers: Optional[list["MemoryTier"]] = None,
+        tiers: list[MemoryTier] | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
         include_glacial: bool = True,
         tier: Any | None = None,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Retrieve memories matching criteria.
 
         When used as a mixin, delegates to ContinuumMemory.retrieve().
@@ -150,7 +150,7 @@ class ContinuumGlacialMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Retrieve memories from glacial tier with 30-day confidence decay.
 
         This method applies time-based confidence decay specific to the
@@ -261,7 +261,7 @@ class ContinuumGlacialMixin:
         topic: str | None = None,
         limit: int = 10,
         min_importance: float = 0.3,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve long-term patterns from the glacial tier for cross-session learning.
 
@@ -298,7 +298,7 @@ class ContinuumGlacialMixin:
         topic: str | None = None,
         limit: int = 10,
         min_importance: float = 0.3,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for get_glacial_insights() for use in async contexts."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -315,7 +315,7 @@ class ContinuumGlacialMixin:
         domain: str | None = None,
         include_slow: bool = True,
         limit: int = 20,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Get patterns that persist across sessions (slow + glacial tiers).
 
@@ -354,7 +354,7 @@ class ContinuumGlacialMixin:
         domain: str | None = None,
         include_slow: bool = True,
         limit: int = 20,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for get_cross_session_patterns()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(

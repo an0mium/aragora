@@ -42,7 +42,7 @@ class GmailBaseMethods(Protocol):
     user_id: str
     include_spam_trash: bool
     exclude_labels: set[str]
-    labels: Optional[list[str]]
+    labels: list[str] | None
     max_results: int
 
     @property
@@ -52,7 +52,7 @@ class GmailBaseMethods(Protocol):
         self, endpoint: str, method: str = "GET", **kwargs: Any
     ) -> dict[str, Any]: ...
     @asynccontextmanager
-    def _get_client(self) -> AsyncIterator["httpx.AsyncClient"]: ...
+    def _get_client(self) -> AsyncIterator[httpx.AsyncClient]: ...
     def check_circuit_breaker(self) -> bool: ...
     def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
@@ -66,7 +66,7 @@ class GmailMessagesMixin(GmailBaseMethods):
     async def list_messages(
         self,
         query: str = "",
-        label_ids: Optional[list[str]] = None,
+        label_ids: list[str] | None = None,
         page_token: str | None = None,
         max_results: int = 100,
     ) -> tuple[list[str], str | None]:
@@ -644,8 +644,8 @@ class GmailMessagesMixin(GmailBaseMethods):
         to: list[str],
         subject: str,
         body: str,
-        cc: Optional[list[str]] = None,
-        bcc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
         reply_to: str | None = None,
         html_body: str | None = None,
     ) -> dict[str, Any]:
@@ -736,7 +736,7 @@ class GmailMessagesMixin(GmailBaseMethods):
         self,
         original_message_id: str,
         body: str,
-        cc: Optional[list[str]] = None,
+        cc: list[str] | None = None,
         html_body: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -964,7 +964,7 @@ class GmailMessagesMixin(GmailBaseMethods):
     async def rank_inbox(
         self,
         max_messages: int = 50,
-        labels: Optional[list[str]] = None,
+        labels: list[str] | None = None,
         query: str = "",
     ) -> list[dict[str, Any]]:
         """

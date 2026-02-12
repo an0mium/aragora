@@ -11,7 +11,7 @@ import sys
 def check_orchestrator_sanitization():
     """Verify if sanitization already exists"""
     try:
-        with open("aragora/debate/orchestrator.py", "r") as f:
+        with open("aragora/debate/orchestrator.py") as f:
             content = f.read()
 
         findings = []
@@ -55,7 +55,7 @@ def check_fork_bridge():
         # Check if fork_handler.py exists
         if os.path.exists("aragora/server/fork_handler.py"):
             findings.append("fork_handler.py exists")
-            with open("aragora/server/fork_handler.py", "r") as f:
+            with open("aragora/server/fork_handler.py") as f:
                 content = f.read()
                 if "handle_start_fork" in content:
                     findings.append("ForkBridgeHandler.handle_start_fork method exists")
@@ -70,7 +70,7 @@ def check_fork_bridge():
         fork_integrated = False
         for module_path in stream_modules:
             try:
-                with open(module_path, "r") as f:
+                with open(module_path) as f:
                     if "ForkBridgeHandler" in f.read():
                         fork_integrated = True
                         findings.append(f"ForkBridgeHandler integrated in {module_path}")

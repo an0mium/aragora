@@ -25,7 +25,7 @@ class Counter:
     _values: dict[tuple, float] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock)
 
-    def labels(self, **kwargs: str) -> "LabeledCounter":
+    def labels(self, **kwargs: str) -> LabeledCounter:
         """Get a labeled instance of this counter."""
         return LabeledCounter(self, tuple(sorted(kwargs.items())))
 
@@ -70,7 +70,7 @@ class Gauge:
     _values: dict[tuple, float] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock)
 
-    def labels(self, **kwargs: str) -> "LabeledGauge":
+    def labels(self, **kwargs: str) -> LabeledGauge:
         """Get a labeled instance of this gauge."""
         return LabeledGauge(self, tuple(sorted(kwargs.items())))
 
@@ -137,7 +137,7 @@ class Histogram:
     _totals: dict[tuple, int] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock)
 
-    def labels(self, **kwargs: str) -> "LabeledHistogram":
+    def labels(self, **kwargs: str) -> LabeledHistogram:
         """Get a labeled instance of this histogram."""
         return LabeledHistogram(self, tuple(sorted(kwargs.items())))
 

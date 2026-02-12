@@ -220,7 +220,7 @@ class TestSpectatorStream:
         # Create a mock output that raises on write
         class FailingOutput:
             def write(self, s):
-                raise IOError("Write failed")
+                raise OSError("Write failed")
 
             def flush(self):
                 pass

@@ -50,7 +50,7 @@ class DrillResult:
     success: bool
     duration_seconds: float
     details: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass

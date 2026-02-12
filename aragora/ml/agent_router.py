@@ -62,7 +62,7 @@ class AgentCapabilities:
     elo_rating: float = 1000.0
 
     @classmethod
-    def default_capabilities(cls) -> dict[str, "AgentCapabilities"]:
+    def default_capabilities(cls) -> dict[str, AgentCapabilities]:
         """Get default capabilities for known agents."""
         return {
             "claude": cls(
@@ -441,7 +441,7 @@ class AgentRouter:
         task: str,
         available_agents: Sequence[str],
         team_size: int = 3,
-        constraints: Optional[dict[str, Any]] = None,
+        constraints: dict[str, Any] | None = None,
     ) -> RoutingDecision:
         """Route a task to optimal agents.
 

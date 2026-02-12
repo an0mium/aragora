@@ -96,7 +96,7 @@ class SeverityLevel(Enum):
         return mapping[self]
 
     @classmethod
-    def from_numeric(cls, value: float) -> "SeverityLevel":
+    def from_numeric(cls, value: float) -> SeverityLevel:
         """Convert numeric value to severity level."""
         if value >= 0.9:
             return cls.CRITICAL

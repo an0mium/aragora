@@ -63,7 +63,7 @@ def calculate_verification_elo_change(
 
 
 def update_rating_from_verification(
-    rating: "AgentRating",
+    rating: AgentRating,
     domain: str,
     net_change: float,
     default_elo: float = DEFAULT_ELO,
@@ -91,7 +91,7 @@ def update_rating_from_verification(
 
 
 def get_verification_history(
-    db: "EloDatabase",
+    db: EloDatabase,
     agent_name: str,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
@@ -143,7 +143,7 @@ def get_verification_history(
 
 
 def calculate_verification_impact(
-    db: "EloDatabase",
+    db: EloDatabase,
     agent_name: str,
     limit: int = 50,
 ) -> dict[str, Any]:

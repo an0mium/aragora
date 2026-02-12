@@ -63,10 +63,10 @@ class DebateREPLContext:
     confidence: float
 
     # Original debate result (for full access)
-    _raw: Optional["DebateResult"] = None
+    _raw: DebateResult | None = None
 
 
-def load_debate_context(debate_result: "DebateResult") -> DebateREPLContext:
+def load_debate_context(debate_result: DebateResult) -> DebateREPLContext:
     """
     Load a DebateResult into a structured context for REPL navigation.
 

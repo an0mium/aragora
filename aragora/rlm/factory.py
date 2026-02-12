@@ -113,15 +113,15 @@ class RLMFactoryMetrics:
 _metrics = RLMFactoryMetrics()
 
 # Singleton instance for reuse
-_rlm_instance: Optional["AragoraRLM"] = None
+_rlm_instance: AragoraRLM | None = None
 
 
 def get_rlm(
-    config: Optional["RLMConfig"] = None,
+    config: RLMConfig | None = None,
     force_new: bool = False,
     mode: RLMMode | None = None,
     require_true_rlm: bool = False,
-) -> "AragoraRLM":
+) -> AragoraRLM:
     """
     Get AragoraRLM instance - PREFERS TRUE RLM when available.
 
@@ -167,7 +167,7 @@ def get_rlm(
 
     from .bridge import AragoraRLM, HAS_OFFICIAL_RLM
 
-    def _apply_env_overrides(rlm_config: "RLMConfig") -> "RLMConfig":
+    def _apply_env_overrides(rlm_config: RLMConfig) -> RLMConfig:
         env_max_bytes = os.environ.get("ARAGORA_RLM_MAX_CONTENT_BYTES")
         if env_max_bytes:
             try:
@@ -279,7 +279,7 @@ def get_rlm(
     return rlm
 
 
-def get_compressor(config: Optional["RLMConfig"] = None) -> "HierarchicalCompressor":
+def get_compressor(config: RLMConfig | None = None) -> HierarchicalCompressor:
     """
     Get HierarchicalCompressor directly (for specific compression-only use cases).
 
@@ -307,10 +307,10 @@ async def compress_and_query(
     query: str,
     content: str,
     source_type: str = "general",
-    config: Optional["RLMConfig"] = None,
+    config: RLMConfig | None = None,
     mode: RLMMode | None = None,
     require_true_rlm: bool = False,
-) -> "RLMResult":
+) -> RLMResult:
     """
     Convenience function for common compress+query pattern.
 

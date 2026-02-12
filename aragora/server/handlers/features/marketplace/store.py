@@ -161,7 +161,7 @@ def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
         return None
 
 
-def _get_full_template(template_id: str) -> Optional[dict[str, Any]]:
+def _get_full_template(template_id: str) -> dict[str, Any] | None:
     """Load the full template content."""
     templates = _load_templates()
     meta = templates.get(template_id)

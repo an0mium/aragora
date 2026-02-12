@@ -78,7 +78,7 @@ class BroadcastHandler(BaseHandler):
     ]
 
     # Cached pipeline instance
-    _pipeline: Optional["BroadcastPipeline"] = None
+    _pipeline: BroadcastPipeline | None = None
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the request."""
@@ -115,7 +115,7 @@ class BroadcastHandler(BaseHandler):
 
         return None
 
-    def _get_pipeline(self) -> Optional["BroadcastPipeline"]:
+    def _get_pipeline(self) -> BroadcastPipeline | None:
         """Get or create the broadcast pipeline."""
         if not PIPELINE_AVAILABLE:
             return None

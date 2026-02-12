@@ -34,7 +34,7 @@ class RetryPolicy:
     retryable_exceptions: tuple[type[Exception], ...] = (Exception,)
 
     @classmethod
-    def from_config(cls) -> "RetryPolicy":
+    def from_config(cls) -> RetryPolicy:
         """Create a RetryPolicy from the global queue config."""
         config = get_queue_config()
         return cls(

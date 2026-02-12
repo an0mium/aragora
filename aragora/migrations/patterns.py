@@ -106,12 +106,12 @@ class MigrationValidation:
     recommendations: list[str]
 
 
-def is_postgresql(backend: "DatabaseBackend") -> bool:
+def is_postgresql(backend: DatabaseBackend) -> bool:
     """Check if backend is PostgreSQL."""
     return backend.__class__.__name__ == "PostgreSQLBackend"
 
 
-def get_table_row_count(backend: "DatabaseBackend", table: str) -> int:
+def get_table_row_count(backend: DatabaseBackend, table: str) -> int:
     """Get approximate row count for a table.
 
     Uses pg_class for PostgreSQL (fast estimate) or COUNT(*) for SQLite.
@@ -135,7 +135,7 @@ def get_table_row_count(backend: "DatabaseBackend", table: str) -> int:
 
 
 def safe_add_column(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     table: str,
     column: str,
     data_type: str,
@@ -195,7 +195,7 @@ def safe_add_column(
 
 
 def safe_add_nullable_column(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     table: str,
     column: str,
     data_type: str,
@@ -217,7 +217,7 @@ def safe_add_nullable_column(
 
 
 def safe_drop_column(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     table: str,
     column: str,
     verify_unused: bool = True,
@@ -271,7 +271,7 @@ def safe_drop_column(
 
 
 def safe_rename_column(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     table: str,
     old_name: str,
     new_name: str,
@@ -302,7 +302,7 @@ def safe_rename_column(
 
 
 def backfill_column(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     table: str,
     column: str,
     value: str,
@@ -401,7 +401,7 @@ def backfill_column(
 
 
 def safe_set_not_null(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     table: str,
     column: str,
     default: str | None = None,
@@ -449,7 +449,7 @@ def safe_set_not_null(
 
 
 def safe_create_index(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     index_name: str,
     table: str,
     columns: list[str],
@@ -489,7 +489,7 @@ def safe_create_index(
 
 
 def safe_drop_index(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     index_name: str,
     concurrently: bool = True,
 ) -> None:
@@ -511,7 +511,7 @@ def safe_drop_index(
 
 
 def validate_migration_safety(
-    backend: "DatabaseBackend",
+    backend: DatabaseBackend,
     operations: list[dict[str, Any]],
 ) -> MigrationValidation:
     """Validate whether migration operations are safe for production.

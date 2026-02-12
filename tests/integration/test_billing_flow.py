@@ -118,10 +118,10 @@ def starter_org(user_store, test_user) -> Organization:
 
 
 def create_mock_request(
-    body: Optional[dict] = None,
-    headers: Optional[dict] = None,
+    body: dict | None = None,
+    headers: dict | None = None,
     method: str = "POST",
-    query_params: Optional[dict] = None,
+    query_params: dict | None = None,
 ) -> MagicMock:
     """Create a mock HTTP request handler."""
     handler = MagicMock()

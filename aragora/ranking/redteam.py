@@ -84,7 +84,7 @@ class RedTeamIntegrator:
         summary = integrator.get_vulnerability_summary("claude")
     """
 
-    def __init__(self, elo_system: "EloSystem"):
+    def __init__(self, elo_system: EloSystem):
         """
         Initialize the red team integrator.
 

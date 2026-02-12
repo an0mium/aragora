@@ -257,7 +257,7 @@ class AuditOrchestrator:
     def __init__(
         self,
         profile: str | None = None,
-        verticals: Optional[list[AuditVertical]] = None,
+        verticals: list[AuditVertical] | None = None,
         workspace_id: str | None = None,
         max_concurrent: int = 5,
     ):

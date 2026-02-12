@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_default_dispatcher: Optional["NotificationDispatcher"] = None
+_default_dispatcher: NotificationDispatcher | None = None
 
 # =============================================================================
 # Configuration
@@ -124,7 +124,7 @@ class QueuedNotification:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "QueuedNotification":
+    def from_dict(cls, data: dict[str, Any]) -> QueuedNotification:
         """Deserialize from queue storage."""
         message_data = data["message"]
         message = NotificationMessage(
@@ -320,7 +320,7 @@ class NotificationDispatcher:
     def __init__(
         self,
         manager: NotificationManager,
-        redis: Optional["Redis"] = None,
+        redis: Redis | None = None,
         config: NotificationDispatcherConfig | None = None,
     ) -> None:
         self._manager = manager
@@ -343,7 +343,7 @@ class NotificationDispatcher:
         }
 
         # Worker state
-        self._worker_task: Optional[asyncio.Task[None]] = None
+        self._worker_task: asyncio.Task[None] | None = None
         self._shutdown = False
 
         # Register email provider if not already registered
@@ -383,7 +383,7 @@ class NotificationDispatcher:
         title: str,
         body: str,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         workspace_id: str | None = None,
         link_url: str | None = None,
         link_text: str | None = None,
@@ -798,7 +798,7 @@ class NotificationDispatcher:
 
 def create_notification_dispatcher(
     manager: NotificationManager | None = None,
-    redis: Optional["Redis"] = None,
+    redis: Redis | None = None,
     config: NotificationDispatcherConfig | None = None,
 ) -> NotificationDispatcher:
     """
@@ -825,12 +825,12 @@ def create_notification_dispatcher(
     )
 
 
-def get_default_notification_dispatcher() -> Optional["NotificationDispatcher"]:
+def get_default_notification_dispatcher() -> NotificationDispatcher | None:
     """Get the default notification dispatcher, if configured."""
     return _default_dispatcher
 
 
-def set_default_notification_dispatcher(dispatcher: "NotificationDispatcher") -> None:
+def set_default_notification_dispatcher(dispatcher: NotificationDispatcher) -> None:
     """Set the default notification dispatcher."""
     global _default_dispatcher
     _default_dispatcher = dispatcher
@@ -870,7 +870,7 @@ async def send_security_notification(
     title: str,
     message: str,
     severity: str = "medium",
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> bool:
     """
     Send a security-related notification to the security team.

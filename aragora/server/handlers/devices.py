@@ -273,7 +273,7 @@ class DeviceHandler(SecureHandler):
         method: str,
         query_params: dict[str, Any],
         handler: Any,
-        body: Optional[dict[str, Any]],
+        body: dict[str, Any] | None,
     ) -> HandlerResult | None:
         """Route device requests."""
         normalized = strip_version_prefix(path)

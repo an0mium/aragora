@@ -51,7 +51,7 @@ class MockMemoryManager:
         self.outcomes_updated = False
 
     def store_debate_outcome(
-        self, result: Any, task: str, belief_cruxes: Optional[list[str]] = None
+        self, result: Any, task: str, belief_cruxes: list[str] | None = None
     ) -> None:
         self.stored_outcomes.append(
             {
@@ -69,7 +69,7 @@ class MockMemoryManager:
             }
         )
 
-    def track_retrieved_ids(self, ids: set, tiers: Optional[dict] = None) -> None:
+    def track_retrieved_ids(self, ids: set, tiers: dict | None = None) -> None:
         # Copy the sets/dicts to preserve values before cache clearing
         self.tracked_ids.append({"ids": set(ids), "tiers": dict(tiers) if tiers else None})
 
@@ -187,7 +187,7 @@ class TestCreateCheckpoint:
         """Test checkpoint creation handles errors gracefully."""
         checkpoint_mgr = MagicMock()
         checkpoint_mgr.should_checkpoint.return_value = True
-        checkpoint_mgr.create_checkpoint = AsyncMock(side_effect=IOError("Disk full"))
+        checkpoint_mgr.create_checkpoint = AsyncMock(side_effect=OSError("Disk full"))
         ops = CheckpointOperations(checkpoint_manager=checkpoint_mgr)
 
         ctx = MockDebateContext()

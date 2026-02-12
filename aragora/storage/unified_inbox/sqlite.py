@@ -178,7 +178,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         conn.commit()
 
-    async def get_account(self, tenant_id: str, account_id: str) -> Optional[dict[str, Any]]:
+    async def get_account(self, tenant_id: str, account_id: str) -> dict[str, Any] | None:
         conn = self._get_conn()
         row = conn.execute(
             """
@@ -388,7 +388,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         return message_id, True
 
-    async def get_message(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_message(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         conn = self._get_conn()
         row = conn.execute(
             """
@@ -586,7 +586,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
         )
         conn.commit()
 
-    async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
+    async def get_triage_result(self, tenant_id: str, message_id: str) -> dict[str, Any] | None:
         conn = self._get_conn()
         row = conn.execute(
             """

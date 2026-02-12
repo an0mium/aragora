@@ -49,12 +49,12 @@ import builtins
 def _make_webhook(
     webhook_id: str = "wh-001",
     url: str = "https://example.com/hook",
-    events: Optional[list[str]] = None,
+    events: list[str] | None = None,
     secret: str = "test-secret-key",
     active: bool = True,
-    user_id: Optional[str] = "user-1",
-    name: Optional[str] = "Test Webhook",
-    description: Optional[str] = "A test webhook",
+    user_id: str | None = "user-1",
+    name: str | None = "Test Webhook",
+    description: str | None = "A test webhook",
 ) -> WebhookConfig:
     """Create a WebhookConfig for testing."""
     return WebhookConfig(
@@ -77,7 +77,7 @@ class MockUser:
 
     user_id: str = "user-1"
     role: str = "admin"
-    org_id: Optional[str] = None
+    org_id: str | None = None
 
 
 class MockWebhookStore:
@@ -90,9 +90,9 @@ class MockWebhookStore:
         self,
         url: str,
         events: builtins.list[str],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        user_id: Optional[str] = None,
+        name: str | None = None,
+        description: str | None = None,
+        user_id: str | None = None,
     ) -> WebhookConfig:
         webhook = _make_webhook(
             webhook_id=f"wh-{len(self._webhooks) + 1:03d}",
@@ -105,12 +105,12 @@ class MockWebhookStore:
         self._webhooks[webhook.id] = webhook
         return webhook
 
-    def get(self, webhook_id: str) -> Optional[WebhookConfig]:
+    def get(self, webhook_id: str) -> WebhookConfig | None:
         return self._webhooks.get(webhook_id)
 
     def list(
         self,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         active_only: bool = False,
     ) -> builtins.list[WebhookConfig]:
         result = list(self._webhooks.values())
@@ -129,11 +129,11 @@ class MockWebhookStore:
     def update(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[builtins.list[str]] = None,
-        active: Optional[bool] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
+        url: str | None = None,
+        events: builtins.list[str] | None = None,
+        active: bool | None = None,
+        name: str | None = None,
+        description: str | None = None,
     ) -> WebhookConfig:
         webhook = self._webhooks[webhook_id]
         if url is not None:
@@ -151,7 +151,7 @@ class MockWebhookStore:
 
 
 def _make_handler_instance(
-    webhook_store: Optional[MockWebhookStore] = None,
+    webhook_store: MockWebhookStore | None = None,
 ) -> WebhookHandler:
     """Create a WebhookHandler with mocked dependencies."""
     store = webhook_store or MockWebhookStore()
@@ -160,7 +160,7 @@ def _make_handler_instance(
     return handler
 
 
-def _make_mock_http_handler(user: Optional[MockUser] = None) -> MagicMock:
+def _make_mock_http_handler(user: MockUser | None = None) -> MagicMock:
     """Create a mock HTTP handler (simulates the request handler object)."""
     mock = MagicMock()
     mock.headers = {"Content-Type": "application/json"}

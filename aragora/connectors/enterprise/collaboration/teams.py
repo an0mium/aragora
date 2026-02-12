@@ -131,8 +131,8 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
     def __init__(
         self,
-        team_ids: Optional[list[str]] = None,
-        channel_ids: Optional[list[str]] = None,
+        team_ids: list[str] | None = None,
+        channel_ids: list[str] | None = None,
         include_files: bool = True,
         include_replies: bool = True,
         include_reactions: bool = False,
@@ -229,7 +229,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         use_beta: bool = False,
     ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API."""
@@ -665,7 +665,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         self,
         query: str,
         limit: int = 25,
-        team_ids: Optional[list[str]] = None,
+        team_ids: list[str] | None = None,
         **kwargs: Any,
     ) -> list:
         """Search Teams messages using Microsoft Search API."""

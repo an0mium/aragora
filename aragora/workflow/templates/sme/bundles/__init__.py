@@ -105,7 +105,7 @@ def list_bundles() -> list[dict[str, Any]]:
     return bundles
 
 
-def get_bundle(bundle_id: str) -> Optional[dict[str, Any]]:
+def get_bundle(bundle_id: str) -> dict[str, Any] | None:
     """
     Load a specific bundle by ID.
 
@@ -130,7 +130,7 @@ def get_bundle(bundle_id: str) -> Optional[dict[str, Any]]:
         return None
 
     try:
-        with open(yaml_path, "r") as f:
+        with open(yaml_path) as f:
             return yaml.safe_load(f)
     except Exception as e:
         logger.error(f"Failed to load bundle {bundle_id}: {e}")
@@ -157,7 +157,7 @@ def load_all_bundles() -> dict[str, dict[str, Any]]:
     return bundles
 
 
-def get_bundle_for_use_case(use_case: str) -> Optional[dict[str, Any]]:
+def get_bundle_for_use_case(use_case: str) -> dict[str, Any] | None:
     """
     Get recommended bundle for a use case.
 

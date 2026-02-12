@@ -115,7 +115,7 @@ class PostgresBackend(AuditPersistenceBackend):
         self._initialized = True
         logger.info("PostgreSQL audit backend initialized")
 
-    def store(self, event: "AuditEvent") -> str:
+    def store(self, event: AuditEvent) -> str:
         """Store an audit event."""
         conn = self._get_connection()
         try:
@@ -154,7 +154,7 @@ class PostgresBackend(AuditPersistenceBackend):
             conn.rollback()
             raise PersistenceError(f"Failed to store audit event: {e}")
 
-    def get(self, event_id: str) -> "AuditEvent | None":
+    def get(self, event_id: str) -> AuditEvent | None:
         """Retrieve a single event by ID."""
 
         conn = self._get_connection()
@@ -168,7 +168,7 @@ class PostgresBackend(AuditPersistenceBackend):
                 return None
             return self._row_to_event(row, cursor.description)
 
-    def query(self, query: "AuditQuery") -> list["AuditEvent"]:
+    def query(self, query: AuditQuery) -> list[AuditEvent]:
         """Query events matching criteria."""
         conditions = []
         params: list[Any] = []
@@ -355,7 +355,7 @@ class PostgresBackend(AuditPersistenceBackend):
         self._connections.clear()
         self._conn_var.set(None)
 
-    def _row_to_event(self, row: tuple, description: Any) -> "AuditEvent":
+    def _row_to_event(self, row: tuple, description: Any) -> AuditEvent:
         """Convert database row to AuditEvent."""
         from aragora.audit.log import AuditCategory, AuditEvent, AuditOutcome
 

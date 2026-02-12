@@ -68,7 +68,7 @@ class TraceEvent:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TraceEvent":
+    def from_dict(cls, data: dict) -> TraceEvent:
         """Create from dictionary."""
         data["event_type"] = EventType(data["event_type"])
         return cls(**data)
@@ -169,7 +169,7 @@ class DebateTrace:
         return json.dumps(data, indent=indent)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "DebateTrace":
+    def from_json(cls, json_str: str) -> DebateTrace:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         stored_checksum = data.pop("checksum", None)
@@ -188,7 +188,7 @@ class DebateTrace:
         path.write_text(self.to_json())
 
     @classmethod
-    def load(cls, path: Path) -> "DebateTrace":
+    def load(cls, path: Path) -> DebateTrace:
         """Load trace from file."""
         if not path.exists():
             raise FileNotFoundError(f"Debate trace not found: {path}")
@@ -197,7 +197,7 @@ class DebateTrace:
         except OSError as e:
             raise OSError(f"Failed to read debate trace {path}: {e}") from e
 
-    def to_debate_result(self) -> "DebateResult":
+    def to_debate_result(self) -> DebateResult:
         """Convert trace to a DebateResult for analysis.
 
         Reconstructs messages and critiques from trace events.
@@ -592,12 +592,12 @@ class DebateReplayer:
         random.seed(trace.random_seed)
 
     @classmethod
-    def from_file(cls, path: Path) -> "DebateReplayer":
+    def from_file(cls, path: Path) -> DebateReplayer:
         """Load replayer from trace file."""
         return cls(DebateTrace.load(path))
 
     @classmethod
-    def from_database(cls, trace_id: str, db_path: str = "aragora_traces.db") -> "DebateReplayer":
+    def from_database(cls, trace_id: str, db_path: str = "aragora_traces.db") -> DebateReplayer:
         """Load replayer from database."""
         db = TracesDatabase(db_path)
         with db.connection() as conn:
@@ -650,7 +650,7 @@ class DebateReplayer:
         tracer.trace = self.trace
         return tracer.get_state_at_event(current_event.event_id)
 
-    def fork_at(self, event_id: str, new_seed: int | None = None) -> "DebateTracer":
+    def fork_at(self, event_id: str, new_seed: int | None = None) -> DebateTracer:
         """
         Create a new tracer forked from a specific event.
 

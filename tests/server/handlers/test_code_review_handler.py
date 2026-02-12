@@ -40,7 +40,7 @@ class MockReviewFinding:
     message: str
     line_start: int
     line_end: int
-    suggestion: Optional[str] = None
+    suggestion: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,7 +62,7 @@ class MockReviewResult:
     findings: list[MockReviewFinding]
     overall_score: float
     review_types: list[str]
-    language: Optional[str] = None
+    language: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {

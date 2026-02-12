@@ -149,7 +149,7 @@ class MockAgent(Agent):
         self.call_count = 0
         self.total_response_time_ms = 0
 
-    async def respond(self, prompt: str, context: Optional[str] = None) -> str:
+    async def respond(self, prompt: str, context: str | None = None) -> str:
         """Generate a mock response with simulated delay."""
         import random
 

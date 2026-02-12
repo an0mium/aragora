@@ -138,7 +138,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item."""
         metadata = km_item.get("metadata", {})
         confidence = km_item.get("confidence") or metadata.get("confidence")
@@ -157,7 +157,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a cost record."""
         try:
@@ -234,7 +234,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
 
     def __init__(
         self,
-        cost_tracker: Optional["CostTracker"] = None,
+        cost_tracker: CostTracker | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -283,8 +283,8 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
         self,
         record: Any,
         km_confidence: float,
-        cross_refs: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        cross_refs: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply KM validation to a cost record (required by ReverseFlowMixin)."""
         record["km_validated"] = True
@@ -316,7 +316,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
         return item.get("source_id") or item.get("id")
 
     @property
-    def cost_tracker(self) -> Optional["CostTracker"]:
+    def cost_tracker(self) -> CostTracker | None:
         """Access the underlying CostTracker."""
         return self._cost_tracker
 
@@ -331,7 +331,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
 
     def store_alert(
         self,
-        alert: "BudgetAlert",
+        alert: BudgetAlert,
     ) -> str | None:
         """
         Store a budget alert in the Knowledge Mound.
@@ -473,7 +473,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
         logger.debug(f"Stored cost snapshot: {snapshot_id}")
         return snapshot_id
 
-    def get_alert(self, alert_id: str) -> Optional[dict[str, Any]]:
+    def get_alert(self, alert_id: str) -> dict[str, Any] | None:
         """
         Get a specific alert by ID.
 
@@ -487,7 +487,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
             alert_id = f"{self.ID_PREFIX}alert_{alert_id}"
         return self._alerts.get(alert_id)
 
-    def get_anomaly(self, anomaly_id: str) -> Optional[dict[str, Any]]:
+    def get_anomaly(self, anomaly_id: str) -> dict[str, Any] | None:
         """
         Get a specific anomaly by ID.
 
@@ -735,7 +735,7 @@ class CostAdapter(FusionMixin, SemanticSearchMixin, ReverseFlowMixin, KnowledgeM
 
         return anomalies
 
-    def to_knowledge_item(self, alert: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, alert: dict[str, Any]) -> KnowledgeItem:
         """
         Convert an alert dict to a KnowledgeItem.
 

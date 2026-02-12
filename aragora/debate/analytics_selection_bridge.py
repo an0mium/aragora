@@ -104,11 +104,11 @@ class AnalyticsSelectionBridge:
     4. Infers domain expertise from finding distribution
     """
 
-    analytics_dashboard: Optional["AnalyticsDashboard"] = None
+    analytics_dashboard: AnalyticsDashboard | None = None
     config: AnalyticsSelectionBridgeConfig = field(default_factory=AnalyticsSelectionBridgeConfig)
 
     # Cached metrics
-    _metrics_cache: dict[str, "AgentMetrics"] = field(default_factory=dict, repr=False)
+    _metrics_cache: dict[str, AgentMetrics] = field(default_factory=dict, repr=False)
     _cache_timestamp: datetime | None = field(default=None, repr=False)
     _domain_expertise_cache: dict[str, DomainExpertise] = field(default_factory=dict, repr=False)
 
@@ -145,7 +145,7 @@ class AnalyticsSelectionBridge:
             logger.warning(f"Failed to refresh analytics metrics: {e}")
             return 0
 
-    def _compute_domain_expertise(self, metrics: "AgentMetrics") -> None:
+    def _compute_domain_expertise(self, metrics: AgentMetrics) -> None:
         """Compute domain expertise from finding distribution.
 
         Args:
@@ -345,7 +345,7 @@ class AnalyticsSelectionBridge:
 
         return [m.agent_name for m in sorted_agents[:top_n]]
 
-    def get_metrics(self, agent_name: str) -> Optional["AgentMetrics"]:
+    def get_metrics(self, agent_name: str) -> AgentMetrics | None:
         """Get cached metrics for an agent.
 
         Args:
@@ -386,7 +386,7 @@ class AnalyticsSelectionBridge:
 
 
 def create_analytics_selection_bridge(
-    analytics_dashboard: Optional["AnalyticsDashboard"] = None,
+    analytics_dashboard: AnalyticsDashboard | None = None,
     **config_kwargs: Any,
 ) -> AnalyticsSelectionBridge:
     """Create and configure an AnalyticsSelectionBridge.

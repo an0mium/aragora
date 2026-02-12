@@ -88,10 +88,10 @@ class TelegramHandler(
 
 
 # Export handler factory
-_telegram_handler: Optional["TelegramHandler"] = None
+_telegram_handler: TelegramHandler | None = None
 
 
-def get_telegram_handler(server_context: dict[str, Any] | None = None) -> "TelegramHandler":
+def get_telegram_handler(server_context: dict[str, Any] | None = None) -> TelegramHandler:
     """Get or create the Telegram handler instance."""
     global _telegram_handler
     if _telegram_handler is None:

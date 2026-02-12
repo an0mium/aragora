@@ -136,7 +136,7 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
         combined.export(str(output_path), format=format)
         return True
 
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.error(f"File I/O error mixing audio: {e}")
         return False
     except PermissionError as e:
@@ -244,7 +244,7 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
     except FileNotFoundError:
         logger.error("FFmpeg not found. Install ffmpeg to use audio mixing.")
         return False
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.error(f"File I/O error in FFmpeg mixing: {e}")
         return False
     except Exception as e:

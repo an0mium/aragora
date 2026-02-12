@@ -126,7 +126,7 @@ class AuthenticatedHandlerInterface(Protocol):
     Handlers implementing this interface provide authentication utilities.
     """
 
-    def get_current_user(self, handler: Any) -> Optional["UserAuthContext"]:
+    def get_current_user(self, handler: Any) -> UserAuthContext | None:
         """Get authenticated user from request, if any.
 
         Args:
@@ -139,7 +139,7 @@ class AuthenticatedHandlerInterface(Protocol):
 
     def require_auth_or_error(
         self, handler: Any
-    ) -> tuple[Optional["UserAuthContext"], HandlerResult | None]:
+    ) -> tuple[UserAuthContext | None, HandlerResult | None]:
         """Require authentication and return user or error response.
 
         Args:

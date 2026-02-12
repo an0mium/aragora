@@ -195,7 +195,7 @@ class BreakpointManager:
     def __init__(
         self,
         config: BreakpointConfig | None = None,
-        get_human_input: Optional[Callable[[Breakpoint], Awaitable[HumanGuidance]]] = None,
+        get_human_input: Callable[[Breakpoint], Awaitable[HumanGuidance]] | None = None,
         event_emitter: Any | None = None,
         loop_id: str | None = None,
     ):

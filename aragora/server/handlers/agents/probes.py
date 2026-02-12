@@ -457,7 +457,7 @@ class ProbesHandler(BaseHandler):
                             "file_name": report_file.name,
                         }
                     )
-                except (json.JSONDecodeError, IOError) as e:
+                except (OSError, json.JSONDecodeError) as e:
                     logger.debug("Skipping invalid probe file %s: %s", report_file, e)
 
         # Sort by created_at descending (newest first)
@@ -496,7 +496,7 @@ class ProbesHandler(BaseHandler):
                     # Verify report_id matches
                     if data.get("report_id") == report_id or report_id in report_file.name:
                         return json_response(data)
-                except (json.JSONDecodeError, IOError):
+                except (OSError, json.JSONDecodeError):
                     continue
 
         return error_response("Report not found", 404)

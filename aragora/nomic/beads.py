@@ -124,11 +124,11 @@ class Bead:
         title: str,
         description: str = "",
         parent_id: str | None = None,
-        dependencies: Optional[list[str]] = None,
+        dependencies: list[str] | None = None,
         priority: BeadPriority = BeadPriority.NORMAL,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "Bead":
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Bead:
         """Create a new bead with generated ID and timestamps."""
         now = datetime.now(timezone.utc)
         return cls(
@@ -163,7 +163,7 @@ class Bead:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Bead":
+    def from_dict(cls, data: dict[str, Any]) -> Bead:
         """Deserialize bead from dictionary."""
         return cls(
             id=data["id"],
@@ -333,7 +333,7 @@ class BeadStore:
                 logger.warning(f"Could not initialize git: {e}")
                 self.git_enabled = False
 
-    def _load_beads_sync(self) -> tuple[dict[str, "Bead"], dict[str, int]]:
+    def _load_beads_sync(self) -> tuple[dict[str, Bead], dict[str, int]]:
         """Synchronous helper to load all beads from JSONL file."""
         cache: dict[str, Bead] = {}
         index: dict[str, int] = {}

@@ -208,8 +208,8 @@ class MockAgent:
     metrics: Any = None
 
     # Arena role/stance attributes
-    role: Optional[str] = None  # "proposer", "critic", "synthesizer", "judge"
-    stance: Optional[str] = None  # "affirmative", "negative", "neutral"
+    role: str | None = None  # "proposer", "critic", "synthesizer", "judge"
+    stance: str | None = None  # "affirmative", "negative", "neutral"
 
     # System prompt for Arena compatibility
     system_prompt: str = ""
@@ -299,7 +299,7 @@ class MockAgent:
 def create_mock_agent(
     name: str,
     response: str = "Default response",
-    capabilities: Optional[list[str]] = None,
+    capabilities: list[str] | None = None,
 ) -> MockAgent:
     """Create a mock agent with common defaults.
 
@@ -342,18 +342,18 @@ class E2ETestHarness:
         await harness.stop()
     """
 
-    def __init__(self, config: Optional[E2ETestConfig] = None):
+    def __init__(self, config: E2ETestConfig | None = None):
         """Initialize the harness with configuration."""
         self.config = config or E2ETestConfig()
-        self.coordinator: Optional[ControlPlaneCoordinator] = None
-        self.scheduler: Optional[TaskScheduler] = None
-        self.registry: Optional[AgentRegistry] = None
-        self.health_monitor: Optional[HealthMonitor] = None
+        self.coordinator: ControlPlaneCoordinator | None = None
+        self.scheduler: TaskScheduler | None = None
+        self.registry: AgentRegistry | None = None
+        self.health_monitor: HealthMonitor | None = None
         self.agents: list[MockAgent] = []
         self._running = False
         self._worker_tasks: list[asyncio.Task] = []
         self._events: list[dict[str, Any]] = []
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
         # Log configuration in CI mode
         if self.config.ci_mode:
@@ -492,9 +492,9 @@ class E2ETestHarness:
 
     async def create_agent(
         self,
-        agent_id: Optional[str] = None,
-        capabilities: Optional[list[str]] = None,
-        config: Optional[MockAgentConfig] = None,
+        agent_id: str | None = None,
+        capabilities: list[str] | None = None,
+        config: MockAgentConfig | None = None,
     ) -> MockAgent:
         """Create and register a new mock agent."""
         if config:
@@ -535,7 +535,7 @@ class E2ETestHarness:
         self.agents.remove(agent)
         return await self.coordinator.unregister_agent(agent_id)
 
-    def get_agent(self, agent_id: str) -> Optional[MockAgent]:
+    def get_agent(self, agent_id: str) -> MockAgent | None:
         """Get a mock agent by ID."""
         return next((a for a in self.agents if a.id == agent_id), None)
 
@@ -547,9 +547,9 @@ class E2ETestHarness:
         self,
         task_type: str,
         payload: dict[str, Any],
-        required_capabilities: Optional[list[str]] = None,
+        required_capabilities: list[str] | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> str:
         """Submit a task and return task ID."""
         task_id = await self.coordinator.submit_task(
@@ -574,9 +574,9 @@ class E2ETestHarness:
     async def wait_for_task(
         self,
         task_id: str,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         process_with_agent: bool = True,
-    ) -> Optional[Task]:
+    ) -> Task | None:
         """Wait for task completion.
 
         Args:
@@ -629,8 +629,8 @@ class E2ETestHarness:
     async def claim_and_process_task(
         self,
         agent: MockAgent,
-        capabilities: Optional[list[str]] = None,
-    ) -> Optional[Task]:
+        capabilities: list[str] | None = None,
+    ) -> Task | None:
         """Have an agent claim and process a task."""
         caps = capabilities or agent.capabilities
 
@@ -668,9 +668,9 @@ class E2ETestHarness:
     async def run_debate(
         self,
         topic: str,
-        rounds: Optional[int] = None,
-        agents: Optional[list[MockAgent]] = None,
-        protocol_options: Optional[dict[str, Any]] = None,
+        rounds: int | None = None,
+        agents: list[MockAgent] | None = None,
+        protocol_options: dict[str, Any] | None = None,
     ) -> DebateResult:
         """Run a full debate through the system.
 
@@ -796,7 +796,7 @@ class E2ETestHarness:
             "running": self._running,
         }
 
-    def get_events(self, event_type: Optional[str] = None) -> list[dict[str, Any]]:
+    def get_events(self, event_type: str | None = None) -> list[dict[str, Any]]:
         """Get recorded events, optionally filtered by type."""
         if event_type:
             return [e for e in self._events if e.get("type") == event_type]
@@ -833,7 +833,7 @@ class E2ETestHarness:
 
 @asynccontextmanager
 async def e2e_environment(
-    config: Optional[E2ETestConfig] = None,
+    config: E2ETestConfig | None = None,
 ) -> AsyncGenerator[E2ETestHarness, None]:
     """Context manager for E2E test environment.
 
@@ -864,7 +864,7 @@ class DebateTestHarness(E2ETestHarness):
     - Vote aggregation
     """
 
-    def __init__(self, config: Optional[E2ETestConfig] = None):
+    def __init__(self, config: E2ETestConfig | None = None):
         debate_config = config or E2ETestConfig(
             num_agents=4,
             agent_capabilities=["debate", "critique", "vote"],
@@ -906,7 +906,7 @@ class LoadTestHarness(E2ETestHarness):
     - Latency percentile tracking
     """
 
-    def __init__(self, config: Optional[E2ETestConfig] = None):
+    def __init__(self, config: E2ETestConfig | None = None):
         load_config = config or E2ETestConfig(
             num_agents=10,
             agent_response_delay=0.01,  # Fast responses for load testing
@@ -919,7 +919,7 @@ class LoadTestHarness(E2ETestHarness):
         self,
         count: int,
         task_type: str = "test",
-        payload_generator: Optional[Callable[[int], dict[str, Any]]] = None,
+        payload_generator: Callable[[int], dict[str, Any]] | None = None,
     ) -> list[str]:
         """Submit multiple tasks concurrently."""
 

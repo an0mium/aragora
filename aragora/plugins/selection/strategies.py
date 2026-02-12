@@ -53,8 +53,8 @@ class ELOWeightedScorer(ScorerProtocol):
 
     def score_agent(
         self,
-        agent: "AgentProfile",
-        requirements: "TaskRequirements",
+        agent: AgentProfile,
+        requirements: TaskRequirements,
         context: SelectionContext,
     ) -> float:
         """Score an agent for a specific task."""
@@ -117,7 +117,7 @@ class ELOWeightedScorer(ScorerProtocol):
 
     def _apply_probe_adjustment(
         self,
-        agent: "AgentProfile",
+        agent: AgentProfile,
         score: float,
         context: SelectionContext,
     ) -> float:
@@ -142,7 +142,7 @@ class ELOWeightedScorer(ScorerProtocol):
 
     def _apply_calibration_adjustment(
         self,
-        agent: "AgentProfile",
+        agent: AgentProfile,
         score: float,
         context: SelectionContext,
     ) -> float:
@@ -167,7 +167,7 @@ class ELOWeightedScorer(ScorerProtocol):
 
     def _apply_performance_adjustment(
         self,
-        agent: "AgentProfile",
+        agent: AgentProfile,
         score: float,
         context: SelectionContext,
     ) -> float:
@@ -222,15 +222,15 @@ class DiverseTeamSelector(TeamSelectorProtocol):
 
     def select_team(
         self,
-        scored_agents: list[tuple["AgentProfile", float]],
-        requirements: "TaskRequirements",
+        scored_agents: list[tuple[AgentProfile, float]],
+        requirements: TaskRequirements,
         context: SelectionContext,
-    ) -> list["AgentProfile"]:
+    ) -> list[AgentProfile]:
         """Select a diverse team from scored candidates."""
         if len(scored_agents) <= requirements.min_agents:
             return [a for a, _ in scored_agents]
 
-        team: list["AgentProfile"] = []
+        team: list[AgentProfile] = []
         remaining = list(scored_agents)
         diversity_pref = requirements.diversity_preference
 
@@ -247,7 +247,7 @@ class DiverseTeamSelector(TeamSelectorProtocol):
                 for a in team:
                     team_traits.update(a.traits)
 
-                best_diff: Optional["AgentProfile"] = None
+                best_diff: AgentProfile | None = None
                 best_diff_score: float = -1.0
 
                 for agent, score in remaining:
@@ -325,8 +325,8 @@ class DomainBasedRoleAssigner(RoleAssignerProtocol):
 
     def assign_roles(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
         context: SelectionContext,
         phase: str | None = None,
     ) -> dict[str, str]:
@@ -337,8 +337,8 @@ class DomainBasedRoleAssigner(RoleAssignerProtocol):
 
     def _assign_debate_roles(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
     ) -> dict[str, str]:
         """Assign standard debate roles."""
         roles: dict[str, str] = {}
@@ -375,7 +375,7 @@ class DomainBasedRoleAssigner(RoleAssignerProtocol):
 
     def _assign_phase_roles(
         self,
-        team: list["AgentProfile"],
+        team: list[AgentProfile],
         phase: str,
     ) -> dict[str, str]:
         """Assign phase-specific roles for hybrid model."""
@@ -412,10 +412,10 @@ class GreedyTeamSelector(TeamSelectorProtocol):
 
     def select_team(
         self,
-        scored_agents: list[tuple["AgentProfile", float]],
-        requirements: "TaskRequirements",
+        scored_agents: list[tuple[AgentProfile, float]],
+        requirements: TaskRequirements,
         context: SelectionContext,
-    ) -> list["AgentProfile"]:
+    ) -> list[AgentProfile]:
         """Select top N agents by score."""
         count = min(requirements.max_agents, len(scored_agents))
         return [a for a, _ in scored_agents[:count]]
@@ -438,10 +438,10 @@ class RandomTeamSelector(TeamSelectorProtocol):
 
     def select_team(
         self,
-        scored_agents: list[tuple["AgentProfile", float]],
-        requirements: "TaskRequirements",
+        scored_agents: list[tuple[AgentProfile, float]],
+        requirements: TaskRequirements,
         context: SelectionContext,
-    ) -> list["AgentProfile"]:
+    ) -> list[AgentProfile]:
         """Randomly select agents (weighted by score)."""
         agents = [a for a, _ in scored_agents]
         scores = [s for _, s in scored_agents]
@@ -455,7 +455,7 @@ class RandomTeamSelector(TeamSelectorProtocol):
         total = sum(scores) or 1.0
         probs = [s / total for s in scores]
 
-        selected: list["AgentProfile"] = []
+        selected: list[AgentProfile] = []
         available = list(zip(agents, probs))
 
         for _ in range(count):
@@ -504,8 +504,8 @@ class AHMADRoleAssigner(RoleAssignerProtocol):
 
     def assign_roles(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
         context: SelectionContext,
         phase: str | None = None,
     ) -> dict[str, str]:
@@ -562,8 +562,8 @@ class SimpleRoleAssigner(RoleAssignerProtocol):
 
     def assign_roles(
         self,
-        team: list["AgentProfile"],
-        requirements: "TaskRequirements",
+        team: list[AgentProfile],
+        requirements: TaskRequirements,
         context: SelectionContext,
         phase: str | None = None,
     ) -> dict[str, str]:

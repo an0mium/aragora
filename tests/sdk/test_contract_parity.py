@@ -27,6 +27,7 @@ OPENCLAW_ENDPOINTS: list[tuple[str, str]] = [
     ("POST", "/api/v1/openclaw/sessions"),
     ("GET", "/api/v1/openclaw/sessions/{id}"),
     ("POST", "/api/v1/openclaw/sessions/{id}/end"),
+    ("DELETE", "/api/v1/openclaw/sessions/{id}"),
     # Action management
     ("POST", "/api/v1/openclaw/actions"),
     ("GET", "/api/v1/openclaw/actions/{id}"),

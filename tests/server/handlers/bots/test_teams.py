@@ -730,7 +730,7 @@ class TestErrorHandling:
 
         mock_request = MagicMock()
         mock_request.headers = {"Content-Length": "10"}
-        mock_request.rfile.read.side_effect = IOError("Read error")
+        mock_request.rfile.read.side_effect = OSError("Read error")
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = MagicMock()

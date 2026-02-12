@@ -40,7 +40,7 @@ from aragora.server.handlers.base import HandlerResult, error_response, json_res
 class MockRequestHandler:
     """Mock HTTP request handler for tests."""
 
-    def __init__(self, body: Optional[dict] = None, headers: Optional[dict] = None):
+    def __init__(self, body: dict | None = None, headers: dict | None = None):
         self._body = body
         self.headers = headers or {}
         self.client_address = ("127.0.0.1", 12345)
@@ -92,7 +92,7 @@ class MockTaskResult:
     """Mock task result for testing."""
 
     status: str = "completed"
-    error: Optional[str] = None
+    error: str | None = None
     steps: list = field(default_factory=list)
 
 

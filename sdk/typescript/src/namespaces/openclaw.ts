@@ -47,6 +47,8 @@ export interface OpenClawCredential {
   credential_type: string;
   created_at: string;
   updated_at?: string;
+  expires_at?: string;
+  last_rotated_at?: string;
 }
 
 export interface CreateSessionRequest {
@@ -58,6 +60,7 @@ export interface ExecuteActionRequest {
   session_id: string;
   action_type: string;
   params?: Record<string, unknown>;
+  input_data?: Record<string, unknown>;
 }
 
 export class OpenClawNamespace {
@@ -96,6 +99,14 @@ export class OpenClawNamespace {
     return this.client.request<Record<string, unknown>>(
       'POST',
       `/api/v1/openclaw/sessions/${encodeURIComponent(sessionId)}/end`
+    );
+  }
+
+  /** Delete a session by ID. */
+  async deleteSession(sessionId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'DELETE',
+      `/api/v1/openclaw/sessions/${encodeURIComponent(sessionId)}`
     );
   }
 

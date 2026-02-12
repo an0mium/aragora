@@ -191,7 +191,7 @@ class MockStalenessCheck:
     node_id: str
     staleness_score: float
     reasons: list[str] = field(default_factory=list)
-    last_checked_at: Optional[datetime] = None
+    last_checked_at: datetime | None = None
     revalidation_recommended: bool = False
 
 
@@ -248,7 +248,7 @@ class MockPrunableItem:
     staleness_score: float
     confidence: float
     retrieval_count: int = 0
-    last_retrieved_at: Optional[datetime] = None
+    last_retrieved_at: datetime | None = None
     tier: str = "slow"
     created_at: datetime = field(default_factory=datetime.now)
     prune_reason: str = "stale"
@@ -334,7 +334,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: dict[str, str] | None = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)
@@ -362,7 +362,7 @@ class MockServerContext:
 class TestMoundHandler:
     """Base test handler combining all mixins for comprehensive testing."""
 
-    def __init__(self, mound: Optional[MockKnowledgeMound] = None, user: Optional[MockUser] = None):
+    def __init__(self, mound: MockKnowledgeMound | None = None, user: MockUser | None = None):
         self._mound = mound
         self._user = user or MockUser()
         self.ctx = MockServerContext()

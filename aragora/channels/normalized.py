@@ -113,7 +113,7 @@ class NormalizedMessage:
         label: str,
         action: str,
         style: str = "default",
-    ) -> "NormalizedMessage":
+    ) -> NormalizedMessage:
         """
         Add a button to the message (fluent interface).
 
@@ -134,7 +134,7 @@ class NormalizedMessage:
         data: bytes | None = None,
         url: str | None = None,
         filename: str | None = None,
-    ) -> "NormalizedMessage":
+    ) -> NormalizedMessage:
         """
         Add an attachment to the message (fluent interface).
 
@@ -197,7 +197,7 @@ class NormalizedMessage:
         """Check if message has attachments."""
         return len(self.attachments) > 0
 
-    def get_audio_attachment(self) -> Optional[MessageAttachment | dict[str, Any]]:
+    def get_audio_attachment(self) -> MessageAttachment | dict[str, Any] | None:
         """Get the first audio attachment if present."""
         for att in self.attachments:
             att_type = att.type if isinstance(att, MessageAttachment) else att.get("type")
@@ -222,7 +222,7 @@ class NormalizedMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "NormalizedMessage":
+    def from_dict(cls, data: dict[str, Any]) -> NormalizedMessage:
         """Create from dictionary representation."""
         buttons = [
             MessageButton(**b) if isinstance(b, dict) else b for b in data.get("buttons", [])

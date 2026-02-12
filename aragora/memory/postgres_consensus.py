@@ -137,7 +137,7 @@ class PostgresConsensusMemory(PostgresStore):
     SCHEMA_VERSION = POSTGRES_CONSENSUS_SCHEMA_VERSION
     INITIAL_SCHEMA = POSTGRES_CONSENSUS_SCHEMA
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: Pool):
         """
         Initialize PostgreSQL consensus memory.
 
@@ -823,7 +823,7 @@ _postgres_consensus_memory: PostgresConsensusMemory | None = None
 
 
 async def get_postgres_consensus_memory(
-    pool: Optional["Pool"] = None,
+    pool: Pool | None = None,
 ) -> PostgresConsensusMemory:
     """
     Get or create the PostgreSQL consensus memory instance.

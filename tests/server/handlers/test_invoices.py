@@ -103,8 +103,8 @@ class MockInvoice:
     invoice_number: str = "INV-001"
     status: MockInvoiceStatus = MockInvoiceStatus.PENDING
     invoice_date: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    due_date: Optional[datetime] = None
-    po_number: Optional[str] = None
+    due_date: datetime | None = None
+    po_number: str | None = None
     line_items: list[MockLineItem] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

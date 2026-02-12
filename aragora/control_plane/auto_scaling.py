@@ -109,12 +109,12 @@ class ScalingPolicy:
     )
 
     @classmethod
-    def default(cls) -> "ScalingPolicy":
+    def default(cls) -> ScalingPolicy:
         """Create default scaling policy."""
         return cls()
 
     @classmethod
-    def aggressive(cls) -> "ScalingPolicy":
+    def aggressive(cls) -> ScalingPolicy:
         """Create aggressive scaling policy (faster reactions)."""
         return cls(
             queue_depth_threshold=5,
@@ -126,7 +126,7 @@ class ScalingPolicy:
         )
 
     @classmethod
-    def conservative(cls) -> "ScalingPolicy":
+    def conservative(cls) -> ScalingPolicy:
         """Create conservative scaling policy (slower reactions, cost-focused)."""
         return cls(
             queue_depth_threshold=20,
@@ -194,9 +194,9 @@ class AutoScaler:
 
     def __init__(
         self,
-        registry: Optional["AgentRegistry"] = None,
-        scheduler: Optional["TaskScheduler"] = None,
-        health_monitor: Optional["HealthMonitor"] = None,
+        registry: AgentRegistry | None = None,
+        scheduler: TaskScheduler | None = None,
+        health_monitor: HealthMonitor | None = None,
         policy: ScalingPolicy | None = None,
         scale_up_callback: ScalingCallback | None = None,
         scale_down_callback: ScalingCallback | None = None,
@@ -649,9 +649,9 @@ def set_auto_scaler(scaler: AutoScaler) -> None:
 
 
 def init_auto_scaler(
-    registry: Optional["AgentRegistry"] = None,
-    scheduler: Optional["TaskScheduler"] = None,
-    health_monitor: Optional["HealthMonitor"] = None,
+    registry: AgentRegistry | None = None,
+    scheduler: TaskScheduler | None = None,
+    health_monitor: HealthMonitor | None = None,
     policy: ScalingPolicy | None = None,
 ) -> AutoScaler:
     """Initialize and set the global auto-scaler."""

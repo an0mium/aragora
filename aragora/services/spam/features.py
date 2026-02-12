@@ -40,7 +40,7 @@ class SpamFeatures:
 
     def __init__(
         self,
-        sender_history_service: Optional["SenderHistoryService"] = None,
+        sender_history_service: SenderHistoryService | None = None,
         user_id: str | None = None,
     ):
         """
@@ -72,8 +72,8 @@ class SpamFeatures:
         subject: str,
         body: str,
         sender: str,
-        headers: Optional[dict[str, str]] = None,
-        attachments: Optional[list[str]] = None,
+        headers: dict[str, str] | None = None,
+        attachments: list[str] | None = None,
     ) -> EmailFeatures:
         """
         Extract all features from an email.

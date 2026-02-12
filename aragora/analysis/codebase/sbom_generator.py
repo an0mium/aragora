@@ -115,7 +115,7 @@ class SBOMComponent:
     properties: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def from_dependency(cls, dep: DependencyInfo) -> "SBOMComponent":
+    def from_dependency(cls, dep: DependencyInfo) -> SBOMComponent:
         """Create component from DependencyInfo."""
         purl = cls._build_purl(dep.name, dep.version, dep.ecosystem)
         bom_ref = f"{dep.ecosystem}:{dep.name}@{dep.version}"

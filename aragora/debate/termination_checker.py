@@ -98,11 +98,11 @@ class TerminationChecker:
 
     def __init__(
         self,
-        protocol: "DebateProtocol",
-        agents: list["Agent"],
-        generate_fn: Callable[["Agent", str, list["Message"]], Any],
+        protocol: DebateProtocol,
+        agents: list[Agent],
+        generate_fn: Callable[[Agent, str, list[Message]], Any],
         task: str,
-        select_judge_fn: Optional[Callable[[dict[str, str], list["Message"]], Any]] = None,
+        select_judge_fn: Callable[[dict[str, str], list[Message]], Any] | None = None,
         hooks: dict[str, Callable] | None = None,
     ) -> None:
         """Initialize the termination checker.
@@ -126,7 +126,7 @@ class TerminationChecker:
         self,
         round_num: int,
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
     ) -> tuple[bool, str]:
         """Have a judge evaluate if the debate is conclusive.
 
@@ -203,7 +203,7 @@ REASON: <brief explanation>"""
         self,
         round_num: int,
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
     ) -> TerminationResult:
         """Have a judge evaluate if the debate is conclusive with confidence scoring.
 
@@ -348,7 +348,7 @@ Where confidence indicates how certain you are in your assessment:
         self,
         round_num: int,
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
     ) -> bool:
         """Check if agents want to stop debate early.
 
@@ -420,7 +420,7 @@ Respond with only: CONTINUE or STOP
         self,
         round_num: int,
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
     ) -> tuple[bool, str]:
         """Check both termination conditions.
 
@@ -452,7 +452,7 @@ Respond with only: CONTINUE or STOP
         self,
         round_num: int,
         proposals: dict[str, str],
-        context: list["Message"],
+        context: list[Message],
         require_high_confidence: bool = True,
     ) -> TerminationResult:
         """Check termination conditions with RLM-style confidence scoring.

@@ -62,8 +62,8 @@ class DatabaseConfig:
 
 
 # Global pool cache for connection reuse
-_supabase_pool: Optional["Pool"] = None
-_postgres_pool: Optional["Pool"] = None
+_supabase_pool: Pool | None = None
+_postgres_pool: Pool | None = None
 _pool_lock = threading.Lock()
 
 
@@ -78,7 +78,7 @@ def _normalize_backend(value: str | None) -> str | None:
 
 def _get_backend_override(
     store_name: str,
-    extra_envs: Optional[Sequence[str]] = None,
+    extra_envs: Sequence[str] | None = None,
     include_global: bool = True,
 ) -> str | None:
     candidates: list[str] = []
@@ -304,7 +304,7 @@ async def get_database_pool(
     store_name: str = "default",
     allow_sqlite: bool = True,
     dsn_override: str | None = None,
-) -> tuple[Optional["Pool"], DatabaseConfig]:
+) -> tuple[Pool | None, DatabaseConfig]:
     """
     Get an asyncpg connection pool based on preference order.
 
@@ -354,7 +354,7 @@ def get_database_pool_sync(
     store_name: str = "default",
     allow_sqlite: bool = True,
     dsn_override: str | None = None,
-) -> tuple[Optional["Pool"], DatabaseConfig]:
+) -> tuple[Pool | None, DatabaseConfig]:
     """
     Synchronous wrapper for get_database_pool.
 
@@ -596,7 +596,7 @@ def create_persistent_store(
     return sqlite_class(db_path)
 
 
-def get_postgres_pool() -> Optional["Pool"]:
+def get_postgres_pool() -> Pool | None:
     """Get the cached PostgreSQL connection pool, if available.
 
     Returns:

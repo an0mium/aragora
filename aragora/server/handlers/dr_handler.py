@@ -47,7 +47,7 @@ class DRHandler(BaseHandler):
         "/api/v2/dr/*",
     ]
 
-    _manager: Optional[BackupManager]
+    _manager: BackupManager | None
 
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
@@ -71,15 +71,15 @@ class DRHandler(BaseHandler):
     @rate_limit(requests_per_minute=30)
     async def handle(  # type: ignore[override]
         self,
-        path_or_method: Optional[str] = None,
-        query_params_or_path: Optional[dict[str, Any] | str] = None,
+        path_or_method: str | None = None,
+        query_params_or_path: dict[str, Any] | str | None = None,
         handler_or_body: Any = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
+        query_params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
         *,
-        method: Optional[str] = None,
-        path: Optional[str] = None,
-        body: Optional[dict[str, Any]] = None,
+        method: str | None = None,
+        path: str | None = None,
+        body: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method.
 

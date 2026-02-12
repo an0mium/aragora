@@ -52,7 +52,7 @@ class AutonomousStreamEmitter:
         self._lock = asyncio.Lock()
 
     def add_client(
-        self, ws: web.WebSocketResponse, subscriptions: Optional[set[str]] = None
+        self, ws: web.WebSocketResponse, subscriptions: set[str] | None = None
     ) -> str:
         """Add a new WebSocket client."""
         self._client_counter += 1
@@ -118,7 +118,7 @@ class AutonomousStreamEmitter:
             # No running event loop, queue for later
             logger.debug("No event loop, event queued")
 
-    def get_history(self, event_types: Optional[list[str]] = None, limit: int = 100) -> list[dict]:
+    def get_history(self, event_types: list[str] | None = None, limit: int = 100) -> list[dict]:
         """Get recent event history."""
         events = self._event_history
 

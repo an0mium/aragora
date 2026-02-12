@@ -509,7 +509,7 @@ class TestGenerator:
         self,
         code: str,
         module_name: str,
-        functions: Optional[list[str]] = None,
+        functions: list[str] | None = None,
     ) -> TestSuite:
         """
         Generate a complete test suite for a module.
@@ -625,7 +625,7 @@ def generate_tests_for_function(
 def generate_tests_for_file(
     file_path: str,
     framework: TestFramework = TestFramework.PYTEST,
-    functions: Optional[list[str]] = None,
+    functions: list[str] | None = None,
 ) -> TestSuite:
     """
     Generate tests for a file.
@@ -640,7 +640,7 @@ def generate_tests_for_file(
     """
     import os
 
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         code = f.read()
 
     module_name = os.path.splitext(os.path.basename(file_path))[0]

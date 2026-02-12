@@ -244,8 +244,8 @@ class SpamDetector:
         self,
         spam_threshold: float = 0.7,
         phishing_threshold: float = 0.6,
-        user_whitelist: Optional[set[str]] = None,
-        user_blacklist: Optional[set[str]] = None,
+        user_whitelist: set[str] | None = None,
+        user_blacklist: set[str] | None = None,
     ):
         """
         Initialize the spam detector.

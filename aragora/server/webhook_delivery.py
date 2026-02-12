@@ -587,7 +587,7 @@ class WebhookDeliveryManager:
         payload: dict[str, Any],
         url: str,
         secret: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> WebhookDelivery:
         """
         Deliver a webhook with retry guarantees.

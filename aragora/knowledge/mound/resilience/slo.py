@@ -102,7 +102,7 @@ def record_adapter_slo_check(
     operation: str,
     latency_ms: float,
     success: bool,
-    context: Optional[dict[str, Any]] = None,
+    context: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
     """Record an adapter operation and check SLO compliance.
 

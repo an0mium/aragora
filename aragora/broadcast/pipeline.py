@@ -99,7 +99,7 @@ class BroadcastPipeline:
         self.audio_dir.mkdir(parents=True, exist_ok=True)
         self.video_dir.mkdir(parents=True, exist_ok=True)
 
-    def _load_trace(self, debate_id: str) -> Optional["DebateTrace"]:
+    def _load_trace(self, debate_id: str) -> DebateTrace | None:
         """Load a debate trace by ID."""
         try:
             from aragora.debate.traces import DebateTrace
@@ -196,7 +196,7 @@ class BroadcastPipeline:
 
     async def _generate_audio(
         self,
-        trace: "DebateTrace",
+        trace: DebateTrace,
         options: BroadcastOptions,
     ) -> Path | None:
         """Generate audio from debate trace."""
@@ -216,7 +216,7 @@ class BroadcastPipeline:
     async def _generate_video(
         self,
         audio_path: Path,
-        trace: "DebateTrace",
+        trace: DebateTrace,
         options: BroadcastOptions,
     ) -> Path | None:
         """Generate video from audio and trace."""
@@ -246,7 +246,7 @@ class BroadcastPipeline:
 
     def _create_rss_episode(
         self,
-        trace: "DebateTrace",
+        trace: DebateTrace,
         audio_path: Path,
         duration_seconds: int,
         options: BroadcastOptions,
@@ -294,7 +294,7 @@ class BroadcastPipeline:
             logger.warning(f"Failed to create RSS episode: {e}")
             return None
 
-    def _format_show_notes(self, trace: "DebateTrace") -> str:
+    def _format_show_notes(self, trace: DebateTrace) -> str:
         """Format debate trace as show notes."""
         lines = [
             f"# {trace.task}",

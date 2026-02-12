@@ -144,7 +144,7 @@ class SafeHTMLBuilder:
     def __init__(self) -> None:
         self._parts: list[str] = []
 
-    def add_raw(self, html: str) -> "SafeHTMLBuilder":
+    def add_raw(self, html: str) -> SafeHTMLBuilder:
         """Add raw (trusted) HTML content.
 
         WARNING: Only use for trusted, static HTML templates.
@@ -158,7 +158,7 @@ class SafeHTMLBuilder:
         self._parts.append(html)
         return self
 
-    def add_text(self, text: Any) -> "SafeHTMLBuilder":
+    def add_text(self, text: Any) -> SafeHTMLBuilder:
         """Add text content (will be escaped).
 
         Args:
@@ -175,7 +175,7 @@ class SafeHTMLBuilder:
         tag: str,
         content: Any = None,
         **attrs: Any,
-    ) -> "SafeHTMLBuilder":
+    ) -> SafeHTMLBuilder:
         """Add an HTML element with escaped content and attributes.
 
         Args:

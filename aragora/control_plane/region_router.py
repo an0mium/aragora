@@ -132,7 +132,7 @@ class RegionRouter:
 
     def __init__(
         self,
-        regional_event_bus: Optional["RegionalEventBus"] = None,
+        regional_event_bus: RegionalEventBus | None = None,
         local_region: str = "default",
         health_timeout_seconds: float = 30.0,
         latency_weight: float = 0.3,
@@ -277,7 +277,7 @@ class RegionRouter:
     async def select_region(
         self,
         task: Task,
-        constraints: Optional["RegionConstraint"] = None,
+        constraints: RegionConstraint | None = None,
         prefer_local: bool = True,
     ) -> RegionRoutingDecision:
         """
@@ -361,7 +361,7 @@ class RegionRouter:
     def _get_candidate_regions(
         self,
         task: Task,
-        constraints: Optional["RegionConstraint"],
+        constraints: RegionConstraint | None,
     ) -> list[str]:
         """Get list of candidate regions for a task."""
         candidates = []
@@ -397,7 +397,7 @@ class RegionRouter:
     def _check_data_residency(
         self,
         region_id: str | None,
-        constraints: Optional["RegionConstraint"],
+        constraints: RegionConstraint | None,
     ) -> bool:
         """Check if region selection complies with data residency."""
         if not constraints or not region_id:
@@ -416,7 +416,7 @@ class RegionRouter:
         task_id: str,
         failed_region: str,
         task: Task | None = None,
-        constraints: Optional["RegionConstraint"] = None,
+        constraints: RegionConstraint | None = None,
     ) -> str | None:
         """
         Find a failover region when the primary fails.
@@ -535,7 +535,7 @@ def set_region_router(router: RegionRouter) -> None:
 
 
 def init_region_router(
-    regional_event_bus: Optional["RegionalEventBus"] = None,
+    regional_event_bus: RegionalEventBus | None = None,
     local_region: str = "default",
 ) -> RegionRouter:
     """Initialize and set the global region router."""

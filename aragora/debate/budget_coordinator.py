@@ -146,7 +146,7 @@ class BudgetCoordinator:
     def record_debate_cost(
         self,
         debate_id: str,
-        result: "DebateResult",
+        result: DebateResult,
         extensions: Any | None = None,
     ) -> None:
         """Record actual debate cost against organization budget.
@@ -184,7 +184,7 @@ class BudgetCoordinator:
 
     def _calculate_actual_cost(
         self,
-        result: "DebateResult",
+        result: DebateResult,
         extensions: Any | None = None,
     ) -> float:
         """Calculate actual cost from debate result and extensions.

@@ -94,7 +94,7 @@ class Fact:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Fact":
+    def from_dict(cls, data: dict[str, Any]) -> Fact:
         """Create fact from dictionary."""
         return cls(
             id=data["id"],
@@ -166,7 +166,7 @@ class FactRelation:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FactRelation":
+    def from_dict(cls, data: dict[str, Any]) -> FactRelation:
         """Create relation from dictionary."""
         return cls(
             id=data["id"],

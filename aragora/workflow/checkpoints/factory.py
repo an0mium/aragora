@@ -26,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 
 # Module-level default KnowledgeMound for checkpoint storage
-_default_mound: Optional["KnowledgeMound"] = None
+_default_mound: KnowledgeMound | None = None
 
 
-def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
+def set_default_knowledge_mound(mound: KnowledgeMound) -> None:
     """
     Set the default KnowledgeMound for checkpoint storage.
 
@@ -53,13 +53,13 @@ def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
     logger.info("Set default KnowledgeMound for workflow checkpoints")
 
 
-def get_default_knowledge_mound() -> Optional["KnowledgeMound"]:
+def get_default_knowledge_mound() -> KnowledgeMound | None:
     """Get the default KnowledgeMound for checkpoint storage."""
     return _default_mound
 
 
 def get_checkpoint_store(
-    mound: Optional["KnowledgeMound"] = None,
+    mound: KnowledgeMound | None = None,
     fallback_dir: str = ".checkpoints",
     use_default_mound: bool = True,
     prefer_redis: bool = True,
@@ -196,7 +196,7 @@ def get_checkpoint_store(
 
 
 async def get_checkpoint_store_async(
-    mound: Optional["KnowledgeMound"] = None,
+    mound: KnowledgeMound | None = None,
     fallback_dir: str = ".checkpoints",
     use_default_mound: bool = True,
     prefer_redis: bool = True,

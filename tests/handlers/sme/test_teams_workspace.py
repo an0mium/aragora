@@ -42,13 +42,13 @@ class MockTeamsWorkspace:
     access_token: str = "test-token-12345"
     bot_id: str = "bot-123"
     installed_at: float = 1700000000.0
-    installed_by: Optional[str] = "user-123"
+    installed_by: str | None = "user-123"
     scopes: list[str] = None
     aragora_tenant_id: str = "org-456"
     is_active: bool = True
-    refresh_token: Optional[str] = None
-    token_expires_at: Optional[float] = None
-    service_url: Optional[str] = None
+    refresh_token: str | None = None
+    token_expires_at: float | None = None
+    service_url: str | None = None
 
     def __post_init__(self):
         if self.scopes is None:
@@ -85,9 +85,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[bytes] = None,
-        query_params: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
+        body: bytes | None = None,
+        query_params: dict[str, str] | None = None,
     ):
         # Initialize dict with query params
         super().__init__(query_params or {})

@@ -79,7 +79,7 @@ class BeliefHandler(BaseHandler):
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._km_adapter: Optional["BeliefAdapter"] = None
+        self._km_adapter: BeliefAdapter | None = None
 
     def _emit_km_event(self, event_emitter: Any, event_type: str, data: dict) -> None:
         """Emit a KM event to WebSocket clients.
@@ -105,7 +105,7 @@ class BeliefHandler(BaseHandler):
         except Exception as e:
             logger.debug(f"Failed to emit KM event {event_type}: {e}")
 
-    def _get_km_adapter(self) -> Optional["BeliefAdapter"]:
+    def _get_km_adapter(self) -> BeliefAdapter | None:
         """Get or create Knowledge Mound adapter for belief networks.
 
         Returns:

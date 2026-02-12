@@ -57,7 +57,7 @@ class RoleRequirement:
 
     role_type: RoleType
     importance: float  # 0.0-1.0
-    domain_preference: Optional[str] = None
+    domain_preference: str | None = None
     min_agents: int = 1
     max_agents: int = 1
 
@@ -141,7 +141,7 @@ class AHMADConfig:
 class CalibrationProtocol(Protocol):
     """Protocol for calibration data access."""
 
-    def get_brier_score(self, agent_id: str, domain: Optional[str] = None) -> float:
+    def get_brier_score(self, agent_id: str, domain: str | None = None) -> float:
         """Get agent's Brier score."""
         ...
 
@@ -183,7 +183,7 @@ class AHMADRoleSpecializer:
             print(f"{assignment.agent_id} -> {assignment.role.value}")
     """
 
-    def __init__(self, config: Optional[AHMADConfig] = None):
+    def __init__(self, config: AHMADConfig | None = None):
         """Initialize the specializer.
 
         Args:
@@ -198,8 +198,8 @@ class AHMADRoleSpecializer:
     def analyze_topic(
         self,
         topic: str,
-        domain: Optional[str] = None,
-        context: Optional[dict[str, Any]] = None,
+        domain: str | None = None,
+        context: dict[str, Any] | None = None,
     ) -> list[RoleRequirement]:
         """
         Analyze a debate topic to determine required roles.
@@ -259,9 +259,9 @@ class AHMADRoleSpecializer:
         self,
         roles: list[RoleRequirement],
         available_agents: list[str],
-        elo_scores: Optional[dict[str, float]] = None,
-        calibration_scores: Optional[dict[str, float]] = None,
-        domain_scores: Optional[dict[str, dict[str, float]]] = None,
+        elo_scores: dict[str, float] | None = None,
+        calibration_scores: dict[str, float] | None = None,
+        domain_scores: dict[str, dict[str, float]] | None = None,
     ) -> TeamComposition:
         """
         Assign agents to roles based on capabilities.
@@ -569,7 +569,7 @@ def create_role_specializer(
 def quick_assign_roles(
     topic: str,
     available_agents: list[str],
-    elo_scores: Optional[dict[str, float]] = None,
+    elo_scores: dict[str, float] | None = None,
 ) -> list[tuple[str, str]]:
     """
     Quick role assignment without full configuration.

@@ -28,13 +28,13 @@ logger = logging.getLogger(__name__)
 class StalenessProtocol(Protocol):
     """Protocol defining expected interface for Staleness mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _staleness_detector: Any | None
     _initialized: bool
 
     def _ensure_initialized(self) -> None: ...
-    async def update(self, node_id: str, updates: dict[str, Any]) -> Optional["KnowledgeItem"]: ...
+    async def update(self, node_id: str, updates: dict[str, Any]) -> KnowledgeItem | None: ...
 
 
 # Use Protocol as base class only for type checking
@@ -52,7 +52,7 @@ class StalenessOperationsMixin(_StalenessOperationsMixinBase):
         threshold: float = 0.5,
         limit: int = 100,
         workspace_id: str | None = None,
-    ) -> list["StalenessCheck"]:
+    ) -> list[StalenessCheck]:
         """Get knowledge items that may be stale."""
         self._ensure_initialized()
 

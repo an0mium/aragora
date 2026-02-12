@@ -168,7 +168,7 @@ def compute_calibration_k_multipliers(
 
 
 def save_match(
-    db: "EloDatabase",
+    db: EloDatabase,
     debate_id: str,
     winner: str | None,
     participants: list[str],
@@ -207,7 +207,7 @@ def save_match(
         conn.commit()
 
 
-def check_duplicate_match(db: "EloDatabase", debate_id: str) -> dict[str, float] | None:
+def check_duplicate_match(db: EloDatabase, debate_id: str) -> dict[str, float] | None:
     """Check if a match has already been recorded.
 
     Args:

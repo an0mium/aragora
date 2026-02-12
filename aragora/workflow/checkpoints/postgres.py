@@ -126,7 +126,7 @@ class PostgresCheckpointStore:
         self._initialized = True
         logger.info(f"[{self.SCHEMA_NAME}] Schema initialized")
 
-    async def save(self, checkpoint: "WorkflowCheckpoint") -> str:
+    async def save(self, checkpoint: WorkflowCheckpoint) -> str:
         """
         Save a checkpoint to PostgreSQL.
 
@@ -181,7 +181,7 @@ class PostgresCheckpointStore:
         )
         return checkpoint_id
 
-    async def load(self, checkpoint_id: str) -> Optional["WorkflowCheckpoint"]:
+    async def load(self, checkpoint_id: str) -> WorkflowCheckpoint | None:
         """
         Load a checkpoint by ID.
 
@@ -225,7 +225,7 @@ class PostgresCheckpointStore:
             logger.error(f"Failed to load checkpoint {checkpoint_id}: {e}")
             return None
 
-    async def load_latest(self, workflow_id: str) -> Optional["WorkflowCheckpoint"]:
+    async def load_latest(self, workflow_id: str) -> WorkflowCheckpoint | None:
         """
         Load the most recent checkpoint for a workflow.
 
@@ -351,7 +351,7 @@ class PostgresCheckpointStore:
             logger.error(f"Failed to cleanup checkpoints for {workflow_id}: {e}")
             return 0
 
-    def _checkpoint_to_dict(self, checkpoint: "WorkflowCheckpoint") -> dict[str, Any]:
+    def _checkpoint_to_dict(self, checkpoint: WorkflowCheckpoint) -> dict[str, Any]:
         """Convert checkpoint to dictionary."""
         if hasattr(checkpoint, "to_dict"):
             return checkpoint.to_dict()
@@ -374,7 +374,7 @@ class PostgresCheckpointStore:
                 "checksum": getattr(checkpoint, "checksum", ""),
             }
 
-    def _row_to_checkpoint(self, row: Any) -> "WorkflowCheckpoint":
+    def _row_to_checkpoint(self, row: Any) -> WorkflowCheckpoint:
         """Convert database row to WorkflowCheckpoint."""
         step_outputs = row["step_outputs"]
         if isinstance(step_outputs, str):
@@ -396,7 +396,7 @@ class PostgresCheckpointStore:
             checksum=row["checksum"] or "",
         )
 
-    def _compute_checksum(self, checkpoint: "WorkflowCheckpoint") -> str:
+    def _compute_checksum(self, checkpoint: WorkflowCheckpoint) -> str:
         """Compute checksum for checkpoint validation."""
         # Create deterministic string from checkpoint data
         data = {

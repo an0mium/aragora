@@ -66,7 +66,7 @@ class MediumTierMixin:
         content: str,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
-    ) -> "ContinuumMemoryEntry":
+    ) -> ContinuumMemoryEntry:
         """
         Store a memory in the medium tier.
 
@@ -147,7 +147,7 @@ class MediumTierMixin:
         content: str,
         importance: float = 0.5,
         metadata: dict[str, Any] | None = None,
-    ) -> "ContinuumMemoryEntry":
+    ) -> ContinuumMemoryEntry:
         """Async wrapper for store_medium()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -160,7 +160,7 @@ class MediumTierMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Retrieve memories from the medium tier with 24-hour decay.
 
@@ -239,7 +239,7 @@ class MediumTierMixin:
         query: str | None = None,
         limit: int = 10,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for retrieve_medium()."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(

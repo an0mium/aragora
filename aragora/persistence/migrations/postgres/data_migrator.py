@@ -98,9 +98,9 @@ class DataMigrator:
         self.sqlite_path = Path(sqlite_path)
         self.postgres_dsn = postgres_dsn
         self.batch_size = batch_size
-        self._pool: Optional["Pool"] = None
+        self._pool: Pool | None = None
 
-    async def _get_pool(self) -> "Pool":
+    async def _get_pool(self) -> Pool:
         """Get or create PostgreSQL connection pool."""
         if not ASYNCPG_AVAILABLE:
             raise RuntimeError("asyncpg package required for PostgreSQL migration")
@@ -149,7 +149,7 @@ class DataMigrator:
 
         return value
 
-    async def _get_pg_columns(self, pool: "Pool", table: str) -> dict[str, str]:
+    async def _get_pg_columns(self, pool: Pool, table: str) -> dict[str, str]:
         """Get PostgreSQL column names and types for a table."""
         async with pool.acquire() as conn:
             rows = await conn.fetch(

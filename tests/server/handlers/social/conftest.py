@@ -45,11 +45,11 @@ class MockHandler:
 
     def __init__(
         self,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         body: bytes = b"",
         path: str = "/",
         method: str = "GET",
-        client_address: Optional[tuple[str, int]] = None,
+        client_address: tuple[str, int] | None = None,
     ):
         self.headers = headers or {}
         self._body = body
@@ -57,7 +57,7 @@ class MockHandler:
         self.command = method
         self.rfile = BytesIO(body)
         self.client_address = client_address or ("127.0.0.1", 12345)
-        self.response_code: Optional[int] = None
+        self.response_code: int | None = None
         self._response_headers: dict[str, str] = {}
 
     def send_response(self, code: int) -> None:
@@ -75,9 +75,9 @@ class MockHandler:
         data: dict[str, Any],
         path: str = "/",
         method: str = "POST",
-        headers: Optional[dict[str, str]] = None,
-        client_address: Optional[tuple[str, int]] = None,
-    ) -> "MockHandler":
+        headers: dict[str, str] | None = None,
+        client_address: tuple[str, int] | None = None,
+    ) -> MockHandler:
         """Create a MockHandler with a JSON body.
 
         Args:
@@ -111,9 +111,9 @@ class MockHandler:
         data: dict[str, str],
         path: str = "/",
         method: str = "POST",
-        headers: Optional[dict[str, str]] = None,
-        client_address: Optional[tuple[str, int]] = None,
-    ) -> "MockHandler":
+        headers: dict[str, str] | None = None,
+        client_address: tuple[str, int] | None = None,
+    ) -> MockHandler:
         """Create a MockHandler with form-encoded body (for Slack commands).
 
         Args:
@@ -279,7 +279,7 @@ def create_slack_interactive_handler(
     team_id: str = "T12345",
     response_url: str = "https://hooks.slack.com/actions/T12345/12345/token",
     signing_secret: str = "test_signing_secret",
-    payload_extras: Optional[dict[str, Any]] = None,
+    payload_extras: dict[str, Any] | None = None,
 ) -> MockHandler:
     """Create a MockHandler for Slack interactive component testing.
 
@@ -327,7 +327,7 @@ def create_slack_interactive_handler(
 def create_slack_event_handler(
     event_type: str = "message",
     team_id: str = "T12345",
-    event_data: Optional[dict[str, Any]] = None,
+    event_data: dict[str, Any] | None = None,
     signing_secret: str = "test_signing_secret",
 ) -> MockHandler:
     """Create a MockHandler for Slack Events API testing.

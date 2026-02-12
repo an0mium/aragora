@@ -56,7 +56,7 @@ class APIAgent(CritiqueMixin, Agent):
         self.agent_type = "api"  # Default for API agents
         self.enable_circuit_breaker = enable_circuit_breaker
         self.enable_adaptive_timeout = enable_adaptive_timeout
-        self._complexity_governor: "AdaptiveComplexityGovernor | None" = None
+        self._complexity_governor: AdaptiveComplexityGovernor | None = None
 
         # Generation parameters (from persona or explicit)
         self.temperature = temperature  # None means use provider default
@@ -177,7 +177,7 @@ class APIAgent(CritiqueMixin, Agent):
     # Adaptive Timeout Support
     # =========================================================================
 
-    def set_complexity_governor(self, governor: "AdaptiveComplexityGovernor | None") -> None:
+    def set_complexity_governor(self, governor: AdaptiveComplexityGovernor | None) -> None:
         """Set the complexity governor for adaptive timeout management.
 
         When set, the agent will use the governor to determine timeouts

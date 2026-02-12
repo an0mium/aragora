@@ -196,7 +196,7 @@ class LocalSchedulerAdapter:
     Translates between the fabric scheduler's interface and the unified protocol.
     """
 
-    def __init__(self, scheduler: "AgentScheduler | None" = None):
+    def __init__(self, scheduler: AgentScheduler | None = None):
         """Initialize with optional existing scheduler."""
         if scheduler is None:
             from aragora.fabric.scheduler import AgentScheduler
@@ -334,7 +334,7 @@ class DistributedSchedulerAdapter:
     Translates between the control plane scheduler's interface and the unified protocol.
     """
 
-    def __init__(self, scheduler: "TaskScheduler | None" = None):
+    def __init__(self, scheduler: TaskScheduler | None = None):
         """Initialize with optional existing scheduler."""
         if scheduler is None:
             from aragora.control_plane.scheduler import TaskScheduler

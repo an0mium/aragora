@@ -31,7 +31,7 @@ class MockConnector(BaseConnector):
             for i in range(min(limit, 5))
         ]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         if evidence_id.startswith("mock:"):
             return Evidence(
                 id=evidence_id,

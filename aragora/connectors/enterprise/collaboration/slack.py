@@ -106,7 +106,7 @@ class SlackConnector(EnterpriseConnector):
     def __init__(
         self,
         workspace_name: str = "default",
-        channels: Optional[list[str]] = None,
+        channels: list[str] | None = None,
         include_private: bool = False,
         include_archived: bool = False,
         include_threads: bool = True,
@@ -165,8 +165,8 @@ class SlackConnector(EnterpriseConnector):
         self,
         endpoint: str,
         method: str = "GET",
-        params: Optional[dict[str, Any]] = None,
-        json_data: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Make a request to Slack Web API."""
         from aragora.server.http_client_pool import get_http_pool
@@ -677,7 +677,7 @@ class SlackConnector(EnterpriseConnector):
             logger.debug(f"[{self.name}] Failed to get presence for {user_id}: {e}")
             return {"presence": "away", "online": False}
 
-    async def get_user_by_email(self, email: str) -> Optional[dict[str, Any]]:
+    async def get_user_by_email(self, email: str) -> dict[str, Any] | None:
         """
         Look up a Slack user by email address.
 
@@ -837,7 +837,7 @@ class SlackConnector(EnterpriseConnector):
         channel: str,
         text: str,
         thread_ts: str | None = None,
-        blocks: Optional[list[dict[str, Any]]] = None,
+        blocks: list[dict[str, Any]] | None = None,
     ) -> str | None:
         """
         Post a message to a channel.

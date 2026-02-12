@@ -50,7 +50,7 @@ class MockEth:
     def get_transaction_count(self, address: str) -> int:
         return 42
 
-    def contract(self, address: str, abi: list) -> "MockContract":
+    def contract(self, address: str, abi: list) -> MockContract:
         return MockContract(address, abi)
 
 
@@ -119,7 +119,7 @@ class MockEvent:
         self.name = name
         self._logs = logs
 
-    def create_filter(self, fromBlock: int = 0, toBlock: int | str = "latest") -> "MockFilter":
+    def create_filter(self, fromBlock: int = 0, toBlock: int | str = "latest") -> MockFilter:
         return MockFilter(self._logs)
 
     def get_logs(self, fromBlock: int = 0, toBlock: int | str = "latest") -> list[dict]:
@@ -143,7 +143,7 @@ class MockAccount:
         self.address = address
         self._private_key = private_key
 
-    def sign_transaction(self, tx: dict) -> "MockSignedTx":
+    def sign_transaction(self, tx: dict) -> MockSignedTx:
         return MockSignedTx(tx)
 
 

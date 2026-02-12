@@ -713,7 +713,7 @@ class TestFHIRConnectorInit:
             organization_id="org-001",
         )
 
-        expected_hash = hashlib.sha256("https://fhir.example.com/r4".encode()).hexdigest()[:12]
+        expected_hash = hashlib.sha256(b"https://fhir.example.com/r4").hexdigest()[:12]
         assert connector.connector_id == f"fhir_{expected_hash}"
 
     def test_source_type_is_database(self):

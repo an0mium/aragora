@@ -343,9 +343,9 @@ def print_result(result: GauntletResult):
 
 
 async def run_demo(
-    input_file: Optional[Path] = None,
+    input_file: Path | None = None,
     profile: str = "quick",
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
     use_real_apis: bool = False,
 ):
     """Run the Gauntlet demo."""

@@ -139,13 +139,13 @@ class MockRetentionPolicy:
     action: Any = field(default_factory=lambda: MagicMock(value="delete"))
     enabled: bool = True
     applies_to: list[str] = field(default_factory=lambda: ["documents", "findings"])
-    workspace_ids: Optional[list[str]] = None
+    workspace_ids: list[str] | None = None
     grace_period_days: int = 7
     notify_before_days: int = 7
     exclude_sensitivity_levels: list[str] = field(default_factory=list)
     exclude_tags: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    last_run: Optional[datetime] = None
+    last_run: datetime | None = None
 
 
 @dataclass

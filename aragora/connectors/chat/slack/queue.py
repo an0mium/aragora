@@ -76,7 +76,7 @@ class QueuedMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "QueuedMessage":
+    def from_dict(cls, data: dict[str, Any]) -> QueuedMessage:
         return cls(
             id=data["id"],
             workspace_id=data["workspace_id"],

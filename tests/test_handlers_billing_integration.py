@@ -45,25 +45,25 @@ class MockUserStore:
         self.orgs: dict[str, Organization] = {}
         self.audit_log: list[dict] = []
 
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
+    def get_user_by_id(self, user_id: str) -> User | None:
         return self.users.get(user_id)
 
-    def get_organization_by_id(self, org_id: str) -> Optional[Organization]:
+    def get_organization_by_id(self, org_id: str) -> Organization | None:
         return self.orgs.get(org_id)
 
-    def get_organization_by_subscription(self, subscription_id: str) -> Optional[Organization]:
+    def get_organization_by_subscription(self, subscription_id: str) -> Organization | None:
         for org in self.orgs.values():
             if org.stripe_subscription_id == subscription_id:
                 return org
         return None
 
-    def get_organization_by_stripe_customer(self, customer_id: str) -> Optional[Organization]:
+    def get_organization_by_stripe_customer(self, customer_id: str) -> Organization | None:
         for org in self.orgs.values():
             if org.stripe_customer_id == customer_id:
                 return org
         return None
 
-    def update_organization(self, org_id: str, **kwargs) -> Optional[Organization]:
+    def update_organization(self, org_id: str, **kwargs) -> Organization | None:
         org = self.orgs.get(org_id)
         if org:
             for key, value in kwargs.items():
@@ -82,8 +82,8 @@ class MockUserStore:
     def get_audit_log(
         self,
         org_id: str,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        action: str | None = None,
+        resource_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict]:
@@ -97,8 +97,8 @@ class MockUserStore:
     def get_audit_log_count(
         self,
         org_id: str,
-        action: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        action: str | None = None,
+        resource_type: str | None = None,
     ) -> int:
         return len(self.get_audit_log(org_id, action, resource_type, limit=10000))
 
@@ -109,9 +109,9 @@ class MockHandler:
     def __init__(
         self,
         method: str = "GET",
-        body: Optional[dict] = None,
-        headers: Optional[dict] = None,
-        query_params: Optional[dict] = None,
+        body: dict | None = None,
+        headers: dict | None = None,
+        query_params: dict | None = None,
     ):
         self.command = method
         self._body = json.dumps(body).encode() if body else b""
@@ -134,7 +134,7 @@ class MockAuthContext:
 
     is_authenticated: bool = True
     user_id: str = ""
-    org_id: Optional[str] = None
+    org_id: str | None = None
     role: str = "member"
 
 

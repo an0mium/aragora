@@ -53,7 +53,7 @@ class MarketplaceClient:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def __aenter__(self) -> "MarketplaceClient":
+    async def __aenter__(self) -> MarketplaceClient:
         return self
 
     async def __aexit__(self, *args: Any) -> None:

@@ -39,7 +39,7 @@ class _DebatesHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def read_json_body(self, handler: Any, max_size: int | None = None) -> Optional[dict[str, Any]]:
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
         """Read and parse JSON body from request handler."""
         ...
 

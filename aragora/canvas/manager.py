@@ -132,7 +132,7 @@ class CanvasStateManager:
         self,
         canvas_id: str,
         name: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         owner_id: str | None = None,
         workspace_id: str | None = None,
         user_id: str | None = None,
@@ -200,7 +200,7 @@ class CanvasStateManager:
         node_type: CanvasNodeType,
         position: Position,
         label: str = "",
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         user_id: str | None = None,
         **kwargs: Any,
     ) -> CanvasNode | None:
@@ -691,7 +691,7 @@ class CanvasStateManager:
                 "error": str(e),
             }
 
-    async def _get_debate_agents(self, agent_config: Optional[list[str]] = None):
+    async def _get_debate_agents(self, agent_config: list[str] | None = None):
         """Get agents for debate, using defaults if not specified."""
         try:
             from aragora.agents.registry import AgentRegistry
@@ -1037,7 +1037,7 @@ class CanvasStateManager:
     # State Sync
     # =========================================================================
 
-    async def get_state(self, canvas_id: str) -> Optional[dict[str, Any]]:
+    async def get_state(self, canvas_id: str) -> dict[str, Any] | None:
         """Get the full state of a canvas for sync."""
         canvas = self._canvases.get(canvas_id)
         if not canvas:

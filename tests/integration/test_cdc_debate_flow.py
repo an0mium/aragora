@@ -33,8 +33,8 @@ class MockCDCKnowledgeAgent(Agent):
     def __init__(
         self,
         name: str = "cdc_aware_agent",
-        knowledge_mound: Optional[MagicMock] = None,
-        responses: Optional[list[str]] = None,
+        knowledge_mound: MagicMock | None = None,
+        responses: list[str] | None = None,
     ):
         super().__init__(name, "mock-model", "proposer")
         self.agent_type = "mock"

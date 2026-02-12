@@ -40,9 +40,9 @@ class IntrospectionCache:
 
     def warm(
         self,
-        agents: list["Agent"],
-        memory: Optional["CritiqueStore"] = None,
-        persona_manager: Optional["PersonaManager"] = None,
+        agents: list[Agent],
+        memory: CritiqueStore | None = None,
+        persona_manager: PersonaManager | None = None,
     ) -> None:
         """
         Pre-load introspection data for all agents.

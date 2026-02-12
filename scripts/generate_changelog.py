@@ -42,7 +42,7 @@ class Commit:
 
     hash: str
     type: str
-    scope: Optional[str]
+    scope: str | None
     description: str
     body: str
     breaking: bool
@@ -111,7 +111,7 @@ def get_commits(from_ref: str, to_ref: str) -> list[str]:
         return []
 
 
-def parse_commit(raw: str) -> Optional[Commit]:
+def parse_commit(raw: str) -> Commit | None:
     """Parse a raw commit string into a Commit object."""
     parts = raw.split("|", 4)
     if len(parts) < 4:
@@ -158,7 +158,7 @@ def parse_commit(raw: str) -> Optional[Commit]:
 def generate_changelog(
     commits: list[Commit],
     version: str,
-    date: Optional[str] = None,
+    date: str | None = None,
 ) -> str:
     """Generate markdown changelog from commits."""
     if date is None:
@@ -207,7 +207,7 @@ def generate_changelog(
         )
 
         # Group by scope within type
-        scoped: dict[Optional[str], list[Commit]] = defaultdict(list)
+        scoped: dict[str | None, list[Commit]] = defaultdict(list)
         for commit in type_commits:
             scoped[commit.scope].append(commit)
 

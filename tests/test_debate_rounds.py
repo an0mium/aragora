@@ -32,7 +32,7 @@ class MockAgent:
 
     name: str = "test_agent"
     role: str = "proposer"
-    stance: Optional[str] = None
+    stance: str | None = None
 
 
 @dataclass

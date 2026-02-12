@@ -88,7 +88,7 @@ class SIEMConfig:
     enabled: bool = True
 
     @classmethod
-    def from_env(cls) -> "SIEMConfig":
+    def from_env(cls) -> SIEMConfig:
         """Load configuration from environment variables."""
         backend_str = os.environ.get("SIEM_BACKEND", "none").lower()
         try:
@@ -403,7 +403,7 @@ def emit_security_event(
     action: str | None = None,
     outcome: str = "success",
     severity: str = "info",
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Emit a security event to SIEM.
 
@@ -439,7 +439,7 @@ def emit_auth_event(
     action: str,
     ip_address: str | None = None,
     outcome: str = "success",
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Emit an authentication event.
 
@@ -479,7 +479,7 @@ def emit_data_access_event(
     action: str,
     granted: bool = True,
     organization_id: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Emit a data access event (for compliance/audit).
 
@@ -516,7 +516,7 @@ def emit_data_access_event(
 def emit_privacy_event(
     user_id: str,
     action: str,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """Emit a privacy-related event (GDPR/CCPA).
 

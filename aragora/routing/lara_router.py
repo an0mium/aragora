@@ -56,7 +56,7 @@ class RoutingDecision:
 
     selected_mode: RetrievalMode
     confidence: float  # 0.0-1.0
-    fallback_mode: Optional[RetrievalMode]  # If primary fails
+    fallback_mode: RetrievalMode | None  # If primary fails
     reasoning: str  # Explanation of decision
     query_features: QueryFeatures
     doc_tokens: int  # Document context size considered
@@ -163,7 +163,7 @@ class LaRARouter:
         # ...
     """
 
-    def __init__(self, config: Optional[LaRAConfig] = None):
+    def __init__(self, config: LaRAConfig | None = None):
         """Initialize the router.
 
         Args:
@@ -176,8 +176,8 @@ class LaRARouter:
         self,
         query: str,
         doc_tokens: int,
-        available_modes: Optional[set[RetrievalMode]] = None,
-        override_mode: Optional[RetrievalMode] = None,
+        available_modes: set[RetrievalMode] | None = None,
+        override_mode: RetrievalMode | None = None,
     ) -> RoutingDecision:
         """
         Route a query to the optimal retrieval mode.
@@ -465,7 +465,7 @@ class LaRARouter:
         self,
         primary_mode: RetrievalMode,
         mode_scores: dict[RetrievalMode, float],
-    ) -> Optional[RetrievalMode]:
+    ) -> RetrievalMode | None:
         """Select a fallback mode if primary fails."""
         # Sort modes by score, excluding primary
         candidates = [

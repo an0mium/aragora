@@ -20,7 +20,7 @@ class PhaseResult(TypedDict, total=False):
     """Result from a phase execution."""
 
     success: bool
-    error: Optional[str]
+    error: str | None
     data: dict
     duration_seconds: float
 
@@ -32,7 +32,7 @@ class AuditFindingSummary(TypedDict, total=False):
     category: str
     severity: str
     description: str
-    file_path: Optional[str]
+    file_path: str | None
 
 
 class ContextResult(PhaseResult):
@@ -81,7 +81,7 @@ class VerifyResult(PhaseResult):
 class CommitResult(PhaseResult):
     """Result from commit phase."""
 
-    commit_hash: Optional[str]
+    commit_hash: str | None
     committed: bool
 
 

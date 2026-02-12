@@ -216,7 +216,7 @@ class EnvelopeCreateRequest:
     documents: list[Document]
     email_body: str = ""
     status: str = "sent"  # 'created' for draft, 'sent' to send immediately
-    tabs: Optional[list[SignatureTab]] = None
+    tabs: list[SignatureTab] | None = None
 
     # Options
     enforce_signer_visibility: bool = True
@@ -376,7 +376,7 @@ class DocuSignConnector:
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         raw_response: bool = False,
     ) -> Any:
         """Make authenticated API request."""

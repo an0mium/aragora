@@ -192,8 +192,8 @@ class AuditKnowledgeAdapter:
 
     async def store_finding_as_fact(
         self,
-        finding: "AuditFinding",
-        session: "AuditSession",
+        finding: AuditFinding,
+        session: AuditSession,
     ) -> str | None:
         """
         Store an audit finding as a verified fact.
@@ -264,7 +264,7 @@ class AuditKnowledgeAdapter:
 
     async def store_session_findings(
         self,
-        session: "AuditSession",
+        session: AuditSession,
     ) -> int:
         """
         Store all findings from an audit session as facts.
@@ -287,7 +287,7 @@ class AuditKnowledgeAdapter:
 
     async def query_for_cross_references(
         self,
-        finding: "AuditFinding",
+        finding: AuditFinding,
         workspace_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """
@@ -361,7 +361,7 @@ class AuditKnowledgeAdapter:
 
     async def validate_finding_with_knowledge(
         self,
-        finding: "AuditFinding",
+        finding: AuditFinding,
         workspace_id: str | None = None,
     ) -> dict[str, Any]:
         """

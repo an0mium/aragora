@@ -96,7 +96,7 @@ class EmailMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EmailMessage":
+    def from_dict(cls, data: dict[str, Any]) -> EmailMessage:
         """Deserialize from dictionary."""
         date_val = data.get("date")
         if isinstance(date_val, str):
@@ -183,7 +183,7 @@ class GmailWebhookPayload:
     raw_data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_pubsub(cls, payload: dict[str, Any]) -> "GmailWebhookPayload":
+    def from_pubsub(cls, payload: dict[str, Any]) -> GmailWebhookPayload:
         """
         Parse Pub/Sub webhook payload.
 
@@ -274,7 +274,7 @@ class GmailSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GmailSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> GmailSyncState:
         """Deserialize from dictionary."""
         last_sync = data.get("last_sync")
         if isinstance(last_sync, str):
@@ -349,7 +349,7 @@ class BatchFetchResult:
         total_requested: Total number of message IDs requested.
     """
 
-    messages: list["EmailMessage"] = field(default_factory=list)
+    messages: list[EmailMessage] = field(default_factory=list)
     failures: list[MessageFetchFailure] = field(default_factory=list)
     total_requested: int = 0
 
@@ -445,7 +445,7 @@ class OutlookSyncState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OutlookSyncState":
+    def from_dict(cls, data: dict[str, Any]) -> OutlookSyncState:
         """Deserialize from dictionary."""
         last_sync = data.get("last_sync")
         if isinstance(last_sync, str):

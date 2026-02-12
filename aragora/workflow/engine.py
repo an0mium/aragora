@@ -81,7 +81,7 @@ class WorkflowEngine:
     def __init__(
         self,
         config: WorkflowConfig | None = None,
-        step_registry: Optional[dict[str, type[WorkflowStep]]] = None,
+        step_registry: dict[str, type[WorkflowStep]] | None = None,
         checkpoint_store: CheckpointStore | None = None,
     ):
         self._config = config or WorkflowConfig()
@@ -222,8 +222,8 @@ class WorkflowEngine:
     def _merge_metadata(
         self,
         definition: WorkflowDefinition,
-        override: Optional[dict[str, Any]] = None,
-        checkpoint_metadata: Optional[dict[str, Any]] = None,
+        override: dict[str, Any] | None = None,
+        checkpoint_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Merge workflow metadata from definition, checkpoint, and per-execution override."""
         merged: dict[str, Any] = {}
@@ -284,10 +284,10 @@ class WorkflowEngine:
     async def execute(
         self,
         definition: WorkflowDefinition,
-        inputs: Optional[dict[str, Any]] = None,
+        inputs: dict[str, Any] | None = None,
         workflow_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
-        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        metadata: dict[str, Any] | None = None,
+        event_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> WorkflowResult:
         """
         Execute a workflow from the beginning.
@@ -425,8 +425,8 @@ class WorkflowEngine:
         workflow_id: str,
         checkpoint: WorkflowCheckpoint,
         definition: WorkflowDefinition,
-        metadata: Optional[dict[str, Any]] = None,
-        event_callback: Optional[Callable[[str, dict[str, Any]], None]] = None,
+        metadata: dict[str, Any] | None = None,
+        event_callback: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> WorkflowResult:
         """
         Resume a workflow from a checkpoint.

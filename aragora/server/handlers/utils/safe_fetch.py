@@ -179,7 +179,7 @@ class SafeFetchContext:
         self.include_error_in_fallback = include_error_in_fallback
         self._errors: list[tuple[str, str]] = []
 
-    def __enter__(self) -> "SafeFetchContext":
+    def __enter__(self) -> SafeFetchContext:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:

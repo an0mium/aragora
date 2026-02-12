@@ -81,7 +81,7 @@ class ConcreteMondayConnector(MondayConnector):
             for item in items
         ]
 
-    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+    async def fetch(self, evidence_id: str) -> Evidence | None:
         if evidence_id.startswith("monday-item-"):
             item_id = int(evidence_id.replace("monday-item-", ""))
             item = await self.get_item(item_id)

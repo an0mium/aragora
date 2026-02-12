@@ -36,8 +36,8 @@ class BudgetWarning:
 
 def check_budget(
     estimated_cost_usd: float | None = None,
-    cost_estimator: Optional[Callable[..., float]] = None,
-    on_warning: Optional[Callable[[BudgetWarning], bool]] = None,
+    cost_estimator: Callable[..., float] | None = None,
+    on_warning: Callable[[BudgetWarning], bool] | None = None,
 ) -> Callable[[F], F]:
     """Decorator to check budget before executing an operation.
 
@@ -212,7 +212,7 @@ def asyncio_iscoroutinefunction(func: Any) -> bool:
 
 
 def record_spend(
-    cost_calculator: Optional[Callable[..., float]] = None,
+    cost_calculator: Callable[..., float] | None = None,
     description_template: str = "Operation",
 ) -> Callable[[F], F]:
     """Decorator to record spending after successful operation.

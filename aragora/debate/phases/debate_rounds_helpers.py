@@ -56,7 +56,7 @@ def calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     return max(calculated, REVISION_PHASE_BASE_TIMEOUT)
 
 
-def is_effectively_empty_critique(critique: "Critique") -> bool:
+def is_effectively_empty_critique(critique: Critique) -> bool:
     """Return True if critique only contains placeholder/empty content."""
     issues = [i.strip() for i in critique.issues if isinstance(i, str) and i.strip()]
     suggestions = [s.strip() for s in critique.suggestions if isinstance(s, str) and s.strip()]
@@ -173,14 +173,14 @@ def observe_rhetorical_patterns(
 
 
 async def refresh_evidence_for_round(
-    ctx: "DebateContext",
+    ctx: DebateContext,
     round_num: int,
     refresh_evidence_callback: Callable | None,
     skill_registry: Any,
     enable_skills: bool,
     notify_spectator: Callable | None,
     hooks: dict,
-    partial_critiques: list["Critique"],
+    partial_critiques: list[Critique],
 ) -> None:
     """Refresh evidence based on claims made in the current round.
 
@@ -267,7 +267,7 @@ async def refresh_evidence_for_round(
 
 async def refresh_with_skills(
     text: str,
-    ctx: "DebateContext",
+    ctx: DebateContext,
     skill_registry: Any,
 ) -> int:
     """Refresh evidence using skills for claim-specific searches.
@@ -355,12 +355,12 @@ async def refresh_with_skills(
 
 
 async def compress_debate_context(
-    ctx: "DebateContext",
+    ctx: DebateContext,
     round_num: int,
     compress_context_callback: Callable | None,
     hooks: dict,
     notify_spectator: Callable | None,
-    partial_critiques: list["Critique"],
+    partial_critiques: list[Critique],
 ) -> None:
     """Compress debate context using RLM cognitive load limiter.
 
@@ -429,13 +429,13 @@ async def compress_debate_context(
 
 
 async def execute_final_synthesis_round(
-    ctx: "DebateContext",
+    ctx: DebateContext,
     round_num: int,
     circuit_breaker: Any,
     generate_with_agent: Callable | None,
     hooks: dict,
     notify_spectator: Callable | None,
-    partial_messages: list["Message"],
+    partial_messages: list[Message],
 ) -> None:
     """Execute Round 7: Final Synthesis.
 
@@ -475,7 +475,7 @@ async def execute_final_synthesis_round(
     for agent in proposers:
         try:
             # Get critiques from result or round_critiques
-            all_critiques: list["Critique"] = []
+            all_critiques: list[Critique] = []
             if result and result.critiques:
                 all_critiques = list(result.critiques)
             elif ctx.round_critiques:
@@ -551,7 +551,7 @@ async def execute_final_synthesis_round(
 
 
 def build_final_synthesis_prompt(
-    agent: "Agent",
+    agent: Agent,
     current_proposal: str,
     all_proposals: dict,
     critiques: list,
@@ -614,7 +614,7 @@ Write in a clear, confident voice while acknowledging genuine complexity."""
 
 async def fire_propulsion_event(
     event_type: str,
-    ctx: "DebateContext",
+    ctx: DebateContext,
     round_num: int,
     propulsion_engine: Any,
     enable_propulsion: bool,

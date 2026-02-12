@@ -201,7 +201,7 @@ async def demo_task_execution(scheduler: TaskScheduler, agent_ids: list[str]) ->
     print(f"\n  Executed {claimed} tasks successfully")
 
 
-async def demo_deliberation(deliberation: ControlPlaneDeliberation) -> Optional[str]:
+async def demo_deliberation(deliberation: ControlPlaneDeliberation) -> str | None:
     """Demonstrate deliberation-as-task integration."""
     print_header("DELIBERATION-AS-TASK")
 

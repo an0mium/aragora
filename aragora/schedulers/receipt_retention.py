@@ -125,11 +125,11 @@ class ReceiptRetentionScheduler:
 
     def __init__(
         self,
-        store: "ReceiptStore",  # noqa: F821 - forward reference
+        store: ReceiptStore,  # noqa: F821 - forward reference
         interval_hours: int = DEFAULT_CLEANUP_INTERVAL_HOURS,
         retention_days: int | None = None,
-        on_cleanup_complete: Optional[Callable[[CleanupResult], None]] = None,
-        on_error: Optional[Callable[[Exception], None]] = None,
+        on_cleanup_complete: Callable[[CleanupResult], None] | None = None,
+        on_error: Callable[[Exception], None] | None = None,
     ):
         """
         Initialize the receipt retention scheduler.
@@ -291,7 +291,7 @@ _scheduler: ReceiptRetentionScheduler | None = None
 
 
 def get_receipt_retention_scheduler(
-    store: Optional["ReceiptStore"] = None,  # noqa: F821
+    store: ReceiptStore | None = None,  # noqa: F821
 ) -> ReceiptRetentionScheduler | None:
     """
     Get or create the global receipt retention scheduler.

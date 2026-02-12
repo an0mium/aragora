@@ -129,7 +129,7 @@ class PerformanceRouterBridge:
     """
 
     performance_monitor: Any | None = None  # AgentPerformanceMonitor
-    agent_router: Optional["AgentRouter"] = None
+    agent_router: AgentRouter | None = None
     config: PerformanceRouterBridgeConfig = field(default_factory=PerformanceRouterBridgeConfig)
 
     # Internal state

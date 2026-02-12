@@ -29,8 +29,8 @@ class FHIRResource:
     id: str
     resource_type: str
     data: dict[str, Any]
-    last_updated: Optional[datetime] = None
-    version_id: Optional[str] = None
+    last_updated: datetime | None = None
+    version_id: str | None = None
 
     @property
     def reference(self) -> str:
@@ -69,8 +69,8 @@ class MockFHIRConnector:
         self.resource_types = resource_types or ["Patient", "Observation", "Condition"]
         self.redact_phi = redact_phi
 
-        self._access_token: Optional[str] = None
-        self._token_expires: Optional[datetime] = None
+        self._access_token: str | None = None
+        self._token_expires: datetime | None = None
         self._resources_cache: dict[str, FHIRResource] = {}
 
     @property
@@ -157,7 +157,7 @@ class MockFHIRConnector:
         self,
         resource_type: str,
         params: dict[str, Any] = None,
-    ) -> tuple[list[FHIRResource], Optional[str]]:
+    ) -> tuple[list[FHIRResource], str | None]:
         """Search for resources of a given type."""
         params = params or {}
         endpoint = f"/{resource_type}"
@@ -186,7 +186,7 @@ class MockFHIRConnector:
 
         return resources, next_link
 
-    def _parse_datetime(self, dt_str: Optional[str]) -> Optional[datetime]:
+    def _parse_datetime(self, dt_str: str | None) -> datetime | None:
         """Parse FHIR datetime string."""
         if not dt_str:
             return None
@@ -254,7 +254,7 @@ class MockFHIRConnector:
                 if items_yielded >= batch_size:
                     return
 
-    async def fetch(self, item_id: str) -> Optional[Any]:
+    async def fetch(self, item_id: str) -> Any | None:
         """Fetch a specific resource."""
         # Parse item ID
         if item_id.startswith("fhir-"):

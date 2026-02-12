@@ -75,7 +75,7 @@ class AudienceManager:
         self._lock_timeout = 1.0  # Lock timeout to prevent deadlocks
 
         # Optional callback for notifications (accepts event_type: str and **kwargs)
-        self._notify_callback: Optional[Callable[..., None]] = None
+        self._notify_callback: Callable[..., None] | None = None
 
     def set_notify_callback(self, callback: Callable[..., None]) -> None:
         """Set callback for spectator notifications."""

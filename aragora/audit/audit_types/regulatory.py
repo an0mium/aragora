@@ -317,7 +317,7 @@ class RegulatoryAuditor(BaseAuditor):
 
     def __init__(
         self,
-        frameworks: Optional[list[RegulatoryFramework]] = None,
+        frameworks: list[RegulatoryFramework] | None = None,
     ):
         """
         Initialize regulatory auditor.

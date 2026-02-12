@@ -74,7 +74,7 @@ class RuleCondition:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RuleCondition":
+    def from_dict(cls, data: dict[str, Any]) -> RuleCondition:
         return cls(
             field=RuleConditionField(data["field"]),
             operator=RuleConditionOperator(data["operator"]),
@@ -98,7 +98,7 @@ class RuleAction:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RuleAction":
+    def from_dict(cls, data: dict[str, Any]) -> RuleAction:
         return cls(
             type=RuleActionType(data["type"]),
             target=data.get("target"),
@@ -142,7 +142,7 @@ class RoutingRule:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RoutingRule":
+    def from_dict(cls, data: dict[str, Any]) -> RoutingRule:
         return cls(
             id=data["id"],
             name=data["name"],

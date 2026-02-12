@@ -183,7 +183,7 @@ class RoleAssignment:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RoleAssignment":
+    def from_dict(cls, data: dict[str, Any]) -> RoleAssignment:
         """Deserialize from dictionary."""
         return cls(
             agent_id=data["agent_id"],
@@ -268,8 +268,8 @@ class AgentHierarchy:
         agent_id: str,
         role: AgentRole,
         supervised_by: str | None = None,
-        additional_capabilities: Optional[set[RoleCapability]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        additional_capabilities: set[RoleCapability] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> RoleAssignment:
         """
         Register an agent with a role.
@@ -461,7 +461,7 @@ class RoleBasedRouter:
     async def route_task(
         self,
         task_type: str,
-        required_capabilities: Optional[set[RoleCapability]] = None,
+        required_capabilities: set[RoleCapability] | None = None,
         prefer_persistent: bool = True,
     ) -> str | None:
         """

@@ -22,7 +22,7 @@ from .crud import create_workflow
 
 async def list_templates(
     category: str | None = None,
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """List available workflow templates."""
     store = _get_store()
@@ -30,7 +30,7 @@ async def list_templates(
     return [t.to_dict() for t in templates]
 
 
-async def get_template(template_id: str) -> Optional[dict[str, Any]]:
+async def get_template(template_id: str) -> dict[str, Any] | None:
     """Get a workflow template by ID."""
     store = _get_store()
     template = store.get_template(template_id)
@@ -42,7 +42,7 @@ async def create_workflow_from_template(
     name: str,
     tenant_id: str = "default",
     created_by: str = "",
-    customizations: Optional[dict[str, Any]] = None,
+    customizations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a new workflow from a template."""
     store = _get_store()
@@ -336,7 +336,7 @@ def _load_yaml_templates() -> None:
             logger.info(f"Loaded {loaded} new YAML templates into database")
     except ImportError as e:
         logger.debug(f"Template loader not available: {e}")
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.warning(f"Failed to read YAML templates from disk: {e}")
     except (ValueError, KeyError, TypeError) as e:
         logger.warning(f"Failed to parse YAML templates: {e}")

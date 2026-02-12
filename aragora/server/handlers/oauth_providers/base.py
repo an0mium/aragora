@@ -71,7 +71,7 @@ class OAuthTokens:
     id_token: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OAuthTokens":
+    def from_dict(cls, data: dict[str, Any]) -> OAuthTokens:
         """Create from token endpoint response."""
         return cls(
             access_token=data["access_token"],
@@ -150,7 +150,7 @@ class OAuthProvider(ABC):
             self._http_client.close()
             self._http_client = None
 
-    def __enter__(self) -> "OAuthProvider":
+    def __enter__(self) -> OAuthProvider:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -165,7 +165,7 @@ class OAuthProvider(ABC):
         self,
         state: str,
         redirect_uri: str | None = None,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         **kwargs,
     ) -> str:
         """
@@ -287,7 +287,7 @@ class OAuthProvider(ABC):
         self,
         endpoint: str,
         data: dict[str, str],
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ) -> OAuthTokens:
         """Make token request to provider."""
         client = self._get_http_client()
@@ -304,7 +304,7 @@ class OAuthProvider(ABC):
         self,
         endpoint: str,
         access_token: str,
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make user info request to provider."""
         client = self._get_http_client()

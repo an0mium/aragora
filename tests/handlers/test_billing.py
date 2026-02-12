@@ -102,7 +102,7 @@ class MockUser:
         email: str,
         name: str = "Test User",
         role: str = "member",
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         is_active: bool = True,
     ):
         self.id = id
@@ -124,10 +124,10 @@ class MockOrganization:
         slug: str = "test-org",
         tier: MockSubscriptionTier = None,
         debates_used_this_month: int = 0,
-        stripe_customer_id: Optional[str] = None,
-        stripe_subscription_id: Optional[str] = None,
-        billing_cycle_start: Optional[datetime] = None,
-        limits: Optional[MockTierLimits] = None,
+        stripe_customer_id: str | None = None,
+        stripe_subscription_id: str | None = None,
+        billing_cycle_start: datetime | None = None,
+        limits: MockTierLimits | None = None,
     ):
         self.id = id
         self.name = name
@@ -154,7 +154,7 @@ class MockUsageSummary:
         total_tokens_out: int = 0,
         total_cost_usd: Decimal = Decimal("0.00"),
         total_cost: Decimal = Decimal("0.00"),
-        cost_by_provider: Optional[dict[str, Decimal]] = None,
+        cost_by_provider: dict[str, Decimal] | None = None,
     ):
         self.total_tokens = total_tokens
         self.total_tokens_in = total_tokens_in
@@ -167,7 +167,7 @@ class MockUsageSummary:
 class MockUsageTracker:
     """Mock usage tracker for testing."""
 
-    def __init__(self, summary: Optional[MockUsageSummary] = None):
+    def __init__(self, summary: MockUsageSummary | None = None):
         self._summary = summary
 
     def get_summary(
@@ -175,7 +175,7 @@ class MockUsageTracker:
         org_id: str = None,
         period_start: datetime = None,
         start_time: datetime = None,
-    ) -> Optional[MockUsageSummary]:
+    ) -> MockUsageSummary | None:
         return self._summary
 
 
@@ -186,10 +186,10 @@ class MockStripeSubscription:
         self,
         id: str,
         status: str = "active",
-        current_period_end: Optional[datetime] = None,
+        current_period_end: datetime | None = None,
         cancel_at_period_end: bool = False,
-        trial_start: Optional[datetime] = None,
-        trial_end: Optional[datetime] = None,
+        trial_start: datetime | None = None,
+        trial_end: datetime | None = None,
     ):
         self.id = id
         self.status = status
@@ -239,17 +239,17 @@ class MockStripeClient:
 
     def __init__(
         self,
-        subscription: Optional[MockStripeSubscription] = None,
-        checkout_session: Optional[MockCheckoutSession] = None,
-        portal_session: Optional[MockPortalSession] = None,
-        invoices: Optional[list[dict]] = None,
+        subscription: MockStripeSubscription | None = None,
+        checkout_session: MockCheckoutSession | None = None,
+        portal_session: MockPortalSession | None = None,
+        invoices: list[dict] | None = None,
     ):
         self._subscription = subscription
         self._checkout_session = checkout_session or MockCheckoutSession("cs_test_123")
         self._portal_session = portal_session or MockPortalSession("bps_test_123")
         self._invoices = invoices or []
 
-    def get_subscription(self, subscription_id: str) -> Optional[MockStripeSubscription]:
+    def get_subscription(self, subscription_id: str) -> MockStripeSubscription | None:
         return self._subscription
 
     def create_checkout_session(self, **kwargs) -> MockCheckoutSession:
@@ -294,25 +294,25 @@ class MockUserStore:
         if org.stripe_customer_id:
             self._orgs_by_customer[org.stripe_customer_id] = org
 
-    def get_user_by_id(self, user_id: str) -> Optional[MockUser]:
+    def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self._users.get(user_id)
 
-    def get_organization_by_id(self, org_id: str) -> Optional[MockOrganization]:
+    def get_organization_by_id(self, org_id: str) -> MockOrganization | None:
         return self._orgs.get(org_id)
 
-    def get_organization_by_subscription(self, subscription_id: str) -> Optional[MockOrganization]:
+    def get_organization_by_subscription(self, subscription_id: str) -> MockOrganization | None:
         return self._orgs_by_subscription.get(subscription_id)
 
-    def get_organization_by_stripe_customer(self, customer_id: str) -> Optional[MockOrganization]:
+    def get_organization_by_stripe_customer(self, customer_id: str) -> MockOrganization | None:
         return self._orgs_by_customer.get(customer_id)
 
-    def get_organization_owner(self, org_id: str) -> Optional[MockUser]:
+    def get_organization_owner(self, org_id: str) -> MockUser | None:
         for user in self._users.values():
             if user.org_id == org_id and user.role == "owner":
                 return user
         return None
 
-    def update_organization(self, org_id: str, **kwargs) -> Optional[MockOrganization]:
+    def update_organization(self, org_id: str, **kwargs) -> MockOrganization | None:
         org = self._orgs.get(org_id)
         if org:
             for key, value in kwargs.items():
@@ -361,10 +361,10 @@ class MockAuthContext:
         self,
         user_id: str,
         is_authenticated: bool = True,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         role: str = "member",
-        permissions: Optional[list[str]] = None,
-        error_reason: Optional[str] = None,
+        permissions: list[str] | None = None,
+        error_reason: str | None = None,
     ):
         self.user_id = user_id
         self.is_authenticated = is_authenticated
@@ -379,11 +379,11 @@ class MockHandler:
 
     def __init__(
         self,
-        body: Optional[dict] = None,
+        body: dict | None = None,
         command: str = "GET",
         query_string: str = "",
         user_store=None,
-        query_params: Optional[dict] = None,
+        query_params: dict | None = None,
     ):
         self.command = command
         self.headers = {"User-Agent": "test-agent"}
@@ -413,8 +413,8 @@ class MockWebhookEvent:
         self,
         event_id: str,
         event_type: str,
-        object_data: Optional[dict] = None,
-        metadata: Optional[dict] = None,
+        object_data: dict | None = None,
+        metadata: dict | None = None,
     ):
         self.event_id = event_id
         self.type = event_type

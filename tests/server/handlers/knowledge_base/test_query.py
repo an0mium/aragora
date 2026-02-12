@@ -91,7 +91,7 @@ class MockHTTPHandler:
     def __init__(
         self,
         body: bytes = b"{}",
-        headers: Optional[dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ):
         self.rfile = BytesIO(body)
         self.headers = headers or {}
@@ -102,7 +102,7 @@ class MockHTTPHandler:
 class QueryHandler(QueryOperationsMixin):
     """Handler implementation for testing QueryOperationsMixin."""
 
-    def __init__(self, query_engine: Optional[MockQueryEngine] = None):
+    def __init__(self, query_engine: MockQueryEngine | None = None):
         self._query_engine = query_engine
         self.ctx = {}
 

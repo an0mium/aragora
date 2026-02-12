@@ -72,11 +72,11 @@ class MockRedis:
         self._check_fail()
         return True
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         self._check_fail()
         return self._data.get(key)
 
-    def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    def set(self, key: str, value: str, ex: int | None = None) -> bool:
         self._check_fail()
         self._data[key] = value
         if ex:
@@ -109,7 +109,7 @@ class MockRedis:
             if fnmatch.fnmatch(key, match):
                 yield key
 
-    def hmget(self, name: str, keys: list[str]) -> list[Optional[str]]:
+    def hmget(self, name: str, keys: list[str]) -> list[str | None]:
         self._check_fail()
         hash_data = self._hashes.get(name, {})
         return [hash_data.get(k) for k in keys]
@@ -117,9 +117,9 @@ class MockRedis:
     def hset(
         self,
         name: str,
-        key: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict[str, str]] = None,
+        key: str | None = None,
+        value: str | None = None,
+        mapping: dict[str, str] | None = None,
     ) -> int:
         self._check_fail()
         if name not in self._hashes:
@@ -181,7 +181,7 @@ class MockRedis:
 
         return [allowed, tokens, burst]
 
-    def pipeline(self) -> "MockPipeline":
+    def pipeline(self) -> MockPipeline:
         return MockPipeline(self)
 
     def close(self) -> None:
@@ -198,18 +198,18 @@ class MockPipeline:
     def hset(
         self,
         name: str,
-        key: Optional[str] = None,
-        value: Optional[str] = None,
-        mapping: Optional[dict[str, str]] = None,
-    ) -> "MockPipeline":
+        key: str | None = None,
+        value: str | None = None,
+        mapping: dict[str, str] | None = None,
+    ) -> MockPipeline:
         self._commands.append(("hset", (name,), {"key": key, "value": value, "mapping": mapping}))
         return self
 
-    def expire(self, key: str, seconds: int) -> "MockPipeline":
+    def expire(self, key: str, seconds: int) -> MockPipeline:
         self._commands.append(("expire", (key, seconds), {}))
         return self
 
-    def incr(self, key: str) -> "MockPipeline":
+    def incr(self, key: str) -> MockPipeline:
         self._commands.append(("incr", (key,), {}))
         return self
 

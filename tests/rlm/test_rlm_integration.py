@@ -83,7 +83,7 @@ class MockDebateRound:
     round_number: int
     proposals: list[dict] = field(default_factory=list)
     critiques: list[dict] = field(default_factory=list)
-    votes: Optional[dict] = None
+    votes: dict | None = None
 
 
 @dataclass
@@ -91,8 +91,8 @@ class MockDebateResult:
     """Mock debate result for testing RLM adapters."""
 
     rounds: list[MockDebateRound] = field(default_factory=list)
-    consensus: Optional[str] = None
-    final_answer: Optional[str] = None
+    consensus: str | None = None
+    final_answer: str | None = None
 
 
 def create_mock_debate_result(num_rounds: int = 3) -> MockDebateResult:

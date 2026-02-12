@@ -155,7 +155,7 @@ class OrganizationMembership:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OrganizationMembership":
+    def from_dict(cls, data: dict[str, Any]) -> OrganizationMembership:
         """Create from dictionary."""
         membership = cls(
             id=data.get("id", str(uuid4())),

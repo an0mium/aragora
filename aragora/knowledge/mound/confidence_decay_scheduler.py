@@ -97,7 +97,7 @@ def _init_decay_metrics() -> bool:
         return False
 
 
-def record_decay_metrics(report: "DecayScheduleReport") -> None:
+def record_decay_metrics(report: DecayScheduleReport) -> None:
     """Record Prometheus metrics for a decay operation."""
     if not _init_decay_metrics():
         return
@@ -152,11 +152,11 @@ class ConfidenceDecayScheduler:
 
     def __init__(
         self,
-        knowledge_mound: Optional["KnowledgeMound"] = None,
+        knowledge_mound: KnowledgeMound | None = None,
         decay_interval_hours: int = 24,
-        workspaces: Optional[list[str]] = None,
+        workspaces: list[str] | None = None,
         max_items_per_workspace: int = 10000,
-        on_decay_complete: Optional[Callable[[DecayScheduleReport], None]] = None,
+        on_decay_complete: Callable[[DecayScheduleReport], None] | None = None,
     ):
         """
         Initialize the confidence decay scheduler.
@@ -175,7 +175,7 @@ class ConfidenceDecayScheduler:
         self._on_decay_complete = on_decay_complete
 
         self._running = False
-        self._task: Optional[asyncio.Task[None]] = None
+        self._task: asyncio.Task[None] | None = None
         self._last_run: dict[str, datetime] = {}
         self._total_decay_cycles = 0
         self._total_items_processed = 0
@@ -425,9 +425,9 @@ def set_decay_scheduler(scheduler: ConfidenceDecayScheduler) -> None:
 
 
 async def start_decay_scheduler(
-    knowledge_mound: "KnowledgeMound",
+    knowledge_mound: KnowledgeMound,
     decay_interval_hours: int = 24,
-    workspaces: Optional[list[str]] = None,
+    workspaces: list[str] | None = None,
 ) -> ConfidenceDecayScheduler:
     """
     Create and start a global confidence decay scheduler.

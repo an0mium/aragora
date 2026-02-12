@@ -48,7 +48,7 @@ class CachedWeight:
     """Cached weight result with metadata for invalidation."""
 
     weight: float
-    factors: "WeightFactors"
+    factors: WeightFactors
     computed_at: float  # timestamp
     elo_version: int  # ELO version for invalidation
 
@@ -103,7 +103,7 @@ class WeightCache:
         self,
         agent_name: str,
         domain: str,
-    ) -> tuple[float, "WeightFactors"] | None:
+    ) -> tuple[float, WeightFactors] | None:
         """
         Get cached weight for an agent.
 
@@ -144,7 +144,7 @@ class WeightCache:
         agent_name: str,
         domain: str,
         weight: float,
-        factors: "WeightFactors",
+        factors: WeightFactors,
     ) -> None:
         """
         Store computed weight in cache.
@@ -385,7 +385,7 @@ class WeightCalculator:
         flip_detector: Any = None,
         agent_weights: dict[str, float] | None = None,
         calibration_tracker: Any = None,
-        get_calibration_weight: Optional[Callable[[str], float]] = None,
+        get_calibration_weight: Callable[[str], float] | None = None,
         config: WeightCalculatorConfig | None = None,
         domain: str = "general",
         session_id: str | None = None,
@@ -420,7 +420,7 @@ class WeightCalculator:
         self._ratings_cache: dict[str, Any] = {}
 
         # Context for bias mitigation (set during compute_weights_with_context)
-        self._current_votes: list["Vote"] = []
+        self._current_votes: list[Vote] = []
         self._current_proposals: dict[str, str] = {}
 
         # Session-based weight caching
@@ -435,7 +435,7 @@ class WeightCalculator:
                 f"Weight calculator caching enabled: session={session_id} ttl={cache_ttl_seconds}s"
             )
 
-    def compute_weights(self, agents: list["Agent"]) -> dict[str, float]:
+    def compute_weights(self, agents: list[Agent]) -> dict[str, float]:
         """Compute vote weights for all agents.
 
         Args:
@@ -455,8 +455,8 @@ class WeightCalculator:
 
     def compute_weights_with_context(
         self,
-        agents: list["Agent"],
-        votes: list["Vote"],
+        agents: list[Agent],
+        votes: list[Vote],
         proposals: dict[str, str],
     ) -> dict[str, float]:
         """Compute vote weights with bias mitigation context.
@@ -494,7 +494,7 @@ class WeightCalculator:
     def get_weight_for_vote(
         self,
         agent_name: str,
-        vote: Optional["Vote"] = None,
+        vote: Vote | None = None,
     ) -> float:
         """Get the combined vote weight for an agent with bias mitigation.
 
@@ -609,7 +609,7 @@ class WeightCalculator:
     def _compute_factors_with_vote(
         self,
         agent_name: str,
-        vote: Optional["Vote"] = None,
+        vote: Vote | None = None,
     ) -> WeightFactors:
         """Compute weight factors including bias mitigation factors.
 
@@ -636,7 +636,7 @@ class WeightCalculator:
     def _get_self_vote_factor(
         self,
         agent_name: str,
-        vote: "Vote",
+        vote: Vote,
     ) -> float:
         """Get self-vote penalty factor.
 
@@ -675,7 +675,7 @@ class WeightCalculator:
 
         return 1.0
 
-    def _get_verbosity_factor(self, vote: "Vote") -> float:
+    def _get_verbosity_factor(self, vote: Vote) -> float:
         """Get verbosity penalty factor for the voted proposal.
 
         Penalizes excessively long proposals to mitigate verbosity bias.

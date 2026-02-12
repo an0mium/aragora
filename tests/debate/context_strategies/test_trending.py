@@ -322,7 +322,7 @@ class _patch_pulse_imports:
         self._manager = manager
         self._patches: list[Any] = []
 
-    def __enter__(self) -> "_patch_pulse_imports":
+    def __enter__(self) -> _patch_pulse_imports:
         pulse_mod = MagicMock()
         pulse_mod.PulseManager = MagicMock(return_value=self._manager)
         pulse_mod.GoogleTrendsIngestor = MagicMock

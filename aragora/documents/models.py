@@ -102,7 +102,7 @@ class DocumentChunk:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DocumentChunk":
+    def from_dict(cls, data: dict[str, Any]) -> DocumentChunk:
         """Create from dictionary."""
         chunk_type = data.get("chunk_type", "text")
         if isinstance(chunk_type, str):
@@ -236,7 +236,7 @@ class IngestedDocument:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "IngestedDocument":
+    def from_dict(cls, data: dict[str, Any]) -> IngestedDocument:
         """Create from dictionary."""
         status = data.get("status", "pending")
         if isinstance(status, str):

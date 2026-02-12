@@ -81,7 +81,7 @@ class TeamsTenant:
         }
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> "TeamsTenant":
+    def from_row(cls, row: sqlite3.Row) -> TeamsTenant:
         """Create from database row."""
         scopes_str = row["scopes"] or ""
         scopes = scopes_str.split(",") if scopes_str else []

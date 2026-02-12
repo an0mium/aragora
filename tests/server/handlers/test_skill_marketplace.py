@@ -92,7 +92,7 @@ class MockSkillVersion:
 
     version: str
     changelog: str = ""
-    published_at: Optional[str] = None
+    published_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -108,8 +108,8 @@ class MockSkillRating:
 
     user_id: str
     rating: int
-    review: Optional[str] = None
-    created_at: Optional[str] = None
+    review: str | None = None
+    created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -127,7 +127,7 @@ class MockInstallResult:
     success: bool
     skill_id: str
     version: str = "1.0.0"
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -176,7 +176,7 @@ class MockMarketplace:
             )
         ]
 
-    async def get_skill(self, skill_id: str) -> Optional[MockSkillListing]:
+    async def get_skill(self, skill_id: str) -> MockSkillListing | None:
         if skill_id == "nonexistent":
             return None
         return MockSkillListing(
@@ -197,7 +197,7 @@ class MockMarketplace:
         return [MockSkillRating(user_id="user-1", rating=5, review="Great skill!")]
 
     async def rate(
-        self, skill_id: str, user_id: str, rating: int, review: Optional[str] = None
+        self, skill_id: str, user_id: str, rating: int, review: str | None = None
     ) -> MockSkillRating:
         return MockSkillRating(user_id=user_id, rating=rating, review=review)
 
@@ -217,7 +217,7 @@ class MockInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        version: Optional[str] = None,
+        version: str | None = None,
         permissions: list[str] = None,
     ) -> MockInstallResult:
         return MockInstallResult(success=True, skill_id=skill_id)

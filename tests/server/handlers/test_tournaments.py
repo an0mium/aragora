@@ -63,14 +63,14 @@ class MockTournamentMatch:
     round_num: int
     agent1: str
     agent2: str
-    winner: Optional[str] = None
+    winner: str | None = None
     score1: float = 0.0
     score2: float = 0.0
-    debate_id: Optional[str] = None
+    debate_id: str | None = None
     bracket_position: int = 0
     is_losers_bracket: bool = False
     created_at: str = "2024-01-01T00:00:00Z"
-    completed_at: Optional[str] = None
+    completed_at: str | None = None
 
 
 @dataclass
@@ -131,7 +131,7 @@ class MockTournamentManager:
 
         return tournament
 
-    def get_tournament(self, tournament_id: str) -> Optional[MockTournament]:
+    def get_tournament(self, tournament_id: str) -> MockTournament | None:
         """Get tournament by ID."""
         return self.tournaments.get(tournament_id)
 
@@ -148,8 +148,8 @@ class MockTournamentManager:
 
     def get_matches(
         self,
-        tournament_id: Optional[str] = None,
-        round_num: Optional[int] = None,
+        tournament_id: str | None = None,
+        round_num: int | None = None,
     ) -> list[MockTournamentMatch]:
         """Get tournament matches."""
         result = list(self.matches.values())
@@ -171,10 +171,10 @@ class MockTournamentManager:
     def record_match_result(
         self,
         match_id: str,
-        winner: Optional[str] = None,
+        winner: str | None = None,
         score1: float = 0.0,
         score2: float = 0.0,
-        debate_id: Optional[str] = None,
+        debate_id: str | None = None,
     ) -> None:
         """Record a match result."""
         match = self.matches.get(match_id)

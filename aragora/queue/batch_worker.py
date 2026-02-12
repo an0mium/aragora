@@ -324,7 +324,7 @@ class BatchExplainabilityWorker:
 async def create_batch_job(
     queue: JobQueue,
     debate_ids: list[str],
-    options: Optional[dict[str, Any]] = None,
+    options: dict[str, Any] | None = None,
     user_id: str | None = None,
     priority: int = 0,
 ) -> Job:

@@ -363,7 +363,7 @@ class StreamingCircuitBreaker:
             self._half_open_calls = 0
             self._success_count = 0
 
-    async def call(self) -> "CircuitBreakerContext":
+    async def call(self) -> CircuitBreakerContext:
         """
         Context manager for protected calls.
 
@@ -414,7 +414,7 @@ class CircuitBreakerContext:
         self._breaker = breaker
         self._entered = False
 
-    async def __aenter__(self) -> "CircuitBreakerContext":
+    async def __aenter__(self) -> CircuitBreakerContext:
         self._entered = True
         return self
 
@@ -470,7 +470,7 @@ class DLQMessage:
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DLQMessage":
+    def from_dict(cls, data: dict[str, Any]) -> DLQMessage:
         """Create from dictionary."""
         return cls(
             original_topic=data["original_topic"],

@@ -167,7 +167,7 @@ class ReceiptDeletionLog:
         operator: str,
         gauntlet_id: str | None = None,
         verdict: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Log a receipt deletion.

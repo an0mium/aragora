@@ -111,7 +111,7 @@ class PreDebateResearcher:
         self,
         brave_api_key: str | None = None,
         serper_api_key: str | None = None,
-        anthropic_client: Optional["anthropic.Anthropic"] = None,
+        anthropic_client: anthropic.Anthropic | None = None,
     ):
         """Initialize the researcher.
 
@@ -125,7 +125,7 @@ class PreDebateResearcher:
         self._anthropic_client = anthropic_client
 
     @property
-    def anthropic_client(self) -> "anthropic.Anthropic":
+    def anthropic_client(self) -> anthropic.Anthropic:
         """Get or create the Anthropic client."""
         if self._anthropic_client is None:
             import anthropic

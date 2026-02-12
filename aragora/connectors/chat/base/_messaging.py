@@ -56,7 +56,7 @@ class MessagingMixin:
         blocks: list[dict[str, Any] | None] = None,
         thread_id: str | None = None,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Send a message to a channel.
 
@@ -119,7 +119,7 @@ class MessagingMixin:
         text: str,
         blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Update an existing message.
 
@@ -182,7 +182,7 @@ class MessagingMixin:
         text: str,
         blocks: list[dict[str, Any] | None] = None,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Send an ephemeral message visible only to one user.
 
@@ -228,12 +228,12 @@ class MessagingMixin:
 
     async def respond_to_command(
         self,
-        command: "BotCommand",
+        command: BotCommand,
         text: str,
         blocks: list[dict[str, Any] | None] = None,
         ephemeral: bool = True,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Respond to a slash command.
 
@@ -294,12 +294,12 @@ class MessagingMixin:
 
     async def respond_to_interaction(
         self,
-        interaction: "UserInteraction",
+        interaction: UserInteraction,
         text: str,
         blocks: list[dict[str, Any] | None] = None,
         replace_original: bool = False,
         **kwargs: Any,
-    ) -> "SendMessageResponse":
+    ) -> SendMessageResponse:
         """
         Respond to a user interaction (button click, menu select, etc.).
 
@@ -374,7 +374,7 @@ class MessagingMixin:
         title: str | None = None,
         body: str | None = None,
         fields: list[tuple[str, str] | None] = None,
-        actions: list["MessageButton"] | None = None,
+        actions: list[MessageButton] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """

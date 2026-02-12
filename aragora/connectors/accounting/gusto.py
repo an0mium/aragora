@@ -477,7 +477,7 @@ class GustoConnector:
         self,
         method: str,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         access_token: str | None = None,
     ) -> Any:
         """Make authenticated API request with circuit breaker protection."""
@@ -805,7 +805,7 @@ class GustoConnector:
     def generate_journal_entry(
         self,
         payroll: PayrollRun,
-        account_mappings: Optional[dict[str, tuple[str, str]]] = None,
+        account_mappings: dict[str, tuple[str, str]] | None = None,
     ) -> JournalEntry:
         """
         Generate QBO journal entry from payroll run.

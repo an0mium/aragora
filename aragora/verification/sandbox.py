@@ -176,26 +176,26 @@ class ProofSandbox:
         memory_bytes = self.config.memory_mb * 1024 * 1024
         try:
             resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-        except (ValueError, resource.error) as e:
+        except (OSError, ValueError) as e:
             logger.debug(f"Could not set memory limit: {e}")
 
         # CPU time limit (backup for timeout)
         cpu_seconds = int(self.config.timeout_seconds * 2)  # 2x margin
         try:
             resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
-        except (ValueError, resource.error) as e:
+        except (OSError, ValueError) as e:
             logger.debug(f"Could not set CPU limit: {e}")
 
         # Limit file descriptor count
         try:
             resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
-        except (ValueError, resource.error) as e:
+        except (OSError, ValueError) as e:
             logger.debug(f"Could not set file descriptor limit: {e}")
 
         # Limit number of processes/threads
         try:
             resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))
-        except (ValueError, resource.error) as e:
+        except (OSError, ValueError) as e:
             logger.debug(f"Could not set process limit: {e}")
 
     async def _run_subprocess(

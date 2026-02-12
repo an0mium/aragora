@@ -228,7 +228,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         operation: str,
         success: bool,
         latency: float,
-        extra_labels: Optional[dict[str, str]] = None,
+        extra_labels: dict[str, str] | None = None,
     ) -> None:
         """Record Prometheus metric for adapter operation and check SLOs.
 
@@ -298,7 +298,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         record_id: str,
         outcome: str,
         confidence: float,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Record outcome of a validation for tracking.
 
@@ -372,7 +372,7 @@ class _TimedOperation:
         self,
         adapter: KnowledgeMoundAdapter,
         operation: str,
-        span_attributes: Optional[dict[str, Any]] = None,
+        span_attributes: dict[str, Any] | None = None,
     ):
         self.adapter = adapter
         self.operation = operation
@@ -382,7 +382,7 @@ class _TimedOperation:
         self.error: Exception | None = None
         self._span = None
 
-    def __enter__(self) -> "_TimedOperation":
+    def __enter__(self) -> _TimedOperation:
         self.start_time = time.time()
 
         # Start trace span if tracing enabled

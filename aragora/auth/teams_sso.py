@@ -113,7 +113,7 @@ class TeamsSSO:
         self,
         activity: dict[str, Any],
         create_user_if_missing: bool = True,
-    ) -> Optional["SSOUser"]:
+    ) -> SSOUser | None:
         """
         Authenticate a Teams user from a Bot Framework activity.
 
@@ -296,7 +296,7 @@ class TeamsSSO:
         self,
         token: str,
         scopes: list | None = None,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Exchange a Teams SSO token using on-behalf-of (OBO) flow.
 
@@ -353,7 +353,7 @@ class TeamsSSO:
     async def get_user_from_graph(
         self,
         access_token: str,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Fetch user profile from Microsoft Graph API.
 

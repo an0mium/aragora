@@ -89,7 +89,7 @@ class OpenClawKnowledgeItem:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OpenClawKnowledgeItem":
+    def from_dict(cls, data: dict[str, Any]) -> OpenClawKnowledgeItem:
         """Create from dictionary."""
         created_at = data.get("created_at")
         if isinstance(created_at, str):
@@ -169,7 +169,7 @@ class ActionPattern:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ActionPattern":
+    def from_dict(cls, data: dict[str, Any]) -> ActionPattern:
         """Create from dictionary."""
         first_observed = data.get("first_observed_at")
         if isinstance(first_observed, str):

@@ -220,7 +220,7 @@ class AuditBridge:
     async def log_execution_start(
         self,
         adapter_name: str,
-        task: "ExternalAgentTask",
+        task: ExternalAgentTask,
         tenant_id: str | None = None,
         user_id: str | None = None,
     ) -> str:
@@ -244,7 +244,7 @@ class AuditBridge:
 
     async def log_execution_complete(
         self,
-        result: "ExternalAgentResult",
+        result: ExternalAgentResult,
         tenant_id: str | None = None,
         user_id: str | None = None,
     ) -> str:
@@ -285,7 +285,7 @@ class AuditBridge:
         task_id: str,
         tenant_id: str | None,
         user_id: str | None,
-        decision: "PolicyDecision",
+        decision: PolicyDecision,
     ) -> str:
         """Log a policy decision."""
         event_type = (

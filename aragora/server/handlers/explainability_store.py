@@ -61,7 +61,7 @@ class BatchJob:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BatchJob":
+    def from_dict(cls, data: dict[str, Any]) -> BatchJob:
         return cls(**data)
 
 
@@ -92,7 +92,7 @@ class BatchJobStore(ABC):
 class RedisBatchJobStore(BatchJobStore):
     """Redis-backed batch job storage with TTL."""
 
-    def __init__(self, redis_client: "Redis", key_prefix: str = "aragora:batch:", ttl: int = 3600):
+    def __init__(self, redis_client: Redis, key_prefix: str = "aragora:batch:", ttl: int = 3600):
         self._redis = redis_client
         self._prefix = key_prefix
         self._ttl = ttl

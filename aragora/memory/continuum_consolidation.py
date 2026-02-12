@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def emit_tier_event(
-    cms: "ContinuumMemory",
+    cms: ContinuumMemory,
     event_type: str,
     memory_id: str,
     from_tier: MemoryTier,
@@ -60,7 +60,7 @@ def emit_tier_event(
 
 
 def promote_batch(
-    cms: "ContinuumMemory",
+    cms: ContinuumMemory,
     from_tier: MemoryTier,
     to_tier: MemoryTier,
     ids: list[str],
@@ -144,7 +144,7 @@ def promote_batch(
 
 
 def demote_batch(
-    cms: "ContinuumMemory",
+    cms: ContinuumMemory,
     from_tier: MemoryTier,
     to_tier: MemoryTier,
     ids: list[str],
@@ -219,7 +219,7 @@ def demote_batch(
     return demoted_count
 
 
-def consolidate(cms: "ContinuumMemory") -> dict[str, int]:
+def consolidate(cms: ContinuumMemory) -> dict[str, int]:
     """
     Run tier consolidation: promote/demote memories based on surprise.
 

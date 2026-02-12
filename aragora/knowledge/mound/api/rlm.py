@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 class RLMProtocol(Protocol):
     """Protocol defining expected interface for RLM mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _initialized: bool
 
@@ -64,7 +64,7 @@ class RLMProtocol(Protocol):
         limit: int = 10,
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
-    ) -> list["KnowledgeItem"]: ...
+    ) -> list[KnowledgeItem]: ...
 
 
 class RLMOperationsMixin:
@@ -76,7 +76,7 @@ class RLMOperationsMixin:
         limit: int = 50,
         workspace_id: str | None = None,
         agent_call: Any | None = None,
-    ) -> Optional["RLMContext"]:
+    ) -> RLMContext | None:
         """
         Query knowledge and build hierarchical RLM context for navigation.
 

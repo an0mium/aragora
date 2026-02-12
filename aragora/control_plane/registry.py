@@ -173,7 +173,7 @@ class AgentInfo:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AgentInfo":
+    def from_dict(cls, data: dict[str, Any]) -> AgentInfo:
         """Deserialize from dictionary."""
         return cls(
             agent_id=data["agent_id"],
@@ -308,10 +308,10 @@ class AgentRegistry:
         capabilities: Sequence[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
-        metadata: Optional[dict[str, Any]] = None,
-        tags: Optional[list[str]] = None,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
         region_id: str = "default",
-        available_regions: Optional[list[str]] = None,
+        available_regions: list[str] | None = None,
     ) -> AgentInfo:
         """
         Register a new agent or update existing registration.
@@ -609,7 +609,7 @@ class AgentRegistry:
         self,
         capabilities: Sequence[str | AgentCapability],
         strategy: str = "least_loaded",
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
     ) -> AgentInfo | None:
         """
         Select an agent based on capabilities and load balancing strategy.
@@ -648,9 +648,9 @@ class AgentRegistry:
         self,
         capabilities: Sequence[str | AgentCapability],
         target_region: str | None = None,
-        fallback_regions: Optional[list[str]] = None,
+        fallback_regions: list[str] | None = None,
         strategy: str = "least_loaded",
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
         prefer_low_latency: bool = True,
     ) -> AgentInfo | None:
         """

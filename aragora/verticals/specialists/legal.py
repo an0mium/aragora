@@ -493,7 +493,7 @@ class LegalSpecialist(VerticalSpecialistAgent):
     async def analyze_contract(
         self,
         contract_text: str,
-        focus_areas: Optional[list[str]] = None,
+        focus_areas: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Analyze a contract for risks and issues.

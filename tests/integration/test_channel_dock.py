@@ -73,7 +73,7 @@ class MockDock(ChannelDock):
         self,
         channel_id: str,
         result: dict[str, Any],
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         self.sent_results.append(
@@ -94,7 +94,7 @@ class MockDock(ChannelDock):
         self,
         channel_id: str,
         error_message: str,
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         self.sent_errors.append(
@@ -124,7 +124,7 @@ class FailingDock(MockDock):
         self,
         channel_id: str,
         result: dict[str, Any],
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
         **kwargs: Any,
     ) -> SendResult:
         self.attempt_count += 1

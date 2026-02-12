@@ -714,7 +714,7 @@ class TestHandleInvoiceFailed:
             patch("aragora.billing.payment_recovery.get_recovery_store") as mock_rs,
             patch("aragora.billing.notifications.get_billing_notifier") as mock_notifier,
         ):
-            mock_rs.return_value.record_failure.side_effect = IOError("store down")
+            mock_rs.return_value.record_failure.side_effect = OSError("store down")
             mock_notifier.return_value.notify_payment_failed.return_value = MagicMock(
                 method="email", success=True
             )

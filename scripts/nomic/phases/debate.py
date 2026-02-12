@@ -85,19 +85,19 @@ class LearningContext:
 class PostDebateHooks:
     """Hooks for post-debate processing."""
 
-    on_consensus_stored: Optional[Callable] = None
-    on_calibration_recorded: Optional[Callable] = None
-    on_insights_extracted: Optional[Callable] = None
-    on_memories_recorded: Optional[Callable] = None
-    on_persona_recorded: Optional[Callable] = None
-    on_patterns_extracted: Optional[Callable] = None
-    on_meta_analyzed: Optional[Callable] = None
-    on_elo_recorded: Optional[Callable] = None
-    on_positions_recorded: Optional[Callable] = None
-    on_relationships_updated: Optional[Callable] = None
-    on_risks_tracked: Optional[Callable] = None
-    on_claims_extracted: Optional[Callable] = None
-    on_belief_network_built: Optional[Callable] = None
+    on_consensus_stored: Callable | None = None
+    on_calibration_recorded: Callable | None = None
+    on_insights_extracted: Callable | None = None
+    on_memories_recorded: Callable | None = None
+    on_persona_recorded: Callable | None = None
+    on_patterns_extracted: Callable | None = None
+    on_meta_analyzed: Callable | None = None
+    on_elo_recorded: Callable | None = None
+    on_positions_recorded: Callable | None = None
+    on_relationships_updated: Callable | None = None
+    on_risks_tracked: Callable | None = None
+    on_claims_extracted: Callable | None = None
+    on_belief_network_built: Callable | None = None
 
 
 SAFETY_PREAMBLE = """SAFETY RULES:
@@ -122,13 +122,13 @@ class DebatePhase:
         arena_factory: Callable[..., Any],
         environment_factory: Callable[..., Any],
         protocol_factory: Callable[..., Any],
-        config: Optional[DebateConfig] = None,
-        nomic_integration: Optional[Any] = None,
+        config: DebateConfig | None = None,
+        nomic_integration: Any | None = None,
         cycle_count: int = 0,
-        initial_proposal: Optional[str] = None,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        record_replay_fn: Optional[Callable[..., None]] = None,
+        initial_proposal: str | None = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        record_replay_fn: Callable[..., None] | None = None,
     ):
         """
         Initialize the debate phase.
@@ -164,9 +164,9 @@ class DebatePhase:
         self,
         codebase_context: str = "",
         recent_changes: str = "",
-        learning_context: Optional[LearningContext] = None,
-        hooks: Optional[PostDebateHooks] = None,
-        arena_kwargs: Optional[dict[str, Any]] = None,
+        learning_context: LearningContext | None = None,
+        hooks: PostDebateHooks | None = None,
+        arena_kwargs: dict[str, Any] | None = None,
     ) -> DebateResult:
         """
         Execute the debate phase.

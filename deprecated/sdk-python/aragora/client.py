@@ -30,9 +30,9 @@ class ApiConfig:
     """Configuration for the API client."""
 
     base_url: str
-    api_key: Optional[str] = None
+    api_key: str | None = None
     timeout: float = 30.0
-    headers: Optional[Dict[str, str]] = None
+    headers: dict[str, str] | None = None
 
 
 class AragoraClient:
@@ -41,9 +41,9 @@ class AragoraClient:
     def __init__(
         self,
         base_url: str = "http://localhost:8080",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout: float = 30.0,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
     ):
         if httpx is None:
             raise ImportError(
@@ -56,9 +56,9 @@ class AragoraClient:
             timeout=timeout,
             headers=headers or {},
         )
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "AragoraClient":
+    async def __aenter__(self) -> AragoraClient:
         await self._ensure_client()
         return self
 
@@ -87,8 +87,8 @@ class AragoraClient:
         self,
         method: str,
         path: str,
-        params: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
     ) -> Any:
         client = await self._ensure_client()
         response = await client.request(method, path, params=params, json=json)
@@ -103,21 +103,21 @@ class AragoraClient:
         self,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List debates."""
         return await self._request("GET", "/api/debates", params={"limit": limit, "offset": offset})
 
-    async def get_debate(self, debate_id: str) -> Dict[str, Any]:
+    async def get_debate(self, debate_id: str) -> dict[str, Any]:
         """Get a specific debate."""
         return await self._request("GET", f"/api/debates/{debate_id}")
 
     async def create_debate(
         self,
         question: str,
-        agents: List[str],
+        agents: list[str],
         rounds: int = 3,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new debate."""
         return await self._request(
             "POST",
@@ -128,12 +128,12 @@ class AragoraClient:
     async def run_debate(
         self,
         question: str,
-        agents: List[str],
+        agents: list[str],
         rounds: int = 3,
         poll_interval: float = 1.0,
         timeout: float = 300.0,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a debate and wait for completion.
 
         Convenience method that creates a debate and polls until it completes.
@@ -197,7 +197,7 @@ class AragoraClient:
         include_factors: bool = True,
         include_counterfactuals: bool = True,
         include_provenance: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get full explanation for a debate decision."""
         return await self._request(
             "GET",
@@ -212,9 +212,9 @@ class AragoraClient:
     async def get_factors(
         self,
         debate_id: str,
-        min_contribution: Optional[float] = None,
+        min_contribution: float | None = None,
         sort_by: str = "contribution",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get contributing factors for a debate decision."""
         params = {"sort_by": sort_by}
         if min_contribution is not None:
@@ -228,7 +228,7 @@ class AragoraClient:
         debate_id: str,
         max_scenarios: int = 5,
         min_probability: float = 0.3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get counterfactual scenarios for a debate."""
         return await self._request(
             "GET",
@@ -240,8 +240,8 @@ class AragoraClient:
         self,
         debate_id: str,
         hypothesis: str,
-        affected_agents: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        affected_agents: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Generate a custom counterfactual scenario."""
         body = {"hypothesis": hypothesis}
         if affected_agents:
@@ -256,7 +256,7 @@ class AragoraClient:
         include_timestamps: bool = True,
         include_agents: bool = True,
         include_confidence: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get decision provenance chain."""
         return await self._request(
             "GET",
@@ -273,7 +273,7 @@ class AragoraClient:
         debate_id: str,
         format: str = "detailed",
         language: str = "en",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get natural language narrative explanation."""
         return await self._request(
             "GET",
@@ -287,12 +287,12 @@ class AragoraClient:
 
     async def create_batch_explanation(
         self,
-        debate_ids: List[str],
+        debate_ids: list[str],
         include_evidence: bool = True,
         include_counterfactuals: bool = False,
         include_vote_pivots: bool = False,
         format: str = "full",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a batch explanation job for multiple debates.
 
         Args:
@@ -319,7 +319,7 @@ class AragoraClient:
             },
         )
 
-    async def get_batch_status(self, batch_id: str) -> Dict[str, Any]:
+    async def get_batch_status(self, batch_id: str) -> dict[str, Any]:
         """Get status of a batch explanation job."""
         return await self._request("GET", f"/api/v1/explainability/batch/{batch_id}/status")
 
@@ -329,7 +329,7 @@ class AragoraClient:
         include_partial: bool = False,
         offset: int = 0,
         limit: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get results of a batch explanation job.
 
         Args:
@@ -346,9 +346,9 @@ class AragoraClient:
 
     async def compare_explanations(
         self,
-        debate_ids: List[str],
-        compare_fields: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        debate_ids: list[str],
+        compare_fields: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Compare explanations across multiple debates.
 
         Args:
@@ -356,7 +356,7 @@ class AragoraClient:
             compare_fields: Fields to compare (default: confidence, consensus_reached,
                           contributing_factors, evidence_quality)
         """
-        body: Dict[str, Any] = {"debate_ids": debate_ids}
+        body: dict[str, Any] = {"debate_ids": debate_ids}
         if compare_fields:
             body["compare_fields"] = compare_fields
         return await self._request("POST", "/api/v1/explainability/compare", json=body)
@@ -367,13 +367,13 @@ class AragoraClient:
 
     async def list_workflow_templates(
         self,
-        category: Optional[str] = None,
-        pattern: Optional[str] = None,
-        search: Optional[str] = None,
-        tags: Optional[str] = None,
+        category: str | None = None,
+        pattern: str | None = None,
+        search: str | None = None,
+        tags: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List workflow templates."""
         params = {"limit": limit, "offset": offset}
         if category:
@@ -386,7 +386,7 @@ class AragoraClient:
             params["tags"] = tags
         return await self._request("GET", "/api/workflow/templates", params=params)
 
-    async def get_workflow_template(self, template_id: str) -> Dict[str, Any]:
+    async def get_workflow_template(self, template_id: str) -> dict[str, Any]:
         """Get workflow template details."""
         return await self._request("GET", f"/api/workflow/templates/{template_id}")
 
@@ -394,7 +394,7 @@ class AragoraClient:
         self,
         template_id: str,
         include_examples: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get full workflow template package."""
         return await self._request(
             "GET",
@@ -405,12 +405,12 @@ class AragoraClient:
     async def run_workflow_template(
         self,
         template_id: str,
-        inputs: Optional[Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
-        workspace_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        inputs: dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
         """Execute a workflow template."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if inputs:
             body["inputs"] = inputs
         if config:
@@ -419,11 +419,11 @@ class AragoraClient:
             body["workspace_id"] = workspace_id
         return await self._request("POST", f"/api/workflow/templates/{template_id}/run", json=body)
 
-    async def list_workflow_categories(self) -> Dict[str, Any]:
+    async def list_workflow_categories(self) -> dict[str, Any]:
         """List workflow template categories."""
         return await self._request("GET", "/api/workflow/categories")
 
-    async def list_workflow_patterns(self) -> Dict[str, Any]:
+    async def list_workflow_patterns(self) -> dict[str, Any]:
         """List workflow patterns."""
         return await self._request("GET", "/api/workflow/patterns")
 
@@ -432,10 +432,10 @@ class AragoraClient:
         pattern_id: str,
         name: str,
         description: str,
-        category: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        agents: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        category: str | None = None,
+        config: dict[str, Any] | None = None,
+        agents: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Create a template from a workflow pattern."""
         body = {"name": name, "description": description}
         if category:
@@ -454,13 +454,13 @@ class AragoraClient:
 
     async def browse_marketplace(
         self,
-        category: Optional[str] = None,
-        search: Optional[str] = None,
+        category: str | None = None,
+        search: str | None = None,
         sort_by: str = "downloads",
-        min_rating: Optional[float] = None,
+        min_rating: float | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Browse community template marketplace.
 
         Args:
@@ -471,7 +471,7 @@ class AragoraClient:
             limit: Results per page
             offset: Pagination offset
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset, "sort_by": sort_by}
+        params: dict[str, Any] = {"limit": limit, "offset": offset, "sort_by": sort_by}
         if category:
             params["category"] = category
         if search:
@@ -480,7 +480,7 @@ class AragoraClient:
             params["min_rating"] = min_rating
         return await self._request("GET", "/api/marketplace/templates", params=params)
 
-    async def get_marketplace_template(self, template_id: str) -> Dict[str, Any]:
+    async def get_marketplace_template(self, template_id: str) -> dict[str, Any]:
         """Get marketplace template details."""
         return await self._request("GET", f"/api/marketplace/templates/{template_id}")
 
@@ -490,9 +490,9 @@ class AragoraClient:
         name: str,
         description: str,
         category: str,
-        tags: Optional[List[str]] = None,
-        documentation: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tags: list[str] | None = None,
+        documentation: str | None = None,
+    ) -> dict[str, Any]:
         """Publish a template to the marketplace.
 
         Args:
@@ -503,7 +503,7 @@ class AragoraClient:
             tags: Optional tags for discoverability
             documentation: Optional markdown documentation
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "template_id": template_id,
             "name": name,
             "description": description,
@@ -515,7 +515,7 @@ class AragoraClient:
             body["documentation"] = documentation
         return await self._request("POST", "/api/marketplace/templates", json=body)
 
-    async def rate_template(self, template_id: str, rating: int) -> Dict[str, Any]:
+    async def rate_template(self, template_id: str, rating: int) -> dict[str, Any]:
         """Rate a marketplace template (1-5 stars)."""
         return await self._request(
             "POST",
@@ -529,7 +529,7 @@ class AragoraClient:
         rating: int,
         title: str,
         content: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Write a review for a marketplace template."""
         return await self._request(
             "POST",
@@ -540,10 +540,10 @@ class AragoraClient:
     async def import_template(
         self,
         template_id: str,
-        workspace_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
         """Import a marketplace template to your workspace."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if workspace_id:
             body["workspace_id"] = workspace_id
         return await self._request(
@@ -552,15 +552,15 @@ class AragoraClient:
             json=body,
         )
 
-    async def get_featured_templates(self) -> Dict[str, Any]:
+    async def get_featured_templates(self) -> dict[str, Any]:
         """Get featured marketplace templates."""
         return await self._request("GET", "/api/marketplace/featured")
 
-    async def get_trending_templates(self) -> Dict[str, Any]:
+    async def get_trending_templates(self) -> dict[str, Any]:
         """Get trending marketplace templates."""
         return await self._request("GET", "/api/marketplace/trending")
 
-    async def get_marketplace_categories(self) -> Dict[str, Any]:
+    async def get_marketplace_categories(self) -> dict[str, Any]:
         """Get marketplace categories with counts."""
         return await self._request("GET", "/api/marketplace/categories")
 
@@ -572,10 +572,10 @@ class AragoraClient:
         self,
         input: str,
         profile: str = "comprehensive",
-        agents: Optional[List[str]] = None,
+        agents: list[str] | None = None,
         rounds: int = 3,
-        timeout: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        timeout: int | None = None,
+    ) -> dict[str, Any]:
         """Run a gauntlet evaluation.
 
         Args:
@@ -585,7 +585,7 @@ class AragoraClient:
             rounds: Number of debate rounds
             timeout: Optional timeout in seconds
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "input": input,
             "profile": profile,
             "rounds": rounds,
@@ -596,27 +596,27 @@ class AragoraClient:
             body["timeout"] = timeout
         return await self._request("POST", "/api/v1/gauntlet/run", json=body)
 
-    async def get_gauntlet_status(self, gauntlet_id: str) -> Dict[str, Any]:
+    async def get_gauntlet_status(self, gauntlet_id: str) -> dict[str, Any]:
         """Get status of a running gauntlet."""
         return await self._request("GET", f"/api/v1/gauntlet/{gauntlet_id}")
 
     async def list_gauntlet_receipts(
         self,
-        verdict: Optional[str] = None,
+        verdict: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List gauntlet receipts."""
         params = {"limit": limit, "offset": offset}
         if verdict:
             params["verdict"] = verdict
         return await self._request("GET", "/api/gauntlet/receipts", params=params)
 
-    async def get_gauntlet_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    async def get_gauntlet_receipt(self, receipt_id: str) -> dict[str, Any]:
         """Get a specific gauntlet receipt."""
         return await self._request("GET", f"/api/gauntlet/receipts/{receipt_id}")
 
-    async def verify_gauntlet_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    async def verify_gauntlet_receipt(self, receipt_id: str) -> dict[str, Any]:
         """Verify receipt integrity."""
         return await self._request("GET", f"/api/gauntlet/receipts/{receipt_id}/verify")
 
@@ -624,7 +624,7 @@ class AragoraClient:
         self,
         receipt_id: str,
         format: str = "json",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export receipt in specified format."""
         return await self._request(
             "GET",
@@ -632,7 +632,7 @@ class AragoraClient:
             params={"format": format},
         )
 
-    async def delete_gauntlet(self, gauntlet_id: str) -> Dict[str, Any]:
+    async def delete_gauntlet(self, gauntlet_id: str) -> dict[str, Any]:
         """Delete a gauntlet run.
 
         Args:
@@ -645,9 +645,9 @@ class AragoraClient:
 
     async def list_gauntlet_personas(
         self,
-        category: Optional[str] = None,
-        enabled: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        category: str | None = None,
+        enabled: bool | None = None,
+    ) -> dict[str, Any]:
         """List available gauntlet personas.
 
         Args:
@@ -657,7 +657,7 @@ class AragoraClient:
         Returns:
             List of available personas with their configurations
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if category:
             params["category"] = category
         if enabled is not None:
@@ -670,11 +670,11 @@ class AragoraClient:
 
     async def list_gauntlet_results(
         self,
-        gauntlet_id: Optional[str] = None,
-        status: Optional[str] = None,
+        gauntlet_id: str | None = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List gauntlet run results.
 
         Args:
@@ -686,7 +686,7 @@ class AragoraClient:
         Returns:
             List of gauntlet results with summaries
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if gauntlet_id:
             params["gauntlet_id"] = gauntlet_id
         if status:
@@ -697,7 +697,7 @@ class AragoraClient:
         self,
         gauntlet_id: str,
         format: str = "json",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get heatmap visualization data for a gauntlet run.
 
         Args:
@@ -717,7 +717,7 @@ class AragoraClient:
         self,
         gauntlet_id_1: str,
         gauntlet_id_2: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compare two gauntlet runs.
 
         Args:
@@ -736,15 +736,15 @@ class AragoraClient:
     # Agents
     # =========================================================================
 
-    async def list_agents(self) -> Dict[str, Any]:
+    async def list_agents(self) -> dict[str, Any]:
         """List available agents."""
         return await self._request("GET", "/api/agents")
 
-    async def get_agent(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent(self, agent_name: str) -> dict[str, Any]:
         """Get agent details."""
         return await self._request("GET", f"/api/agents/{agent_name}")
 
-    async def get_agent_calibration(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent_calibration(self, agent_name: str) -> dict[str, Any]:
         """Get agent calibration metrics."""
         return await self._request("GET", f"/api/agents/{agent_name}/calibration")
 
@@ -752,7 +752,7 @@ class AragoraClient:
         self,
         agent_name: str,
         timeframe: str = "30d",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get agent performance metrics over time.
 
         Args:
@@ -769,22 +769,22 @@ class AragoraClient:
         self,
         agent_name: str,
         opponent_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get head-to-head statistics between two agents."""
         return await self._request(
             "GET",
             f"/api/agents/{agent_name}/head-to-head/{opponent_name}",
         )
 
-    async def get_agent_network(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent_network(self, agent_name: str) -> dict[str, Any]:
         """Get agent's interaction network."""
         return await self._request("GET", f"/api/agents/{agent_name}/network")
 
     async def get_agent_positions(
         self,
         agent_name: str,
-        domain: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        domain: str | None = None,
+    ) -> dict[str, Any]:
         """Get agent's position history on topics.
 
         Args:
@@ -800,11 +800,11 @@ class AragoraClient:
             params=params if params else None,
         )
 
-    async def get_agent_domains(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent_domains(self, agent_name: str) -> dict[str, Any]:
         """Get agent's domain expertise ratings."""
         return await self._request("GET", f"/api/agents/{agent_name}/domains")
 
-    async def get_agent_consistency(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent_consistency(self, agent_name: str) -> dict[str, Any]:
         """Get agent's position consistency metrics.
 
         Returns metrics on how consistently the agent maintains positions
@@ -817,7 +817,7 @@ class AragoraClient:
         agent_name: str,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get instances where agent changed positions.
 
         Args:
@@ -837,10 +837,10 @@ class AragoraClient:
     async def get_agent_moments(
         self,
         agent_name: str,
-        moment_type: Optional[str] = None,
+        moment_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get notable moments from agent's debate history.
 
         Args:
@@ -852,7 +852,7 @@ class AragoraClient:
         Returns:
             List of notable moments with context
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if moment_type:
             params["type"] = moment_type
         return await self._request(
@@ -865,7 +865,7 @@ class AragoraClient:
         self,
         agent_name: str,
         opponent_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get tactical briefing for debating against a specific opponent.
 
         Args:
@@ -880,7 +880,7 @@ class AragoraClient:
             f"/api/v1/agent/{agent_name}/opponent-briefing/{opponent_name}",
         )
 
-    async def get_leaderboard(self) -> Dict[str, Any]:
+    async def get_leaderboard(self) -> dict[str, Any]:
         """Get agent leaderboard rankings."""
         return await self._request("GET", "/api/leaderboard")
 
@@ -888,7 +888,7 @@ class AragoraClient:
     # Health
     # =========================================================================
 
-    async def health(self) -> Dict[str, Any]:
+    async def health(self) -> dict[str, Any]:
         """Check API health."""
         return await self._request("GET", "/api/health")
 
@@ -898,9 +898,9 @@ class AragoraClient:
 
     def create_websocket(
         self,
-        ws_url: Optional[str] = None,
-        options: Optional[Any] = None,
-    ) -> "AragoraWebSocket":
+        ws_url: str | None = None,
+        options: Any | None = None,
+    ) -> AragoraWebSocket:
         """Create a WebSocket client for real-time streaming.
 
         Args:
@@ -932,7 +932,7 @@ class AragoraClient:
     async def stream_debate(
         self,
         debate_id: str,
-        options: Optional[Any] = None,
+        options: Any | None = None,
     ):
         """
         Stream events for a specific debate.
@@ -968,7 +968,7 @@ class AragoraClient:
 
     async def stream_all_debates(
         self,
-        options: Optional[Any] = None,
+        options: Any | None = None,
     ):
         """
         Stream events for all debates (no filter).
@@ -1001,9 +1001,9 @@ class AragoraClient:
     async def create_debate_and_stream(
         self,
         question: str,
-        agents: List[str],
+        agents: list[str],
         rounds: int = 3,
-        stream_options: Optional[Any] = None,
+        stream_options: Any | None = None,
         **kwargs: Any,
     ):
         """
@@ -1057,9 +1057,9 @@ class AragoraClient:
         self,
         agent_id: str,
         agent_type: str,
-        capabilities: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        capabilities: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Register an agent with the control plane.
 
         Args:
@@ -1068,31 +1068,31 @@ class AragoraClient:
             capabilities: List of agent capabilities
             metadata: Additional agent metadata
         """
-        body: Dict[str, Any] = {"agent_id": agent_id, "agent_type": agent_type}
+        body: dict[str, Any] = {"agent_id": agent_id, "agent_type": agent_type}
         if capabilities:
             body["capabilities"] = capabilities
         if metadata:
             body["metadata"] = metadata
         return await self._request("POST", "/api/control-plane/agents/register", json=body)
 
-    async def deregister_agent(self, agent_id: str) -> Dict[str, Any]:
+    async def deregister_agent(self, agent_id: str) -> dict[str, Any]:
         """Deregister an agent from the control plane."""
         return await self._request("POST", f"/api/control-plane/agents/{agent_id}/deregister")
 
     async def list_registered_agents(
         self,
-        agent_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        agent_type: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
         """List all registered agents."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if agent_type:
             params["agent_type"] = agent_type
         if status:
             params["status"] = status
         return await self._request("GET", "/api/control-plane/agents", params=params)
 
-    async def get_agent_health(self, agent_id: str) -> Dict[str, Any]:
+    async def get_agent_health(self, agent_id: str) -> dict[str, Any]:
         """Get health status of a registered agent."""
         return await self._request("GET", f"/api/control-plane/agents/{agent_id}/health")
 
@@ -1100,10 +1100,10 @@ class AragoraClient:
         self,
         agent_id: str,
         status: str = "healthy",
-        metrics: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metrics: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Send a heartbeat for an agent."""
-        body: Dict[str, Any] = {"status": status}
+        body: dict[str, Any] = {"status": status}
         if metrics:
             body["metrics"] = metrics
         return await self._request(
@@ -1117,11 +1117,11 @@ class AragoraClient:
     async def schedule_task(
         self,
         task_type: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         priority: int = 5,
-        scheduled_at: Optional[str] = None,
-        agent_constraints: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        scheduled_at: str | None = None,
+        agent_constraints: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Schedule a task for execution.
 
         Args:
@@ -1131,30 +1131,30 @@ class AragoraClient:
             scheduled_at: Optional ISO timestamp for delayed execution
             agent_constraints: Optional constraints for agent selection
         """
-        body: Dict[str, Any] = {"task_type": task_type, "payload": payload, "priority": priority}
+        body: dict[str, Any] = {"task_type": task_type, "payload": payload, "priority": priority}
         if scheduled_at:
             body["scheduled_at"] = scheduled_at
         if agent_constraints:
             body["agent_constraints"] = agent_constraints
         return await self._request("POST", "/api/control-plane/tasks/schedule", json=body)
 
-    async def get_task_status(self, task_id: str) -> Dict[str, Any]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
         """Get status of a scheduled task."""
         return await self._request("GET", f"/api/control-plane/tasks/{task_id}")
 
-    async def cancel_task(self, task_id: str) -> Dict[str, Any]:
+    async def cancel_task(self, task_id: str) -> dict[str, Any]:
         """Cancel a scheduled task."""
         return await self._request("POST", f"/api/control-plane/tasks/{task_id}/cancel")
 
     async def list_tasks(
         self,
-        status: Optional[str] = None,
-        task_type: Optional[str] = None,
+        status: str | None = None,
+        task_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List scheduled tasks."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         if task_type:
@@ -1168,10 +1168,10 @@ class AragoraClient:
     async def create_policy(
         self,
         name: str,
-        rules: List[Dict[str, Any]],
-        description: Optional[str] = None,
+        rules: list[dict[str, Any]],
+        description: str | None = None,
         enabled: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a control plane policy.
 
         Args:
@@ -1180,24 +1180,24 @@ class AragoraClient:
             description: Optional policy description
             enabled: Whether policy is active
         """
-        body: Dict[str, Any] = {"name": name, "rules": rules, "enabled": enabled}
+        body: dict[str, Any] = {"name": name, "rules": rules, "enabled": enabled}
         if description:
             body["description"] = description
         return await self._request("POST", "/api/control-plane/policies", json=body)
 
-    async def get_policy(self, policy_id: str) -> Dict[str, Any]:
+    async def get_policy(self, policy_id: str) -> dict[str, Any]:
         """Get a policy by ID."""
         return await self._request("GET", f"/api/control-plane/policies/{policy_id}")
 
     async def update_policy(
         self,
         policy_id: str,
-        name: Optional[str] = None,
-        rules: Optional[List[Dict[str, Any]]] = None,
-        enabled: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        rules: list[dict[str, Any]] | None = None,
+        enabled: bool | None = None,
+    ) -> dict[str, Any]:
         """Update a policy."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name:
             body["name"] = name
         if rules:
@@ -1206,18 +1206,18 @@ class AragoraClient:
             body["enabled"] = enabled
         return await self._request("PUT", f"/api/control-plane/policies/{policy_id}", json=body)
 
-    async def delete_policy(self, policy_id: str) -> Dict[str, Any]:
+    async def delete_policy(self, policy_id: str) -> dict[str, Any]:
         """Delete a policy."""
         return await self._request("DELETE", f"/api/control-plane/policies/{policy_id}")
 
     async def list_policies(
         self,
-        enabled: Optional[bool] = None,
+        enabled: bool | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List control plane policies."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if enabled is not None:
             params["enabled"] = enabled
         return await self._request("GET", "/api/control-plane/policies", params=params)
@@ -1229,11 +1229,11 @@ class AragoraClient:
     async def create_graph_debate(
         self,
         question: str,
-        agents: List[str],
-        graph_structure: Dict[str, Any],
+        agents: list[str],
+        graph_structure: dict[str, Any],
         rounds: int = 3,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a graph-structured debate.
 
         Args:
@@ -1254,7 +1254,7 @@ class AragoraClient:
             },
         )
 
-    async def get_graph_debate_topology(self, debate_id: str) -> Dict[str, Any]:
+    async def get_graph_debate_topology(self, debate_id: str) -> dict[str, Any]:
         """Get the graph topology for a debate."""
         return await self._request("GET", f"/api/debates/{debate_id}/graph/topology")
 
@@ -1264,10 +1264,10 @@ class AragoraClient:
         source: str,
         target: str,
         weight: float,
-        edge_type: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        edge_type: str | None = None,
+    ) -> dict[str, Any]:
         """Update an edge in the debate graph."""
-        body: Dict[str, Any] = {"source": source, "target": target, "weight": weight}
+        body: dict[str, Any] = {"source": source, "target": target, "weight": weight}
         if edge_type:
             body["edge_type"] = edge_type
         return await self._request("PUT", f"/api/debates/{debate_id}/graph/edges", json=body)
@@ -1278,7 +1278,7 @@ class AragoraClient:
         start_node: str,
         end_node: str,
         algorithm: str = "dijkstra",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Find path between nodes in debate graph."""
         return await self._request(
             "GET",
@@ -1293,11 +1293,11 @@ class AragoraClient:
     async def create_matrix_debate(
         self,
         question: str,
-        agents: List[str],
-        dimensions: List[str],
+        agents: list[str],
+        dimensions: list[str],
         rounds: int = 3,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a matrix-structured debate.
 
         Args:
@@ -1318,7 +1318,7 @@ class AragoraClient:
             },
         )
 
-    async def get_matrix_analysis(self, debate_id: str) -> Dict[str, Any]:
+    async def get_matrix_analysis(self, debate_id: str) -> dict[str, Any]:
         """Get the matrix analysis results for a debate."""
         return await self._request("GET", f"/api/debates/{debate_id}/matrix/analysis")
 
@@ -1328,15 +1328,15 @@ class AragoraClient:
         row: str,
         column: str,
         value: Any,
-        confidence: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        confidence: float | None = None,
+    ) -> dict[str, Any]:
         """Update a cell in the debate matrix."""
-        body: Dict[str, Any] = {"row": row, "column": column, "value": value}
+        body: dict[str, Any] = {"row": row, "column": column, "value": value}
         if confidence is not None:
             body["confidence"] = confidence
         return await self._request("PUT", f"/api/debates/{debate_id}/matrix/cells", json=body)
 
-    async def get_matrix_summary(self, debate_id: str) -> Dict[str, Any]:
+    async def get_matrix_summary(self, debate_id: str) -> dict[str, Any]:
         """Get summary statistics for a matrix debate."""
         return await self._request("GET", f"/api/debates/{debate_id}/matrix/summary")
 
@@ -1344,7 +1344,7 @@ class AragoraClient:
     # Agent Intelligence
     # =========================================================================
 
-    async def get_agent_profile(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent_profile(self, agent_name: str) -> dict[str, Any]:
         """Get detailed agent intelligence profile."""
         return await self._request("GET", f"/api/agents/{agent_name}/profile")
 
@@ -1353,7 +1353,7 @@ class AragoraClient:
         agent_name: str,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get agent debate history and performance."""
         return await self._request(
             "GET",
@@ -1365,7 +1365,7 @@ class AragoraClient:
         self,
         metric: str = "elo",
         limit: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get agent leaderboard rankings.
 
         Args:
@@ -1380,16 +1380,16 @@ class AragoraClient:
 
     async def compare_agents(
         self,
-        agent_names: List[str],
-        metrics: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        agent_names: list[str],
+        metrics: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Compare multiple agents across metrics.
 
         Args:
             agent_names: List of agent names to compare
             metrics: Optional list of metrics to compare
         """
-        body: Dict[str, Any] = {"agents": agent_names}
+        body: dict[str, Any] = {"agents": agent_names}
         if metrics:
             body["metrics"] = metrics
         return await self._request("POST", "/api/agents/compare", json=body)
@@ -1401,9 +1401,9 @@ class AragoraClient:
     async def verify_claim(
         self,
         claim: str,
-        sources: Optional[List[str]] = None,
+        sources: list[str] | None = None,
         confidence_threshold: float = 0.7,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Verify a claim using multi-agent analysis.
 
         Args:
@@ -1411,16 +1411,16 @@ class AragoraClient:
             sources: Optional list of source URLs/references
             confidence_threshold: Minimum confidence for verification
         """
-        body: Dict[str, Any] = {"claim": claim, "confidence_threshold": confidence_threshold}
+        body: dict[str, Any] = {"claim": claim, "confidence_threshold": confidence_threshold}
         if sources:
             body["sources"] = sources
         return await self._request("POST", "/api/verification/claim", json=body)
 
-    async def get_verification_status(self, verification_id: str) -> Dict[str, Any]:
+    async def get_verification_status(self, verification_id: str) -> dict[str, Any]:
         """Get status of a verification request."""
         return await self._request("GET", f"/api/verification/{verification_id}")
 
-    async def get_verification_evidence(self, verification_id: str) -> Dict[str, Any]:
+    async def get_verification_evidence(self, verification_id: str) -> dict[str, Any]:
         """Get evidence collected for a verification."""
         return await self._request("GET", f"/api/verification/{verification_id}/evidence")
 
@@ -1432,9 +1432,9 @@ class AragoraClient:
         self,
         content: str,
         tier: str = "medium",
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Store content in continuum memory.
 
         Args:
@@ -1443,7 +1443,7 @@ class AragoraClient:
             tags: Optional tags for categorization
             metadata: Optional metadata
         """
-        body: Dict[str, Any] = {"content": content, "tier": tier}
+        body: dict[str, Any] = {"content": content, "tier": tier}
         if tags:
             body["tags"] = tags
         if metadata:
@@ -1453,9 +1453,9 @@ class AragoraClient:
     async def retrieve_memory(
         self,
         query: str,
-        tier: Optional[str] = None,
+        tier: str | None = None,
         limit: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Retrieve memories matching a query.
 
         Args:
@@ -1463,12 +1463,12 @@ class AragoraClient:
             tier: Optional specific tier to search
             limit: Maximum results to return
         """
-        params: Dict[str, Any] = {"query": query, "limit": limit}
+        params: dict[str, Any] = {"query": query, "limit": limit}
         if tier:
             params["tier"] = tier
         return await self._request("GET", "/api/memory/continuum/retrieve", params=params)
 
-    async def get_memory_stats(self) -> Dict[str, Any]:
+    async def get_memory_stats(self) -> dict[str, Any]:
         """Get memory system statistics."""
         return await self._request("GET", "/api/memory/continuum/stats")
 
@@ -1480,8 +1480,8 @@ class AragoraClient:
         self,
         query: str,
         limit: int = 20,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Search the knowledge mound.
 
         Args:
@@ -1489,7 +1489,7 @@ class AragoraClient:
             limit: Maximum results
             filters: Optional search filters
         """
-        body: Dict[str, Any] = {"query": query, "limit": limit}
+        body: dict[str, Any] = {"query": query, "limit": limit}
         if filters:
             body["filters"] = filters
         return await self._request("POST", "/api/knowledge/search", json=body)
@@ -1499,8 +1499,8 @@ class AragoraClient:
         content: str,
         source: str,
         knowledge_type: str = "document",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Add content to the knowledge mound.
 
         Args:
@@ -1509,7 +1509,7 @@ class AragoraClient:
             knowledge_type: Type of knowledge
             metadata: Optional metadata
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "content": content,
             "source": source,
             "type": knowledge_type,
@@ -1518,7 +1518,7 @@ class AragoraClient:
             body["metadata"] = metadata
         return await self._request("POST", "/api/knowledge/add", json=body)
 
-    async def get_knowledge_stats(self) -> Dict[str, Any]:
+    async def get_knowledge_stats(self) -> dict[str, Any]:
         """Get knowledge mound statistics."""
         return await self._request("GET", "/api/knowledge/stats")
 
@@ -1529,20 +1529,20 @@ class AragoraClient:
     async def get_elo_rankings(
         self,
         limit: int = 50,
-        category: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        category: str | None = None,
+    ) -> dict[str, Any]:
         """Get ELO rankings for agents.
 
         Args:
             limit: Number of rankings to return
             category: Optional category filter
         """
-        params: Dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit}
         if category:
             params["category"] = category
         return await self._request("GET", "/api/ranking/elo", params=params)
 
-    async def get_agent_elo(self, agent_name: str) -> Dict[str, Any]:
+    async def get_agent_elo(self, agent_name: str) -> dict[str, Any]:
         """Get ELO rating for a specific agent."""
         return await self._request("GET", f"/api/ranking/elo/{agent_name}")
 
@@ -1550,7 +1550,7 @@ class AragoraClient:
         self,
         agent_name: str,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get ELO rating history for an agent."""
         return await self._request(
             "GET",
@@ -1565,10 +1565,10 @@ class AragoraClient:
     async def create_tournament(
         self,
         name: str,
-        agents: List[str],
-        questions: List[str],
+        agents: list[str],
+        questions: list[str],
         tournament_type: str = "round_robin",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a debate tournament.
 
         Args:
@@ -1588,23 +1588,23 @@ class AragoraClient:
             },
         )
 
-    async def get_tournament(self, tournament_id: str) -> Dict[str, Any]:
+    async def get_tournament(self, tournament_id: str) -> dict[str, Any]:
         """Get tournament details."""
         return await self._request("GET", f"/api/tournaments/{tournament_id}")
 
     async def list_tournaments(
         self,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List tournaments."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         return await self._request("GET", "/api/tournaments", params=params)
 
-    async def get_tournament_standings(self, tournament_id: str) -> Dict[str, Any]:
+    async def get_tournament_standings(self, tournament_id: str) -> dict[str, Any]:
         """Get tournament standings."""
         return await self._request("GET", f"/api/tournaments/{tournament_id}/standings")
 
@@ -1616,9 +1616,9 @@ class AragoraClient:
         self,
         email: str,
         password: str,
-        name: Optional[str] = None,
-        organization: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        organization: str | None = None,
+    ) -> dict[str, Any]:
         """Register a new user account.
 
         Args:
@@ -1627,7 +1627,7 @@ class AragoraClient:
             name: Optional display name
             organization: Optional organization name
         """
-        body: Dict[str, Any] = {"email": email, "password": password}
+        body: dict[str, Any] = {"email": email, "password": password}
         if name:
             body["name"] = name
         if organization:
@@ -1638,8 +1638,8 @@ class AragoraClient:
         self,
         email: str,
         password: str,
-        mfa_code: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        mfa_code: str | None = None,
+    ) -> dict[str, Any]:
         """Login to get access token.
 
         Args:
@@ -1647,12 +1647,12 @@ class AragoraClient:
             password: User's password
             mfa_code: Optional MFA code if MFA is enabled
         """
-        body: Dict[str, Any] = {"email": email, "password": password}
+        body: dict[str, Any] = {"email": email, "password": password}
         if mfa_code:
             body["mfa_code"] = mfa_code
         return await self._request("POST", "/api/v1/auth/login", json=body)
 
-    async def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+    async def refresh_token(self, refresh_token: str) -> dict[str, Any]:
         """Refresh access token using refresh token.
 
         Args:
@@ -1666,11 +1666,11 @@ class AragoraClient:
         """Logout and invalidate current token."""
         await self._request("POST", "/api/v1/auth/logout", json={})
 
-    async def logout_all(self) -> Dict[str, Any]:
+    async def logout_all(self) -> dict[str, Any]:
         """Logout from all sessions."""
         return await self._request("POST", "/api/v1/auth/logout-all", json={})
 
-    async def verify_email(self, token: str) -> Dict[str, Any]:
+    async def verify_email(self, token: str) -> dict[str, Any]:
         """Verify email address with token.
 
         Args:
@@ -1678,7 +1678,7 @@ class AragoraClient:
         """
         return await self._request("POST", "/api/v1/auth/verify-email", json={"token": token})
 
-    async def resend_verification(self, email: str) -> Dict[str, Any]:
+    async def resend_verification(self, email: str) -> dict[str, Any]:
         """Resend email verification.
 
         Args:
@@ -1688,17 +1688,17 @@ class AragoraClient:
             "POST", "/api/v1/auth/resend-verification", json={"email": email}
         )
 
-    async def get_current_user(self) -> Dict[str, Any]:
+    async def get_current_user(self) -> dict[str, Any]:
         """Get current authenticated user profile."""
         return await self._request("GET", "/api/v1/auth/me")
 
     async def update_profile(
         self,
-        name: Optional[str] = None,
-        organization: Optional[str] = None,
-        avatar_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        organization: str | None = None,
+        avatar_url: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Update current user's profile.
 
         Args:
@@ -1707,7 +1707,7 @@ class AragoraClient:
             avatar_url: New avatar URL
             metadata: Additional metadata
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if organization is not None:
@@ -1757,20 +1757,20 @@ class AragoraClient:
     # =========================================================================
 
     async def setup_mfa(
-        self, mfa_type: str = "totp", phone_number: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, mfa_type: str = "totp", phone_number: str | None = None
+    ) -> dict[str, Any]:
         """Setup MFA for the account.
 
         Args:
             mfa_type: Type of MFA ('totp', 'sms', 'email')
             phone_number: Phone number for SMS-based MFA
         """
-        body: Dict[str, Any] = {"type": mfa_type}
+        body: dict[str, Any] = {"type": mfa_type}
         if phone_number:
             body["phone_number"] = phone_number
         return await self._request("POST", "/api/v1/auth/mfa/setup", json=body)
 
-    async def verify_mfa_setup(self, code: str, mfa_type: str = "totp") -> Dict[str, Any]:
+    async def verify_mfa_setup(self, code: str, mfa_type: str = "totp") -> dict[str, Any]:
         """Verify MFA setup with code.
 
         Args:
@@ -1783,7 +1783,7 @@ class AragoraClient:
             json={"code": code, "type": mfa_type},
         )
 
-    async def enable_mfa(self, code: str) -> Dict[str, Any]:
+    async def enable_mfa(self, code: str) -> dict[str, Any]:
         """Enable MFA after verification.
 
         Args:
@@ -1795,7 +1795,7 @@ class AragoraClient:
         """Disable MFA for the account."""
         await self._request("POST", "/api/v1/auth/mfa/disable", json={})
 
-    async def generate_backup_codes(self) -> Dict[str, Any]:
+    async def generate_backup_codes(self) -> dict[str, Any]:
         """Generate new backup codes for MFA."""
         return await self._request("POST", "/api/v1/auth/mfa/backup-codes", json={})
 
@@ -1803,11 +1803,11 @@ class AragoraClient:
     # Session Management
     # =========================================================================
 
-    async def list_sessions(self) -> Dict[str, Any]:
+    async def list_sessions(self) -> dict[str, Any]:
         """List all active sessions."""
         return await self._request("GET", "/api/v1/auth/sessions")
 
-    async def revoke_session(self, session_id: str) -> Dict[str, Any]:
+    async def revoke_session(self, session_id: str) -> dict[str, Any]:
         """Revoke a specific session.
 
         Args:
@@ -1819,16 +1819,16 @@ class AragoraClient:
     # API Key Management
     # =========================================================================
 
-    async def list_api_keys(self) -> Dict[str, Any]:
+    async def list_api_keys(self) -> dict[str, Any]:
         """List all API keys for the account."""
         return await self._request("GET", "/api/v1/auth/api-keys")
 
     async def create_api_key(
         self,
         name: str,
-        expires_in: Optional[int] = None,
-        scopes: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        expires_in: int | None = None,
+        scopes: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Create a new API key.
 
         Args:
@@ -1836,14 +1836,14 @@ class AragoraClient:
             expires_in: Expiration time in seconds (None for no expiration)
             scopes: Optional list of permission scopes
         """
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
         if expires_in is not None:
             body["expires_in"] = expires_in
         if scopes is not None:
             body["scopes"] = scopes
         return await self._request("POST", "/api/v1/auth/api-keys", json=body)
 
-    async def revoke_api_key(self, key_id: str) -> Dict[str, Any]:
+    async def revoke_api_key(self, key_id: str) -> dict[str, Any]:
         """Revoke an API key.
 
         Args:
@@ -1858,10 +1858,10 @@ class AragoraClient:
     async def get_oauth_url(
         self,
         provider: str,
-        redirect_uri: Optional[str] = None,
-        state: Optional[str] = None,
-        scope: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        redirect_uri: str | None = None,
+        state: str | None = None,
+        scope: str | None = None,
+    ) -> dict[str, Any]:
         """Get OAuth authorization URL.
 
         Args:
@@ -1870,7 +1870,7 @@ class AragoraClient:
             state: Custom state parameter
             scope: OAuth scope
         """
-        params: Dict[str, Any] = {"provider": provider}
+        params: dict[str, Any] = {"provider": provider}
         if redirect_uri:
             params["redirect_uri"] = redirect_uri
         if state:
@@ -1879,7 +1879,7 @@ class AragoraClient:
             params["scope"] = scope
         return await self._request("GET", "/api/v1/auth/oauth/authorize", params=params)
 
-    async def complete_oauth(self, code: str, state: str, provider: str) -> Dict[str, Any]:
+    async def complete_oauth(self, code: str, state: str, provider: str) -> dict[str, Any]:
         """Complete OAuth flow with authorization code.
 
         Args:
@@ -1893,11 +1893,11 @@ class AragoraClient:
             json={"code": code, "state": state, "provider": provider},
         )
 
-    async def list_oauth_providers(self) -> Dict[str, Any]:
+    async def list_oauth_providers(self) -> dict[str, Any]:
         """List available OAuth providers."""
         return await self._request("GET", "/api/v1/auth/oauth/providers")
 
-    async def link_oauth_provider(self, provider: str, code: str) -> Dict[str, Any]:
+    async def link_oauth_provider(self, provider: str, code: str) -> dict[str, Any]:
         """Link an OAuth provider to existing account.
 
         Args:
@@ -1910,7 +1910,7 @@ class AragoraClient:
             json={"provider": provider, "code": code},
         )
 
-    async def unlink_oauth_provider(self, provider: str) -> Dict[str, Any]:
+    async def unlink_oauth_provider(self, provider: str) -> dict[str, Any]:
         """Unlink an OAuth provider from account.
 
         Args:
@@ -1919,22 +1919,22 @@ class AragoraClient:
         return await self._request("DELETE", f"/api/v1/auth/oauth/providers/{provider}")
 
     async def initiate_sso_login(
-        self, domain: Optional[str] = None, redirect_url: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, domain: str | None = None, redirect_url: str | None = None
+    ) -> dict[str, Any]:
         """Initiate SSO login.
 
         Args:
             domain: Organization domain for SSO
             redirect_url: URL to redirect after SSO
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if domain:
             params["domain"] = domain
         if redirect_url:
             params["redirect_url"] = redirect_url
         return await self._request("GET", "/api/v1/auth/sso/initiate", params=params)
 
-    async def list_sso_providers(self) -> Dict[str, Any]:
+    async def list_sso_providers(self) -> dict[str, Any]:
         """List configured SSO providers for organization."""
         return await self._request("GET", "/api/v1/auth/sso/providers")
 
@@ -1946,8 +1946,8 @@ class AragoraClient:
         self,
         email: str,
         organization_id: str,
-        role: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        role: str | None = None,
+    ) -> dict[str, Any]:
         """Invite a new team member.
 
         Args:
@@ -1955,12 +1955,12 @@ class AragoraClient:
             organization_id: Organization to invite to
             role: Role to assign to invitee
         """
-        body: Dict[str, Any] = {"email": email, "organization_id": organization_id}
+        body: dict[str, Any] = {"email": email, "organization_id": organization_id}
         if role:
             body["role"] = role
         return await self._request("POST", "/api/v1/invitations", json=body)
 
-    async def check_invite(self, token: str) -> Dict[str, Any]:
+    async def check_invite(self, token: str) -> dict[str, Any]:
         """Check if invitation token is valid.
 
         Args:
@@ -1968,7 +1968,7 @@ class AragoraClient:
         """
         return await self._request("GET", f"/api/v1/invitations/{token}")
 
-    async def accept_invite(self, token: str) -> Dict[str, Any]:
+    async def accept_invite(self, token: str) -> dict[str, Any]:
         """Accept an invitation.
 
         Args:
@@ -1980,7 +1980,7 @@ class AragoraClient:
     # Tenancy
     # =========================================================================
 
-    async def list_tenants(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    async def list_tenants(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List tenants/organizations.
 
         Args:
@@ -1991,7 +1991,7 @@ class AragoraClient:
             "GET", "/api/v1/tenants", params={"limit": limit, "offset": offset}
         )
 
-    async def get_tenant(self, tenant_id: str) -> Dict[str, Any]:
+    async def get_tenant(self, tenant_id: str) -> dict[str, Any]:
         """Get tenant details.
 
         Args:
@@ -2002,10 +2002,10 @@ class AragoraClient:
     async def create_tenant(
         self,
         name: str,
-        slug: Optional[str] = None,
-        description: Optional[str] = None,
-        plan: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        slug: str | None = None,
+        description: str | None = None,
+        plan: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new tenant/organization.
 
         Args:
@@ -2014,7 +2014,7 @@ class AragoraClient:
             description: Tenant description
             plan: Subscription plan
         """
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
         if slug:
             body["slug"] = slug
         if description:
@@ -2026,11 +2026,11 @@ class AragoraClient:
     async def update_tenant(
         self,
         tenant_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        plan: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        description: str | None = None,
+        plan: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
         """Update tenant settings.
 
         Args:
@@ -2040,7 +2040,7 @@ class AragoraClient:
             plan: New plan
             status: New status
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if description is not None:
@@ -2059,7 +2059,7 @@ class AragoraClient:
         """
         await self._request("DELETE", f"/api/v1/tenants/{tenant_id}")
 
-    async def get_tenant_quotas(self, tenant_id: str) -> Dict[str, Any]:
+    async def get_tenant_quotas(self, tenant_id: str) -> dict[str, Any]:
         """Get tenant resource quotas.
 
         Args:
@@ -2067,7 +2067,7 @@ class AragoraClient:
         """
         return await self._request("GET", f"/api/v1/tenants/{tenant_id}/quotas")
 
-    async def update_tenant_quotas(self, tenant_id: str, **quotas: Any) -> Dict[str, Any]:
+    async def update_tenant_quotas(self, tenant_id: str, **quotas: Any) -> dict[str, Any]:
         """Update tenant quotas.
 
         Args:
@@ -2078,7 +2078,7 @@ class AragoraClient:
 
     async def list_tenant_members(
         self, tenant_id: str, limit: int = 50, offset: int = 0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List tenant members.
 
         Args:
@@ -2098,7 +2098,7 @@ class AragoraClient:
         email: str,
         role: str,
         send_invitation: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Add a member to tenant.
 
         Args:
@@ -2125,10 +2125,10 @@ class AragoraClient:
     async def setup_organization(
         self,
         name: str,
-        slug: Optional[str] = None,
-        plan: Optional[str] = None,
-        billing_email: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        slug: str | None = None,
+        plan: str | None = None,
+        billing_email: str | None = None,
+    ) -> dict[str, Any]:
         """Setup a new organization (onboarding).
 
         Args:
@@ -2137,7 +2137,7 @@ class AragoraClient:
             plan: Subscription plan
             billing_email: Billing contact email
         """
-        body: Dict[str, Any] = {"name": name}
+        body: dict[str, Any] = {"name": name}
         if slug:
             body["slug"] = slug
         if plan:
@@ -2150,7 +2150,7 @@ class AragoraClient:
     # RBAC (Role-Based Access Control)
     # =========================================================================
 
-    async def list_roles(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    async def list_roles(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List available roles.
 
         Args:
@@ -2161,7 +2161,7 @@ class AragoraClient:
             "GET", "/api/v1/rbac/roles", params={"limit": limit, "offset": offset}
         )
 
-    async def get_role(self, role_id: str) -> Dict[str, Any]:
+    async def get_role(self, role_id: str) -> dict[str, Any]:
         """Get role details.
 
         Args:
@@ -2172,10 +2172,10 @@ class AragoraClient:
     async def create_role(
         self,
         name: str,
-        permissions: List[str],
-        description: Optional[str] = None,
-        inherits_from: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        permissions: list[str],
+        description: str | None = None,
+        inherits_from: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Create a new role.
 
         Args:
@@ -2184,7 +2184,7 @@ class AragoraClient:
             description: Role description
             inherits_from: List of role IDs to inherit from
         """
-        body: Dict[str, Any] = {"name": name, "permissions": permissions}
+        body: dict[str, Any] = {"name": name, "permissions": permissions}
         if description:
             body["description"] = description
         if inherits_from:
@@ -2194,10 +2194,10 @@ class AragoraClient:
     async def update_role(
         self,
         role_id: str,
-        name: Optional[str] = None,
-        permissions: Optional[List[str]] = None,
-        description: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        permissions: list[str] | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
         """Update a role.
 
         Args:
@@ -2206,7 +2206,7 @@ class AragoraClient:
             permissions: New permissions list
             description: New description
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if permissions is not None:
@@ -2223,7 +2223,7 @@ class AragoraClient:
         """
         await self._request("DELETE", f"/api/v1/rbac/roles/{role_id}")
 
-    async def list_permissions(self) -> Dict[str, Any]:
+    async def list_permissions(self) -> dict[str, Any]:
         """List all available permissions."""
         return await self._request("GET", "/api/v1/rbac/permissions")
 
@@ -2231,7 +2231,7 @@ class AragoraClient:
         self,
         user_id: str,
         role_id: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Assign a role to a user.
 
@@ -2240,7 +2240,7 @@ class AragoraClient:
             role_id: Role ID to assign
             tenant_id: Optional tenant scope
         """
-        body: Dict[str, Any] = {"user_id": user_id, "role_id": role_id}
+        body: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
         if tenant_id:
             body["tenant_id"] = tenant_id
         await self._request("POST", "/api/v1/rbac/assignments", json=body)
@@ -2249,7 +2249,7 @@ class AragoraClient:
         self,
         user_id: str,
         role_id: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Revoke a role from a user.
 
@@ -2258,12 +2258,12 @@ class AragoraClient:
             role_id: Role ID to revoke
             tenant_id: Optional tenant scope
         """
-        params: Dict[str, Any] = {"user_id": user_id, "role_id": role_id}
+        params: dict[str, Any] = {"user_id": user_id, "role_id": role_id}
         if tenant_id:
             params["tenant_id"] = tenant_id
         await self._request("DELETE", "/api/v1/rbac/assignments", params=params)
 
-    async def get_user_roles(self, user_id: str) -> Dict[str, Any]:
+    async def get_user_roles(self, user_id: str) -> dict[str, Any]:
         """Get all roles assigned to a user.
 
         Args:
@@ -2275,8 +2275,8 @@ class AragoraClient:
         self,
         user_id: str,
         permission: str,
-        resource: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        resource: str | None = None,
+    ) -> dict[str, Any]:
         """Check if user has a permission.
 
         Args:
@@ -2284,7 +2284,7 @@ class AragoraClient:
             permission: Permission to check
             resource: Optional resource context
         """
-        params: Dict[str, Any] = {"permission": permission}
+        params: dict[str, Any] = {"permission": permission}
         if resource:
             params["resource"] = resource
         return await self._request(
@@ -2293,7 +2293,7 @@ class AragoraClient:
 
     async def list_role_assignments(
         self, role_id: str, limit: int = 50, offset: int = 0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List users assigned to a role.
 
         Args:
@@ -2307,7 +2307,7 @@ class AragoraClient:
             params={"limit": limit, "offset": offset},
         )
 
-    async def bulk_assign_roles(self, assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def bulk_assign_roles(self, assignments: list[dict[str, Any]]) -> dict[str, Any]:
         """Bulk assign roles to users.
 
         Args:
@@ -2321,28 +2321,28 @@ class AragoraClient:
     # Billing
     # =========================================================================
 
-    async def list_billing_plans(self) -> Dict[str, Any]:
+    async def list_billing_plans(self) -> dict[str, Any]:
         """List available billing plans."""
         return await self._request("GET", "/api/v1/billing/plans")
 
-    async def get_billing_usage(self, period: Optional[str] = None) -> Dict[str, Any]:
+    async def get_billing_usage(self, period: str | None = None) -> dict[str, Any]:
         """Get billing usage for current period.
 
         Args:
             period: Time period ('current', 'previous', or YYYY-MM)
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if period:
             params["period"] = period
         return await self._request("GET", "/api/v1/billing/usage", params=params)
 
-    async def get_subscription(self) -> Dict[str, Any]:
+    async def get_subscription(self) -> dict[str, Any]:
         """Get current subscription details."""
         return await self._request("GET", "/api/v1/billing/subscription")
 
     async def create_checkout_session(
         self, plan_id: str, success_url: str, cancel_url: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a checkout session for subscription.
 
         Args:
@@ -2361,27 +2361,27 @@ class AragoraClient:
         )
 
     async def create_billing_portal_session(
-        self, return_url: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, return_url: str | None = None
+    ) -> dict[str, Any]:
         """Create a billing portal session.
 
         Args:
             return_url: URL to return to after portal
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if return_url:
             body["return_url"] = return_url
         return await self._request("POST", "/api/v1/billing/portal", json=body)
 
-    async def cancel_subscription(self) -> Dict[str, Any]:
+    async def cancel_subscription(self) -> dict[str, Any]:
         """Cancel current subscription."""
         return await self._request("POST", "/api/v1/billing/subscription/cancel", json={})
 
-    async def resume_subscription(self) -> Dict[str, Any]:
+    async def resume_subscription(self) -> dict[str, Any]:
         """Resume a canceled subscription."""
         return await self._request("POST", "/api/v1/billing/subscription/resume", json={})
 
-    async def get_invoice_history(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    async def get_invoice_history(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get invoice history.
 
         Args:
@@ -2392,16 +2392,16 @@ class AragoraClient:
             "GET", "/api/v1/billing/invoices", params={"limit": limit, "offset": offset}
         )
 
-    async def get_usage_forecast(self) -> Dict[str, Any]:
+    async def get_usage_forecast(self) -> dict[str, Any]:
         """Get usage forecast for current period."""
         return await self._request("GET", "/api/v1/billing/forecast")
 
     async def export_usage_data(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         format: str = "csv",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export usage data.
 
         Args:
@@ -2409,7 +2409,7 @@ class AragoraClient:
             end_date: End date (YYYY-MM-DD)
             format: Export format ('csv', 'json')
         """
-        params: Dict[str, Any] = {"format": format}
+        params: dict[str, Any] = {"format": format}
         if start_date:
             params["start_date"] = start_date
         if end_date:
@@ -2420,7 +2420,7 @@ class AragoraClient:
     # Budgets
     # =========================================================================
 
-    async def list_budgets(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    async def list_budgets(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List budgets.
 
         Args:
@@ -2436,9 +2436,9 @@ class AragoraClient:
         name: str,
         limit_amount: float,
         period: str,
-        description: Optional[str] = None,
-        alert_threshold: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        description: str | None = None,
+        alert_threshold: float | None = None,
+    ) -> dict[str, Any]:
         """Create a new budget.
 
         Args:
@@ -2448,7 +2448,7 @@ class AragoraClient:
             description: Budget description
             alert_threshold: Percentage threshold for alerts (0-1)
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "name": name,
             "limit_amount": limit_amount,
             "period": period,
@@ -2459,7 +2459,7 @@ class AragoraClient:
             body["alert_threshold"] = alert_threshold
         return await self._request("POST", "/api/v1/budgets", json=body)
 
-    async def get_budget(self, budget_id: str) -> Dict[str, Any]:
+    async def get_budget(self, budget_id: str) -> dict[str, Any]:
         """Get budget details.
 
         Args:
@@ -2470,11 +2470,11 @@ class AragoraClient:
     async def update_budget(
         self,
         budget_id: str,
-        name: Optional[str] = None,
-        limit_amount: Optional[float] = None,
-        alert_threshold: Optional[float] = None,
-        status: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        limit_amount: float | None = None,
+        alert_threshold: float | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
         """Update a budget.
 
         Args:
@@ -2484,7 +2484,7 @@ class AragoraClient:
             alert_threshold: New alert threshold
             status: New status ('active', 'paused')
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if limit_amount is not None:
@@ -2495,7 +2495,7 @@ class AragoraClient:
             body["status"] = status
         return await self._request("PATCH", f"/api/v1/budgets/{budget_id}", json=body)
 
-    async def delete_budget(self, budget_id: str) -> Dict[str, Any]:
+    async def delete_budget(self, budget_id: str) -> dict[str, Any]:
         """Delete a budget.
 
         Args:
@@ -2505,7 +2505,7 @@ class AragoraClient:
 
     async def get_budget_alerts(
         self, budget_id: str, limit: int = 50, offset: int = 0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get alerts for a budget.
 
         Args:
@@ -2519,7 +2519,7 @@ class AragoraClient:
             params={"limit": limit, "offset": offset},
         )
 
-    async def acknowledge_budget_alert(self, budget_id: str, alert_id: str) -> Dict[str, Any]:
+    async def acknowledge_budget_alert(self, budget_id: str, alert_id: str) -> dict[str, Any]:
         """Acknowledge a budget alert.
 
         Args:
@@ -2534,8 +2534,8 @@ class AragoraClient:
         self,
         operation: str,
         estimated_cost: float,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Check if an operation is within budget.
 
         Args:
@@ -2543,7 +2543,7 @@ class AragoraClient:
             estimated_cost: Estimated cost of operation
             user_id: Optional user ID for user-specific budget
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "operation": operation,
             "estimated_cost": estimated_cost,
         }
@@ -2551,7 +2551,7 @@ class AragoraClient:
             body["user_id"] = user_id
         return await self._request("POST", "/api/v1/budgets/check", json=body)
 
-    async def get_budget_summary(self) -> Dict[str, Any]:
+    async def get_budget_summary(self) -> dict[str, Any]:
         """Get summary of all budgets and current usage."""
         return await self._request("GET", "/api/v1/budgets/summary")
 
@@ -2560,8 +2560,8 @@ class AragoraClient:
         budget_id: str,
         user_id: str,
         limit: float,
-        reason: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        reason: str | None = None,
+    ) -> dict[str, Any]:
         """Add a budget override for a user.
 
         Args:
@@ -2570,12 +2570,12 @@ class AragoraClient:
             limit: Override limit
             reason: Reason for override
         """
-        body: Dict[str, Any] = {"user_id": user_id, "limit": limit}
+        body: dict[str, Any] = {"user_id": user_id, "limit": limit}
         if reason:
             body["reason"] = reason
         return await self._request("POST", f"/api/v1/budgets/{budget_id}/overrides", json=body)
 
-    async def remove_budget_override(self, budget_id: str, user_id: str) -> Dict[str, Any]:
+    async def remove_budget_override(self, budget_id: str, user_id: str) -> dict[str, Any]:
         """Remove a budget override.
 
         Args:
@@ -2584,7 +2584,7 @@ class AragoraClient:
         """
         return await self._request("DELETE", f"/api/v1/budgets/{budget_id}/overrides/{user_id}")
 
-    async def reset_budget(self, budget_id: str) -> Dict[str, Any]:
+    async def reset_budget(self, budget_id: str) -> dict[str, Any]:
         """Reset budget usage to zero.
 
         Args:
@@ -2598,14 +2598,14 @@ class AragoraClient:
 
     async def list_audit_events(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        actor_id: Optional[str] = None,
-        resource_type: Optional[str] = None,
-        action: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        actor_id: str | None = None,
+        resource_type: str | None = None,
+        action: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List audit events.
 
         Args:
@@ -2617,7 +2617,7 @@ class AragoraClient:
             limit: Maximum results
             offset: Pagination offset
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if start_date:
             params["start_date"] = start_date
         if end_date:
@@ -2630,13 +2630,13 @@ class AragoraClient:
             params["action"] = action
         return await self._request("GET", "/api/v1/audit/events", params=params)
 
-    async def get_audit_stats(self, period: Optional[str] = None) -> Dict[str, Any]:
+    async def get_audit_stats(self, period: str | None = None) -> dict[str, Any]:
         """Get audit statistics.
 
         Args:
             period: Time period for stats
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if period:
             params["period"] = period
         return await self._request("GET", "/api/v1/audit/stats", params=params)
@@ -2646,8 +2646,8 @@ class AragoraClient:
         start_date: str,
         end_date: str,
         format: str = "json",
-        filters: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Export audit logs.
 
         Args:
@@ -2656,7 +2656,7 @@ class AragoraClient:
             format: Export format ('json', 'csv')
             filters: Additional filters
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "start_date": start_date,
             "end_date": end_date,
             "format": format,
@@ -2667,16 +2667,16 @@ class AragoraClient:
 
     async def verify_audit_integrity(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> dict[str, Any]:
         """Verify audit log integrity.
 
         Args:
             start_date: Start date for verification
             end_date: End date for verification
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if start_date:
             params["start_date"] = start_date
         if end_date:
@@ -2685,11 +2685,11 @@ class AragoraClient:
 
     async def list_audit_trails(
         self,
-        verdict: Optional[str] = None,
-        risk_level: Optional[str] = None,
+        verdict: str | None = None,
+        risk_level: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List audit trails.
 
         Args:
@@ -2698,14 +2698,14 @@ class AragoraClient:
             limit: Maximum results
             offset: Pagination offset
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if verdict:
             params["verdict"] = verdict
         if risk_level:
             params["risk_level"] = risk_level
         return await self._request("GET", "/api/v1/audit/trails", params=params)
 
-    async def get_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+    async def get_audit_trail(self, trail_id: str) -> dict[str, Any]:
         """Get audit trail details.
 
         Args:
@@ -2713,7 +2713,7 @@ class AragoraClient:
         """
         return await self._request("GET", f"/api/v1/audit/trails/{trail_id}")
 
-    async def verify_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+    async def verify_audit_trail(self, trail_id: str) -> dict[str, Any]:
         """Verify audit trail integrity.
 
         Args:
@@ -2721,7 +2721,7 @@ class AragoraClient:
         """
         return await self._request("POST", f"/api/v1/audit/trails/{trail_id}/verify", json={})
 
-    async def export_audit_trail(self, trail_id: str, format: str = "json") -> Dict[str, Any]:
+    async def export_audit_trail(self, trail_id: str, format: str = "json") -> dict[str, Any]:
         """Export audit trail.
 
         Args:
@@ -2736,7 +2736,7 @@ class AragoraClient:
     # Notifications
     # =========================================================================
 
-    async def get_notification_status(self) -> Dict[str, Any]:
+    async def get_notification_status(self) -> dict[str, Any]:
         """Get notification configuration status."""
         return await self._request("GET", "/api/v1/notifications/status")
 
@@ -2745,7 +2745,7 @@ class AragoraClient:
         provider: str,
         from_email: str,
         **config: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Configure email notifications.
 
         Args:
@@ -2753,7 +2753,7 @@ class AragoraClient:
             from_email: From email address
             **config: Provider-specific configuration
         """
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "provider": provider,
             "from_email": from_email,
             **config,
@@ -2765,7 +2765,7 @@ class AragoraClient:
         bot_token: str,
         chat_id: str,
         **config: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Configure Telegram notifications.
 
         Args:
@@ -2773,19 +2773,19 @@ class AragoraClient:
             chat_id: Telegram chat ID
             **config: Additional configuration
         """
-        body: Dict[str, Any] = {"bot_token": bot_token, "chat_id": chat_id, **config}
+        body: dict[str, Any] = {"bot_token": bot_token, "chat_id": chat_id, **config}
         return await self._request("POST", "/api/v1/notifications/telegram/configure", json=body)
 
-    async def get_email_recipients(self) -> Dict[str, Any]:
+    async def get_email_recipients(self) -> dict[str, Any]:
         """Get list of email notification recipients."""
         return await self._request("GET", "/api/v1/notifications/email/recipients")
 
     async def add_email_recipient(
         self,
         email: str,
-        name: Optional[str] = None,
-        preferences: Optional[Dict[str, bool]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        preferences: dict[str, bool] | None = None,
+    ) -> dict[str, Any]:
         """Add email notification recipient.
 
         Args:
@@ -2793,14 +2793,14 @@ class AragoraClient:
             name: Recipient name
             preferences: Notification preferences by type
         """
-        body: Dict[str, Any] = {"email": email}
+        body: dict[str, Any] = {"email": email}
         if name:
             body["name"] = name
         if preferences:
             body["preferences"] = preferences
         return await self._request("POST", "/api/v1/notifications/email/recipients", json=body)
 
-    async def remove_email_recipient(self, email: str) -> Dict[str, Any]:
+    async def remove_email_recipient(self, email: str) -> dict[str, Any]:
         """Remove email notification recipient.
 
         Args:
@@ -2810,7 +2810,7 @@ class AragoraClient:
             "DELETE", "/api/v1/notifications/email/recipients", params={"email": email}
         )
 
-    async def send_test_notification(self, channel: str) -> Dict[str, Any]:
+    async def send_test_notification(self, channel: str) -> dict[str, Any]:
         """Send a test notification.
 
         Args:
@@ -2822,9 +2822,9 @@ class AragoraClient:
         self,
         channel: str,
         message: str,
-        subject: Optional[str] = None,
-        recipients: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        subject: str | None = None,
+        recipients: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Send a notification.
 
         Args:
@@ -2833,7 +2833,7 @@ class AragoraClient:
             subject: Message subject (for email)
             recipients: Specific recipients (optional)
         """
-        body: Dict[str, Any] = {"channel": channel, "message": message}
+        body: dict[str, Any] = {"channel": channel, "message": message}
         if subject:
             body["subject"] = subject
         if recipients:
@@ -2844,29 +2844,29 @@ class AragoraClient:
     # Costs
     # =========================================================================
 
-    async def get_cost_dashboard(self, period: Optional[str] = None) -> Dict[str, Any]:
+    async def get_cost_dashboard(self, period: str | None = None) -> dict[str, Any]:
         """Get cost dashboard data.
 
         Args:
             period: Time period for costs
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if period:
             params["period"] = period
         return await self._request("GET", "/api/v1/costs/dashboard", params=params)
 
     async def get_cost_breakdown(
         self,
-        period: Optional[str] = None,
-        group_by: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        period: str | None = None,
+        group_by: str | None = None,
+    ) -> dict[str, Any]:
         """Get cost breakdown.
 
         Args:
             period: Time period
             group_by: Grouping ('agent', 'user', 'operation')
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if period:
             params["period"] = period
         if group_by:
@@ -2875,32 +2875,32 @@ class AragoraClient:
 
     async def get_cost_timeline(
         self,
-        period: Optional[str] = None,
-        granularity: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        period: str | None = None,
+        granularity: str | None = None,
+    ) -> dict[str, Any]:
         """Get cost timeline data.
 
         Args:
             period: Time period
             granularity: Data granularity ('hour', 'day', 'week')
         """
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if period:
             params["period"] = period
         if granularity:
             params["granularity"] = granularity
         return await self._request("GET", "/api/v1/costs/timeline", params=params)
 
-    async def get_cost_alerts(self) -> Dict[str, Any]:
+    async def get_cost_alerts(self) -> dict[str, Any]:
         """Get active cost alerts."""
         return await self._request("GET", "/api/v1/costs/alerts")
 
     async def set_cost_budget(
         self,
-        daily_limit: Optional[float] = None,
-        monthly_limit: Optional[float] = None,
-        alert_threshold: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        daily_limit: float | None = None,
+        monthly_limit: float | None = None,
+        alert_threshold: float | None = None,
+    ) -> dict[str, Any]:
         """Set cost budget limits.
 
         Args:
@@ -2908,7 +2908,7 @@ class AragoraClient:
             monthly_limit: Monthly cost limit
             alert_threshold: Alert threshold percentage (0-1)
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if daily_limit is not None:
             body["daily_limit"] = daily_limit
         if monthly_limit is not None:
@@ -2917,7 +2917,7 @@ class AragoraClient:
             body["alert_threshold"] = alert_threshold
         return await self._request("POST", "/api/v1/costs/budget", json=body)
 
-    async def dismiss_cost_alert(self, alert_id: str) -> Dict[str, Any]:
+    async def dismiss_cost_alert(self, alert_id: str) -> dict[str, Any]:
         """Dismiss a cost alert.
 
         Args:
@@ -2929,22 +2929,22 @@ class AragoraClient:
     # Onboarding
     # =========================================================================
 
-    async def get_onboarding_status(self) -> Dict[str, Any]:
+    async def get_onboarding_status(self) -> dict[str, Any]:
         """Get onboarding progress status."""
         return await self._request("GET", "/api/v1/onboarding/status")
 
     async def complete_onboarding(
         self,
-        first_debate_id: Optional[str] = None,
-        template_used: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        first_debate_id: str | None = None,
+        template_used: str | None = None,
+    ) -> dict[str, Any]:
         """Mark onboarding as complete.
 
         Args:
             first_debate_id: ID of first created debate
             template_used: Template used during onboarding
         """
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if first_debate_id:
             body["first_debate_id"] = first_debate_id
         if template_used:
@@ -2957,10 +2957,10 @@ class AragoraClient:
 
     async def list_decision_receipts(
         self,
-        verdict: Optional[str] = None,
+        verdict: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List decision receipts.
 
         Args:
@@ -2968,12 +2968,12 @@ class AragoraClient:
             limit: Maximum results
             offset: Pagination offset
         """
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if verdict:
             params["verdict"] = verdict
         return await self._request("GET", "/api/v1/receipts", params=params)
 
-    async def get_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    async def get_decision_receipt(self, receipt_id: str) -> dict[str, Any]:
         """Get decision receipt details.
 
         Args:
@@ -2981,7 +2981,7 @@ class AragoraClient:
         """
         return await self._request("GET", f"/api/v1/receipts/{receipt_id}")
 
-    async def verify_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    async def verify_decision_receipt(self, receipt_id: str) -> dict[str, Any]:
         """Verify decision receipt integrity.
 
         Args:
@@ -2996,7 +2996,7 @@ class AragoraClient:
     async def get_disagreement_analytics(
         self,
         period: str = "30d",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get analytics on agent disagreements.
 
         Args:
@@ -3014,7 +3014,7 @@ class AragoraClient:
     async def get_consensus_quality_analytics(
         self,
         period: str = "30d",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get analytics on consensus quality.
 
         Args:
@@ -3032,7 +3032,7 @@ class AragoraClient:
     async def get_role_rotation_analytics(
         self,
         period: str = "30d",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get analytics on role rotation effectiveness.
 
         Args:
@@ -3050,7 +3050,7 @@ class AragoraClient:
     async def get_early_stop_analytics(
         self,
         period: str = "30d",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get analytics on early stopping patterns.
 
         Args:
@@ -3065,7 +3065,7 @@ class AragoraClient:
             params={"period": period},
         )
 
-    async def get_ranking_stats(self) -> Dict[str, Any]:
+    async def get_ranking_stats(self) -> dict[str, Any]:
         """Get overall ranking statistics.
 
         Returns:
@@ -3080,11 +3080,11 @@ class AragoraClient:
     async def query_knowledge_mound(
         self,
         query: str,
-        types: Optional[List[str]] = None,
+        types: list[str] | None = None,
         depth: int = 2,
         include_relationships: bool = True,
         limit: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Query the Knowledge Mound graph."""
         return await self._request(
             "POST",
@@ -3100,12 +3100,12 @@ class AragoraClient:
 
     async def list_knowledge_nodes(
         self,
-        node_type: Optional[str] = None,
+        node_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List Knowledge Mound nodes."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if node_type:
             params["type"] = node_type
         return await self._request("GET", "/api/v1/knowledge/mound/nodes", params=params)
@@ -3115,11 +3115,11 @@ class AragoraClient:
         content: str,
         node_type: str = "fact",
         confidence: float = 0.8,
-        source: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        source: str | None = None,
+        tags: list[str] | None = None,
         visibility: str = "workspace",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new Knowledge Mound node."""
         return await self._request(
             "POST",
@@ -3135,11 +3135,11 @@ class AragoraClient:
             },
         )
 
-    async def get_knowledge_node(self, node_id: str) -> Dict[str, Any]:
+    async def get_knowledge_node(self, node_id: str) -> dict[str, Any]:
         """Get a specific Knowledge Mound node."""
         return await self._request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}")
 
-    async def get_knowledge_mound_stats(self) -> Dict[str, Any]:
+    async def get_knowledge_mound_stats(self) -> dict[str, Any]:
         """Get Knowledge Mound statistics."""
         return await self._request("GET", "/api/v1/knowledge/mound/stats")
 
@@ -3150,8 +3150,8 @@ class AragoraClient:
         relationship_type: str,
         strength: float = 1.0,
         confidence: float = 0.8,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a relationship between two knowledge nodes."""
         return await self._request(
             "POST",
@@ -3170,7 +3170,7 @@ class AragoraClient:
         self,
         node_id: str,
         direction: str = "both",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get relationships for a knowledge node."""
         return await self._request(
             "GET",
@@ -3183,7 +3183,7 @@ class AragoraClient:
         node_id: str,
         depth: int = 2,
         direction: str = "both",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Traverse the knowledge graph from a starting node."""
         return await self._request(
             "GET",
@@ -3195,7 +3195,7 @@ class AragoraClient:
         self,
         node_id: str,
         max_depth: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get the derivation lineage of a knowledge node."""
         return await self._request(
             "GET",
@@ -3207,7 +3207,7 @@ class AragoraClient:
         self,
         max_age_days: int = 30,
         limit: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get stale knowledge items that need revalidation."""
         return await self._request(
             "GET",
@@ -3219,11 +3219,11 @@ class AragoraClient:
         self,
         node_id: str,
         valid: bool,
-        new_confidence: Optional[float] = None,
-        notes: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        new_confidence: float | None = None,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
         """Revalidate a knowledge node."""
-        body: Dict[str, Any] = {"valid": valid}
+        body: dict[str, Any] = {"valid": valid}
         if new_confidence is not None:
             body["new_confidence"] = new_confidence
         if notes:
@@ -3244,10 +3244,10 @@ class AragoraClient:
         target_id: str,
         target_type: str = "workspace",
         permission: str = "read",
-        expires_at: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        expires_at: str | None = None,
+    ) -> dict[str, Any]:
         """Share a knowledge item with another workspace or user."""
-        body: Dict[str, Any] = {
+        body: dict[str, Any] = {
             "item_id": item_id,
             "target_id": target_id,
             "target_type": target_type,
@@ -3261,7 +3261,7 @@ class AragoraClient:
         self,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get items shared with the current user/workspace."""
         return await self._request(
             "GET",
@@ -3273,7 +3273,7 @@ class AragoraClient:
         self,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get items shared by the current user."""
         return await self._request(
             "GET",
@@ -3281,7 +3281,7 @@ class AragoraClient:
             params={"limit": limit, "offset": offset},
         )
 
-    async def revoke_share(self, share_id: str) -> Dict[str, Any]:
+    async def revoke_share(self, share_id: str) -> dict[str, Any]:
         """Revoke a share."""
         return await self._request(
             "DELETE",
@@ -3293,11 +3293,11 @@ class AragoraClient:
     # Knowledge Mound - Federation
     # =========================================================================
 
-    async def list_federated_regions(self) -> Dict[str, Any]:
+    async def list_federated_regions(self) -> dict[str, Any]:
         """List all federated regions."""
         return await self._request("GET", "/api/v1/knowledge/mound/federation/regions")
 
-    async def get_federation_status(self) -> Dict[str, Any]:
+    async def get_federation_status(self) -> dict[str, Any]:
         """Get federation status and health."""
         return await self._request("GET", "/api/v1/knowledge/mound/federation/status")
 
@@ -3305,10 +3305,10 @@ class AragoraClient:
         self,
         region_id: str,
         scope: str = "workspace",
-        node_ids: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        node_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Push knowledge to a remote region."""
-        body: Dict[str, Any] = {"region_id": region_id, "scope": scope}
+        body: dict[str, Any] = {"region_id": region_id, "scope": scope}
         if node_ids:
             body["node_ids"] = node_ids
         return await self._request(
@@ -3320,11 +3320,11 @@ class AragoraClient:
     async def pull_from_region(
         self,
         region_id: str,
-        since: Optional[str] = None,
+        since: str | None = None,
         limit: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Pull knowledge from a remote region."""
-        body: Dict[str, Any] = {"region_id": region_id, "limit": limit}
+        body: dict[str, Any] = {"region_id": region_id, "limit": limit}
         if since:
             body["since"] = since
         return await self._request(
@@ -3341,7 +3341,7 @@ class AragoraClient:
         self,
         threshold: float = 0.9,
         limit: int = 50,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Find duplicate clusters by similarity threshold."""
         return await self._request(
             "GET",
@@ -3349,16 +3349,16 @@ class AragoraClient:
             params={"threshold": threshold, "limit": limit},
         )
 
-    async def get_dedup_report(self) -> Dict[str, Any]:
+    async def get_dedup_report(self) -> dict[str, Any]:
         """Generate deduplication analysis report."""
         return await self._request("GET", "/api/v1/knowledge/mound/dedup/report")
 
     async def merge_duplicate_cluster(
         self,
         cluster_id: str,
-        primary_id: Optional[str] = None,
+        primary_id: str | None = None,
         strategy: str = "highest_confidence",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Merge a specific duplicate cluster."""
         return await self._request(
             "POST",
@@ -3374,7 +3374,7 @@ class AragoraClient:
     # Knowledge Mound - Contradictions
     # =========================================================================
 
-    async def detect_contradictions(self, scope: str = "workspace") -> Dict[str, Any]:
+    async def detect_contradictions(self, scope: str = "workspace") -> dict[str, Any]:
         """Trigger contradiction detection scan."""
         return await self._request(
             "POST",
@@ -3387,7 +3387,7 @@ class AragoraClient:
         status: str = "unresolved",
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List contradictions."""
         return await self._request(
             "GET",
@@ -3399,10 +3399,10 @@ class AragoraClient:
         self,
         contradiction_id: str,
         strategy: str,
-        notes: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        notes: str | None = None,
+    ) -> dict[str, Any]:
         """Resolve a contradiction."""
-        body: Dict[str, Any] = {"strategy": strategy}
+        body: dict[str, Any] = {"strategy": strategy}
         if notes:
             body["notes"] = notes
         return await self._request(
@@ -3417,10 +3417,10 @@ class AragoraClient:
 
     async def analyze_knowledge_coverage(
         self,
-        topics: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        topics: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Analyze domain coverage by topic."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if topics:
             params["topics"] = ",".join(topics)
         return await self._request(
@@ -3432,10 +3432,10 @@ class AragoraClient:
     async def analyze_knowledge_usage(
         self,
         period: str = "week",
-        since: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        since: str | None = None,
+    ) -> dict[str, Any]:
         """Analyze usage patterns over time."""
-        params: Dict[str, Any] = {"period": period}
+        params: dict[str, Any] = {"period": period}
         if since:
             params["since"] = since
         return await self._request(
@@ -3447,10 +3447,10 @@ class AragoraClient:
     async def get_knowledge_quality_trend(
         self,
         period: str = "week",
-        metrics: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        metrics: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Get quality metrics trend over time."""
-        params: Dict[str, Any] = {"period": period}
+        params: dict[str, Any] = {"period": period}
         if metrics:
             params["metrics"] = ",".join(metrics)
         return await self._request(
@@ -3467,7 +3467,7 @@ class AragoraClient:
         self,
         scope: str = "workspace",
         depth: int = 3,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export knowledge graph as D3 JSON format for visualization."""
         return await self._request(
             "GET",
@@ -3495,7 +3495,7 @@ class AragoraClient:
         debate_id: str,
         confidence_threshold: float = 0.7,
         auto_promote: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Extract claims/knowledge from a debate."""
         return await self._request(
             "POST",
@@ -3509,11 +3509,11 @@ class AragoraClient:
 
     async def promote_extracted_claims(
         self,
-        claim_ids: List[str],
-        target_tier: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        claim_ids: list[str],
+        target_tier: str | None = None,
+    ) -> dict[str, Any]:
         """Promote extracted claims to main knowledge."""
-        body: Dict[str, Any] = {"claim_ids": claim_ids}
+        body: dict[str, Any] = {"claim_ids": claim_ids}
         if target_tier:
             body["target_tier"] = target_tier
         return await self._request(
@@ -3526,15 +3526,15 @@ class AragoraClient:
     # Knowledge Mound - Dashboard
     # =========================================================================
 
-    async def get_knowledge_dashboard_health(self) -> Dict[str, Any]:
+    async def get_knowledge_dashboard_health(self) -> dict[str, Any]:
         """Get Knowledge Mound health status and recommendations."""
         return await self._request("GET", "/api/v1/knowledge/mound/dashboard/health")
 
-    async def get_knowledge_dashboard_metrics(self) -> Dict[str, Any]:
+    async def get_knowledge_dashboard_metrics(self) -> dict[str, Any]:
         """Get detailed operational metrics."""
         return await self._request("GET", "/api/v1/knowledge/mound/dashboard/metrics")
 
-    async def get_knowledge_dashboard_adapters(self) -> Dict[str, Any]:
+    async def get_knowledge_dashboard_adapters(self) -> dict[str, Any]:
         """Get adapter status and health."""
         return await self._request("GET", "/api/v1/knowledge/mound/dashboard/adapters")
 
@@ -3546,7 +3546,7 @@ class AragoraClient:
         self,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List all configured integrations."""
         return await self._request(
             "GET",
@@ -3554,18 +3554,18 @@ class AragoraClient:
             params={"limit": limit, "offset": offset},
         )
 
-    async def get_integration(self, integration_id: str) -> Dict[str, Any]:
+    async def get_integration(self, integration_id: str) -> dict[str, Any]:
         """Get a specific integration."""
         return await self._request("GET", f"/api/integrations/{integration_id}")
 
     async def create_integration(
         self,
         integration_type: str,
-        name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new integration."""
-        body: Dict[str, Any] = {"type": integration_type}
+        body: dict[str, Any] = {"type": integration_type}
         if name:
             body["name"] = name
         if config:
@@ -3575,12 +3575,12 @@ class AragoraClient:
     async def update_integration(
         self,
         integration_id: str,
-        name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        enabled: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        config: dict[str, Any] | None = None,
+        enabled: bool | None = None,
+    ) -> dict[str, Any]:
         """Update an integration."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
         if config is not None:
@@ -3589,36 +3589,36 @@ class AragoraClient:
             body["enabled"] = enabled
         return await self._request("PUT", f"/api/integrations/{integration_id}", json=body)
 
-    async def delete_integration(self, integration_id: str) -> Dict[str, Any]:
+    async def delete_integration(self, integration_id: str) -> dict[str, Any]:
         """Delete an integration."""
         return await self._request("DELETE", f"/api/integrations/{integration_id}")
 
-    async def test_integration(self, integration_id: str) -> Dict[str, Any]:
+    async def test_integration(self, integration_id: str) -> dict[str, Any]:
         """Test an integration connection."""
         return await self._request("POST", f"/api/integrations/{integration_id}/test")
 
-    async def sync_integration(self, integration_id: str) -> Dict[str, Any]:
+    async def sync_integration(self, integration_id: str) -> dict[str, Any]:
         """Trigger a sync for an integration."""
         return await self._request("POST", f"/api/integrations/{integration_id}/sync")
 
-    async def get_bot_status(self, platform: str) -> Dict[str, Any]:
+    async def get_bot_status(self, platform: str) -> dict[str, Any]:
         """Get bot status for a platform (slack, telegram, whatsapp, discord)."""
         return await self._request("GET", f"/api/v1/bots/{platform}/status")
 
-    async def get_teams_status(self) -> Dict[str, Any]:
+    async def get_teams_status(self) -> dict[str, Any]:
         """Get Microsoft Teams integration status."""
         return await self._request("GET", "/api/v1/integrations/teams/status")
 
-    async def list_zapier_apps(self) -> Dict[str, Any]:
+    async def list_zapier_apps(self) -> dict[str, Any]:
         """List Zapier apps."""
         return await self._request("GET", "/api/v1/integrations/zapier/apps")
 
     async def create_zapier_app(
         self,
         name: str,
-        triggers: Optional[List[str]] = None,
-        actions: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        triggers: list[str] | None = None,
+        actions: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Create a Zapier app."""
         return await self._request(
             "POST",
@@ -3626,15 +3626,15 @@ class AragoraClient:
             json={"name": name, "triggers": triggers, "actions": actions},
         )
 
-    async def list_make_connections(self) -> Dict[str, Any]:
+    async def list_make_connections(self) -> dict[str, Any]:
         """List Make (Integromat) connections."""
         return await self._request("GET", "/api/v1/integrations/make/connections")
 
     async def create_make_connection(
         self,
         name: str,
-        credentials: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        credentials: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create a Make connection."""
         return await self._request(
             "POST",
@@ -3642,14 +3642,14 @@ class AragoraClient:
             json={"name": name, "credentials": credentials},
         )
 
-    async def list_n8n_credentials(self) -> Dict[str, Any]:
+    async def list_n8n_credentials(self) -> dict[str, Any]:
         """List n8n credentials."""
         return await self._request("GET", "/api/v1/integrations/n8n/credentials")
 
     async def start_integration_wizard(
         self,
         integration_type: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Start the integration wizard."""
         return await self._request(
             "POST",
@@ -3657,7 +3657,7 @@ class AragoraClient:
             json={"type": integration_type},
         )
 
-    async def get_integration_stats(self) -> Dict[str, Any]:
+    async def get_integration_stats(self) -> dict[str, Any]:
         """Get integration statistics."""
         return await self._request("GET", "/api/v2/integrations/stats")
 
@@ -3669,7 +3669,7 @@ class AragoraClient:
         self,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List all webhooks."""
         return await self._request(
             "GET",
@@ -3677,20 +3677,20 @@ class AragoraClient:
             params={"limit": limit, "offset": offset},
         )
 
-    async def get_webhook(self, webhook_id: str) -> Dict[str, Any]:
+    async def get_webhook(self, webhook_id: str) -> dict[str, Any]:
         """Get a specific webhook."""
         return await self._request("GET", f"/api/webhooks/{webhook_id}")
 
     async def create_webhook(
         self,
         url: str,
-        events: List[str],
-        secret: Optional[str] = None,
+        events: list[str],
+        secret: str | None = None,
         active: bool = True,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new webhook."""
-        body: Dict[str, Any] = {"url": url, "events": events, "active": active}
+        body: dict[str, Any] = {"url": url, "events": events, "active": active}
         if secret:
             body["secret"] = secret
         if metadata:
@@ -3700,13 +3700,13 @@ class AragoraClient:
     async def update_webhook(
         self,
         webhook_id: str,
-        url: Optional[str] = None,
-        events: Optional[List[str]] = None,
-        secret: Optional[str] = None,
-        active: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        url: str | None = None,
+        events: list[str] | None = None,
+        secret: str | None = None,
+        active: bool | None = None,
+    ) -> dict[str, Any]:
         """Update a webhook."""
-        body: Dict[str, Any] = {}
+        body: dict[str, Any] = {}
         if url is not None:
             body["url"] = url
         if events is not None:
@@ -3717,31 +3717,31 @@ class AragoraClient:
             body["active"] = active
         return await self._request("PUT", f"/api/webhooks/{webhook_id}", json=body)
 
-    async def delete_webhook(self, webhook_id: str) -> Dict[str, Any]:
+    async def delete_webhook(self, webhook_id: str) -> dict[str, Any]:
         """Delete a webhook."""
         return await self._request("DELETE", f"/api/webhooks/{webhook_id}")
 
-    async def test_webhook(self, webhook_id: str) -> Dict[str, Any]:
+    async def test_webhook(self, webhook_id: str) -> dict[str, Any]:
         """Test a webhook by sending a test event."""
         return await self._request("POST", f"/api/webhooks/{webhook_id}/test")
 
-    async def list_webhook_events(self) -> Dict[str, Any]:
+    async def list_webhook_events(self) -> dict[str, Any]:
         """List available webhook events."""
         return await self._request("GET", "/api/webhooks/events")
 
-    async def get_webhook_slo_status(self) -> Dict[str, Any]:
+    async def get_webhook_slo_status(self) -> dict[str, Any]:
         """Get webhook SLO status."""
         return await self._request("GET", "/api/webhooks/slo")
 
     async def list_webhook_deliveries(
         self,
         webhook_id: str,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """List webhook deliveries."""
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
         return await self._request(
@@ -3754,14 +3754,14 @@ class AragoraClient:
         self,
         webhook_id: str,
         delivery_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Retry a failed webhook delivery."""
         return await self._request(
             "POST",
             f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/retry",
         )
 
-    async def rotate_webhook_secret(self, webhook_id: str) -> Dict[str, Any]:
+    async def rotate_webhook_secret(self, webhook_id: str) -> dict[str, Any]:
         """Rotate a webhook's secret."""
         return await self._request("POST", f"/api/v1/webhooks/{webhook_id}/rotate-secret")
 
@@ -3779,62 +3779,62 @@ class AragoraClientSync:
     def close(self) -> None:
         self._run(self._async_client.close())
 
-    def list_debates(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_debates(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_debates(**kwargs))
 
-    def get_debate(self, debate_id: str) -> Dict[str, Any]:
+    def get_debate(self, debate_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_debate(debate_id))
 
-    def create_debate(self, question: str, agents: List[str], **kwargs: Any) -> Dict[str, Any]:
+    def create_debate(self, question: str, agents: list[str], **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_debate(question, agents, **kwargs))
 
-    def get_explanation(self, debate_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_explanation(self, debate_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_explanation(debate_id, **kwargs))
 
     # Batch Explainability
-    def create_batch_explanation(self, debate_ids: List[str], **kwargs: Any) -> Dict[str, Any]:
+    def create_batch_explanation(self, debate_ids: list[str], **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_batch_explanation(debate_ids, **kwargs))
 
-    def get_batch_status(self, batch_id: str) -> Dict[str, Any]:
+    def get_batch_status(self, batch_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_batch_status(batch_id))
 
-    def get_batch_results(self, batch_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_batch_results(self, batch_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_batch_results(batch_id, **kwargs))
 
-    def compare_explanations(self, debate_ids: List[str], **kwargs: Any) -> Dict[str, Any]:
+    def compare_explanations(self, debate_ids: list[str], **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.compare_explanations(debate_ids, **kwargs))
 
     # Workflow Templates
-    def list_workflow_templates(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_workflow_templates(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_workflow_templates(**kwargs))
 
     # Marketplace
-    def browse_marketplace(self, **kwargs: Any) -> Dict[str, Any]:
+    def browse_marketplace(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.browse_marketplace(**kwargs))
 
-    def get_marketplace_template(self, template_id: str) -> Dict[str, Any]:
+    def get_marketplace_template(self, template_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_marketplace_template(template_id))
 
     def publish_template(
         self, template_id: str, name: str, description: str, category: str, **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.publish_template(template_id, name, description, category, **kwargs)
         )
 
-    def rate_template(self, template_id: str, rating: int) -> Dict[str, Any]:
+    def rate_template(self, template_id: str, rating: int) -> dict[str, Any]:
         return self._run(self._async_client.rate_template(template_id, rating))
 
-    def import_template(self, template_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def import_template(self, template_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.import_template(template_id, **kwargs))
 
-    def get_featured_templates(self) -> Dict[str, Any]:
+    def get_featured_templates(self) -> dict[str, Any]:
         return self._run(self._async_client.get_featured_templates())
 
-    def get_trending_templates(self) -> Dict[str, Any]:
+    def get_trending_templates(self) -> dict[str, Any]:
         return self._run(self._async_client.get_trending_templates())
 
-    def health(self) -> Dict[str, Any]:
+    def health(self) -> dict[str, Any]:
         return self._run(self._async_client.health())
 
     # WebSocket
@@ -3842,179 +3842,179 @@ class AragoraClientSync:
         return self._async_client.create_websocket(**kwargs)
 
     # Control Plane - Agent Registry
-    def register_agent(self, agent_id: str, agent_type: str, **kwargs: Any) -> Dict[str, Any]:
+    def register_agent(self, agent_id: str, agent_type: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.register_agent(agent_id, agent_type, **kwargs))
 
-    def deregister_agent(self, agent_id: str) -> Dict[str, Any]:
+    def deregister_agent(self, agent_id: str) -> dict[str, Any]:
         return self._run(self._async_client.deregister_agent(agent_id))
 
-    def list_registered_agents(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_registered_agents(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_registered_agents(**kwargs))
 
-    def get_agent_health(self, agent_id: str) -> Dict[str, Any]:
+    def get_agent_health(self, agent_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_health(agent_id))
 
-    def send_agent_heartbeat(self, agent_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def send_agent_heartbeat(self, agent_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.send_agent_heartbeat(agent_id, **kwargs))
 
     # Control Plane - Task Scheduler
     def schedule_task(
-        self, task_type: str, payload: Dict[str, Any], **kwargs: Any
-    ) -> Dict[str, Any]:
+        self, task_type: str, payload: dict[str, Any], **kwargs: Any
+    ) -> dict[str, Any]:
         return self._run(self._async_client.schedule_task(task_type, payload, **kwargs))
 
-    def get_task_status(self, task_id: str) -> Dict[str, Any]:
+    def get_task_status(self, task_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_task_status(task_id))
 
-    def cancel_task(self, task_id: str) -> Dict[str, Any]:
+    def cancel_task(self, task_id: str) -> dict[str, Any]:
         return self._run(self._async_client.cancel_task(task_id))
 
-    def list_tasks(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_tasks(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_tasks(**kwargs))
 
     # Control Plane - Policies
     def create_policy(
-        self, name: str, rules: List[Dict[str, Any]], **kwargs: Any
-    ) -> Dict[str, Any]:
+        self, name: str, rules: list[dict[str, Any]], **kwargs: Any
+    ) -> dict[str, Any]:
         return self._run(self._async_client.create_policy(name, rules, **kwargs))
 
-    def get_policy(self, policy_id: str) -> Dict[str, Any]:
+    def get_policy(self, policy_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_policy(policy_id))
 
-    def update_policy(self, policy_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_policy(self, policy_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_policy(policy_id, **kwargs))
 
-    def delete_policy(self, policy_id: str) -> Dict[str, Any]:
+    def delete_policy(self, policy_id: str) -> dict[str, Any]:
         return self._run(self._async_client.delete_policy(policy_id))
 
-    def list_policies(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_policies(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_policies(**kwargs))
 
     # Graph Debates
     def create_graph_debate(
-        self, question: str, agents: List[str], graph_structure: Dict[str, Any], **kwargs: Any
-    ) -> Dict[str, Any]:
+        self, question: str, agents: list[str], graph_structure: dict[str, Any], **kwargs: Any
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.create_graph_debate(question, agents, graph_structure, **kwargs)
         )
 
-    def get_graph_debate_topology(self, debate_id: str) -> Dict[str, Any]:
+    def get_graph_debate_topology(self, debate_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_graph_debate_topology(debate_id))
 
     def update_graph_edge(
         self, debate_id: str, source: str, target: str, weight: float, **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.update_graph_edge(debate_id, source, target, weight, **kwargs)
         )
 
     def get_graph_path(
         self, debate_id: str, start_node: str, end_node: str, **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.get_graph_path(debate_id, start_node, end_node, **kwargs)
         )
 
     # Matrix Debates
     def create_matrix_debate(
-        self, question: str, agents: List[str], dimensions: List[str], **kwargs: Any
-    ) -> Dict[str, Any]:
+        self, question: str, agents: list[str], dimensions: list[str], **kwargs: Any
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.create_matrix_debate(question, agents, dimensions, **kwargs)
         )
 
-    def get_matrix_analysis(self, debate_id: str) -> Dict[str, Any]:
+    def get_matrix_analysis(self, debate_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_matrix_analysis(debate_id))
 
     def update_matrix_cell(
         self, debate_id: str, row: str, column: str, value: Any, **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.update_matrix_cell(debate_id, row, column, value, **kwargs)
         )
 
-    def get_matrix_summary(self, debate_id: str) -> Dict[str, Any]:
+    def get_matrix_summary(self, debate_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_matrix_summary(debate_id))
 
     # Agent Intelligence
-    def get_agent_profile(self, agent_name: str) -> Dict[str, Any]:
+    def get_agent_profile(self, agent_name: str) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_profile(agent_name))
 
-    def get_agent_history(self, agent_name: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_agent_history(self, agent_name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_history(agent_name, **kwargs))
 
-    def get_agent_leaderboard(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_agent_leaderboard(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_leaderboard(**kwargs))
 
-    def compare_agents(self, agent_names: List[str], **kwargs: Any) -> Dict[str, Any]:
+    def compare_agents(self, agent_names: list[str], **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.compare_agents(agent_names, **kwargs))
 
     # Verification
-    def verify_claim(self, claim: str, **kwargs: Any) -> Dict[str, Any]:
+    def verify_claim(self, claim: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.verify_claim(claim, **kwargs))
 
-    def get_verification_status(self, verification_id: str) -> Dict[str, Any]:
+    def get_verification_status(self, verification_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_verification_status(verification_id))
 
-    def get_verification_evidence(self, verification_id: str) -> Dict[str, Any]:
+    def get_verification_evidence(self, verification_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_verification_evidence(verification_id))
 
     # Memory
-    def store_memory(self, content: str, **kwargs: Any) -> Dict[str, Any]:
+    def store_memory(self, content: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.store_memory(content, **kwargs))
 
-    def retrieve_memory(self, query: str, **kwargs: Any) -> Dict[str, Any]:
+    def retrieve_memory(self, query: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.retrieve_memory(query, **kwargs))
 
-    def get_memory_stats(self) -> Dict[str, Any]:
+    def get_memory_stats(self) -> dict[str, Any]:
         return self._run(self._async_client.get_memory_stats())
 
     # Knowledge Mound
-    def search_knowledge(self, query: str, **kwargs: Any) -> Dict[str, Any]:
+    def search_knowledge(self, query: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.search_knowledge(query, **kwargs))
 
-    def add_knowledge(self, content: str, source: str, **kwargs: Any) -> Dict[str, Any]:
+    def add_knowledge(self, content: str, source: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.add_knowledge(content, source, **kwargs))
 
-    def get_knowledge_stats(self) -> Dict[str, Any]:
+    def get_knowledge_stats(self) -> dict[str, Any]:
         return self._run(self._async_client.get_knowledge_stats())
 
     # ELO Rankings
-    def get_elo_rankings(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_elo_rankings(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_elo_rankings(**kwargs))
 
-    def get_agent_elo(self, agent_name: str) -> Dict[str, Any]:
+    def get_agent_elo(self, agent_name: str) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_elo(agent_name))
 
-    def get_elo_history(self, agent_name: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_elo_history(self, agent_name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_elo_history(agent_name, **kwargs))
 
     # Tournaments
     def create_tournament(
-        self, name: str, agents: List[str], questions: List[str], **kwargs: Any
-    ) -> Dict[str, Any]:
+        self, name: str, agents: list[str], questions: list[str], **kwargs: Any
+    ) -> dict[str, Any]:
         return self._run(self._async_client.create_tournament(name, agents, questions, **kwargs))
 
-    def get_tournament(self, tournament_id: str) -> Dict[str, Any]:
+    def get_tournament(self, tournament_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_tournament(tournament_id))
 
-    def list_tournaments(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_tournaments(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_tournaments(**kwargs))
 
-    def get_tournament_standings(self, tournament_id: str) -> Dict[str, Any]:
+    def get_tournament_standings(self, tournament_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_tournament_standings(tournament_id))
 
     # =========================================================================
     # Authentication
     # =========================================================================
 
-    def register_user(self, email: str, password: str, **kwargs: Any) -> Dict[str, Any]:
+    def register_user(self, email: str, password: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.register_user(email, password, **kwargs))
 
-    def login(self, email: str, password: str, **kwargs: Any) -> Dict[str, Any]:
+    def login(self, email: str, password: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.login(email, password, **kwargs))
 
-    def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+    def refresh_token(self, refresh_token: str) -> dict[str, Any]:
         return self._run(self._async_client.refresh_token(refresh_token))
 
     def logout(self) -> None:
@@ -4023,16 +4023,16 @@ class AragoraClientSync:
     def logout_all(self) -> None:
         return self._run(self._async_client.logout_all())
 
-    def verify_email(self, token: str) -> Dict[str, Any]:
+    def verify_email(self, token: str) -> dict[str, Any]:
         return self._run(self._async_client.verify_email(token))
 
-    def resend_verification(self, email: str) -> Dict[str, Any]:
+    def resend_verification(self, email: str) -> dict[str, Any]:
         return self._run(self._async_client.resend_verification(email))
 
-    def get_current_user(self) -> Dict[str, Any]:
+    def get_current_user(self) -> dict[str, Any]:
         return self._run(self._async_client.get_current_user())
 
-    def update_profile(self, **kwargs: Any) -> Dict[str, Any]:
+    def update_profile(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_profile(**kwargs))
 
     def change_password(self, current_password: str, new_password: str) -> None:
@@ -4048,139 +4048,139 @@ class AragoraClientSync:
     # Multi-Factor Authentication
     # =========================================================================
 
-    def setup_mfa(self, mfa_type: str = "totp") -> Dict[str, Any]:
+    def setup_mfa(self, mfa_type: str = "totp") -> dict[str, Any]:
         return self._run(self._async_client.setup_mfa(mfa_type))
 
-    def verify_mfa_setup(self, code: str) -> Dict[str, Any]:
+    def verify_mfa_setup(self, code: str) -> dict[str, Any]:
         return self._run(self._async_client.verify_mfa_setup(code))
 
-    def enable_mfa(self, code: str) -> Dict[str, Any]:
+    def enable_mfa(self, code: str) -> dict[str, Any]:
         return self._run(self._async_client.enable_mfa(code))
 
     def disable_mfa(self) -> None:
         return self._run(self._async_client.disable_mfa())
 
-    def generate_backup_codes(self) -> Dict[str, Any]:
+    def generate_backup_codes(self) -> dict[str, Any]:
         return self._run(self._async_client.generate_backup_codes())
 
     # =========================================================================
     # Session Management
     # =========================================================================
 
-    def list_sessions(self) -> Dict[str, Any]:
+    def list_sessions(self) -> dict[str, Any]:
         return self._run(self._async_client.list_sessions())
 
-    def revoke_session(self, session_id: str) -> Dict[str, Any]:
+    def revoke_session(self, session_id: str) -> dict[str, Any]:
         return self._run(self._async_client.revoke_session(session_id))
 
     # =========================================================================
     # API Key Management
     # =========================================================================
 
-    def list_api_keys(self) -> Dict[str, Any]:
+    def list_api_keys(self) -> dict[str, Any]:
         return self._run(self._async_client.list_api_keys())
 
-    def create_api_key(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+    def create_api_key(self, name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_api_key(name, **kwargs))
 
-    def revoke_api_key(self, key_id: str) -> Dict[str, Any]:
+    def revoke_api_key(self, key_id: str) -> dict[str, Any]:
         return self._run(self._async_client.revoke_api_key(key_id))
 
     # =========================================================================
     # OAuth & SSO
     # =========================================================================
 
-    def get_oauth_url(self, provider: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_oauth_url(self, provider: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_oauth_url(provider, **kwargs))
 
-    def complete_oauth(self, code: str, state: str, provider: str) -> Dict[str, Any]:
+    def complete_oauth(self, code: str, state: str, provider: str) -> dict[str, Any]:
         return self._run(self._async_client.complete_oauth(code, state, provider))
 
-    def list_oauth_providers(self) -> Dict[str, Any]:
+    def list_oauth_providers(self) -> dict[str, Any]:
         return self._run(self._async_client.list_oauth_providers())
 
-    def link_oauth_provider(self, provider: str, code: str) -> Dict[str, Any]:
+    def link_oauth_provider(self, provider: str, code: str) -> dict[str, Any]:
         return self._run(self._async_client.link_oauth_provider(provider, code))
 
-    def unlink_oauth_provider(self, provider: str) -> Dict[str, Any]:
+    def unlink_oauth_provider(self, provider: str) -> dict[str, Any]:
         return self._run(self._async_client.unlink_oauth_provider(provider))
 
-    def initiate_sso_login(self, domain: str) -> Dict[str, Any]:
+    def initiate_sso_login(self, domain: str) -> dict[str, Any]:
         return self._run(self._async_client.initiate_sso_login(domain))
 
-    def list_sso_providers(self) -> Dict[str, Any]:
+    def list_sso_providers(self) -> dict[str, Any]:
         return self._run(self._async_client.list_sso_providers())
 
     # =========================================================================
     # Invitations
     # =========================================================================
 
-    def invite_team_member(self, email: str, role: str, **kwargs: Any) -> Dict[str, Any]:
+    def invite_team_member(self, email: str, role: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.invite_team_member(email, role, **kwargs))
 
-    def check_invite(self, token: str) -> Dict[str, Any]:
+    def check_invite(self, token: str) -> dict[str, Any]:
         return self._run(self._async_client.check_invite(token))
 
-    def accept_invite(self, token: str, **kwargs: Any) -> Dict[str, Any]:
+    def accept_invite(self, token: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.accept_invite(token, **kwargs))
 
     # =========================================================================
     # Tenancy
     # =========================================================================
 
-    def list_tenants(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_tenants(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_tenants(**kwargs))
 
-    def get_tenant(self, tenant_id: str) -> Dict[str, Any]:
+    def get_tenant(self, tenant_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_tenant(tenant_id))
 
-    def create_tenant(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+    def create_tenant(self, name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_tenant(name, **kwargs))
 
-    def update_tenant(self, tenant_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_tenant(self, tenant_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_tenant(tenant_id, **kwargs))
 
     def delete_tenant(self, tenant_id: str) -> None:
         return self._run(self._async_client.delete_tenant(tenant_id))
 
-    def get_tenant_quotas(self, tenant_id: str) -> Dict[str, Any]:
+    def get_tenant_quotas(self, tenant_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_tenant_quotas(tenant_id))
 
-    def update_tenant_quotas(self, tenant_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_tenant_quotas(self, tenant_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_tenant_quotas(tenant_id, **kwargs))
 
-    def list_tenant_members(self, tenant_id: str) -> Dict[str, Any]:
+    def list_tenant_members(self, tenant_id: str) -> dict[str, Any]:
         return self._run(self._async_client.list_tenant_members(tenant_id))
 
-    def add_tenant_member(self, tenant_id: str, email: str, role: str) -> Dict[str, Any]:
+    def add_tenant_member(self, tenant_id: str, email: str, role: str) -> dict[str, Any]:
         return self._run(self._async_client.add_tenant_member(tenant_id, email, role))
 
     def remove_tenant_member(self, tenant_id: str, user_id: str) -> None:
         return self._run(self._async_client.remove_tenant_member(tenant_id, user_id))
 
-    def setup_organization(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+    def setup_organization(self, name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.setup_organization(name, **kwargs))
 
     # =========================================================================
     # RBAC (Role-Based Access Control)
     # =========================================================================
 
-    def list_roles(self) -> Dict[str, Any]:
+    def list_roles(self) -> dict[str, Any]:
         return self._run(self._async_client.list_roles())
 
-    def get_role(self, role_id: str) -> Dict[str, Any]:
+    def get_role(self, role_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_role(role_id))
 
-    def create_role(self, name: str, permissions: List[str], **kwargs: Any) -> Dict[str, Any]:
+    def create_role(self, name: str, permissions: list[str], **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_role(name, permissions, **kwargs))
 
-    def update_role(self, role_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_role(self, role_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_role(role_id, **kwargs))
 
     def delete_role(self, role_id: str) -> None:
         return self._run(self._async_client.delete_role(role_id))
 
-    def list_permissions(self) -> Dict[str, Any]:
+    def list_permissions(self) -> dict[str, Any]:
         return self._run(self._async_client.list_permissions())
 
     def assign_role(self, user_id: str, role_id: str) -> None:
@@ -4189,363 +4189,363 @@ class AragoraClientSync:
     def revoke_role(self, user_id: str, role_id: str) -> None:
         return self._run(self._async_client.revoke_role(user_id, role_id))
 
-    def get_user_roles(self, user_id: str) -> Dict[str, Any]:
+    def get_user_roles(self, user_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_user_roles(user_id))
 
-    def check_permission(self, user_id: str, permission: str) -> Dict[str, Any]:
+    def check_permission(self, user_id: str, permission: str) -> dict[str, Any]:
         return self._run(self._async_client.check_permission(user_id, permission))
 
-    def list_role_assignments(self, role_id: str) -> Dict[str, Any]:
+    def list_role_assignments(self, role_id: str) -> dict[str, Any]:
         return self._run(self._async_client.list_role_assignments(role_id))
 
-    def bulk_assign_roles(self, assignments: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def bulk_assign_roles(self, assignments: list[dict[str, Any]]) -> dict[str, Any]:
         return self._run(self._async_client.bulk_assign_roles(assignments))
 
     # =========================================================================
     # Billing
     # =========================================================================
 
-    def list_billing_plans(self) -> Dict[str, Any]:
+    def list_billing_plans(self) -> dict[str, Any]:
         return self._run(self._async_client.list_billing_plans())
 
-    def get_billing_usage(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_billing_usage(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_billing_usage(**kwargs))
 
-    def get_subscription(self) -> Dict[str, Any]:
+    def get_subscription(self) -> dict[str, Any]:
         return self._run(self._async_client.get_subscription())
 
     def create_checkout_session(
         self, plan_id: str, success_url: str, cancel_url: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.create_checkout_session(plan_id, success_url, cancel_url)
         )
 
-    def create_billing_portal_session(self, **kwargs: Any) -> Dict[str, Any]:
+    def create_billing_portal_session(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_billing_portal_session(**kwargs))
 
-    def cancel_subscription(self) -> Dict[str, Any]:
+    def cancel_subscription(self) -> dict[str, Any]:
         return self._run(self._async_client.cancel_subscription())
 
-    def resume_subscription(self) -> Dict[str, Any]:
+    def resume_subscription(self) -> dict[str, Any]:
         return self._run(self._async_client.resume_subscription())
 
-    def get_invoice_history(self) -> Dict[str, Any]:
+    def get_invoice_history(self) -> dict[str, Any]:
         return self._run(self._async_client.get_invoice_history())
 
-    def get_usage_forecast(self) -> Dict[str, Any]:
+    def get_usage_forecast(self) -> dict[str, Any]:
         return self._run(self._async_client.get_usage_forecast())
 
-    def export_usage_data(self, **kwargs: Any) -> Dict[str, Any]:
+    def export_usage_data(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.export_usage_data(**kwargs))
 
     # =========================================================================
     # Budgets
     # =========================================================================
 
-    def list_budgets(self) -> Dict[str, Any]:
+    def list_budgets(self) -> dict[str, Any]:
         return self._run(self._async_client.list_budgets())
 
     def create_budget(
         self, name: str, limit_amount: float, period: str, **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(self._async_client.create_budget(name, limit_amount, period, **kwargs))
 
-    def get_budget(self, budget_id: str) -> Dict[str, Any]:
+    def get_budget(self, budget_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_budget(budget_id))
 
-    def update_budget(self, budget_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_budget(self, budget_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_budget(budget_id, **kwargs))
 
-    def delete_budget(self, budget_id: str) -> Dict[str, Any]:
+    def delete_budget(self, budget_id: str) -> dict[str, Any]:
         return self._run(self._async_client.delete_budget(budget_id))
 
-    def get_budget_alerts(self, budget_id: str) -> Dict[str, Any]:
+    def get_budget_alerts(self, budget_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_budget_alerts(budget_id))
 
-    def acknowledge_budget_alert(self, budget_id: str, alert_id: str) -> Dict[str, Any]:
+    def acknowledge_budget_alert(self, budget_id: str, alert_id: str) -> dict[str, Any]:
         return self._run(self._async_client.acknowledge_budget_alert(budget_id, alert_id))
 
-    def check_budget(self, operation: str, estimated_cost: float) -> Dict[str, Any]:
+    def check_budget(self, operation: str, estimated_cost: float) -> dict[str, Any]:
         return self._run(self._async_client.check_budget(operation, estimated_cost))
 
-    def get_budget_summary(self) -> Dict[str, Any]:
+    def get_budget_summary(self) -> dict[str, Any]:
         return self._run(self._async_client.get_budget_summary())
 
-    def add_budget_override(self, budget_id: str, user_id: str, limit: float) -> Dict[str, Any]:
+    def add_budget_override(self, budget_id: str, user_id: str, limit: float) -> dict[str, Any]:
         return self._run(self._async_client.add_budget_override(budget_id, user_id, limit))
 
-    def remove_budget_override(self, budget_id: str, user_id: str) -> Dict[str, Any]:
+    def remove_budget_override(self, budget_id: str, user_id: str) -> dict[str, Any]:
         return self._run(self._async_client.remove_budget_override(budget_id, user_id))
 
-    def reset_budget(self, budget_id: str) -> Dict[str, Any]:
+    def reset_budget(self, budget_id: str) -> dict[str, Any]:
         return self._run(self._async_client.reset_budget(budget_id))
 
     # =========================================================================
     # Audit
     # =========================================================================
 
-    def list_audit_events(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_audit_events(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_audit_events(**kwargs))
 
-    def get_audit_stats(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_audit_stats(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_audit_stats(**kwargs))
 
-    def export_audit_logs(self, start_date: str, end_date: str) -> Dict[str, Any]:
+    def export_audit_logs(self, start_date: str, end_date: str) -> dict[str, Any]:
         return self._run(self._async_client.export_audit_logs(start_date, end_date))
 
-    def verify_audit_integrity(self) -> Dict[str, Any]:
+    def verify_audit_integrity(self) -> dict[str, Any]:
         return self._run(self._async_client.verify_audit_integrity())
 
-    def list_audit_trails(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_audit_trails(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_audit_trails(**kwargs))
 
-    def get_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+    def get_audit_trail(self, trail_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_audit_trail(trail_id))
 
-    def verify_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+    def verify_audit_trail(self, trail_id: str) -> dict[str, Any]:
         return self._run(self._async_client.verify_audit_trail(trail_id))
 
-    def export_audit_trail(self, trail_id: str) -> Dict[str, Any]:
+    def export_audit_trail(self, trail_id: str) -> dict[str, Any]:
         return self._run(self._async_client.export_audit_trail(trail_id))
 
     # =========================================================================
     # Notifications
     # =========================================================================
 
-    def get_notification_status(self) -> Dict[str, Any]:
+    def get_notification_status(self) -> dict[str, Any]:
         return self._run(self._async_client.get_notification_status())
 
     def configure_email_notifications(
         self, provider: str, from_email: str, **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return self._run(
             self._async_client.configure_email_notifications(provider, from_email, **kwargs)
         )
 
-    def configure_telegram_notifications(self, bot_token: str, chat_id: str) -> Dict[str, Any]:
+    def configure_telegram_notifications(self, bot_token: str, chat_id: str) -> dict[str, Any]:
         return self._run(self._async_client.configure_telegram_notifications(bot_token, chat_id))
 
-    def get_email_recipients(self) -> Dict[str, Any]:
+    def get_email_recipients(self) -> dict[str, Any]:
         return self._run(self._async_client.get_email_recipients())
 
-    def add_email_recipient(self, email: str, **kwargs: Any) -> Dict[str, Any]:
+    def add_email_recipient(self, email: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.add_email_recipient(email, **kwargs))
 
-    def remove_email_recipient(self, recipient_id: str) -> Dict[str, Any]:
+    def remove_email_recipient(self, recipient_id: str) -> dict[str, Any]:
         return self._run(self._async_client.remove_email_recipient(recipient_id))
 
-    def send_test_notification(self, channel: str) -> Dict[str, Any]:
+    def send_test_notification(self, channel: str) -> dict[str, Any]:
         return self._run(self._async_client.send_test_notification(channel))
 
-    def send_notification(self, channel: str, message: str, **kwargs: Any) -> Dict[str, Any]:
+    def send_notification(self, channel: str, message: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.send_notification(channel, message, **kwargs))
 
     # =========================================================================
     # Costs
     # =========================================================================
 
-    def get_cost_dashboard(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_cost_dashboard(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_cost_dashboard(**kwargs))
 
-    def get_cost_breakdown(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_cost_breakdown(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_cost_breakdown(**kwargs))
 
-    def get_cost_timeline(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_cost_timeline(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_cost_timeline(**kwargs))
 
-    def get_cost_alerts(self) -> Dict[str, Any]:
+    def get_cost_alerts(self) -> dict[str, Any]:
         return self._run(self._async_client.get_cost_alerts())
 
-    def set_cost_budget(self, **kwargs: Any) -> Dict[str, Any]:
+    def set_cost_budget(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.set_cost_budget(**kwargs))
 
-    def dismiss_cost_alert(self, alert_id: str) -> Dict[str, Any]:
+    def dismiss_cost_alert(self, alert_id: str) -> dict[str, Any]:
         return self._run(self._async_client.dismiss_cost_alert(alert_id))
 
     # =========================================================================
     # Onboarding
     # =========================================================================
 
-    def get_onboarding_status(self) -> Dict[str, Any]:
+    def get_onboarding_status(self) -> dict[str, Any]:
         return self._run(self._async_client.get_onboarding_status())
 
-    def complete_onboarding(self, step: str, **kwargs: Any) -> Dict[str, Any]:
+    def complete_onboarding(self, step: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.complete_onboarding(step, **kwargs))
 
     # =========================================================================
     # Decision Receipts
     # =========================================================================
 
-    def list_decision_receipts(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_decision_receipts(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_decision_receipts(**kwargs))
 
-    def get_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    def get_decision_receipt(self, receipt_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_decision_receipt(receipt_id))
 
-    def verify_decision_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    def verify_decision_receipt(self, receipt_id: str) -> dict[str, Any]:
         return self._run(self._async_client.verify_decision_receipt(receipt_id))
 
     # =========================================================================
     # Gauntlet (Extended)
     # =========================================================================
 
-    def run_gauntlet(self, input: str, **kwargs: Any) -> Dict[str, Any]:
+    def run_gauntlet(self, input: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.run_gauntlet(input, **kwargs))
 
-    def get_gauntlet_status(self, gauntlet_id: str) -> Dict[str, Any]:
+    def get_gauntlet_status(self, gauntlet_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_gauntlet_status(gauntlet_id))
 
-    def delete_gauntlet(self, gauntlet_id: str) -> Dict[str, Any]:
+    def delete_gauntlet(self, gauntlet_id: str) -> dict[str, Any]:
         return self._run(self._async_client.delete_gauntlet(gauntlet_id))
 
-    def list_gauntlet_personas(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_gauntlet_personas(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_gauntlet_personas(**kwargs))
 
-    def list_gauntlet_results(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_gauntlet_results(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_gauntlet_results(**kwargs))
 
-    def get_gauntlet_heatmap(self, gauntlet_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_gauntlet_heatmap(self, gauntlet_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_gauntlet_heatmap(gauntlet_id, **kwargs))
 
-    def compare_gauntlets(self, gauntlet_id_1: str, gauntlet_id_2: str) -> Dict[str, Any]:
+    def compare_gauntlets(self, gauntlet_id_1: str, gauntlet_id_2: str) -> dict[str, Any]:
         return self._run(self._async_client.compare_gauntlets(gauntlet_id_1, gauntlet_id_2))
 
-    def list_gauntlet_receipts(self, **kwargs: Any) -> Dict[str, Any]:
+    def list_gauntlet_receipts(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_gauntlet_receipts(**kwargs))
 
-    def get_gauntlet_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    def get_gauntlet_receipt(self, receipt_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_gauntlet_receipt(receipt_id))
 
-    def verify_gauntlet_receipt(self, receipt_id: str) -> Dict[str, Any]:
+    def verify_gauntlet_receipt(self, receipt_id: str) -> dict[str, Any]:
         return self._run(self._async_client.verify_gauntlet_receipt(receipt_id))
 
-    def export_gauntlet_receipt(self, receipt_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def export_gauntlet_receipt(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.export_gauntlet_receipt(receipt_id, **kwargs))
 
     # =========================================================================
     # Agent Deep Dive
     # =========================================================================
 
-    def get_agent_consistency(self, agent_name: str) -> Dict[str, Any]:
+    def get_agent_consistency(self, agent_name: str) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_consistency(agent_name))
 
-    def get_agent_flips(self, agent_name: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_agent_flips(self, agent_name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_flips(agent_name, **kwargs))
 
-    def get_agent_moments(self, agent_name: str, **kwargs: Any) -> Dict[str, Any]:
+    def get_agent_moments(self, agent_name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_moments(agent_name, **kwargs))
 
-    def get_agent_opponent_briefing(self, agent_name: str, opponent_name: str) -> Dict[str, Any]:
+    def get_agent_opponent_briefing(self, agent_name: str, opponent_name: str) -> dict[str, Any]:
         return self._run(self._async_client.get_agent_opponent_briefing(agent_name, opponent_name))
 
-    def get_leaderboard(self) -> Dict[str, Any]:
+    def get_leaderboard(self) -> dict[str, Any]:
         return self._run(self._async_client.get_leaderboard())
 
     # =========================================================================
     # Analytics
     # =========================================================================
 
-    def get_disagreement_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_disagreement_analytics(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_disagreement_analytics(**kwargs))
 
-    def get_consensus_quality_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_consensus_quality_analytics(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_consensus_quality_analytics(**kwargs))
 
-    def get_role_rotation_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_role_rotation_analytics(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_role_rotation_analytics(**kwargs))
 
-    def get_early_stop_analytics(self, **kwargs: Any) -> Dict[str, Any]:
+    def get_early_stop_analytics(self, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.get_early_stop_analytics(**kwargs))
 
-    def get_ranking_stats(self) -> Dict[str, Any]:
+    def get_ranking_stats(self) -> dict[str, Any]:
         return self._run(self._async_client.get_ranking_stats())
 
     # =========================================================================
     # Integrations
     # =========================================================================
 
-    def list_integrations(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    def list_integrations(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         return self._run(self._async_client.list_integrations(limit, offset))
 
-    def get_integration(self, integration_id: str) -> Dict[str, Any]:
+    def get_integration(self, integration_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_integration(integration_id))
 
-    def create_integration(self, integration_type: str, **kwargs: Any) -> Dict[str, Any]:
+    def create_integration(self, integration_type: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_integration(integration_type, **kwargs))
 
-    def update_integration(self, integration_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_integration(self, integration_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_integration(integration_id, **kwargs))
 
-    def delete_integration(self, integration_id: str) -> Dict[str, Any]:
+    def delete_integration(self, integration_id: str) -> dict[str, Any]:
         return self._run(self._async_client.delete_integration(integration_id))
 
-    def test_integration(self, integration_id: str) -> Dict[str, Any]:
+    def test_integration(self, integration_id: str) -> dict[str, Any]:
         return self._run(self._async_client.test_integration(integration_id))
 
-    def sync_integration(self, integration_id: str) -> Dict[str, Any]:
+    def sync_integration(self, integration_id: str) -> dict[str, Any]:
         return self._run(self._async_client.sync_integration(integration_id))
 
-    def get_bot_status(self, platform: str) -> Dict[str, Any]:
+    def get_bot_status(self, platform: str) -> dict[str, Any]:
         return self._run(self._async_client.get_bot_status(platform))
 
-    def get_teams_status(self) -> Dict[str, Any]:
+    def get_teams_status(self) -> dict[str, Any]:
         return self._run(self._async_client.get_teams_status())
 
-    def list_zapier_apps(self) -> Dict[str, Any]:
+    def list_zapier_apps(self) -> dict[str, Any]:
         return self._run(self._async_client.list_zapier_apps())
 
-    def create_zapier_app(self, name: str, **kwargs: Any) -> Dict[str, Any]:
+    def create_zapier_app(self, name: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_zapier_app(name, **kwargs))
 
-    def list_make_connections(self) -> Dict[str, Any]:
+    def list_make_connections(self) -> dict[str, Any]:
         return self._run(self._async_client.list_make_connections())
 
-    def create_make_connection(self, name: str, credentials: Dict[str, Any]) -> Dict[str, Any]:
+    def create_make_connection(self, name: str, credentials: dict[str, Any]) -> dict[str, Any]:
         return self._run(self._async_client.create_make_connection(name, credentials))
 
-    def list_n8n_credentials(self) -> Dict[str, Any]:
+    def list_n8n_credentials(self) -> dict[str, Any]:
         return self._run(self._async_client.list_n8n_credentials())
 
-    def start_integration_wizard(self, integration_type: str) -> Dict[str, Any]:
+    def start_integration_wizard(self, integration_type: str) -> dict[str, Any]:
         return self._run(self._async_client.start_integration_wizard(integration_type))
 
-    def get_integration_stats(self) -> Dict[str, Any]:
+    def get_integration_stats(self) -> dict[str, Any]:
         return self._run(self._async_client.get_integration_stats())
 
     # =========================================================================
     # Webhooks
     # =========================================================================
 
-    def list_webhooks(self, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    def list_webhooks(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         return self._run(self._async_client.list_webhooks(limit, offset))
 
-    def get_webhook(self, webhook_id: str) -> Dict[str, Any]:
+    def get_webhook(self, webhook_id: str) -> dict[str, Any]:
         return self._run(self._async_client.get_webhook(webhook_id))
 
-    def create_webhook(self, url: str, events: List[str], **kwargs: Any) -> Dict[str, Any]:
+    def create_webhook(self, url: str, events: list[str], **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.create_webhook(url, events, **kwargs))
 
-    def update_webhook(self, webhook_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def update_webhook(self, webhook_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.update_webhook(webhook_id, **kwargs))
 
-    def delete_webhook(self, webhook_id: str) -> Dict[str, Any]:
+    def delete_webhook(self, webhook_id: str) -> dict[str, Any]:
         return self._run(self._async_client.delete_webhook(webhook_id))
 
-    def test_webhook(self, webhook_id: str) -> Dict[str, Any]:
+    def test_webhook(self, webhook_id: str) -> dict[str, Any]:
         return self._run(self._async_client.test_webhook(webhook_id))
 
-    def list_webhook_events(self) -> Dict[str, Any]:
+    def list_webhook_events(self) -> dict[str, Any]:
         return self._run(self._async_client.list_webhook_events())
 
-    def get_webhook_slo_status(self) -> Dict[str, Any]:
+    def get_webhook_slo_status(self) -> dict[str, Any]:
         return self._run(self._async_client.get_webhook_slo_status())
 
-    def list_webhook_deliveries(self, webhook_id: str, **kwargs: Any) -> Dict[str, Any]:
+    def list_webhook_deliveries(self, webhook_id: str, **kwargs: Any) -> dict[str, Any]:
         return self._run(self._async_client.list_webhook_deliveries(webhook_id, **kwargs))
 
-    def retry_webhook_delivery(self, webhook_id: str, delivery_id: str) -> Dict[str, Any]:
+    def retry_webhook_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
         return self._run(self._async_client.retry_webhook_delivery(webhook_id, delivery_id))
 
-    def rotate_webhook_secret(self, webhook_id: str) -> Dict[str, Any]:
+    def rotate_webhook_secret(self, webhook_id: str) -> dict[str, Any]:
         return self._run(self._async_client.rotate_webhook_secret(webhook_id))

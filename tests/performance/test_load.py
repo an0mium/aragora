@@ -81,19 +81,19 @@ class LoadTestResult:
         return self.failed_requests / self.total_requests
 
     @property
-    def p50_ms(self) -> Optional[float]:
+    def p50_ms(self) -> float | None:
         if not self.latencies_ms:
             return None
         return statistics.median(self.latencies_ms)
 
     @property
-    def p95_ms(self) -> Optional[float]:
+    def p95_ms(self) -> float | None:
         if len(self.latencies_ms) < 20:
             return None
         return statistics.quantiles(self.latencies_ms, n=20)[18]
 
     @property
-    def p99_ms(self) -> Optional[float]:
+    def p99_ms(self) -> float | None:
         if len(self.latencies_ms) < 100:
             return None
         return statistics.quantiles(self.latencies_ms, n=100)[98]

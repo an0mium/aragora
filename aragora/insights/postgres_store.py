@@ -162,7 +162,7 @@ class PostgresInsightStore(PostgresStore):
     def __init__(
         self,
         pool: Any,
-        km_adapter: Optional["InsightsAdapter"] = None,
+        km_adapter: InsightsAdapter | None = None,
         km_min_confidence: float = 0.7,
         cache_ttl: float = 60.0,
     ):
@@ -205,7 +205,7 @@ class PostgresInsightStore(PostgresStore):
         self._cache.clear()
         self._cache_version += 1
 
-    def set_km_adapter(self, adapter: "InsightsAdapter") -> None:
+    def set_km_adapter(self, adapter: InsightsAdapter) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync."""
         self._km_adapter = adapter
 

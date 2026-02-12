@@ -201,7 +201,7 @@ def deployment_diagnostics(handler: Any) -> HandlerResult:
         )
 
 
-def _generate_checklist(result: "ValidationResult") -> dict[str, Any]:
+def _generate_checklist(result: ValidationResult) -> dict[str, Any]:
     """Generate a production readiness checklist from validation results.
 
     Args:

@@ -22,11 +22,11 @@ class CanvasRenderer:
     - Mermaid diagram generation
     """
 
-    def __init__(self, canvas: Optional["Canvas"] = None):
+    def __init__(self, canvas: Canvas | None = None):
         """Initialize renderer with optional canvas."""
         self._canvas = canvas
 
-    def set_canvas(self, canvas: "Canvas") -> None:
+    def set_canvas(self, canvas: Canvas) -> None:
         """Set the canvas to render."""
         self._canvas = canvas
 

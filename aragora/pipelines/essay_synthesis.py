@@ -167,7 +167,7 @@ class EssaySection:
     word_count: int
     claims_referenced: list[str]  # Claim IDs
     sources_cited: list[str]  # Source IDs
-    subsections: list["EssaySection"] = field(default_factory=list)
+    subsections: list[EssaySection] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {

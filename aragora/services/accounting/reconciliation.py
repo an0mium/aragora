@@ -231,8 +231,8 @@ class ReconciliationService:
 
     def __init__(
         self,
-        plaid_connector: Optional["PlaidConnector"] = None,
-        qbo_connector: Optional["QuickBooksConnector"] = None,
+        plaid_connector: PlaidConnector | None = None,
+        qbo_connector: QuickBooksConnector | None = None,
         match_tolerance_days: int = 3,
         amount_tolerance: Decimal = Decimal("0.01"),
     ):
@@ -255,7 +255,7 @@ class ReconciliationService:
 
     async def reconcile(
         self,
-        plaid_credentials: "PlaidCredentials",
+        plaid_credentials: PlaidCredentials,
         start_date: date,
         end_date: date,
         account_id: str | None = None,
@@ -351,11 +351,11 @@ class ReconciliationService:
 
     async def _fetch_bank_transactions(
         self,
-        credentials: "PlaidCredentials",
+        credentials: PlaidCredentials,
         start_date: date,
         end_date: date,
         account_id: str | None,
-    ) -> list["BankTransaction"]:
+    ) -> list[BankTransaction]:
         """Fetch bank transactions from Plaid."""
         if not self.plaid:
             logger.warning("[Reconciliation] Plaid connector not configured")
@@ -378,7 +378,7 @@ class ReconciliationService:
         self,
         start_date: date,
         end_date: date,
-    ) -> list["QBOTransaction"]:
+    ) -> list[QBOTransaction]:
         """Fetch book transactions from QuickBooks."""
         if not self.qbo:
             logger.warning("[Reconciliation] QBO connector not configured")
@@ -399,9 +399,9 @@ class ReconciliationService:
 
     async def _match_transactions(
         self,
-        bank_txns: list["BankTransaction"],
-        book_txns: list["QBOTransaction"],
-    ) -> tuple[list[MatchedTransaction], list["BankTransaction"], list["QBOTransaction"]]:
+        bank_txns: list[BankTransaction],
+        book_txns: list[QBOTransaction],
+    ) -> tuple[list[MatchedTransaction], list[BankTransaction], list[QBOTransaction]]:
         """
         Match bank transactions to book transactions.
 
@@ -475,8 +475,8 @@ class ReconciliationService:
 
     def _generate_discrepancies(
         self,
-        unmatched_bank: list["BankTransaction"],
-        unmatched_book: list["QBOTransaction"],
+        unmatched_bank: list[BankTransaction],
+        unmatched_book: list[QBOTransaction],
         matched: list[MatchedTransaction],
     ) -> list[Discrepancy]:
         """Generate discrepancy records from unmatched transactions."""

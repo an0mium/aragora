@@ -73,7 +73,7 @@ class ValidationSyncResult:
 class ContinuumSearchResult:
     """Wrapper for continuum memory search results with adapter metadata."""
 
-    entry: "ContinuumMemoryEntry"
+    entry: ContinuumMemoryEntry
     relevance_score: float = 0.0
     matched_keywords: list[str] = None
 
@@ -118,7 +118,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item.
 
         Args:
@@ -147,7 +147,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to a continuum memory entry.
 
@@ -193,7 +193,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        continuum: "ContinuumMemory",
+        continuum: ContinuumMemory,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -256,7 +256,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     # _emit_event, _record_metric inherited from KnowledgeMoundAdapter
 
     @property
-    def continuum(self) -> "ContinuumMemory":
+    def continuum(self) -> ContinuumMemory:
         """Access the underlying ContinuumMemory."""
         return self._continuum
 
@@ -264,9 +264,9 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         query: str,
         limit: int = 10,
-        tiers: Optional[list[str]] = None,
+        tiers: list[str] | None = None,
         min_importance: float = 0.0,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Search continuum memory by keyword query.
 
@@ -304,7 +304,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         return list(entries)
 
-    def get(self, entry_id: str) -> Optional["ContinuumMemoryEntry"]:
+    def get(self, entry_id: str) -> ContinuumMemoryEntry | None:
         """
         Get a specific entry by ID.
 
@@ -320,7 +320,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         return self._continuum.get(entry_id)
 
-    async def get_async(self, entry_id: str) -> Optional["ContinuumMemoryEntry"]:
+    async def get_async(self, entry_id: str) -> ContinuumMemoryEntry | None:
         """Async version of get for compatibility."""
         # Strip mound prefix if present
         if entry_id.startswith("cm_"):
@@ -328,7 +328,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
         return await self._continuum.get_async(entry_id)
 
-    def to_knowledge_item(self, entry: "ContinuumMemoryEntry") -> "KnowledgeItem":
+    def to_knowledge_item(self, entry: ContinuumMemoryEntry) -> KnowledgeItem:
         """
         Convert a ContinuumMemoryEntry to a KnowledgeItem.
 
@@ -383,7 +383,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def from_ingestion_request(
         self,
-        request: "IngestionRequest",
+        request: IngestionRequest,
         entry_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -442,7 +442,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         importance: float = 0.5,
         tier: str = "slow",
         entry_id: str | None = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Store content in continuum memory.
@@ -570,7 +570,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         finally:
             self._record_metric("search", success, time.time() - start)
 
-    def store_memory(self, entry: "ContinuumMemoryEntry") -> None:
+    def store_memory(self, entry: ContinuumMemoryEntry) -> None:
         """
         Store a memory entry in the Knowledge Mound (forward flow).
 
@@ -804,7 +804,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         limit: int = 50,
         min_km_confidence: float = 0.7,
-    ) -> list["ContinuumMemoryEntry"]:
+    ) -> list[ContinuumMemoryEntry]:
         """
         Get continuum entries that have been validated by KM.
 
@@ -842,7 +842,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         workspace_id: str,
         min_importance: float = 0.7,
         limit: int = 100,
-        tiers: Optional[list[str]] = None,
+        tiers: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Sync high-importance continuum memories to the Knowledge Mound.

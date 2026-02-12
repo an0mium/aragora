@@ -117,7 +117,7 @@ class LatencyStats:
     min_val: float
 
     @classmethod
-    def from_samples(cls, samples: list[float]) -> "LatencyStats":
+    def from_samples(cls, samples: list[float]) -> LatencyStats:
         """Calculate statistics from latency samples (in ms)."""
         if not samples:
             return cls(

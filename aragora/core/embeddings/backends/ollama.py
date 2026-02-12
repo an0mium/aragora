@@ -71,7 +71,7 @@ class OllamaBackend(EmbeddingBackend):
                 result = sock.connect_ex((host, port))
                 return result == 0
 
-        except (OSError, socket.error, socket.timeout):
+        except (TimeoutError, OSError):
             return False
 
     async def embed(self, text: str) -> list[float]:

@@ -21,8 +21,8 @@ class InboxActionsMixin:
     """Mixin providing inbox email action execution methods."""
 
     # Stub attributes expected from the composing class
-    prioritizer: "EmailPrioritizer | None"
-    gmail_connector: "GmailConnector | None"
+    prioritizer: EmailPrioritizer | None
+    gmail_connector: GmailConnector | None
 
     async def _execute_action(
         self,

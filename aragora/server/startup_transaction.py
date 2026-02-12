@@ -265,7 +265,7 @@ class StartupTransaction:
             error=error,
         )
 
-    async def __aenter__(self) -> "StartupTransaction":
+    async def __aenter__(self) -> StartupTransaction:
         """Start the transaction."""
         self._start_time = time.time()
         logger.info(f"Starting {self.name} (SLO: {self.slo_seconds}s)")

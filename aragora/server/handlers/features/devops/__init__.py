@@ -61,7 +61,7 @@ DEVOPS_WRITE_PERMISSION = "devops:write"
 DEVOPS_WEBHOOK_PERMISSION = "devops:webhook"
 
 
-def create_devops_handler(server_context: dict[str, Any] | None = None) -> "DevOpsHandler":
+def create_devops_handler(server_context: dict[str, Any] | None = None) -> DevOpsHandler:
     """Factory to create a DevOpsHandler instance."""
     return DevOpsHandler(server_context=server_context or {})
 

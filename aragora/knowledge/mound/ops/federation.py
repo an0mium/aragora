@@ -78,7 +78,7 @@ class SyncResult:
 class FederationProtocol(Protocol):
     """Protocol defining expected interface for Federation mixin."""
 
-    config: "MoundConfig"
+    config: MoundConfig
     workspace_id: str
     _meta_store: Any | None
     _cache: Any | None
@@ -229,7 +229,7 @@ class KnowledgeFederationMixin:
         region_id: str,
         workspace_id: str | None = None,
         since: datetime | None = None,
-        visibility_levels: Optional[list[str]] = None,
+        visibility_levels: list[str] | None = None,
     ) -> SyncResult:
         """
         Sync knowledge to a federated region.
@@ -644,9 +644,9 @@ class KnowledgeFederationMixin:
 
     def _apply_sync_scope(
         self,
-        item: "KnowledgeItem",
+        item: KnowledgeItem,
         scope: SyncScope,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Apply sync scope filtering to an item."""
         if scope == SyncScope.FULL:
             return {

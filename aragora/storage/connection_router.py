@@ -215,7 +215,7 @@ class ConnectionRouter:
             return pool
 
     @asynccontextmanager
-    async def connection(self, read_only: bool = False) -> AsyncGenerator["Connection", None]:
+    async def connection(self, read_only: bool = False) -> AsyncGenerator[Connection, None]:
         """Get a connection, routing to replica for reads if available.
 
         Args:
@@ -251,7 +251,7 @@ class ConnectionRouter:
             yield conn
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncGenerator["Connection", None]:
+    async def transaction(self) -> AsyncGenerator[Connection, None]:
         """Get a transactional connection (always uses primary).
 
         Transactions always go to primary since replicas are read-only.

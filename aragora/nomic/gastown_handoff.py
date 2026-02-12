@@ -110,16 +110,16 @@ class BeadHandoffContext:
         source_agent_id: str,
         target_bead_id: str | None = None,
         target_agent_id: str | None = None,
-        findings: Optional[list[str]] = None,
-        artifacts: Optional[dict[str, str]] = None,
-        decisions: Optional[list[str]] = None,
-        next_steps: Optional[list[str]] = None,
-        open_questions: Optional[list[str]] = None,
-        warnings: Optional[list[str]] = None,
+        findings: list[str] | None = None,
+        artifacts: dict[str, str] | None = None,
+        decisions: list[str] | None = None,
+        next_steps: list[str] | None = None,
+        open_questions: list[str] | None = None,
+        warnings: list[str] | None = None,
         execution_summary: str = "",
         priority: HandoffPriority = HandoffPriority.NORMAL,
         ttl_hours: float = 24.0,
-    ) -> "BeadHandoffContext":
+    ) -> BeadHandoffContext:
         """Create a new bead handoff context."""
         import uuid
         from datetime import timedelta
@@ -159,7 +159,7 @@ class BeadHandoffContext:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BeadHandoffContext":
+    def from_dict(cls, data: dict[str, Any]) -> BeadHandoffContext:
         """Create from dictionary."""
         data = data.copy()
         data["status"] = HandoffStatus(data["status"])
@@ -264,7 +264,7 @@ class MoleculeHandoffContext:
         target_step: str,
         step_output: Any = None,
         step_success: bool = True,
-    ) -> "MoleculeHandoffContext":
+    ) -> MoleculeHandoffContext:
         """Create a new molecule handoff context."""
         import uuid
 
@@ -285,7 +285,7 @@ class MoleculeHandoffContext:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MoleculeHandoffContext":
+    def from_dict(cls, data: dict[str, Any]) -> MoleculeHandoffContext:
         """Create from dictionary."""
         data = data.copy()
         data["created_at"] = datetime.fromisoformat(data["created_at"])

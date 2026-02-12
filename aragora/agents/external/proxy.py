@@ -80,7 +80,7 @@ class ExternalAgentProxy:
     def __init__(
         self,
         adapter: ExternalAgentAdapter,
-        auth_context: "AuthorizationContext",
+        auth_context: AuthorizationContext,
         config: ProxyConfig | None = None,
         security_policy: ExternalAgentSecurityPolicy | None = None,
     ):

@@ -47,7 +47,7 @@ class GastownConvoyExecutor:
         self,
         repo_path: Path,
         implementers: list[Any],
-        reviewers: Optional[list[Any]] = None,
+        reviewers: list[Any] | None = None,
         bead_dir: Path | None = None,
         convoy_dir: Path | None = None,
         allow_parallel: bool | None = None,
@@ -55,8 +55,8 @@ class GastownConvoyExecutor:
         enable_tests: bool | None = None,
         test_command: str | None = None,
         test_timeout: int | None = None,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
     ) -> None:
         self.repo_path = Path(repo_path)
         self.implementers = [a for a in implementers if a is not None]

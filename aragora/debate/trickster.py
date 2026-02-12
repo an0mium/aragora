@@ -154,8 +154,8 @@ class EvidencePoweredTrickster:
         self,
         config: TricksterConfig | None = None,
         domain_configs: dict[str, TricksterConfig] | None = None,
-        on_intervention: Optional[Callable[[TricksterIntervention], None]] = None,
-        on_alert: Optional[Callable[[HollowConsensusAlert], None]] = None,
+        on_intervention: Callable[[TricksterIntervention], None] | None = None,
+        on_alert: Callable[[HollowConsensusAlert], None] | None = None,
         linker: Any | None = None,
     ):
         """

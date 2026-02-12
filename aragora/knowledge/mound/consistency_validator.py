@@ -175,8 +175,8 @@ class ConsistencyValidator:
 
     def __init__(
         self,
-        mound: "KnowledgeMound",
-        config: Optional[dict[str, Any]] = None,
+        mound: KnowledgeMound,
+        config: dict[str, Any] | None = None,
     ):
         """
         Initialize consistency validator.
@@ -205,7 +205,7 @@ class ConsistencyValidator:
         # Convert KnowledgeItem objects to dicts for easier processing
         return [self._item_to_dict(item) for item in result.items]
 
-    def _item_to_dict(self, item: "KnowledgeItem") -> dict[str, Any]:
+    def _item_to_dict(self, item: KnowledgeItem) -> dict[str, Any]:
         """Convert a KnowledgeItem to a dict with all relevant fields."""
         if hasattr(item, "to_dict"):
             return item.to_dict()
@@ -229,7 +229,7 @@ class ConsistencyValidator:
     async def validate(
         self,
         workspace_id: str,
-        check_types: Optional[list[ConsistencyCheckType]] = None,
+        check_types: list[ConsistencyCheckType] | None = None,
     ) -> ConsistencyReport:
         """
         Run consistency validation for a workspace.
@@ -772,7 +772,7 @@ class ConsistencyValidator:
     async def auto_fix(
         self,
         workspace_id: str,
-        issue_types: Optional[list[ConsistencyCheckType]] = None,
+        issue_types: list[ConsistencyCheckType] | None = None,
         dry_run: bool = True,
     ) -> dict[str, Any]:
         """

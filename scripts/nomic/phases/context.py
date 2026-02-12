@@ -23,13 +23,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Optional metrics recording (imported lazily to avoid circular imports)
-_metrics_recorder: Optional[Callable[[str, str, float], None]] = None
-_agent_metrics_recorder: Optional[Callable[[str, str, float], None]] = None
+_metrics_recorder: Callable[[str, str, float], None] | None = None
+_agent_metrics_recorder: Callable[[str, str, float], None] | None = None
 
 
 def set_metrics_recorder(
-    phase_recorder: Optional[Callable[[str, str, float], None]] = None,
-    agent_recorder: Optional[Callable[[str, str, float], None]] = None,
+    phase_recorder: Callable[[str, str, float], None] | None = None,
+    agent_recorder: Callable[[str, str, float], None] | None = None,
 ) -> None:
     """Set the metrics recorder callbacks for profiling.
 
@@ -60,11 +60,11 @@ class ContextPhase:
         codex_agent: Any,
         kilocode_available: bool = False,
         skip_kilocode: bool = False,
-        kilocode_agent_factory: Optional[Callable[..., Any]] = None,
+        kilocode_agent_factory: Callable[..., Any] | None = None,
         cycle_count: int = 0,
-        log_fn: Optional[Callable[..., None]] = None,
-        stream_emit_fn: Optional[Callable[..., None]] = None,
-        get_features_fn: Optional[Callable[[], str]] = None,
+        log_fn: Callable[..., None] | None = None,
+        stream_emit_fn: Callable[..., None] | None = None,
+        get_features_fn: Callable[[], str] | None = None,
         codebase_auditor: Optional["CodebaseAuditor"] = None,
         enable_audit: bool = True,
     ):

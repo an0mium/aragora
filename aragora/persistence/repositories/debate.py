@@ -50,7 +50,7 @@ class DebateEntity:
         artifact: dict[str, Any],
         slug: str,
         debate_id: str | None = None,
-    ) -> "DebateEntity":
+    ) -> DebateEntity:
         """
         Create entity from artifact dict.
 

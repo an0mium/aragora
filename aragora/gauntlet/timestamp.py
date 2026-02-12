@@ -69,7 +69,7 @@ class TimestampToken:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TimestampToken":
+    def from_dict(cls, data: dict[str, Any]) -> TimestampToken:
         return cls(
             tsa_url=data["tsa_url"],
             timestamp=data["timestamp"],
@@ -85,7 +85,7 @@ class TimestampToken:
         return json.dumps(self.to_dict(), indent=indent)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "TimestampToken":
+    def from_json(cls, json_str: str) -> TimestampToken:
         return cls.from_dict(json.loads(json_str))
 
 

@@ -695,7 +695,7 @@ class BillingHandler(WebhookMixin, ReportingMixin, SecureHandler):
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-        except (AttributeError, IOError, OSError) as e:
+        except (AttributeError, OSError) as e:
             logger.warning(f"Failed to log audit event: {e}")
 
     @handle_errors("cancel subscription")

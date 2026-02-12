@@ -41,7 +41,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def load_receipt(path: str) -> dict:
     """Load and parse receipt JSON file."""
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 

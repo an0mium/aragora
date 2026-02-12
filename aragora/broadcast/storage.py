@@ -135,7 +135,7 @@ class AudioMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AudioMetadata":
+    def from_dict(cls, data: dict) -> AudioMetadata:
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],

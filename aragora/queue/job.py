@@ -41,7 +41,7 @@ class DebateJobPayload(SerializableMixin):
 
 def create_debate_job(
     question: str,
-    agents: Optional[list[str]] = None,
+    agents: list[str] | None = None,
     rounds: int = DEFAULT_ROUNDS,
     consensus: str = DEFAULT_CONSENSUS,
     protocol: str = "standard",
@@ -51,7 +51,7 @@ def create_debate_job(
     webhook_url: str | None = None,
     user_id: str | None = None,
     organization_id: str | None = None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> Job:
     """
     Create a new debate job.
@@ -144,7 +144,7 @@ class DebateResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DebateResult":
+    def from_dict(cls, data: dict[str, Any]) -> DebateResult:
         """Create from dictionary."""
         return cls(
             debate_id=data["debate_id"],

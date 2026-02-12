@@ -42,7 +42,7 @@ class FailingWriteOutput:
     """Output that raises IOError on write."""
 
     def write(self, s):
-        raise IOError("Simulated write failure")
+        raise OSError("Simulated write failure")
 
     def flush(self):
         pass

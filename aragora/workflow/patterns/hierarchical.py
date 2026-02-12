@@ -54,10 +54,10 @@ class HierarchicalPattern(WorkflowPattern):
     def __init__(
         self,
         name: str,
-        agents: Optional[list[str]] = None,
+        agents: list[str] | None = None,
         task: str = "",
         manager_agent: str | None = None,
-        worker_agents: Optional[list[str]] = None,
+        worker_agents: list[str] | None = None,
         max_subtasks: int = 4,
         delegation_prompt: str = "",
         review_prompt: str = "",

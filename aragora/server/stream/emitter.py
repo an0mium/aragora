@@ -358,7 +358,7 @@ class SyncEventEmitter:
         data: dict,
         agent: str = "",
         round_num: int = 0,
-        redactor: Optional[Callable[[dict], dict]] = None,
+        redactor: Callable[[dict], dict] | None = None,
     ) -> bool:
         """
         Broadcast an event with optional redaction for telemetry.

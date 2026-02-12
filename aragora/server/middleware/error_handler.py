@@ -71,8 +71,8 @@ class APIError(Exception):
     code: str
     message: str
     status: int | None = None
-    details: Optional[dict[str, Any]] = None
-    headers: Optional[dict[str, str]] = None
+    details: dict[str, Any] | None = None
+    headers: dict[str, str] | None = None
 
     def __post_init__(self):
         if self.status is None:
@@ -102,7 +102,7 @@ class APIError(Exception):
 def raise_api_error(
     code: str,
     message: str,
-    details: Optional[dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
     status: int | None = None,
 ) -> None:
     """
@@ -260,7 +260,7 @@ def create_error_response(
     code: str,
     message: str,
     status: int | None = None,
-    details: Optional[dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
     request_id: str | None = None,
     path: str | None = None,
 ) -> dict[str, Any]:

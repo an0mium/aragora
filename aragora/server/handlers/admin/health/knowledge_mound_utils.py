@@ -50,7 +50,7 @@ def check_knowledge_mound_module() -> tuple[dict[str, Any], bool]:
         }, True
 
 
-def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound | None"]:
+def check_mound_core_initialization() -> tuple[dict[str, Any], KnowledgeMound | None]:
     """Check core mound initialization.
 
     Returns:
@@ -95,7 +95,7 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound |
         }, None
 
 
-def check_storage_backend(mound: "KnowledgeMound | None" = None) -> dict[str, Any]:
+def check_storage_backend(mound: KnowledgeMound | None = None) -> dict[str, Any]:
     """Check storage backend configuration and status.
 
     Args:
@@ -141,7 +141,7 @@ def check_storage_backend(mound: "KnowledgeMound | None" = None) -> dict[str, An
         }
 
 
-def check_culture_accumulator(mound: "KnowledgeMound | None" = None) -> dict[str, Any]:
+def check_culture_accumulator(mound: KnowledgeMound | None = None) -> dict[str, Any]:
     """Check culture accumulator status.
 
     Args:
@@ -191,7 +191,7 @@ def check_culture_accumulator(mound: "KnowledgeMound | None" = None) -> dict[str
         }
 
 
-def check_staleness_tracker(mound: "KnowledgeMound | None" = None) -> dict[str, Any]:
+def check_staleness_tracker(mound: KnowledgeMound | None = None) -> dict[str, Any]:
     """Check staleness tracker status.
 
     Args:

@@ -213,10 +213,10 @@ def get_credential_status(agent_type: str) -> CredentialStatus:
 
 
 def filter_available_agents(
-    specs: list["AgentSpec"],
+    specs: list[AgentSpec],
     log_filtered: bool = True,
     min_agents: int = 2,
-) -> tuple[list["AgentSpec"], list[tuple[str, str]]]:
+) -> tuple[list[AgentSpec], list[tuple[str, str]]]:
     """Filter agent specs to only those with valid credentials.
 
     Args:

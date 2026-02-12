@@ -46,7 +46,7 @@ class OIDCProvider(OAuthProvider):
     def __init__(self, config: OAuthProviderConfig | None = None):
         """Initialize with optional discovery."""
         super().__init__(config)
-        self._discovery: Optional[dict[str, Any]] = None
+        self._discovery: dict[str, Any] | None = None
 
     def _load_config_from_env(self) -> OAuthProviderConfig:
         """Load OIDC configuration from environment."""
@@ -105,7 +105,7 @@ class OIDCProvider(OAuthProvider):
         self,
         state: str,
         redirect_uri: str | None = None,
-        scopes: Optional[list[str]] = None,
+        scopes: list[str] | None = None,
         **kwargs,
     ) -> str:
         """

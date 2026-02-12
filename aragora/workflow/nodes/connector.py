@@ -350,7 +350,7 @@ class ConnectorStep(BaseStep):
     def __init__(
         self,
         name: str,
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         super().__init__(name, config)
         self._connector_cache: dict[str, Any] = {}

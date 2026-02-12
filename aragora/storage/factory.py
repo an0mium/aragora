@@ -141,7 +141,7 @@ def is_postgres_configured() -> bool:
     return False
 
 
-def get_default_db_path(name: str, nomic_dir: Optional[str | Path] = None) -> Path:
+def get_default_db_path(name: str, nomic_dir: str | Path | None = None) -> Path:
     """
     Get the default SQLite database path for a given store name.
 

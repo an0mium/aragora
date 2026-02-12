@@ -321,7 +321,7 @@ class CalibrationFusionEngine:
         self,
         predictions: list[AgentPrediction],
         debate_id: str = "",
-        weights: Optional[dict[str, float]] = None,
+        weights: dict[str, float] | None = None,
         strategy: CalibrationFusionStrategy = CalibrationFusionStrategy.WEIGHTED_AVERAGE,
     ) -> CalibrationConsensus:
         """Fuse multiple agent predictions into a consensus.

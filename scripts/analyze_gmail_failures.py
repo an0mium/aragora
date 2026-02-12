@@ -177,7 +177,7 @@ ARAGORA_PATTERNS = ARAGORA_PATTERNS_STRICT
 class OAuthCallbackHandler(BaseHTTPRequestHandler):
     """Handler for OAuth callback."""
 
-    auth_code: Optional[str] = None
+    auth_code: str | None = None
 
     def do_GET(self):
         """Handle GET request with OAuth callback."""

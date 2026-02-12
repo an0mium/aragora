@@ -46,7 +46,7 @@ class InMemorySQLiteBackend:
         cursor = self._conn.execute(sql, params)
         return cursor.fetchall()
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         cursor = self._conn.execute(sql, params)
         return cursor.fetchone()
 
@@ -91,7 +91,7 @@ class MockPostgreSQLBackend:
         except sqlite3.Error:
             return []
 
-    def fetch_one(self, sql: str, params: tuple = ()) -> Optional[tuple]:
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
         self._executed_statements.append(sql)
         if "pg_try_advisory_lock" in sql:
             return (True,)

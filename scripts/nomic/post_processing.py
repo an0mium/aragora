@@ -36,22 +36,22 @@ class ProcessingDependencies:
     """
 
     # Memory systems
-    consensus_memory: Optional[Any] = None
-    insight_store: Optional[Any] = None
-    memory_stream: Optional[Any] = None
-    pattern_store: Optional[Any] = None
-    critique_store: Optional[Any] = None
+    consensus_memory: Any | None = None
+    insight_store: Any | None = None
+    memory_stream: Any | None = None
+    pattern_store: Any | None = None
+    critique_store: Any | None = None
 
     # Tracking systems
-    calibration_tracker: Optional[Any] = None
-    suggestion_feedback: Optional[Any] = None
-    elo_system: Optional[Any] = None
-    position_ledger: Optional[Any] = None
-    relationship_tracker: Optional[Any] = None
+    calibration_tracker: Any | None = None
+    suggestion_feedback: Any | None = None
+    elo_system: Any | None = None
+    position_ledger: Any | None = None
+    relationship_tracker: Any | None = None
 
     # Agent systems
-    persona_manager: Optional[Any] = None
-    prompt_evolver: Optional[Any] = None
+    persona_manager: Any | None = None
+    prompt_evolver: Any | None = None
 
     # Feature availability flags
     consensus_memory_available: bool = False
@@ -102,10 +102,10 @@ class PostDebateProcessor:
     def __init__(
         self,
         deps: ProcessingDependencies,
-        log_fn: Optional[Callable[[str], None]] = None,
-        stream_emit: Optional[Callable[[str, dict], None]] = None,
-        detect_domain_fn: Optional[Callable[[str], str]] = None,
-        agent_in_consensus_fn: Optional[Callable[[str, Any], bool]] = None,
+        log_fn: Callable[[str], None] | None = None,
+        stream_emit: Callable[[str, dict], None] | None = None,
+        detect_domain_fn: Callable[[str], str] | None = None,
+        agent_in_consensus_fn: Callable[[str, Any], bool] | None = None,
     ):
         """Initialize processor with dependencies.
 

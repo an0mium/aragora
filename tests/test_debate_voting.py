@@ -30,7 +30,7 @@ class MockVote:
     agent: str
     choice: str
     reasoning: str = ""
-    confidence: Optional[float] = None
+    confidence: float | None = None
 
 
 @dataclass

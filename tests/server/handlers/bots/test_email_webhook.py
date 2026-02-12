@@ -471,14 +471,14 @@ class TestFormDataParsing:
         """Test parsing multipart form data."""
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         body = (
-            "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
-            'Content-Disposition: form-data; name="from"\r\n\r\n'
-            "test@example.com\r\n"
-            "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
-            'Content-Disposition: form-data; name="text"\r\n\r\n'
-            "Hello multipart\r\n"
-            "------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n"
-        ).encode()
+            b"------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
+            b'Content-Disposition: form-data; name="from"\r\n\r\n'
+            b"test@example.com\r\n"
+            b"------WebKitFormBoundary7MA4YWxkTrZu0gW\r\n"
+            b'Content-Disposition: form-data; name="text"\r\n\r\n'
+            b"Hello multipart\r\n"
+            b"------WebKitFormBoundary7MA4YWxkTrZu0gW--\r\n"
+        )
 
         result = handler._parse_form_data(body, f"multipart/form-data; boundary={boundary}")
 

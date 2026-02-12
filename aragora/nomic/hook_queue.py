@@ -90,7 +90,7 @@ class HookEntry:
         agent_id: str,
         priority: int = 50,
         max_attempts: int = 3,
-    ) -> "HookEntry":
+    ) -> HookEntry:
         """Create a new hook entry."""
         now = datetime.now(timezone.utc)
         return cls(
@@ -123,7 +123,7 @@ class HookEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HookEntry":
+    def from_dict(cls, data: dict[str, Any]) -> HookEntry:
         """Deserialize from dictionary."""
         return cls(
             id=data["id"],

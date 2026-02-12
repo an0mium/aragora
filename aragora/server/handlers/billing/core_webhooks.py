@@ -325,7 +325,7 @@ class WebhookMixin:
                         invoice_id=invoice_id,
                         invoice_url=hosted_invoice_url,
                     )
-                except (AttributeError, IOError, OSError) as e:
+                except (AttributeError, OSError) as e:
                     _logger().error(f"Failed to record payment failure for org {org.id}: {e}")
                     failure = None
 
@@ -365,7 +365,7 @@ class WebhookMixin:
                             f"Payment failure notification sent to {owner.email}: "
                             f"method={notify_result.method}, success={notify_result.success}"
                         )
-                except (AttributeError, IOError, OSError) as e:
+                except (AttributeError, OSError) as e:
                     _logger().error(
                         f"Failed to send payment failure notification for org {org.id}: {e}"
                     )
@@ -405,7 +405,7 @@ class WebhookMixin:
                             f"Flushed {len(flushed_records)} usage records for org {org.id} "
                             f"on invoice finalize"
                         )
-                except (AttributeError, IOError, OSError) as e:
+                except (AttributeError, OSError) as e:
                     _logger().error(f"Failed to flush usage on invoice finalize: {e}")
 
         return json_response(

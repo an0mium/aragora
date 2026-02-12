@@ -59,7 +59,7 @@ class OrganizationRepository:
     def __init__(
         self,
         transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]],
-        row_to_user_fn: Optional[Callable[[sqlite3.Row], "User"]] = None,
+        row_to_user_fn: Callable[[sqlite3.Row], User] | None = None,
     ) -> None:
         """
         Initialize the organization repository.
@@ -76,8 +76,8 @@ class OrganizationRepository:
         name: str,
         owner_id: str,
         slug: str | None = None,
-        tier: Optional["SubscriptionTier"] = None,
-    ) -> "Organization":
+        tier: SubscriptionTier | None = None,
+    ) -> Organization:
         """
         Create a new organization.
 
@@ -146,21 +146,21 @@ class OrganizationRepository:
         logger.info(f"organization_created id={org.id} name={name} owner={owner_id}")
         return org
 
-    def get_by_id(self, org_id: str) -> Optional["Organization"]:
+    def get_by_id(self, org_id: str) -> Organization | None:
         """Get organization by ID."""
         with self._transaction() as cursor:
             cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE id = ?", (org_id,))
             row = cursor.fetchone()
             return self._row_to_org(row) if row else None
 
-    def get_by_slug(self, slug: str) -> Optional["Organization"]:
+    def get_by_slug(self, slug: str) -> Organization | None:
         """Get organization by slug."""
         with self._transaction() as cursor:
             cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE slug = ?", (slug,))
             row = cursor.fetchone()
             return self._row_to_org(row) if row else None
 
-    def get_by_stripe_customer(self, stripe_customer_id: str) -> Optional["Organization"]:
+    def get_by_stripe_customer(self, stripe_customer_id: str) -> Organization | None:
         """Get organization by Stripe customer ID."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -170,7 +170,7 @@ class OrganizationRepository:
             row = cursor.fetchone()
             return self._row_to_org(row) if row else None
 
-    def get_by_subscription(self, subscription_id: str) -> Optional["Organization"]:
+    def get_by_subscription(self, subscription_id: str) -> Organization | None:
         """Get organization by Stripe subscription ID."""
         with self._transaction() as cursor:
             cursor.execute(
@@ -260,7 +260,7 @@ class OrganizationRepository:
             )
             return cursor.rowcount > 0
 
-    def get_members(self, org_id: str) -> list["User"]:
+    def get_members(self, org_id: str) -> list[User]:
         """Get all members of an organization."""
         if self._row_to_user is None:
             raise RuntimeError("row_to_user_fn not provided to OrganizationRepository")
@@ -269,7 +269,7 @@ class OrganizationRepository:
             cursor.execute(f"SELECT {self._USER_COLUMNS} FROM users WHERE org_id = ?", (org_id,))
             return [self._row_to_user(row) for row in cursor.fetchall()]
 
-    def get_with_members(self, org_id: str) -> tuple[Optional["Organization"], list["User"]]:
+    def get_with_members(self, org_id: str) -> tuple[Organization | None, list[User]]:
         """
         Get organization and all its members in a single query operation.
 
@@ -298,7 +298,7 @@ class OrganizationRepository:
     def get_batch_with_members(
         self,
         org_ids: list[str],
-    ) -> dict[str, tuple["Organization", list["User"]]]:
+    ) -> dict[str, tuple[Organization, list[User]]]:
         """
         Get multiple organizations with their members in optimized queries.
 
@@ -315,7 +315,7 @@ class OrganizationRepository:
             raise RuntimeError("row_to_user_fn not provided to OrganizationRepository")
 
         unique_ids = list(dict.fromkeys(org_ids))
-        result: dict[str, tuple["Organization", list["User"]]] = {}
+        result: dict[str, tuple[Organization, list[User]]] = {}
 
         with self._transaction() as cursor:
             placeholders = ",".join("?" * len(unique_ids))
@@ -326,7 +326,7 @@ class OrganizationRepository:
             query2 = f"SELECT {self._USER_COLUMNS} FROM users WHERE org_id IN ({placeholders})"  # nosec B608
             cursor.execute(query2, unique_ids)
 
-            members_by_org: dict[str, list["User"]] = {oid: [] for oid in orgs}
+            members_by_org: dict[str, list[User]] = {oid: [] for oid in orgs}
             for row in cursor.fetchall():
                 user = self._row_to_user(row)
                 if user.org_id in members_by_org:
@@ -338,7 +338,7 @@ class OrganizationRepository:
         return result
 
     @staticmethod
-    def _row_to_org(row: sqlite3.Row) -> "Organization":
+    def _row_to_org(row: sqlite3.Row) -> Organization:
         """Convert database row to Organization object."""
         from aragora.billing.models import Organization, SubscriptionTier
 

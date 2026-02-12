@@ -107,7 +107,7 @@ class BudgetAlertNotifier:
             self._subscription_store = get_channel_subscription_store()
         return self._subscription_store
 
-    def on_alert(self, alert: "BudgetAlert") -> None:
+    def on_alert(self, alert: BudgetAlert) -> None:
         """Handle a budget alert from BudgetManager.
 
         This method is designed to be registered as a callback with
@@ -132,7 +132,7 @@ class BudgetAlertNotifier:
         except Exception as e:
             logger.error(f"Failed to deliver budget alert: {e}", exc_info=True)
 
-    async def deliver_alert(self, alert: "BudgetAlert") -> list[DeliveryResult]:
+    async def deliver_alert(self, alert: BudgetAlert) -> list[DeliveryResult]:
         """Deliver a budget alert to all subscribed channels.
 
         Args:
@@ -167,7 +167,7 @@ class BudgetAlertNotifier:
 
     async def _deliver_to_channel(
         self,
-        alert: "BudgetAlert",
+        alert: BudgetAlert,
         subscription: Any,
     ) -> DeliveryResult:
         """Deliver alert to a specific channel.
@@ -234,7 +234,7 @@ class BudgetAlertNotifier:
                 error=str(e),
             )
 
-    def _format_alert_message(self, alert: "BudgetAlert") -> dict[str, Any]:
+    def _format_alert_message(self, alert: BudgetAlert) -> dict[str, Any]:
         """Format alert for display in channels.
 
         Args:
@@ -404,7 +404,7 @@ class BudgetAlertNotifier:
     async def _send_to_webhook(
         self,
         url: str,
-        alert: "BudgetAlert",
+        alert: BudgetAlert,
         config: dict[str, Any],
     ) -> None:
         """Send alert to webhook URL.
@@ -476,7 +476,7 @@ def get_budget_alert_notifier() -> BudgetAlertNotifier:
     return _notifier
 
 
-def setup_budget_notifications(manager: "BudgetManager") -> BudgetAlertNotifier:
+def setup_budget_notifications(manager: BudgetManager) -> BudgetAlertNotifier:
     """Setup budget notifications for a BudgetManager.
 
     Registers the notifier's on_alert callback with the manager.

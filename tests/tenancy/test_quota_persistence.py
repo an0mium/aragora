@@ -47,7 +47,7 @@ from aragora.tenancy.quota_persistence import (
 class MockRedisScript:
     """Mock Redis Lua script."""
 
-    def __init__(self, script: str, redis: "MockAsyncRedis"):
+    def __init__(self, script: str, redis: MockAsyncRedis):
         self._script = script
         self._redis = redis
 

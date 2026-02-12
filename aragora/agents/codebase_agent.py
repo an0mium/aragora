@@ -256,7 +256,7 @@ class CodebaseUnderstandingAgent:
     def __init__(
         self,
         root_path: str,
-        exclude_patterns: Optional[list[str]] = None,
+        exclude_patterns: list[str] | None = None,
         enable_debate: bool = True,
     ):
         """
@@ -564,7 +564,7 @@ class CodebaseUnderstandingAgent:
                 result.security_findings = [f.to_dict() for f in security_report.findings]
                 result.files_analyzed = security_report.files_scanned
                 result.lines_analyzed = security_report.lines_scanned
-            except (OSError, IOError, ValueError, RuntimeError, AttributeError) as e:
+            except (OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.error(f"Security scan failed: {e}")
                 result.error = str(e)
 
@@ -578,7 +578,7 @@ class CodebaseUnderstandingAgent:
                 if not result.files_analyzed:
                     result.files_analyzed = bug_report.files_scanned
                     result.lines_analyzed = bug_report.lines_scanned
-            except (OSError, IOError, ValueError, RuntimeError, AttributeError) as e:
+            except (OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.error(f"Bug detection failed: {e}")
                 if result.error:
                     result.error += f"; {e}"
@@ -604,14 +604,14 @@ class CodebaseUnderstandingAgent:
                     }
                     for n in dead_code.unreachable_functions[:50]
                 ]
-            except (OSError, IOError, ValueError, RuntimeError, AttributeError) as e:
+            except (OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.warning(f"Dead code analysis failed: {e}")
 
         # Code quality assessment
         if include_quality and self.code_intel:
             try:
                 await self._analyze_quality(result)
-            except (OSError, IOError, ValueError, RuntimeError, AttributeError) as e:
+            except (OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.warning(f"Quality analysis failed: {e}")
 
         # Calculate overall risk score

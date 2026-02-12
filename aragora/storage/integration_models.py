@@ -262,13 +262,13 @@ class UserIdMapping:
         return json.dumps(asdict(self))
 
     @classmethod
-    def from_json(cls, json_str: str) -> "UserIdMapping":
+    def from_json(cls, json_str: str) -> UserIdMapping:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(**data)
 
     @classmethod
-    def from_row(cls, row: tuple) -> "UserIdMapping":
+    def from_row(cls, row: tuple) -> UserIdMapping:
         """Create from database row."""
         return cls(
             email=row[0],
@@ -325,13 +325,13 @@ class IntegrationConfig:
         return json.dumps(asdict(self))
 
     @classmethod
-    def from_json(cls, json_str: str) -> "IntegrationConfig":
+    def from_json(cls, json_str: str) -> IntegrationConfig:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(**data)
 
     @classmethod
-    def from_row(cls, row: tuple) -> "IntegrationConfig":
+    def from_row(cls, row: tuple) -> IntegrationConfig:
         """Create from database row (settings decryption done at store level)."""
         return cls(
             type=row[0],

@@ -664,7 +664,7 @@ class GraphReplayBuilder:
     def replay_branch(
         self,
         branch_id: str,
-        callback: Optional[Callable[[DebateNode, int], None]] = None,
+        callback: Callable[[DebateNode, int], None] | None = None,
     ) -> list[DebateNode]:
         """Replay a specific branch in order."""
         nodes = self.graph.get_branch_nodes(branch_id)
@@ -680,7 +680,7 @@ class GraphReplayBuilder:
 
     def replay_full(
         self,
-        callback: Optional[Callable[[DebateNode, str, int], None]] = None,
+        callback: Callable[[DebateNode, str, int], None] | None = None,
     ) -> dict[str, list[DebateNode]]:
         """Replay entire graph, branch by branch."""
         result = {}
@@ -771,9 +771,9 @@ class GraphDebateOrchestrator:
         task: str,
         max_rounds: int = 5,
         run_agent_fn: Callable | None = None,
-        on_node: Optional[Callable[[DebateNode], None]] = None,
-        on_branch: Optional[Callable[[Branch], None]] = None,
-        on_merge: Optional[Callable[[MergeResult], None]] = None,
+        on_node: Callable[[DebateNode], None] | None = None,
+        on_branch: Callable[[Branch], None] | None = None,
+        on_merge: Callable[[MergeResult], None] | None = None,
         event_emitter=None,
         debate_id: str = "",
     ) -> DebateGraph:

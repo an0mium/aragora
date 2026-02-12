@@ -80,7 +80,7 @@ class UserOrganizationMembership:
 class OrganizationsAPI:
     """API interface for organization management."""
 
-    def __init__(self, client: "AragoraClient"):
+    def __init__(self, client: AragoraClient):
         self._client = client
 
     # =========================================================================
@@ -111,7 +111,7 @@ class OrganizationsAPI:
         self,
         org_id: str,
         name: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
     ) -> Organization:
         """
         Update organization settings.
@@ -138,7 +138,7 @@ class OrganizationsAPI:
         self,
         org_id: str,
         name: str | None = None,
-        settings: Optional[dict[str, Any]] = None,
+        settings: dict[str, Any] | None = None,
     ) -> Organization:
         """Async version of update()."""
         body: dict[str, Any] = {}

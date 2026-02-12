@@ -117,7 +117,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     def _extract_fusible_data(
         self,
         km_item: dict[str, Any],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Extract fusible data from a KM item.
 
         Args:
@@ -143,7 +143,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         self,
         record: Any,
         fusion_result: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """Apply a fusion result to an evidence record.
 
@@ -187,7 +187,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def __init__(
         self,
-        store: Optional["EvidenceStore"] = None,
+        store: EvidenceStore | None = None,
         enable_dual_write: bool = False,
         event_callback: EventCallback | None = None,
         enable_resilience: bool = True,
@@ -248,11 +248,11 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
     # _emit_event, _record_metric inherited from KnowledgeMoundAdapter
 
     @property
-    def evidence_store(self) -> Optional["EvidenceStore"]:
+    def evidence_store(self) -> EvidenceStore | None:
         """Access the underlying EvidenceStore."""
         return self._store
 
-    def _ensure_store(self) -> "EvidenceStore":
+    def _ensure_store(self) -> EvidenceStore:
         """Ensure evidence store is available.
 
         Returns:
@@ -388,7 +388,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             logger.error(f"Similar evidence search failed: {e}")
             raise EvidenceAdapterError(f"Similar search failed: {e}") from e
 
-    def get(self, evidence_id: str) -> Optional[dict[str, Any]]:
+    def get(self, evidence_id: str) -> dict[str, Any] | None:
         """
         Get a specific evidence item by ID.
 
@@ -414,7 +414,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
             logger.error(f"Failed to get evidence {evidence_id}: {e}")
             raise EvidenceAdapterError(f"Failed to get evidence: {e}") from e
 
-    def to_knowledge_item(self, evidence: dict[str, Any]) -> "KnowledgeItem":
+    def to_knowledge_item(self, evidence: dict[str, Any]) -> KnowledgeItem:
         """
         Convert evidence dict to a KnowledgeItem.
 
@@ -518,7 +518,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
 
     def from_ingestion_request(
         self,
-        request: "IngestionRequest",
+        request: IngestionRequest,
         evidence_id: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -564,7 +564,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, KnowledgeMoundAdapter):
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         debate_id: str | None = None,
     ) -> str:
         """

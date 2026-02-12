@@ -151,7 +151,7 @@ class CritiquePhase:
         Returns:
             Dict mapping agent name to list of critiques
         """
-        result: dict[str, list["Critique"]] = {}
+        result: dict[str, list[Critique]] = {}
 
         for critique in critiques:
             key = critique.target if by_target else critique.agent

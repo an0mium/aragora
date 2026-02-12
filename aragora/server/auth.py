@@ -613,7 +613,7 @@ class AuthConfig:
             return True, self.ip_rate_limit_per_minute - current_count - 1
 
     def extract_token_from_request(
-        self, headers: dict[str, str], query_params: Optional[dict[str, list]] = None
+        self, headers: dict[str, str], query_params: dict[str, list] | None = None
     ) -> str | None:
         """Extract token from Authorization header only.
 

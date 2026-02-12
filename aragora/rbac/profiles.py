@@ -106,7 +106,7 @@ def get_profile_config(profile: RBACProfile | str) -> ProfileConfig:
     return PROFILE_CONFIGS[profile]
 
 
-def get_profile_roles(profile: RBACProfile | str) -> dict[str, "Role"]:
+def get_profile_roles(profile: RBACProfile | str) -> dict[str, Role]:
     """
     Get the roles available in a profile.
 
@@ -120,7 +120,7 @@ def get_profile_roles(profile: RBACProfile | str) -> dict[str, "Role"]:
     return {name: SYSTEM_ROLES[name] for name in config.roles if name in SYSTEM_ROLES}
 
 
-def get_default_role(profile: RBACProfile | str) -> "Role":
+def get_default_role(profile: RBACProfile | str) -> Role:
     """
     Get the default role for new users in a profile.
 
