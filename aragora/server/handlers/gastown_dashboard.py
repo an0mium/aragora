@@ -118,8 +118,12 @@ class GasTownDashboardHandler(SecureHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
-        path = strip_version_prefix(path)
-        return path.startswith("/api/v1/dashboard/gastown/") or path in self.ROUTES
+        normalized = strip_version_prefix(path)
+        return (
+            path.startswith("/api/v1/dashboard/gastown/")
+            or normalized.startswith("/api/dashboard/gastown/")
+            or path in self.ROUTES
+        )
 
     async def handle(
         self,

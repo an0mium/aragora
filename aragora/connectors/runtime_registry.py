@@ -360,6 +360,7 @@ class ConnectorRegistry:
             info.metadata["importable"] = False
             info.metadata["import_error"] = str(exc)
         except Exception as exc:  # noqa: BLE001
+            logger.warning("Health check error for %s: %s", name, exc)
             info.status = ConnectorStatus.DEGRADED
             info.metadata["health_error"] = str(exc)
 
