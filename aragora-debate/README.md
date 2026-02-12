@@ -261,6 +261,28 @@ DebateConfig(
 
 **Rule of thumb:** If the decision is worth a meeting, it's worth a debate.
 
+## Built-in providers
+
+| Provider | Class | Install | Default model |
+|----------|-------|---------|---------------|
+| Anthropic | `ClaudeAgent` | `pip install aragora-debate[anthropic]` | `claude-sonnet-4-5-20250929` |
+| OpenAI | `OpenAIAgent` | `pip install aragora-debate[openai]` | `gpt-4o` |
+| Mistral | `MistralAgent` | `pip install aragora-debate[mistral]` | `mistral-large-latest` |
+| Google | `GeminiAgent` | `pip install aragora-debate[gemini]` | `gemini-2.0-flash` |
+| Mock | `MockAgent` | *(included)* | N/A |
+
+Use the factory for quick setup:
+
+```python
+from aragora_debate import create_agent
+
+agents = [
+    create_agent("anthropic", name="analyst"),
+    create_agent("openai", name="challenger"),
+    create_agent("mistral", name="devil-advocate"),
+]
+```
+
 ## Extending
 
 ### Custom agents
