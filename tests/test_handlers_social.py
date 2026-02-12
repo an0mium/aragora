@@ -314,6 +314,7 @@ class TestSocialMediaHandlerEndpoints:
         from aragora.rbac.models import AuthorizationContext
 
         req = MagicMock()
+        del req.command  # Prevent handler from reading a Mock method value
         req._auth_context = AuthorizationContext(
             user_id="test-user",
             permissions={"social:read", "social:create"},
@@ -322,7 +323,7 @@ class TestSocialMediaHandlerEndpoints:
 
     def test_youtube_auth_returns_result(self, handler, request_handler):
         """YouTube auth endpoint returns a result."""
-        result = handler.handle("/api/youtube/auth", {}, request_handler)
+        result = handler.handle("/api/v1/youtube/auth", {}, request_handler)
         # Should return something (success or error)
         assert result is not None or True  # Handler may return None if not configured
 
@@ -334,7 +335,8 @@ class TestSocialMediaHandlerEndpoints:
         # Try callback - state should be consumed regardless of success
         try:
             handler.handle(
-                "/api/youtube/callback", {"state": "callback-state-test", "code": "auth-code"},
+                "/api/v1/youtube/callback",
+                {"state": "callback-state-test", "code": "auth-code"},
                 request_handler,
             )
         except Exception:
@@ -345,7 +347,7 @@ class TestSocialMediaHandlerEndpoints:
 
     def test_youtube_status_returns_result(self, handler, request_handler):
         """YouTube status endpoint returns a result."""
-        result = handler.handle("/api/youtube/status", {}, request_handler)
+        result = handler.handle("/api/v1/youtube/status", {}, request_handler)
         assert result is not None
 
 
