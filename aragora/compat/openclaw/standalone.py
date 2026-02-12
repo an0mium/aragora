@@ -31,6 +31,10 @@ DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8100
 DEFAULT_POLICY = "deny"
 
+# Security limits (F03, F04 from OPENCLAW_AUDIT.md)
+MAX_BODY_SIZE = 1_048_576  # 1 MB
+MAX_HEADER_COUNT = 100
+
 
 class StandaloneGatewayServer:
     """Minimal HTTP server exposing OpenClaw gateway endpoints.
@@ -135,9 +139,9 @@ class StandaloneGatewayServer:
                         key, value = param.split("=", 1)
                         query_params[key] = value
 
-            # Read headers
+            # Read headers (F04: bounded to prevent slowloris)
             headers: dict[str, str] = {}
-            while True:
+            for _hdr_idx in range(self.MAX_HEADER_COUNT):
                 header_line = await asyncio.wait_for(reader.readline(), timeout=10.0)
                 header_str = header_line.decode("utf-8", errors="replace").strip()
                 if not header_str:
@@ -145,10 +149,16 @@ class StandaloneGatewayServer:
                 if ":" in header_str:
                     key, value = header_str.split(":", 1)
                     headers[key.strip().lower()] = value.strip()
+            else:
+                await self._send_response(writer, 431, {"error": "Too many headers"})
+                return
 
-            # Read body if present
+            # Read body if present (F03: bounded to prevent OOM)
             body = None
             content_length = int(headers.get("content-length", "0"))
+            if content_length > self.MAX_BODY_SIZE:
+                await self._send_response(writer, 413, {"error": "Request body too large"})
+                return
             if content_length > 0:
                 body_bytes = await asyncio.wait_for(reader.readexactly(content_length), timeout=30.0)
                 try:
