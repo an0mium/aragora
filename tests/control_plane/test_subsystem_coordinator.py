@@ -164,6 +164,7 @@ def mock_context():
     agent2 = Mock()
     agent2.name = "grok"
     ctx.agents = [agent1, agent2]
+    ctx.start_time = 1707753600  # 2024-02-12T16:00:00Z
 
     return ctx
 
@@ -179,6 +180,8 @@ def mock_result():
     result.predictions = {
         "claude": {"prediction": "Python is versatile for many use cases", "confidence": 0.8}
     }
+    result.messages = []
+    result.rounds_completed = 2
     return result
 
 
@@ -637,13 +640,17 @@ class TestDiagnostics:
         assert status["capabilities"]["position_tracking"] is False
 
     def test_get_status_empty_coordinator(self):
-        """get_status with no subsystems returns all False."""
+        """get_status with no subsystems returns mostly False (sdpo_learner auto-initializes)."""
         coordinator = SubsystemCoordinator()
 
         status = coordinator.get_status()
 
         assert status["initialized"] is True
-        assert all(v is False for v in status["subsystems"].values())
+        # sdpo_learner auto-initializes; all other subsystems should be False
+        for key, val in status["subsystems"].items():
+            if key == "sdpo_learner":
+                continue
+            assert val is False, f"Expected {key} to be False, got {val!r}"
 
     def test_get_status_includes_bridges(self):
         """get_status includes cross-pollination bridge information."""
@@ -1042,6 +1049,7 @@ class TestEdgeCases:
         ctx.debate_id = None
         ctx.env = None
         ctx.agents = []
+        ctx.start_time = 1707753600
 
         # Should not raise even with minimal/None values
         coordinator.on_debate_complete(ctx, mock_result)
@@ -1054,6 +1062,8 @@ class TestEdgeCases:
         result.consensus = "Test consensus"
         result.consensus_confidence = 0.8
         result.predictions = {}  # No predictions
+        result.messages = []
+        result.rounds_completed = 1
 
         coordinator.on_debate_complete(mock_context, result)
 
@@ -1106,6 +1116,8 @@ class TestEdgeCases:
             result.consensus = "Test consensus"
             result.consensus_confidence = confidence
             result.predictions = {}
+            result.messages = []
+            result.rounds_completed = 2
 
             coordinator.on_debate_complete(mock_context, result)
 
