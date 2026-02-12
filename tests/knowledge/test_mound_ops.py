@@ -85,7 +85,7 @@ class TestKnowledgeMoundOperations:
         assert "Test knowledge 2" in result
         assert "85%" in result
         mock_mound.query_semantic.assert_called_once_with(
-            query="test task",
+            text="test task",
             limit=5,
             min_confidence=0.5,
         )
