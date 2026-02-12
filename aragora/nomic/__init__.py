@@ -181,6 +181,18 @@ from aragora.nomic.molecules import (
     reset_molecule_engine,
 )
 
+# Global Work Queue (unified priority queue)
+from aragora.nomic.global_work_queue import (
+    GlobalWorkQueue,
+    PriorityCalculator,
+    PriorityConfig,
+    PrioritizedWork,
+    WorkItem,
+    WorkStatus,
+    WorkType,
+    reset_global_work_queue,
+)
+
 # SOAR Curriculum (stepping stones for self-improvement)
 from aragora.nomic.curriculum import (
     CurriculumPlanner,
@@ -473,6 +485,15 @@ __all__ = [
     "StepExecutor",
     "get_molecule_engine",
     "reset_molecule_engine",
+    # Global Work Queue
+    "GlobalWorkQueue",
+    "PriorityCalculator",
+    "PriorityConfig",
+    "PrioritizedWork",
+    "WorkItem",
+    "WorkStatus",
+    "WorkType",
+    "reset_global_work_queue",
     # SOAR Curriculum
     "CurriculumPlanner",
     "SteppingStoneGenerator",

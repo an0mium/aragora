@@ -66,6 +66,16 @@ from aragora.privacy.consent import (
     ConsentExport,
     get_consent_manager,
 )
+from aragora.privacy.anonymization import (
+    HIPAAAnonymizer,
+    AnonymizationMethod,
+    AnonymizationResult,
+    IdentifierType,
+    DetectedIdentifier,
+    SafeHarborResult,
+    KAnonymizer,
+    DifferentialPrivacy,
+)
 
 __all__ = [
     # Isolation
@@ -111,4 +121,13 @@ __all__ = [
     "ConsentStatus",
     "ConsentExport",
     "get_consent_manager",
+    # Anonymization
+    "HIPAAAnonymizer",
+    "AnonymizationMethod",
+    "AnonymizationResult",
+    "IdentifierType",
+    "DetectedIdentifier",
+    "SafeHarborResult",
+    "KAnonymizer",
+    "DifferentialPrivacy",
 ]

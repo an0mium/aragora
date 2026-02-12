@@ -9,6 +9,7 @@ import asyncio
 import functools
 import hashlib
 import logging
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from collections.abc import Callable
@@ -38,6 +39,14 @@ if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
 
 logger = logging.getLogger(__name__)
+
+
+def _package_override(name: str, default: Any) -> Any:
+    """Resolve package-level monkeypatch overrides used by tests."""
+    package_mod = sys.modules.get("aragora.debate.context_gatherer")
+    if package_mod is not None and hasattr(package_mod, name):
+        return getattr(package_mod, name)
+    return default
 
 
 class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
@@ -546,9 +555,12 @@ class ContextGatherer(SourceGatheringMixin, CompressionMixin, MemoryMixin):
             return None
 
         try:
+            timeout_seconds = float(
+                _package_override("CODEBASE_CONTEXT_TIMEOUT", CODEBASE_CONTEXT_TIMEOUT)
+            )
             context = await asyncio.wait_for(
                 self._codebase_context_builder.build_debate_context(),
-                timeout=CODEBASE_CONTEXT_TIMEOUT,
+                timeout=timeout_seconds,
             )
         except asyncio.TimeoutError:
             logger.warning("Codebase context build timed out")

@@ -236,6 +236,14 @@ _EXPORT_MAP = {
     "DebateForker": ("aragora.debate.forking", "DebateForker"),
     "DeadlockSignal": ("aragora.debate.forking", "DeadlockSignal"),
     "DeadlockResolver": ("aragora.debate.forking", "DeadlockResolver"),
+    # Unified Voting Engine
+    "VoteType": ("aragora.debate.voting_engine", "VoteType"),
+    "ConsensusStrength": ("aragora.debate.voting_engine", "ConsensusStrength"),
+    "VoteResult": ("aragora.debate.voting_engine", "VoteResult"),
+    "WeightConfig": ("aragora.debate.voting_engine", "WeightConfig"),
+    "WeightSource": ("aragora.debate.voting_engine", "WeightSource"),
+    "VotingEngine": ("aragora.debate.voting_engine", "VotingEngine"),
+    "VoteWeightCalculator": ("aragora.debate.voting_engine", "VoteWeightCalculator"),
 }
 
 
@@ -474,4 +482,19 @@ __all__ = [
     "FragilityScore",
     "calculate_fragility",
     "create_fragility_analyzer",
+    # Debate Forking (parallel branch exploration)
+    "ForkPoint",
+    "ForkDecision",
+    "ForkDetector",
+    "DebateForker",
+    "DeadlockSignal",
+    "DeadlockResolver",
+    # Unified Voting Engine
+    "VoteType",
+    "ConsensusStrength",
+    "VoteResult",
+    "WeightConfig",
+    "WeightSource",
+    "VotingEngine",
+    "VoteWeightCalculator",
 ]

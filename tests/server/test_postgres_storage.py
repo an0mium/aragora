@@ -343,14 +343,15 @@ class TestRetrievalOperations:
         """Should retrieve debate by slug."""
         artifact_json = {"id": "debate-123", "task": "Test"}
         mock_connection.fetchrow = AsyncMock(return_value={"artifact_json": artifact_json})
-        mock_connection.execute = AsyncMock(return_value="UPDATE 1")
 
         result = await storage.get_by_slug_async("test-slug")
 
         assert result is not None
         assert result["id"] == "debate-123"
-        # View count should be incremented
-        mock_connection.execute.assert_called()
+        # View count is incremented atomically via UPDATE ... RETURNING in fetchrow
+        mock_connection.fetchrow.assert_called()
+        call_args = mock_connection.fetchrow.call_args
+        assert "view_count" in call_args[0][0]
 
     @pytest.mark.asyncio
     async def test_get_by_slug_async_not_found(self, storage, mock_connection):

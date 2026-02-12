@@ -95,6 +95,14 @@ from aragora.knowledge.unified import (
     KnowledgeItem,
 )
 
+# Import vector store
+from aragora.knowledge.vector_store import (
+    KnowledgeVectorStore,
+    KnowledgeVectorConfig,
+    KnowledgeSearchResult,
+    WEAVIATE_AVAILABLE,
+)
+
 __all__ = [
     # Core types
     "Fact",
@@ -152,4 +160,9 @@ __all__ = [
     "UnifiedStoreConfig",
     "KnowledgeSource",
     "KnowledgeItem",
+    # Vector Store
+    "KnowledgeVectorStore",
+    "KnowledgeVectorConfig",
+    "KnowledgeSearchResult",
+    "WEAVIATE_AVAILABLE",
 ]
