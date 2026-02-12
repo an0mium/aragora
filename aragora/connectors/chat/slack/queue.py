@@ -173,7 +173,7 @@ class SlackMessageQueueStore:
             )
             conn.commit()
             return True
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to insert message: {e}")
             return False
 
@@ -470,7 +470,7 @@ class SlackMessageQueue:
 
             return True
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to send message {message.id}: {e}")
             raise
 
@@ -494,7 +494,7 @@ class SlackMessageQueue:
                 self._store.mark_delivered(message.id)
                 stats["delivered"] += 1
 
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
                 error = str(e)
 
                 if message.retries >= self._max_retries:
@@ -526,7 +526,7 @@ class SlackMessageQueue:
                         f"Queue processed: {stats['delivered']} delivered, "
                         f"{stats['failed']} retry, {stats['dead']} dead"
                     )
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
                 logger.exception(f"Queue processor error: {e}")
 
             await asyncio.sleep(self._process_interval)
