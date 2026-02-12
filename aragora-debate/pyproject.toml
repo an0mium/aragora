@@ -45,3 +45,7 @@ Repository = "https://github.com/aragora/aragora-debate"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aragora_debate"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
