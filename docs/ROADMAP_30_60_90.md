@@ -162,4 +162,4 @@ All 22 endpoints aligned. Paths corrected (`/actions`, `/sessions/{id}/end`), mi
 ### Day 90
 - [x] OpenClaw standalone gateway demo running (`examples/openclaw_gateway.py --demo`)
 - [x] Full decision-to-attestation pipeline demonstrated (`examples/decision_pipeline.py --demo`)
-- [x] EU AI Act compliance artifacts generated automatically (`examples/eu_ai_act_compliance.py --demo`)
+- [x] EU AI Act compliance artifacts generated automatically (`ComplianceArtifactGenerator` — Art. 12/13/14 bundles, 25 tests)

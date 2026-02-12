@@ -674,6 +674,488 @@ def _detect_human_oversight(config: dict[str, Any], receipt: dict[str, Any]) -> 
     return False
 
 
+# ---------------------------------------------------------------------------
+# Article-specific artifact generators
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Article12Artifact:
+    """Article 12 Record-Keeping artifact.
+
+    Captures automatic event logging, reference databases consulted,
+    input data records, technical documentation summary (Annex IV),
+    and log retention policy per Art. 26(6).
+    """
+
+    receipt_id: str
+    generated_at: str
+    event_log: list[dict[str, Any]]
+    reference_databases: list[dict[str, Any]]
+    input_record: dict[str, Any]
+    technical_documentation: dict[str, Any]
+    retention_policy: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "article": "Article 12",
+            "title": "Record-Keeping",
+            "receipt_id": self.receipt_id,
+            "generated_at": self.generated_at,
+            "event_log": self.event_log,
+            "reference_databases": self.reference_databases,
+            "input_record": self.input_record,
+            "technical_documentation": self.technical_documentation,
+            "retention_policy": self.retention_policy,
+        }
+
+
+@dataclass
+class Article13Artifact:
+    """Article 13 Transparency artifact.
+
+    Contains provider identity, intended purpose, accuracy/robustness
+    metrics, known risks, output interpretation guidance, and human
+    oversight cross-references.
+    """
+
+    receipt_id: str
+    generated_at: str
+    provider_identity: dict[str, Any]
+    intended_purpose: dict[str, Any]
+    accuracy_robustness: dict[str, Any]
+    known_risks: list[dict[str, Any]]
+    output_interpretation: dict[str, Any]
+    human_oversight_reference: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "article": "Article 13",
+            "title": "Transparency and Provision of Information to Deployers",
+            "receipt_id": self.receipt_id,
+            "generated_at": self.generated_at,
+            "provider_identity": self.provider_identity,
+            "intended_purpose": self.intended_purpose,
+            "accuracy_robustness": self.accuracy_robustness,
+            "known_risks": self.known_risks,
+            "output_interpretation": self.output_interpretation,
+            "human_oversight_reference": self.human_oversight_reference,
+        }
+
+
+@dataclass
+class Article14Artifact:
+    """Article 14 Human Oversight artifact.
+
+    Documents oversight model, understanding/monitoring capabilities,
+    automation bias safeguards, output interpretation features,
+    override mechanisms, and intervention (stop) capabilities.
+    """
+
+    receipt_id: str
+    generated_at: str
+    oversight_model: dict[str, Any]
+    understanding_monitoring: dict[str, Any]
+    automation_bias_safeguards: dict[str, Any]
+    interpretation_features: dict[str, Any]
+    override_capability: dict[str, Any]
+    intervention_capability: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "article": "Article 14",
+            "title": "Human Oversight",
+            "receipt_id": self.receipt_id,
+            "generated_at": self.generated_at,
+            "oversight_model": self.oversight_model,
+            "understanding_monitoring": self.understanding_monitoring,
+            "automation_bias_safeguards": self.automation_bias_safeguards,
+            "interpretation_features": self.interpretation_features,
+            "override_capability": self.override_capability,
+            "intervention_capability": self.intervention_capability,
+        }
+
+
+@dataclass
+class ComplianceArtifactBundle:
+    """Complete EU AI Act compliance artifact bundle.
+
+    Combines conformity report with dedicated Art. 12/13/14 artifacts
+    into a single auditable package with integrity hash.
+    """
+
+    bundle_id: str
+    receipt_id: str
+    generated_at: str
+    risk_classification: RiskClassification
+    conformity_report: ConformityReport
+    article_12: Article12Artifact
+    article_13: Article13Artifact
+    article_14: Article14Artifact
+    integrity_hash: str = ""
+
+    def __post_init__(self):
+        if not self.integrity_hash:
+            self.integrity_hash = self._compute_hash()
+
+    def _compute_hash(self) -> str:
+        content = json.dumps({
+            "bundle_id": self.bundle_id,
+            "receipt_id": self.receipt_id,
+            "risk_level": self.risk_classification.risk_level.value,
+            "conformity_status": self.conformity_report.overall_status,
+        }, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "bundle_id": self.bundle_id,
+            "regulation": "EU AI Act (Regulation 2024/1689)",
+            "compliance_deadline": "2026-08-02",
+            "receipt_id": self.receipt_id,
+            "generated_at": self.generated_at,
+            "risk_classification": self.risk_classification.to_dict(),
+            "conformity_report": self.conformity_report.to_dict(),
+            "article_12_record_keeping": self.article_12.to_dict(),
+            "article_13_transparency": self.article_13.to_dict(),
+            "article_14_human_oversight": self.article_14.to_dict(),
+            "integrity_hash": self.integrity_hash,
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent)
+
+
+class ComplianceArtifactGenerator:
+    """Generate complete EU AI Act compliance artifact bundles.
+
+    Produces dedicated Art. 12 (Record-Keeping), Art. 13 (Transparency),
+    and Art. 14 (Human Oversight) artifacts from a decision receipt,
+    bundled with a conformity assessment report.
+    """
+
+    def __init__(
+        self,
+        *,
+        provider_name: str = "Aragora Inc.",
+        provider_contact: str = "compliance@aragora.ai",
+        eu_representative: str = "",
+        system_name: str = "Aragora Decision Integrity Platform",
+        system_version: str = "2.6.3",
+    ) -> None:
+        self._provider_name = provider_name
+        self._provider_contact = provider_contact
+        self._eu_representative = eu_representative
+        self._system_name = system_name
+        self._system_version = system_version
+        self._report_generator = ConformityReportGenerator()
+
+    def generate(self, receipt: dict[str, Any]) -> ComplianceArtifactBundle:
+        """Generate a complete compliance artifact bundle from a receipt."""
+        receipt_id = receipt.get("receipt_id", f"rcpt-{uuid.uuid4().hex[:8]}")
+        timestamp = datetime.now(timezone.utc).isoformat()
+        bundle_id = f"EUAIA-{uuid.uuid4().hex[:8]}"
+
+        classification = self._report_generator._classifier.classify_receipt(receipt)
+        report = self._report_generator.generate(receipt)
+
+        return ComplianceArtifactBundle(
+            bundle_id=bundle_id,
+            receipt_id=receipt_id,
+            generated_at=timestamp,
+            risk_classification=classification,
+            conformity_report=report,
+            article_12=self._generate_art12(receipt, receipt_id, timestamp),
+            article_13=self._generate_art13(receipt, receipt_id, timestamp, classification),
+            article_14=self._generate_art14(receipt, receipt_id, timestamp),
+        )
+
+    # -- Article 12: Record-Keeping --
+
+    def _generate_art12(
+        self,
+        receipt: dict[str, Any],
+        receipt_id: str,
+        timestamp: str,
+    ) -> Article12Artifact:
+        provenance = receipt.get("provenance_chain", [])
+        event_log = []
+        for i, entry in enumerate(provenance):
+            if isinstance(entry, dict):
+                event_log.append({
+                    "event_id": f"evt_{i + 1:04d}",
+                    "event_type": entry.get("event_type", "unknown"),
+                    "timestamp": entry.get("timestamp", ""),
+                    "actor": entry.get("actor", "system"),
+                })
+            elif hasattr(entry, "event_type"):
+                event_log.append({
+                    "event_id": f"evt_{i + 1:04d}",
+                    "event_type": entry.event_type,
+                    "timestamp": getattr(entry, "timestamp", ""),
+                    "actor": getattr(entry, "actor", "system"),
+                })
+
+        config = receipt.get("config_used", {})
+        consensus = receipt.get("consensus_proof", {})
+        agents = list(set(
+            consensus.get("supporting_agents", [])
+            + consensus.get("dissenting_agents", [])
+        ))
+
+        input_text = receipt.get("input_summary", receipt.get("question", ""))
+        input_hash = hashlib.sha256(input_text.encode()).hexdigest() if input_text else ""
+
+        return Article12Artifact(
+            receipt_id=receipt_id,
+            generated_at=timestamp,
+            event_log=event_log,
+            reference_databases=[
+                {"source": src, "type": "knowledge_base"}
+                for src in receipt.get("knowledge_sources", [])
+            ],
+            input_record={
+                "input_summary": input_text[:200],
+                "input_hash": input_hash,
+                "agents_participating": agents,
+            },
+            technical_documentation={
+                "annex_iv_sec1_general": {
+                    "system_name": self._system_name,
+                    "version": self._system_version,
+                    "provider": self._provider_name,
+                    "intended_purpose": (
+                        "Multi-agent adversarial vetting of decisions against "
+                        "organizational knowledge, delivering audit-ready "
+                        "decision receipts."
+                    ),
+                },
+                "annex_iv_sec2_development": {
+                    "architecture": "Multi-agent debate with adversarial consensus",
+                    "consensus_method": consensus.get("method", "weighted_majority"),
+                    "agents": agents,
+                    "protocol": config.get("protocol", "adversarial"),
+                    "rounds": config.get("rounds", 0),
+                },
+                "annex_iv_sec5_risk_management": {
+                    "adversarial_debate": "Multi-agent challenge reduces single-point-of-failure",
+                    "hollow_consensus_detection": "Trickster module",
+                    "circuit_breakers": "Per-agent failure isolation",
+                    "calibration_monitoring": "Continuous Brier score tracking",
+                },
+            },
+            retention_policy={
+                "minimum_months": 6,
+                "basis": "Art. 26(6) — minimum 6 months for high-risk systems",
+                "provenance_events": len(event_log),
+                "integrity_mechanism": "SHA-256 hash chain",
+            },
+        )
+
+    # -- Article 13: Transparency --
+
+    def _generate_art13(
+        self,
+        receipt: dict[str, Any],
+        receipt_id: str,
+        timestamp: str,
+        classification: RiskClassification,
+    ) -> Article13Artifact:
+        consensus = receipt.get("consensus_proof", {})
+        agents = list(set(
+            consensus.get("supporting_agents", [])
+            + consensus.get("dissenting_agents", [])
+        ))
+        confidence = receipt.get("confidence", 0.0)
+        robustness = receipt.get("robustness_score", 0.0)
+        dissenting = receipt.get("dissenting_views", [])
+
+        return Article13Artifact(
+            receipt_id=receipt_id,
+            generated_at=timestamp,
+            provider_identity={
+                "name": self._provider_name,
+                "contact": self._provider_contact,
+                "eu_representative": self._eu_representative or "Not yet designated",
+            },
+            intended_purpose={
+                "description": (
+                    "Aragora orchestrates adversarial debate among heterogeneous "
+                    "AI models to vet decisions against organizational knowledge. "
+                    "It produces audit-ready decision receipts with cryptographic "
+                    "integrity for regulatory compliance."
+                ),
+                "not_intended_for": [
+                    "Fully autonomous decision-making without human oversight",
+                    "Real-time biometric identification",
+                    "Social scoring or behavioral manipulation",
+                ],
+            },
+            accuracy_robustness={
+                "consensus_confidence": confidence,
+                "robustness_score": robustness,
+                "agents_participating": len(agents),
+                "consensus_method": consensus.get("method", "unknown"),
+                "agreement_ratio": consensus.get("agreement_ratio", 0.0),
+                "integrity_hash_present": bool(receipt.get("artifact_hash")),
+                "signature_present": bool(receipt.get("signature")),
+            },
+            known_risks=[
+                {
+                    "risk": "Automation bias",
+                    "description": "Over-reliance on AI recommendations",
+                    "mitigation": "Mandatory human review, dissent highlighting",
+                    "article_ref": "Art. 14(4)(b)",
+                },
+                {
+                    "risk": "Hollow consensus",
+                    "description": "Surface-level agreement without substantive reasoning",
+                    "mitigation": "Trickster detection module, evidence grounding",
+                    "article_ref": "Art. 15(4)",
+                },
+                {
+                    "risk": "Model hallucination",
+                    "description": "Plausible but incorrect claims persisting through consensus",
+                    "mitigation": "Multi-agent challenge, calibration tracking",
+                    "article_ref": "Art. 15(1)",
+                },
+            ],
+            output_interpretation={
+                "verdict": receipt.get("verdict", ""),
+                "confidence": confidence,
+                "confidence_interpretation": (
+                    "High confidence — strong agreement"
+                    if confidence >= 0.8
+                    else "Moderate confidence — some reservations"
+                    if confidence >= 0.6
+                    else "Low confidence — significant disagreement"
+                ),
+                "dissent_count": len(dissenting),
+                "dissent_significance": (
+                    "No dissent — unanimous agreement."
+                    if not dissenting
+                    else (
+                        f"{len(dissenting)} dissenting view(s) recorded. "
+                        "Review dissenting reasoning before finalizing."
+                    )
+                ),
+            },
+            human_oversight_reference={
+                "human_approval_detected": _detect_human_oversight(
+                    receipt.get("config_used", {}), receipt
+                ),
+                "approval_config": {
+                    k: v
+                    for k, v in receipt.get("config_used", {}).items()
+                    if any(
+                        term in k.lower()
+                        for term in ("human", "approval", "override", "approver")
+                    )
+                },
+            },
+        )
+
+    # -- Article 14: Human Oversight --
+
+    def _generate_art14(
+        self,
+        receipt: dict[str, Any],
+        receipt_id: str,
+        timestamp: str,
+    ) -> Article14Artifact:
+        config = receipt.get("config_used", {})
+        has_human = _detect_human_oversight(config, receipt)
+
+        return Article14Artifact(
+            receipt_id=receipt_id,
+            generated_at=timestamp,
+            oversight_model={
+                "primary": "Human-in-the-Loop (HITL)" if has_human else "Human-on-the-Loop (HOTL)",
+                "description": (
+                    "All final decisions require explicit human approval."
+                    if has_human
+                    else (
+                        "System operates with monitoring-based oversight. "
+                        "Human intervention on anomalies."
+                    )
+                ),
+                "human_approval_detected": has_human,
+            },
+            understanding_monitoring={
+                "capabilities_documented": [
+                    "Multi-agent adversarial debate with consensus",
+                    "Tamper-evident decision receipts",
+                    "Calibration tracking per agent",
+                    "Dissent recording for minority opinions",
+                ],
+                "limitations_documented": [
+                    "Consensus does not guarantee correctness",
+                    "Confidence != probability of being correct",
+                    "Performance varies by domain complexity",
+                    "Underlying model knowledge cutoff dates apply",
+                ],
+                "monitoring_features": [
+                    "Real-time debate spectate view",
+                    "Agent performance dashboard",
+                    "Calibration drift alerts",
+                    "Anomaly detection",
+                ],
+            },
+            automation_bias_safeguards={
+                "warnings_present": True,
+                "mechanisms": [
+                    "Dissent views prominently displayed alongside verdict",
+                    "Confidence scores presented with interpretation context",
+                    "Periodic independent evaluation prompts",
+                    "Mandatory review intervals",
+                ],
+            },
+            interpretation_features={
+                "explainability": [
+                    "Factor decomposition: contributing factors with weights",
+                    "Counterfactual analysis: what-if scenarios",
+                    "Evidence chain: claims linked to sources",
+                    "Vote pivot: which arguments changed outcomes",
+                ],
+            },
+            override_capability={
+                "override_available": True,
+                "mechanisms": [
+                    {
+                        "action": "Reject verdict",
+                        "description": "Deployer rejects AI consensus and decides independently",
+                        "audit_logged": True,
+                    },
+                    {
+                        "action": "Override with reason",
+                        "description": "Deployer overrides with documented rationale",
+                        "audit_logged": True,
+                    },
+                    {
+                        "action": "Reverse prior decision",
+                        "description": "Previously accepted decisions can be reversed",
+                        "audit_logged": True,
+                    },
+                ],
+            },
+            intervention_capability={
+                "stop_available": True,
+                "mechanisms": [
+                    {
+                        "action": "Stop debate",
+                        "description": "Halts debate mid-round, partial results preserved",
+                        "safe_state": True,
+                    },
+                    {
+                        "action": "Cancel decision",
+                        "description": "Cancels in-progress decision, no downstream actions",
+                        "safe_state": True,
+                    },
+                ],
+            },
+        )
+
+
 __all__ = [
     "RiskLevel",
     "RiskClassification",
@@ -682,4 +1164,9 @@ __all__ = [
     "ArticleMapping",
     "ConformityReport",
     "ConformityReportGenerator",
+    "Article12Artifact",
+    "Article13Artifact",
+    "Article14Artifact",
+    "ComplianceArtifactBundle",
+    "ComplianceArtifactGenerator",
 ]

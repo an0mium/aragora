@@ -18,7 +18,12 @@ import pytest
 
 from aragora.compliance.eu_ai_act import (
     ANNEX_III_CATEGORIES,
+    Article12Artifact,
+    Article13Artifact,
+    Article14Artifact,
     ArticleMapping,
+    ComplianceArtifactBundle,
+    ComplianceArtifactGenerator,
     ConformityReport,
     ConformityReportGenerator,
     RiskClassification,
@@ -475,3 +480,261 @@ class TestComplianceCLI:
         _cmd_classify(args)
         captured = capsys.readouterr()
         assert "MINIMAL" in captured.out
+
+
+# =============================================================================
+# Test ComplianceArtifactGenerator
+# =============================================================================
+
+
+class TestComplianceArtifactGenerator:
+    """Tests for the Art. 12/13/14 artifact generator."""
+
+    @pytest.fixture
+    def artifact_generator(self):
+        return ComplianceArtifactGenerator(
+            provider_name="Test Corp",
+            provider_contact="test@example.com",
+            eu_representative="Test EU GmbH",
+            system_name="Test Platform",
+            system_version="1.0.0",
+        )
+
+    @pytest.fixture
+    def high_risk_receipt(self) -> dict:
+        """Receipt with full fields for a high-risk use case."""
+        return {
+            "receipt_id": "art-test-001",
+            "input_summary": "AI-powered recruitment and CV screening for hiring decisions",
+            "verdict": "CONDITIONAL",
+            "verdict_reasoning": "The hiring algorithm needs bias auditing",
+            "confidence": 0.78,
+            "robustness_score": 0.72,
+            "risk_summary": {"total": 3, "critical": 0, "high": 1, "medium": 2, "low": 0},
+            "consensus_proof": {
+                "method": "weighted_majority",
+                "supporting_agents": ["agent-a", "agent-c"],
+                "dissenting_agents": ["agent-b"],
+                "agreement_ratio": 0.67,
+            },
+            "dissenting_views": [
+                {"agent": "agent-b", "view": "Bias risk too high"},
+            ],
+            "provenance_chain": [
+                {"event_type": "debate_started", "timestamp": "2026-01-01T00:00:00Z", "actor": "system"},
+                {"event_type": "proposal_submitted", "timestamp": "2026-01-01T00:01:00Z", "actor": "agent-a"},
+                {"event_type": "human_approval", "timestamp": "2026-01-01T00:10:00Z", "actor": "admin@test.com"},
+                {"event_type": "receipt_generated", "timestamp": "2026-01-01T00:10:05Z", "actor": "system"},
+            ],
+            "config_used": {
+                "protocol": "adversarial",
+                "rounds": 2,
+                "require_approval": True,
+                "human_in_loop": True,
+            },
+            "artifact_hash": "abc123",
+            "signature": "ed25519:test",
+        }
+
+    def test_generate_returns_bundle(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        assert isinstance(bundle, ComplianceArtifactBundle)
+        assert bundle.bundle_id.startswith("EUAIA-")
+        assert bundle.receipt_id == "art-test-001"
+
+    def test_bundle_has_integrity_hash(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        assert len(bundle.integrity_hash) == 64  # SHA-256 hex
+
+    def test_bundle_risk_classification(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        assert bundle.risk_classification.risk_level == RiskLevel.HIGH
+        assert bundle.risk_classification.annex_iii_category == "Employment and worker management"
+
+    def test_bundle_to_dict(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        d = bundle.to_dict()
+        assert d["regulation"] == "EU AI Act (Regulation 2024/1689)"
+        assert d["compliance_deadline"] == "2026-08-02"
+        assert "article_12_record_keeping" in d
+        assert "article_13_transparency" in d
+        assert "article_14_human_oversight" in d
+
+    def test_bundle_to_json(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        j = bundle.to_json()
+        parsed = json.loads(j)
+        assert parsed["bundle_id"] == bundle.bundle_id
+
+    # -- Article 12 tests --
+
+    def test_art12_event_log(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        art12 = bundle.article_12
+        assert isinstance(art12, Article12Artifact)
+        assert len(art12.event_log) == 4
+        assert art12.event_log[0]["event_type"] == "debate_started"
+
+    def test_art12_input_record(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        art12 = bundle.article_12
+        assert art12.input_record["input_hash"]  # non-empty
+        assert len(art12.input_record["input_hash"]) == 64  # SHA-256
+
+    def test_art12_technical_documentation(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        tech = bundle.article_12.technical_documentation
+        assert tech["annex_iv_sec1_general"]["system_name"] == "Test Platform"
+        assert tech["annex_iv_sec1_general"]["version"] == "1.0.0"
+        assert tech["annex_iv_sec1_general"]["provider"] == "Test Corp"
+
+    def test_art12_retention_policy(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        policy = bundle.article_12.retention_policy
+        assert policy["minimum_months"] == 6
+        assert policy["provenance_events"] == 4
+
+    def test_art12_to_dict(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        d = bundle.article_12.to_dict()
+        assert d["article"] == "Article 12"
+        assert d["title"] == "Record-Keeping"
+
+    # -- Article 13 tests --
+
+    def test_art13_provider_identity(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        art13 = bundle.article_13
+        assert isinstance(art13, Article13Artifact)
+        assert art13.provider_identity["name"] == "Test Corp"
+        assert art13.provider_identity["eu_representative"] == "Test EU GmbH"
+
+    def test_art13_known_risks(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        risks = bundle.article_13.known_risks
+        assert len(risks) == 3
+        risk_names = [r["risk"] for r in risks]
+        assert "Automation bias" in risk_names
+        assert "Hollow consensus" in risk_names
+        assert "Model hallucination" in risk_names
+
+    def test_art13_output_interpretation(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        interp = bundle.article_13.output_interpretation
+        assert interp["confidence"] == 0.78
+        assert "Moderate" in interp["confidence_interpretation"]
+        assert interp["dissent_count"] == 1
+
+    def test_art13_human_oversight_detected(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        assert bundle.article_13.human_oversight_reference["human_approval_detected"] is True
+
+    def test_art13_to_dict(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        d = bundle.article_13.to_dict()
+        assert d["article"] == "Article 13"
+        assert "known_risks" in d
+
+    # -- Article 14 tests --
+
+    def test_art14_oversight_model_hitl(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        art14 = bundle.article_14
+        assert isinstance(art14, Article14Artifact)
+        assert "Human-in-the-Loop" in art14.oversight_model["primary"]
+        assert art14.oversight_model["human_approval_detected"] is True
+
+    def test_art14_oversight_model_hotl_when_no_human(self, artifact_generator):
+        receipt = {
+            "receipt_id": "no-human-001",
+            "input_summary": "Weather prediction model",
+            "verdict": "PASS",
+            "confidence": 0.9,
+            "robustness_score": 0.85,
+            "config_used": {"protocol": "quick"},
+            "provenance_chain": [],
+            "consensus_proof": {"supporting_agents": ["a"], "dissenting_agents": []},
+        }
+        bundle = artifact_generator.generate(receipt)
+        assert "Human-on-the-Loop" in bundle.article_14.oversight_model["primary"]
+
+    def test_art14_automation_bias_safeguards(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        safeguards = bundle.article_14.automation_bias_safeguards
+        assert safeguards["warnings_present"] is True
+        assert len(safeguards["mechanisms"]) >= 3
+
+    def test_art14_override_capabilities(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        overrides = bundle.article_14.override_capability
+        assert overrides["override_available"] is True
+        assert len(overrides["mechanisms"]) == 3
+        actions = [m["action"] for m in overrides["mechanisms"]]
+        assert "Reject verdict" in actions
+        assert "Override with reason" in actions
+
+    def test_art14_intervention_stop(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        intervention = bundle.article_14.intervention_capability
+        assert intervention["stop_available"] is True
+        assert len(intervention["mechanisms"]) == 2
+        for mech in intervention["mechanisms"]:
+            assert mech["safe_state"] is True
+
+    def test_art14_to_dict(self, artifact_generator, high_risk_receipt):
+        bundle = artifact_generator.generate(high_risk_receipt)
+        d = bundle.article_14.to_dict()
+        assert d["article"] == "Article 14"
+        assert "oversight_model" in d
+        assert "override_capability" in d
+
+    # -- Edge cases --
+
+    def test_minimal_receipt_produces_bundle(self, artifact_generator):
+        """Even a near-empty receipt should produce a valid bundle."""
+        receipt = {"receipt_id": "min-001", "input_summary": "test"}
+        bundle = artifact_generator.generate(receipt)
+        assert bundle.bundle_id.startswith("EUAIA-")
+        assert bundle.article_12.event_log == []
+        assert bundle.article_13.output_interpretation["confidence"] == 0.0
+
+    def test_confidence_interpretation_high(self, artifact_generator):
+        receipt = {
+            "receipt_id": "high-conf",
+            "input_summary": "test",
+            "confidence": 0.95,
+            "consensus_proof": {"supporting_agents": ["a"], "dissenting_agents": []},
+        }
+        bundle = artifact_generator.generate(receipt)
+        assert "High" in bundle.article_13.output_interpretation["confidence_interpretation"]
+
+    def test_confidence_interpretation_low(self, artifact_generator):
+        receipt = {
+            "receipt_id": "low-conf",
+            "input_summary": "test",
+            "confidence": 0.3,
+            "consensus_proof": {"supporting_agents": ["a"], "dissenting_agents": ["b", "c"]},
+        }
+        bundle = artifact_generator.generate(receipt)
+        assert "Low" in bundle.article_13.output_interpretation["confidence_interpretation"]
+
+    def test_custom_provider_settings(self):
+        gen = ComplianceArtifactGenerator(
+            provider_name="Acme AI",
+            provider_contact="ai@acme.com",
+            eu_representative="Acme EU Ltd.",
+            system_name="AcmeDecider",
+            system_version="3.0.0",
+        )
+        receipt = {
+            "receipt_id": "custom-001",
+            "input_summary": "test recruitment screening",
+            "config_used": {},
+            "provenance_chain": [],
+            "consensus_proof": {"supporting_agents": [], "dissenting_agents": []},
+        }
+        bundle = gen.generate(receipt)
+        assert bundle.article_13.provider_identity["name"] == "Acme AI"
+        tech = bundle.article_12.technical_documentation
+        assert tech["annex_iv_sec1_general"]["system_name"] == "AcmeDecider"
+        assert tech["annex_iv_sec1_general"]["version"] == "3.0.0"

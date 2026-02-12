@@ -5,17 +5,19 @@ Demonstrates Aragora's EU AI Act compliance infrastructure:
 1. Classify AI use cases by risk level (Art. 5/6 + Annex III)
 2. Generate conformity reports from decision receipts
 3. Assess article compliance (Art. 9, 12, 13, 14, 15)
-4. Export audit-ready artifacts (JSON + Markdown)
-5. Show deployer log retention obligations (Art. 26)
+4. Generate dedicated Art. 12/13/14 compliance artifacts
+5. Export audit-ready artifact bundles (JSON + Markdown)
+6. Show deployer log retention obligations (Art. 26)
 
 The EU AI Act (Regulation (EU) 2024/1689) takes effect August 2, 2026
 for Annex III high-risk systems. Aragora maps decision receipts to
 article requirements automatically.
 
 Usage:
-    python examples/eu_ai_act_compliance.py --demo     # Full demo
-    python examples/eu_ai_act_compliance.py --classify  # Risk classification only
-    python examples/eu_ai_act_compliance.py --report    # Generate conformity report
+    python examples/eu_ai_act_compliance.py --demo       # Full demo (default)
+    python examples/eu_ai_act_compliance.py --classify    # Risk classification only
+    python examples/eu_ai_act_compliance.py --report      # Generate conformity report
+    python examples/eu_ai_act_compliance.py --artifacts   # Art. 12/13/14 artifacts
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from typing import Any
 
 # Import from Aragora compliance module
 from aragora.compliance.eu_ai_act import (
+    ComplianceArtifactGenerator,
     ConformityReportGenerator,
     RiskClassifier,
     RiskLevel,
@@ -434,6 +437,100 @@ def run_artifact_export_demo() -> None:
     print(f"  human approval to receipt generation.")
 
 
+def run_artifact_generation_demo() -> None:
+    """Demonstrate generation of dedicated Art. 12/13/14 compliance artifacts."""
+    _print_header("EU AI Act Artifact Generation (Articles 12, 13, 14)")
+
+    generator = ComplianceArtifactGenerator(
+        provider_name="Aragora Inc.",
+        provider_contact="compliance@aragora.ai",
+        eu_representative="Aragora EU GmbH, Berlin, Germany",
+    )
+
+    receipt = _hr_recruitment_receipt()
+    bundle = generator.generate(receipt)
+
+    # Bundle overview
+    print(f"  Bundle ID:         {bundle.bundle_id}")
+    print(f"  Receipt ID:        {bundle.receipt_id}")
+    print(f"  Risk Level:        {bundle.risk_classification.risk_level.value.upper()}")
+    print(f"  Conformity Status: {bundle.conformity_report.overall_status.upper()}")
+    print(f"  Integrity Hash:    {bundle.integrity_hash[:24]}...")
+
+    # Article 12: Record-Keeping
+    _print_section("Article 12: Record-Keeping")
+    art12 = bundle.article_12
+    print(f"  Events logged:        {len(art12.event_log)}")
+    print(f"  Reference databases:  {len(art12.reference_databases)}")
+    print(f"  Input hash:           {art12.input_record.get('input_hash', 'N/A')[:24]}...")
+    print(f"  Retention:            {art12.retention_policy['minimum_months']} months minimum")
+    print()
+
+    print("  Event Log:")
+    for evt in art12.event_log[:5]:
+        print(f"    [{evt['event_id']}] {evt['event_type']:<24s} by {evt['actor']}")
+    if len(art12.event_log) > 5:
+        print(f"    ... and {len(art12.event_log) - 5} more events")
+    print()
+
+    tech = art12.technical_documentation
+    sec1 = tech.get("annex_iv_sec1_general", {})
+    print(f"  Annex IV Technical Documentation:")
+    print(f"    System:  {sec1.get('system_name', 'N/A')} v{sec1.get('version', 'N/A')}")
+    print(f"    Provider: {sec1.get('provider', 'N/A')}")
+
+    # Article 13: Transparency
+    _print_section("Article 13: Transparency")
+    art13 = bundle.article_13
+    print(f"  Provider:     {art13.provider_identity['name']}")
+    print(f"  EU Rep:       {art13.provider_identity.get('eu_representative', 'N/A')}")
+    print(f"  Known risks:  {len(art13.known_risks)}")
+    for risk in art13.known_risks:
+        print(f"    - {risk['risk']} ({risk['article_ref']})")
+    print()
+
+    interp = art13.output_interpretation
+    print(f"  Output Interpretation:")
+    print(f"    Confidence: {interp['confidence']:.0%} — {interp['confidence_interpretation']}")
+    print(f"    Dissent: {interp['dissent_significance']}")
+    print()
+
+    human_ref = art13.human_oversight_reference
+    print(f"  Human Oversight: {'Detected' if human_ref['human_approval_detected'] else 'Not detected'}")
+
+    # Article 14: Human Oversight
+    _print_section("Article 14: Human Oversight")
+    art14 = bundle.article_14
+    om = art14.oversight_model
+    print(f"  Model:              {om['primary']}")
+    print(f"  Human approval:     {'Yes' if om['human_approval_detected'] else 'No'}")
+    print()
+
+    print(f"  14.4(a) Monitoring:     {len(art14.understanding_monitoring['monitoring_features'])} features")
+    print(f"  14.4(b) Bias safeguards: {len(art14.automation_bias_safeguards['mechanisms'])} mechanisms")
+    print(f"  14.4(c) Interpretation:  {len(art14.interpretation_features['explainability'])} features")
+    print(f"  14.4(d) Override:        {len(art14.override_capability['mechanisms'])} mechanisms")
+    print(f"  14.4(e) Intervention:    {len(art14.intervention_capability['mechanisms'])} stop mechanisms")
+
+    # Export bundle
+    _print_section("Artifact Bundle Export")
+    json_output = bundle.to_json(indent=2)
+    json_lines = json_output.split("\n")
+    print(f"  Total JSON size: {len(json_output):,} bytes ({len(json_lines)} lines)")
+    print()
+    print("  JSON preview (first 20 lines):")
+    for line in json_lines[:20]:
+        print(f"    {line}")
+    print(f"    ... ({len(json_lines) - 20} more lines)")
+
+    print()
+    print("  To generate artifacts for your own receipts:")
+    print("    from aragora.compliance.eu_ai_act import ComplianceArtifactGenerator")
+    print("    generator = ComplianceArtifactGenerator(provider_name='Your Org')")
+    print("    bundle = generator.generate(receipt_dict)")
+    print("    print(bundle.to_json())")
+
+
 def run_full_demo() -> None:
     """Run the complete EU AI Act compliance demonstration."""
     print()
@@ -445,6 +542,7 @@ def run_full_demo() -> None:
 
     run_classification_demo()
     run_conformity_demo()
+    run_artifact_generation_demo()
     run_artifact_export_demo()
 
     _print_header("Demo Complete")
@@ -454,9 +552,9 @@ def run_full_demo() -> None:
     print()
     print("    - Article 6:  Risk classification (Annex III category matching)")
     print("    - Article 9:  Risk management assessment")
-    print("    - Article 12: Record-keeping and automatic logging")
-    print("    - Article 13: Transparency (agent participation + reasoning)")
-    print("    - Article 14: Human oversight verification")
+    print("    - Article 12: Record-keeping and automatic logging (with artifacts)")
+    print("    - Article 13: Transparency (deployer instructions, known risks)")
+    print("    - Article 14: Human oversight (override, stop, bias safeguards)")
     print("    - Article 15: Accuracy, robustness, and cybersecurity")
     print("    - Article 26: Deployer log retention (6-month minimum)")
     print()
@@ -478,15 +576,17 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             Examples:
-              python examples/eu_ai_act_compliance.py --demo      Full demonstration
-              python examples/eu_ai_act_compliance.py --classify   Risk classification only
-              python examples/eu_ai_act_compliance.py --report     Conformity report only
-              python examples/eu_ai_act_compliance.py --export     Artifact export only
+              python examples/eu_ai_act_compliance.py --demo       Full demonstration
+              python examples/eu_ai_act_compliance.py --classify    Risk classification only
+              python examples/eu_ai_act_compliance.py --report      Conformity report only
+              python examples/eu_ai_act_compliance.py --artifacts   Art. 12/13/14 artifacts
+              python examples/eu_ai_act_compliance.py --export      Artifact export only
         """),
     )
     parser.add_argument("--demo", action="store_true", default=True, help="Run full demo (default)")
     parser.add_argument("--classify", action="store_true", help="Risk classification demo only")
     parser.add_argument("--report", action="store_true", help="Conformity report demo only")
+    parser.add_argument("--artifacts", action="store_true", help="Art. 12/13/14 artifact generation only")
     parser.add_argument("--export", action="store_true", help="Artifact export demo only")
 
     args = parser.parse_args()
@@ -495,6 +595,8 @@ def main() -> int:
         run_classification_demo()
     elif args.report:
         run_conformity_demo()
+    elif args.artifacts:
+        run_artifact_generation_demo()
     elif args.export:
         run_artifact_export_demo()
     else:
