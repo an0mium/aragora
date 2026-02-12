@@ -6,6 +6,7 @@ Main HTTP client for interacting with the Aragora platform.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin
@@ -67,6 +68,40 @@ class AragoraClient:
 
         # Initialize namespace APIs
         self._init_namespaces()
+
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        retry_delay: float | None = None,
+    ) -> AragoraClient:
+        """
+        Create a client configured from environment variables.
+
+        Environment variables:
+            ARAGORA_API_URL: Base URL (default: http://localhost:8080)
+            ARAGORA_API_KEY: API key for authentication
+            ARAGORA_TIMEOUT: Request timeout in seconds (default: 30)
+            ARAGORA_MAX_RETRIES: Max retries (default: 3)
+            ARAGORA_RETRY_DELAY: Base retry delay in seconds (default: 1.0)
+
+        Explicit keyword arguments override environment variables.
+
+        Example:
+            >>> client = AragoraClient.from_env()
+            >>> client = AragoraClient.from_env(timeout=60.0)
+        """
+        return cls(
+            base_url=base_url or os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
+            api_key=api_key or os.environ.get("ARAGORA_API_KEY"),
+            timeout=timeout if timeout is not None else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
+            max_retries=max_retries if max_retries is not None else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
+            retry_delay=retry_delay if retry_delay is not None else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
+        )
 
     def _build_headers(self) -> dict[str, str]:
         """Build default headers for requests."""
@@ -543,6 +578,43 @@ class AragoraAsyncClient:
 
         # Initialize namespace APIs
         self._init_namespaces()
+
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        ws_url: str | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        retry_delay: float | None = None,
+    ) -> AragoraAsyncClient:
+        """
+        Create an async client configured from environment variables.
+
+        Environment variables:
+            ARAGORA_API_URL: Base URL (default: http://localhost:8080)
+            ARAGORA_API_KEY: API key for authentication
+            ARAGORA_WS_URL: WebSocket URL (derived from base_url if not set)
+            ARAGORA_TIMEOUT: Request timeout in seconds (default: 30)
+            ARAGORA_MAX_RETRIES: Max retries (default: 3)
+            ARAGORA_RETRY_DELAY: Base retry delay in seconds (default: 1.0)
+
+        Explicit keyword arguments override environment variables.
+
+        Example:
+            >>> async with AragoraAsyncClient.from_env() as client:
+            ...     debate = await client.debates.create(task="Evaluate options")
+        """
+        return cls(
+            base_url=base_url or os.environ.get("ARAGORA_API_URL", "http://localhost:8080"),
+            api_key=api_key or os.environ.get("ARAGORA_API_KEY"),
+            ws_url=ws_url or os.environ.get("ARAGORA_WS_URL"),
+            timeout=timeout if timeout is not None else float(os.environ.get("ARAGORA_TIMEOUT", "30")),
+            max_retries=max_retries if max_retries is not None else int(os.environ.get("ARAGORA_MAX_RETRIES", "3")),
+            retry_delay=retry_delay if retry_delay is not None else float(os.environ.get("ARAGORA_RETRY_DELAY", "1.0")),
+        )
 
     def _build_headers(self) -> dict[str, str]:
         """Build default headers for requests."""

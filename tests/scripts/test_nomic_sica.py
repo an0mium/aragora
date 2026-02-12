@@ -47,11 +47,21 @@ async def test_run_sica_cycle_parses_env(monkeypatch, tmp_path):
         async def run_improvement_cycle(self):
             return DummyResult()
 
+    class DummyAgent:
+        async def generate(self, prompt: str, context=None):
+            return "ok"
+
     import aragora.nomic.sica_improver as sica_mod
 
     monkeypatch.setattr(sica_mod, "SICAImprover", DummyImprover)
 
-    loop = nomic_loop.NomicLoop(aragora_path=str(tmp_path))
+    loop = object.__new__(nomic_loop.NomicLoop)
+    loop.aragora_path = str(tmp_path)
+    loop.codex = None
+    loop.claude = DummyAgent()
+    loop.gemini = None
+    loop.grok = None
+    loop._log = lambda *_args, **_kwargs: None
     result = await loop._run_sica_cycle()
 
     assert result["status"] == "success"
