@@ -7,6 +7,10 @@ on:
       - 'aragora/capabilities.yaml'
       - 'aragora/capability_surfaces.yaml'
       - 'scripts/capability_gap_report.py'
+      - 'scripts/generate_capability_matrix.py'
+      - 'scripts/check_capability_matrix_sync.py'
+      - 'docs/CAPABILITY_MATRIX.md'
+      - 'docs-site/docs/contributing/capability-matrix.md'
       - '.github/workflows/capability-gap.yml'
   pull_request:
     branches: [main]
@@ -14,6 +18,10 @@ on:
       - 'aragora/capabilities.yaml'
       - 'aragora/capability_surfaces.yaml'
       - 'scripts/capability_gap_report.py'
+      - 'scripts/generate_capability_matrix.py'
+      - 'scripts/check_capability_matrix_sync.py'
+      - 'docs/CAPABILITY_MATRIX.md'
+      - 'docs-site/docs/contributing/capability-matrix.md'
       - '.github/workflows/capability-gap.yml'
   workflow_dispatch:
 
@@ -50,6 +58,9 @@ jobs:
         run: |
           python scripts/capability_gap_report.py --format json --out /tmp/capability-gap.json
           echo "Report generated at /tmp/capability-gap.json"
+
+      - name: Verify capability matrix files are synced
+        run: python scripts/check_capability_matrix_sync.py
 
       - name: Upload reports
         uses: actions/upload-artifact@v4

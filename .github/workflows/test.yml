@@ -8,6 +8,13 @@ on:
       - 'tests/**'
       - 'pyproject.toml'
       - 'requirements.txt'
+      - 'scripts/capability_gap_report.py'
+      - 'scripts/generate_capability_matrix.py'
+      - 'scripts/check_capability_matrix_sync.py'
+      - 'aragora/capabilities.yaml'
+      - 'aragora/capability_surfaces.yaml'
+      - 'docs/CAPABILITY_MATRIX.md'
+      - 'docs-site/docs/contributing/capability-matrix.md'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main]
@@ -16,6 +23,14 @@ on:
       - 'tests/**'
       - 'pyproject.toml'
       - 'requirements.txt'
+      - 'scripts/capability_gap_report.py'
+      - 'scripts/generate_capability_matrix.py'
+      - 'scripts/check_capability_matrix_sync.py'
+      - 'aragora/capabilities.yaml'
+      - 'aragora/capability_surfaces.yaml'
+      - 'docs/CAPABILITY_MATRIX.md'
+      - 'docs-site/docs/contributing/capability-matrix.md'
+      - '.github/workflows/test.yml'
   workflow_dispatch:
   schedule:
     - cron: '0 4 * * *'
@@ -84,6 +99,9 @@ jobs:
         run: |
           pip install datamodel-code-generator
           python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json --check
+
+      - name: Check capability matrix is up to date
+        run: python scripts/check_capability_matrix_sync.py
 
   # Skip marker audit (warns if skip count increases)
   skip-audit:
@@ -246,7 +264,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        seed: [12345, 54321, 99999]
+        seed: [12345, 54321]
 
     steps:
       - name: Checkout
@@ -263,14 +281,31 @@ jobs:
           pip install -e ".[dev,research,test]"
           pip install pytest-timeout pytest-xdist pytest-randomly
 
+      - name: Compute dynamic seed
+        id: dynamic-seed
+        run: echo "seed=$(( ${{ github.run_number }} % 100000 ))" >> $GITHUB_OUTPUT
+
       - name: Run randomized-order guard (seed=${{ matrix.seed }})
         run: |
-          pytest tests/debate tests/knowledge tests/server/handlers \
+          pytest tests/debate tests/knowledge tests/server/handlers tests/control_plane tests/agents tests/memory \
             -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
             --timeout=60 \
             -x \
             -p randomly \
             --randomly-seed=${{ matrix.seed }} \
+            -v \
+            --tb=short
+        env:
+          PYTHONPATH: .
+
+      - name: Run randomized-order guard (dynamic seed=${{ steps.dynamic-seed.outputs.seed }})
+        run: |
+          pytest tests/debate tests/knowledge tests/server/handlers tests/control_plane tests/agents tests/memory \
+            -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
+            --timeout=60 \
+            -x \
+            -p randomly \
+            --randomly-seed=${{ steps.dynamic-seed.outputs.seed }} \
             -v \
             --tb=short
         env:
