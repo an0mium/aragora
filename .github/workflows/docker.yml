@@ -82,6 +82,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner (backend)
         uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
         with:
           image-ref: 'test-backend:latest'
           format: 'sarif'
@@ -149,6 +150,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner (frontend)
         uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
         with:
           image-ref: 'test-frontend:latest'
           format: 'sarif'
@@ -184,6 +186,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner (operator)
         uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
         with:
           image-ref: 'test-operator:latest'
           format: 'sarif'

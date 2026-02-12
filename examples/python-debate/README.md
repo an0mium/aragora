@@ -9,7 +9,7 @@ A full-featured command-line tool demonstrating the Aragora Python SDK.
 pip install aragora-sdk python-dotenv
 
 # Start the server (in another terminal)
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Set API keys (for debate functionality)
 export ANTHROPIC_API_KEY="sk-..."

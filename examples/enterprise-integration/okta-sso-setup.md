@@ -154,7 +154,7 @@ ARAGORA_SSO_ROLE_MAPPING='{"Aragora-Admins":"admin","Aragora-Developers":"develo
 docker compose up -d
 
 # Or directly
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ### Step 4: Verify Configuration

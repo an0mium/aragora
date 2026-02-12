@@ -9,7 +9,7 @@ A full-featured web app demonstrating the Aragora TypeScript SDK with real-time 
 npm install
 
 # Start the Aragora server (in another terminal)
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # Set API keys (on server side)
 export ANTHROPIC_API_KEY="sk-..."

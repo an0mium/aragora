@@ -76,7 +76,7 @@ Demonstrates Aragora's Gauntlet system for adversarial validation and compliance
 
 ```bash
 # Start server first
-python -m aragora.server.unified_server --port 8080
+aragora serve --api-port 8080 --ws-port 8765
 
 # In another terminal
 npx ts-node examples/05_typescript_sdk.ts

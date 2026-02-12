@@ -37,7 +37,7 @@ async function main() {
     console.log(`   Server status: ${health.status}`);
     console.log(`   Version: ${health.version || "unknown"}\n`);
   } catch (error) {
-    console.error("   Server not reachable. Start with: python -m aragora.server.unified_server");
+    console.error("   Server not reachable. Start with: aragora serve --api-port 8080 --ws-port 8765");
     process.exit(1);
   }
 
