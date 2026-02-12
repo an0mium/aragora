@@ -184,8 +184,8 @@ See [docs/deprecated/README.md](./deprecated/README.md) for the full index.
 ## Contributing
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full contribution guide. For
-frontend contributions, also see [FRONTEND_DEVELOPMENT.md](./FRONTEND_DEVELOPMENT.md),
-and for new agents, see [AGENT_DEVELOPMENT.md](./AGENT_DEVELOPMENT.md).
+frontend contributions, also see [FRONTEND_DEVELOPMENT.md](./debate/FRONTEND_DEVELOPMENT.md),
+and for new agents, see [AGENT_DEVELOPMENT.md](./debate/AGENT_DEVELOPMENT.md).
 
 ## Documentation Maintenance
 
