@@ -840,653 +840,55 @@ def get_prometheus_metrics() -> str:
 
 
 # ============================================================================
-# Recording Functions
+# Recording Functions (delegated to prometheus_recording.py)
 # ============================================================================
 
-
-def record_debate_completed(
-    duration_seconds: float,
-    rounds_used: int,
-    outcome: str,  # "consensus", "no_consensus", "error", "timeout"
-    agent_count: int,
-) -> None:
-    """Record a completed debate."""
-    if PROMETHEUS_AVAILABLE:
-        DEBATE_DURATION.labels(outcome=outcome, agent_count=str(agent_count)).observe(
-            duration_seconds
-        )
-        DEBATE_ROUNDS.labels(outcome=outcome).observe(rounds_used)
-        DEBATES_TOTAL.labels(outcome=outcome).inc()
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_debate_duration_seconds",
-            duration_seconds,
-            {"outcome": outcome, "agent_count": str(agent_count)},
-        )
-        _simple_metrics.inc_counter("aragora_debates_total", {"outcome": outcome})
-
-
-def record_tokens_used(model: str, input_tokens: int, output_tokens: int) -> None:
-    """Record token usage."""
-    if PROMETHEUS_AVAILABLE:
-        DEBATE_TOKENS.labels(model=model, direction="input").inc(input_tokens)
-        DEBATE_TOKENS.labels(model=model, direction="output").inc(output_tokens)
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_debate_tokens_total",
-            {"model": model, "direction": "input"},
-            input_tokens,
-        )
-        _simple_metrics.inc_counter(
-            "aragora_debate_tokens_total",
-            {"model": model, "direction": "output"},
-            output_tokens,
-        )
-
-
-def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -> None:
-    """Record cost in USD.
-
-    Cost is stored as micro-dollars (1e-6) for precision with counters.
-    """
-    micro_dollars = int(cost_usd * 1_000_000)
-    if PROMETHEUS_AVAILABLE:
-        COST_USD_TOTAL.labels(provider=provider, model=model, agent_id=agent_id).inc(micro_dollars)
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_cost_usd_total",
-            {"provider": provider, "model": model, "agent_id": agent_id},
-            micro_dollars,
-        )
-
-
-def record_debate_cost(provider: str, cost_usd: float) -> None:
-    """Record cost for a completed debate."""
-    micro_dollars = int(cost_usd * 1_000_000)
-    if PROMETHEUS_AVAILABLE:
-        COST_PER_DEBATE.labels(provider=provider).observe(micro_dollars)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_debate_cost_usd",
-            micro_dollars,
-            {"provider": provider},
-        )
-
-
-def set_budget_utilization(workspace_id: str, budget_type: str, utilization_percent: float) -> None:
-    """Set current budget utilization percentage."""
-    if PROMETHEUS_AVAILABLE:
-        BUDGET_UTILIZATION.labels(workspace_id=workspace_id, budget_type=budget_type).set(
-            utilization_percent
-        )
-    else:
-        _simple_metrics.set_gauge(
-            "aragora_budget_utilization_percent",
-            utilization_percent,
-            {"workspace_id": workspace_id, "budget_type": budget_type},
-        )
-
-
-def record_agent_generation(agent_type: str, model: str, duration_seconds: float) -> None:
-    """Record agent generation time."""
-    if PROMETHEUS_AVAILABLE:
-        AGENT_GENERATION_DURATION.labels(agent_type=agent_type, model=model).observe(
-            duration_seconds
-        )
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_agent_generation_seconds",
-            duration_seconds,
-            {"agent_type": agent_type, "model": model},
-        )
-
-
-def record_agent_failure(agent_type: str, error_type: str) -> None:
-    """Record an agent failure."""
-    if PROMETHEUS_AVAILABLE:
-        AGENT_FAILURES.labels(agent_type=agent_type, error_type=error_type).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_agent_failures_total",
-            {"agent_type": agent_type, "error_type": error_type},
-        )
-
-
-def set_circuit_breaker_state(agent_type: str, state: int) -> None:
-    """Set circuit breaker state (0=closed, 1=open, 2=half-open)."""
-    if PROMETHEUS_AVAILABLE:
-        AGENT_CIRCUIT_BREAKER.labels(agent_type=agent_type).set(state)
-    else:
-        _simple_metrics.set_gauge(
-            "aragora_agent_circuit_breaker_state",
-            state,
-            {"agent_type": agent_type},
-        )
-
-
-def initialize_circuit_breaker_metrics() -> None:
-    """Initialize circuit breaker metrics integration.
-
-    Registers a callback with the resilience module to automatically
-    export circuit breaker state changes to Prometheus.
-
-    Call this once during server startup.
-    """
-    try:
-        from aragora.resilience import set_metrics_callback
-
-        set_metrics_callback(set_circuit_breaker_state)
-        logger.info("Circuit breaker metrics integration initialized")
-    except ImportError:
-        logger.debug("Resilience module not available for metrics integration")
-
-
-def export_circuit_breaker_metrics() -> None:
-    """Export all circuit breaker states to Prometheus.
-
-    Call this periodically (e.g., every 30s) to ensure metrics
-    are up-to-date even if state changes were missed.
-    """
-    try:
-        from aragora.resilience import get_circuit_breaker_metrics
-
-        metrics = get_circuit_breaker_metrics()
-        for name, cb_data in metrics.get("circuit_breakers", {}).items():
-            status = cb_data.get("status", "closed")
-            state_value = {"closed": 0, "open": 1, "half-open": 2}.get(status, 0)
-            set_circuit_breaker_state(name, state_value)
-
-            # Also export entity-level states if in multi-entity mode
-            entity_mode = cb_data.get("entity_mode", {})
-            for entity in entity_mode.get("open_entities", []):
-                set_circuit_breaker_state(f"{name}:{entity}", 1)  # open
-
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.debug(f"Error exporting circuit breaker metrics: {e}")
-
-
-def record_http_request(method: str, endpoint: str, status: int, duration_seconds: float) -> None:
-    """Record an HTTP request."""
-    if PROMETHEUS_AVAILABLE:
-        HTTP_REQUEST_DURATION.labels(method=method, endpoint=endpoint, status=str(status)).observe(
-            duration_seconds
-        )
-        HTTP_REQUESTS_TOTAL.labels(method=method, endpoint=endpoint, status=str(status)).inc()
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_http_request_duration_seconds",
-            duration_seconds,
-            {"method": method, "endpoint": endpoint, "status": str(status)},
-        )
-        _simple_metrics.inc_counter(
-            "aragora_http_requests_total",
-            {"method": method, "endpoint": endpoint, "status": str(status)},
-        )
-
-
-def set_websocket_connections(count: int) -> None:
-    """Set active WebSocket connection count."""
-    if PROMETHEUS_AVAILABLE:
-        WEBSOCKET_CONNECTIONS.set(count)
-    else:
-        _simple_metrics.set_gauge("aragora_websocket_connections_active", count)
-
-
-def record_websocket_message(direction: str, message_type: str) -> None:
-    """Record a WebSocket message."""
-    if PROMETHEUS_AVAILABLE:
-        WEBSOCKET_MESSAGES.labels(direction=direction, message_type=message_type).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_websocket_messages_total",
-            {"direction": direction, "message_type": message_type},
-        )
-
-
-def record_rate_limit_hit(limit_type: str) -> None:
-    """Record a rate limit hit."""
-    if PROMETHEUS_AVAILABLE:
-        RATE_LIMIT_HITS.labels(limit_type=limit_type).inc()
-    else:
-        _simple_metrics.inc_counter("aragora_rate_limit_hits_total", {"limit_type": limit_type})
-
-
-def set_rate_limit_tokens_tracked(count: int) -> None:
-    """Set number of tokens being tracked for rate limiting."""
-    if PROMETHEUS_AVAILABLE:
-        RATE_LIMIT_TOKENS_TRACKED.set(count)
-    else:
-        _simple_metrics.set_gauge("aragora_rate_limit_tokens_tracked", count)
-
-
-def set_cache_size(cache_name: str, size: int) -> None:
-    """Set cache size."""
-    if PROMETHEUS_AVAILABLE:
-        CACHE_SIZE.labels(cache_name=cache_name).set(size)
-    else:
-        _simple_metrics.set_gauge("aragora_cache_size_entries", size, {"cache_name": cache_name})
-
-
-def record_cache_hit(cache_name: str) -> None:
-    """Record a cache hit."""
-    if PROMETHEUS_AVAILABLE:
-        CACHE_HITS.labels(cache_name=cache_name).inc()
-    else:
-        _simple_metrics.inc_counter("aragora_cache_hits_total", {"cache_name": cache_name})
-
-
-def record_cache_miss(cache_name: str) -> None:
-    """Record a cache miss."""
-    if PROMETHEUS_AVAILABLE:
-        CACHE_MISSES.labels(cache_name=cache_name).inc()
-    else:
-        _simple_metrics.inc_counter("aragora_cache_misses_total", {"cache_name": cache_name})
-
-
-def set_server_info(version: str, python_version: str, start_time: float) -> None:
-    """Set server information."""
-    if PROMETHEUS_AVAILABLE:
-        ARAGORA_INFO.info(
-            {
-                "version": version,
-                "python_version": python_version,
-                "start_time": str(int(start_time)),
-            }
-        )
-    else:
-        _simple_metrics.set_info(
-            "aragora",
-            {
-                "version": version,
-                "python_version": python_version,
-                "start_time": str(int(start_time)),
-            },
-        )
-
-
-def record_db_query(operation: str, table: str, duration_seconds: float) -> None:
-    """Record a database query.
-
-    Args:
-        operation: Query operation type (select, insert, update, delete)
-        table: Table name being queried
-        duration_seconds: Query execution time
-    """
-    if PROMETHEUS_AVAILABLE:
-        DB_QUERY_DURATION.labels(operation=operation, table=table).observe(duration_seconds)
-        DB_QUERY_TOTAL.labels(operation=operation, table=table).inc()
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_db_query_duration_seconds",
-            duration_seconds,
-            {"operation": operation, "table": table},
-        )
-        _simple_metrics.inc_counter(
-            "aragora_db_queries_total",
-            {"operation": operation, "table": table},
-        )
-
-
-def record_db_error(error_type: str, operation: str) -> None:
-    """Record a database error.
-
-    Args:
-        error_type: Type of error (e.g., "timeout", "connection", "constraint")
-        operation: Operation that failed
-    """
-    if PROMETHEUS_AVAILABLE:
-        DB_ERRORS_TOTAL.labels(error_type=error_type, operation=operation).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_db_errors_total",
-            {"error_type": error_type, "operation": operation},
-        )
-
-
-def set_db_pool_size(active: int, idle: int) -> None:
-    """Set database connection pool sizes.
-
-    Args:
-        active: Number of active connections
-        idle: Number of idle connections
-    """
-    if PROMETHEUS_AVAILABLE:
-        DB_CONNECTION_POOL_SIZE.labels(state="active").set(active)
-        DB_CONNECTION_POOL_SIZE.labels(state="idle").set(idle)
-    else:
-        _simple_metrics.set_gauge("aragora_db_connection_pool_size", active, {"state": "active"})
-        _simple_metrics.set_gauge("aragora_db_connection_pool_size", idle, {"state": "idle"})
-
-
-def set_memory_tier_size(tier: str, size: int) -> None:
-    """Set the number of memories in a tier.
-
-    Args:
-        tier: Memory tier name (fast, medium, slow, glacial)
-        size: Number of memories in the tier
-    """
-    if PROMETHEUS_AVAILABLE:
-        MEMORY_TIER_SIZE.labels(tier=tier).set(size)
-    else:
-        _simple_metrics.set_gauge("aragora_memory_tier_size", size, {"tier": tier})
-
-
-def record_memory_tier_transition(from_tier: str, to_tier: str) -> None:
-    """Record a memory tier transition.
-
-    Args:
-        from_tier: Source tier (fast, medium, slow)
-        to_tier: Destination tier (medium, slow, glacial)
-    """
-    if PROMETHEUS_AVAILABLE:
-        MEMORY_TIER_TRANSITIONS.labels(from_tier=from_tier, to_tier=to_tier).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_memory_tier_transitions_total",
-            {"from_tier": from_tier, "to_tier": to_tier},
-        )
-
-
-def record_memory_operation(operation: str) -> None:
-    """Record a memory operation.
-
-    Args:
-        operation: Operation type (store, retrieve, consolidate, prune)
-    """
-    if PROMETHEUS_AVAILABLE:
-        MEMORY_OPERATIONS.labels(operation=operation).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_memory_operations_total",
-            {"operation": operation},
-        )
-
+from aragora.server.prometheus_recording import (  # noqa: F401, E402
+    record_debate_completed,
+    record_tokens_used,
+    record_cost_usd,
+    record_debate_cost,
+    set_budget_utilization,
+    record_agent_generation,
+    record_agent_failure,
+    set_circuit_breaker_state,
+    initialize_circuit_breaker_metrics,
+    export_circuit_breaker_metrics,
+    record_http_request,
+    set_websocket_connections,
+    record_websocket_message,
+    record_rate_limit_hit,
+    set_rate_limit_tokens_tracked,
+    set_cache_size,
+    record_cache_hit,
+    record_cache_miss,
+    set_server_info,
+    record_db_query,
+    record_db_error,
+    set_db_pool_size,
+    set_memory_tier_size,
+    record_memory_tier_transition,
+    record_memory_operation,
+    record_external_agent_task,
+    record_external_agent_duration,
+    record_external_agent_tokens,
+    record_external_agent_tool_blocked,
+    record_external_agent_cost,
+    record_v1_api_request,
+    update_v1_days_until_sunset,
+    record_v1_api_sunset_blocked,
+)
 
 # ============================================================================
-# External Agent Gateway Metrics
+# Decorators (delegated to prometheus_decorators.py)
 # ============================================================================
 
-
-def record_external_agent_task(adapter: str, status: str) -> None:
-    """Record an external agent task event.
-
-    Args:
-        adapter: Adapter name (e.g., 'openhands', 'autogpt')
-        status: Task status (submitted, completed, failed, cancelled)
-    """
-    if PROMETHEUS_AVAILABLE:
-        EXTERNAL_AGENT_TASKS_TOTAL.labels(adapter=adapter, status=status).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_external_agent_tasks_total",
-            {"adapter": adapter, "status": status},
-        )
-
-
-def record_external_agent_duration(adapter: str, task_type: str, seconds: float) -> None:
-    """Record external agent task duration.
-
-    Args:
-        adapter: Adapter name
-        task_type: Type of task (code, research, analysis)
-        seconds: Duration in seconds
-    """
-    if PROMETHEUS_AVAILABLE:
-        EXTERNAL_AGENT_TASK_DURATION.labels(adapter=adapter, task_type=task_type).observe(seconds)
-    else:
-        _simple_metrics.observe_histogram(
-            "aragora_external_agent_task_duration_seconds",
-            seconds,
-            {"adapter": adapter, "task_type": task_type},
-        )
-
-
-def record_external_agent_tokens(adapter: str, tokens: int) -> None:
-    """Record tokens used by an external agent.
-
-    Args:
-        adapter: Adapter name
-        tokens: Number of tokens consumed
-    """
-    if PROMETHEUS_AVAILABLE:
-        EXTERNAL_AGENT_TOKENS_TOTAL.labels(adapter=adapter).inc(tokens)
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_external_agent_tokens_total",
-            {"adapter": adapter},
-            tokens,
-        )
-
-
-def record_external_agent_tool_blocked(adapter: str, tool: str) -> None:
-    """Record a blocked tool invocation.
-
-    Args:
-        adapter: Adapter name
-        tool: Tool name that was blocked
-    """
-    if PROMETHEUS_AVAILABLE:
-        EXTERNAL_AGENT_TOOLS_BLOCKED.labels(adapter=adapter, tool=tool).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_external_agent_tools_blocked_total",
-            {"adapter": adapter, "tool": tool},
-        )
-
-
-def record_external_agent_cost(adapter: str, cost_usd: float) -> None:
-    """Record cost for an external agent task.
-
-    Cost is stored as micro-dollars (1e-6) for precision with counters.
-
-    Args:
-        adapter: Adapter name
-        cost_usd: Cost in USD
-    """
-    micro_dollars = int(cost_usd * 1_000_000)
-    if PROMETHEUS_AVAILABLE:
-        EXTERNAL_AGENT_COST_TOTAL.labels(adapter=adapter).inc(micro_dollars)
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_external_agent_cost_microdollars_total",
-            {"adapter": adapter},
-            micro_dollars,
-        )
-
-
-# ============================================================================
-# Decorators for Easy Instrumentation
-# ============================================================================
-
-
-def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
-    """Decorator to time HTTP request handlers.
-
-    Args:
-        endpoint: The HTTP endpoint being timed (e.g., "/api/debates")
-
-    Returns:
-        Decorator function that wraps handlers with timing instrumentation.
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            try:
-                result = func(*args, **kwargs)
-                status = getattr(result, "status_code", 200) if result else 200
-                return result
-            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
-                logger.warning("HTTP request to %s failed: %s", endpoint, e)
-                status = 500
-                raise
-            finally:
-                duration = time.perf_counter() - start
-                record_http_request("GET", endpoint, status, duration)
-
-        return wrapper
-
-    return decorator
-
-
-def timed_agent_generation(agent_type: str, model: str) -> Callable[[Callable], Callable]:
-    """Decorator to time agent generation.
-
-    Args:
-        agent_type: Type of agent being timed (e.g., "anthropic-api")
-        model: Model name being used (e.g., "claude-3-sonnet")
-
-    Returns:
-        Async decorator function that wraps generators with timing instrumentation.
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            try:
-                result = await func(*args, **kwargs)
-                return result
-            except (ValueError, TypeError, KeyError, RuntimeError, TimeoutError, OSError) as e:
-                logger.warning("Agent %s generation failed: %s", agent_type, e)
-                record_agent_failure(agent_type, type(e).__name__)
-                raise
-            finally:
-                duration = time.perf_counter() - start
-                record_agent_generation(agent_type, model, duration)
-
-        return wrapper
-
-    return decorator
-
-
-def timed_db_query(operation: str, table: str) -> Callable[[Callable], Callable]:
-    """Decorator to time database query execution.
-
-    Args:
-        operation: Query operation type (select, insert, update, delete)
-        table: Table name being queried
-
-    Returns:
-        Decorator function that wraps queries with timing instrumentation.
-
-    Usage:
-        @timed_db_query("select", "debates")
-        def list_debates(self, limit: int):
-            ...
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            try:
-                result = func(*args, **kwargs)
-                return result
-            except (ValueError, TypeError, KeyError, RuntimeError, TimeoutError, OSError) as e:
-                logger.warning("DB %s on %s failed: %s", operation, table, e)
-                record_db_error(type(e).__name__, operation)
-                raise
-            finally:
-                duration = time.perf_counter() - start
-                record_db_query(operation, table, duration)
-
-        return wrapper
-
-    return decorator
-
-
-def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Callable]:
-    """Async decorator to time database query execution.
-
-    Args:
-        operation: Query operation type (select, insert, update, delete)
-        table: Table name being queried
-
-    Returns:
-        Async decorator function that wraps queries with timing instrumentation.
-
-    Usage:
-        @timed_db_query_async("select", "debates")
-        async def list_debates(self, limit: int):
-            ...
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            try:
-                result = await func(*args, **kwargs)
-                return result
-            except (ValueError, TypeError, KeyError, RuntimeError, TimeoutError, OSError) as e:
-                logger.warning("Async DB %s on %s failed: %s", operation, table, e)
-                record_db_error(type(e).__name__, operation)
-                raise
-            finally:
-                duration = time.perf_counter() - start
-                record_db_query(operation, table, duration)
-
-        return wrapper
-
-    return decorator
-
-
-# ============================================================================
-# V1 API Deprecation Metrics Recording
-# ============================================================================
-
-
-def record_v1_api_request(endpoint: str, method: str) -> None:
-    """Record a request to a deprecated V1 API endpoint.
-
-    Args:
-        endpoint: The V1 API endpoint path (e.g., "/api/v1/debates")
-        method: HTTP method (GET, POST, etc.)
-    """
-    if PROMETHEUS_AVAILABLE:
-        V1_API_REQUESTS.labels(endpoint=endpoint, method=method).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_v1_api_requests_total",
-            {"endpoint": endpoint, "method": method},
-        )
-
-
-def update_v1_days_until_sunset() -> None:
-    """Update the gauge showing days until V1 API sunset.
-
-    Should be called periodically (e.g., at startup and once per hour).
-    """
-    try:
-        from aragora.server.versioning.constants import days_until_v1_sunset
-
-        days = days_until_v1_sunset()
-        if PROMETHEUS_AVAILABLE:
-            V1_API_DAYS_UNTIL_SUNSET.set(days)
-        else:
-            _simple_metrics.set_gauge("aragora_v1_api_days_until_sunset", days)
-    except ImportError:
-        pass
-
-
-def record_v1_api_sunset_blocked(endpoint: str, method: str) -> None:
-    """Record a request blocked due to V1 API sunset.
-
-    Args:
-        endpoint: The V1 API endpoint path
-        method: HTTP method
-    """
-    if PROMETHEUS_AVAILABLE:
-        V1_API_SUNSET_BLOCKED.labels(endpoint=endpoint, method=method).inc()
-    else:
-        _simple_metrics.inc_counter(
-            "aragora_v1_api_sunset_blocked_total",
-            {"endpoint": endpoint, "method": method},
-        )
+from aragora.server.prometheus_decorators import (  # noqa: F401, E402
+    timed_http_request,
+    timed_agent_generation,
+    timed_db_query,
+    timed_db_query_async,
+)
 
 
 # ============================================================================
@@ -1496,6 +898,8 @@ def record_v1_api_sunset_blocked(endpoint: str, method: str) -> None:
 # Control Plane metrics: from aragora.server.prometheus_control_plane import ...
 # RLM metrics: from aragora.server.prometheus_rlm import record_rlm_compression, ...
 # Knowledge metrics: from aragora.server.prometheus_knowledge import ...
+# Recording functions: from aragora.server.prometheus_recording import ...
+# Decorators: from aragora.server.prometheus_decorators import ...
 
 __all__ = [
     # Core
@@ -1503,9 +907,12 @@ __all__ = [
     "get_metrics_output",
     "is_prometheus_available",
     "get_prometheus_metrics",
-    # Core recording functions
+    # Core recording functions (from prometheus_recording)
     "record_debate_completed",
     "record_tokens_used",
+    "record_cost_usd",
+    "record_debate_cost",
+    "set_budget_utilization",
     "record_agent_generation",
     "record_agent_failure",
     "set_circuit_breaker_state",
@@ -1526,12 +933,17 @@ __all__ = [
     "set_memory_tier_size",
     "record_memory_tier_transition",
     "record_memory_operation",
-    # Decorators
+    "record_external_agent_task",
+    "record_external_agent_duration",
+    "record_external_agent_tokens",
+    "record_external_agent_tool_blocked",
+    "record_external_agent_cost",
+    # Decorators (from prometheus_decorators)
     "timed_http_request",
     "timed_agent_generation",
     "timed_db_query",
     "timed_db_query_async",
-    # V1 API Deprecation
+    # V1 API Deprecation (from prometheus_recording)
     "record_v1_api_request",
     "update_v1_days_until_sunset",
     "record_v1_api_sunset_blocked",
