@@ -32,6 +32,7 @@ from aragora_debate.types import (
     Message,
     Phase,
     Proposal,
+    Verdict,
     Vote,
 )
 from aragora_debate.arena import Arena
@@ -39,11 +40,23 @@ from aragora_debate.receipt import ReceiptBuilder
 
 __version__ = "0.1.0"
 
+# Optional provider agents (require extra dependencies)
+try:
+    from aragora_debate.agents import ClaudeAgent
+except ImportError:
+    ClaudeAgent = None  # type: ignore[assignment,misc]
+
+try:
+    from aragora_debate.agents import OpenAIAgent
+except ImportError:
+    OpenAIAgent = None  # type: ignore[assignment,misc]
+
 __all__ = [
     "Agent",
     "AgentResponse",
     "Arena",
     "Claim",
+    "ClaudeAgent",
     "Consensus",
     "ConsensusMethod",
     "Critique",
@@ -53,8 +66,10 @@ __all__ = [
     "DissentRecord",
     "Evidence",
     "Message",
+    "OpenAIAgent",
     "Phase",
     "Proposal",
     "ReceiptBuilder",
+    "Verdict",
     "Vote",
 ]
