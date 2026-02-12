@@ -918,7 +918,7 @@ Current released version is **v2.6.3**.
 #### Key Highlights
 - **40,700+ tests** collected and passing (+2,300 new tests)
 - **Knowledge Mound 100% integrated** - All subsystems bidirectionally wired
-- **28 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, and 14 more
+- **33 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, LangExtract, Extraction, NomicCycle, OpenClaw, and 15 more
 - **Cross-debate learning** - Organizational knowledge persists and improves across debates
 - **Semantic search** - Vector-based similarity search in all adapters
 - **SLO alerting** - Adapter performance monitoring with Prometheus metrics

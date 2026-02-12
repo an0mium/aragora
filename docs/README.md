@@ -7,11 +7,21 @@ source. The published site in `docs-site/` is synced from these files via
 Aragora is the **control plane for multi-agent vetted decisionmaking across
 organizational knowledge and channels**.
 
-## Quick Start
+## What Are You Trying To Do?
 
-| Document | Description |
-|----------|-------------|
-| [GETTING_STARTED](./guides/GETTING_STARTED.md) | Comprehensive onboarding guide |
+| Goal | Document |
+|------|----------|
+| **Run your first debate in 5 minutes** | [Quickstart](./guides/QUICKSTART.md) |
+| Full onboarding guide | [Getting Started](./guides/GETTING_STARTED.md) |
+| See 20 runnable code examples | [API Cookbook](./guides/API_COOKBOOK.md) |
+| Build a Python integration | [SDK Guide](./SDK_GUIDE.md) |
+| Build a TypeScript integration | [TypeScript SDK](./guides/SDK_TYPESCRIPT.md) |
+| Use the REST API | [API Reference](./api/API_REFERENCE.md) |
+| Stream events via WebSocket | [WebSocket Events](./streaming/WEBSOCKET_EVENTS.md) |
+| Deploy to production | [Deployment Guide](./deployment/DEPLOYMENT.md) |
+| Set up Slack/Telegram/WhatsApp | [Chat Connector Guide](./guides/CHAT_CONNECTOR_GUIDE.md) |
+| Troubleshoot an issue | [Troubleshooting](./guides/TROUBLESHOOTING.md) |
+| Understand the architecture | [Architecture](./architecture/ARCHITECTURE.md) |
 
 ## Core Concepts
 
@@ -27,7 +37,19 @@ organizational knowledge and channels**.
 | [CONTROL_PLANE](./reference/CONTROL_PLANE.md) | Control plane architecture |
 | [CONTROL_PLANE_GUIDE](./guides/CONTROL_PLANE_GUIDE.md) | Control plane operations guide |
 | [MEMORY](./knowledge/MEMORY.md) | Memory systems overview |
+| [KNOWLEDGE_MOUND](./knowledge/KNOWLEDGE_MOUND.md) | Centralized knowledge storage with 33 adapters |
 | [DOCUMENTS](./reference/DOCUMENTS.md) | Document ingestion and parsing |
+
+### Memory Tiers
+
+| Tier | Half-Life | Purpose |
+|------|-----------|---------|
+| Fast | 1 hour | Immediate context within a debate |
+| Medium | 24 hours | Session-level memory |
+| Slow | 7 days | Cross-session patterns |
+| Glacial | 30 days | Long-term institutional knowledge |
+
+See [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) for details.
 
 ## Using Aragora
 
@@ -65,10 +87,20 @@ organizational knowledge and channels**.
 
 | Document | Description |
 |----------|-------------|
+| [BOT_INTEGRATIONS](./integrations/BOT_INTEGRATIONS.md) | Slack bot setup |
+| [CHAT_CONNECTOR_GUIDE](./guides/CHAT_CONNECTOR_GUIDE.md) | Telegram and WhatsApp |
 | [MCP_INTEGRATION](./integrations/MCP_INTEGRATION.md) | Model Context Protocol setup |
 | [MCP_ADVANCED](./integrations/MCP_ADVANCED.md) | Advanced MCP patterns |
 | [INTEGRATIONS](./integrations/INTEGRATIONS.md) | Third-party integrations |
+| [GITHUB_PR_REVIEW](./integrations/GITHUB_PR_REVIEW.md) | PR review automation |
 | [TINKER_INTEGRATION](./integrations/TINKER_INTEGRATION.md) | Tinker framework integration |
+
+### Costs & Billing
+
+| Document | Description |
+|----------|-------------|
+| [BILLING](./reference/BILLING.md) | Billing and subscriptions |
+| [COST_VISIBILITY](./reference/COST_VISIBILITY.md) | Cost tracking and budgets |
 
 ## API & SDK
 
@@ -77,14 +109,42 @@ organizational knowledge and channels**.
 | [API_REFERENCE](./api/API_REFERENCE.md) | Complete API documentation |
 | [API_ENDPOINTS](./api/API_ENDPOINTS.md) | HTTP endpoint reference |
 | [API_EXAMPLES](./api/API_EXAMPLES.md) | API usage examples |
+| [API_COOKBOOK](./guides/API_COOKBOOK.md) | 20 common patterns with runnable code |
 | [API_VERSIONING](./api/API_VERSIONING.md) | API version policy |
 | [BREAKING_CHANGES](./reference/BREAKING_CHANGES.md) | Breaking changes and migration |
 | [MIGRATION_V1_TO_V2](./status/MIGRATION_V1_TO_V2.md) | API v1 to v2 migration guide |
 | [WEBSOCKET_EVENTS](./streaming/WEBSOCKET_EVENTS.md) | WebSocket event reference |
 | [SDK_TYPESCRIPT](./guides/SDK_TYPESCRIPT.md) | TypeScript SDK guide |
-| [SDK_CONSOLIDATION](./guides/SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 → v3) |
+| [SDK_CONSOLIDATION](./guides/SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 to v3) |
 | [SDK_GUIDE](./SDK_GUIDE.md) | Python SDK guide |
 | [LIBRARY_USAGE](./reference/LIBRARY_USAGE.md) | Using Aragora as a library |
+
+### API Quick Reference
+
+| Endpoint Pattern | Purpose |
+|-----------------|---------|
+| `POST /api/v1/debates` | Start a debate |
+| `GET /api/v1/debates/{id}` | Get debate result |
+| `GET /ws/debate/{id}` | Stream events via WebSocket |
+| `POST /api/v1/knowledge/search` | Search knowledge |
+| `GET /api/v1/agents/rankings` | Agent rankings |
+| `GET /health` | Health check |
+
+### CLI Quick Reference
+
+```bash
+aragora ask "Question"          # Run a debate
+aragora gauntlet "Claim"        # Stress-test a claim
+aragora review path/to/code     # Review code
+aragora serve --port 8080       # Start server
+aragora setup                   # Interactive setup wizard
+aragora doctor                  # Health check
+aragora backup create           # Create backup
+aragora backup restore          # Restore from backup
+aragora skills scan file.py     # Scan for malicious patterns
+```
+
+See [CLI_REFERENCE](./reference/CLI_REFERENCE.md) for full documentation.
 
 ## Operations & Deployment
 
@@ -95,10 +155,12 @@ organizational knowledge and channels**.
 | [RUNBOOK](./deployment/RUNBOOK.md) | Incident response procedures |
 | [PRODUCTION_READINESS](./deployment/PRODUCTION_READINESS.md) | Production readiness checklist |
 | [OBSERVABILITY](./observability/OBSERVABILITY.md) | Monitoring and telemetry |
+| [SCALING](./deployment/SCALING.md) | Scaling guide |
 | [RATE_LIMITING](./api/RATE_LIMITING.md) | Rate limit configuration |
 | [QUEUE](./resilience/QUEUE.md) | Debate queue management |
+| [ASYNC_GATEWAY](./deployment/ASYNC_GATEWAY.md) | Async gateway setup |
 
-## Security
+## Security & Compliance
 
 | Document | Description |
 |----------|-------------|
@@ -106,7 +168,11 @@ organizational knowledge and channels**.
 | [SECURITY_DEPLOYMENT](./deployment/SECURITY_DEPLOYMENT.md) | Secure deployment practices |
 | [SECRETS_MANAGEMENT](./enterprise/SECRETS_MANAGEMENT.md) | Managing API keys and secrets |
 | [SSO_SETUP](./enterprise/SSO_SETUP.md) | SSO configuration |
+| [AUTH_GUIDE](./enterprise/AUTH_GUIDE.md) | Authentication (OIDC, SAML, MFA) |
+| [GOVERNANCE](./enterprise/GOVERNANCE.md) | Decision governance |
+| [COMPLIANCE](./enterprise/COMPLIANCE.md) | SOC 2, GDPR support |
 | [COMPLIANCE_PRESETS](./enterprise/COMPLIANCE_PRESETS.md) | Built-in audit presets |
+| [DATA_CLASSIFICATION](./enterprise/DATA_CLASSIFICATION.md) | Data classification policy |
 
 ## Configuration
 
@@ -120,9 +186,12 @@ organizational knowledge and channels**.
 
 | Document | Description |
 |----------|-------------|
+| [CONTRIBUTING](../CONTRIBUTING.md) | Contribution guide |
 | [FRONTEND_DEVELOPMENT](./debate/FRONTEND_DEVELOPMENT.md) | Frontend contribution guide |
 | [FRONTEND_ROUTES](./guides/FRONTEND_ROUTES.md) | Frontend route and feature map |
+| [HANDLER_DEVELOPMENT](./reference/HANDLER_DEVELOPMENT.md) | Writing new server handlers |
 | [TESTING](./testing/TESTING.md) | Test suite documentation |
+| [CODING_ASSISTANCE](./reference/CODING_ASSISTANCE.md) | Code review and generation |
 | [BREAKING_CHANGES](./reference/BREAKING_CHANGES.md) | Breaking changes by version |
 | [DEPRECATION_POLICY](./reference/DEPRECATION_POLICY.md) | Deprecation and migration policy |
 | [ERROR_CODES](./reference/ERROR_CODES.md) | Error code reference |
@@ -136,16 +205,20 @@ organizational knowledge and channels**.
 | [NOMIC_LOOP](./workflow/NOMIC_LOOP.md) | Self-improvement system |
 | [FORMAL_VERIFICATION](./workflow/FORMAL_VERIFICATION.md) | Z3/Lean verification |
 | [TRICKSTER](./debate/TRICKSTER.md) | Hollow consensus detection |
-| [GOVERNANCE](./enterprise/GOVERNANCE.md) | Decision governance |
-| [BILLING](./reference/BILLING.md) | Billing and subscriptions |
-
-## Compliance
-
-| Document | Description |
-|----------|-------------|
 | [A_B_TESTING](./testing/A_B_TESTING.md) | A/B testing framework |
 | [EVOLUTION_PATTERNS](./workflow/EVOLUTION_PATTERNS.md) | Evolution pattern library |
 | [GITHUB_ACTIONS](./deployment/GITHUB_ACTIONS.md) | CI/CD integration |
+
+## Advanced / Research
+
+| Document | Description |
+|----------|-------------|
+| [NOMIC_LOOP](./workflow/NOMIC_LOOP.md) | Self-improvement system |
+| [GENESIS](./workflow/GENESIS.md) | Fractal resolution and agent evolution |
+| [CROSS_POLLINATION](./workflow/CROSS_POLLINATION.md) | Cross-debate knowledge transfer |
+| [FORMAL_VERIFICATION](./workflow/FORMAL_VERIFICATION.md) | Z3/Lean verification |
+| [TRICKSTER](./debate/TRICKSTER.md) | Hollow consensus detection |
+| [ADR/README](./ADR/README.md) | Architecture Decision Records |
 
 ## Troubleshooting
 
@@ -153,6 +226,8 @@ organizational knowledge and channels**.
 |----------|-------------|
 | [TROUBLESHOOTING](./guides/TROUBLESHOOTING.md) | Common issues and solutions |
 | [NOMIC_LOOP_TROUBLESHOOTING](./guides/NOMIC_LOOP_TROUBLESHOOTING.md) | Nomic loop specific issues |
+| [CONNECTOR_TROUBLESHOOTING](./guides/CONNECTOR_TROUBLESHOOTING.md) | Connector issues |
+| [ALERT_RUNBOOKS](./deployment/ALERT_RUNBOOKS.md) | Alert response procedures |
 
 ## Case Studies
 
@@ -188,6 +263,13 @@ frontend contributions, also see [FRONTEND_DEVELOPMENT.md](./debate/FRONTEND_DEV
 and for new agents, see [AGENT_DEVELOPMENT.md](./debate/AGENT_DEVELOPMENT.md).
 
 ## Documentation Maintenance
+
+### Inventory
+
+- Markdown files under `docs/`: 435+ (includes deprecated)
+- Sync to docs-site: `node docs-site/scripts/sync-docs.js`
+- API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
+- OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`
 
 ### Review Schedule
 

@@ -84,8 +84,8 @@ Detailed execution plan: `docs/status/NEXT_STEPS_CANONICAL.md`.
 
 ### Test Health
 - 4 known_bug skips → xfail
-- Skip baseline: 425
-- Tests: 136,037 collected across 3,000+ files
+- Skip baseline: 368 (reduced from 425)
+- Tests: 136,000+ collected across 3,200+ files
 
 ## Phase 7 Complete (February 2026)
 
@@ -197,7 +197,7 @@ Independent verification of production readiness found the project is **98% GA-r
 - **Bot Cache Optimization**: Heap-based O(log n) TTL cleanup for response caching
 - **Circuit Breaker Defaults**: Tuned (threshold=5, cooldown=60s) across all resilience patterns
 - **Debate Stability Detection**: Beta-Binomial model with KS-distance for statistical early stopping (opt-in via `enable_stability_detection`)
-- **Knowledge Mound Adapter Base**: 25+ adapters using unified base class with resilience, metrics, and tracing
+- **Knowledge Mound Adapter Base**: 33 adapters using unified base class with resilience, metrics, and tracing
 
 ---
 
@@ -215,8 +215,8 @@ Current released version is **v2.6.3**.
 - **Bot handler consolidation** - All 8 bot handlers now use BotHandlerMixin
 - **RBAC standardization** - 90%+ of handlers now have permission checks
 - **Feedback handler tests** - 21 new tests for NPS and feedback submission
-- **Lines of Code**: 1,150,000+ LOC
-- **Tests**: 63,400+ across 1,900+ files
+- **Lines of Code**: 1,480,000+ LOC
+- **Tests**: 136,000+ across 3,200+ files
 - **0 production blockers**
 
 #### What's New in 2.5.0
@@ -1001,7 +1001,7 @@ Current released version is **v2.6.3**.
 #### Key Highlights
 - **40,700+ tests** collected and passing (+2,300 new tests)
 - **Knowledge Mound 100% integrated** - All subsystems bidirectionally wired
-- **28 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, and 14 more
+- **33 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, LangExtract, Extraction, NomicCycle, OpenClaw, and 15 more
 - **Cross-debate learning** - Organizational knowledge persists and improves across debates
 - **Semantic search** - Vector-based similarity search in all adapters
 - **SLO alerting** - Adapter performance monitoring with Prometheus metrics
