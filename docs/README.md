@@ -11,23 +11,23 @@ organizational knowledge and channels**.
 
 | Document | Description |
 |----------|-------------|
-| [GETTING_STARTED](./GETTING_STARTED.md) | Comprehensive onboarding guide |
+| [GETTING_STARTED](./guides/GETTING_STARTED.md) | Comprehensive onboarding guide |
 
 ## Core Concepts
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE](./ARCHITECTURE.md) | System architecture overview |
-| [FEATURES](./FEATURES.md) | Complete feature documentation |
-| [MODES_GUIDE](./MODES_GUIDE.md) | Debate modes (standard, gauntlet, genesis) |
-| [DEBATE_INTERNALS](./DEBATE_INTERNALS.md) | Debate engine internals (Arena, phases, consensus) |
-| [REASONING](./REASONING.md) | Belief networks, provenance, and claims |
-| [WORKFLOW_ENGINE](./WORKFLOW_ENGINE.md) | DAG-based workflow execution |
-| [RESILIENCE](./RESILIENCE.md) | Circuit breaker and fault tolerance |
-| [CONTROL_PLANE](./CONTROL_PLANE.md) | Control plane architecture |
-| [CONTROL_PLANE_GUIDE](./CONTROL_PLANE_GUIDE.md) | Control plane operations guide |
-| [MEMORY](./MEMORY.md) | Memory systems overview |
-| [DOCUMENTS](./DOCUMENTS.md) | Document ingestion and parsing |
+| [ARCHITECTURE](./architecture/ARCHITECTURE.md) | System architecture overview |
+| [FEATURES](./status/FEATURES.md) | Complete feature documentation |
+| [MODES_GUIDE](./guides/MODES_GUIDE.md) | Debate modes (standard, gauntlet, genesis) |
+| [DEBATE_INTERNALS](./debate/DEBATE_INTERNALS.md) | Debate engine internals (Arena, phases, consensus) |
+| [REASONING](./workflow/REASONING.md) | Belief networks, provenance, and claims |
+| [WORKFLOW_ENGINE](./workflow/WORKFLOW_ENGINE.md) | DAG-based workflow execution |
+| [RESILIENCE](./resilience/RESILIENCE.md) | Circuit breaker and fault tolerance |
+| [CONTROL_PLANE](./reference/CONTROL_PLANE.md) | Control plane architecture |
+| [CONTROL_PLANE_GUIDE](./guides/CONTROL_PLANE_GUIDE.md) | Control plane operations guide |
+| [MEMORY](./knowledge/MEMORY.md) | Memory systems overview |
+| [DOCUMENTS](./reference/DOCUMENTS.md) | Document ingestion and parsing |
 
 ## Using Aragora
 
@@ -35,124 +35,124 @@ organizational knowledge and channels**.
 
 | Document | Description |
 |----------|-------------|
-| [GAUNTLET](./GAUNTLET.md) | Adversarial stress testing (primary) |
-| [PROBE_STRATEGIES](./PROBE_STRATEGIES.md) | Probe attack strategies |
-| [GENESIS](./GENESIS.md) | Agent evolution and genesis |
-| [GRAPH_DEBATES](./GRAPH_DEBATES.md) | Graph debate mode (experimental) |
-| [MATRIX_DEBATES](./MATRIX_DEBATES.md) | Matrix debate mode (experimental) |
+| [GAUNTLET](./debate/GAUNTLET.md) | Adversarial stress testing (primary) |
+| [PROBE_STRATEGIES](./debate/PROBE_STRATEGIES.md) | Probe attack strategies |
+| [GENESIS](./workflow/GENESIS.md) | Agent evolution and genesis |
+| [GRAPH_DEBATES](./debate/GRAPH_DEBATES.md) | Graph debate mode (experimental) |
+| [MATRIX_DEBATES](./debate/MATRIX_DEBATES.md) | Matrix debate mode (experimental) |
 
 ### Agents & Memory
 
 | Document | Description |
 |----------|-------------|
-| [AGENT_SELECTION](./AGENT_SELECTION.md) | Agent selection algorithms |
-| [AGENTS](./AGENTS.md) | Agent type catalog and defaults |
-| [AGENT_DEVELOPMENT](./AGENT_DEVELOPMENT.md) | Creating custom agents |
-| [CUSTOM_AGENTS](./CUSTOM_AGENTS.md) | Custom agent configuration |
-| [MEMORY_STRATEGY](./MEMORY_STRATEGY.md) | Memory tier architecture |
-| [MEMORY_ANALYTICS](./MEMORY_ANALYTICS.md) | Memory system analytics |
+| [AGENT_SELECTION](./debate/AGENT_SELECTION.md) | Agent selection algorithms |
+| [AGENTS](./debate/AGENTS.md) | Agent type catalog and defaults |
+| [AGENT_DEVELOPMENT](./debate/AGENT_DEVELOPMENT.md) | Creating custom agents |
+| [CUSTOM_AGENTS](./guides/CUSTOM_AGENTS.md) | Custom agent configuration |
+| [MEMORY_STRATEGY](./knowledge/MEMORY_STRATEGY.md) | Memory tier architecture |
+| [MEMORY_ANALYTICS](./knowledge/MEMORY_ANALYTICS.md) | Memory system analytics |
 
 ### Inbox & Channels
 
 | Document | Description |
 |----------|-------------|
-| [INBOX_GUIDE](./INBOX_GUIDE.md) | Unified inbox setup and triage workflows |
-| [EMAIL_PRIORITIZATION](./EMAIL_PRIORITIZATION.md) | Priority scoring and tiers |
-| [SHARED_INBOX](./SHARED_INBOX.md) | Shared inbox routing and team workflows |
-| [CHANNELS](./CHANNELS.md) | Supported channels and delivery |
+| [INBOX_GUIDE](./guides/INBOX_GUIDE.md) | Unified inbox setup and triage workflows |
+| [EMAIL_PRIORITIZATION](./integrations/EMAIL_PRIORITIZATION.md) | Priority scoring and tiers |
+| [SHARED_INBOX](./guides/SHARED_INBOX.md) | Shared inbox routing and team workflows |
+| [CHANNELS](./integrations/CHANNELS.md) | Supported channels and delivery |
 
 ### Integrations
 
 | Document | Description |
 |----------|-------------|
-| [MCP_INTEGRATION](./MCP_INTEGRATION.md) | Model Context Protocol setup |
-| [MCP_ADVANCED](./MCP_ADVANCED.md) | Advanced MCP patterns |
-| [INTEGRATIONS](./INTEGRATIONS.md) | Third-party integrations |
-| [TINKER_INTEGRATION](./TINKER_INTEGRATION.md) | Tinker framework integration |
+| [MCP_INTEGRATION](./integrations/MCP_INTEGRATION.md) | Model Context Protocol setup |
+| [MCP_ADVANCED](./integrations/MCP_ADVANCED.md) | Advanced MCP patterns |
+| [INTEGRATIONS](./integrations/INTEGRATIONS.md) | Third-party integrations |
+| [TINKER_INTEGRATION](./integrations/TINKER_INTEGRATION.md) | Tinker framework integration |
 
 ## API & SDK
 
 | Document | Description |
 |----------|-------------|
-| [API_REFERENCE](./API_REFERENCE.md) | Complete API documentation |
-| [API_ENDPOINTS](./API_ENDPOINTS.md) | HTTP endpoint reference |
-| [API_EXAMPLES](./API_EXAMPLES.md) | API usage examples |
-| [API_VERSIONING](./API_VERSIONING.md) | API version policy |
-| [BREAKING_CHANGES](./BREAKING_CHANGES.md) | Breaking changes and migration |
-| [MIGRATION_V1_TO_V2](./MIGRATION_V1_TO_V2.md) | API v1 to v2 migration guide |
-| [WEBSOCKET_EVENTS](./WEBSOCKET_EVENTS.md) | WebSocket event reference |
-| [SDK_TYPESCRIPT](./SDK_TYPESCRIPT.md) | TypeScript SDK guide |
-| [SDK_CONSOLIDATION](./SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 → v3) |
+| [API_REFERENCE](./api/API_REFERENCE.md) | Complete API documentation |
+| [API_ENDPOINTS](./api/API_ENDPOINTS.md) | HTTP endpoint reference |
+| [API_EXAMPLES](./api/API_EXAMPLES.md) | API usage examples |
+| [API_VERSIONING](./api/API_VERSIONING.md) | API version policy |
+| [BREAKING_CHANGES](./reference/BREAKING_CHANGES.md) | Breaking changes and migration |
+| [MIGRATION_V1_TO_V2](./status/MIGRATION_V1_TO_V2.md) | API v1 to v2 migration guide |
+| [WEBSOCKET_EVENTS](./streaming/WEBSOCKET_EVENTS.md) | WebSocket event reference |
+| [SDK_TYPESCRIPT](./guides/SDK_TYPESCRIPT.md) | TypeScript SDK guide |
+| [SDK_CONSOLIDATION](./guides/SDK_CONSOLIDATION.md) | TypeScript SDK migration (v2 → v3) |
 | [SDK_GUIDE](./SDK_GUIDE.md) | Python SDK guide |
-| [LIBRARY_USAGE](./LIBRARY_USAGE.md) | Using Aragora as a library |
+| [LIBRARY_USAGE](./reference/LIBRARY_USAGE.md) | Using Aragora as a library |
 
 ## Operations & Deployment
 
 | Document | Description |
 |----------|-------------|
-| [DEPLOYMENT](./DEPLOYMENT.md) | Deployment guide |
+| [DEPLOYMENT](./deployment/DEPLOYMENT.md) | Deployment guide |
 | [OPERATIONS](./OPERATIONS.md) | Operations runbook |
-| [RUNBOOK](./RUNBOOK.md) | Incident response procedures |
-| [PRODUCTION_READINESS](./PRODUCTION_READINESS.md) | Production readiness checklist |
-| [OBSERVABILITY](./OBSERVABILITY.md) | Monitoring and telemetry |
-| [RATE_LIMITING](./RATE_LIMITING.md) | Rate limit configuration |
-| [QUEUE](./QUEUE.md) | Debate queue management |
+| [RUNBOOK](./deployment/RUNBOOK.md) | Incident response procedures |
+| [PRODUCTION_READINESS](./deployment/PRODUCTION_READINESS.md) | Production readiness checklist |
+| [OBSERVABILITY](./observability/OBSERVABILITY.md) | Monitoring and telemetry |
+| [RATE_LIMITING](./api/RATE_LIMITING.md) | Rate limit configuration |
+| [QUEUE](./resilience/QUEUE.md) | Debate queue management |
 
 ## Security
 
 | Document | Description |
 |----------|-------------|
-| [SECURITY](./SECURITY.md) | Security overview |
-| [SECURITY_DEPLOYMENT](./SECURITY_DEPLOYMENT.md) | Secure deployment practices |
-| [SECRETS_MANAGEMENT](./SECRETS_MANAGEMENT.md) | Managing API keys and secrets |
-| [SSO_SETUP](./SSO_SETUP.md) | SSO configuration |
-| [COMPLIANCE_PRESETS](./COMPLIANCE_PRESETS.md) | Built-in audit presets |
+| [SECURITY](./enterprise/SECURITY.md) | Security overview |
+| [SECURITY_DEPLOYMENT](./deployment/SECURITY_DEPLOYMENT.md) | Secure deployment practices |
+| [SECRETS_MANAGEMENT](./enterprise/SECRETS_MANAGEMENT.md) | Managing API keys and secrets |
+| [SSO_SETUP](./enterprise/SSO_SETUP.md) | SSO configuration |
+| [COMPLIANCE_PRESETS](./enterprise/COMPLIANCE_PRESETS.md) | Built-in audit presets |
 
 ## Configuration
 
 | Document | Description |
 |----------|-------------|
-| [ENVIRONMENT](./ENVIRONMENT.md) | Environment variables reference |
-| [DATABASE](./DATABASE.md) | Database architecture |
-| [CLI_REFERENCE](./CLI_REFERENCE.md) | CLI command reference |
+| [ENVIRONMENT](./reference/ENVIRONMENT.md) | Environment variables reference |
+| [DATABASE](./reference/DATABASE.md) | Database architecture |
+| [CLI_REFERENCE](./reference/CLI_REFERENCE.md) | CLI command reference |
 
 ## Development
 
 | Document | Description |
 |----------|-------------|
-| [FRONTEND_DEVELOPMENT](./FRONTEND_DEVELOPMENT.md) | Frontend contribution guide |
-| [FRONTEND_ROUTES](./FRONTEND_ROUTES.md) | Frontend route and feature map |
-| [TESTING](./TESTING.md) | Test suite documentation |
-| [BREAKING_CHANGES](./BREAKING_CHANGES.md) | Breaking changes by version |
-| [DEPRECATION_POLICY](./DEPRECATION_POLICY.md) | Deprecation and migration policy |
-| [ERROR_CODES](./ERROR_CODES.md) | Error code reference |
+| [FRONTEND_DEVELOPMENT](./debate/FRONTEND_DEVELOPMENT.md) | Frontend contribution guide |
+| [FRONTEND_ROUTES](./guides/FRONTEND_ROUTES.md) | Frontend route and feature map |
+| [TESTING](./testing/TESTING.md) | Test suite documentation |
+| [BREAKING_CHANGES](./reference/BREAKING_CHANGES.md) | Breaking changes by version |
+| [DEPRECATION_POLICY](./reference/DEPRECATION_POLICY.md) | Deprecation and migration policy |
+| [ERROR_CODES](./reference/ERROR_CODES.md) | Error code reference |
 
 ## Features
 
 | Document | Description |
 |----------|-------------|
-| [PULSE](./PULSE.md) | Trending topic automation |
-| [BROADCAST](./BROADCAST.md) | Audio broadcast generation |
-| [NOMIC_LOOP](./NOMIC_LOOP.md) | Self-improvement system |
-| [FORMAL_VERIFICATION](./FORMAL_VERIFICATION.md) | Z3/Lean verification |
-| [TRICKSTER](./TRICKSTER.md) | Hollow consensus detection |
-| [GOVERNANCE](./GOVERNANCE.md) | Decision governance |
-| [BILLING](./BILLING.md) | Billing and subscriptions |
+| [PULSE](./resilience/PULSE.md) | Trending topic automation |
+| [BROADCAST](./integrations/BROADCAST.md) | Audio broadcast generation |
+| [NOMIC_LOOP](./workflow/NOMIC_LOOP.md) | Self-improvement system |
+| [FORMAL_VERIFICATION](./workflow/FORMAL_VERIFICATION.md) | Z3/Lean verification |
+| [TRICKSTER](./debate/TRICKSTER.md) | Hollow consensus detection |
+| [GOVERNANCE](./enterprise/GOVERNANCE.md) | Decision governance |
+| [BILLING](./reference/BILLING.md) | Billing and subscriptions |
 
 ## Compliance
 
 | Document | Description |
 |----------|-------------|
-| [A_B_TESTING](./A_B_TESTING.md) | A/B testing framework |
-| [EVOLUTION_PATTERNS](./EVOLUTION_PATTERNS.md) | Evolution pattern library |
-| [GITHUB_ACTIONS](./GITHUB_ACTIONS.md) | CI/CD integration |
+| [A_B_TESTING](./testing/A_B_TESTING.md) | A/B testing framework |
+| [EVOLUTION_PATTERNS](./workflow/EVOLUTION_PATTERNS.md) | Evolution pattern library |
+| [GITHUB_ACTIONS](./deployment/GITHUB_ACTIONS.md) | CI/CD integration |
 
 ## Troubleshooting
 
 | Document | Description |
 |----------|-------------|
-| [TROUBLESHOOTING](./TROUBLESHOOTING.md) | Common issues and solutions |
-| [NOMIC_LOOP_TROUBLESHOOTING](./NOMIC_LOOP_TROUBLESHOOTING.md) | Nomic loop specific issues |
+| [TROUBLESHOOTING](./guides/TROUBLESHOOTING.md) | Common issues and solutions |
+| [NOMIC_LOOP_TROUBLESHOOTING](./guides/NOMIC_LOOP_TROUBLESHOOTING.md) | Nomic loop specific issues |
 
 ## Case Studies
 

@@ -1,14 +1,7 @@
 """
-Aragora Python SDK (DEPRECATED)
+Aragora Python SDK.
 
-.. deprecated::
-    ``aragora-sdk`` is deprecated. Use ``aragora-client`` instead::
-
-        pip install aragora-client
-
-    See ``docs/SDK_GUIDE.md`` for the migration guide.
-
-Legacy Python client for the Aragora multi-agent debate platform.
+The canonical Python client for the Aragora multi-agent debate platform.
 
 Usage::
 
@@ -19,15 +12,6 @@ Usage::
 
 All generated Pydantic types are re-exported here for convenient access.
 """
-
-import warnings as _warnings
-
-_warnings.warn(
-    "aragora-sdk is deprecated. Use 'pip install aragora-client' instead. "
-    "See docs/SDK_GUIDE.md for migration guide.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 
 from .client import AragoraAsyncClient, AragoraClient
 

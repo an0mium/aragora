@@ -1,17 +1,8 @@
-# Aragora Python SDK (Deprecated)
+# Aragora Python SDK
 
-> **DEPRECATED:** This package is deprecated. Use [`aragora-client`](https://pypi.org/project/aragora-client/) instead:
->
-> ```bash
-> pip install aragora-client
-> ```
->
-> See [`docs/SDK_GUIDE.md`](../../docs/SDK_GUIDE.md) for the migration guide. The `aragora-client` package
-> provides a lightweight, maintained client with the same API surface.
+The canonical Python client for the Aragora multi-agent debate platform.
 
-Legacy Python client for the Aragora multi-agent debate platform.
-
-## Installation (Legacy)
+## Installation
 
 ```bash
 pip install aragora-sdk
