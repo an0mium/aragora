@@ -26,7 +26,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 # Import schemas and helpers from submodules
 from aragora.server.openapi.schemas import COMMON_SCHEMAS
@@ -781,15 +781,6 @@ def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.1 schema."""
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(ALL_ENDPOINTS))
     paths = _filter_unhandled_paths(paths)
-    # Re-merge SDK-required endpoints that may have been filtered out
-    from aragora.server.openapi.endpoints.sdk_missing import SDK_MISSING_ENDPOINTS
-
-    for sdk_path, sdk_methods in SDK_MISSING_ENDPOINTS.items():
-        if sdk_path in paths:
-            merged = {**paths[sdk_path], **sdk_methods}  # type: ignore[dict-item]
-            paths[sdk_path] = cast(dict[str, Any], merged)
-        else:
-            paths[sdk_path] = sdk_methods
     paths = _autogenerate_missing_paths(paths)
     paths = _align_legacy_paths_with_versioned(paths)
     paths = _mark_legacy_paths_deprecated(_add_v1_aliases(paths))
