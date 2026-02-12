@@ -30,6 +30,7 @@ import { UseCaseGuide } from '@/components/ui/UseCaseGuide';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useLayout } from '@/context/LayoutContext';
 import { HeroSection } from '@/components/landing/HeroSection';
+import { LandingPage } from '@/components/LandingPage';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
@@ -343,8 +344,16 @@ export default function Home() {
     });
   };
 
-  // Loading state - show minimal loading indicator
-  // Dashboard view
+  // Show marketing landing page for unauthenticated visitors
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <LandingPage
+        onEnterDashboard={() => router.push('/auth/login')}
+      />
+    );
+  }
+
+  // Dashboard view (authenticated users)
   return (
     <FeaturesProvider apiBase={apiBase}>
       {/* Boot Sequence */}

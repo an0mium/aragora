@@ -1,382 +1,342 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { DebateInput } from './DebateInput';
-import { AsciiBannerCompact } from './AsciiBanner';
-import { Scanlines, CRTVignette } from './MatrixRain';
-import { ThemeToggle } from './ThemeToggle';
-import { BackendSelector } from './BackendSelector';
-import { FeatureNavigator } from './landing/FeatureNavigator';
-import { UseCaseCards } from './landing/UseCaseCards';
-import { VerticalCards } from './landing/VerticalCards';
+import Link from 'next/link';
 
 interface LandingPageProps {
-  apiBase: string;
-  wsUrl: string;
-  onDebateStarted: (debateId: string) => void;
+  apiBase?: string;
+  wsUrl?: string;
+  onDebateStarted?: (debateId: string) => void;
   onEnterDashboard?: () => void;
 }
 
-export function LandingPage({ apiBase, wsUrl: _wsUrl, onDebateStarted, onEnterDashboard }: LandingPageProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [activeDebateId, setActiveDebateId] = useState<string | null>(null);
-  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
-  const [showLearnMore, setShowLearnMore] = useState(false);
+const FAILURE_MODES = [
+  {
+    title: 'HALLUCINATION',
+    problem: 'LLMs fabricate facts with confidence',
+    fix: 'Cross-model verification catches fabrications before they reach you',
+    accent: 'acid-green',
+  },
+  {
+    title: 'SYCOPHANCY',
+    problem: 'LLMs agree with whatever you say',
+    fix: 'Adversarial agents are structurally incentivized to disagree',
+    accent: 'acid-cyan',
+  },
+  {
+    title: 'INCONSISTENCY',
+    problem: 'Ask twice, get contradictory answers',
+    fix: 'Debate convergence produces stable, defensible positions',
+    accent: 'acid-green',
+  },
+];
 
-  const handleDebateStarted = useCallback((debateId: string, question: string) => {
-    setActiveDebateId(debateId);
-    setActiveQuestion(question);
-    onDebateStarted(debateId);
-  }, [onDebateStarted]);
+const STEPS = [
+  {
+    num: '01',
+    title: 'QUESTION',
+    desc: 'Submit any decision, architecture, or strategy for vetting',
+    icon: '?',
+  },
+  {
+    num: '02',
+    title: 'AGENTS DEBATE',
+    desc: '30+ heterogeneous AI agents argue, critique, and red-team each proposal',
+    icon: '#',
+  },
+  {
+    num: '03',
+    title: 'DECISION RECEIPT',
+    desc: 'Get an audit-ready verdict with evidence chains and dissenting views preserved',
+    icon: '!',
+  },
+];
 
-  const handleError = useCallback((err: string) => {
-    setError(err);
-    setTimeout(() => setError(null), 5000);
-  }, []);
+const FEATURES = [
+  {
+    title: 'ADVERSARIAL DEBATE',
+    desc: '30+ heterogeneous AI agents (Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen) argue, critique, and converge. Real diversity. Real disagreement.',
+    accent: 'acid-green',
+    icon: '>',
+  },
+  {
+    title: 'DECISION RECEIPTS',
+    desc: 'Cryptographic audit trails with SHA-256 hashing. Every claim linked to evidence. Dissenting views preserved with full reasoning chains.',
+    accent: 'acid-cyan',
+    icon: '#',
+  },
+  {
+    title: 'EU AI ACT READY',
+    desc: 'Article 12/13/14 compliance artifact generation. Event logs, tech docs, oversight models, and bias safeguards -- bundled with integrity hashes.',
+    accent: 'acid-green',
+    icon: '%',
+  },
+  {
+    title: 'GAUNTLET MODE',
+    desc: 'Adversarial stress-testing for critical decisions. Red-team your architecture, strategy, or security posture with attack/defend cycles.',
+    accent: 'acid-cyan',
+    icon: '!',
+  },
+];
 
+const STATS = [
+  { value: '3,200+', label: 'MODULES' },
+  { value: '136,000+', label: 'TESTS' },
+  { value: '360+', label: 'RBAC PERMISSIONS' },
+  { value: '36', label: 'KNOWLEDGE ADAPTERS' },
+];
+
+const FOOTER_LINKS = [
+  { href: 'https://github.com/an0mium/aragora', label: 'GitHub' },
+  { href: '/about', label: 'Docs' },
+  { href: 'https://api.aragora.ai/docs', label: 'API Reference' },
+  { href: 'https://status.aragora.ai', label: 'Status' },
+];
+
+export function LandingPage({ onEnterDashboard }: LandingPageProps) {
   return (
-    <>
-      {/* CRT Effects */}
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
-
-      <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col">
-        {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
-          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-            <AsciiBannerCompact connected={true} showAsciiArt={false} />
-            <div className="flex items-center gap-4">
-              <a
-                href="/debates"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
-              >
-                [DEBATES]
-              </a>
-              <a
-                href="/agents"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
-              >
-                [AGENTS]
-              </a>
-              <a
-                href="/about"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
-              >
-                [ABOUT]
-              </a>
-              <a
-                href="https://api.aragora.ai/docs"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block"
-              >
-                [API]
-              </a>
-              {onEnterDashboard && (
-                <button
-                  onClick={onEnterDashboard}
-                  className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-                >
-                  [DASHBOARD]
-                </button>
-              )}
-              <BackendSelector compact />
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
-        {/* Hero Section - Clean and Minimal */}
-        <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-20">
-          {/* ASCII Art Title */}
-          <pre className="text-acid-green text-[6px] sm:text-[8px] font-mono text-center mb-8 hidden sm:block leading-tight select-none">
-{`    ▄▄▄       ██▀███   ▄▄▄        ▄████  ▒█████   ██▀███   ▄▄▄
-   ▒████▄    ▓██ ▒ ██▒▒████▄     ██▒ ▀█▒▒██▒  ██▒▓██ ▒ ██▒▒████▄
-   ▒██  ▀█▄  ▓██ ░▄█ ▒▒██  ▀█▄  ▒██░▄▄▄░▒██░  ██▒▓██ ░▄█ ▒▒██  ▀█▄
-   ░██▄▄▄▄██ ▒██▀▀█▄  ░██▄▄▄▄██ ░▓█  ██▓▒██   ██░▒██▀▀█▄  ░██▄▄▄▄██
-    ▓█   ▓██▒░██▓ ▒██▒ ▓█   ▓██▒░▒▓███▀▒░ ████▓▒░░██▓ ▒██▒ ▓█   ▓██▒
-    ▒▒   ▓▒█░░ ▒▓ ░▒▓░ ▒▒   ▓▒█░ ░▒   ▒ ░ ▒░▒░▒░ ░ ▒▓ ░▒▓░ ▒▒   ▓▒█░
-     ▒   ▒▒ ░  ░▒ ░ ▒░  ▒   ▒▒ ░  ░   ░   ░ ▒ ▒░   ░▒ ░ ▒░  ▒   ▒▒ ░
-     ░   ▒     ░░   ░   ░   ▒   ░ ░   ░ ░ ░ ░ ▒    ░░   ░   ░   ▒
-         ░  ░   ░           ░  ░      ░     ░ ░     ░           ░  ░`}
-          </pre>
-
-          {/* Mobile title */}
-          <h1 className="sm:hidden text-2xl font-mono text-acid-green mb-4">ARAGORA</h1>
-
-          {/* Value Proposition - Minimal */}
-          <div className="text-center mb-8 max-w-2xl">
-            <p className="text-sm font-mono text-text-muted/80 mb-4">
-              Multi Agent Decision Making Engine
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 text-xs font-mono text-text-muted/70">
-              <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> Any source
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> Any channel
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> Bidirectional dialogue
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-acid-green">+</span> Memory building auditing and advisory team
-              </span>
-            </div>
-          </div>
-
-          {/* Error Banner */}
-          {error && (
-            <div className="w-full max-w-3xl mb-6 bg-warning/10 border border-warning/30 p-4 flex items-center justify-between">
-              <span className="text-warning font-mono text-sm">{error}</span>
+    <main className="min-h-screen bg-bg text-text">
+      {/* ── NAV ── */}
+      <nav className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <span className="font-mono text-acid-green font-bold text-sm tracking-wider">
+            ARAGORA
+          </span>
+          <div className="flex items-center gap-4">
+            <a href="#quickstart" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
+              [QUICKSTART]
+            </a>
+            <a href="https://github.com/an0mium/aragora" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
+              [GITHUB]
+            </a>
+            {onEnterDashboard ? (
               <button
-                onClick={() => setError(null)}
-                className="text-warning hover:text-warning/80"
+                onClick={onEnterDashboard}
+                className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
               >
-                ✕
+                DASHBOARD
               </button>
-            </div>
-          )}
-
-          {/* Debate Started Indicator */}
-          {activeDebateId && (
-            <div className="w-full max-w-3xl mb-6 bg-acid-green/10 border border-acid-green/30 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse"></span>
-                <span className="text-acid-green font-mono text-sm font-bold">DEBATE IN PROGRESS</span>
-              </div>
-              <p className="text-text font-mono text-sm truncate">{activeQuestion}</p>
-              <p className="text-text-muted font-mono text-xs mt-2">
-                ID: {activeDebateId}
-              </p>
-            </div>
-          )}
-
-          {/* Debate Input */}
-          <DebateInput
-            apiBase={apiBase}
-            onDebateStarted={handleDebateStarted}
-            onError={handleError}
-          />
+            ) : (
+              <Link
+                href="/"
+                className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
+              >
+                DASHBOARD
+              </Link>
+            )}
+          </div>
         </div>
+      </nav>
 
-        {/* Use Case Cards Section - "Who is Aragora for?" */}
-        <section className="container mx-auto px-4">
-          <UseCaseCards />
-        </section>
-
-        {/* Industry Verticals Section */}
-        <section className="container mx-auto px-4 border-t border-acid-green/10">
-          <VerticalCards />
-        </section>
-
-        {/* Feature Navigator Section */}
-        <section className="container mx-auto px-4 py-12 border-t border-acid-green/10">
-          <FeatureNavigator onEnterDashboard={onEnterDashboard} />
-        </section>
-
-        {/* Learn More Section - Single Parent Collapsible */}
-        <section className="border-t border-acid-green/20 mt-auto">
-          <div className="container mx-auto px-4">
-            {/* Main Toggle */}
-            <button
-              onClick={() => setShowLearnMore(!showLearnMore)}
-              className="w-full py-6 text-center group cursor-pointer"
-              aria-expanded={showLearnMore}
-              aria-controls="learn-more-content"
+      {/* ── HERO ── */}
+      <section className="py-20 sm:py-28 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="font-mono text-2xl sm:text-4xl lg:text-5xl text-text mb-6 leading-tight">
+            Don&apos;t trust a single AI.{' '}
+            <span className="text-acid-green glow-text-subtle">Trust a debate.</span>
+          </h1>
+          <p className="font-mono text-sm sm:text-base text-text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
+            Aragora orchestrates 30+ AI agents to adversarially vet your decisions
+            through structured debate, delivering audit-ready decision receipts
+            with cryptographic integrity.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <a
+              href="#quickstart"
+              className="font-mono text-sm px-6 py-3 bg-acid-green text-bg font-bold hover:shadow-glow transition-all"
             >
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-acid-green/40 font-mono text-xs">{'─'.repeat(12)}</span>
-                <span className={`text-acid-green/60 text-xs transition-transform duration-200 ${showLearnMore ? 'rotate-90' : ''}`}>
-                  {'>'}
-                </span>
-                <span className="text-acid-green/80 font-mono text-xs tracking-wider group-hover:text-acid-green transition-colors">
-                  LEARN MORE
-                </span>
-                <span className="text-text-muted/50 text-[10px] font-mono">
-                  {showLearnMore ? '[−]' : '[+]'}
-                </span>
-                <span className="text-acid-green/40 font-mono text-xs">{'─'.repeat(12)}</span>
-              </div>
-            </button>
+              TRY DEMO
+            </a>
+            {onEnterDashboard ? (
+              <button
+                onClick={onEnterDashboard}
+                className="font-mono text-sm px-6 py-3 border border-acid-green/50 text-acid-green hover:border-acid-green hover:shadow-glow transition-all"
+              >
+                VIEW DASHBOARD
+              </button>
+            ) : (
+              <Link
+                href="/"
+                className="font-mono text-sm px-6 py-3 border border-acid-green/50 text-acid-green hover:border-acid-green hover:shadow-glow transition-all"
+              >
+                VIEW DASHBOARD
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
 
-            {/* Collapsible Content */}
-            <div
-              id="learn-more-content"
-              className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                showLearnMore ? 'max-h-[8000px] opacity-100 pb-8' : 'max-h-0 opacity-0'
-              }`}
-            >
-
-              {/* Use Case Highlight */}
-              <div className="max-w-2xl mx-auto mb-8 text-center">
-                <div className="border border-acid-yellow/30 bg-acid-yellow/5 p-4 rounded">
-                  <p className="text-text-muted/50 font-mono text-[10px] tracking-wide mb-2">
-                    <span className="text-acid-green/40">{'>'}</span>
-                    {' '}Multiple AI models will adversarially debate your question
-                    {' '}<span className="text-acid-green/40">{'<'}</span>
-                  </p>
-                  <p className="text-acid-yellow/80 font-mono text-[10px]">
-                    <span className="text-acid-yellow">USE CASE:</span> Find the $500K flaw before launch — AI stress-tests your architecture in 30 minutes.
-                  </p>
-                </div>
-              </div>
-
-              {/* Intro Section */}
-              <div className="max-w-4xl mx-auto mb-8 text-center">
-                <h2 className="text-acid-green font-mono text-sm mb-2">
-                  Harness the Collective Intelligence of Diverse AI Models
-                </h2>
-                <p className="text-acid-cyan/80 font-mono text-[11px] mb-3">
-                  Claude + GPT + Gemini + Mistral + Grok + DeepSeek + Qwen + Kimi
+      {/* ── PROBLEM STATEMENT ── */}
+      <section className="py-16 px-4 border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-mono text-lg sm:text-xl text-center text-text mb-3">
+            LLMs hallucinate. They agree with you. They contradict themselves.
+          </h2>
+          <p className="font-mono text-xs text-center text-text-muted mb-10 max-w-xl mx-auto">
+            Individual models are unreliable. Adversarial debate between diverse models fixes that.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {FAILURE_MODES.map((mode) => (
+              <div
+                key={mode.title}
+                className={`border border-${mode.accent}/30 bg-surface/50 p-5`}
+              >
+                <h3 className={`font-mono text-sm text-${mode.accent} mb-2`}>
+                  {mode.title}
+                </h3>
+                <p className="font-mono text-xs text-text-muted/70 mb-3 line-through decoration-crimson/40">
+                  {mode.problem}
                 </p>
-                <p className="text-text-muted/70 font-mono text-[10px] max-w-lg mx-auto">
-                  Diverse AI models. Structured debate. Well-reasoned conclusions.
+                <p className="font-mono text-xs text-text-muted">
+                  {mode.fix}
                 </p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              {/* Why Aragora Grid */}
-              <div className="max-w-4xl mx-auto mb-8">
-                <p className="text-text-muted/60 font-mono text-[10px] text-center mb-4">
-                  Most multi-agent systems run copies of the same model talking to itself. Aragora is different.
+      {/* ── HOW IT WORKS ── */}
+      <section className="py-16 px-4 border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-mono text-lg sm:text-xl text-center text-acid-green mb-10">
+            {'>'} HOW IT WORKS
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {STEPS.map((step, i) => (
+              <div key={step.num} className="flex flex-col items-center text-center">
+                <div className="w-14 h-14 border-2 border-acid-green flex items-center justify-center mb-4">
+                  <span className="font-mono text-2xl text-acid-green">
+                    {step.icon}
+                  </span>
+                </div>
+                <span className="font-mono text-xs text-text-muted mb-1">
+                  [{step.num}]
+                </span>
+                <h3 className="font-mono text-sm text-text mb-2">
+                  {step.title}
+                </h3>
+                <p className="font-mono text-xs text-text-muted leading-relaxed">
+                  {step.desc}
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="border border-acid-green/20 p-3 bg-surface/20">
-                    <h3 className="text-acid-green/90 font-mono text-[10px] mb-2 flex items-center gap-1">
-                      <span className="text-acid-cyan/60">{'>'}</span> HETEROGENEOUS ARENA
-                    </h3>
-                    <p className="text-text-muted/60 text-[9px] font-mono leading-relaxed">
-                      7+ distinct AI providers compete. Claude&apos;s caution vs GPT&apos;s creativity vs Gemini&apos;s speed. Real diversity. Real signal.
-                    </p>
-                  </div>
-                  <div className="border border-acid-cyan/20 p-3 bg-surface/20">
-                    <h3 className="text-acid-cyan/90 font-mono text-[10px] mb-2 flex items-center gap-1">
-                      <span className="text-acid-green/60">{'>'}</span> SELF-IMPROVING
-                    </h3>
-                    <p className="text-text-muted/60 text-[9px] font-mono leading-relaxed">
-                      Aragora runs the &quot;Nomic Loop&quot; — agents red-team improvements to their own framework. The arena evolves through its own debates.
-                    </p>
-                  </div>
-                  <div className="border border-acid-green/20 p-3 bg-surface/20">
-                    <h3 className="text-acid-green/90 font-mono text-[10px] mb-2 flex items-center gap-1">
-                      <span className="text-acid-cyan/60">{'>'}</span> CALIBRATED TRUST
-                    </h3>
-                    <p className="text-text-muted/60 text-[9px] font-mono leading-relaxed">
-                      Track prediction accuracy over time. Know which agents are confidently wrong vs genuinely uncertain.
-                    </p>
-                  </div>
-                </div>
+                {i < STEPS.length - 1 && (
+                  <span className="hidden md:block absolute right-0 top-1/2 text-acid-green/40 text-xl translate-x-1/2" aria-hidden="true">
+                    {/* Arrow handled by spacing */}
+                  </span>
+                )}
               </div>
+            ))}
+          </div>
+          {/* Step flow arrows for desktop */}
+          <div className="hidden md:flex justify-center items-center gap-0 mt-[-4.5rem] mb-4 pointer-events-none" aria-hidden="true">
+            <div className="w-1/3 flex justify-end pr-4">
+              <span className="font-mono text-acid-green/40 text-lg">---{'>'}</span>
+            </div>
+            <div className="w-1/3 flex justify-end pr-4">
+              <span className="font-mono text-acid-green/40 text-lg">---{'>'}</span>
+            </div>
+            <div className="w-1/3" />
+          </div>
+        </div>
+      </section>
 
-              {/* Protocol Steps */}
-              <div className="max-w-4xl mx-auto mb-8">
-                <h3 className="text-acid-green/60 font-mono text-[10px] text-center mb-4 tracking-wider">
-                  THE STRESS-TEST PROTOCOL
-                </h3>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {[
-                    { num: '01', name: 'PROPOSE', desc: 'Generate diverse solutions' },
-                    { num: '02', name: 'ATTACK', desc: 'Red-team each proposal' },
-                    { num: '03', name: 'ADAPT', desc: 'Update on valid critiques' },
-                    { num: '04', name: 'CONVERGE', desc: 'Find natural consensus' },
-                    { num: '05', name: 'RECORD', desc: 'Save decision receipts' },
-                  ].map((step, i) => (
-                    <div key={step.num} className="flex items-center gap-2">
-                      <div className="border border-acid-green/20 px-2 py-1 bg-surface/20">
-                        <span className="text-acid-green/60 font-mono text-[9px]">[{step.num}]</span>
-                        <span className="text-text-muted/70 font-mono text-[9px] ml-1">{step.name}</span>
-                      </div>
-                      {i < 4 && <span className="text-acid-green/30 text-[9px]">→</span>}
-                    </div>
-                  ))}
+      {/* ── KEY FEATURES ── */}
+      <section className="py-16 px-4 border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-mono text-lg sm:text-xl text-center text-acid-green mb-10">
+            {'>'} KEY CAPABILITIES
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className={`border border-${feature.accent}/30 bg-surface/30 p-5 hover:border-${feature.accent}/60 transition-colors`}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`text-${feature.accent} font-mono text-lg`}>
+                    {feature.icon}
+                  </span>
+                  <h3 className={`font-mono text-sm text-${feature.accent}`}>
+                    {feature.title}
+                  </h3>
                 </div>
+                <p className="font-mono text-xs text-text-muted leading-relaxed">
+                  {feature.desc}
+                </p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              {/* Capabilities Grid - Compact */}
-              <div className="max-w-4xl mx-auto mb-8">
-                <h3 className="text-acid-cyan/60 font-mono text-[10px] text-center mb-4 tracking-wider">
-                  CAPABILITIES
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {[
-                    { icon: '#', title: 'ELO RANKINGS', desc: 'Domain-specific ratings backed by data' },
-                    { icon: '~', title: 'CONTINUUM MEMORY', desc: '4-tier cognitive memory system' },
-                    { icon: '%', title: 'CALIBRATION', desc: 'Brier scores & confidence tracking' },
-                    { icon: '!', title: 'FORMAL VERIFICATION', desc: 'Z3/Lean proofs for high stakes' },
-                  ].map((cap) => (
-                    <div key={cap.title} className="border border-acid-green/15 p-2 bg-surface/10">
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="text-acid-yellow/60 text-[10px]">{cap.icon}</span>
-                        <span className="text-acid-green/70 font-mono text-[9px]">{cap.title}</span>
-                      </div>
-                      <p className="text-text-muted/50 text-[8px] font-mono leading-tight">{cap.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* The Nomic Loop - Compact */}
-              <div className="max-w-3xl mx-auto mb-8">
-                <div className="border border-acid-green/20 p-3 bg-surface/10">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <span className="text-acid-green/60 text-[10px]">@</span>
-                    <span className="text-acid-green/80 font-mono text-[10px]">THE NOMIC LOOP</span>
-                  </div>
-                  <pre className="text-acid-green/50 text-[8px] font-mono text-center mb-2">
-{`CONTEXT → DEBATE → DESIGN → IMPLEMENT → VERIFY → COMMIT
-              ↑_______________________________|`}
-                  </pre>
-                  <p className="text-text-muted/50 text-[8px] font-mono text-center">
-                    Protected files checksummed. Automatic rollback on failure.
-                  </p>
-                </div>
-              </div>
-
-              {/* Trust Section - Horizontal */}
-              <div className="max-w-4xl mx-auto">
-                <h3 className="text-acid-cyan/60 font-mono text-[10px] text-center mb-3 tracking-wider">
-                  WHY TRUST ARAGORA
-                </h3>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {[
-                    { title: 'TRANSPARENCY', desc: 'Fully auditable debates' },
-                    { title: 'DISSENT PRESERVED', desc: 'Minority opinions recorded' },
-                    { title: 'EVIDENCE CHAINS', desc: 'Citation grounding' },
-                    { title: 'TRACK RECORDS', desc: 'Empirical performance' },
-                  ].map((item, i) => (
-                    <div key={item.title} className="flex items-center gap-2">
-                      <span className={`w-px h-4 ${i % 2 === 0 ? 'bg-acid-green/30' : 'bg-acid-cyan/30'}`}></span>
-                      <div>
-                        <span className={`font-mono text-[9px] ${i % 2 === 0 ? 'text-acid-green/70' : 'text-acid-cyan/70'}`}>
-                          {item.title}
-                        </span>
-                        <span className="text-text-muted/40 font-mono text-[8px] ml-1">{item.desc}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      {/* ── QUICKSTART ── */}
+      <section id="quickstart" className="py-16 px-4 border-t border-border">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="font-mono text-lg sm:text-xl text-acid-green mb-6">
+            {'>'} QUICKSTART
+          </h2>
+          <p className="font-mono text-xs text-text-muted mb-6">
+            Get started in under a minute. Run a demo debate locally:
+          </p>
+          <div className="bg-bg border border-acid-green/40 p-6 text-left font-mono shadow-terminal">
+            <div className="text-xs text-text-muted mb-2">$ # Install and run a demo debate</div>
+            <div className="text-sm text-acid-green mb-1">
+              <span className="text-text-muted select-none">$ </span>
+              pip install aragora
+            </div>
+            <div className="text-sm text-acid-green">
+              <span className="text-text-muted select-none">$ </span>
+              aragora review --demo
             </div>
           </div>
-        </section>
+          <p className="font-mono text-xs text-text-muted/60 mt-4">
+            Or try the{' '}
+            <Link href="/" className="text-acid-cyan hover:text-acid-green transition-colors">
+              live dashboard
+            </Link>{' '}
+            to start a debate right in your browser.
+          </p>
+        </div>
+      </section>
 
-        {/* Footer */}
-        <footer className="text-center font-mono py-4 border-t border-acid-green/10">
-          <div className="flex items-center justify-center gap-3 text-[10px] mb-2">
-            <span className="text-acid-green/40">ARAGORA</span>
-            <span className="text-acid-green/20">|</span>
-            <a href="https://aragora.ai" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
-              Dashboard
-            </a>
-            <span className="text-acid-green/20">|</span>
-            <a href="https://github.com/an0mium/aragora" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
-              GitHub
-            </a>
-            <span className="text-acid-green/20">|</span>
-            <a href="/about" className="text-text-muted/40 hover:text-acid-green/60 transition-colors">
-              Docs
-            </a>
+      {/* ── STATS BAR ── */}
+      <section className="py-10 px-4 border-t border-acid-green/30 bg-surface/30">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+            {STATS.map((stat) => (
+              <div key={stat.label}>
+                <div className="font-mono text-xl sm:text-2xl text-acid-green font-bold">
+                  {stat.value}
+                </div>
+                <div className="font-mono text-xs text-text-muted mt-1">
+                  {stat.label}
+                </div>
+              </div>
+            ))}
           </div>
-        </footer>
-      </main>
-    </>
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer className="py-8 px-4 border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="font-mono text-xs text-text-muted">
+              ARAGORA // Decision Integrity Platform
+            </span>
+            <div className="flex items-center gap-4">
+              {FOOTER_LINKS.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="font-mono text-xs text-text-muted hover:text-acid-green transition-colors"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }

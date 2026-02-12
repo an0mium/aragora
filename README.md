@@ -1,5 +1,7 @@
 # Aragora
 
+Aragora orchestrates 30+ AI agents to adversarially vet decisions through structured debate, delivering audit-ready decision receipts. Built for enterprises where AI decisions carry real consequences.
+
 ### The Decision Integrity Platform
 
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
@@ -36,6 +38,27 @@ aragora ask "Design a rate limiter for 1M req/sec" --agents anthropic-api,openai
 aragora serve
 ```
 
+### Add to Your CI Pipeline (1 minute)
+
+```yaml
+# .github/workflows/aragora-review.yml
+name: Aragora Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: an0mium/aragora@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+```
+
+Or generate it automatically: `aragora init --ci github`
+
 ---
 
 ## Five Pillars
@@ -44,11 +67,11 @@ Aragora is built on five architectural commitments designed for a world where in
 
 ### 1. SMB-Ready, Enterprise-Grade
 
-Aragora is useful to a 5-person startup on day one and scales to regulated enterprise without rearchitecting. Enterprise features -- OIDC/SAML SSO, MFA, AES-256-GCM encryption, multi-tenant isolation, RBAC with 7 roles and 50+ permissions, SOC 2 / GDPR / HIPAA compliance frameworks -- are built in, not bolted on. Security hardening (rate limiting, SSRF protection, path traversal guards, input validation, audit trails) is the default, not a premium tier.
+Aragora is useful to a 5-person startup on day one and scales to regulated enterprise without rearchitecting. Enterprise features -- OIDC/SAML SSO, MFA, AES-256-GCM encryption, multi-tenant isolation, RBAC with 7 roles and 360+ permissions, SOC 2 / GDPR / HIPAA compliance frameworks -- are built in, not bolted on. Security hardening (rate limiting, SSRF protection, path traversal guards, input validation, audit trails) is the default, not a premium tier.
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 28 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 36 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
@@ -60,7 +83,7 @@ Individual LLMs exhibit persona instability -- their outputs shift based on fram
 
 ### 5. Self-Healing and Self-Extending
 
-The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 3,000+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
+The Nomic Loop is Aragora's autonomous self-improvement system: agents debate improvements to the codebase, design solutions, implement code, run tests, and verify changes -- with human approval gates and automatic rollback on failure. This is how Aragora grew from a debate engine to 3,200+ modules. Red-team mode stress-tests the platform's own specs. The Gauntlet runs adversarial attacks against proposed changes. The system hardens itself.
 
 ---
 
@@ -76,7 +99,7 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 | **Decision Receipts** | Cryptographic audit trails with evidence chains, dissent tracking, and confidence calibration |
 | **Gauntlet Mode** | Red-team stress-tests for specs, policies, and architectures using adversarial personas |
 | **Calibrated Trust** | ELO rankings and Brier scores track which models are actually reliable on which domains |
-| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (28 adapters) |
+| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (36 adapters) |
 | **Channel Delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
 
 ---
@@ -114,11 +137,12 @@ See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the com
 
 ### 3. Develop with the SDK
 
-| Package | Purpose | Install |
+| Package | Install | Purpose |
 |---|---|---|
-| `aragora` | CLI + full control plane | `pip install aragora` |
-| `aragora-sdk` | Python SDK client | `pip install aragora-sdk` |
-| `@aragora/sdk` | TypeScript/Node.js SDK | `npm install @aragora/sdk` |
+| `aragora` | `pip install aragora` | Full platform (server, CLI, debate engine) |
+| `aragora-sdk` | `pip install aragora-sdk` | Python client SDK for connecting to aragora |
+| `aragora-debate` | `pip install aragora-debate` | Standalone debate engine (no server needed) |
+| `@aragora/sdk` | `npm install @aragora/sdk` | TypeScript/Node.js client SDK |
 
 ---
 
@@ -182,18 +206,18 @@ aragora/
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
 ├── gauntlet/       # Adversarial stress testing
-├── knowledge/      # Knowledge Mound with 28 registered adapters
+├── knowledge/      # Knowledge Mound with 36 registered adapters
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
 ├── server/         # 2,000+ API operations, 190+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
 ├── genesis/        # Fractal debates, agent evolution
 ├── sandbox/        # Docker-based safe execution
-├── rbac/           # Role-based access control (7 roles, 50+ permissions)
+├── rbac/           # Role-based access control (7 roles, 360+ permissions)
 ├── compliance/     # SOC 2, GDPR, HIPAA frameworks
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,000+ Python modules | 131,000+ tests
+**Scale:** 3,200+ Python modules | 136,000+ tests
 
 ---
 
@@ -262,7 +286,7 @@ See [docs/integrations/INTEGRATIONS.md](docs/integrations/INTEGRATIONS.md) for s
 | **Security** | AES-256-GCM encryption, rate limiting, SSRF protection, key rotation |
 | **Compliance** | SOC 2 controls, GDPR support, HIPAA, audit trails |
 | **Observability** | Prometheus metrics, Grafana dashboards, OpenTelemetry tracing |
-| **RBAC** | 7 roles, 50+ permissions, decorator-based enforcement |
+| **RBAC** | 7 roles, 360+ permissions, decorator-based enforcement |
 | **Backup** | Incremental backups, retention policies, disaster recovery |
 | **Control Plane** | Agent registry, task scheduler, health monitoring, policy governance |
 
