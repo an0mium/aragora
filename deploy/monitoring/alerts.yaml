@@ -240,6 +240,59 @@ groups:
           summary: "Consensus rate below 50%"
           description: "The consensus rate is {{ $value | humanizePercentage }}. This may indicate difficult topics or agent disagreement."
 
+  - name: aragora.queue
+    interval: 30s
+    rules:
+      # Queue depth SLO - keep pending queue below 100 for normal load
+      - alert: AragoraQueueDepthSLOWarning
+        expr: |
+          sum(aragora_control_plane_queue_depth) > 100
+        for: 10m
+        labels:
+          severity: warning
+          slo: queue_depth
+          component: queue
+        annotations:
+          summary: "Queue depth above warning SLO"
+          description: "Total queue depth is {{ $value }} for 10+ minutes (warning threshold: 100)."
+
+      - alert: AragoraQueueDepthSLOBreach
+        expr: |
+          sum(aragora_control_plane_queue_depth) > 300
+        for: 5m
+        labels:
+          severity: critical
+          slo: queue_depth
+          component: queue
+        annotations:
+          summary: "Queue depth exceeded critical SLO"
+          description: "Total queue depth is {{ $value }} (critical threshold: 300)."
+
+      # DLQ SLO - dead-letter queue should normally stay at 0
+      - alert: AragoraDeadLetterQueueNonZero
+        expr: |
+          aragora_control_plane_dead_letter_queue_size > 0
+        for: 15m
+        labels:
+          severity: warning
+          slo: dead_letter_queue
+          component: queue
+        annotations:
+          summary: "Dead-letter queue has pending items"
+          description: "DLQ has {{ $value }} pending items for 15+ minutes."
+
+      - alert: AragoraDeadLetterQueueCritical
+        expr: |
+          aragora_control_plane_dead_letter_queue_size > 20
+        for: 5m
+        labels:
+          severity: critical
+          slo: dead_letter_queue
+          component: queue
+        annotations:
+          summary: "Dead-letter queue size is critical"
+          description: "DLQ has {{ $value }} pending items (critical threshold: 20)."
+
   - name: aragora.error_budget
     interval: 60s
     rules:

@@ -18,6 +18,18 @@ Defines alert conditions based on metrics.
 | High | Slack (#alerts-high) + Email | 1 hour |
 | Warning | Slack (#alerts) | 4 hours |
 
+## Core SLOs
+
+These are the primary release-blocking service objectives wired in monitoring:
+
+| SLO | Target | Primary Alerts |
+|-----|--------|----------------|
+| API availability | >= 99.9% | `AragoraAvailabilitySLOBreach`, `AragoraAvailabilitySLOWarning` |
+| API p99 latency | < 500ms | `AragoraLatencySLOBreach`, `AragoraLatencySLOWarning` |
+| Debate success rate | >= 95% | `AragoraDebateSuccessSLOBreach` |
+| Queue depth | < 100 normal, < 300 critical | `AragoraQueueDepthSLOWarning`, `AragoraQueueDepthSLOBreach` |
+| Dead-letter queue size | 0 normal, <= 20 critical | `AragoraDeadLetterQueueNonZero`, `AragoraDeadLetterQueueCritical` |
+
 ## Setup
 
 ### 1. Environment Variables
@@ -48,6 +60,12 @@ docker run -d \
 
 # Kubernetes
 kubectl apply -f k8s/alertmanager.yaml
+```
+
+For the self-hosted Compose stack, use the monitoring profile:
+
+```bash
+docker compose -f deploy/docker-compose.production.yml --profile monitoring up -d
 ```
 
 ### 3. Configure Prometheus

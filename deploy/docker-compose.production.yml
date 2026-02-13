@@ -303,6 +303,7 @@ services:
       - '--web.enable-lifecycle'
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yaml:/etc/prometheus/rules/alerts.yaml:ro
       - prometheus-data:/prometheus
     expose:
       - "9090"
@@ -315,6 +316,9 @@ services:
     restart: unless-stopped
     profiles:
       - monitoring
+    depends_on:
+      alertmanager:
+        condition: service_started
     networks:
       - aragora-net
     security_opt:
@@ -328,6 +332,44 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+
+  # ===========================================================================
+  # Alertmanager (--profile monitoring)
+  # ===========================================================================
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: aragora-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://alertmanager:9093'
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    expose:
+      - "9093"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    networks:
+      - aragora-net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
   # ===========================================================================
   # Grafana (--profile monitoring)
@@ -431,6 +473,8 @@ volumes:
   nginx-cache:
     driver: local
   prometheus-data:
+    driver: local
+  alertmanager-data:
     driver: local
   grafana-data:
     driver: local

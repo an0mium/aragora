@@ -140,6 +140,7 @@ curl -k -X POST https://localhost/api/v1/debates \
 | redis | Caching, session store, pub/sub | `redis:7-alpine` |
 | debate-worker | Async debate processing (optional) | Same as aragora |
 | prometheus | Metrics collection (optional) | `prom/prometheus:v2.51.0` |
+| alertmanager | Alert routing and notifications (optional) | `prom/alertmanager:v0.27.0` |
 | grafana | Dashboards and alerting (optional) | `grafana/grafana:10.4.0` |
 | backup | Automated database backups (optional) | `postgres:16-alpine` |
 
@@ -330,7 +331,7 @@ compose file.
 
 | Profile | Services Added | Use Case |
 |---------|---------------|----------|
-| `monitoring` | Prometheus, Grafana | Metrics and dashboards |
+| `monitoring` | Prometheus, Alertmanager, Grafana | Metrics, SLO alerts, dashboards |
 | `workers` | Debate workers (2 replicas) | High-throughput debate processing |
 | `backup` | Automated pg_dump | Daily database backups |
 
@@ -350,7 +351,9 @@ docker compose -f deploy/docker-compose.production.yml \
 When the `monitoring` profile is enabled:
 - Grafana is available at `https://localhost/grafana/`
 - Default credentials: admin / (your GRAFANA_PASSWORD from .env)
-- Pre-provisioned dashboards for debate metrics, API latency, and costs
+- Prometheus loads rule files from `deploy/monitoring/alerts.yaml`
+- Alertmanager is reachable internally at `alertmanager:9093` and receives Prometheus alerts
+- Pre-provisioned dashboards for debate metrics, API latency, queue health, and costs
 
 ---
 
