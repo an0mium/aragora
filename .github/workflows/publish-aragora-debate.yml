@@ -152,7 +152,7 @@ jobs:
             pip install "aragora-debate[all]==${{ needs.resolve-version.outputs.version }}"
             ```
 
-            [Changelog](https://github.com/aragora/aragora/blob/main/aragora-debate/CHANGELOG.md) |
-            [README](https://github.com/aragora/aragora/tree/main/aragora-debate)
+            [Changelog](https://github.com/an0mium/aragora/blob/main/aragora-debate/CHANGELOG.md) |
+            [README](https://github.com/an0mium/aragora/tree/main/aragora-debate)
           draft: false
           prerelease: ${{ contains(needs.resolve-version.outputs.version, 'beta') || contains(needs.resolve-version.outputs.version, 'alpha') || contains(needs.resolve-version.outputs.version, 'rc') }}
