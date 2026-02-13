@@ -218,7 +218,7 @@ class TestPasswordValidation:
 
     def test_valid_password_with_emojis(self):
         """Password with emojis should pass."""
-        valid, err = validate_password("password🔐🔑")
+        valid, err = validate_password("passwordtest🔐🔑")
         assert valid is True
 
     def test_empty_password(self):
