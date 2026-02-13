@@ -17,10 +17,12 @@ from aragora.server.graphql.resolvers import (
     _normalize_priority,
     _normalize_health_status,
     _to_iso_datetime,
-    _transform_debate,
-    _transform_agent,
-    _transform_task,
 )
+
+# Transform helpers live in domain-specific submodules
+from aragora.server.graphql.resolvers_debates import _transform_debate
+from aragora.server.graphql.resolvers_agents import _transform_agent
+from aragora.server.graphql.resolvers_tasks import _transform_task
 
 
 class TestStatusNormalization:

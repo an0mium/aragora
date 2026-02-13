@@ -93,8 +93,6 @@ def _missing_required_env_vars(env_vars: str) -> list[str]:
     if not candidates:
         return []
     try:
-        from aragora.config import get_api_key
-
         if get_api_key(*candidates, required=False):
             return []
     except (ImportError, AttributeError, TypeError):
@@ -132,8 +130,6 @@ def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
 def _openrouter_key_available() -> bool:
     """Return True if OpenRouter key is configured via secrets or env."""
     try:
-        from aragora.config.secrets import get_secret
-
         value = get_secret("OPENROUTER_API_KEY")
         if value and value.strip():
             return True
@@ -189,8 +185,6 @@ def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
     agents_value = data.get("agents", DEFAULT_AGENTS)
     # Validate agent providers early to avoid starting invalid debates
     try:
-        from aragora.agents.spec import AgentSpec
-
         specs = AgentSpec.coerce_list(agents_value, warn=False)
         if not specs:
             specs = AgentSpec.coerce_list(DEFAULT_AGENTS, warn=False)
@@ -240,13 +234,6 @@ async def fetch_trending_topic_async(category: str | None = None) -> Any | None:
         A TrendingTopic object or None if unavailable.
     """
     try:
-        from aragora.pulse.ingestor import (
-            HackerNewsIngestor,
-            PulseManager,
-            RedditIngestor,
-            TwitterIngestor,
-        )
-
         manager = PulseManager()
         manager.add_ingestor("twitter", TwitterIngestor())
         manager.add_ingestor("hackernews", HackerNewsIngestor())
@@ -299,8 +286,6 @@ def _filter_agent_specs_with_fallback(
     Returns:
         Tuple of (filtered_specs, actual_agent_names, missing_agent_names).
     """
-    from aragora.agents.registry import AgentRegistry
-
     requested_agents = [spec.name or spec.provider for spec in agent_specs]
     filtered_specs = []
     missing_agents: list[str] = []
@@ -316,8 +301,6 @@ def _filter_agent_specs_with_fallback(
                 spec.provider, _OPENROUTER_GENERIC_FALLBACK_MODEL
             )
             if openrouter_available and fallback_model:
-                from aragora.agents.spec import AgentSpec
-
                 fallback_spec = AgentSpec(
                     provider="openrouter",
                     model=fallback_model,
@@ -424,10 +407,8 @@ def _create_debate_agents(
 
         if spec.persona:
             try:
-                from aragora.agents.personas import apply_persona_to_agent
-
                 apply_persona_to_agent(agent, spec.persona)
-            except ImportError:
+            except (ImportError, TypeError):
                 pass
 
         agent = wrap_agent_for_streaming(agent, emitter, debate_id)
@@ -471,8 +452,6 @@ def execute_debate_thread(
 
     try:
         # Parse agents with bounds check
-        from aragora.agents.spec import AgentSpec
-
         agent_specs = AgentSpec.coerce_list(agents_str, warn=False)
         if len(agent_specs) > MAX_AGENTS_PER_DEBATE:
             _set_debate_error(debate_id, f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}")
@@ -543,10 +522,8 @@ def execute_debate_thread(
         usage_tracker = None
         if user_id or org_id:
             try:
-                from aragora.billing.usage import UsageTracker
-
                 usage_tracker = UsageTracker()
-            except ImportError:
+            except (ImportError, TypeError):
                 pass
 
         arena = Arena(

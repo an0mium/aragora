@@ -19,7 +19,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.core import Agent, Environment, Message, Vote, Critique
-from aragora.debate.orchestrator import Arena, ArenaConfig, DebateProtocol
+from aragora.debate.orchestrator import Arena, DebateProtocol
+from aragora.debate.arena_config import ArenaConfig
 
 
 # =============================================================================
