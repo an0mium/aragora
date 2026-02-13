@@ -324,7 +324,7 @@ class TestRLMTrainingIntegration:
             debate_id = "ctx_debate_002"
             result = MockResult()
             env = MockEnv()
-            messages = []
+            context_messages = []
             agents = [MockAgent(), MockAgent()]
             domain = "technical"
 
