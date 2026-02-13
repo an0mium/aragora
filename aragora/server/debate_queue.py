@@ -593,7 +593,7 @@ class DebateQueue:
                 else:
                     logger.info(f"Webhook sent for batch {batch.batch_id}")
         except ImportError:
-            logger.warning("httpx not available for webhook")
+            logger.debug("httpx not available for webhook")
         except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError) as e:
             logger.error(f"Webhook error for batch {batch.batch_id}: {e}")
 

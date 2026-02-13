@@ -390,7 +390,7 @@ def generate_prometheus_metrics(
 
     except ImportError:
         # prometheus_client not installed, return minimal fallback
-        logger.warning("prometheus_client not installed, returning fallback metrics")
+        logger.debug("prometheus_client not installed, returning fallback metrics")
         fallback = _generate_fallback_metrics()
         return fallback, PROMETHEUS_CONTENT_TYPE
 

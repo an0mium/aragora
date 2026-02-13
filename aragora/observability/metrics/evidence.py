@@ -13,7 +13,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled
+from aragora.observability.metrics.base import (
+    NoOpMetric,
+    get_metrics_enabled,
+    get_or_create_counter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +45,18 @@ def init_evidence_metrics() -> None:
         return
 
     try:
-        from prometheus_client import Counter
-
-        EVIDENCE_STORED = Counter(
+        EVIDENCE_STORED = get_or_create_counter(
             "aragora_evidence_stored_total",
             "Evidence items stored in knowledge mound",
         )
 
-        EVIDENCE_CITATION_BONUSES = Counter(
+        EVIDENCE_CITATION_BONUSES = get_or_create_counter(
             "aragora_evidence_citation_bonuses_total",
             "Evidence citation vote bonuses applied",
             ["agent"],
         )
 
-        CULTURE_PATTERNS = Counter(
+        CULTURE_PATTERNS = get_or_create_counter(
             "aragora_culture_patterns_total",
             "Culture patterns extracted from debates",
         )
@@ -62,9 +64,6 @@ def init_evidence_metrics() -> None:
         _initialized = True
         logger.debug("Evidence metrics initialized")
 
-    except ImportError:
-        _init_noop_metrics()
-        _initialized = True
     except Exception as e:
         logger.warning(f"Failed to initialize evidence metrics: {e}")
         _init_noop_metrics()

@@ -16,7 +16,7 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
     """Send result to Slack."""
     token = os.environ.get("SLACK_BOT_TOKEN", "")
     if not token:
-        logger.warning("SLACK_BOT_TOKEN not configured")
+        logger.debug("SLACK_BOT_TOKEN not configured")
         return False
 
     channel = origin.channel_id

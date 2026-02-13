@@ -742,7 +742,6 @@ class TestRealRLMIntegration:
             "token" in result.lower() or "relevant" in result.lower() or "found" in result.lower()
         )
 
-    @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM library not installed")
     def test_real_rlm_initialization(self):
         """When RLM is installed, limiter initializes real RLM."""
         import warnings
@@ -754,7 +753,6 @@ class TestRealRLMIntegration:
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
 
-    @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM library not installed")
     @pytest.mark.asyncio
     async def test_real_rlm_query(self):
         """Real RLM query uses REPL-based approach."""

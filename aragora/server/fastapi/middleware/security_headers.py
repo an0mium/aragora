@@ -66,7 +66,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 f"SecurityHeadersMiddleware initialized with {len(self._headers)} headers"
             )
         else:
-            logger.warning("SecurityHeadersMiddleware disabled (no headers configured)")
+            logger.debug("SecurityHeadersMiddleware disabled (no headers configured)")
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """

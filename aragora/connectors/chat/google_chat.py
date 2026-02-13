@@ -34,7 +34,7 @@ try:
     GOOGLE_AUTH_AVAILABLE = True
 except ImportError:
     GOOGLE_AUTH_AVAILABLE = False
-    logger.warning("google-auth not available - Google Chat connector limited")
+    logger.debug("google-auth not available - Google Chat connector limited")
 
 from .base import ChatPlatformConnector
 from .models import (

@@ -122,12 +122,12 @@ def _get_tts_backend():
         _tts_backend = get_fallback_backend()
         _tts_available = _tts_backend.is_available()
         if not _tts_available:
-            logger.warning("[Voice] TTS backends not available")
+            logger.debug("[Voice] TTS backends not available")
             return None
         logger.info(f"[Voice] TTS backend initialized: {_tts_backend.name}")
         return _tts_backend
     except ImportError as e:
-        logger.warning(f"[Voice] TTS backends not available: {e}")
+        logger.debug(f"[Voice] TTS backends not available: {e}")
         _tts_available = False
         return None
     except (AttributeError, RuntimeError, OSError) as e:

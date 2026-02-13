@@ -46,11 +46,11 @@ DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
 DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not DISCORD_CLIENT_ID:
-    logger.warning("DISCORD_CLIENT_ID not configured - Discord OAuth disabled")
+    logger.debug("DISCORD_CLIENT_ID not configured - Discord OAuth disabled")
 if not DISCORD_CLIENT_SECRET:
-    logger.warning("DISCORD_CLIENT_SECRET not configured - Discord OAuth disabled")
+    logger.debug("DISCORD_CLIENT_SECRET not configured - Discord OAuth disabled")
 
 # Default OAuth scopes for Aragora Discord bot
 DEFAULT_SCOPES = "bot applications.commands"

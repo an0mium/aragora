@@ -273,7 +273,7 @@ class RedisClusterClient:
             logger.info(f"Detected Redis Cluster at {host}:{port}")
             return True
         except ImportError:
-            logger.warning("redis package not installed for cluster detection")
+            logger.debug("redis package not installed for cluster detection")
             return False
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Connection failed during cluster detection: {type(e).__name__}: {e}")

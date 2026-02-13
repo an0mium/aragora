@@ -58,6 +58,117 @@ def get_metrics_enabled() -> bool:
     return config.enabled
 
 
+def _get_collector_by_name(name: str) -> Any:
+    """Look up an existing Prometheus collector by metric name.
+
+    When a metric is already registered in the default REGISTRY, creating
+    it again raises ``ValueError: Duplicated timeseries``.  This helper
+    retrieves the existing collector so we can reuse it instead.
+
+    Args:
+        name: The Prometheus metric name (e.g. ``aragora_cache_hits_total``)
+
+    Returns:
+        The existing collector, or ``None`` if not found.
+    """
+    try:
+        from prometheus_client import REGISTRY
+
+        return REGISTRY._names_to_collectors.get(name)
+    except (ImportError, AttributeError):
+        return None
+
+
+def get_or_create_counter(
+    name: str, documentation: str, labelnames: list[str] | None = None
+) -> Any:
+    """Create a Prometheus Counter, reusing an existing one on conflict.
+
+    Falls back to :class:`NoOpMetric` when ``prometheus_client`` is missing.
+    """
+    try:
+        from prometheus_client import Counter
+
+        if labelnames:
+            return Counter(name, documentation, labelnames)
+        return Counter(name, documentation)
+    except ImportError:
+        return NoOpMetric()
+    except ValueError:
+        existing = _get_collector_by_name(name)
+        if existing is not None:
+            return existing
+        return NoOpMetric()
+
+
+def get_or_create_gauge(
+    name: str, documentation: str, labelnames: list[str] | None = None
+) -> Any:
+    """Create a Prometheus Gauge, reusing an existing one on conflict.
+
+    Falls back to :class:`NoOpMetric` when ``prometheus_client`` is missing.
+    """
+    try:
+        from prometheus_client import Gauge
+
+        if labelnames:
+            return Gauge(name, documentation, labelnames)
+        return Gauge(name, documentation)
+    except ImportError:
+        return NoOpMetric()
+    except ValueError:
+        existing = _get_collector_by_name(name)
+        if existing is not None:
+            return existing
+        return NoOpMetric()
+
+
+def get_or_create_histogram(
+    name: str,
+    documentation: str,
+    labelnames: list[str] | None = None,
+    buckets: list[float] | None = None,
+) -> Any:
+    """Create a Prometheus Histogram, reusing an existing one on conflict.
+
+    Falls back to :class:`NoOpMetric` when ``prometheus_client`` is missing.
+    """
+    try:
+        from prometheus_client import Histogram
+
+        kwargs: dict[str, Any] = {}
+        if labelnames:
+            kwargs["labelnames"] = labelnames
+        if buckets:
+            kwargs["buckets"] = buckets
+        return Histogram(name, documentation, **kwargs)
+    except ImportError:
+        return NoOpMetric()
+    except ValueError:
+        existing = _get_collector_by_name(name)
+        if existing is not None:
+            return existing
+        return NoOpMetric()
+
+
+def get_or_create_info(name: str, documentation: str) -> Any:
+    """Create a Prometheus Info metric, reusing an existing one on conflict.
+
+    Falls back to :class:`NoOpMetric` when ``prometheus_client`` is missing.
+    """
+    try:
+        from prometheus_client import Info
+
+        return Info(name, documentation)
+    except ImportError:
+        return NoOpMetric()
+    except ValueError:
+        existing = _get_collector_by_name(name)
+        if existing is not None:
+            return existing
+        return NoOpMetric()
+
+
 def ensure_metrics_initialized() -> bool:
     """Ensure metrics are initialized.
 

@@ -223,7 +223,7 @@ def _init_metrics() -> bool:
         return True
 
     except ImportError:
-        logger.warning("prometheus_client not installed, connector metrics disabled")
+        logger.debug("prometheus_client not installed, connector metrics disabled")
         _init_noop_metrics()
         _initialized = True
         return False

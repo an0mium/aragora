@@ -215,11 +215,6 @@ class TestRunSandboxed:
     @pytest.mark.asyncio
     async def test_run_sandboxed_z3(self):
         """Should run Z3 code in sandbox."""
-        import shutil
-
-        if not shutil.which("z3"):
-            pytest.skip("Z3 not installed")
-
         result = await run_sandboxed("(check-sat)", language="z3")
         assert result.status in (SandboxStatus.SUCCESS, SandboxStatus.SETUP_FAILED)
 

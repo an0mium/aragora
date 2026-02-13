@@ -18,7 +18,7 @@ async def _send_telegram_result(origin: DebateOrigin, result: dict[str, Any]) ->
     """Send result to Telegram."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token:
-        logger.warning("TELEGRAM_BOT_TOKEN not configured")
+        logger.debug("TELEGRAM_BOT_TOKEN not configured")
         return False
 
     chat_id = origin.channel_id

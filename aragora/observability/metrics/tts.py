@@ -13,7 +13,12 @@ from contextlib import contextmanager
 from typing import Any
 from collections.abc import Generator
 
-from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled
+from aragora.observability.metrics.base import (
+    NoOpMetric,
+    get_metrics_enabled,
+    get_or_create_counter,
+    get_or_create_histogram,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +43,13 @@ def init_tts_metrics() -> None:
         return
 
     try:
-        from prometheus_client import Counter, Histogram
-
-        TTS_SYNTHESIS_TOTAL = Counter(
+        TTS_SYNTHESIS_TOTAL = get_or_create_counter(
             "aragora_tts_synthesis_total",
             "Total TTS synthesis operations",
             ["voice", "platform"],
         )
 
-        TTS_SYNTHESIS_LATENCY = Histogram(
+        TTS_SYNTHESIS_LATENCY = get_or_create_histogram(
             "aragora_tts_synthesis_latency_seconds",
             "TTS synthesis latency in seconds",
             buckets=[0.1, 0.5, 1, 2, 5, 10, 20],
@@ -55,9 +58,6 @@ def init_tts_metrics() -> None:
         _initialized = True
         logger.debug("TTS metrics initialized")
 
-    except ImportError:
-        _init_noop_metrics()
-        _initialized = True
     except Exception as e:
         logger.warning(f"Failed to initialize TTS metrics: {e}")
         _init_noop_metrics()

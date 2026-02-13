@@ -99,7 +99,7 @@ try:
 except ImportError:
     HANDLER_BASE_AVAILABLE = False
     _chat_limiter = None
-    logger.warning("Handler base not available - ChatRouter will have limited functionality")
+    logger.debug("Handler base not available - ChatRouter will have limited functionality")
 
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:

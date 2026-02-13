@@ -454,7 +454,7 @@ class DecisionRoutingMiddleware:
 
                 self._router = DecisionRouter()
             except ImportError:
-                logger.warning("DecisionRouter not available")
+                logger.debug("DecisionRouter not available")
         return self._router
 
     def _get_unified_router(self):
@@ -465,7 +465,7 @@ class DecisionRoutingMiddleware:
 
                 self._unified_router = UnifiedDecisionRouter()
             except ImportError:
-                logger.warning("UnifiedDecisionRouter not available")
+                logger.debug("UnifiedDecisionRouter not available")
         return self._unified_router
 
     async def process(

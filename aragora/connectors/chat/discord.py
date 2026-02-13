@@ -37,7 +37,7 @@ try:
     NACL_AVAILABLE = True
 except ImportError:
     NACL_AVAILABLE = False
-    logger.warning("PyNaCl not available - Discord webhook verification disabled")
+    logger.debug("PyNaCl not available - Discord webhook verification disabled")
 
 try:
     from aragora.observability.tracing import build_trace_headers

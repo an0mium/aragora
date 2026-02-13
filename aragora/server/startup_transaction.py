@@ -47,17 +47,29 @@ def _init_startup_metrics() -> bool:
         return True
 
     try:
-        from prometheus_client import Gauge, Histogram
+        from prometheus_client import REGISTRY, Gauge, Histogram
 
-        _STARTUP_DURATION = Histogram(
-            "aragora_server_startup_duration_seconds",
-            "Server startup duration in seconds",
-            buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0],
-        )
-        _STARTUP_COMPONENTS = Gauge(
-            "aragora_server_startup_components_initialized",
-            "Number of components initialized during startup",
-        )
+        try:
+            _STARTUP_DURATION = Histogram(
+                "aragora_server_startup_duration_seconds",
+                "Server startup duration in seconds",
+                buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0],
+            )
+        except ValueError:
+            _STARTUP_DURATION = REGISTRY._names_to_collectors.get(
+                "aragora_server_startup_duration_seconds"
+            )
+
+        try:
+            _STARTUP_COMPONENTS = Gauge(
+                "aragora_server_startup_components_initialized",
+                "Number of components initialized during startup",
+            )
+        except ValueError:
+            _STARTUP_COMPONENTS = REGISTRY._names_to_collectors.get(
+                "aragora_server_startup_components_initialized"
+            )
+
         return True
     except ImportError:
         return False

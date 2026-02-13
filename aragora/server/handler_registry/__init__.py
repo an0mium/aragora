@@ -262,7 +262,7 @@ class HandlerRegistryMixin:
 
         if unavailable:
             logger.info(f"[resources] Available: {', '.join(available)}")
-            logger.warning(f"[resources] Unavailable: {', '.join(unavailable)}")
+            logger.info(f"[resources] Unavailable: {', '.join(unavailable)}")
         else:
             logger.info(f"[resources] All resources available: {', '.join(available)}")
 

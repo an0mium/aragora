@@ -31,6 +31,67 @@ from aragora.rbac.models import AuthorizationContext
 
 
 # ============================================================================
+# RBAC Auto-Bypass Helpers
+# ============================================================================
+
+
+def _patch_handler_rbac(monkeypatch, mock_user_ctx):
+    """Patch all three RBAC systems used by handlers.
+
+    1. server.handlers.utils.decorators.require_permission - test hook + has_permission
+    2. aragora.rbac.checker.PermissionChecker - check_permission always allows
+    3. aragora.rbac.enforcer.RBACEnforcer - check/require always allows
+    """
+    # 1. Patch handler-level require_permission decorator
+    try:
+        from aragora.server.handlers.utils import decorators as handler_decorators
+
+        monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user_ctx)
+        monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+    except (ImportError, AttributeError):
+        pass
+
+    # 2. Patch aragora.rbac PermissionChecker
+    try:
+        from aragora.rbac.checker import get_permission_checker
+        from aragora.rbac.models import AuthorizationDecision
+
+        checker = get_permission_checker()
+
+        def _checker_allow(context, permission_key, resource_id=None):
+            from datetime import datetime
+
+            return AuthorizationDecision(
+                allowed=True,
+                reason="Test bypass",
+                permission_key=permission_key,
+                resource_id=resource_id,
+                context=context,
+                checked_at=datetime.now(),
+                cached=False,
+            )
+
+        monkeypatch.setattr(checker, "check_permission", _checker_allow)
+    except (ImportError, AttributeError):
+        pass
+
+    # 3. Patch RBACEnforcer class methods
+    try:
+        from aragora.rbac.enforcer import RBACEnforcer
+
+        async def _enforcer_check(self, *args, **kwargs):
+            return True
+
+        async def _enforcer_require(self, *args, **kwargs):
+            pass
+
+        monkeypatch.setattr(RBACEnforcer, "check", _enforcer_check)
+        monkeypatch.setattr(RBACEnforcer, "require", _enforcer_require)
+    except (ImportError, AttributeError):
+        pass
+
+
+# ============================================================================
 # RBAC Auto-Bypass Fixture
 # ============================================================================
 
@@ -150,22 +211,72 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass  # UserAuthContext may not be available in all test contexts
 
-    # Patch the require_permission test hook to bypass handler-null auth guard.
-    # Without this, _check_permission returns 401 when functions decorated with
-    # @require_permission are called directly without an HTTP handler argument.
+    # Patch all RBAC/auth systems for handler tests.
+    # 1. require_permission from server.handlers.utils.decorators
+    # 2. PermissionChecker from aragora.rbac.checker
+    # 3. RBACEnforcer from aragora.rbac.enforcer
+    _patch_handler_rbac(monkeypatch, mock_user_ctx)
+
+    yield mock_auth_ctx
+
+
+# ============================================================================
+# RBAC Checker and Enforcer Bypass
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _bypass_rbac_checker_and_enforcer(request, monkeypatch):
+    """Bypass aragora.rbac PermissionChecker and RBACEnforcer for handler tests.
+
+    This is separate from mock_auth_for_handler_tests because that fixture
+    handles the server.handlers.utils.decorators RBAC, while this handles
+    the aragora.rbac module's PermissionChecker and RBACEnforcer.
+    """
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    # Patch PermissionChecker.check_permission to always allow
     try:
-        from aragora.server.handlers.utils import decorators as handler_decorators
+        from aragora.rbac.checker import get_permission_checker
+        from aragora.rbac.models import AuthorizationDecision
 
-        monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user_ctx)
+        checker = get_permission_checker()
 
-        # Also patch has_permission to always return True for admin role.
-        # The PERMISSION_MATRIX doesn't cover all handler-specific permissions
-        # (e.g., persona:update, cloud:read), causing 403 for tests with admin users.
-        monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+        def _always_allow(context, permission_key, resource_id=None):
+            from datetime import datetime
+
+            return AuthorizationDecision(
+                allowed=True,
+                reason="Test bypass",
+                permission_key=permission_key,
+                resource_id=resource_id,
+                context=context,
+                checked_at=datetime.now(),
+                cached=False,
+            )
+
+        monkeypatch.setattr(checker, "check_permission", _always_allow)
     except (ImportError, AttributeError):
         pass
 
-    yield mock_auth_ctx
+    # Patch RBACEnforcer methods to always allow
+    try:
+        from aragora.rbac.enforcer import RBACEnforcer
+
+        async def _enforcer_check(self, *args, **kwargs):
+            return True
+
+        async def _enforcer_require(self, *args, **kwargs):
+            pass
+
+        monkeypatch.setattr(RBACEnforcer, "check", _enforcer_check)
+        monkeypatch.setattr(RBACEnforcer, "require", _enforcer_require)
+    except (ImportError, AttributeError):
+        pass
+
+    yield
 
 
 # ============================================================================

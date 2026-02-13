@@ -164,7 +164,7 @@ async def run_startup_validation(
         return result
 
     except ImportError as e:
-        logger.warning(f"[STARTUP VALIDATION] Deployment validator not available: {e}")
+        logger.debug(f"[STARTUP VALIDATION] Deployment validator not available: {e}")
         return None
     except StartupValidationError:
         # Re-raise our own error

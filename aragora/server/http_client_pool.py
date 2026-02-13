@@ -232,7 +232,7 @@ class HTTPClientPool:
             from requests.adapters import HTTPAdapter
             from urllib3.util.retry import Retry
         except ImportError:
-            logger.warning("requests not installed, falling back to basic urllib")
+            logger.debug("requests not installed, falling back to basic urllib")
             return None
 
         config = self._get_provider_config(provider)
@@ -277,7 +277,7 @@ class HTTPClientPool:
         try:
             import httpx
         except ImportError:
-            logger.warning("httpx not installed, async HTTP pooling unavailable")
+            logger.debug("httpx not installed, async HTTP pooling unavailable")
             return None
 
         config = self._get_provider_config(provider)

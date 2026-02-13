@@ -91,7 +91,7 @@ class RedisBroadcastBridge:
             True if connected successfully
         """
         if not REDIS_AVAILABLE:
-            logger.warning("Redis not available for broadcast bridge")
+            logger.debug("Redis not available for broadcast bridge")
             return False
 
         try:

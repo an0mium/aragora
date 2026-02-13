@@ -524,15 +524,12 @@ class TestKeyLifecycleManagement:
 
     def test_encryption_service_exists(self):
         """Encryption service module should be importable."""
-        try:
-            from aragora.security.encryption import (
-                CRYPTO_AVAILABLE,
-                get_encryption_service,
-            )
+        from aragora.security.encryption import (
+            CRYPTO_AVAILABLE,
+            get_encryption_service,
+        )
 
-            assert callable(get_encryption_service)
-        except ImportError:
-            pytest.skip("Cryptography library not installed")
+        assert callable(get_encryption_service)
 
 
 # =============================================================================

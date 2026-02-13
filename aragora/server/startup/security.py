@@ -228,7 +228,7 @@ def init_graphql_routes(app: Any) -> bool:
         return True
 
     except ImportError as e:
-        logger.warning(f"GraphQL module not available: {e}")
+        logger.debug(f"GraphQL module not available: {e}")
         return False
     except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Failed to initialize GraphQL routes: {e}")

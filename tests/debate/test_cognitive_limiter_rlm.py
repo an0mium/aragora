@@ -1385,7 +1385,6 @@ class TestRealRLMIntegration:
         # Stats should be updated (either incremented or unchanged if fallback)
         assert limiter.stats["rlm_queries"] >= initial_queries
 
-    @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM not installed")
     def test_real_rlm_initialization(self):
         """Test real RLM initialization when available."""
         limiter = RLMCognitiveLoadLimiter(rlm_model="gpt-4o")
@@ -1393,7 +1392,6 @@ class TestRealRLMIntegration:
         assert limiter.has_real_rlm is True
         assert limiter._aragora_rlm is not None
 
-    @pytest.mark.skipif(not HAS_OFFICIAL_RLM, reason="Real RLM not installed")
     @pytest.mark.asyncio
     async def test_real_rlm_query(self):
         """Test real RLM query when available."""

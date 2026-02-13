@@ -17,7 +17,7 @@ async def _send_google_chat_result(origin: DebateOrigin, result: dict[str, Any])
 
         connector = get_google_chat_connector()
         if not connector:
-            logger.warning("Google Chat connector not configured")
+            logger.debug("Google Chat connector not configured")
             return False
 
         space_name = origin.channel_id  # Space name in format "spaces/XXXXX"

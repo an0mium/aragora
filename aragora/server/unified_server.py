@@ -117,6 +117,20 @@ _server_start_time: float = time.time()
 MAX_CONCURRENT_DEBATES: int = CONFIG_MAX_CONCURRENT_DEBATES
 
 
+def __getattr__(name: str):
+    """Module-level lazy attribute access.
+
+    Provides ``app`` as a convenience alias so that
+    ``from aragora.server.unified_server import app`` works without
+    eagerly importing the FastAPI stack at module load time.
+    """
+    if name == "app":
+        from aragora.server.app import app as _app
+
+        return _app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 class _UnifiedHandlerBase(BaseHTTPRequestHandler):
     """Base class to establish proper MRO for mixins.
 
@@ -760,7 +774,7 @@ class UnifiedServer:
 
             self.canvas_stream = CanvasStreamServer(host=ws_host, port=canvas_port)
         except ImportError:
-            logger.warning("Canvas stream server not available")
+            logger.debug("Canvas stream server not available")
 
         # Initialize Supabase persistence if available
         self.persistence: SupabaseClient | None = init_persistence(enable_persistence)
@@ -950,7 +964,7 @@ class UnifiedServer:
                 storage_path or ":memory:",
             )
         except ImportError as e:
-            logger.warning("[init] Anomaly detection unavailable: %s", e)
+            logger.debug("[init] Anomaly detection unavailable: %s", e)
             UnifiedHandler.anomaly_detector = None
         except (OSError, RuntimeError, ValueError) as e:
             logger.warning("[init] Anomaly detection initialization failed: %s", e)
@@ -1339,7 +1353,7 @@ async def run_unified_server(
         enable_persistent_auditing()
         logger.info("[server] Persistent RBAC audit logging enabled")
     except (ImportError, OSError, RuntimeError) as e:
-        logger.warning(f"[server] Persistent audit logging not available: {e}")
+        logger.debug(f"[server] Persistent audit logging not available: {e}")
 
     # Ensure demo data is loaded for search functionality
     try:

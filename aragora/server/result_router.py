@@ -39,7 +39,7 @@ async def route_result(debate_id: str, result: dict[str, Any]) -> bool:
 
         return await route_debate_result(debate_id, result)
     except ImportError:
-        logger.warning("debate_origin module not available")
+        logger.debug("debate_origin module not available")
         return False
     except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Failed to route result: {e}")
@@ -85,7 +85,7 @@ async def route_plan_outcome(
         return await route_plan_result(debate_id, outcome_with_message)
 
     except ImportError as e:
-        logger.warning(f"debate_origin module not available for plan routing: {e}")
+        logger.debug(f"debate_origin module not available for plan routing: {e}")
         return False
     except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Failed to route plan outcome: {e}")

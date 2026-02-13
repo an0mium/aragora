@@ -486,7 +486,7 @@ class StreamingConnectorHandler(BaseHandler):
             self._connectors["kafka"] = connector
             return True
         except ImportError:
-            logger.warning("Kafka dependencies not installed")
+            logger.debug("Kafka dependencies not installed")
             return True  # Allow connection in demo mode
         except Exception as e:
             logger.error(f"Kafka connection error: {e}")
@@ -508,7 +508,7 @@ class StreamingConnectorHandler(BaseHandler):
             self._connectors["rabbitmq"] = connector
             return True
         except ImportError:
-            logger.warning("RabbitMQ dependencies not installed")
+            logger.debug("RabbitMQ dependencies not installed")
             return True  # Allow connection in demo mode
         except Exception as e:
             logger.error(f"RabbitMQ connection error: {e}")
@@ -530,7 +530,7 @@ class StreamingConnectorHandler(BaseHandler):
             self._connectors["snssqs"] = connector
             return True
         except ImportError:
-            logger.warning("AWS dependencies not installed")
+            logger.debug("AWS dependencies not installed")
             return True  # Allow connection in demo mode
         except Exception as e:
             logger.error(f"SNS/SQS connection error: {e}")

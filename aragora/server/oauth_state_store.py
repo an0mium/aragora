@@ -417,7 +417,7 @@ class RedisOAuthStateStore(OAuthStateStore):
             return self._redis
         except ImportError:
             if not self._connection_error_logged:
-                logger.warning("OAuth state store: redis package not installed")
+                logger.debug("OAuth state store: redis package not installed")
                 self._connection_error_logged = True
             return None
         except _REDIS_ERRORS as e:
@@ -729,7 +729,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
             except _REDIS_ERRORS as e:
                 logger.debug(f"Redis connectivity check failed: {e}")
             self._redis_failed = True
-            logger.warning("OAuth state store: Redis unavailable, using JWT backend.")
+            logger.info("OAuth state store: Redis unavailable, using JWT backend.")
 
         # Use JWT (stateless, works across all instances without shared storage)
         # This is the recommended fallback for multi-instance deployments

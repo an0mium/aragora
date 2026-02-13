@@ -24,7 +24,7 @@ try:
     HTTPX_AVAILABLE = True
 except ImportError:
     HTTPX_AVAILABLE = False
-    logger.warning("httpx not available - Teams connector will have limited functionality")
+    logger.debug("httpx not available - Teams connector will have limited functionality")
 
 # Distributed tracing support
 try:

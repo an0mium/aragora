@@ -15,7 +15,12 @@ from contextlib import contextmanager
 from typing import Any
 from collections.abc import Generator
 
-from aragora.observability.metrics.base import NoOpMetric, get_metrics_enabled
+from aragora.observability.metrics.base import (
+    NoOpMetric,
+    get_metrics_enabled,
+    get_or_create_counter,
+    get_or_create_histogram,
+)
 
 logger = logging.getLogger(__name__)
 

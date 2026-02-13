@@ -48,13 +48,13 @@ WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN")
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET")
 WHATSAPP_API_BASE = "https://graph.facebook.com/v18.0"
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not WHATSAPP_ACCESS_TOKEN:
-    logger.warning("WHATSAPP_ACCESS_TOKEN not configured - WhatsApp messaging disabled")
+    logger.debug("WHATSAPP_ACCESS_TOKEN not configured - WhatsApp messaging disabled")
 if not WHATSAPP_VERIFY_TOKEN:
-    logger.warning("WHATSAPP_VERIFY_TOKEN not configured - webhook verification disabled")
+    logger.debug("WHATSAPP_VERIFY_TOKEN not configured - webhook verification disabled")
 if not WHATSAPP_APP_SECRET:
-    logger.warning("WHATSAPP_APP_SECRET not configured - signature verification disabled")
+    logger.debug("WHATSAPP_APP_SECRET not configured - signature verification disabled")
 
 
 # =============================================================================

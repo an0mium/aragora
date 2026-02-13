@@ -107,7 +107,7 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
 
         scheduler = get_pulse_scheduler()
         if not scheduler:
-            logger.warning("Pulse scheduler not available for autostart")
+            logger.debug("Pulse scheduler not available for autostart")
             return False
 
         # Update config from environment

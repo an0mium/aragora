@@ -152,7 +152,7 @@ class RedisRateLimiter:
             return self._redis
 
         except ImportError:
-            logger.warning("redis package not installed. Install with: pip install redis")
+            logger.debug("redis package not installed. Install with: pip install redis")
             self._available = False
             return None
         except REDIS_CONNECTION_ERRORS as e:
@@ -479,7 +479,7 @@ def get_distributed_rate_limiter() -> Any:
             logger.info("Using Redis-backed rate limiter")
             return _rate_limiter_instance
         else:
-            logger.warning("Redis unavailable, falling back to in-memory limiter")
+            logger.info("Redis unavailable, falling back to in-memory limiter")
 
     # Fallback to in-memory
     from aragora.server.middleware.rate_limit import get_rate_limiter

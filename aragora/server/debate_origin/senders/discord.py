@@ -18,7 +18,7 @@ async def _send_discord_result(origin: DebateOrigin, result: dict[str, Any]) -> 
     """Send result to Discord."""
     token = os.environ.get("DISCORD_BOT_TOKEN", "")
     if not token:
-        logger.warning("DISCORD_BOT_TOKEN not configured")
+        logger.debug("DISCORD_BOT_TOKEN not configured")
         return False
 
     channel_id = origin.channel_id

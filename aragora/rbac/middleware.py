@@ -761,11 +761,11 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/gateway/openclaw/actions$", "POST", "gateway:actions.execute"),
     RoutePermission(r"^/api/gateway/openclaw/actions/([^/]+)$", "GET", "gateway:actions.read", 1),
     RoutePermission(r"^/api/gateway/openclaw/actions/([^/]+)/cancel$", "POST", "gateway:actions.cancel", 1),
-    # Credentials
-    RoutePermission(r"^/api/gateway/openclaw/credentials$", "GET", "gateway:credentials.read"),
-    RoutePermission(r"^/api/gateway/openclaw/credentials$", "POST", "gateway:credentials.create"),
-    RoutePermission(r"^/api/gateway/openclaw/credentials/([^/]+)$", "DELETE", "gateway:credentials.delete", 1),
-    RoutePermission(r"^/api/gateway/openclaw/credentials/([^/]+)/rotate$", "POST", "gateway:credentials.rotate", 1),
+    # Credentials (use singular "credential" to match existing permissions)
+    RoutePermission(r"^/api/gateway/openclaw/credentials$", "GET", "gateway.credential.read"),
+    RoutePermission(r"^/api/gateway/openclaw/credentials$", "POST", "gateway.credential.create"),
+    RoutePermission(r"^/api/gateway/openclaw/credentials/([^/]+)$", "DELETE", "gateway.credential.delete", 1),
+    RoutePermission(r"^/api/gateway/openclaw/credentials/([^/]+)/rotate$", "POST", "gateway.credential.rotate", 1),
     # Policy rules
     RoutePermission(r"^/api/gateway/openclaw/policy/rules$", "GET", "gateway:policy.read"),
     RoutePermission(r"^/api/gateway/openclaw/policy/rules$", "POST", "gateway:policy.write"),

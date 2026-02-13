@@ -195,7 +195,7 @@ class RedisRevocationStore:
 
                 self._client = redis.from_url(self._redis_url)
             except ImportError:
-                logger.warning("redis package not installed, falling back to in-memory")
+                logger.debug("redis package not installed, falling back to in-memory")
                 raise
         return self._client
 

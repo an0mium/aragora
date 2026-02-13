@@ -151,11 +151,11 @@ class WebConnector(BaseConnector):
 
         # Check dependencies
         if not HTTPX_AVAILABLE:
-            logger.warning("httpx not installed - URL fetching will be limited")
+            logger.debug("httpx not installed - URL fetching will be limited")
         if not BS4_AVAILABLE:
-            logger.warning("beautifulsoup4 not installed - HTML parsing will be limited")
+            logger.debug("beautifulsoup4 not installed - HTML parsing will be limited")
         if not DDGS_AVAILABLE:
-            logger.warning("duckduckgo-search not installed - web search will be unavailable")
+            logger.debug("duckduckgo-search not installed - web search will be unavailable")
 
     @property
     def source_type(self) -> SourceType:

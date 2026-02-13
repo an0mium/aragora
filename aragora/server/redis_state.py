@@ -133,7 +133,7 @@ class RedisStateManager:
             True if connected, False otherwise
         """
         if not REDIS_AVAILABLE:
-            logger.warning("Redis not available (aioredis not installed)")
+            logger.debug("Redis not available (aioredis not installed)")
             return False
 
         try:

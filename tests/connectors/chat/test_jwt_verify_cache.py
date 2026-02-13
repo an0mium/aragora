@@ -271,7 +271,6 @@ class TestCacheInvalidationMethods:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestCacheInvalidationOnSignatureFailure:
     """Test cache is invalidated on signature verification failures."""
 
@@ -561,7 +560,6 @@ class TestCacheRefreshAfterInvalidation:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestCacheHardeningIntegration:
     """Integration tests for cache hardening."""
 

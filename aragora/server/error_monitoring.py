@@ -157,7 +157,7 @@ def init_monitoring() -> bool:
             logger.info(f"Sentry initialized: env={environment}, release={release}")
 
         except ImportError:
-            logger.warning("sentry-sdk not installed, error monitoring disabled")
+            logger.debug("sentry-sdk not installed, error monitoring disabled")
             _sentry_available = False
         except (ValueError, TypeError, RuntimeError) as e:
             # Configuration errors (invalid DSN, bad sample rates, SDK runtime issues)

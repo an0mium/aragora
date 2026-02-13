@@ -272,6 +272,8 @@ def billing_handler():
     """Create BillingHandler with mock context."""
     user_store = MockUserStore()
     user_store.users["user-123"] = MockUser()
+    # Add user for conftest's mock_auth_for_handler_tests (user_id="test-user-001")
+    user_store.users["test-user-001"] = MockUser(id="test-user-001", org_id="org-123")
     # Also add test_user for @require_permission decorator's auto-generated test user
     user_store.users["test_user"] = MockUser(id="test_user", org_id="org-123")
     user_store.orgs["org-123"] = MockOrganization()
@@ -382,9 +384,7 @@ class TestBillingGetUsage:
         """Happy path: get usage with auth."""
         handler = make_mock_handler()
 
-        with patch.object(billing_handler, "_get_usage", wraps=billing_handler._get_usage):
-            # Simulate authenticated request
-            result = billing_handler._get_usage(handler, user=MockUserContext())
+        result = billing_handler.handle("/api/v1/billing/usage", {}, handler, "GET")
 
         assert result is not None
         assert result.status_code == 200

@@ -43,11 +43,11 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
 TELEGRAM_API_BASE = "https://api.telegram.org/bot"
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not TELEGRAM_BOT_TOKEN:
-    logger.warning("TELEGRAM_BOT_TOKEN not configured - Telegram bot disabled")
+    logger.debug("TELEGRAM_BOT_TOKEN not configured - Telegram bot disabled")
 if not TELEGRAM_WEBHOOK_SECRET:
-    logger.warning("TELEGRAM_WEBHOOK_SECRET not configured - webhook verification disabled")
+    logger.debug("TELEGRAM_WEBHOOK_SECRET not configured - webhook verification disabled")
 
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:

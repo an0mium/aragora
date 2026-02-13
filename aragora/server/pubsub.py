@@ -228,7 +228,7 @@ class RedisPubSub:
         await self._ensure_pubsub()
 
         if not self._pubsub:
-            logger.warning("Pub/sub not available, listener exiting")
+            logger.debug("Pub/sub not available, listener exiting")
             return
 
         while self._running:

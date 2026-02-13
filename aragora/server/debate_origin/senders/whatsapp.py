@@ -20,7 +20,7 @@ async def _send_whatsapp_result(origin: DebateOrigin, result: dict[str, Any]) ->
     phone_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "")
 
     if not token or not phone_id:
-        logger.warning("WhatsApp credentials not configured")
+        logger.debug("WhatsApp credentials not configured")
         return False
 
     to_number = origin.channel_id

@@ -763,7 +763,7 @@ def validate_all_handlers(
         - missing: List of handlers that couldn't be imported
     """
     if not handlers_available:
-        logger.warning("[handler-validation] Handler imports failed, skipping validation")
+        logger.debug("[handler-validation] Handler imports failed, skipping validation")
         return {
             "valid": [],
             "invalid": {},

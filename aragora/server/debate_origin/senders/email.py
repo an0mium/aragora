@@ -36,7 +36,7 @@ async def _send_email_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
         return True
 
     except (ImportError, AttributeError):
-        logger.warning("Email notification system not available")
+        logger.debug("Email notification system not available")
         return False
     except Exception as e:
         logger.error(f"Email result send error: {e}")

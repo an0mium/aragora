@@ -29,17 +29,28 @@ logger = logging.getLogger(__name__)
 # Prometheus metrics (lazy; None when prometheus_client not installed)
 # ---------------------------------------------------------------------------
 try:
-    from prometheus_client import Gauge, Histogram
+    from prometheus_client import REGISTRY, Gauge, Histogram
 
-    REGISTERED_THREADS_GAUGE: Gauge | None = Gauge(
-        "aragora_registered_threads",
-        "Number of threads registered with the lifecycle manager",
-    )
-    SHUTDOWN_DURATION_HISTOGRAM: Histogram | None = Histogram(
-        "aragora_shutdown_duration_seconds",
-        "Time taken to shut down all registered threads",
-        buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
-    )
+    try:
+        REGISTERED_THREADS_GAUGE: Gauge | None = Gauge(
+            "aragora_registered_threads",
+            "Number of threads registered with the lifecycle manager",
+        )
+    except ValueError:
+        REGISTERED_THREADS_GAUGE = REGISTRY._names_to_collectors.get(
+            "aragora_registered_threads"
+        )
+
+    try:
+        SHUTDOWN_DURATION_HISTOGRAM: Histogram | None = Histogram(
+            "aragora_shutdown_duration_seconds",
+            "Time taken to shut down all registered threads",
+            buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+        )
+    except ValueError:
+        SHUTDOWN_DURATION_HISTOGRAM = REGISTRY._names_to_collectors.get(
+            "aragora_shutdown_duration_seconds"
+        )
 except ImportError:
     REGISTERED_THREADS_GAUGE = None
     SHUTDOWN_DURATION_HISTOGRAM = None
