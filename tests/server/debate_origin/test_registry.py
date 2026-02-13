@@ -212,19 +212,23 @@ class TestRegisterDebateOrigin:
             return_value=mock_sqlite_store,
         ):
             with patch(
-                "aragora.server.debate_origin.registry._resolve_store_origin_redis",
-                return_value=mock_redis_fn,
+                "aragora.server.debate_origin.registry._should_use_redis",
+                return_value=True,
             ):
                 with patch(
-                    "aragora.server.debate_origin.registry._get_postgres_store_sync",
-                    return_value=None,
+                    "aragora.server.debate_origin.registry._resolve_store_origin_redis",
+                    return_value=mock_redis_fn,
                 ):
-                    origin = register_debate_origin(
-                        debate_id="redis-test",
-                        platform="teams",
-                        channel_id="T123",
-                        user_id="U456",
-                    )
+                    with patch(
+                        "aragora.server.debate_origin.registry._get_postgres_store_sync",
+                        return_value=None,
+                    ):
+                        origin = register_debate_origin(
+                            debate_id="redis-test",
+                            platform="teams",
+                            channel_id="T123",
+                            user_id="U456",
+                        )
 
         mock_redis_fn.assert_called_once()
         stored_origin = mock_redis_fn.call_args[0][0]
@@ -239,20 +243,24 @@ class TestRegisterDebateOrigin:
             return_value=mock_sqlite_store,
         ):
             with patch(
-                "aragora.server.debate_origin.registry._resolve_store_origin_redis",
-                return_value=mock_redis_fn,
+                "aragora.server.debate_origin.registry._should_use_redis",
+                return_value=True,
             ):
                 with patch(
-                    "aragora.server.debate_origin.registry._get_postgres_store_sync",
-                    return_value=None,
+                    "aragora.server.debate_origin.registry._resolve_store_origin_redis",
+                    return_value=mock_redis_fn,
                 ):
-                    # Should not raise - fallback to SQLite
-                    origin = register_debate_origin(
-                        debate_id="redis-error-test",
-                        platform="whatsapp",
-                        channel_id="+1234567890",
-                        user_id="user123",
-                    )
+                    with patch(
+                        "aragora.server.debate_origin.registry._get_postgres_store_sync",
+                        return_value=None,
+                    ):
+                        # Should not raise - fallback to SQLite
+                        origin = register_debate_origin(
+                            debate_id="redis-error-test",
+                            platform="whatsapp",
+                            channel_id="+1234567890",
+                            user_id="user123",
+                        )
 
         assert origin.debate_id == "redis-error-test"
         assert "redis-error-test" in _origin_store
@@ -323,10 +331,14 @@ class TestGetDebateOrigin:
         mock_redis_fn = MagicMock(return_value=sample_origin)
 
         with patch(
-            "aragora.server.debate_origin.registry._resolve_load_origin_redis",
-            return_value=mock_redis_fn,
+            "aragora.server.debate_origin.registry._should_use_redis",
+            return_value=True,
         ):
-            result = get_debate_origin(sample_origin.debate_id)
+            with patch(
+                "aragora.server.debate_origin.registry._resolve_load_origin_redis",
+                return_value=mock_redis_fn,
+            ):
+                result = get_debate_origin(sample_origin.debate_id)
 
         assert result == sample_origin
         # Should be cached in memory
@@ -539,14 +551,18 @@ class TestMarkResultSent:
             return_value=mock_sqlite_store,
         ):
             with patch(
-                "aragora.server.debate_origin.registry._resolve_store_origin_redis",
-                return_value=mock_redis_fn,
+                "aragora.server.debate_origin.registry._should_use_redis",
+                return_value=True,
             ):
                 with patch(
-                    "aragora.server.debate_origin.registry._get_postgres_store_sync",
-                    return_value=None,
+                    "aragora.server.debate_origin.registry._resolve_store_origin_redis",
+                    return_value=mock_redis_fn,
                 ):
-                    mark_result_sent(sample_origin.debate_id)
+                    with patch(
+                        "aragora.server.debate_origin.registry._get_postgres_store_sync",
+                        return_value=None,
+                    ):
+                        mark_result_sent(sample_origin.debate_id)
 
         mock_redis_fn.assert_called()
 
