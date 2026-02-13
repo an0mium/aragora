@@ -9,9 +9,8 @@ and event handling. The handler is split into logical modules for better maintai
 - security.py: Signature verification (SignatureVerifierMixin)
 - commands/: Slash command implementations (CommandsMixin)
 - events/: Event API handlers (EventsMixin)
-- interactive/: Interactive component handlers
 - blocks/: Slack block building utilities
-- utils/: Response helpers and utilities
+- responses.py: Response helpers and utilities
 
 For backward compatibility, import SlackHandler from this package:
 

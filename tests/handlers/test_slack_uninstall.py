@@ -105,6 +105,11 @@ class TestSlackUninstallHandler:
 class TestSlackWorkspaceStoreRevokeToken:
     """Tests for the revoke_token method."""
 
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        """Ensure ARAGORA_ENV is not production (can be leaked by other tests)."""
+        monkeypatch.delenv("ARAGORA_ENV", raising=False)
+
     @pytest.fixture
     def temp_db(self, tmp_path):
         """Create a temporary database for testing."""

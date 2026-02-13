@@ -10,7 +10,7 @@ import logging
 from typing import Any
 
 from aragora.server.handlers.base import HandlerResult
-from aragora.server.handlers.social.slack.utils.responses import (
+from aragora.server.handlers.social.slack.responses import (
     slack_response,
     slack_blocks_response,
 )

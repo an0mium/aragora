@@ -112,6 +112,7 @@ Production deployment with multiple workers:
         os.environ.setdefault("ARAGORA_OFFLINE", "true")
         os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
         os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        os.environ.setdefault("ARAGORA_ENV", "development")
         logging.getLogger(__name__).info(
             "[server] OFFLINE mode: SQLite backend, demo data for unavailable services"
         )

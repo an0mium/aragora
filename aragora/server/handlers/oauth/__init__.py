@@ -11,9 +11,7 @@ Provides OAuth2/OIDC authentication endpoints for various providers:
 The handler is split into logical modules for better maintainability:
 
 - handler.py: Main OAuthHandler class (re-exported from _oauth_impl.py)
-- providers/: Provider-specific OAuth implementations
-- flow/: Common OAuth flow utilities
-- account/: Account linking and provider management
+- config.py: OAuth configuration status
 
 For backward compatibility, import OAuthHandler from this package:
 

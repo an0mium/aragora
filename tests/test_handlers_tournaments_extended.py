@@ -535,7 +535,7 @@ class TestTournamentEdgeCases:
                 mock.get_current_standings.return_value = [MockStanding.create("agent", 1, 0, 0)]
             return mock
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager", side_effect=mock_init):
+        with patch("aragora.server.handlers.tournaments._TournamentManager", side_effect=mock_init):
             result = handler.handle("/api/tournaments", {}, mock_h)
             body = json.loads(result.body)
 
@@ -698,7 +698,7 @@ class TestTournamentDataParsing:
             mock.get_current_standings.return_value = standings_data.get(name, [])
             return mock
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager", side_effect=mock_init):
+        with patch("aragora.server.handlers.tournaments._TournamentManager", side_effect=mock_init):
             result = handler.handle("/api/tournaments", {}, mock_h)
             body = json.loads(result.body)
 
