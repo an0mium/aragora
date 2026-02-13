@@ -214,8 +214,8 @@ def _schedule_chat_dispatch(coro: Any) -> None:
 
     try:
         asyncio.run(coro)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Async chat dispatch failed: %s", exc)
 
 
 def _build_event_callback(
@@ -257,8 +257,8 @@ def _build_event_callback(
             from aragora.events.dispatcher import dispatch_event
 
             dispatch_event(event_type, payload)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Workflow event dispatch failed: %s", exc)
 
         if channel_targets and _should_notify_chat(event_type, notify_steps):
             text = _format_workflow_message(event_type, payload)

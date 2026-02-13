@@ -1,30 +1,17 @@
 # Technical Debt Tracking
 
-Last Updated: 2026-01-25
+Last Updated: 2026-02-13
 
 ## Large File Refactoring Queue
 
-### HIGH Priority (6,527 lines combined)
+### HIGH Priority -- COMPLETED
 
-#### 1. `aragora/observability/metrics.py` (3,536 lines)
-**Issue:** 130 repetitive recording functions, 115+ global variables, bloated `_init_metrics()` function.
+#### ~~1. `aragora/observability/metrics.py` (was 3,536 lines)~~
+**Status:** DONE. Decomposed into 39 domain-specific modules under `metrics/`. Largest is
+`metrics/__init__.py` at 1,110 lines (facade), `metrics/core.py` at 185 lines.
 
-**Recommendation:**
-- Split into feature-area modules: `metrics/request.py`, `metrics/debate.py`, `metrics/knowledge.py`
-- Use factory pattern for metric definitions
-- Keep only facade/public API in `__init__.py`
-
-**Estimated Effort:** 4-6 hours
-
-#### 2. `aragora/observability/metrics/core.py` (2,991 lines)
-**Issue:** 121 near-identical recording functions, duplicate patterns with metrics.py.
-
-**Recommendation:**
-- Consolidate with metrics.py or clearly define responsibility boundary
-- Extract recording function templates into a shared factory
-- Consider code generation for repetitive patterns
-
-**Estimated Effort:** 3-4 hours
+#### ~~2. `aragora/observability/metrics/core.py` (was 2,991 lines)~~
+**Status:** DONE. Consolidated into the modular metrics package.
 
 ### MEDIUM Priority (5,121 lines combined)
 
@@ -54,7 +41,7 @@ Last Updated: 2026-01-25
 |------|-----|--------|
 | `control_plane/policy.py` | 2,565 | Well-organized domain model, 12 classes with clear purpose |
 | `storage/user_store/sqlite_store.py` | 2,439 | Intentional facade pattern over 7 repositories |
-| `debate/orchestrator.py` | 2,180 | Core Arena engine, already partially extracted to phases/ |
+| `debate/orchestrator.py` | 1,021 | Core Arena engine, decomposed from 2,180 to 1,021 lines |
 | `server/startup.py` | 2,397 | Server initialization complexity justified |
 | `server/handlers/social/slack/handler.py` | 2,384 | Slack API handlers, complex by nature |
 | `connectors/chat/slack/` | 2,309 | Slack connector, complex by nature |
