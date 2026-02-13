@@ -66,14 +66,26 @@ class StandaloneGatewayServer:
         self.port = port
         self.policy_file = policy_file
         self.default_policy = default_policy
-        # F05: Default to localhost only, not wildcard
-        self.cors_origins = cors_origins or ["http://localhost:3000"]
-        # F01: API key auth — from parameter or environment
-        self._api_key = api_key or os.environ.get("ARAGORA_OPENCLAW_API_KEY")
+        # F05: Default to localhost only, not wildcard.
+        # Resolve from parameter → env var → safe default.
+        if cors_origins is not None:
+            self.cors_origins = cors_origins
+        else:
+            env_origins = os.environ.get("OPENCLAW_ALLOWED_ORIGINS", "")
+            if env_origins:
+                self.cors_origins = [o.strip() for o in env_origins.split(",") if o.strip()]
+            else:
+                self.cors_origins = ["http://localhost:3000"]
+        # F01: API key auth — from parameter or environment (checked in order)
+        self._api_key = (
+            api_key
+            or os.environ.get("OPENCLAW_API_KEY")
+            or os.environ.get("ARAGORA_API_TOKEN")
+        )
         if not self._api_key:
             logger.warning(
-                "No API key configured. Set ARAGORA_OPENCLAW_API_KEY or pass "
-                "--api-key to enable authentication. The gateway is UNPROTECTED."
+                "No API key configured. Set OPENCLAW_API_KEY (or ARAGORA_API_TOKEN) "
+                "or pass --api-key to enable authentication. The gateway is UNPROTECTED."
             )
         self._handler: Any = None
         self._running = False
@@ -191,12 +203,16 @@ class StandaloneGatewayServer:
                 })
                 return
 
-            # F01: API key authentication for all API routes
-            if self._api_key:
-                auth_header = headers.get("authorization", "")
+            # F01: API key authentication for all non-health API routes
+            if self._api_key and path not in ("/api/gateway/openclaw/health",):
                 provided_key = ""
+                # Check Authorization: Bearer <key>
+                auth_header = headers.get("authorization", "")
                 if auth_header.startswith("Bearer "):
                     provided_key = auth_header[7:]
+                # Fall back to X-API-Key header
+                if not provided_key:
+                    provided_key = headers.get("x-api-key", "")
                 if not provided_key or not hmac.compare_digest(provided_key, self._api_key):
                     await self._send_response(writer, 401, {"error": "Unauthorized"})
                     return
@@ -268,10 +284,13 @@ class StandaloneGatewayServer:
             201: "Created",
             204: "No Content",
             400: "Bad Request",
+            401: "Unauthorized",
             403: "Forbidden",
             404: "Not Found",
             405: "Method Not Allowed",
             408: "Request Timeout",
+            413: "Content Too Large",
+            431: "Request Header Fields Too Large",
             500: "Internal Server Error",
         }
         status_msg = status_messages.get(status_code, "Unknown")
@@ -305,7 +324,7 @@ class StandaloneGatewayServer:
             "HTTP/1.1 204 No Content",
             f"Access-Control-Allow-Origin: {self.cors_origins[0] if self.cors_origins else '*'}",
             "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers: Content-Type, Authorization, X-Tenant-ID",
+            "Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, X-Tenant-ID",
             "Access-Control-Max-Age: 86400",
             "Content-Length: 0",
         ]
@@ -392,6 +411,7 @@ def cmd_openclaw_serve(args: argparse.Namespace) -> None:
     cors = getattr(args, "cors", "http://localhost:3000")
 
     cors_origins = [o.strip() for o in cors.split(",") if o.strip()]
+    api_key = getattr(args, "api_key", None)
 
     # Configure logging
     log_level = getattr(args, "log_level", "INFO").upper()
@@ -406,6 +426,7 @@ def cmd_openclaw_serve(args: argparse.Namespace) -> None:
         policy_file=policy_file,
         default_policy=default_policy,
         cors_origins=cors_origins,
+        api_key=api_key,
     )
 
     def handle_signal(signum, _frame):
@@ -442,6 +463,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--cors", default="http://localhost:3000", help="CORS allowed origins (comma-separated, default: http://localhost:3000)",
+    )
+    parser.add_argument(
+        "--api-key",
+        help="API key for authentication. Also reads OPENCLAW_API_KEY or ARAGORA_API_TOKEN env vars.",
     )
     parser.add_argument(
         "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
