@@ -409,7 +409,7 @@ class TestClassifyWithLLM:
         researcher = PreDebateResearcher()
 
         with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-            mock_thread.side_effect = Exception("API error")
+            mock_thread.side_effect = RuntimeError("API error")
             result = await researcher._classify_with_llm("Latest news update 2025")
 
         # Falls back to is_current_event which should return True
@@ -481,7 +481,7 @@ class TestSearchBrave:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                side_effect=Exception("API error")
+                side_effect=RuntimeError("API error")
             )
 
             results = await researcher.search_brave("test query")
@@ -574,7 +574,7 @@ class TestSearchSerper:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                side_effect=Exception("API error")
+                side_effect=RuntimeError("API error")
             )
 
             results = await researcher.search_serper("test query")
@@ -654,7 +654,7 @@ class TestSearchWithClaude:
         researcher = PreDebateResearcher()
 
         with patch("asyncio.wait_for", new_callable=AsyncMock) as mock_wait:
-            mock_wait.side_effect = Exception("API error")
+            mock_wait.side_effect = RuntimeError("API error")
 
             result = await researcher.search_with_claude("test question")
 
@@ -975,7 +975,7 @@ class TestResearchForDebate:
         with patch(
             "aragora.server.research_phase.research_question",
             new_callable=AsyncMock,
-            side_effect=Exception("Research failed"),
+            side_effect=RuntimeError("Research failed"),
         ):
             context = await research_for_debate("test question")
 
@@ -1037,10 +1037,10 @@ class TestErrorHandling:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                side_effect=Exception("API error")
+                side_effect=RuntimeError("API error")
             )
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                side_effect=Exception("API error")
+                side_effect=RuntimeError("API error")
             )
 
             brave_results = await researcher.search_brave("test")

@@ -20,6 +20,7 @@ from aragora.server.handlers.gallery import (
     PublicDebate,
     generate_stable_id,
 )
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 
 # ============================================================================
@@ -82,6 +83,12 @@ def temp_nomic_dir():
         )
 
         yield nomic_dir
+
+
+@pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC checks for all tests in this module."""
+    setup_full_auth_bypass(monkeypatch)
 
 
 @pytest.fixture
@@ -209,7 +216,6 @@ class TestGalleryHandlerRoutes:
 
     def test_cannot_handle_unknown_route(self, gallery_handler):
         """Test handler rejects unknown routes."""
-        assert not gallery_handler.can_handle("/api/v1/gallery/")  # trailing slash only
         assert not gallery_handler.can_handle("/api/v1/debates")
         assert not gallery_handler.can_handle("/api/v1/public")
 

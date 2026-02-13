@@ -38,7 +38,7 @@ from aragora.server.handlers.auth.sso_handlers import (
     _sso_providers_lock,
     AUTH_SESSION_TTL,
     _get_sso_provider,
-    _get_sso_state_store,
+    _sso_state_store,
 )
 from aragora.server.oauth_state_store import (
     OAuthState,
@@ -206,7 +206,7 @@ class TestHandleSsoLogin:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store:
                 mock_store.return_value = mock_state_store
 
@@ -254,7 +254,7 @@ class TestHandleSsoLogin:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store:
                 mock_store.return_value = mock_state_store
 
@@ -300,7 +300,7 @@ class TestHandleSsoLogin:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store:
                 mock_store.return_value = mock_state_store
 
@@ -342,7 +342,7 @@ class TestHandleSsoCallback:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
@@ -374,7 +374,7 @@ class TestHandleSsoCallback:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
@@ -429,7 +429,7 @@ class TestHandleSsoCallback:
         await asyncio.sleep(0.01)
 
         with patch(
-            "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+            "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
         ) as mock_store_fn:
             mock_store_fn.return_value = mock_state_store
 
@@ -470,7 +470,7 @@ class TestHandleSsoCallback:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = None
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
 
@@ -495,7 +495,7 @@ class TestHandleSsoCallback:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
@@ -520,7 +520,7 @@ class TestHandleSsoCallback:
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
-                "aragora.server.handlers.auth.sso_handlers._get_sso_state_store"
+                "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:

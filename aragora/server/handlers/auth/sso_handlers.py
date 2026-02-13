@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.lazy_stores import LazyStore
 from aragora.server.handlers.utils.rate_limit import auth_rate_limit
 from aragora.server.oauth_state_store import (
     OAUTH_STATE_TTL_SECONDS,
@@ -48,8 +49,15 @@ _sso_providers_lock = threading.Lock()
 _auth_sessions: dict[str, dict[str, Any]] = {}
 
 # OAuth state store singleton (supports Redis/SQLite/JWT for multi-instance deployments)
-_sso_state_store = None
-_sso_state_store_lock = threading.Lock()
+_sso_state_store = LazyStore(
+    factory=lambda: get_oauth_state_store(
+        sqlite_path=resolve_db_path("aragora_sso_state.db"),
+        use_sqlite=True,
+        use_jwt=True,
+    ),
+    store_name="sso_state_store",
+    logger_context="SSO",
+)
 
 # Session TTL (use OAuth state store TTL for consistency)
 AUTH_SESSION_TTL = OAUTH_STATE_TTL_SECONDS
@@ -65,20 +73,6 @@ def _cleanup_expired_sessions() -> None:
     ]
     for key in expired:
         del _auth_sessions[key]
-
-
-def _get_sso_state_store():
-    """Get or create the SSO state store (thread-safe singleton)."""
-    global _sso_state_store
-    if _sso_state_store is None:
-        with _sso_state_store_lock:
-            if _sso_state_store is None:
-                _sso_state_store = get_oauth_state_store(
-                    sqlite_path=resolve_db_path("aragora_sso_state.db"),
-                    use_sqlite=True,
-                    use_jwt=True,
-                )
-    return _sso_state_store
 
 
 def _get_sso_provider(provider_type: str = "oidc"):
@@ -198,7 +192,7 @@ async def handle_sso_login(
             )
 
         # Generate state token using OAuth state store (supports Redis/SQLite/JWT)
-        state_store = _get_sso_state_store()
+        state_store = _sso_state_store.get()
         state = state_store.generate(
             redirect_url=redirect_url,
             metadata={"provider_type": provider_type},
@@ -271,7 +265,7 @@ async def handle_sso_callback(
         # - InMemoryOAuthStateStore uses dictionary lookup (hash-based, constant-time)
         # - SQLiteOAuthStateStore uses SQL index lookup (not timing-vulnerable)
         # - RedisOAuthStateStore uses Redis key lookup (not timing-vulnerable)
-        state_store = _get_sso_state_store()
+        state_store = _sso_state_store.get()
         oauth_state = state_store.validate_and_consume(state)
         if not oauth_state:
             _cleanup_expired_sessions()

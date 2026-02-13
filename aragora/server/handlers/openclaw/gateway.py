@@ -139,6 +139,7 @@ class OpenClawGatewayHandler(
     # =========================================================================
 
     @track_handler("gateway/openclaw", method="GET")
+    @require_permission("openclaw:read")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         path = self._normalize_path(path)
@@ -192,7 +193,7 @@ class OpenClawGatewayHandler(
     # =========================================================================
 
     @track_handler("gateway/openclaw", method="POST")
-    @require_permission("debates:write")
+    @require_permission("openclaw:write")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -278,7 +279,7 @@ class OpenClawGatewayHandler(
     # =========================================================================
 
     @track_handler("gateway/openclaw", method="DELETE")
-    @require_permission("debates:delete")
+    @require_permission("openclaw:delete")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, cast
 from ...base import (
     HandlerResult,
     error_response,
+    json_response,
 )
 from ...secure import SecureHandler
 from ...utils.auth import ForbiddenError, UnauthorizedError
@@ -146,15 +147,17 @@ class HealthHandler(SecureHandler):
 
     # Routes that are public (no auth required)
     # SECURITY: K8s probes and basic health checks should be public for load balancers.
+    # Only minimal status info is returned on public routes (no versions, no dependency details).
     # Detailed health endpoints require authentication via system.health.read permission.
     PUBLIC_ROUTES = {
         "/healthz",  # K8s liveness probe
         "/readyz",  # K8s readiness probe
         "/readyz/dependencies",  # K8s extended readiness
-        "/api/health",  # Basic health check for load balancers (Cloudflare, ALB)
-        "/api/v1/health",  # v1 basic health check
+        "/api/health",  # Basic health check for load balancers (minimal: status + timestamp)
+        "/api/v1/health",  # v1 basic health check (minimal: status + timestamp)
     }
-    # Note: /api/health/detailed and other deep health endpoints require authentication.
+    # Note: /api/health and /api/v1/health return ONLY status + timestamp when unauthenticated.
+    # The full detailed health response (version, checks, uptime) requires system.health.read.
 
     # Permission required for protected health endpoints
     HEALTH_PERMISSION = "system.health.read"
@@ -167,21 +170,40 @@ class HealthHandler(SecureHandler):
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
-        """Route health endpoint requests with RBAC for non-public routes."""
-        # K8s probes are public - no auth required
+        """Route health endpoint requests with RBAC for non-public routes.
+
+        Security: Public health endpoints (/api/health, /api/v1/health) return
+        only status + timestamp to prevent information leakage. Authenticated
+        requests with system.health.read permission get the full detailed response.
+        """
+        is_authenticated = False
         if path not in self.PUBLIC_ROUTES:
             # All other health endpoints require authentication and permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
                 self.check_permission(auth_context, self.HEALTH_PERMISSION)
+                is_authenticated = True
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
                 logger.warning(f"Health endpoint access denied: {e}")
                 return error_response(str(e), 403)
+        else:
+            # For public routes, attempt optional auth to unlock full response
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=False)
+                if auth_context:
+                    self.check_permission(auth_context, self.HEALTH_PERMISSION)
+                    is_authenticated = True
+            except (UnauthorizedError, ForbiddenError):
+                pass  # Not authenticated - return minimal response
 
         # Normalize path for routing (support both v1 and non-v1)
         normalized = path.replace("/api/v1/", "/api/")
+
+        # For /api/health: return minimal info when unauthenticated to prevent info leak
+        if normalized == "/api/health" and not is_authenticated:
+            return self._minimal_health_check()
 
         handlers = {
             "/healthz": self._liveness_probe,
@@ -288,6 +310,32 @@ class HealthHandler(SecureHandler):
 
     def _combined_worker_queue_health(self) -> HandlerResult:
         return combined_worker_queue_health(self)
+
+    def _minimal_health_check(self) -> HandlerResult:
+        """Return minimal health status for unauthenticated requests.
+
+        Security: Only returns status and timestamp to prevent information
+        leakage (version numbers, dependency details, internal state).
+        Authenticated requests with system.health.read permission get the
+        full detailed response via _health_check() instead.
+        """
+        from datetime import datetime, timezone
+
+        try:
+            from aragora.server.degraded_mode import is_degraded
+
+            status = "degraded" if is_degraded() else "healthy"
+        except ImportError:
+            status = "healthy"
+
+        status_code = 200 if status == "healthy" else 503
+        return json_response(
+            {
+                "status": status,
+                "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            },
+            status=status_code,
+        )
 
     def _check_filesystem_health(self) -> dict[str, Any]:
         """Check filesystem write access to data directory."""

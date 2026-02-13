@@ -9,33 +9,46 @@ Tests cover:
 """
 
 import json
-import pytest
-import tempfile
+import shutil
 import sqlite3
+import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
+import pytest
+
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.memory import LearningHandler
 
+# Shared test auth context with all memory permissions
+_TEST_AUTH_CONTEXT = AuthorizationContext(
+    user_id="test-user",
+    roles={"admin"},
+    permissions={"memory:read", "memory:write", "memory:*"},
+)
 
-def _bypass_rbac(handler):
+
+def _bypass_rbac(h):
     """Bypass RBAC auth checks on a LearningHandler for unit testing."""
-    from aragora.rbac.models import AuthorizationContext
-
-    auth_ctx = AuthorizationContext(
-        user_id="test-admin",
-        permissions={"memory:read", "memory:write"},
-        roles={"admin"},
-    )
-    handler._auth_context = auth_ctx
-    handler.get_auth_context = AsyncMock(return_value=auth_ctx)
-    handler.check_permission = Mock()
-    return handler
+    h.get_auth_context = AsyncMock(return_value=_TEST_AUTH_CONTEXT)
+    h.check_permission = Mock()
+    # Set _auth_context so @require_permission decorators on internal methods
+    # can find an AuthorizationContext via the self argument
+    h._auth_context = _TEST_AUTH_CONTEXT
+    return h
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset the module-level rate limiter between tests."""
+    from aragora.server.handlers.memory.learning import _learning_limiter
+
+    _learning_limiter._buckets.clear()
 
 
 @pytest.fixture
@@ -170,29 +183,17 @@ def temp_nomic_dir():
         yield nomic_dir
 
 
-@pytest.fixture(autouse=True)
-def _clear_learning_rate_limiters():
-    """Clear rate limiters between tests to prevent order-dependent failures."""
-    from aragora.server.handlers.memory.learning import _learning_limiter
-
-    _learning_limiter.clear()
-    yield
-    _learning_limiter.clear()
-
-
 @pytest.fixture
 def handler(temp_nomic_dir):
     """Create LearningHandler with test context and RBAC bypassed."""
     ctx = {"nomic_dir": temp_nomic_dir}
-    h = LearningHandler(ctx)
-    return _bypass_rbac(h)
+    return _bypass_rbac(LearningHandler(ctx))
 
 
 @pytest.fixture
 def empty_handler():
     """Create LearningHandler without nomic directory and RBAC bypassed."""
-    h = LearningHandler({})
-    return _bypass_rbac(h)
+    return _bypass_rbac(LearningHandler({}))
 
 
 # ============================================================================
@@ -304,12 +305,10 @@ class TestGetCycles:
         # Remove existing cycles
         replays_dir = temp_nomic_dir / "replays"
         for d in replays_dir.iterdir():
-            import shutil
-
             shutil.rmtree(d)
 
-        handler = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
-        result = await handler.handle("/api/v1/learning/cycles", {}, None)
+        h = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
+        result = await h.handle("/api/v1/learning/cycles", {}, None)
         data = json.loads(result.body)
 
         assert data["cycles"] == []
@@ -424,7 +423,7 @@ class TestGetAgentEvolution:
         result = await handler.handle("/api/v1/learning/agent-evolution", {}, None)
         data = json.loads(result.body)
 
-        for agent, info in data["agents"].items():
+        for _agent, info in data["agents"].items():
             assert info["trend"] in ["improving", "declining", "stable"]
 
     @pytest.mark.asyncio
@@ -500,8 +499,8 @@ class TestGetInsights:
         # Remove insights database
         (temp_nomic_dir / "insights.db").unlink()
 
-        handler = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
-        result = await handler.handle("/api/v1/learning/insights", {}, None)
+        h = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
+        result = await h.handle("/api/v1/learning/insights", {}, None)
         data = json.loads(result.body)
 
         assert data["insights"] == []
@@ -524,8 +523,8 @@ class TestLearningErrorHandling:
         bad_dir.mkdir()
         (bad_dir / "meta.json").write_text("{ invalid json }")
 
-        handler = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
-        result = await handler.handle("/api/v1/learning/cycles", {}, None)
+        h = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
+        result = await h.handle("/api/v1/learning/cycles", {}, None)
 
         # Should still work, just skip the bad one
         assert result.status_code == 200
@@ -540,20 +539,18 @@ class TestLearningErrorHandling:
         with open(temp_nomic_dir / "risk_register.jsonl", "a") as f:
             f.write("{ bad json }\n")
 
-        handler = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
-        result = await handler.handle("/api/v1/learning/patterns", {}, None)
+        h = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
+        result = await h.handle("/api/v1/learning/patterns", {}, None)
 
         assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_missing_replays_dir_handled(self, temp_nomic_dir):
         """Test missing replays directory is handled."""
-        import shutil
-
         shutil.rmtree(temp_nomic_dir / "replays")
 
-        handler = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
-        result = await handler.handle("/api/v1/learning/cycles", {}, None)
+        h = _bypass_rbac(LearningHandler({"nomic_dir": temp_nomic_dir}))
+        result = await h.handle("/api/v1/learning/cycles", {}, None)
         data = json.loads(result.body)
 
         assert data["cycles"] == []
@@ -579,7 +576,7 @@ class TestLearningIntegration:
         evolution_data = json.loads(evolution_result.body)
 
         # Agents in evolution should appear in cycles
-        for agent in evolution_data["agents"].keys():
+        for agent in evolution_data["agents"]:
             found = False
             for cycle in cycles_data["cycles"]:
                 if agent in cycle["agents"]:

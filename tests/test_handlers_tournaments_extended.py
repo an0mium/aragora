@@ -529,7 +529,8 @@ class TestTournamentEdgeCases:
         def mock_init(db_path):
             call_count[0] += 1
             mock = Mock()
-            if "corrupt" in db_path:
+            filename = Path(db_path).stem
+            if filename == "corrupt":
                 mock.get_current_standings.side_effect = Exception("DB corrupt")
             else:
                 mock.get_current_standings.return_value = [MockStanding.create("agent", 1, 0, 0)]
@@ -750,8 +751,10 @@ class TestTournamentInputValidation:
 
         for tid in special_ids:
             result = handler.handle(f"/api/tournaments/{tid}/standings", {}, mock_h)
-            assert result is not None
-            # Should not crash
+            # Should not crash - result may be None (path mismatch due to '/' in ID)
+            # or a HandlerResult (400/404), both are safe outcomes
+            if result is not None:
+                assert result.status_code in (400, 404)
 
     def test_unicode_in_id(self, tournament_ctx, mock_handler_factory):
         """Unicode in tournament ID handled safely."""

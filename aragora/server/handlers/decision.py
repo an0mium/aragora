@@ -28,6 +28,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -60,20 +61,12 @@ def _get_decision_router(ctx: dict | None = None):
 
 
 # Lazy-loaded result store instance
-_decision_result_store = None
-
-
-def _get_result_store():
-    """Get the decision result store for persistence."""
-    global _decision_result_store
-    if _decision_result_store is None:
-        try:
-            from aragora.storage.decision_result_store import get_decision_result_store
-
-            _decision_result_store = get_decision_result_store()
-        except Exception as e:
-            logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
-    return _decision_result_store
+_decision_result_store = LazyStoreFactory(
+    store_name="decision_result_store",
+    import_path="aragora.storage.decision_result_store",
+    factory_name="get_decision_result_store",
+    logger_context="Decision",
+)
 
 
 # Fallback in-memory cache (used only if persistent store fails)
@@ -82,7 +75,7 @@ _decision_results_fallback: dict[str, dict[str, Any]] = {}
 
 def _save_result(request_id: str, data: dict[str, Any]) -> None:
     """Save a decision result to persistent store with fallback."""
-    store = _get_result_store()
+    store = _decision_result_store.get()
     if store:
         try:
             store.save(request_id, data)
@@ -95,7 +88,7 @@ def _save_result(request_id: str, data: dict[str, Any]) -> None:
 
 def _get_result(request_id: str) -> dict[str, Any] | None:
     """Get a decision result from persistent store with fallback."""
-    store = _get_result_store()
+    store = _decision_result_store.get()
     if store:
         try:
             result = store.get(request_id)
@@ -341,7 +334,7 @@ class DecisionHandler(BaseHandler):
 
     def _get_decision_status(self, request_id: str) -> HandlerResult:
         """Get decision status for polling."""
-        store = _get_result_store()
+        store = _decision_result_store.get()
         if store:
             try:
                 return json_response(store.get_status(request_id))
@@ -369,7 +362,7 @@ class DecisionHandler(BaseHandler):
         """List recent decisions."""
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
 
-        store = _get_result_store()
+        store = _decision_result_store.get()
         if store:
             try:
                 decisions = store.list_recent(limit)

@@ -107,6 +107,9 @@ class AuthChecksMixin:
             # Nomic state (public dashboard data)
             "/api/nomic/state",
             "/api/v1/nomic/state",
+            # Playground - public demo endpoints (rate-limited, mock agents only)
+            "/api/v1/playground/debate",
+            "/api/v1/playground/status",
         ]
     )
 

@@ -443,6 +443,13 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(
         r"^/api/(v1/)?scheduler/webhooks/[^/]+$", "POST", "", allow_unauthenticated=True
     ),
+    # Playground - public demo endpoints (rate-limited, mock agents only)
+    RoutePermission(
+        r"^/api/(v1/)?playground/debate$", "POST", "", allow_unauthenticated=True
+    ),
+    RoutePermission(
+        r"^/api/(v1/)?playground/status$", "GET", "", allow_unauthenticated=True
+    ),
     # Health endpoints (additional patterns)
     RoutePermission(
         r"^/api/(v1/)?health(/detailed|/deep|/stores)?$", "GET", "", allow_unauthenticated=True

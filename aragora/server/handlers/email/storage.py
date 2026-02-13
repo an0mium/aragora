@@ -15,6 +15,8 @@ import logging
 import threading
 from typing import Any, Optional
 
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
+
 logger = logging.getLogger(__name__)
 
 # RBAC imports (optional - graceful degradation if not available)
@@ -71,31 +73,17 @@ def _check_email_permission(
 # Persistent Storage
 # =============================================================================
 
-_email_store = None
-_email_store_lock = threading.Lock()
-
-
-def get_email_store():
-    """Get or create the email store (lazy init, thread-safe)."""
-    global _email_store
-    if _email_store is not None:
-        return _email_store
-
-    with _email_store_lock:
-        if _email_store is None:
-            try:
-                from aragora.storage.email_store import get_email_store as _get_store
-
-                _email_store = _get_store()
-                logger.info("[EmailHandler] Initialized persistent email store")
-            except Exception as e:
-                logger.warning(f"[EmailHandler] Failed to init email store: {e}")
-        return _email_store
+_email_store = LazyStoreFactory(
+    store_name="email_store",
+    import_path="aragora.storage.email_store",
+    factory_name="get_email_store",
+    logger_context="EmailHandler",
+)
 
 
 def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict[str, Any]:
     """Load config from persistent store into memory cache."""
-    store = get_email_store()
+    store = _email_store.get()
     if store:
         try:
             config = store.get_user_config(user_id, workspace_id)
@@ -110,7 +98,7 @@ def _save_config_to_store(
     user_id: str, config: dict[str, Any], workspace_id: str = "default"
 ) -> None:
     """Save config to persistent store."""
-    store = get_email_store()
+    store = _email_store.get()
     if store:
         try:
             store.save_user_config(user_id, workspace_id, config)

@@ -76,14 +76,15 @@ def get_checkpoint_store(
     - ARAGORA_CHECKPOINT_CACHE: If "true", enables caching layer
 
     Priority order:
-    1. Explicitly provided KnowledgeMound
-    2. Default KnowledgeMound (if set via set_default_knowledge_mound)
-    3. RedisCheckpointStore (if prefer_redis=True and Redis is available)
-    4. PostgresCheckpointStore (if prefer_postgres=True and Postgres is available)
-    5. FileCheckpointStore (persistent file-based fallback)
+    1. ARAGORA_CHECKPOINT_STORE_BACKEND env var (overrides default mound)
+    2. Explicitly provided KnowledgeMound (mound parameter)
+    3. Default KnowledgeMound (if set via set_default_knowledge_mound)
+    4. RedisCheckpointStore (if prefer_redis=True and Redis is available)
+    5. PostgresCheckpointStore (if prefer_postgres=True and Postgres is available)
+    6. FileCheckpointStore (persistent file-based fallback)
 
     Args:
-        mound: Optional KnowledgeMound instance (highest priority)
+        mound: Optional KnowledgeMound instance (highest priority after env override)
         fallback_dir: Fallback directory for file-based storage
         use_default_mound: Whether to use the default mound if no mound provided
         prefer_redis: Try Redis before file fallback (default True)
@@ -111,14 +112,19 @@ def get_checkpoint_store(
         return store
 
     # Store-specific override takes precedence
+    # When ARAGORA_CHECKPOINT_STORE_BACKEND is explicitly set, it overrides
+    # the default mound so the requested backend is actually used.
     if store_backend == "postgres" or store_backend == "postgresql":
         prefer_postgres = True
+        use_default_mound = False
     elif store_backend == "redis":
         prefer_redis = True
         prefer_postgres = False
+        use_default_mound = False
     elif store_backend == "file":
         prefer_redis = False
         prefer_postgres = False
+        use_default_mound = False
     # Fall back to global backend if no store-specific setting
     elif global_backend in ("postgres", "postgresql"):
         prefer_postgres = True
@@ -127,7 +133,7 @@ def get_checkpoint_store(
         logger.debug("Using provided KnowledgeMound for checkpoints")
         return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(mound))
 
-    # Try default mound
+    # Try default mound (skipped when ARAGORA_CHECKPOINT_STORE_BACKEND is set)
     if use_default_mound and _default_mound is not None:
         logger.debug("Using default KnowledgeMound for checkpoints")
         return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(_default_mound))
@@ -216,14 +222,15 @@ async def get_checkpoint_store_async(
     - ARAGORA_CHECKPOINT_CACHE: If "true", enables caching layer
 
     Priority order:
-    1. Explicitly provided KnowledgeMound
-    2. Default KnowledgeMound (if set via set_default_knowledge_mound)
-    3. RedisCheckpointStore (if prefer_redis=True and Redis is available)
-    4. PostgresCheckpointStore (if prefer_postgres=True and Postgres is available)
-    5. FileCheckpointStore (persistent file-based fallback)
+    1. ARAGORA_CHECKPOINT_STORE_BACKEND env var (overrides default mound)
+    2. Explicitly provided KnowledgeMound (mound parameter)
+    3. Default KnowledgeMound (if set via set_default_knowledge_mound)
+    4. RedisCheckpointStore (if prefer_redis=True and Redis is available)
+    5. PostgresCheckpointStore (if prefer_postgres=True and Postgres is available)
+    6. FileCheckpointStore (persistent file-based fallback)
 
     Args:
-        mound: Optional KnowledgeMound instance (highest priority)
+        mound: Optional KnowledgeMound instance (highest priority after env override)
         fallback_dir: Fallback directory for file-based storage
         use_default_mound: Whether to use the default mound if no mound provided
         prefer_redis: Try Redis before file fallback (default True)
@@ -251,14 +258,19 @@ async def get_checkpoint_store_async(
         return store
 
     # Store-specific override takes precedence
+    # When ARAGORA_CHECKPOINT_STORE_BACKEND is explicitly set, it overrides
+    # the default mound so the requested backend is actually used.
     if store_backend == "postgres" or store_backend == "postgresql":
         prefer_postgres = True
+        use_default_mound = False
     elif store_backend == "redis":
         prefer_redis = True
         prefer_postgres = False
+        use_default_mound = False
     elif store_backend == "file":
         prefer_redis = False
         prefer_postgres = False
+        use_default_mound = False
     # Fall back to global backend if no store-specific setting
     elif global_backend in ("postgres", "postgresql"):
         prefer_postgres = True
@@ -268,7 +280,7 @@ async def get_checkpoint_store_async(
         logger.debug("Using provided KnowledgeMound for checkpoints")
         return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(mound))
 
-    # Try default mound
+    # Try default mound (skipped when ARAGORA_CHECKPOINT_STORE_BACKEND is set)
     if use_default_mound and _default_mound is not None:
         logger.debug("Using default KnowledgeMound for checkpoints")
         return _maybe_wrap_with_cache(KnowledgeMoundCheckpointStore(_default_mound))

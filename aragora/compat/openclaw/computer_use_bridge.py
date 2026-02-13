@@ -30,17 +30,38 @@ from aragora.computer_use.actions import (
     ScrollDirection,
     TypeAction,
 )
+from aragora.security.ssrf_protection import validate_url, SSRFValidationError
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class NavigateAction:
-    """Browser URL navigation action (extends Aragora actions for OpenClaw)."""
+    """Browser URL navigation action (extends Aragora actions for OpenClaw).
+
+    Security: URLs are validated against SSRF attacks on construction.
+    Private/internal IP ranges (127.x, 10.x, 172.16-31.x, 192.168.x,
+    cloud metadata 169.254.169.254, etc.) are blocked by default.
+    """
 
     url: str = ""
     wait_for_load: bool = True
     timeout_ms: int = 30000
+
+    def __post_init__(self) -> None:
+        """Validate URL against SSRF attacks after initialization."""
+        if self.url:
+            result = validate_url(self.url)
+            if not result.is_safe:
+                logger.warning(
+                    "NavigateAction SSRF blocked: url=%s, reason=%s",
+                    self.url,
+                    result.error,
+                )
+                raise SSRFValidationError(
+                    f"Navigation URL blocked: {result.error}",
+                    url=self.url,
+                )
 
     def to_openclaw_params(self) -> dict[str, Any]:
         """Convert to OpenClaw browser action params."""

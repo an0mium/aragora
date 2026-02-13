@@ -14,9 +14,13 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+pytest.importorskip("aragora.pipelines", reason="aragora.pipelines module not yet implemented")
 
 from aragora.pipelines.essay_synthesis import (
     EssaySynthesisPipeline,

@@ -251,7 +251,15 @@ Examples:
     if args.dry_run:
         if args.debate:
             # Use debate-based decomposition (async)
-            result = asyncio.run(run_debate_decomposition(args.goal))
+            try:
+                result = asyncio.run(run_debate_decomposition(args.goal))
+            except RuntimeError as e:
+                if "No API agents available" in str(e):
+                    print(f"[!] Debate mode requires API keys: {e}")
+                    print("[!] Falling back to heuristic decomposition...\n")
+                    result = run_heuristic_decomposition(args.goal)
+                else:
+                    raise
         else:
             # Use fast heuristic decomposition
             result = run_heuristic_decomposition(args.goal)

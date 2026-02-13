@@ -109,6 +109,19 @@ PUBLIC_ENDPOINTS = [
     EndpointAuth(
         "/api/consensus/stats", "get", AuthLevel.PUBLIC, description="Consensus stats"
     ),
+    # Playground - public demo endpoints (rate-limited, mock agents only)
+    EndpointAuth(
+        "/api/v1/playground/debate",
+        "post",
+        AuthLevel.PUBLIC,
+        description="Public playground debate",
+    ),
+    EndpointAuth(
+        "/api/v1/playground/status",
+        "get",
+        AuthLevel.PUBLIC,
+        description="Playground health check",
+    ),
 ]
 
 # =============================================================================

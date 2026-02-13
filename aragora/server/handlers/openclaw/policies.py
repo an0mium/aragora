@@ -276,7 +276,12 @@ class PolicyHandlerMixin(OpenClawMixinBase):
     # =========================================================================
 
     def _handle_health(self, handler: Any) -> HandlerResult:
-        """Get gateway health status (public endpoint)."""
+        """Get gateway health status.
+
+        Security: Returns only status and timestamp to prevent information
+        leakage about internal session/action counts. Detailed metrics
+        are available via the authenticated /metrics endpoint.
+        """
         try:
             store = _get_store()
             metrics = store.get_metrics()
@@ -297,9 +302,6 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "status": status,
                     "healthy": healthy,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "active_sessions": metrics["sessions"]["active"],
-                    "pending_actions": metrics["actions"]["pending"],
-                    "running_actions": metrics["actions"]["running"],
                 }
             )
         except Exception as e:
@@ -308,7 +310,6 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                 {
                     "status": "error",
                     "healthy": False,
-                    "error": safe_error_message(e, "openclaw_health"),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 },
                 status=503,

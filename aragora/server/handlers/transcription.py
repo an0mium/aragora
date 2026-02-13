@@ -38,6 +38,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
@@ -342,20 +343,12 @@ def _validate_file_content(
 
 
 # Lazy-loaded job store for persistence
-_job_store = None
-
-
-def _get_job_store() -> Any:
-    """Get or create the job store for transcription job persistence."""
-    global _job_store
-    if _job_store is None:
-        try:
-            from aragora.storage.job_queue_store import get_job_store
-
-            _job_store = get_job_store()
-        except (ImportError, RuntimeError, OSError) as e:
-            logger.debug(f"Job store not available: {e}")
-    return _job_store
+_job_store = LazyStoreFactory(
+    store_name="job_store",
+    import_path="aragora.storage.job_queue_store",
+    factory_name="get_job_store",
+    logger_context="Transcription",
+)
 
 
 # Rate limiters (per minute limits)
@@ -379,7 +372,7 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
     _transcription_jobs[job_id] = job_data
 
     # Persist to job store for durability
-    store = _get_job_store()
+    store = _job_store.get()
     if store:
         try:
             from aragora.storage.job_queue_store import QueuedJob, JobStatus
@@ -420,7 +413,7 @@ def _get_job(job_id: str) -> dict[str, Any] | None:
         return _transcription_jobs[job_id]
 
     # Try durable store
-    store = _get_job_store()
+    store = _job_store.get()
     if store:
         try:
             import asyncio

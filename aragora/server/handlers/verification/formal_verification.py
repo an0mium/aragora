@@ -39,6 +39,7 @@ from ..base import (
     json_response,
     safe_json_parse,
 )
+from ..utils.lazy_stores import LazyStoreFactory
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -82,20 +83,12 @@ class VerificationHistoryEntry:
 _verification_history: OrderedDict[str, VerificationHistoryEntry] = OrderedDict()
 
 # Lazy-loaded governance store
-_governance_store = None
-
-
-def _get_governance_store() -> Any:
-    """Get or create governance store for persistence."""
-    global _governance_store
-    if _governance_store is None:
-        try:
-            from aragora.storage.governance_store import get_governance_store
-
-            _governance_store = get_governance_store()
-        except ImportError:
-            logger.debug("GovernanceStore not available, using in-memory only")
-    return _governance_store
+_governance_store = LazyStoreFactory(
+    store_name="governance_store",
+    import_path="aragora.storage.governance_store",
+    factory_name="get_governance_store",
+    logger_context="FormalVerification",
+)
 
 
 def _generate_verification_id(claim: str, timestamp: float) -> str:
@@ -133,7 +126,7 @@ def _add_to_history(
         _verification_history.popitem(last=False)
 
     # Persist to GovernanceStore
-    store = _get_governance_store()
+    store = _governance_store.get()
     if store:
         try:
             store.save_verification(
@@ -664,7 +657,7 @@ class FormalVerificationHandler(BaseHandler):
         status_filter = query_params.get("status", [""])[0] if query_params.get("status") else None
 
         # Try to get from GovernanceStore first (authoritative)
-        store = _get_governance_store()
+        store = _governance_store.get()
         if store:
             try:
                 records = store.list_verifications(limit=limit + offset + 50)
@@ -767,7 +760,7 @@ class FormalVerificationHandler(BaseHandler):
 
         # If not in memory, try GovernanceStore
         if not entry:
-            store = _get_governance_store()
+            store = _governance_store.get()
             if store:
                 try:
                     rec = store.get_verification(entry_id)

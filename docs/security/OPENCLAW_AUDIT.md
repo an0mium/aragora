@@ -47,7 +47,7 @@ library is unavailable. These represent the two most significant findings.
      only be populated by a trusted reverse proxy after authentication.
   3. At minimum, require `ARAGORA_OPENCLAW_API_KEY` environment variable and reject
      requests without a matching key.
-- **Status:** Open
+- **Status:** Fixed (API key auth via Bearer/X-API-Key, env var chain, health endpoint exempt)
 
 ### [HIGH] F02: Credential Encryption Silently Falls Back to Base64
 

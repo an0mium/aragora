@@ -120,6 +120,10 @@ EXEMPT_HANDLERS = frozenset(
         "EvolutionHandler",
         # Task execution (rate-limited, has internal validation)
         "TaskExecutionHandler",
+        # Playground - intentionally public demo endpoint (rate-limited, mock agents only)
+        "PlaygroundHandler",
+        # Speech - removed module stub, always returns 501
+        "SpeechHandler",
     }
 )
 
