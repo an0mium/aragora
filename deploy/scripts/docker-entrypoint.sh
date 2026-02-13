@@ -27,5 +27,17 @@ else
     echo "[entrypoint] SKIP_MIGRATIONS=1, skipping migrations."
 fi
 
+# Seed demo data if requested
+if [ "${ARAGORA_SEED_DEMO}" = "true" ]; then
+    echo "[entrypoint] Seeding demo data..."
+    if [ -f "scripts/seed_demo.py" ]; then
+        python scripts/seed_demo.py 2>&1 || {
+            echo "[entrypoint] WARNING: Demo seeding failed (non-fatal)."
+        }
+    else
+        echo "[entrypoint] seed_demo.py not found, skipping demo seed."
+    fi
+fi
+
 # Execute the main command (default: start the server)
 exec "$@"

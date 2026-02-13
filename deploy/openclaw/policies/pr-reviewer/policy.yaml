@@ -1,0 +1,122 @@
+# OpenClaw PR Reviewer Policy
+#
+# Defines what the PR reviewer agent is allowed to do.
+# Default: deny everything not explicitly allowed.
+#
+# This policy enforces the principle of least privilege:
+# the reviewer can READ code and POST comments, nothing else.
+
+name: pr-reviewer
+description: Security policy for autonomous PR code review
+default_action: deny
+
+# Tool access rules (first match wins)
+tools:
+  allow:
+    - pattern: "^gh$"
+      reason: "GitHub CLI for fetching PR diffs and posting comments"
+    - pattern: "^git$"
+      reason: "Git for reading repository state"
+    - pattern: "^aragora$"
+      reason: "Aragora CLI for running multi-agent review"
+    - pattern: "^python3?$"
+      reason: "Python for review analysis"
+    - pattern: "^(cat|head|tail|grep|find|ls|wc|sort|jq)$"
+      reason: "Safe read-only utilities"
+
+  deny:
+    - pattern: "^(rm|rmdir|dd|mkfs|chmod|chown|sudo|su)$"
+      reason: "Destructive system tools"
+    - pattern: "^(curl|wget|nc|netcat|ssh|scp|rsync)$"
+      reason: "Unrestricted network tools (use gh instead)"
+    - pattern: "^(kill|pkill|killall)$"
+      reason: "Process management"
+    - pattern: "^docker$"
+      reason: "Container management"
+
+# File access rules
+files:
+  read:
+    - pattern: ".*"
+      reason: "Read any file in the repository for review"
+  write:
+    - pattern: "^/tmp/aragora-review/.*$"
+      reason: "Temporary review output directory"
+    - pattern: "^\\.aragora/reviews/.*$"
+      reason: "Review results directory"
+
+  deny_write:
+    - pattern: "^\\.(github|gitlab)/.*$"
+      reason: "Cannot modify CI/CD configuration"
+    - pattern: "^\\.env.*$"
+      reason: "Cannot modify environment files"
+    - pattern: "^(Dockerfile|docker-compose).*$"
+      reason: "Cannot modify container configuration"
+
+# Network access rules
+network:
+  allow:
+    - host: "api.github.com"
+      ports: [443]
+      reason: "GitHub API for PR operations"
+    - host: "github.com"
+      ports: [443]
+      reason: "GitHub web for PR fetching"
+    - host: "api.anthropic.com"
+      ports: [443]
+      reason: "Anthropic API for Claude agents"
+    - host: "api.openai.com"
+      ports: [443]
+      reason: "OpenAI API for GPT agents"
+    - host: "openrouter.ai"
+      ports: [443]
+      reason: "OpenRouter API for fallback agents"
+    - host: "api.mistral.ai"
+      ports: [443]
+      reason: "Mistral API for Mistral agents"
+    - host: "generativelanguage.googleapis.com"
+      ports: [443]
+      reason: "Google API for Gemini agents"
+
+  deny:
+    - host: ".*"
+      reason: "All other network access denied by default"
+
+# GitHub-specific action rules
+github:
+  allow:
+    - action: "pr diff"
+      reason: "Fetch PR diff for review"
+    - action: "pr view"
+      reason: "View PR metadata"
+    - action: "pr comment"
+      reason: "Post review findings"
+    - action: "pr checks"
+      reason: "View CI check status"
+
+  deny:
+    - action: "pr merge"
+      reason: "Cannot merge PRs"
+    - action: "pr close"
+      reason: "Cannot close PRs"
+    - action: "pr edit"
+      reason: "Cannot modify PR title/body"
+    - action: "release"
+      reason: "Cannot create releases"
+    - action: "repo delete"
+      reason: "Cannot delete repositories"
+
+# Resource limits
+resources:
+  max_memory_mb: 1024
+  max_execution_seconds: 300
+  max_processes: 10
+  max_file_size_mb: 50
+  max_concurrent_reviews: 5
+
+# Audit settings
+audit:
+  log_all_actions: true
+  log_denials: true
+  require_receipt: true
+  receipt_hash_algorithm: sha256

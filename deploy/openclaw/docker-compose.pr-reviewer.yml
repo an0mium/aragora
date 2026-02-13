@@ -1,0 +1,92 @@
+# Aragora PR Reviewer — Sandboxed Multi-Agent Code Review
+#
+# Runs the PR reviewer as an isolated, policy-constrained service.
+# Uses the OpenClaw policy at policies/pr-reviewer/policy.yaml.
+#
+# Usage:
+#   # Review a specific PR (dry run)
+#   PR_URL=https://github.com/owner/repo/pull/123 \
+#     docker compose -f docker-compose.pr-reviewer.yml up
+#
+#   # Review all open PRs in a repo
+#   GITHUB_REPO=owner/repo \
+#   ANTHROPIC_API_KEY=sk-ant-... \
+#     docker compose -f docker-compose.pr-reviewer.yml --profile live up
+#
+#   # Watch mode: review new PRs as they open (polls every 5 min)
+#   GITHUB_REPO=owner/repo \
+#   AGENT_MODE=watch \
+#   ANTHROPIC_API_KEY=sk-ant-... \
+#     docker compose -f docker-compose.pr-reviewer.yml --profile live up
+
+services:
+  pr-reviewer:
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile
+      args:
+        VARIANT: minimal
+    container_name: aragora-pr-reviewer
+    command: >
+      python scripts/run_devops_agent.py
+        --repo ${GITHUB_REPO:-an0mium/aragora}
+        --task review-prs
+        --mode ${AGENT_MODE:-once}
+        --poll-interval ${POLL_INTERVAL:-300}
+        ${PR_URL:+--pr-url $PR_URL}
+        --audit-log /var/lib/aragora/audit.json
+        --json
+        -v
+    environment:
+      # GitHub auth
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GH_TOKEN=${GITHUB_TOKEN:-}
+      # LLM API keys — at least one required for live mode
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # Reviewer config
+      - ARAGORA_REVIEW_AGENTS=${REVIEW_AGENTS:-anthropic-api,openai-api}
+      - ARAGORA_REVIEW_ROUNDS=${REVIEW_ROUNDS:-2}
+      - ARAGORA_DEVOPS_DRY_RUN=${DRY_RUN:-true}
+    volumes:
+      - reviewer-data:/var/lib/aragora
+      - ./policies:/etc/aragora/policies:ro
+    networks:
+      - reviewer-net
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    profiles:
+      - default
+      - live
+
+  # Network proxy sidecar — restricts outbound traffic to policy-allowed hosts
+  network-proxy:
+    image: alpine/socat:latest
+    container_name: aragora-pr-reviewer-proxy
+    networks:
+      - reviewer-net
+      - external
+    # Only the proxy has external network access; the reviewer talks through it
+    profiles:
+      - live
+
+volumes:
+  reviewer-data:
+    driver: local
+
+networks:
+  reviewer-net:
+    driver: bridge
+    internal: true  # No direct internet access for the reviewer
+  external:
+    driver: bridge
