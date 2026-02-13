@@ -511,6 +511,237 @@ class TestLinkAccount:
         assert "auth_url" in body
         assert "google" in body["auth_url"]
 
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_github_redirect_uri")
+    @patch("aragora.server.handlers._oauth_impl.GITHUB_CLIENT_ID", "github-client-id")
+    @patch("aragora.server.handlers._oauth_impl.GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_github_account(
+        self,
+        mock_extract,
+        mock_redirect_uri,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        account_handler,
+        mock_request_handler,
+    ):
+        """Test linking GitHub account."""
+        mock_extract.return_value = MagicMock(
+            is_authenticated=True,
+            user_id="user_1",
+            org_id="org_1",
+            role="member",
+        )
+        mock_success_url.return_value = "https://example.com/success"
+        mock_redirect_uri.return_value = "https://example.com/callback"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+
+        mock_request_handler._json_body = {"provider": "github"}
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body.decode())
+        assert "auth_url" in body
+        assert "github" in body["auth_url"]
+
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_microsoft_redirect_uri")
+    @patch("aragora.server.handlers._oauth_impl._get_microsoft_tenant")
+    @patch("aragora.server.handlers._oauth_impl._get_microsoft_client_id")
+    @patch("aragora.server.handlers._oauth_impl.MICROSOFT_AUTH_URL_TEMPLATE", "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_microsoft_account(
+        self,
+        mock_extract,
+        mock_ms_client_id,
+        mock_ms_tenant,
+        mock_redirect_uri,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        account_handler,
+        mock_request_handler,
+    ):
+        """Test linking Microsoft account."""
+        mock_extract.return_value = MagicMock(
+            is_authenticated=True,
+            user_id="user_1",
+            org_id="org_1",
+            role="member",
+        )
+        mock_success_url.return_value = "https://example.com/success"
+        mock_redirect_uri.return_value = "https://example.com/callback"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+        mock_ms_client_id.return_value = "microsoft-client-id"
+        mock_ms_tenant.return_value = "common"
+
+        mock_request_handler._json_body = {"provider": "microsoft"}
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body.decode())
+        assert "auth_url" in body
+        assert "microsoftonline.com" in body["auth_url"]
+        assert "common" in body["auth_url"]
+
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_apple_redirect_uri")
+    @patch("aragora.server.handlers._oauth_impl._get_apple_client_id")
+    @patch("aragora.server.handlers._oauth_impl.APPLE_AUTH_URL", "https://appleid.apple.com/auth/authorize")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_apple_account(
+        self,
+        mock_extract,
+        mock_apple_client_id,
+        mock_redirect_uri,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        account_handler,
+        mock_request_handler,
+    ):
+        """Test linking Apple account."""
+        mock_extract.return_value = MagicMock(
+            is_authenticated=True,
+            user_id="user_1",
+            org_id="org_1",
+            role="member",
+        )
+        mock_success_url.return_value = "https://example.com/success"
+        mock_redirect_uri.return_value = "https://example.com/callback"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+        mock_apple_client_id.return_value = "apple-client-id"
+
+        mock_request_handler._json_body = {"provider": "apple"}
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body.decode())
+        assert "auth_url" in body
+        assert "appleid.apple.com" in body["auth_url"]
+        assert "form_post" in body["auth_url"]
+
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_redirect_uri")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_client_id")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_issuer")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_oidc_account(
+        self,
+        mock_extract,
+        mock_oidc_issuer,
+        mock_oidc_client_id,
+        mock_redirect_uri,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        account_handler,
+        mock_request_handler,
+    ):
+        """Test linking OIDC account."""
+        mock_extract.return_value = MagicMock(
+            is_authenticated=True,
+            user_id="user_1",
+            org_id="org_1",
+            role="member",
+        )
+        mock_success_url.return_value = "https://example.com/success"
+        mock_redirect_uri.return_value = "https://example.com/callback"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+        mock_oidc_issuer.return_value = "https://idp.example.com"
+        mock_oidc_client_id.return_value = "oidc-client-id"
+
+        # Mock the _get_oidc_discovery method on the handler instance
+        account_handler._get_oidc_discovery = MagicMock(
+            return_value={"authorization_endpoint": "https://idp.example.com/authorize"}
+        )
+
+        mock_request_handler._json_body = {"provider": "oidc"}
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 200
+        body = json.loads(result.body.decode())
+        assert "auth_url" in body
+        assert "idp.example.com" in body["auth_url"]
+
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_microsoft_client_id")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_microsoft_not_configured(
+        self,
+        mock_extract,
+        mock_ms_client_id,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        account_handler,
+        mock_request_handler,
+    ):
+        """Test linking Microsoft account when not configured returns 503."""
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user_1")
+        mock_success_url.return_value = "https://example.com/success"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+        mock_ms_client_id.return_value = None
+
+        mock_request_handler._json_body = {"provider": "microsoft"}
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 503
+        assert b"Microsoft OAuth not configured" in result.body
+
+    @patch("aragora.server.handlers._oauth_impl._validate_redirect_url")
+    @patch("aragora.server.handlers._oauth_impl._generate_state")
+    @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_client_id")
+    @patch("aragora.server.handlers._oauth_impl._get_oidc_issuer")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_oidc_not_configured(
+        self,
+        mock_extract,
+        mock_oidc_issuer,
+        mock_oidc_client_id,
+        mock_success_url,
+        mock_generate_state,
+        mock_validate_redirect,
+        account_handler,
+        mock_request_handler,
+    ):
+        """Test linking OIDC account when not configured returns 503."""
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user_1")
+        mock_success_url.return_value = "https://example.com/success"
+        mock_generate_state.return_value = "test-state"
+        mock_validate_redirect.return_value = True
+        mock_oidc_issuer.return_value = None
+        mock_oidc_client_id.return_value = None
+
+        mock_request_handler._json_body = {"provider": "oidc"}
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 503
+        assert b"OIDC provider not configured" in result.body
+
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_link_account_invalid_json(self, mock_extract, account_handler, mock_request_handler):
         """Test link account with invalid JSON body."""

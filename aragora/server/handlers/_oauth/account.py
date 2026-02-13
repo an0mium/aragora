@@ -287,7 +287,58 @@ class AccountManagementMixin:
             auth_url = f"{impl.GITHUB_AUTH_URL}?{urlencode(params)}"
             return json_response({"auth_url": auth_url})
 
-        return error_response("Provider not implemented", 501)
+        if provider == "microsoft":
+            microsoft_client_id = impl._get_microsoft_client_id()
+            if not microsoft_client_id:
+                return error_response("Microsoft OAuth not configured", 503)
+            tenant = impl._get_microsoft_tenant()
+            auth_url_base = impl.MICROSOFT_AUTH_URL_TEMPLATE.format(tenant=tenant)
+            params = {
+                "client_id": microsoft_client_id,
+                "redirect_uri": impl._get_microsoft_redirect_uri(),
+                "response_type": "code",
+                "scope": "openid email profile User.Read",
+                "state": state,
+                "response_mode": "query",
+            }
+            auth_url = f"{auth_url_base}?{urlencode(params)}"
+            return json_response({"auth_url": auth_url})
+
+        if provider == "apple":
+            apple_client_id = impl._get_apple_client_id()
+            if not apple_client_id:
+                return error_response("Apple OAuth not configured", 503)
+            params = {
+                "client_id": apple_client_id,
+                "redirect_uri": impl._get_apple_redirect_uri(),
+                "response_type": "code id_token",
+                "scope": "name email",
+                "state": state,
+                "response_mode": "form_post",
+            }
+            auth_url = f"{impl.APPLE_AUTH_URL}?{urlencode(params)}"
+            return json_response({"auth_url": auth_url})
+
+        if provider == "oidc":
+            oidc_issuer = impl._get_oidc_issuer()
+            oidc_client_id = impl._get_oidc_client_id()
+            if not oidc_issuer or not oidc_client_id:
+                return error_response("OIDC provider not configured", 503)
+            # Fetch discovery document synchronously for auth endpoint
+            discovery = self._get_oidc_discovery(oidc_issuer)
+            if not discovery or not discovery.get("authorization_endpoint"):
+                return error_response("OIDC discovery failed", 503)
+            params = {
+                "client_id": oidc_client_id,
+                "redirect_uri": impl._get_oidc_redirect_uri(),
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+            }
+            auth_url = f"{discovery['authorization_endpoint']}?{urlencode(params)}"
+            return json_response({"auth_url": auth_url})
+
+        return error_response("Unsupported provider", 400)
 
     @handle_errors("unlink OAuth account")
     def _handle_unlink_account(self, handler: Any) -> HandlerResult:
