@@ -48,3 +48,32 @@ jobs:
       - name: Run core suites
         run: bash scripts/ci_core_suites.sh
 
+  security-boundaries:
+    name: Security Boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install (dev)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run OpenClaw + auth/RBAC security boundary suites
+        run: |
+          pytest -q \
+            tests/compat/openclaw/test_standalone.py \
+            tests/server/handlers/test_openclaw_persistent_store.py \
+            tests/rbac/test_middleware.py \
+            tests/rbac/test_handler_enforcement.py \
+            tests/handlers/test_oauth.py \
+            tests/middleware/test_user_auth.py \
+            tests/test_handlers_memory.py

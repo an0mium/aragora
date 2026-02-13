@@ -324,7 +324,7 @@ class TestRBACMiddleware:
             assert perm == "debates:delete"
 
     def test_check_request_no_matching_rule_authenticated(self):
-        """Test no matching rule with authenticated user passes."""
+        """Test no matching rule with authenticated user is denied (default-deny)."""
         config = RBACMiddlewareConfig(
             route_permissions=[],  # No rules
             default_authenticated=False,
@@ -336,7 +336,7 @@ class TestRBACMiddleware:
             context = AuthorizationContext(user_id="user-1")
             allowed, reason, perm = middleware.check_request("/api/unknown", "GET", context)
 
-            assert allowed is True
+            assert allowed is False
             assert "no permission rule" in reason.lower()
 
     def test_check_request_no_matching_rule_requires_auth(self):
