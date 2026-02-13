@@ -264,5 +264,5 @@ Common error responses:
 ## Related Documentation
 
 - [API Reference](./API_REFERENCE.md)
-- [Debate Phases](./DEBATE_PHASES.md)
-- [Agent Development](./AGENT_DEVELOPMENT.md)
+- [Debate Phases](../debate/DEBATE_PHASES.md)
+- [Agent Development](../debate/AGENT_DEVELOPMENT.md)

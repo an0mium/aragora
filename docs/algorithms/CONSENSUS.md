@@ -186,4 +186,4 @@ ConsensusProof can be exported as:
 
 - [Convergence Detection](./CONVERGENCE.md) - How semantic convergence is detected
 - [ELO Calibration](./ELO_CALIBRATION.md) - How agent ratings affect consensus weights
-- [Debate Phases](../DEBATE_PHASES.md) - The debate lifecycle
+- [Debate Phases](../debate/DEBATE_PHASES.md) - The debate lifecycle

@@ -291,5 +291,5 @@ class VoteCollectorConfig:
 
 - [Prime Intellect RLM Blog Post](https://www.primeintellect.ai/blog/rlm)
 - [RLM Paper (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601)
-- [Aragora Memory Strategy](./MEMORY_STRATEGY.md)
-- [Debate Phases](./DEBATE_PHASES.md)
+- [Aragora Memory Strategy](../knowledge/MEMORY_STRATEGY.md)
+- [Debate Phases](../debate/DEBATE_PHASES.md)

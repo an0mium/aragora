@@ -254,4 +254,4 @@ pip install rlm
 ## Related Documentation
 
 - [CLAUDE.md](../../CLAUDE.md) - RLM usage in main documentation
-- [docs/ENVIRONMENT.md](../ENVIRONMENT.md) - Environment configuration
+- [docs/ENVIRONMENT.md](../reference/ENVIRONMENT.md) - Environment configuration

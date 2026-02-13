@@ -304,8 +304,8 @@ class TestConnectorResilience:
 
 ## Related Documentation
 
-- [OBSERVABILITY.md](./OBSERVABILITY.md) - Metrics and monitoring
-- [ENTERPRISE_FEATURES.md](./ENTERPRISE_FEATURES.md) - Enterprise connector capabilities
+- [OBSERVABILITY.md](../observability/OBSERVABILITY.md) - Metrics and monitoring
+- [ENTERPRISE_FEATURES.md](../ENTERPRISE_FEATURES.md) - Enterprise connector capabilities
 - Base classes:
   - `aragora/connectors/chat/base.py` - Chat connector base
   - `aragora/connectors/enterprise/base.py` - Enterprise connector base

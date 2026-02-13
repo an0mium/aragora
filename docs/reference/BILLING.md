@@ -16,7 +16,7 @@ The billing module consists of four components:
 ## Cost Visibility
 
 Aragora exposes a cost visibility API and dashboard for tracking spend and
-budgets. See [COST_VISIBILITY.md](./COST_VISIBILITY.md) for endpoints and UI
+budgets. See [COST_VISIBILITY.md](../observability/COST_VISIBILITY.md) for endpoints and UI
 details.
 
 ## Quick Start
@@ -481,6 +481,6 @@ CREATE TABLE usage_monthly (
 
 ## See Also
 
-- [API Reference](API_REFERENCE.md) - Authentication endpoints
+- [API Reference](../api/API_REFERENCE.md) - Authentication endpoints
 - [Environment Variables](ENVIRONMENT.md) - Full configuration reference
-- [Architecture](ARCHITECTURE.md) - System overview
+- [Architecture](../architecture/ARCHITECTURE.md) - System overview

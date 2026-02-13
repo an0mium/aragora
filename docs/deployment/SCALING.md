@@ -404,5 +404,5 @@ scenarios: (100.00%) 1 scenario, 100 max VUs, 5m30s max duration
 
 - [Deployment Guide](./DEPLOYMENT.md)
 - [Operations Runbook](./RUNBOOK.md)
-- [Environment Variables](./ENVIRONMENT.md)
-- [Rate Limiting](./RATE_LIMITING.md)
+- [Environment Variables](../reference/ENVIRONMENT.md)
+- [Rate Limiting](../api/RATE_LIMITING.md)

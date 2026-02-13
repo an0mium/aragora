@@ -350,4 +350,4 @@ direct_perms = get_role_permissions("team_lead", include_inherited=False)
 
 - [RBAC Permission Reference](RBAC_PERMISSION_REFERENCE.md) - Complete permission catalog
 - [Enterprise Features](ENTERPRISE_FEATURES.md) - Enterprise security capabilities
-- [API Reference](API_REFERENCE.md) - Protected endpoint documentation
+- [API Reference](../api/API_REFERENCE.md) - Protected endpoint documentation

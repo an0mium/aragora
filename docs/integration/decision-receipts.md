@@ -244,6 +244,6 @@ adapter = ReceiptAdapter()
 
 ## See Also
 
-- [Gauntlet Architecture](../GAUNTLET_ARCHITECTURE.md)
-- [Compliance Guide](../COMPLIANCE.md)
+- [Gauntlet Architecture](../architecture/GAUNTLET_ARCHITECTURE.md)
+- [Compliance Guide](../enterprise/COMPLIANCE.md)
 - [Knowledge Mound Guide](./knowledge-system-guide.md)

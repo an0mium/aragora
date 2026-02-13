@@ -1015,8 +1015,8 @@ all_status = get_all_circuit_breakers_status()
 
 ## Related Documentation
 
-- [API Rate Limits](API_RATE_LIMITS.md) - Rate limiting details
+- [API Rate Limits](../api/API_RATE_LIMITS.md) - Rate limiting details
 - [Error Codes](ERROR_CODES.md) - Complete error code reference
-- [Resilience Patterns](RESILIENCE_PATTERNS.md) - Module overview
-- [Agent Development](AGENT_DEVELOPMENT.md) - Building resilient agents
-- [Observability](OBSERVABILITY.md) - Metrics and monitoring
+- [Resilience Patterns](../resilience/RESILIENCE_PATTERNS.md) - Module overview
+- [Agent Development](../debate/AGENT_DEVELOPMENT.md) - Building resilient agents
+- [Observability](../observability/OBSERVABILITY.md) - Metrics and monitoring

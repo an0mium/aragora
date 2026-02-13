@@ -260,6 +260,6 @@ new_mode = await handoff.execute()
 
 ## See Also
 
-- [Debate Orchestration](./ARCHITECTURE.md) - Core debate system
-- [Agent Configuration](./AGENT_DEVELOPMENT.md) - Agent setup
-- [Gauntlet Testing](GAUNTLET.md) - Stress testing
+- [Debate Orchestration](../architecture/ARCHITECTURE.md) - Core debate system
+- [Agent Configuration](../debate/AGENT_DEVELOPMENT.md) - Agent setup
+- [Gauntlet Testing](../debate/GAUNTLET.md) - Stress testing

@@ -5,7 +5,7 @@
 This guide documents powerful but underutilized API endpoints. These endpoints
 provide access to capabilities that are implemented but not always integrated
 into the frontend. For control-plane vetted decisionmaking sessions and decision routing, see
-[CONTROL_PLANE_GUIDE.md](./CONTROL_PLANE_GUIDE.md) and
+[CONTROL_PLANE_GUIDE.md](../guides/CONTROL_PLANE_GUIDE.md) and
 [API_REFERENCE.md](./API_REFERENCE.md).
 
 ## Quick Reference

@@ -462,6 +462,6 @@ print(f"Models: {dict(models)}")
 
 ## See Also
 
-- [NOMIC_LOOP.md](NOMIC_LOOP.md) - Phase 3 context
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System overview
-- [RESILIENCE.md](RESILIENCE.md) - Circuit breaker patterns
+- [NOMIC_LOOP.md](../workflow/NOMIC_LOOP.md) - Phase 3 context
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System overview
+- [RESILIENCE.md](../resilience/RESILIENCE.md) - Circuit breaker patterns

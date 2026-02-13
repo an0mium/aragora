@@ -276,7 +276,7 @@ resources:
 | **Backup schedule configured** | [ ] | Check cron jobs |
 | **Backup retention policy** | [ ] | Document: ___ days |
 | **Restore procedure tested** | [ ] | Document last test: ______ |
-| **Rollback procedure documented** | [ ] | See [DISASTER_RECOVERY.md](../deployment/disaster-recovery) |
+| **Rollback procedure documented** | [ ] | See [DISASTER_RECOVERY.md](./disaster-recovery-runbook) |
 | **Incident response plan** | [ ] | See [RUNBOOK.md](./runbook) |
 
 ---
@@ -519,8 +519,8 @@ kubectl scale deployment aragora --replicas=3 -n aragora
 ## Related Documentation
 
 - [RUNBOOK.md](./runbook) - Operational procedures and incident response
-- [DISASTER_RECOVERY.md](../deployment/disaster-recovery) - Recovery procedures
+- [DISASTER_RECOVERY.md](./disaster-recovery-runbook) - Recovery procedures
 - [ENVIRONMENT.md](../getting-started/environment) - Complete environment variable reference
 - [DEPLOYMENT.md](../deployment/overview) - Kubernetes and Docker deployment guides
 - [SECURITY.md](../security/overview) - Security architecture and practices
-- [SCALING.md](../deployment/scaling) - Scaling guidelines and capacity planning
+- [SCALING.md](./scaling) - Scaling guidelines and capacity planning

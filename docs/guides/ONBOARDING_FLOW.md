@@ -281,9 +281,9 @@ POST /api/debates
 
 ## Related Documents
 
-- [SME_STARTER_PACK.md](SME_STARTER_PACK.md) - Feature scope
-- [INTEGRATION_AUDIT.md](INTEGRATION_AUDIT.md) - Connector details
-- [API_REFERENCE.md](API_REFERENCE.md) - API documentation
+- [SME_STARTER_PACK.md](../status/SME_STARTER_PACK.md) - Feature scope
+- [INTEGRATION_AUDIT.md](../enterprise/INTEGRATION_AUDIT.md) - Connector details
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - API documentation
 
 ---
 

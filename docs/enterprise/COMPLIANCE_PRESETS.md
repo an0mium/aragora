@@ -43,6 +43,6 @@ Then re-run `aragora audit presets` to verify the new configuration.
 
 ## Related Docs
 
-- [Gauntlet](GAUNTLET.md)
-- [Evidence system](EVIDENCE.md)
+- [Gauntlet](../debate/GAUNTLET.md)
+- [Evidence system](../debate/EVIDENCE.md)
 - [Compliance](COMPLIANCE.md)

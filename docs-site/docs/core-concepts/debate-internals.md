@@ -182,7 +182,7 @@ When enabled in the debate protocol, agents can send peer‑to‑peer messages
 alongside the standard debate loop. This is useful for proposals, critiques,
 and direct questions between agents.
 
-**Integration helper:** `aragora/debate/channel_integration.py`
+**Integration helper:** `aragora/debate/channel_integration.py`  
 **Protocol flags:** `enable_agent_channels` (default: true), `agent_channel_max_history` (default: 100)
 
 ```python
@@ -199,7 +199,7 @@ Aragora supports YAML-defined hooks that attach automation to debate and audit
 events. Hooks are loaded via `HookConfigLoader` and applied to the
 `HookManager` used by the arena runtime.
 
-See [Workflow Guide](../guides/workflows) for the YAML schema, trigger list, and built-in actions.
+See [Workflow Guide](../guides/workflows) for lifecycle orchestration patterns and built-in actions.
 
 ## Hook Tracking (GUPP Recovery)
 

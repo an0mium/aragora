@@ -937,7 +937,7 @@ agents = list_available_agents()
 
 ## Related Documentation
 
-- [API Reference](API_REFERENCE.md) - Full API documentation
-- [Custom Agents](CUSTOM_AGENTS.md) - More agent examples
-- [Architecture](ARCHITECTURE.md) - System architecture
-- [Memory Architecture](MEMORY_STRATEGY.md) - How agents learn
+- [API Reference](../api/API_REFERENCE.md) - Full API documentation
+- [Custom Agents](../guides/CUSTOM_AGENTS.md) - More agent examples
+- [Architecture](../architecture/ARCHITECTURE.md) - System architecture
+- [Memory Architecture](../knowledge/MEMORY_STRATEGY.md) - How agents learn

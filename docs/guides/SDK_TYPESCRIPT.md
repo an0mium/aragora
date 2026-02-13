@@ -506,7 +506,7 @@ ws.onmessage = (event) => {
 };
 ```
 
-For the full event list and payload envelope, see [WEBSOCKET_EVENTS.md](./WEBSOCKET_EVENTS.md).
+For the full event list and payload envelope, see [WEBSOCKET_EVENTS.md](../streaming/WEBSOCKET_EVENTS.md).
 
 ## React Integration
 
@@ -594,5 +594,5 @@ If upgrading from an earlier version:
 ## Support
 
 - [GitHub Issues](https://github.com/an0mium/aragora/issues)
-- [API Reference](API_REFERENCE.md)
+- [API Reference](../api/API_REFERENCE.md)
 - [Python SDK Guide](SDK_GUIDE.md)

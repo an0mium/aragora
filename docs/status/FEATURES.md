@@ -2078,7 +2078,7 @@ result = await coordinator.execute(
 
 Intelligent agent selection and load balancing for optimal task assignment.
 
-See [AGENT_SELECTION.md](./AGENT_SELECTION.md) for routing strategies.
+See [AGENT_SELECTION.md](../debate/AGENT_SELECTION.md) for routing strategies.
 
 ---
 
@@ -2353,4 +2353,4 @@ print(test_code)
 
 ## API Reference
 
-See [API_REFERENCE.md](./API_REFERENCE.md) for complete HTTP and WebSocket API documentation.
+See [API_REFERENCE.md](../api/API_REFERENCE.md) for complete HTTP and WebSocket API documentation.

@@ -420,6 +420,6 @@ print(f"Cross-channel: {result.to_dict()['cross_channel_boosts']}")
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md) - Full API documentation
+- [API Reference](../api/API_REFERENCE.md) - Full API documentation
 - [Connectors Setup](./CONNECTORS_SETUP.md) - Gmail connector setup
 - [Control Plane Guide](./CONTROL_PLANE_GUIDE.md) - Enterprise inbox management

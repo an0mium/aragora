@@ -39,9 +39,9 @@ Source: `aragora/connectors/documents/connector.py`
 
 ## Where Documents Flow
 
-- **Evidence system** for grounded debate (see [EVIDENCE.md](EVIDENCE.md))
-- **Gauntlet** for adversarial audits (see [GAUNTLET.md](GAUNTLET.md))
-- **Knowledge Mound** for long-term storage (see [KNOWLEDGE_MOUND.md](KNOWLEDGE_MOUND.md))
+- **Evidence system** for grounded debate (see [EVIDENCE.md](../debate/EVIDENCE.md))
+- **Gauntlet** for adversarial audits (see [GAUNTLET.md](../debate/GAUNTLET.md))
+- **Knowledge Mound** for long-term storage (see [KNOWLEDGE_MOUND.md](../knowledge/KNOWLEDGE_MOUND.md))
 
 ## Configuration Notes
 

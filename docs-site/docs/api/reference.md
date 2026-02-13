@@ -1066,8 +1066,6 @@ The unified server exposes HTTP on port 8080 and WebSocket on port 8765 by defau
 
 ```bash
 aragora serve --api-port 8080 --ws-port 8765
-# Or directly:
-aragora serve --api-port 8080 --ws-port 8765
 ```
 
 ## Authentication

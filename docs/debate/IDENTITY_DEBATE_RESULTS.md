@@ -1,6 +1,6 @@
 # Aragora Identity Debate Results
 
-**Note:** This is a historical debate artifact. Metrics referenced below reflect the state as of late January 2026. For current counts, see [STATUS.md](STATUS.md).
+**Note:** This is a historical debate artifact. Metrics referenced below reflect the state as of late January 2026. For current counts, see [STATUS.md](../STATUS.md).
 
 **Date:** 2026-01-22 13:51:21
 

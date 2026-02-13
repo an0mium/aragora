@@ -1,6 +1,6 @@
 # Breaking Change Documentation Template
 
-Use this template when documenting breaking changes in Aragora. Copy the relevant sections to [BREAKING_CHANGES.md](../BREAKING_CHANGES.md) and customize for your specific change.
+Use this template when documenting breaking changes in Aragora. Copy the relevant sections to [BREAKING_CHANGES.md](../reference/BREAKING_CHANGES.md) and customize for your specific change.
 
 ---
 
@@ -178,7 +178,7 @@ curl -X POST https://api.aragora.io/api/v2/new-endpoint
 
 Before merging a breaking change, ensure:
 
-- [ ] Entry added to [BREAKING_CHANGES.md](../BREAKING_CHANGES.md)
+- [ ] Entry added to [BREAKING_CHANGES.md](../reference/BREAKING_CHANGES.md)
 - [ ] Entry added to [CHANGELOG.md](../../CHANGELOG.md) under "Breaking Changes" or "Deprecated"
 - [ ] Migration guide created (if change is complex)
 - [ ] Deprecation warnings added to affected code

@@ -174,7 +174,7 @@ The server exposes Gauntlet functionality via REST API:
 | `/api/gauntlet/personas` | GET | List regulatory personas |
 | `/api/gauntlet/results` | GET | List recent results |
 
-See [API_REFERENCE.md](API_REFERENCE.md) for full documentation.
+See [API_REFERENCE.md](../api/API_REFERENCE.md) for full documentation.
 
 ## Deprecation Timeline
 

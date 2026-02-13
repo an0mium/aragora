@@ -585,7 +585,7 @@ Is the question well-scoped with clear evaluation criteria?
 - [ORCHESTRATION.md](./ORCHESTRATION.md) - Low-level orchestration architecture
 - [GRAPH_DEBATES.md](./GRAPH_DEBATES.md) - Graph debate implementation details
 - [MATRIX_DEBATES.md](./MATRIX_DEBATES.md) - Matrix debate implementation details
-- [RESILIENCE_PATTERNS.md](./RESILIENCE_PATTERNS.md) - Circuit breakers, retry, timeout patterns
+- [RESILIENCE_PATTERNS.md](../resilience/RESILIENCE_PATTERNS.md) - Circuit breakers, retry, timeout patterns
 
 ---
 

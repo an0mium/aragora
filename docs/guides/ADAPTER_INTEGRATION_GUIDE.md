@@ -591,6 +591,6 @@ async def _handle_update(self, event: dict) -> None:
 
 ## Related Documentation
 
-- [Knowledge Mound Overview](../aragora/knowledge/mound/README.md)
-- [Handler Architecture](../aragora/server/handlers/HANDLER_ARCHITECTURE.md)
-- [Phase A3 Features](./STATUS.md)
+- [Knowledge Mound Overview](../README.md)
+- [Handler Architecture](../../aragora/server/handlers/HANDLER_ARCHITECTURE.md)
+- [Phase A3 Features](../STATUS.md)

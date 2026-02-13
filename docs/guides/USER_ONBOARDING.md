@@ -186,11 +186,11 @@ aragora ask "What could go wrong with this deployment plan?" \
 
 | Goal | Guide |
 |------|-------|
-| Run adversarial stress-tests | [GAUNTLET.md](GAUNTLET.md) |
+| Run adversarial stress-tests | [GAUNTLET.md](../debate/GAUNTLET.md) |
 | Build custom agents | [CUSTOM_AGENTS.md](CUSTOM_AGENTS.md) |
 | Troubleshoot issues | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
-| API integration | [API_REFERENCE.md](API_REFERENCE.md) |
-| Self-improving debates | [NOMIC_LOOP.md](NOMIC_LOOP.md) |
+| API integration | [API_REFERENCE.md](../api/API_REFERENCE.md) |
+| Self-improving debates | [NOMIC_LOOP.md](../workflow/NOMIC_LOOP.md) |
 
 ## Getting Help
 

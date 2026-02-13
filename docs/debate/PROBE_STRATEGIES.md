@@ -730,6 +730,6 @@ probe = STRATEGIES[ProbeType.HALLUCINATION]()
 
 ## See Also
 
-- [MODES_GUIDE.md](MODES_GUIDE.md) - Operational modes for agents
+- [MODES_GUIDE.md](../guides/MODES_GUIDE.md) - Operational modes for agents
 - [AGENT_SELECTION.md](AGENT_SELECTION.md) - Agent team selection
-- [SECURITY.md](SECURITY.md) - Security guidelines
+- [SECURITY.md](../enterprise/SECURITY.md) - Security guidelines

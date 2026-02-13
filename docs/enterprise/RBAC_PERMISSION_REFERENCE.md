@@ -621,4 +621,4 @@ print(len(perms))  # 35+
 
 - [RBAC Role Hierarchy](RBAC_ROLE_HIERARCHY.md) - Role definitions and inheritance
 - [Enterprise Features](ENTERPRISE_FEATURES.md) - Enterprise security capabilities
-- [API Reference](API_REFERENCE.md) - Protected endpoint documentation
+- [API Reference](../api/API_REFERENCE.md) - Protected endpoint documentation

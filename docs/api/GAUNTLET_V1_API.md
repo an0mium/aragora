@@ -455,6 +455,6 @@ The API is implemented by these handler classes in `aragora/server/handlers/gaun
 
 ## See Also
 
-- [Gauntlet Quickstart](./GAUNTLET_QUICKSTART.md)
+- [Gauntlet Quickstart](../debate/GAUNTLET.md)
 - [API Reference](./API_REFERENCE.md)
-- [Decision Receipts](./DECISION_RECEIPTS.md)
+- [Decision Receipts](../integration/decision-receipts.md)

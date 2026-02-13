@@ -524,9 +524,9 @@ curl -X POST /api/v2/admin/users \
 
 ## Related Documentation
 
-- [SECURITY.md](../SECURITY.md) - Security policies and controls
+- [SECURITY.md](./SECURITY.md) - Security policies and controls
 - [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) - Backup and recovery procedures
-- [DATABASE.md](DATABASE.md) - Data storage and encryption
+- [DATABASE.md](../reference/DATABASE.md) - Data storage and encryption
 - [DATA_RESIDENCY.md](DATA_RESIDENCY.md) - Data location and transfer policies
 - [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) - Data classification levels
 - [PRIVACY_POLICY.md](PRIVACY_POLICY.md) - Privacy policy

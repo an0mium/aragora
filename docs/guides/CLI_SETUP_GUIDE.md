@@ -221,4 +221,4 @@ After setup, explore these resources:
 
 - [Getting Started Guide](GETTING_STARTED.md) - Full usage guide
 - [Self-Hosted Quickstart](SELF_HOSTED_QUICKSTART.md) - Docker deployment
-- [Environment Reference](ENVIRONMENT.md) - All configuration options
+- [Environment Reference](../reference/ENVIRONMENT.md) - All configuration options

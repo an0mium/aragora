@@ -315,6 +315,6 @@ asyncio.run(main())
 ## Next Steps
 
 - [TypeScript SDK Quickstart](./typescript-quickstart.md)
-- [API Reference](../API_REFERENCE.md)
+- [API Reference](../api/API_REFERENCE.md)
 - [Examples](../../examples/README.md)
-- [Gauntlet Guide](../GAUNTLET.md)
+- [Gauntlet Guide](../debate/GAUNTLET.md)

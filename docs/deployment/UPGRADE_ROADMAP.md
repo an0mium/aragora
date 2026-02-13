@@ -3,11 +3,11 @@
 This document provides version support timelines, recommended upgrade paths, rollback procedures, and a summary of breaking changes across Aragora releases.
 
 For detailed migration instructions, see:
-- [MIGRATION_V1_TO_V2.md](./MIGRATION_V1_TO_V2.md) - API v1 to v2 migration
-- [BREAKING_CHANGES.md](./BREAKING_CHANGES.md) - All breaking changes
-- [DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md) - Deprecation timeline and process
-- [POSTGRESQL_MIGRATION.md](./POSTGRESQL_MIGRATION.md) - SQLite to PostgreSQL migration
-- [MIGRATIONS.md](./MIGRATIONS.md) - Database migration system
+- [MIGRATION_V1_TO_V2.md](../status/MIGRATION_V1_TO_V2.md) - API v1 to v2 migration
+- [BREAKING_CHANGES.md](../reference/BREAKING_CHANGES.md) - All breaking changes
+- [DEPRECATION_POLICY.md](../reference/DEPRECATION_POLICY.md) - Deprecation timeline and process
+- [POSTGRESQL_MIGRATION.md](../status/POSTGRESQL_MIGRATION.md) - SQLite to PostgreSQL migration
+- [MIGRATIONS.md](../status/MIGRATIONS.md) - Database migration system
 
 ---
 
@@ -146,7 +146,7 @@ ARAGORA_REQUIRE_DISTRIBUTED_STATE=true
 ARAGORA_REQUIRE_DISTRIBUTED=true
 ```
 
-See [MIGRATION_V1_TO_V2.md](./MIGRATION_V1_TO_V2.md) for the complete migration guide.
+See [MIGRATION_V1_TO_V2.md](../status/MIGRATION_V1_TO_V2.md) for the complete migration guide.
 
 ### v0.8.x -> v2.6.3 (Legacy Upgrade)
 
@@ -186,7 +186,7 @@ python -m aragora.persistence.migrations.postgres.memory_migrator
 python -m aragora.migrations.runner migrate
 ```
 
-See [POSTGRESQL_MIGRATION.md](./POSTGRESQL_MIGRATION.md) for details including connection pooling and Supabase setup.
+See [POSTGRESQL_MIGRATION.md](../status/POSTGRESQL_MIGRATION.md) for details including connection pooling and Supabase setup.
 
 ---
 
@@ -221,7 +221,7 @@ grep -r "ARAGORA_REQUIRE_DISTRIBUTED_STATE" .
 
 ### 3. Review Breaking Changes
 
-Check [BREAKING_CHANGES.md](./BREAKING_CHANGES.md) for any changes between your current version and the target version.
+Check [BREAKING_CHANGES.md](../reference/BREAKING_CHANGES.md) for any changes between your current version and the target version.
 
 ### 4. Test in Staging
 
@@ -480,19 +480,19 @@ The migration system supports zero-downtime patterns (`aragora/migrations/patter
 | `ANTHROPIC_API_KEY` | Anthropic API key (Claude) |
 | `OPENAI_API_KEY` | OpenAI API key (GPT) |
 
-See [ENVIRONMENT.md](./ENVIRONMENT.md) for the full environment variable reference.
+See [ENVIRONMENT.md](../reference/ENVIRONMENT.md) for the full environment variable reference.
 
 ---
 
 ## Related Documentation
 
-- [BREAKING_CHANGES.md](./BREAKING_CHANGES.md) - Detailed breaking changes per version
-- [DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md) - Deprecation process and timeline
-- [MIGRATION_V1_TO_V2.md](./MIGRATION_V1_TO_V2.md) - Complete API v1 to v2 migration guide
-- [POSTGRESQL_MIGRATION.md](./POSTGRESQL_MIGRATION.md) - SQLite to PostgreSQL migration
-- [MIGRATIONS.md](./MIGRATIONS.md) - Database migration system details
-- [API_VERSIONING.md](./API_VERSIONING.md) - API version selection and deprecation headers
-- [ENVIRONMENT.md](./ENVIRONMENT.md) - Environment variable reference
+- [BREAKING_CHANGES.md](../reference/BREAKING_CHANGES.md) - Detailed breaking changes per version
+- [DEPRECATION_POLICY.md](../reference/DEPRECATION_POLICY.md) - Deprecation process and timeline
+- [MIGRATION_V1_TO_V2.md](../status/MIGRATION_V1_TO_V2.md) - Complete API v1 to v2 migration guide
+- [POSTGRESQL_MIGRATION.md](../status/POSTGRESQL_MIGRATION.md) - SQLite to PostgreSQL migration
+- [MIGRATIONS.md](../status/MIGRATIONS.md) - Database migration system details
+- [API_VERSIONING.md](../api/API_VERSIONING.md) - API version selection and deprecation headers
+- [ENVIRONMENT.md](../reference/ENVIRONMENT.md) - Environment variable reference
 
 ---
 

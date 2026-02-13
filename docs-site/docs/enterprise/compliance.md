@@ -530,7 +530,7 @@ curl -X POST /api/v2/admin/users \
 ## Related Documentation
 
 - [SECURITY.md](../security/overview) - Security policies and controls
-- [DISASTER_RECOVERY.md](../deployment/disaster-recovery) - Backup and recovery procedures
+- [DISASTER_RECOVERY.md](../operations/disaster-recovery-runbook) - Backup and recovery procedures
 - [DATABASE.md](../deployment/database) - Data storage and encryption
 - [DATA_RESIDENCY.md](../security/data-residency) - Data location and transfer policies
 - [DATA_CLASSIFICATION.md](../security/data-classification) - Data classification levels

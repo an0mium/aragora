@@ -314,4 +314,4 @@ spec:
 
 - [Incident Response Runbook](incident-response.md)
 - [Monitoring Setup Runbook](monitoring-setup.md)
-- [Deployment Decision Matrix](../DEPLOYMENT_DECISION_MATRIX.md)
+- [Deployment Decision Matrix](../deployment/DEPLOYMENT_DECISION_MATRIX.md)

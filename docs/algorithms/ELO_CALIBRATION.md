@@ -377,4 +377,4 @@ matches = elo.get_cached_recent_matches(limit=10)
 
 - [Consensus Mechanism](./CONSENSUS.md) - How consensus is determined
 - [Convergence Detection](./CONVERGENCE.md) - How convergence is detected
-- [Agent Selection](../AGENT_SELECTION.md) - How agents are selected for debates
+- [Agent Selection](../debate/AGENT_SELECTION.md) - How agents are selected for debates

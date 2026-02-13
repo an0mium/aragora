@@ -471,7 +471,7 @@ pg_restore -d aragora /backup/postgresql/basebackup/base.tar.gz
 
 ### Full Recovery Procedure
 
-See [DISASTER_RECOVERY.md](../DISASTER_RECOVERY.md) for complete procedures.
+See [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) for complete procedures.
 
 ---
 

@@ -497,11 +497,11 @@ ufw deny 6379/tcp   # Block Redis
 
 ## Related Documentation
 
-- [ENVIRONMENT.md](ENVIRONMENT.md) - Full environment variable reference (70+ variables)
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Detailed deployment guide
+- [ENVIRONMENT.md](../reference/ENVIRONMENT.md) - Full environment variable reference (70+ variables)
+- [DEPLOYMENT.md](../deployment/DEPLOYMENT.md) - Detailed deployment guide
 - [SUPABASE_SETUP.md](SUPABASE_SETUP.md) - Supabase configuration
-- [API_REFERENCE.md](API_REFERENCE.md) - API documentation
-- [TEST_COVERAGE_SLOS.md](TEST_COVERAGE_SLOS.md) - Test coverage targets
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - API documentation
+- [TEST_COVERAGE_SLOS.md](../observability/TEST_COVERAGE_SLOS.md) - Test coverage targets
 
 ---
 

@@ -160,6 +160,6 @@ For legitimate high-volume integrations:
 
 ## Related Documentation
 
-- [RUNBOOK.md](RUNBOOK.md) - Operational procedures
-- [tenancy/quotas.py](../aragora/tenancy/quotas.py) - Quota management
-- [rate_limit/tier_limiter.py](../aragora/server/middleware/rate_limit/tier_limiter.py) - Implementation
+- [RUNBOOK.md](../deployment/RUNBOOK.md) - Operational procedures
+- [tenancy/quotas.py](../../aragora/tenancy/quotas.py) - Quota management
+- [rate_limit/tier_limiter.py](../../aragora/server/middleware/rate_limit/tier_limiter.py) - Implementation

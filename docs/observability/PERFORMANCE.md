@@ -766,7 +766,7 @@ sqlite3 .nomic/aragora_debates.db "EXPLAIN QUERY PLAN SELECT * FROM debates WHER
 
 ## Related Documentation
 
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Performance troubleshooting
-- [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) - Capacity planning for DR
-- [RUNBOOK.md](RUNBOOK.md) - Operational procedures
-- [DATABASE.md](DATABASE.md) - Database optimization
+- [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) - Performance troubleshooting
+- [DISASTER_RECOVERY.md](../deployment/DISASTER_RECOVERY.md) - Capacity planning for DR
+- [RUNBOOK.md](../deployment/RUNBOOK.md) - Operational procedures
+- [DATABASE.md](../reference/DATABASE.md) - Database optimization

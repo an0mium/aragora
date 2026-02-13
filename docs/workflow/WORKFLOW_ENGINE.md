@@ -343,6 +343,6 @@ engine = WorkflowEngine(
 
 ## See Also
 
-- [HANDLERS.md](HANDLERS.md) - WorkflowHandler documentation
-- [QUEUE.md](QUEUE.md) - Job queue management
-- [OPERATIONS.md](OPERATIONS.md) - Operational workflows
+- [HANDLERS.md](../reference/HANDLERS.md) - WorkflowHandler documentation
+- [QUEUE.md](../resilience/QUEUE.md) - Job queue management
+- [OPERATIONS.md](../OPERATIONS.md) - Operational workflows

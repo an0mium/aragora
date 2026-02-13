@@ -679,10 +679,10 @@ print(f"Healthy agents: {stats['health']['healthy_count']}")
 
 ## Architecture Decisions
 
-See [ADR-002: Control Plane Architecture](./ADR/009-control-plane-architecture.md) for detailed architectural decisions.
+See [ADR-002: Control Plane Architecture](../ADR/009-control-plane-architecture.md) for detailed architectural decisions.
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md)
-- [Environment Variables](./ENVIRONMENT.md)
-- [Deployment Guide](./DEPLOYMENT.md)
+- [API Reference](../api/API_REFERENCE.md)
+- [Environment Variables](../reference/ENVIRONMENT.md)
+- [Deployment Guide](../deployment/DEPLOYMENT.md)

@@ -438,7 +438,7 @@ async def update_debate(context: AuthorizationContext, debate_id: str):
 - [ADR-017: RBAC and ABAC Unification](../analysis/adr-017-rbac-abac-unification.md) - Architecture decision record
 - [RBAC Module](../../aragora/rbac/) - Implementation code
 - [ABAC Middleware](../../aragora/server/middleware/abac.py) - ABAC evaluator
-- [Authentication](./authentication.md) - Authentication setup
+- [Authentication](../enterprise/AUTH_GUIDE.md) - Authentication setup
 
 ## Summary
 

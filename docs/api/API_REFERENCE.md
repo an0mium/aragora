@@ -33,7 +33,7 @@ Both SDKs provide complete coverage of all API endpoints including:
 | [API_RATE_LIMITS.md](./API_RATE_LIMITS.md) | Rate limiting details | Understanding throttling |
 | [API_VERSIONING.md](./API_VERSIONING.md) | Version strategy | API migration planning |
 | [API_STABILITY.md](./API_STABILITY.md) | Stability guarantees | Production decisions |
-| [WEBSOCKET_EVENTS.md](./WEBSOCKET_EVENTS.md) | WebSocket event types | Real-time integration |
+| [WEBSOCKET_EVENTS.md](../streaming/WEBSOCKET_EVENTS.md) | WebSocket event types | Real-time integration |
 
 ## Endpoint Usage Status
 

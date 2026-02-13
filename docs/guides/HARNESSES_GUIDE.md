@@ -496,6 +496,6 @@ from aragora.harnesses import (
 
 ## Further Reading
 
-- [Gauntlet](./GAUNTLET.md)
-- [Debate Internals](./DEBATE_INTERNALS.md)
-- [Memory Strategy](./MEMORY_STRATEGY.md)
+- [Gauntlet](../debate/GAUNTLET.md)
+- [Debate Internals](../debate/DEBATE_INTERNALS.md)
+- [Memory Strategy](../knowledge/MEMORY_STRATEGY.md)

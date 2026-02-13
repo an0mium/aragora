@@ -303,5 +303,5 @@ for d in demotions[:10]:
 ## See Also
 
 - [Memory Strategy](MEMORY_STRATEGY.md) - Memory tier architecture
-- [Architecture](ARCHITECTURE.md) - System overview
-- [API Reference](API_REFERENCE.md) - Full endpoint documentation
+- [Architecture](../architecture/ARCHITECTURE.md) - System overview
+- [API Reference](../api/API_REFERENCE.md) - Full endpoint documentation

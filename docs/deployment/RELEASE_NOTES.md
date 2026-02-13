@@ -203,7 +203,7 @@ arena = Arena.from_config(
 
 ### Configuration Reference
 
-See [docs/CROSS_FUNCTIONAL_FEATURES.md](CROSS_FUNCTIONAL_FEATURES.md) for detailed configuration options.
+See [docs/CROSS_FUNCTIONAL_FEATURES.md](../architecture/CROSS_FUNCTIONAL_FEATURES.md) for detailed configuration options.
 
 ---
 
@@ -403,7 +403,7 @@ Benchmarks on 4-core, 8GB RAM instance:
 
 ## Migration
 
-See [deprecated/migrations/MIGRATION_0.8_to_1.0.md](deprecated/migrations/MIGRATION_0.8_to_1.0.md) for detailed upgrade instructions.
+See [deprecated/migrations/MIGRATION_0.8_to_1.0.md](../deprecated/migrations/MIGRATION_0.8_to_1.0.md) for detailed upgrade instructions.
 
 **Quick checklist:**
 - [ ] Update API calls to use `/api/v2/` prefix

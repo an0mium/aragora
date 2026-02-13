@@ -868,7 +868,7 @@ Confidence is computed from multiple factors:
 
 ## See Also
 
-- [Pulse System Guide](PULSE.md) - Trending topic integration
-- [Provenance Documentation](./FEATURES.md#provenancemanager) - Full provenance system details
-- [API Endpoints](API_ENDPOINTS.md) - Full API endpoint reference
-- [REASONING.md](./REASONING.md) - Belief networks and claims
+- [Pulse System Guide](../resilience/PULSE.md) - Trending topic integration
+- [Provenance Documentation](../status/FEATURES.md#provenancemanager) - Full provenance system details
+- [API Endpoints](../api/API_ENDPOINTS.md) - Full API endpoint reference
+- [REASONING.md](../workflow/REASONING.md) - Belief networks and claims

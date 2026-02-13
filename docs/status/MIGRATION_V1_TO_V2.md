@@ -532,6 +532,6 @@ All sunset dates and migration URLs are centralized in
 
 ## Related Documentation
 
-- [API Versioning Strategy](./API_VERSIONING.md)
-- [Deprecation Policy](./DEPRECATION_POLICY.md)
-- [SDK Documentation](./SDK_GUIDE.md)
+- [API Versioning Strategy](../api/API_VERSIONING.md)
+- [Deprecation Policy](../reference/DEPRECATION_POLICY.md)
+- [SDK Documentation](../SDK_GUIDE.md)

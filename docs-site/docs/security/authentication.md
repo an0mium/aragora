@@ -5,541 +5,178 @@ description: Authentication Guide
 
 # Authentication Guide
 
-Comprehensive guide to authentication in Aragora, covering built-in JWT authentication, OAuth providers, and enterprise SSO.
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Authentication Methods](#authentication-methods)
-- [Quick Start](#quick-start)
-- [JWT Authentication](#jwt-authentication)
-- [OAuth 2.0](#oauth-20)
-- [Enterprise SSO](#enterprise-sso)
-- [Session Management](#session-management)
-- [Security Best Practices](#security-best-practices)
-- [Troubleshooting](#troubleshooting)
-
----
+How to authenticate with the Aragora platform.
 
 ## Overview
 
-Aragora supports multiple authentication methods to accommodate different deployment scenarios:
+Aragora supports three authentication methods:
 
-| Method | Protocol | Best For | Complexity |
-|--------|----------|----------|------------|
-| Built-in JWT | Email/password | Development, small teams | Low |
-| Google OAuth | OAuth 2.0 | Google Workspace orgs | Medium |
-| Enterprise SSO | OIDC/SAML | Large organizations | High |
+| Method | Use case | Header format |
+|--------|----------|---------------|
+| **API Key** | SDK clients, CI/CD, automation | `Authorization: Bearer ara_...` |
+| **JWT Token** | Web app sessions, SSO | `Authorization: Bearer eyJ...` |
+| **HMAC Token** | Legacy integrations | `Authorization: Bearer <hmac-token>` |
 
-### Authentication Flow
+Most developers should use **API keys**.
 
-```
-User → Login Request → Aragora Server → Identity Provider (if SSO)
-                              ↓
-                       JWT Token Generation
-                              ↓
-                   Access Token + Refresh Token
-                              ↓
-                     Session Created in Store
-```
+## API Keys
 
----
+### Getting your first key
 
-## Authentication Methods
-
-### Decision Tree
-
-1. **Development/Small Team?** → Use built-in JWT with email/password
-2. **Google Workspace users?** → Use Google OAuth
-3. **Enterprise with existing IdP?** → Use SSO (OIDC or SAML)
-4. **Multiple auth methods needed?** → Enable OAuth + SSO together
-
----
-
-## Quick Start
-
-### Option 1: Built-in JWT (Simplest)
-
-No additional configuration needed. Users register and login with email/password.
+**Option A: CLI (recommended)**
 
 ```bash
-# Register a new user
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "secure_password", "name": "User Name"}'
+# Login first
+aragora auth login
 
-# Login
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "secure_password"}'
+# Create a named key
+aragora auth create-key --name "my-dev-key"
+# Output: ara_abc123...
 ```
 
-Self-service signup flows use the versioned auth endpoints (`/api/v1/auth/*`).
-See the [Self-Service Signup](#self-service-signup--invitations) section below.
+**Option B: Web UI**
 
-### Option 2: Google OAuth
+1. Navigate to Settings > API Tokens
+2. Click "Create Token"
+3. Copy the key (shown only once)
+
+**Option C: Self-hosted (no auth)**
+
+When running in offline/demo mode, authentication is optional:
 
 ```bash
-# .env
-GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
-GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/api/auth/oauth/google/callback
-OAUTH_SUCCESS_URL=http://localhost:3000/auth/callback
-OAUTH_ERROR_URL=http://localhost:3000/auth/error
-OAUTH_ALLOWED_REDIRECT_HOSTS=localhost
+python -m aragora.server --http-port 8080 --ws-port 8765 --offline
 ```
 
-### Option 3: Enterprise SSO (OIDC)
+### Using your key
+
+**Environment variable (recommended):**
 
 ```bash
-# .env
-ARAGORA_SSO_ENABLED=true
-ARAGORA_SSO_PROVIDER_TYPE=oidc
-ARAGORA_SSO_CLIENT_ID=your-client-id
-ARAGORA_SSO_CLIENT_SECRET=your-client-secret
-ARAGORA_SSO_ISSUER_URL=https://your-idp.example.com
-ARAGORA_SSO_CALLBACK_URL=https://your-app.example.com/auth/sso/callback
+export ARAGORA_API_KEY="ara_your_key_here"
 ```
-
----
-
-## Self-Service Signup & Invitations
-
-The versioned auth handlers provide self-service signup, email verification,
-organization setup, and team invitations. The default implementation stores
-pending signups/invites in memory; wire a persistent store for production.
-
-### Signup Flow (v1)
-
-```bash
-# Register
-curl -X POST http://localhost:8080/api/v1/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"StrongPass1","name":"User Name"}'
-
-# Verify email
-curl -X POST http://localhost:8080/api/v1/auth/verify-email \
-  -H "Content-Type: application/json" \
-  -d '{"token":"<verification-token>"}'
-
-# Create org
-curl -X POST http://localhost:8080/api/v1/auth/setup-organization \
-  -H "Content-Type: application/json" \
-  -d '{"org_name":"Example Inc"}'
-```
-
-### Invitations
-
-```bash
-# Invite teammate
-curl -X POST http://localhost:8080/api/v1/auth/invite \
-  -H "Content-Type: application/json" \
-  -d '{"email":"teammate@example.com","role":"member"}'
-
-# Accept invite
-curl -X POST http://localhost:8080/api/v1/auth/accept-invite \
-  -H "Content-Type: application/json" \
-  -d '{"token":"<invite-token>"}'
-```
-
-## JWT Authentication
-
-### How It Works
-
-1. User provides email/password or completes OAuth/SSO flow
-2. Server validates credentials and generates JWT tokens
-3. Access token (short-lived) used for API requests
-4. Refresh token (long-lived) used to obtain new access tokens
-5. Session tracked in server-side store
-
-### Token Structure
-
-```
-Access Token:
-- exp: Expiration time (default: 1 hour)
-- sub: User ID
-- email: User email
-- role: User role (user, admin)
-- jti: Unique token ID (session ID)
-
-Refresh Token:
-- exp: Expiration time (default: 7 days)
-- sub: User ID
-- jti: Unique token ID
-```
-
-### API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/register` | POST | Create new account |
-| `/api/auth/login` | POST | Authenticate and get tokens |
-| `/api/auth/logout` | POST | Invalidate current session |
-| `/api/auth/refresh` | POST | Get new access token |
-| `/api/auth/me` | GET | Get current user profile |
-
-Versioned signup endpoints:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/auth/signup` | POST | Register new user |
-| `/api/v1/auth/verify-email` | POST | Verify email address |
-| `/api/v1/auth/resend-verification` | POST | Resend verification email |
-| `/api/v1/auth/setup-organization` | POST | Create organization |
-| `/api/v1/auth/invite` | POST | Invite team member |
-| `/api/v1/auth/accept-invite` | POST | Accept invitation |
-| `/api/v1/auth/check-invite` | GET | Check invite validity |
-
-### Configuration
-
-```bash
-# JWT Settings
-ARAGORA_JWT_SECRET=your-secret-key-min-32-chars
-ARAGORA_JWT_EXPIRY_HOURS=1
-ARAGORA_JWT_REFRESH_EXPIRY_DAYS=7
-ARAGORA_JWT_ALGORITHM=HS256
-
-# Session Limits
-ARAGORA_MAX_SESSIONS_PER_USER=10
-ARAGORA_SESSION_INACTIVITY_TIMEOUT=86400  # 24 hours
-```
-
-### Using Tokens
 
 ```python
-import requests
+from aragora_sdk import AragoraClient
 
-# Login
-resp = requests.post('http://localhost:8080/api/auth/login', json={
-    'email': 'user@example.com',
-    'password': 'password'
-})
-tokens = resp.json()
-
-# Use access token
-headers = {'Authorization': f'Bearer {tokens["access_token"]}'}
-resp = requests.get('http://localhost:8080/api/debates', headers=headers)
-
-# Refresh when expired
-resp = requests.post('http://localhost:8080/api/auth/refresh', json={
-    'refresh_token': tokens['refresh_token']
-})
-new_tokens = resp.json()
+# from_env() reads ARAGORA_API_KEY automatically
+client = AragoraClient.from_env()
 ```
 
----
+**Explicit parameter:**
 
-## OAuth 2.0
+```python
+client = AragoraClient(
+    base_url="https://api.aragora.ai",
+    api_key="ara_your_key_here",
+)
+```
 
-Aragora's built-in OAuth handler supports **Google OAuth**. For other providers (Azure AD, Okta, GitHub), use the SSO handler with OIDC.
-
-### Google OAuth Setup
-
-#### Step 1: Google Cloud Console
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create or select a project
-3. Navigate to **APIs & Services > Credentials**
-4. Create **OAuth 2.0 Client ID** (Web application)
-5. Add authorized redirect URI: `https://your-domain.com/api/auth/oauth/google/callback`
-
-#### Step 2: Configure Environment
+**In .env file:**
 
 ```bash
-GOOGLE_OAUTH_CLIENT_ID=123456789-abc.apps.googleusercontent.com
-GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxx
-GOOGLE_OAUTH_REDIRECT_URI=https://your-domain.com/api/auth/oauth/google/callback
-OAUTH_SUCCESS_URL=https://your-domain.com/auth/callback
-OAUTH_ERROR_URL=https://your-domain.com/auth/error
-OAUTH_ALLOWED_REDIRECT_HOSTS=your-domain.com
+# .env
+ARAGORA_API_URL=http://localhost:8080
+ARAGORA_API_KEY=ara_your_key_here
 ```
 
-#### Step 3: Implement Frontend Callback
+```python
+from dotenv import load_dotenv
+from aragora_sdk import AragoraClient
 
-```typescript
-// In your frontend callback page
-const hash = window.location.hash.substring(1);
-const params = new URLSearchParams(hash);
-
-const tokens = {
-  accessToken: params.get('access_token'),
-  refreshToken: params.get('refresh_token'),
-  userId: params.get('user_id'),
-};
-
-// Store tokens and redirect to app
-localStorage.setItem('aragora_tokens', JSON.stringify(tokens));
-window.location.href = '/dashboard';
+load_dotenv()
+client = AragoraClient.from_env()
 ```
 
-### OAuth Endpoints
+### Key scoping and permissions
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/oauth/google` | GET | Start Google OAuth flow |
-| `/api/auth/oauth/google/callback` | GET | Handle OAuth callback |
-| `/api/auth/oauth/link` | POST | Link OAuth to existing account |
-| `/api/auth/oauth/unlink` | DELETE | Unlink OAuth provider |
-| `/api/auth/oauth/providers` | GET | List available providers |
-
-### Account Linking
-
-Users can link OAuth providers to existing accounts:
-
-```typescript
-// Must be authenticated first
-const response = await fetch('/api/auth/oauth/link', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer $\{accessToken\}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    provider: 'google',
-    redirect_url: window.location.origin + '/settings'
-  })
-});
-
-const { auth_url } = await response.json();
-window.location.href = auth_url;
-```
-
----
-
-## Enterprise SSO
-
-For enterprise deployments, Aragora supports OIDC and SAML 2.0 protocols with any compatible Identity Provider.
-
-### Supported Identity Providers
-
-| Provider | OIDC | SAML | Notes |
-|----------|------|------|-------|
-| Azure AD (Entra ID) | Yes | Yes | Recommended: OIDC |
-| Okta | Yes | Yes | Recommended: OIDC |
-| Google Workspace | Yes | - | Use OIDC |
-| OneLogin | Yes | Yes | Both supported |
-| PingFederate | Yes | Yes | Both supported |
-| ADFS | - | Yes | SAML only |
-| Keycloak | Yes | Yes | Both supported |
-| Auth0 | Yes | - | OIDC only |
-
-### OIDC Configuration
+API keys inherit the permissions of the user who created them. To restrict a key's access, create it with a specific role:
 
 ```bash
-# Enable SSO
-ARAGORA_SSO_ENABLED=true
-ARAGORA_SSO_PROVIDER_TYPE=oidc
-
-# OIDC Settings
-ARAGORA_SSO_CLIENT_ID=your-client-id
-ARAGORA_SSO_CLIENT_SECRET=your-client-secret
-ARAGORA_SSO_ISSUER_URL=https://your-idp.example.com
-ARAGORA_SSO_CALLBACK_URL=https://your-app.example.com/auth/sso/callback
-ARAGORA_SSO_ENTITY_ID=https://your-app.example.com
-ARAGORA_SSO_SCOPES=openid,email,profile
-
-# Optional: Domain restrictions
-ARAGORA_SSO_ALLOWED_DOMAINS=example.com,company.org
+aragora auth create-key --name "read-only" --role viewer
 ```
 
-### Provider-Specific Configuration
+Available roles: `admin`, `operator`, `analyst`, `viewer`, `api_consumer`, `auditor`, `guest`
 
-#### Azure AD / Entra ID
+### Key rotation
 
 ```bash
-ARAGORA_SSO_PROVIDER_TYPE=azure_ad
-ARAGORA_SSO_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-ARAGORA_SSO_CLIENT_SECRET=your-secret
-ARAGORA_SSO_ISSUER_URL=https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0
+# List active keys
+aragora auth list-keys
+
+# Revoke a key
+aragora auth revoke-key --name "old-key"
+
+# Create a replacement
+aragora auth create-key --name "new-key"
 ```
 
-#### Okta
+## LLM Provider Keys
+
+Aragora uses LLM providers (Anthropic, OpenAI, etc.) for agent reasoning. These are separate from your Aragora API key.
 
 ```bash
-ARAGORA_SSO_PROVIDER_TYPE=okta
-ARAGORA_SSO_CLIENT_ID=0oaxxxxxxxxxx
-ARAGORA_SSO_CLIENT_SECRET=your-secret
-ARAGORA_SSO_ISSUER_URL=https://YOUR_DOMAIN.okta.com/oauth2/default
+# Set at least one provider
+export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
+export OPENAI_API_KEY="sk-..."          # GPT-4
+export GEMINI_API_KEY="..."             # Gemini
+export XAI_API_KEY="..."               # Grok
+
+# Optional: fallback provider (used automatically on 429 rate limits)
+export OPENROUTER_API_KEY="sk-or-..."
 ```
 
-#### Keycloak
+The server uses these keys server-side. SDK clients don't need LLM keys -- they authenticate to the Aragora API, which handles LLM calls internally.
+
+## SSO / OAuth
+
+For enterprise deployments, Aragora supports OIDC and SAML SSO:
 
 ```bash
-ARAGORA_SSO_PROVIDER_TYPE=oidc
-ARAGORA_SSO_ISSUER_URL=https://keycloak.example.com/realms/aragora
-ARAGORA_SSO_CLIENT_ID=aragora
-ARAGORA_SSO_CLIENT_SECRET=your-secret
+# Configure OIDC provider
+export ARAGORA_OIDC_ISSUER="https://your-idp.com"
+export ARAGORA_OIDC_CLIENT_ID="aragora-app"
+export ARAGORA_OIDC_CLIENT_SECRET="..."
 ```
 
-### SAML 2.0 Configuration
+Users authenticate via the web UI login page, which redirects to your identity provider. The server issues a JWT after successful SSO login.
 
-```bash
-# Enable SAML SSO
-ARAGORA_SSO_ENABLED=true
-ARAGORA_SSO_PROVIDER_TYPE=saml
+## Multi-tenant authentication
 
-# SP (Service Provider) Settings
-ARAGORA_SSO_ENTITY_ID=https://your-app.example.com/saml/metadata
-ARAGORA_SSO_CALLBACK_URL=https://your-app.example.com/auth/sso/callback
+In multi-tenant deployments, each tenant has isolated data and separate API keys. Tenant context is determined by the API key used:
 
-# IdP (Identity Provider) Settings
-ARAGORA_SSO_IDP_ENTITY_ID=https://idp.example.com/metadata
-ARAGORA_SSO_IDP_SSO_URL=https://idp.example.com/sso
-ARAGORA_SSO_IDP_CERTIFICATE=/path/to/idp-cert.pem
+```python
+# Tenant A's key accesses Tenant A's data only
+client_a = AragoraClient(base_url="...", api_key="ara_tenant_a_key")
 
-# Optional: SP certificates for signed requests
-ARAGORA_SSO_SP_PRIVATE_KEY=/path/to/sp-key.pem
-ARAGORA_SSO_SP_CERTIFICATE=/path/to/sp-cert.pem
+# Tenant B's key accesses Tenant B's data only
+client_b = AragoraClient(base_url="...", api_key="ara_tenant_b_key")
 ```
 
-### SSO Endpoints
+## Error handling
 
-Versioned OIDC endpoints:
+```python
+from aragora_sdk import AragoraClient, AuthenticationError, AuthorizationError, RateLimitError
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/auth/sso/login` | GET | Start SSO flow |
-| `/api/v1/auth/sso/callback` | GET | Handle OAuth/OIDC callback |
-| `/api/v1/auth/sso/refresh` | POST | Refresh tokens |
-| `/api/v1/auth/sso/logout` | POST | Logout |
-| `/api/v1/auth/sso/providers` | GET | List available providers |
-| `/api/v1/auth/sso/config` | GET | Provider config |
+client = AragoraClient.from_env()
 
-Legacy SAML/OIDC endpoints:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/sso/login` | GET | Start SSO flow |
-| `/auth/sso/callback` | GET/POST | Handle SSO callback |
-| `/auth/sso/logout` | GET | Single logout (SLO) |
-| `/auth/sso/metadata` | GET | SP metadata (SAML) |
-
-### SAML SP Metadata
-
-Download or configure your IdP with these values:
-
-| Setting | Value |
-|---------|-------|
-| Entity ID | `https://your-app.example.com/auth/sso` |
-| ACS URL | `https://your-app.example.com/auth/sso/callback` |
-| SLO URL | `https://your-app.example.com/auth/sso/logout` |
-| NameID Format | `urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress` |
-
----
-
-## Session Management
-
-Aragora provides comprehensive session management. See [SESSION_MANAGEMENT.md](./session-management) for details.
-
-### Key Features
-
-- **Multi-session support**: Users can be logged in from multiple devices
-- **Session listing**: View all active sessions
-- **Individual revocation**: Revoke specific sessions
-- **Activity tracking**: Track last activity per session
-- **Device detection**: Identify device type and browser
-
-### Quick Reference
-
-```bash
-# List sessions
-GET /api/auth/sessions
-Authorization: Bearer <access_token>
-
-# Revoke specific session
-DELETE /api/auth/sessions/:session_id
-Authorization: Bearer <access_token>
-
-# Revoke all other sessions
-DELETE /api/auth/sessions
-Authorization: Bearer <access_token>
+try:
+    debate = client.debates.create(task="Evaluate options")
+except AuthenticationError:
+    # 401 - invalid or expired API key
+    print("Check your ARAGORA_API_KEY")
+except AuthorizationError:
+    # 403 - valid key but insufficient permissions
+    print("Your API key doesn't have permission for this action")
+except RateLimitError as e:
+    # 429 - too many requests
+    print(f"Rate limited. Retry after {e.retry_after} seconds")
 ```
 
----
+## Security best practices
 
-## Security Best Practices
-
-### Production Checklist
-
-- [ ] Use HTTPS for all endpoints
-- [ ] Set strong `ARAGORA_JWT_SECRET` (32+ characters)
-- [ ] Store secrets in secure secret manager
-- [ ] Configure `OAUTH_ALLOWED_REDIRECT_HOSTS`
-- [ ] Enable rate limiting on auth endpoints
-- [ ] Set appropriate token expiration times
-- [ ] Implement MFA at IdP level (for SSO)
-- [ ] Regularly rotate client secrets
-- [ ] Monitor for suspicious login patterns
-- [ ] Enable audit logging
-
-### Rate Limiting
-
-Auth endpoints are rate limited by default:
-
-| Endpoint | Limit |
-|----------|-------|
-| `/api/auth/login` | 10/min per IP |
-| `/api/auth/register` | 5/min per IP |
-| `/api/auth/oauth/*` | 20/min per IP |
-| `/auth/sso/*` | 20/min per IP |
-
-### Secret Rotation
-
-```bash
-# Rotate JWT secret (will invalidate all sessions)
-ARAGORA_JWT_SECRET=new-secret-here
-
-# Rotate OAuth client secret
-# 1. Generate new secret in Google Console
-# 2. Update environment variable
-GOOGLE_OAUTH_CLIENT_SECRET=new_secret
-# 3. Redeploy
-# 4. Delete old secret in Google Console
-```
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### "Invalid redirect URL"
-- Check `OAUTH_ALLOWED_REDIRECT_HOSTS` includes your domain
-- Verify callback URL matches exactly (including protocol and trailing slash)
-
-#### "State token expired"
-- OAuth state tokens expire after 10 minutes
-- Retry the authentication flow
-
-#### "Invalid client credentials"
-- Verify client ID and secret are correct
-- Check for whitespace in environment variables
-- Regenerate client secret if needed
-
-#### "User not authorized"
-- Check user assignment in IdP (for SSO)
-- Verify domain restrictions
-- Check group membership requirements
-
-#### Token expires immediately
-- Check server clock synchronization
-- Verify `ARAGORA_JWT_EXPIRY_HOURS` setting
-
-### Debug Mode
-
-```bash
-# Enable auth debug logging
-ARAGORA_LOG_LEVEL=DEBUG
-
-# View auth flow details
-tail -f logs/aragora.log | grep -iE "(auth|oauth|sso|jwt)"
-```
-
----
-
-## Related Documentation
-
-- [SESSION_MANAGEMENT.md](./session-management) - Detailed session management
-- [API_RATE_LIMITS.md](../api/rate-limits) - Rate limiting configuration
-- [SECURITY.md](./overview) - Security policies
-- [API_REFERENCE.md](../api/reference) - Full API documentation
+1. **Never commit API keys** to version control. Use environment variables or `.env` files (add `.env` to `.gitignore`).
+2. **Use scoped keys** with minimal permissions for production services.
+3. **Rotate keys regularly** and revoke unused keys.
+4. **Use SSO** for team access instead of shared API keys.
+5. **Monitor usage** via the admin dashboard or `aragora auth list-keys` to detect unauthorized access.

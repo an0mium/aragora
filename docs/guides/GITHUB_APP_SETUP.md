@@ -198,6 +198,6 @@ aragora serve --api-port 8080 --ws-port 8765
 
 ## Related Documentation
 
-- [Debate Orchestration](./DEBATE_ORCHESTRATION.md)
-- [Connectors Overview](./CONNECTORS.md)
-- [Webhooks Reference](./WEBHOOKS.md)
+- [Debate Orchestration](../debate/ORCHESTRATION.md)
+- [Connectors Overview](../integrations/CONNECTORS.md)
+- [Webhooks Reference](../api/WEBHOOKS.md)

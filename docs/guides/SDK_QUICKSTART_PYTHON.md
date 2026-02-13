@@ -1,6 +1,6 @@
 # Python SDK Quickstart
 
-> **Note:** For the comprehensive Python SDK guide with advanced features and streaming, see **[Python Quickstart Guide](guides/python-quickstart.md)**.
+> **Note:** For the comprehensive Python SDK guide with advanced features and streaming, see **[Python Quickstart Guide](./python-quickstart.md)**.
 >
 > This page provides a minimal 5-minute quickstart using the lightweight `aragora-sdk` package.
 

@@ -311,5 +311,5 @@ Request exceptions via security@aragora.ai:
 
 - [Data Classification Policy](./DATA_CLASSIFICATION.md)
 - [Data Residency Policy](./DATA_RESIDENCY.md)
-- [Incident Response Plan](./INCIDENT_RESPONSE.md)
+- [Incident Response Plan](../deployment/INCIDENT_RESPONSE.md)
 - [Privacy Policy](./PRIVACY_POLICY.md)

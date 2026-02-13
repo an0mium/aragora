@@ -379,6 +379,6 @@ print(f"Recent effectiveness: {stats['recent_effectiveness']:.2f}")
 
 ## See Also
 
-- [A/B Testing](A_B_TESTING.md) - Testing prompt variations
-- [API Reference](API_REFERENCE.md) - Full endpoint documentation
-- [Features](FEATURES.md) - Feature status overview
+- [A/B Testing](../testing/A_B_TESTING.md) - Testing prompt variations
+- [API Reference](../api/API_REFERENCE.md) - Full endpoint documentation
+- [Features](../status/FEATURES.md) - Feature status overview

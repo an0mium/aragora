@@ -26,7 +26,7 @@ Other frontend-related directories in the repo:
 - `frontend/`: legacy prototype with a single hook file; not wired to builds or deployments.
 
 SDK docs: see `sdk/typescript/README.md`. All frontend feature work should happen in `aragora/live/`.
-Route map: see [FRONTEND_ROUTES](./FRONTEND_ROUTES.md) for the full UI surface.
+Route map: see [FRONTEND_ROUTES](../guides/FRONTEND_ROUTES.md) for the full UI surface.
 
 ---
 
@@ -599,7 +599,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-production-key
 
 ## See Also
 
-- [GETTING_STARTED.md](GETTING_STARTED.md) - CLI and server usage
-- [LIBRARY_USAGE.md](LIBRARY_USAGE.md) - Programmatic API
-- [API_REFERENCE.md](API_REFERENCE.md) - Backend API endpoints
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
+- [GETTING_STARTED.md](../GETTING_STARTED.md) - CLI and server usage
+- [LIBRARY_USAGE.md](../reference/LIBRARY_USAGE.md) - Programmatic API
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - Backend API endpoints
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System architecture

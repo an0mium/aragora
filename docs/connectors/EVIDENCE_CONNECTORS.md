@@ -619,6 +619,6 @@ connector = RateLimitedConnector(
 
 ## See Also
 
-- [Connector Integration Index](../CONNECTOR_INTEGRATION_INDEX.md) - Master connector list
+- [Connector Integration Index](../integrations/CONNECTOR_INTEGRATION_INDEX.md) - Master connector list
 - [Enterprise Connectors Guide](ENTERPRISE_CONNECTORS.md) - Business integrations
 - [Operational Connectors Guide](OPERATIONAL_CONNECTORS.md) - Operations tools

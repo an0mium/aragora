@@ -261,11 +261,11 @@ Sprint 2 PR plan: `docs/status/BACKLOG_Q1_2026_SPRINT_2_PR_PLAN.md`
 
 ## Related Documents
 
-- [ROADMAP.md](../ROADMAP.md) - Strategic roadmap
+- [ROADMAP.md](../../ROADMAP.md) - Strategic roadmap
 - [STATUS.md](STATUS.md) - Feature implementation status
-- [SDK_PARITY.md](SDK_PARITY.md) - SDK coverage tracking
-- [SUPABASE_SETUP.md](SUPABASE_SETUP.md) - Database configuration
-- [TESTING.md](TESTING.md) - Test guidelines
+- [SDK_PARITY.md](../guides/SDK_PARITY.md) - SDK coverage tracking
+- [SUPABASE_SETUP.md](../guides/SUPABASE_SETUP.md) - Database configuration
+- [TESTING.md](../testing/TESTING.md) - Test guidelines
 
 ---
 

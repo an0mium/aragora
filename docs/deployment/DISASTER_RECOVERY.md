@@ -1230,10 +1230,10 @@ Track these metrics for SOC 2 audits:
 
 ## Related Documentation
 
-- [SECURITY.md](../SECURITY.md) - Security policies and incident response
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and solutions
+- [SECURITY.md](../enterprise/SECURITY.md) - Security policies and incident response
+- [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) - Common issues and solutions
 - [RUNBOOK.md](RUNBOOK.md) - Operational procedures
-- [DATABASE.md](DATABASE.md) - Database operations and encryption
-- [SECRETS_MANAGEMENT.md](SECRETS_MANAGEMENT.md) - Encryption key management
-- [QUEUE.md](QUEUE.md) - Job queue operations
-- [RBAC_MATRIX.md](RBAC_MATRIX.md) - Role-based access control permissions
+- [DATABASE.md](../reference/DATABASE.md) - Database operations and encryption
+- [SECRETS_MANAGEMENT.md](../enterprise/SECRETS_MANAGEMENT.md) - Encryption key management
+- [QUEUE.md](../resilience/QUEUE.md) - Job queue operations
+- [RBAC_MATRIX.md](../enterprise/RBAC_MATRIX.md) - Role-based access control permissions

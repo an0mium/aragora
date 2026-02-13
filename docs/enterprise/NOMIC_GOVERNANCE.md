@@ -404,6 +404,6 @@ if checkpoint:
 
 ## See Also
 
-- [ADMIN.md](ADMIN.md) - Admin console guide
-- [RUNBOOK.md](RUNBOOK.md) - Operational procedures
-- [API_REFERENCE.md](API_REFERENCE.md) - Full API documentation
+- [ADMIN.md](../reference/ADMIN.md) - Admin console guide
+- [RUNBOOK.md](../deployment/RUNBOOK.md) - Operational procedures
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - Full API documentation

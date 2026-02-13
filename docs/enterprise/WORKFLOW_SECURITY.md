@@ -225,6 +225,6 @@ The AST-based approach:
 
 ## Related Documentation
 
-- [WORKFLOWS.md](./WORKFLOWS.md) - Workflow system overview
+- [WORKFLOWS.md](../workflow/WORKFLOWS.md) - Workflow system overview
 - [SECURITY.md](./SECURITY.md) - Overall security architecture
-- [API_RATE_LIMITS.md](./API_RATE_LIMITS.md) - Rate limiting for workflow APIs
+- [API_RATE_LIMITS.md](../api/API_RATE_LIMITS.md) - Rate limiting for workflow APIs

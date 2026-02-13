@@ -348,7 +348,7 @@ The A/B test results are also accessible via the Evolution Panel:
 
 ## See Also
 
-- [Evolution Patterns](EVOLUTION_PATTERNS.md) - Pattern extraction from winning prompts
-- [Genesis](GENESIS.md) - Full evolutionary system documentation
-- [API Reference](API_REFERENCE.md) - Full endpoint documentation
-- [Features](FEATURES.md) - Feature status overview
+- [Evolution Patterns](../workflow/EVOLUTION_PATTERNS.md) - Pattern extraction from winning prompts
+- [Genesis](../workflow/GENESIS.md) - Full evolutionary system documentation
+- [API Reference](../api/API_REFERENCE.md) - Full endpoint documentation
+- [Features](../status/FEATURES.md) - Feature status overview

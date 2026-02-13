@@ -308,6 +308,6 @@ export OPENROUTER_API_KEY=fallback_key
 
 ## Related Documentation
 
-- [Environment Variables](./ENVIRONMENT.md) - Full API key reference
+- [Environment Variables](../reference/ENVIRONMENT.md) - Full API key reference
 - [Gauntlet Mode](./GAUNTLET.md) - Stress testing configuration
-- [API Reference](./API_REFERENCE.md) - Programmatic agent selection
+- [API Reference](../api/API_REFERENCE.md) - Programmatic agent selection

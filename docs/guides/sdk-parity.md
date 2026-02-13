@@ -240,4 +240,4 @@ To contribute SDK improvements:
 4. Add tests in `sdk/typescript/src/__tests__/`
 5. Update this documentation
 
-See [Contributing Guide](../contributing/first-contribution.md) for details.
+See [Contributing Guide](./CONTRIBUTING.md) for details.

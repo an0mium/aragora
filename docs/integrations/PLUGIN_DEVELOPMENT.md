@@ -542,6 +542,6 @@ class ApiSkill(Skill):
 
 ## See Also
 
-- [ADAPTER_GUIDE.md](./ADAPTER_GUIDE.md) - Creating Knowledge Mound adapters
-- [API Reference](./API_REFERENCE.md) - Full API documentation
-- [aragora/skills/builtin/](../aragora/skills/builtin/) - Example skills
+- [ADAPTER_GUIDE.md](../guides/ADAPTER_GUIDE.md) - Creating Knowledge Mound adapters
+- [API Reference](../api/API_REFERENCE.md) - Full API documentation
+- [aragora/plugins/builtin/](../../aragora/plugins/builtin/) - Example built-in plugins

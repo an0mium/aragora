@@ -9,9 +9,9 @@ Operational modes for focused AI agent behavior. Modes control what tools an age
 | Document | Purpose |
 |----------|---------|
 | **MODES_GUIDE.md** (this) | Operational modes (Architect, Coder, etc.) |
-| [MODES_REFERENCE.md](./MODES_REFERENCE.md) | Debate modes (RedTeam, Prober, Audit) |
-| [GAUNTLET.md](./GAUNTLET.md) | Comprehensive stress-testing |
-| [PROBE_STRATEGIES.md](./PROBE_STRATEGIES.md) | Probing strategies reference |
+| [MODES_REFERENCE.md](../workflow/MODES_REFERENCE.md) | Debate modes (RedTeam, Prober, Audit) |
+| [GAUNTLET.md](../debate/GAUNTLET.md) | Comprehensive stress-testing |
+| [PROBE_STRATEGIES.md](../debate/PROBE_STRATEGIES.md) | Probing strategies reference |
 
 ## Overview
 
@@ -468,6 +468,6 @@ When uncertain, start with read-only modes (Architect, Reviewer) to understand b
 
 ## See Also
 
-- [PROBE_STRATEGIES.md](PROBE_STRATEGIES.md) - Red-teaming and capability testing
-- [AGENT_SELECTION.md](AGENT_SELECTION.md) - Choosing agents for debates
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture overview
+- [PROBE_STRATEGIES.md](../debate/PROBE_STRATEGIES.md) - Red-teaming and capability testing
+- [AGENT_SELECTION.md](../debate/AGENT_SELECTION.md) - Choosing agents for debates
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System architecture overview

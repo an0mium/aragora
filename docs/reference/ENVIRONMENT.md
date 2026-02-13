@@ -908,7 +908,7 @@ ARAGORA_SSO_ENTITY_ID=https://your-app.example.com
 ARAGORA_SSO_ALLOWED_DOMAINS=yourcompany.com
 ```
 
-See [SSO_SETUP.md](./SSO_SETUP.md) for detailed provider-specific setup instructions.
+See [SSO_SETUP.md](../enterprise/SSO_SETUP.md) for detailed provider-specific setup instructions.
 
 ### SCIM 2.0 Provisioning
 
@@ -926,7 +926,7 @@ SCIM_BASE_URL=https://api.aragora.ai
 ```
 
 SCIM endpoints are available at `/scim/v2/Users` and `/scim/v2/Groups`.
-See [API_REFERENCE.md](./API_REFERENCE.md) for full endpoint documentation.
+See [API_REFERENCE.md](../api/API_REFERENCE.md) for full endpoint documentation.
 
 ## Embedding Providers
 
@@ -1106,7 +1106,7 @@ Configuration for debate-to-podcast conversion.
 | `ARAGORA_TTS_TIMEOUT` | Optional | TTS generation timeout (seconds) | `60` |
 | `ARAGORA_TTS_RETRIES` | Optional | TTS retry attempts | `3` |
 
-See [BROADCAST.md](./BROADCAST.md) for the complete audio pipeline documentation.
+See [BROADCAST.md](../integrations/BROADCAST.md) for the complete audio pipeline documentation.
 
 ## Transcription (Speech-to-Text)
 
@@ -1232,7 +1232,7 @@ Slack integration uses the existing `SLACK_*` variables with additional bidirect
 - `/aragora status` - Check system health
 - `/aragora help` - List available commands
 
-See [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) for detailed setup guides.
+See [BOT_INTEGRATIONS.md](../integrations/BOT_INTEGRATIONS.md) for detailed setup guides.
 
 ## Debug & Logging
 

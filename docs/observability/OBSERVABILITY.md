@@ -832,10 +832,10 @@ Over 100 alert rules in `aragora/monitoring/alerts/prometheus_rules.yml` coverin
 
 ## See Also
 
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Kubernetes deployment
-- [RATE_LIMITING.md](./RATE_LIMITING.md) - Rate limiting configuration
-- [SECURITY.md](./SECURITY.md) - Security configuration
-- [ENTERPRISE_FEATURES.md](./ENTERPRISE_FEATURES.md) - Enterprise capabilities
+- [DEPLOYMENT.md](../deployment/DEPLOYMENT.md) - Kubernetes deployment
+- [RATE_LIMITING.md](../api/RATE_LIMITING.md) - Rate limiting configuration
+- [SECURITY.md](../enterprise/SECURITY.md) - Security configuration
+- [ENTERPRISE_FEATURES.md](../ENTERPRISE_FEATURES.md) - Enterprise capabilities
 - Alert Rules: `aragora/monitoring/alerts/prometheus_rules.yml`
 - SLO Definitions: `aragora/monitoring/slos.yml`
 - Dashboards: `deploy/grafana/dashboards/`

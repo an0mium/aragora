@@ -803,6 +803,6 @@ the same request or task.
 
 ## Related Documentation
 
-- [API Reference](/docs/API_REFERENCE.md)
-- [Debate Orchestration](/docs/DEBATE_GUIDE.md)
-- [Memory Systems](/docs/MEMORY_ARCHITECTURE.md)
+- [API Reference](../api/API_REFERENCE.md)
+- [Debate Orchestration](../debate/ORCHESTRATION.md)
+- [Memory Systems](./MEMORY_STRATEGY.md)

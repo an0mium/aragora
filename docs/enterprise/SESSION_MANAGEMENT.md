@@ -311,7 +311,7 @@ curl -X DELETE \
 
 ## Related Documentation
 
-- [API Rate Limits](./API_RATE_LIMITS.md) - Rate limiting configuration
+- [API Rate Limits](../api/API_RATE_LIMITS.md) - Rate limiting configuration
 - [OAuth Setup](./OAUTH_SETUP.md) - OAuth provider configuration
 - [SSO Setup](./SSO_SETUP.md) - Enterprise SSO integration
 - [Security Patterns](./SECURITY_PATTERNS.md) - Security best practices

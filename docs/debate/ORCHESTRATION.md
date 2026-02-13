@@ -505,8 +505,8 @@ class ArenaConfig:
 
 ## See Also
 
-- [Architecture Overview](./ARCHITECTURE.md)
-- [Agent Development](./core-concepts/agent-development.md)
-- [Memory Systems](./core-concepts/memory.md)
-- [Knowledge Mound](./core-concepts/knowledge-mound.md)
-- [Control Plane](./enterprise/control-plane.md)
+- [Architecture Overview](../architecture/ARCHITECTURE.md)
+- [Agent Development](./AGENT_DEVELOPMENT.md)
+- [Memory Systems](../knowledge/MEMORY_STRATEGY.md)
+- [Knowledge Mound](../knowledge/KNOWLEDGE_MOUND.md)
+- [Control Plane](../reference/CONTROL_PLANE.md)

@@ -246,9 +246,9 @@ curl https://your-domain.com/api/health
 ## Security Hardening
 
 > **Related documentation**:
-> - [COMPLIANCE.md](COMPLIANCE.md) - SOC 2 controls and evidence
-> - [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) - Data handling policies
-> - [PRIVACY_POLICY.md](PRIVACY_POLICY.md) - Privacy requirements
+> - [COMPLIANCE.md](../enterprise/COMPLIANCE.md) - SOC 2 controls and evidence
+> - [DATA_CLASSIFICATION.md](../enterprise/DATA_CLASSIFICATION.md) - Data handling policies
+> - [PRIVACY_POLICY.md](../enterprise/PRIVACY_POLICY.md) - Privacy requirements
 
 ### Network Security
 

@@ -465,7 +465,7 @@ done
 
 - [RUNBOOK_POSTGRESQL_REPLICATION.md](./RUNBOOK_POSTGRESQL_REPLICATION.md)
 - [redis-failover.md](./redis-failover.md)
-- [DISASTER_RECOVERY.md](../DISASTER_RECOVERY.md)
+- [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md)
 
 ---
 

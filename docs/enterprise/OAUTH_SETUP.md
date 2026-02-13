@@ -556,6 +556,6 @@ GOOGLE_OAUTH_CLIENT_SECRET=new_secret
 
 ## Related Documentation
 
-- [SECURITY.md](../SECURITY.md) - Security policies and MFA
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Authentication troubleshooting
-- [API_REFERENCE.md](API_REFERENCE.md) - Auth API endpoints
+- [SECURITY.md](./SECURITY.md) - Security policies and MFA
+- [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) - Authentication troubleshooting
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - Auth API endpoints

@@ -114,6 +114,6 @@ calibration = (1 - avg_brier) * confidence_from_sample_size
 
 ## See Also
 
-- [Debate Phases](../DEBATE_PHASES.md) - The full debate lifecycle
-- [Agent Selection](../AGENT_SELECTION.md) - How agents are chosen for debates
-- [Memory Strategy](../MEMORY_STRATEGY.md) - How debate history is persisted
+- [Debate Phases](../debate/DEBATE_PHASES.md) - The full debate lifecycle
+- [Agent Selection](../debate/AGENT_SELECTION.md) - How agents are chosen for debates
+- [Memory Strategy](../knowledge/MEMORY_STRATEGY.md) - How debate history is persisted

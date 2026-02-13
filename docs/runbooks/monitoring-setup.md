@@ -388,4 +388,4 @@ kubectl port-forward svc/prometheus-kube-prometheus-alertmanager -n monitoring 9
 
 - [Incident Response Runbook](incident-response.md)
 - [Scaling Runbook](scaling.md)
-- [Deployment Decision Matrix](../DEPLOYMENT_DECISION_MATRIX.md)
+- [Deployment Decision Matrix](../deployment/DEPLOYMENT_DECISION_MATRIX.md)

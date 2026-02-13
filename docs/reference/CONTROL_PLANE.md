@@ -404,7 +404,7 @@ Control plane operations require specific permissions:
 | Submit task | `control_plane:tasks:write` |
 | Cancel task | `control_plane:tasks:delete` |
 
-See [GOVERNANCE.md](./GOVERNANCE.md) for full RBAC documentation.
+See [GOVERNANCE.md](../enterprise/GOVERNANCE.md) for full RBAC documentation.
 
 ---
 
@@ -505,6 +505,6 @@ is_valid = await audit.verify_integrity()
 
 ## Related Documentation
 
-- [GOVERNANCE.md](./GOVERNANCE.md) - Policies, RBAC, and audit logging
-- [CHANNELS.md](./CHANNELS.md) - Channel integrations and bidirectional communication
-- [CONNECTORS.md](./CONNECTORS.md) - Data connectors for organizational knowledge
+- [GOVERNANCE.md](../enterprise/GOVERNANCE.md) - Policies, RBAC, and audit logging
+- [CHANNELS.md](../integrations/CHANNELS.md) - Channel integrations and bidirectional communication
+- [CONNECTORS.md](../integrations/CONNECTORS.md) - Data connectors for organizational knowledge

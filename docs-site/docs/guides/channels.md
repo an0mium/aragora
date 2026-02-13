@@ -127,7 +127,7 @@ The router extracts:
 Outbound results are normalized into a platform‑independent message format
 before being adapted by channel‑specific docks.
 
-**Normalized message model:** `aragora/channels/normalized.py`
+**Normalized message model:** `aragora/channels/normalized.py`  
 **Dock interface:** `aragora/channels/dock.py`
 
 ```python

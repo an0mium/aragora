@@ -531,7 +531,7 @@ Verify the custom mode YAML file is in an allowed directory:
 
 ## See Also
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture overview
-- [GAUNTLET.md](./GAUNTLET.md) - Detailed gauntlet documentation
-- [AGENT_DEVELOPMENT.md](./AGENT_DEVELOPMENT.md) - Creating custom agents
-- [PROBE_STRATEGIES.md](./PROBE_STRATEGIES.md) - Probe strategy details
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System architecture overview
+- [GAUNTLET.md](../debate/GAUNTLET.md) - Detailed gauntlet documentation
+- [AGENT_DEVELOPMENT.md](../debate/AGENT_DEVELOPMENT.md) - Creating custom agents
+- [PROBE_STRATEGIES.md](../debate/PROBE_STRATEGIES.md) - Probe strategy details

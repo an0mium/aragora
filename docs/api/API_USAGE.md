@@ -101,7 +101,7 @@ These endpoints have backend implementations but no frontend consumers:
 - `GET /api/cross-pollination/bridge` - Arena event bridge status and mappings
 - `POST /api/cross-pollination/reset` - Reset statistics (for testing)
 
-See [CROSS_POLLINATION.md](./CROSS_POLLINATION.md) for architecture details.
+See [CROSS_POLLINATION.md](../integrations/CROSS_POLLINATION.md) for architecture details.
 
 ## Query Optimization Opportunities
 

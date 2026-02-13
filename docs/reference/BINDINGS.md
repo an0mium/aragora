@@ -646,6 +646,6 @@ def test_user_filtering():
 
 ## See Also
 
-- [Chat Connector Guide](CHAT_CONNECTOR_GUIDE.md) - Telegram, WhatsApp integration
-- [Skills System](SKILLS.md) - Agent capabilities
+- [Chat Connector Guide](../guides/CHAT_CONNECTOR_GUIDE.md) - Telegram, WhatsApp integration
+- [Skills System](../workflow/SKILLS.md) - Agent capabilities
 - [Control Plane](CONTROL_PLANE.md) - Agent registry and scheduling

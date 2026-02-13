@@ -553,6 +553,6 @@ def test_chain_stops_on_failure():
 
 ## See Also
 
-- [Debate Phases](DEBATE_PHASES.md) - Phase implementations that use propulsion
-- [Hooks System](HOOKS.md) - Lifecycle hooks integration
-- [Workflow Engine](WORKFLOWS.md) - Higher-level workflow orchestration
+- [Debate Phases](../debate/DEBATE_PHASES.md) - Phase implementations that use propulsion
+- [Hooks System](../integrations/HOOKS.md) - Lifecycle hooks integration
+- [Workflow Engine](../workflow/WORKFLOWS.md) - Higher-level workflow orchestration

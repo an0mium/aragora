@@ -665,6 +665,6 @@ def test_error_rate_tracking():
 
 ## See Also
 
-- [Control Plane](CONTROL_PLANE.md) - Agent registry and coordination
-- [Resilience](RESILIENCE.md) - Circuit breaker patterns
-- [Propulsion Engine](PROPULSION.md) - Push-based work distribution
+- [Control Plane](../reference/CONTROL_PLANE.md) - Agent registry and coordination
+- [Resilience](../resilience/RESILIENCE.md) - Circuit breaker patterns
+- [Propulsion Engine](../status/PROPULSION.md) - Push-based work distribution

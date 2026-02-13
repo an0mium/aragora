@@ -1,6 +1,6 @@
 # TypeScript SDK Quickstart
 
-> **Note:** For the comprehensive TypeScript SDK guide with React hooks, Next.js integration, streaming, and advanced features, see **[TypeScript Quickstart Guide](guides/typescript-quickstart.md)**.
+> **Note:** For the comprehensive TypeScript SDK guide with React hooks, Next.js integration, streaming, and advanced features, see **[TypeScript Quickstart Guide](./typescript-quickstart.md)**.
 >
 > This page provides a minimal 5-minute quickstart.
 

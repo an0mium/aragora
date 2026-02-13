@@ -608,7 +608,7 @@ agent = VerticalRegistry.create_specialist(
 
 ## See Also
 
-- [API Reference](API_REFERENCE.md) - Full API documentation
-- [Agents Guide](AGENTS.md) - General agent configuration
-- [Compliance Presets](COMPLIANCE_PRESETS.md) - Built-in compliance configurations
-- [Knowledge Mound](KNOWLEDGE_MOUND.md) - Knowledge base integration
+- [API Reference](../api/API_REFERENCE.md) - Full API documentation
+- [Agents Guide](../debate/AGENTS.md) - General agent configuration
+- [Compliance Presets](../enterprise/COMPLIANCE_PRESETS.md) - Built-in compliance configurations
+- [Knowledge Mound](../knowledge/KNOWLEDGE_MOUND.md) - Knowledge base integration

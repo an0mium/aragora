@@ -60,11 +60,11 @@ for await (const event of client.streamDebate(debate.id)) {
 | Goal | Documentation |
 |------|---------------|
 | Run a debate | [SDK Quickstart (Python)](guides/python-quickstart.md) / [TypeScript](guides/typescript-quickstart.md) |
-| Connect Slack | [Integration Guide](INTEGRATIONS.md) |
-| Deploy self-hosted | [Deployment Guide](DEPLOYMENT.md) |
-| Use the REST API | [API Reference](API_REFERENCE.md) |
-| Understand the architecture | [Architecture Overview](ARCHITECTURE.md) |
-| Contribute | [Contributing Guide](CONTRIBUTING.md) |
+| Connect Slack | [Integration Guide](./integrations/INTEGRATIONS.md) |
+| Deploy self-hosted | [Deployment Guide](./deployment/DEPLOYMENT.md) |
+| Use the REST API | [API Reference](./api/API_REFERENCE.md) |
+| Understand the architecture | [Architecture Overview](./architecture/ARCHITECTURE.md) |
+| Contribute | [Contributing Guide](./guides/CONTRIBUTING.md) |
 
 ## SDK Overview
 
@@ -269,7 +269,7 @@ Optional:
 - `DATABASE_URL` - PostgreSQL connection
 - `REDIS_URL` - Caching and sessions
 
-See [Environment Reference](ENVIRONMENT.md) for full list.
+See [Environment Reference](./reference/ENVIRONMENT.md) for full list.
 
 ## Error Handling
 
@@ -332,8 +332,8 @@ async def retry_with_backoff(fn, max_retries=3):
 
 ## Resources
 
-- [API Reference](API_REFERENCE.md) - Complete REST API documentation
-- [SDK Parity Report](SDK_PARITY.md) - Coverage comparison between SDKs
+- [API Reference](./api/API_REFERENCE.md) - Complete REST API documentation
+- [SDK Parity Report](./guides/SDK_PARITY.md) - Coverage comparison between SDKs
 - [Enterprise Features](ENTERPRISE_FEATURES.md) - Authentication, RBAC, multi-tenancy
 - [Status](STATUS.md) - Feature implementation status
 - [Examples](../examples/) - Ready-to-run example applications

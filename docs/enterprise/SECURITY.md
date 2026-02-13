@@ -10,13 +10,13 @@ This document covers security features implemented in Aragora, including authent
 | Document | Purpose | When to Use |
 |----------|---------|-------------|
 | **SECURITY.md** (this) | Security overview & auth | Start here for security concepts |
-| [SECURITY_DEPLOYMENT.md](./SECURITY_DEPLOYMENT.md) | Production hardening | Deploying to production |
+| [SECURITY_DEPLOYMENT.md](../deployment/SECURITY_DEPLOYMENT.md) | Production hardening | Deploying to production |
 | [SECURITY_PATTERNS.md](./SECURITY_PATTERNS.md) | Secure coding patterns | Writing secure code |
 | [SECURITY_RUNTIME.md](./SECURITY_RUNTIME.md) | Runtime monitoring | Ops & incident response |
 | Service-account MFA exception policy | Internal policy for service-account MFA bypass handling | Service account setup |
 | [OAUTH_SETUP.md](./OAUTH_SETUP.md) | OAuth provider setup | Configuring SSO/OAuth |
 | [SSO_SETUP.md](./SSO_SETUP.md) | Enterprise SSO (SAML/OIDC) | Enterprise authentication |
-| [TLS.md](./TLS.md) | TLS certificate setup | HTTPS configuration |
+| [TLS.md](../deployment/TLS.md) | TLS certificate setup | HTTPS configuration |
 
 ## Table of Contents
 
@@ -409,7 +409,7 @@ See `aragora/sandbox/policies.py` for policy defaults and `SandboxConfig` fields
 
 ## Rate Limiting
 
-See [RATE_LIMITING.md](./RATE_LIMITING.md) for detailed documentation.
+See [RATE_LIMITING.md](../api/RATE_LIMITING.md) for detailed documentation.
 
 ### Quick Overview
 
@@ -713,9 +713,9 @@ GET /api/audit/export?format=csv&category=auth
 
 ## See Also
 
-- [Rate Limiting](./RATE_LIMITING.md) - Detailed rate limiting docs
-- [Formal Verification](./FORMAL_VERIFICATION.md) - Sandbox security details
-- [Environment](./ENVIRONMENT.md) - All environment variables
-- [API Reference](./API_REFERENCE.md) - Authentication headers
+- [Rate Limiting](../api/RATE_LIMITING.md) - Detailed rate limiting docs
+- [Formal Verification](../workflow/FORMAL_VERIFICATION.md) - Sandbox security details
+- [Environment](../reference/ENVIRONMENT.md) - All environment variables
+- [API Reference](../api/API_REFERENCE.md) - Authentication headers
 - [Secrets Management](./SECRETS_MANAGEMENT.md) - External secrets configuration
 - [Secrets Migration](./SECRETS_MIGRATION.md) - Migration from plaintext

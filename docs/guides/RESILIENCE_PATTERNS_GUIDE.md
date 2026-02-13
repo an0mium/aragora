@@ -406,7 +406,7 @@ CONNECT_TIMEOUT_SECONDS=10
 
 ## Related Documentation
 
-- [Agent Configuration](./AGENTS.md)
-- [Connector Setup](./CONNECTORS.md)
-- [Monitoring Guide](./MONITORING.md)
-- [Disaster Recovery](./DISASTER_RECOVERY.md)
+- [Agent Configuration](../debate/AGENTS.md)
+- [Connector Setup](../integrations/CONNECTORS.md)
+- [Monitoring Guide](./MONITORING_SETUP.md)
+- [Disaster Recovery](../deployment/DISASTER_RECOVERY.md)

@@ -481,6 +481,6 @@ Before migrating to HA PostgreSQL:
 ## Related Documentation
 
 - [Redis High Availability Guide](./REDIS_HA.md)
-- [Database Issues Runbook](./runbooks/RUNBOOK_DATABASE_ISSUES.md)
+- [Database Issues Runbook](../runbooks/RUNBOOK_DATABASE_ISSUES.md)
 - [Production Readiness Checklist](./PRODUCTION_READINESS.md)
 - [CloudNativePG Documentation](https://cloudnative-pg.io/documentation/)

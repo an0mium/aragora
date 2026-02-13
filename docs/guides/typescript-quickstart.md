@@ -370,6 +370,6 @@ export default async function handler(
 ## Next Steps
 
 - [Python SDK Quickstart](./python-quickstart.md)
-- [API Reference](../API_REFERENCE.md)
+- [API Reference](../api/API_REFERENCE.md)
 - [Examples](../../examples/README.md)
-- [WebSocket Events](../WEBSOCKET_EVENTS.md)
+- [WebSocket Events](../streaming/WEBSOCKET_EVENTS.md)

@@ -492,6 +492,6 @@ that reached consensus.
 ## Related Documentation
 
 - [MCP Advanced Usage](./MCP_ADVANCED.md) - Advanced patterns and customization
-- [Gauntlet Mode](./GAUNTLET.md) - Full gauntlet documentation
-- [API Reference](./API_REFERENCE.md) - Complete API documentation
-- [Environment Variables](./ENVIRONMENT.md) - All configuration options
+- [Gauntlet Mode](../debate/GAUNTLET.md) - Full gauntlet documentation
+- [API Reference](../api/API_REFERENCE.md) - Complete API documentation
+- [Environment Variables](../reference/ENVIRONMENT.md) - All configuration options

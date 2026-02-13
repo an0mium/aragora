@@ -502,6 +502,6 @@ async def api_call_example(self, endpoint: str, data: dict):
 
 ## Related Documentation
 
-- [Debate Origin Routing](./CHANNELS.md#debate-origin-tracking) - How debates are triggered from chat
-- [Evidence Collection](./EVIDENCE.md) - Collecting evidence from platforms
-- [Voice I/O](./CHANNELS.md#voice-integration) - Voice message transcription and synthesis
+- [Debate Origin Routing](../integrations/CHANNELS.md#debate-origin-tracking) - How debates are triggered from chat
+- [Evidence Collection](../debate/EVIDENCE.md) - Collecting evidence from platforms
+- [Voice I/O](../integrations/CHANNELS.md#voice-integration) - Voice message transcription and synthesis

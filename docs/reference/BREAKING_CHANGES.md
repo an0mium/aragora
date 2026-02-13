@@ -3,8 +3,8 @@
 This document tracks all breaking changes across Aragora releases. Use this as a migration reference when upgrading between major or minor versions.
 
 For detailed migration guides, see:
-- [API Migration v1 to v2](./MIGRATION_V1_TO_V2.md)
-- [API Versioning Strategy](./API_VERSIONING.md)
+- [API Migration v1 to v2](../status/MIGRATION_V1_TO_V2.md)
+- [API Versioning Strategy](../api/API_VERSIONING.md)
 - [Deprecation Policy](./DEPRECATION_POLICY.md)
 
 ---
@@ -73,7 +73,7 @@ response = client.post("/api/v2/debates", {"task": "Design a cache", "rounds": 3
 debates = response["data"]["debates"]
 ```
 
-See [MIGRATION_V1_TO_V2.md](./MIGRATION_V1_TO_V2.md) for complete migration guide.
+See [MIGRATION_V1_TO_V2.md](../status/MIGRATION_V1_TO_V2.md) for complete migration guide.
 
 ---
 
@@ -98,7 +98,7 @@ See [MIGRATION_V1_TO_V2.md](./MIGRATION_V1_TO_V2.md) for complete migration guid
 4. Update SDK to `@aragora/sdk@1.0.0`
 5. Review rate limit configuration
 
-See [deprecated/migrations/MIGRATION_0.8_to_1.0.md](deprecated/migrations/MIGRATION_0.8_to_1.0.md) for detailed upgrade instructions.
+See [deprecated/migrations/MIGRATION_0.8_to_1.0.md](../deprecated/migrations/MIGRATION_0.8_to_1.0.md) for detailed upgrade instructions.
 
 ---
 
@@ -188,17 +188,17 @@ When introducing a breaking change, follow these steps:
 4. **Add deprecation warnings** to affected code (see [DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md))
 5. **Update SDK documentation** if SDK methods are affected
 
-Use the template at [templates/breaking_change_template.md](./templates/breaking_change_template.md) for consistent documentation.
+Use the template at [templates/breaking_change_template.md](../templates/breaking_change_template.md) for consistent documentation.
 
 ---
 
 ## Related Documentation
 
-- [API Versioning Strategy](./API_VERSIONING.md) - Version management and deprecation headers
+- [API Versioning Strategy](../api/API_VERSIONING.md) - Version management and deprecation headers
 - [Deprecation Policy](./DEPRECATION_POLICY.md) - Full deprecation process and timeline
-- [Migration Guide v1 to v2](./MIGRATION_V1_TO_V2.md) - Complete API migration instructions
-- [Release Notes](./RELEASE_NOTES.md) - Full release history with all changes
-- [CHANGELOG](../CHANGELOG.md) - Detailed changelog for all versions
+- [Migration Guide v1 to v2](../status/MIGRATION_V1_TO_V2.md) - Complete API migration instructions
+- [Release Notes](../deployment/RELEASE_NOTES.md) - Full release history with all changes
+- [CHANGELOG](../../CHANGELOG.md) - Detailed changelog for all versions
 
 ---
 

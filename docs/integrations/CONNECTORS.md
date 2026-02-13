@@ -7,7 +7,7 @@ Aragora is the **control plane for multi-agent vetted decisionmaking across orga
 **Authoritative inventory:** `docs/connectors/CONNECTOR_REGISTRY.json` (regenerate via `python scripts/update_connector_registry.py`).  
 **Readable catalog:** `docs/connectors/CONNECTOR_CATALOG.md` (generated from the registry).
 
-> **Full documentation**: See [Evidence System Guide](EVIDENCE.md) for detailed usage examples.
+> **Full documentation**: See [Evidence System Guide](../debate/EVIDENCE.md) for detailed usage examples.
 
 ## Quick Reference (Evidence Connectors)
 
@@ -288,6 +288,6 @@ class MyConnector(BaseConnector):
 
 ## See Also
 
-- [Evidence System Guide](EVIDENCE.md) - Full connector documentation with examples
-- [Pulse System](PULSE.md) - Trending topic integration using connectors
-- [API Endpoints](API_ENDPOINTS.md) - REST API for evidence collection
+- [Evidence System Guide](../debate/EVIDENCE.md) - Full connector documentation with examples
+- [Pulse System](../resilience/PULSE.md) - Trending topic integration using connectors
+- [API Endpoints](../api/API_ENDPOINTS.md) - REST API for evidence collection

@@ -86,11 +86,11 @@ Each session follows thesis > antithesis > synthesis:
 ### Algorithm Documentation
 
 Deep-dive documentation for core debate algorithms:
-- **[Consensus Detection](algorithms/CONSENSUS.md)** -- Multi-agent consensus mechanisms and proof generation
-- **[Convergence Detection](algorithms/CONVERGENCE.md)** -- Semantic similarity for debate convergence
-- **[ELO and Calibration](algorithms/ELO_CALIBRATION.md)** -- Agent skill rating and team selection
+- **[Consensus Detection](../algorithms/CONSENSUS.md)** -- Multi-agent consensus mechanisms and proof generation
+- **[Convergence Detection](../algorithms/CONVERGENCE.md)** -- Semantic similarity for debate convergence
+- **[ELO and Calibration](../algorithms/ELO_CALIBRATION.md)** -- Agent skill rating and team selection
 
-See [algorithms/README.md](algorithms/README.md) for the full algorithm reference.
+See [algorithms/README.md](../algorithms/README.md) for the full algorithm reference.
 
 ---
 
@@ -128,7 +128,7 @@ aragora gauntlet architecture.md --profile thorough --output receipt.html
 
 GitHub Action: `.github/workflows/aragora-gauntlet.yml`
 
-See [GAUNTLET.md](GAUNTLET.md) for full documentation and [AGENT_SELECTION.md](AGENT_SELECTION.md) for agent recommendations.
+See [GAUNTLET.md](../debate/GAUNTLET.md) for full documentation and [AGENT_SELECTION.md](../debate/AGENT_SELECTION.md) for agent recommendations.
 
 ### AI Red Team Code Review
 
@@ -410,7 +410,7 @@ discord = DiscordIntegration(DiscordConfig(
 await discord.send_consensus_reached(debate_id, topic, "majority", result)
 ```
 
-See [INTEGRATIONS.md](INTEGRATIONS.md) for setup instructions.
+See [INTEGRATIONS.md](../integrations/INTEGRATIONS.md) for setup instructions.
 
 ### Enable Knowledge Mound
 
@@ -600,7 +600,7 @@ Aragora has evolved through 21+ phases of self-improvement, with the Nomic Loop 
 | **Backup/DR** | Incremental backups, retention policies, disaster recovery |
 | **Control Plane** | Agent registry, task scheduler, health monitoring, policy governance (1,500+ tests) |
 
-See [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) for complete enterprise capabilities.
+See [ENTERPRISE_FEATURES.md](../ENTERPRISE_FEATURES.md) for complete enterprise capabilities.
 
 ---
 
@@ -685,7 +685,7 @@ The server exposes 2,000+ API operations across 1,800+ paths. Key categories:
 | `/api/verify/*` | Formal verification with Z3 solver |
 | `WS /ws` | Real-time streaming (see `WEBSOCKET_EVENTS.md`) |
 
-**Full API reference**: [API_ENDPOINTS.md](API_ENDPOINTS.md) (auto-generated)
+**Full API reference**: [API_ENDPOINTS.md](../api/API_ENDPOINTS.md) (auto-generated)
 **OpenAPI spec**: `GET /api/openapi` or `GET /api/openapi.yaml`
 **Interactive docs**: `GET /api/docs` (Swagger UI)
 
@@ -740,11 +740,11 @@ export ARAGORA_WS_MAX_MESSAGE_SIZE=65536
 
 | Document | Purpose |
 |----------|---------|
-| [SOC 2 Compliance](COMPLIANCE.md) | SOC 2 Type II controls and evidence |
-| [Data Classification](DATA_CLASSIFICATION.md) | Data handling policies and sensitivity levels |
-| [Incident Response](INCIDENT_RESPONSE.md) | Incident playbooks and escalation procedures |
-| [Privacy Policy](PRIVACY_POLICY.md) | Data collection and retention policies |
-| [Nomic Governance](NOMIC_GOVERNANCE.md) | Autonomous loop safety controls |
+| [SOC 2 Compliance](../enterprise/COMPLIANCE.md) | SOC 2 Type II controls and evidence |
+| [Data Classification](../enterprise/DATA_CLASSIFICATION.md) | Data handling policies and sensitivity levels |
+| [Incident Response](../deployment/INCIDENT_RESPONSE.md) | Incident playbooks and escalation procedures |
+| [Privacy Policy](../enterprise/PRIVACY_POLICY.md) | Data collection and retention policies |
+| [Nomic Governance](../enterprise/NOMIC_GOVERNANCE.md) | Autonomous loop safety controls |
 
 ---
 
@@ -883,7 +883,7 @@ See implementations in:
 - `aragora/debate/session.py` -- Session lifecycle (claude-squad patterns)
 - `aragora/debate/cancellation.py` -- Cancellation tokens (claude-code-by-agents)
 
-See the full attribution table in [CREDITS.md](CREDITS.md).
+See the full attribution table in [CREDITS.md](../reference/CREDITS.md).
 
 ---
 
@@ -909,14 +909,14 @@ See the full attribution table in [CREDITS.md](CREDITS.md).
 |----------|---------|
 | [README](../README.md) | Concise project overview with five pillars |
 | [CLAUDE.md](../CLAUDE.md) | Development guide for AI assistants |
-| [STATUS.md](STATUS.md) | Detailed feature implementation status |
-| [FEATURE_DISCOVERY.md](FEATURE_DISCOVERY.md) | Complete feature catalog (180+) |
-| [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md) | Commercial positioning |
-| [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) | Enterprise capabilities reference |
-| [API_REFERENCE.md](API_REFERENCE.md) | REST API documentation |
+| [STATUS.md](../STATUS.md) | Detailed feature implementation status |
+| [FEATURE_DISCOVERY.md](../FEATURE_DISCOVERY.md) | Complete feature catalog (180+) |
+| [COMMERCIAL_OVERVIEW.md](../COMMERCIAL_OVERVIEW.md) | Commercial positioning |
+| [ENTERPRISE_FEATURES.md](../ENTERPRISE_FEATURES.md) | Enterprise capabilities reference |
+| [API_REFERENCE.md](../api/API_REFERENCE.md) | REST API documentation |
 | [SDK_GUIDE.md](SDK_GUIDE.md) | SDK usage guide |
-| [GAUNTLET.md](GAUNTLET.md) | Gauntlet stress-testing guide |
-| [INDEX.md](INDEX.md) | Full documentation index |
+| [GAUNTLET.md](../debate/GAUNTLET.md) | Gauntlet stress-testing guide |
+| [INDEX.md](../INDEX.md) | Full documentation index |
 
 ---
 

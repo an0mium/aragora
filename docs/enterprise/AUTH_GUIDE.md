@@ -535,6 +535,6 @@ tail -f logs/aragora.log | grep -iE "(auth|oauth|sso|jwt)"
 ## Related Documentation
 
 - [SESSION_MANAGEMENT.md](./SESSION_MANAGEMENT.md) - Detailed session management
-- [API_RATE_LIMITS.md](./API_RATE_LIMITS.md) - Rate limiting configuration
+- [API_RATE_LIMITS.md](../api/API_RATE_LIMITS.md) - Rate limiting configuration
 - [SECURITY.md](./SECURITY.md) - Security policies
-- [API_REFERENCE.md](./API_REFERENCE.md) - Full API documentation
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - Full API documentation

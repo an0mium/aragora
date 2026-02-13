@@ -157,7 +157,7 @@ POST /api/matrix-debates        - Create matrix debate
 ## Feature Handlers
 
 Representative feature handlers are listed below. The features namespace
-evolves quickly; see [API_ENDPOINTS.md](API_ENDPOINTS.md) for the full
+evolves quickly; see [API_ENDPOINTS.md](../api/API_ENDPOINTS.md) for the full
 auto-generated list.
 
 | Module | Routes | Description |
@@ -452,6 +452,6 @@ ALL_HANDLERS = [
 
 ## See Also
 
-- [API Endpoints](API_ENDPOINTS.md) - Full endpoint reference
-- [API Rate Limits](API_RATE_LIMITS.md) - Rate limiting configuration
-- [WebSocket Events](WEBSOCKET_EVENTS.md) - Real-time event streaming
+- [API Endpoints](../api/API_ENDPOINTS.md) - Full endpoint reference
+- [API Rate Limits](../api/API_RATE_LIMITS.md) - Rate limiting configuration
+- [WebSocket Events](../streaming/WEBSOCKET_EVENTS.md) - Real-time event streaming

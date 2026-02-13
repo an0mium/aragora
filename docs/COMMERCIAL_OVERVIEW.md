@@ -338,7 +338,7 @@ aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api -
 aragora serve
 ```
 
-**Documentation:** [Getting Started](guides/GETTING_STARTED.md) | [Developer Quickstart](QUICKSTART_DEVELOPER.md) | [API Reference](API_REFERENCE.md) | [Enterprise Features](ENTERPRISE_FEATURES.md)
+**Documentation:** [Getting Started](guides/GETTING_STARTED.md) | [Developer Quickstart](QUICKSTART_DEVELOPER.md) | [API Reference](./api/API_REFERENCE.md) | [Enterprise Features](ENTERPRISE_FEATURES.md)
 
 ---
 

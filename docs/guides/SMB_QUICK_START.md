@@ -189,10 +189,10 @@ print(f"Avg cost per debate: ${usage.avg_cost_per_debate:.2f}")
 
 ## Next Steps
 
-- **[API Reference](API_QUICK_START.md)** - Full API documentation
-- **[Pricing Tiers](PRICING_TIERS.md)** - Compare plans
-- **[Chat Integration](CHAT_INTEGRATION.md)** - Connect Slack/Teams/Discord
-- **[Best Practices](BEST_PRACTICES.md)** - Tips for better decisions
+- **[API Reference](../api/API_QUICK_START.md)** - Full API documentation
+- **[Pricing Tiers](../reference/PRICING_TIERS.md)** - Compare plans
+- **[Chat Integration](../integrations/CHANNELS.md)** - Connect Slack/Teams/Discord
+- **[Best Practices](./SME_GA_GUIDE.md)** - Tips for better decisions
 
 ## Getting Help
 
@@ -215,4 +215,4 @@ export ARAGORA_LLM_PROVIDER=ollama
 A: 3-round debates typically complete in 30-60 seconds. 9-round debates may take 2-5 minutes.
 
 **Q: Is my data private?**
-A: Yes. We don't store your prompts or decisions unless you enable the Knowledge Mound feature for learning. See our [Privacy Policy](PRIVACY.md).
+A: Yes. We don't store your prompts or decisions unless you enable the Knowledge Mound feature for learning. See our [Privacy Policy](../enterprise/PRIVACY_POLICY.md).

@@ -9,7 +9,7 @@
 - [Quick Start](#quick-start) - Get running in 5 minutes
 - [CLI User Guide](#cli-user-guide) - Run debates from the terminal
 - [API Integrator Guide](#api-integrator-guide) - Build on Aragora's API
-- [Live Dashboard Dev](./FRONTEND_DEVELOPMENT.md) - Build the Next.js UI
+- [Live Dashboard Dev](../debate/FRONTEND_DEVELOPMENT.md) - Build the Next.js UI
 - [TypeScript SDK](SDK_TYPESCRIPT.md) - Use the JS client library
 - [Gauntlet Guide](#gauntlet-guide) - Stress-test documents and policies
 - [Troubleshooting](#troubleshooting) - Fix common issues
@@ -147,7 +147,7 @@ use `--agents anthropic-api,openai-api` or another API-backed set.
 | `kimi` | Moonshot (Kimi) | `KIMI_API_KEY` |
 | `ollama` | Local models | None (local) |
 
-Note: OpenRouter agents require `OPENROUTER_API_KEY`. Full catalog is in [AGENTS.md](AGENTS.md).
+Note: OpenRouter agents require `OPENROUTER_API_KEY`. Full catalog is in [AGENTS.md](../debate/AGENTS.md).
 
 ### Common Options
 
@@ -371,7 +371,7 @@ curl -X POST http://localhost:8080/api/auth/token \
 
 ### Full API Reference
 
-See [API_REFERENCE.md](./API_REFERENCE.md) for the full endpoint catalog.
+See [API_REFERENCE.md](../api/API_REFERENCE.md) for the full endpoint catalog.
 
 ---
 
@@ -549,11 +549,11 @@ pip install -e .
 
 ## Next Steps
 
-- **Deep Dive**: [Architecture Guide](./ARCHITECTURE.md)
-- **All Options**: [Environment Variables](./ENVIRONMENT.md)
-- **Full API**: [API Reference](./API_REFERENCE.md)
-- **Gauntlet Details**: [Gauntlet Guide](./GAUNTLET.md)
-- **Self-Improvement**: [Nomic Loop](./NOMIC_LOOP.md)
+- **Deep Dive**: [Architecture Guide](../architecture/ARCHITECTURE.md)
+- **All Options**: [Environment Variables](../reference/ENVIRONMENT.md)
+- **Full API**: [API Reference](../api/API_REFERENCE.md)
+- **Gauntlet Details**: [Gauntlet Guide](../debate/GAUNTLET.md)
+- **Self-Improvement**: [Nomic Loop](../workflow/NOMIC_LOOP.md)
 - **Custom Agents**: [Custom Agents Guide](./CUSTOM_AGENTS.md)
 
 ---
@@ -577,7 +577,7 @@ pip install -e .
 
 ### Environment Variables
 
-**Quick Reference** (see [ENVIRONMENT.md](./ENVIRONMENT.md) for complete reference):
+**Quick Reference** (see [ENVIRONMENT.md](../reference/ENVIRONMENT.md) for complete reference):
 
 | Variable | Description | Required |
 |----------|-------------|----------|

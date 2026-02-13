@@ -168,7 +168,7 @@ curl -vI https://your-domain.com/api/health 2>&1 | grep -E "SSL|subject|expire"
 |------|--------|---------------------|
 | **OAuth redirect URLs set** | [ ] | Check `GOOGLE_OAUTH_REDIRECT_URI`, `OAUTH_SUCCESS_URL` |
 | **Allowed hosts configured** | [ ] | Check `OAUTH_ALLOWED_REDIRECT_HOSTS` |
-| **SSO configured (if used)** | [ ] | See [SSO_SETUP.md](SSO_SETUP.md) |
+| **SSO configured (if used)** | [ ] | See [SSO_SETUP.md](../enterprise/SSO_SETUP.md) |
 | **Session timeout reasonable** | [ ] | Check `ARAGORA_JWT_EXPIRY_HOURS` (max 168h) |
 
 **Production OAuth Configuration:**
@@ -515,7 +515,7 @@ kubectl scale deployment aragora --replicas=3 -n aragora
 
 - [RUNBOOK.md](RUNBOOK.md) - Operational procedures and incident response
 - [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) - Recovery procedures
-- [ENVIRONMENT.md](ENVIRONMENT.md) - Complete environment variable reference
+- [ENVIRONMENT.md](../reference/ENVIRONMENT.md) - Complete environment variable reference
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Kubernetes and Docker deployment guides
-- [SECURITY.md](SECURITY.md) - Security architecture and practices
+- [SECURITY.md](../enterprise/SECURITY.md) - Security architecture and practices
 - [SCALING.md](SCALING.md) - Scaling guidelines and capacity planning

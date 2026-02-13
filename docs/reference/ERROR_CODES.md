@@ -291,7 +291,7 @@ Webhook error events include:
 
 ## Related Documentation
 
-- [API Reference](API_REFERENCE.md) - Full API documentation
-- [WebSocket Events](WEBSOCKET_EVENTS.md) - Real-time event reference
-- [Rate Limiting](API_REFERENCE.md#rate-limiting) - Rate limit details
-- [API Quick Start](API_QUICK_START.md) - Getting started guide
+- [API Reference](../api/API_REFERENCE.md) - Full API documentation
+- [WebSocket Events](../streaming/WEBSOCKET_EVENTS.md) - Real-time event reference
+- [Rate Limiting](../api/API_REFERENCE.md#rate-limiting) - Rate limit details
+- [API Quick Start](../api/API_QUICK_START.md) - Getting started guide

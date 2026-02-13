@@ -247,7 +247,7 @@ Aragora Operations Team
 | Professional | 99.5% uptime | Service credits per SLA.md |
 | Starter | 99% uptime | Best effort |
 
-See [SLA.md](SLA.md) for detailed service credit calculations.
+See [SLA.md](../enterprise/SLA.md) for detailed service credit calculations.
 
 ## Audit Trail
 

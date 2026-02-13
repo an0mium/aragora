@@ -238,4 +238,4 @@ if result and result.converged:
 
 - [Consensus Mechanism](./CONSENSUS.md) - How final consensus is determined
 - [ELO Calibration](./ELO_CALIBRATION.md) - Agent skill tracking
-- [Debate Phases](../DEBATE_PHASES.md) - The debate lifecycle
+- [Debate Phases](../debate/DEBATE_PHASES.md) - The debate lifecycle

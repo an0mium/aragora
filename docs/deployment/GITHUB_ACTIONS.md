@@ -304,7 +304,7 @@ See the template files in:
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md) - Full API documentation
-- [Security](./SECURITY.md) - Security policies and practices
-- [Gauntlet Playbooks](../aragora/gauntlet/playbooks/) - Playbook definitions
-- [SDK Examples](../sdk/typescript/examples/) - JavaScript/TypeScript examples
+- [API Reference](../api/API_REFERENCE.md) - Full API documentation
+- [Security](../enterprise/SECURITY.md) - Security policies and practices
+- [Gauntlet Playbooks](../../aragora/gauntlet/playbooks/) - Playbook definitions
+- [SDK Examples](../../sdk/typescript/examples/) - JavaScript/TypeScript examples

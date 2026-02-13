@@ -331,7 +331,7 @@ and sender-level insights:
 ## Shared Inbox & Routing Rules
 
 Collaborative inbox workflows (assignment, status, routing rules) are exposed via
-the shared inbox API and UI. See [SHARED_INBOX.md](SHARED_INBOX.md) for the
+the shared inbox API and UI. See [SHARED_INBOX.md](../guides/SHARED_INBOX.md) for the
 endpoints and workflow model.
 
 ## Sender History Service

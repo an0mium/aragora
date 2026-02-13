@@ -349,7 +349,7 @@ az containerapp create \
 
 ## See Also
 
-- [Scaling Runbook](runbooks/scaling.md)
-- [Database Migration Runbook](runbooks/database-migration.md)
-- [Incident Response Runbook](runbooks/incident-response.md)
-- [Monitoring Setup Runbook](runbooks/monitoring-setup.md)
+- [Scaling Runbook](../runbooks/scaling.md)
+- [Database Migration Runbook](../runbooks/database-migration.md)
+- [Incident Response Runbook](../runbooks/incident-response.md)
+- [Monitoring Setup Runbook](../runbooks/monitoring-setup.md)

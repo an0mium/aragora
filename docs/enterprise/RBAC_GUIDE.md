@@ -416,6 +416,6 @@ pytest tests/rbac/test_resource_permissions.py -v
 
 ## Related Documentation
 
-- [Environment Variables](ENVIRONMENT.md) - RBAC-related configuration
-- [API Reference](API_REFERENCE.md) - RBAC API endpoints
+- [Environment Variables](../reference/ENVIRONMENT.md) - RBAC-related configuration
+- [API Reference](../api/API_REFERENCE.md) - RBAC API endpoints
 - [Enterprise Features](ENTERPRISE_FEATURES.md) - Advanced RBAC capabilities

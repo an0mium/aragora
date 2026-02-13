@@ -904,9 +904,9 @@ result = await quick_ideas("Improve user onboarding")
 
 ## Related Documentation
 
-- [RLM User Guide](RLM_USER_GUIDE.md) - Detailed RLM documentation
-- [Reasoning Module](REASONING.md) - Belief networks and claims
-- [Workflows](WORKFLOWS.md) - Common workflow patterns
-- [Matrix Debates](MATRIX_DEBATES.md) - Full matrix debate reference
-- [Graph Debates](GRAPH_DEBATES.md) - Full graph debate reference
-- [Evidence System](EVIDENCE.md) - Evidence collection and provenance
+- [RLM User Guide](../guides/RLM_USER_GUIDE.md) - Detailed RLM documentation
+- [Reasoning Module](../workflow/REASONING.md) - Belief networks and claims
+- [Workflows](../workflow/WORKFLOWS.md) - Common workflow patterns
+- [Matrix Debates](../debate/MATRIX_DEBATES.md) - Full matrix debate reference
+- [Graph Debates](../debate/GRAPH_DEBATES.md) - Full graph debate reference
+- [Evidence System](../debate/EVIDENCE.md) - Evidence collection and provenance

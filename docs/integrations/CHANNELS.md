@@ -457,6 +457,6 @@ Per-channel rate limits:
 
 ## Related Documentation
 
-- [CONTROL_PLANE.md](./CONTROL_PLANE.md) - Control plane architecture
+- [CONTROL_PLANE.md](../reference/CONTROL_PLANE.md) - Control plane architecture
 - [CONNECTORS.md](./CONNECTORS.md) - Data connectors for knowledge ingestion
 - [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) - Detailed bot setup guides

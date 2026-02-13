@@ -253,7 +253,7 @@ After resolving any SEV1/SEV2:
 
 ## Related Runbooks
 
-- [Main Runbook](../RUNBOOK.md) - Detailed operational procedures
+- [Main Runbook](../deployment/RUNBOOK.md) - Detailed operational procedures
 - [Incident Response](RUNBOOK_INCIDENT.md) - Full incident process
 - [Provider Failure](RUNBOOK_PROVIDER_FAILURE.md) - AI provider issues
 - [Database Issues](RUNBOOK_DATABASE_ISSUES.md) - Database troubleshooting

@@ -321,9 +321,9 @@ All connectors store OAuth tokens using AES-256-GCM encryption via `aragora/secu
 
 ## Related Documents
 
-- [SME_STARTER_PACK.md](SME_STARTER_PACK.md) - SME feature scope
+- [SME_STARTER_PACK.md](../status/SME_STARTER_PACK.md) - SME feature scope
 - [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) - Enterprise integration details
-- [STATUS.md](STATUS.md) - Overall feature status
+- [STATUS.md](../STATUS.md) - Overall feature status
 
 ---
 

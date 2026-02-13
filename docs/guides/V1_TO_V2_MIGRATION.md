@@ -237,4 +237,4 @@ via `register_default_deprecations()`.
 
 - [SDK Package Migration](./MIGRATION_GUIDE.md) -- `aragora-client` to `aragora-sdk`
 - [Full Migration Reference](../status/MIGRATION_V1_TO_V2.md) -- Detailed endpoint mappings
-- [API Versioning](../status/API_VERSIONING.md) -- Versioning strategy
+- [API Versioning](../api/API_VERSIONING.md) -- Versioning strategy

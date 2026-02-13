@@ -165,6 +165,6 @@ OAUTH_ALLOWED_REDIRECT_HOSTS=app.your-domain.com
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md)
+- [API Reference](../api/API_REFERENCE.md)
 - [Authentication](./SECURITY.md)
 - [Security](./SECURITY.md)

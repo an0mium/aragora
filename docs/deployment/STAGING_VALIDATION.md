@@ -361,5 +361,5 @@ Production Deploy Date: ________________
 
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Full deployment guide
 - [RUNBOOK.md](RUNBOOK.md) - Operational procedures
-- [SLA.md](SLA.md) - Service level agreements
+- [SLA.md](../enterprise/SLA.md) - Service level agreements
 - [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) - Recovery procedures

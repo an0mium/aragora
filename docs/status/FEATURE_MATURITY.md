@@ -235,6 +235,6 @@ Features are promoted from Experimental to Stable when:
 ## Related Documents
 
 - [STATUS.md](./STATUS.md) - Current system status
-- [CHANGELOG.md](./RELEASE_NOTES.md) - Version history
-- [API.md](./API_REFERENCE.md) - API documentation
-- [RUNBOOK.md](./RUNBOOK.md) - Operational procedures
+- [CHANGELOG.md](../deployment/RELEASE_NOTES.md) - Version history
+- [API.md](../api/API_REFERENCE.md) - API documentation
+- [RUNBOOK.md](../deployment/RUNBOOK.md) - Operational procedures

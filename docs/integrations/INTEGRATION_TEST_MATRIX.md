@@ -207,7 +207,7 @@ cd aragora/live && npx playwright test --project=chromium
 
 ## Related Documentation
 
-- [Test README](../tests/README.md) - Test infrastructure guide
-- [E2E Conftest](../tests/e2e/conftest.py) - E2E fixtures
-- [Playwright Config](../aragora/live/playwright.config.ts) - Browser config
-- [CI/CD Workflow](../.github/workflows/e2e.yml) - E2E pipeline
+- [Test README](../README.md) - Test infrastructure guide
+- [E2E Conftest](../../tests/e2e/conftest.py) - E2E fixtures
+- [Playwright Config](../../aragora/live/playwright.config.ts) - Browser config
+- [CI/CD Workflow](../../.github/workflows/e2e.yml) - E2E pipeline

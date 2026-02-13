@@ -515,6 +515,6 @@ curl -s https://api.aragora.ai/api/auth/oauth/providers | jq '.providers | lengt
 
 ## Related Documentation
 
-- [RUNBOOK.md](./RUNBOOK.md) - Operational procedures
-- [INCIDENT_RESPONSE.md](./INCIDENT_RESPONSE.md) - Incident handling
-- [DR_DRILL_PROCEDURES.md](./DR_DRILL_PROCEDURES.md) - Disaster recovery
+- [RUNBOOK.md](../deployment/RUNBOOK.md) - Operational procedures
+- [INCIDENT_RESPONSE.md](../deployment/INCIDENT_RESPONSE.md) - Incident handling
+- [DR_DRILL_PROCEDURES.md](../deployment/DR_DRILL_PROCEDURES.md) - Disaster recovery

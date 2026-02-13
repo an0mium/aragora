@@ -301,9 +301,9 @@ asyncio.run(main())
 | Install-to-receipt quickstart (2 min) | [SDK_QUICKSTART.md](SDK_QUICKSTART.md) |
 | Learn the full Python and TypeScript SDKs | [SDK_GUIDE.md](SDK_GUIDE.md) |
 | Explore the REST API | [api/API_REFERENCE.md](api/API_REFERENCE.md) |
-| Stress-test specs with the Gauntlet | [GAUNTLET.md](GAUNTLET.md) |
-| Set up Slack, Teams, or Discord connectors | [INTEGRATIONS.md](INTEGRATIONS.md) |
-| Deploy to production | [DEPLOYMENT.md](DEPLOYMENT.md) |
+| Stress-test specs with the Gauntlet | [GAUNTLET.md](./debate/GAUNTLET.md) |
+| Set up Slack, Teams, or Discord connectors | [INTEGRATIONS.md](./integrations/INTEGRATIONS.md) |
+| Deploy to production | [DEPLOYMENT.md](./deployment/DEPLOYMENT.md) |
 | Add SSO, RBAC, and multi-tenancy | [enterprise/ENTERPRISE_FEATURES.md](enterprise/ENTERPRISE_FEATURES.md) |
 | Generate EU AI Act compliance artifacts | [compliance/EU_AI_ACT_GUIDE.md](compliance/EU_AI_ACT_GUIDE.md) |
 | Understand pricing and plans | [PRICING.md](PRICING.md) |

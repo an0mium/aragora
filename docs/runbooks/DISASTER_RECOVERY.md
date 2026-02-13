@@ -1417,8 +1417,8 @@ curl -s "https://api.cloudflare.com/client/v4/user/load_balancers/pools" \
 - [RUNBOOK_DATABASE_ISSUES.md](./RUNBOOK_DATABASE_ISSUES.md) - Database troubleshooting
 - [redis-failover.md](./redis-failover.md) - Redis HA procedures
 - [RUNBOOK_MULTI_REGION_SETUP.md](./RUNBOOK_MULTI_REGION_SETUP.md) - Multi-region architecture
-- [../POSTGRES_HA.md](../POSTGRES_HA.md) - PostgreSQL HA configuration
-- [../DR_DRILL_PROCEDURES.md](../DR_DRILL_PROCEDURES.md) - Detailed drill procedures
+- [../POSTGRES_HA.md](../deployment/POSTGRES_HA.md) - PostgreSQL HA configuration
+- [../DR_DRILL_PROCEDURES.md](../deployment/DR_DRILL_PROCEDURES.md) - Detailed drill procedures
 - [../enterprise/DISASTER_RECOVERY.md](../enterprise/DISASTER_RECOVERY.md) - Enterprise DR overview
 
 ---

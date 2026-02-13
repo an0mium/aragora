@@ -248,6 +248,6 @@ This document maps Aragora's security controls to SOC 2 Type II Trust Service Cr
 ## References
 
 - [AICPA Trust Service Criteria](https://www.aicpa.org/interestareas/frc/assuranceadvisoryservices/trustservices)
-- [Aragora Enterprise Features](docs/ENTERPRISE_FEATURES.md)
-- [Aragora Security Architecture](CLAUDE.md)
-- [Environment Configuration](docs/ENVIRONMENT.md)
+- [Aragora Enterprise Features](../ENTERPRISE_FEATURES.md)
+- [Aragora Security Architecture](../CLAUDE.md)
+- [Environment Configuration](../reference/ENVIRONMENT.md)

@@ -330,6 +330,6 @@ report = builder.generate_report(decision, format="html")
 
 ## See Also
 
-- [ORCHESTRATION.md](./ORCHESTRATION.md) - Debate execution details
+- [ORCHESTRATION.md](../debate/ORCHESTRATION.md) - Debate execution details
 - [REASONING.md](./REASONING.md) - Belief network and provenance
-- [CONSENSUS.md](./CONSENSUS.md) - Consensus detection mechanisms
+- [CONSENSUS.md](../algorithms/CONSENSUS.md) - Consensus detection mechanisms

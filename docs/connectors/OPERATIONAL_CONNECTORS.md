@@ -678,6 +678,6 @@ XERO_CLIENT_SECRET=xxx
 
 ## See Also
 
-- [Connector Integration Index](../CONNECTOR_INTEGRATION_INDEX.md) - Master connector list
+- [Connector Integration Index](../integrations/CONNECTOR_INTEGRATION_INDEX.md) - Master connector list
 - [Evidence Connectors Guide](EVIDENCE_CONNECTORS.md) - Evidence sources
 - [Enterprise Connectors Guide](ENTERPRISE_CONNECTORS.md) - Enterprise integrations

@@ -19,7 +19,7 @@ Aragora follows a structured deprecation process that balances the need for impr
 
 ### Versioning Reference
 
-For complete API versioning details, see [API_VERSIONING.md](./API_VERSIONING.md).
+For complete API versioning details, see [API_VERSIONING.md](../api/API_VERSIONING.md).
 
 ---
 
@@ -468,7 +468,7 @@ The following items are currently deprecated and scheduled for removal:
 
 ### SDK Methods
 
-See [GAUNTLET_ARCHITECTURE.md](./GAUNTLET_ARCHITECTURE.md) for Gauntlet migration details.
+See [GAUNTLET_ARCHITECTURE.md](../architecture/GAUNTLET_ARCHITECTURE.md) for Gauntlet migration details.
 
 ---
 

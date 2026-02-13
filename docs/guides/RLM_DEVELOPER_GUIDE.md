@@ -1,6 +1,6 @@
 # RLM Developer Guide
 
-This guide covers practical integration of the RLM (Recursive Language Models) module in Aragora applications. It complements the [RLM User Guide](./RLM_USER_GUIDE.md) and [RLM Integration Guide](./INTEGRATION_RLM.md).
+This guide covers practical integration of the RLM (Recursive Language Models) module in Aragora applications. It complements the [RLM User Guide](./RLM_USER_GUIDE.md) and [RLM Integration Guide](../integrations/INTEGRATION_RLM.md).
 
 ## Two Concepts Named "RLM"
 
@@ -369,6 +369,6 @@ See the main API reference in [RLM_USER_GUIDE.md](./RLM_USER_GUIDE.md#api-refere
 ## Related Documentation
 
 - [RLM User Guide](./RLM_USER_GUIDE.md) - Concepts and quick start
-- [RLM Integration Guide](./INTEGRATION_RLM.md) - Architecture and HTTP API
+- [RLM Integration Guide](../integrations/INTEGRATION_RLM.md) - Architecture and HTTP API
 - [RLM Patterns Guide](./RLM_GUIDE.md) - Prime Intellect debate termination
-- [ADR-008](./ADR/008-rlm-semantic-compression.md) - Architecture decision record
+- [ADR-008](../ADR/008-rlm-semantic-compression.md) - Architecture decision record

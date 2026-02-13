@@ -295,10 +295,10 @@ aragora ask "Design a rate limiter" --agents anthropic-api,openai-api
 ```
 
 ### Production Deployment
-See [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) for the complete checklist.
+See [PRODUCTION_READINESS.md](../deployment/PRODUCTION_READINESS.md) for the complete checklist.
 
 ### API Integration
-See [SDK_GUIDE.md](SDK_GUIDE.md) for the Python SDK reference.
+See [SDK_GUIDE.md](../SDK_GUIDE.md) for the Python SDK reference.
 
 ---
 
@@ -306,7 +306,7 @@ See [SDK_GUIDE.md](SDK_GUIDE.md) for the Python SDK reference.
 
 - **Domain**: [aragora.ai](https://aragora.ai)
 - **Documentation**: [docs/](.)
-- **API Reference**: [API_REFERENCE.md](API_REFERENCE.md)
+- **API Reference**: [API_REFERENCE.md](../api/API_REFERENCE.md)
 
 ---
 

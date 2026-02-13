@@ -16,9 +16,9 @@ This runbook covers operational procedures for Aragora's security infrastructure
 - Security incident response specific to these systems
 
 **Related Documents:**
-- [General Incident Response](../INCIDENT_RESPONSE.md)
-- [Secrets Management](../SECRETS_MANAGEMENT.md)
-- [Security Deployment](../SECURITY_DEPLOYMENT.md)
+- [General Incident Response](./INCIDENT_RESPONSE.md)
+- [Secrets Management](../enterprise/SECRETS_MANAGEMENT.md)
+- [Security Deployment](../deployment/SECURITY_DEPLOYMENT.md)
 
 ---
 

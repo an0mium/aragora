@@ -63,6 +63,6 @@ agents = [
 
 ## Related Docs
 
-- [Custom agents](CUSTOM_AGENTS.md)
+- [Custom agents](../guides/CUSTOM_AGENTS.md)
 - [Agent development](AGENT_DEVELOPMENT.md)
 - [Agent selection](AGENT_SELECTION.md)

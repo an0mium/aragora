@@ -497,5 +497,5 @@ async def code_review_gauntlet(repo_path: Path):
 ## See Also
 
 - [MODES.md](./MODES.md) - Operational mode system
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture
-- [GAUNTLET.md](./GAUNTLET.md) - Gauntlet testing
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) - System architecture
+- [GAUNTLET.md](../debate/GAUNTLET.md) - Gauntlet testing

@@ -16,6 +16,93 @@ const path = require('path');
 const SOURCE_DIR = path.join(__dirname, '../../docs');
 const DEST_DIR = path.join(__dirname, '../docs');
 
+function walkMarkdownFiles(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (entry.name === '.git' || entry.name === 'node_modules') {
+      continue;
+    }
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkMarkdownFiles(fullPath));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+function buildSourceIndex(rootDir) {
+  const index = new Map();
+  for (const fullPath of walkMarkdownFiles(rootDir)) {
+    const rel = path.relative(rootDir, fullPath).replace(/\\/g, '/');
+    const base = path.basename(rel);
+    if (!index.has(base)) {
+      index.set(base, []);
+    }
+    index.get(base).push(rel);
+  }
+  return index;
+}
+
+const SOURCE_INDEX = buildSourceIndex(SOURCE_DIR);
+
+function resolveSourcePath(srcRelPath) {
+  const directPath = path.join(SOURCE_DIR, srcRelPath);
+  if (fs.existsSync(directPath)) {
+    return { srcPath: directPath, resolvedFrom: srcRelPath };
+  }
+
+  const normalized = srcRelPath.replace(/\\/g, '/');
+  const base = path.basename(normalized);
+  const candidates = SOURCE_INDEX.get(base) || [];
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const srcParts = normalized.split('/').slice(0, -1).filter(p => p !== '.' && p !== '..');
+  let filtered = candidates;
+  if (srcParts.length > 0) {
+    const hinted = candidates.filter(candidate => {
+      const candidateParts = candidate.split('/');
+      return srcParts.every(part => candidateParts.includes(part));
+    });
+    if (hinted.length > 0) {
+      filtered = hinted;
+    }
+  }
+
+  // Prefer non-deprecated docs when multiple matches exist.
+  const nonDeprecated = filtered.filter(
+    candidate => !candidate.startsWith('deprecated/') && !candidate.includes('/deprecated/')
+  );
+  if (nonDeprecated.length === 1) {
+    return {
+      srcPath: path.join(SOURCE_DIR, nonDeprecated[0]),
+      resolvedFrom: nonDeprecated[0],
+    };
+  }
+  if (nonDeprecated.length > 0) {
+    filtered = nonDeprecated;
+  }
+
+  if (filtered.length === 1) {
+    return { srcPath: path.join(SOURCE_DIR, filtered[0]), resolvedFrom: filtered[0] };
+  }
+
+  // As a final fallback, pick exact-case basename match with shortest path.
+  const exactCase = filtered.filter(candidate => path.basename(candidate) === base);
+  if (exactCase.length > 0) {
+    exactCase.sort((a, b) => a.length - b.length || a.localeCompare(b));
+    return { srcPath: path.join(SOURCE_DIR, exactCase[0]), resolvedFrom: exactCase[0] };
+  }
+
+  return null;
+}
+
 // Document mapping: source -> destination with category organization
 const DOC_MAP = {
   // =========================================================================
@@ -52,6 +139,7 @@ const DOC_MAP = {
   'API_QUICK_START.md': 'guides/api-quickstart.md',
   'API_USAGE.md': 'guides/api-usage.md',
   'WORKFLOWS.md': 'guides/workflows.md',
+  'workflow/SKILLS.md': 'guides/skills.md',
   'TEMPLATES.md': 'guides/templates.md',
   'INTEGRATIONS.md': 'guides/integrations.md',
   'DOCUMENTS.md': 'guides/documents.md',
@@ -63,6 +151,7 @@ const DOC_MAP = {
   'connectors/CONNECTOR_CATALOG.md': 'guides/connector-catalog.md',
   'CONNECTORS_SETUP.md': 'guides/connectors-setup.md',
   'CONNECTOR_TROUBLESHOOTING.md': 'guides/connector-troubleshooting.md',
+  'integrations/HOOKS.md': 'guides/hooks.md',
   'ACCOUNTING.md': 'guides/accounting.md',
   'EVIDENCE.md': 'guides/evidence.md',
   'EVIDENCE_API_GUIDE.md': 'api/evidence.md',
@@ -120,11 +209,15 @@ const DOC_MAP = {
   'DATABASE_SETUP.md': 'deployment/database-setup.md',
   'DATABASE.md': 'deployment/database.md',
   'DATABASE_SCHEMA.md': 'deployment/database-schema.md',
-  'DISASTER_RECOVERY.md': 'deployment/disaster-recovery.md',
+  'deployment/DISASTER_RECOVERY.md': 'deployment/disaster-recovery.md',
+  'deployment/POSTGRES_HA.md': 'deployment/postgres-ha.md',
   'RBAC_MATRIX.md': 'deployment/RBAC_MATRIX.md',
   'DR_DRILL_PROCEDURES.md': 'deployment/dr-drills.md',
   'OBSERVABILITY.md': 'deployment/observability.md',
+  'observability/WATCHDOG.md': 'operations/watchdog.md',
   'OBSERVABILITY_SETUP.md': 'deployment/observability-setup.md',
+  'guides/MONITORING_SETUP.md': 'guides/monitoring-setup.md',
+  'deployment/DEPLOYMENT_DECISION_MATRIX.md': 'deployment/decision-matrix.md',
   'TLS.md': 'deployment/tls.md',
   'SECRETS_MIGRATION.md': 'deployment/secrets-migration.md',
 
@@ -135,6 +228,16 @@ const DOC_MAP = {
   'runbooks/RUNBOOK_INCIDENT.md': 'operations/runbook-incident.md',
   'runbooks/RUNBOOK_DATABASE_ISSUES.md': 'operations/runbook-database.md',
   'runbooks/RUNBOOK_PROVIDER_FAILURE.md': 'operations/runbook-provider.md',
+  'runbooks/RUNBOOK_BACKUP_AUTOMATION.md': 'operations/runbook-backup-automation.md',
+  'runbooks/RUNBOOK_MULTI_REGION_SETUP.md': 'operations/runbook-multi-region-setup.md',
+  'runbooks/RUNBOOK_POSTGRESQL_REPLICATION.md': 'operations/runbook-postgresql-replication.md',
+  'runbooks/RUNBOOK_POSTGRESQL_MIGRATION.md': 'operations/runbook-postgresql-migration.md',
+  'runbooks/redis-failover.md': 'operations/redis-failover.md',
+  'runbooks/database-migration.md': 'operations/database-migration.md',
+  'runbooks/incident-response.md': 'operations/incident-response.md',
+  'runbooks/scaling.md': 'operations/scaling.md',
+  'runbooks/monitoring-setup.md': 'operations/monitoring-setup.md',
+  'runbooks/DISASTER_RECOVERY.md': 'operations/disaster-recovery-runbook.md',
   'ALERT_RUNBOOKS.md': 'operations/alert-runbooks.md',
   'RUNBOOK.md': 'operations/runbook.md',
   'PRODUCTION_RUNBOOK.md': 'operations/production-runbook.md',
@@ -200,6 +303,8 @@ const DOC_MAP = {
   'CROSS_FUNCTIONAL_FEATURES.md': 'advanced/cross-functional.md',
   'TRICKSTER.md': 'advanced/trickster.md',
   'FORMAL_VERIFICATION.md': 'advanced/formal-verification.md',
+  'resilience/RESILIENCE.md': 'advanced/resilience.md',
+  'status/PROPULSION.md': 'advanced/propulsion.md',
 
   // =========================================================================
   // Analysis & Metrics
@@ -241,8 +346,6 @@ const DOC_MAP = {
   'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
   'INDEX.md': 'contributing/documentation-index.md',
-  'DOCUMENTATION_HUB.md': 'contributing/DOCUMENTATION_HUB.md',
-  'DOCUMENTATION_MAP.md': 'contributing/documentation-map.md',
   'INBOX_GUIDE.md': 'contributing/INBOX_GUIDE.md',
   'DEPRECATION_POLICY.md': 'contributing/deprecation.md',
   'STATUS.md': 'contributing/status.md',
@@ -451,12 +554,14 @@ function injectConnectorCatalogBanner(content, relSrcPath) {
 }
 
 // Process a single file
-function processFile(srcPath, destPath) {
-  if (!fs.existsSync(srcPath)) {
-    console.log(`  Skipping (not found): ${path.basename(srcPath)}`);
+function processFile(srcRelPath, destPath) {
+  const resolved = resolveSourcePath(srcRelPath);
+  if (!resolved) {
+    console.log(`  Skipping (not found): ${srcRelPath}`);
     return false;
   }
 
+  const srcPath = resolved.srcPath;
   let content = fs.readFileSync(srcPath, 'utf8');
   const title = extractTitle(content);
   const relSrcPath = path.relative(SOURCE_DIR, srcPath);
@@ -479,7 +584,13 @@ function processFile(srcPath, destPath) {
   }
 
   fs.writeFileSync(destPath, content);
-  console.log(`  ✓ ${path.basename(srcPath)} -> ${destPath.replace(DEST_DIR + '/', '')}`);
+  const sourceNote =
+    resolved.resolvedFrom && resolved.resolvedFrom !== srcRelPath
+      ? ` (${srcRelPath} -> ${resolved.resolvedFrom})`
+      : '';
+  console.log(
+    `  ✓ ${path.basename(srcPath)} -> ${destPath.replace(DEST_DIR + '/', '')}${sourceNote}`
+  );
   return true;
 }
 
@@ -527,9 +638,8 @@ function syncDocs() {
 
   // Process each mapped file
   for (const [src, dest] of Object.entries(DOC_MAP)) {
-    const srcPath = path.join(SOURCE_DIR, src);
     const destPath = path.join(DEST_DIR, dest);
-    if (processFile(srcPath, destPath)) {
+    if (processFile(src, destPath)) {
       synced++;
     } else {
       skipped++;

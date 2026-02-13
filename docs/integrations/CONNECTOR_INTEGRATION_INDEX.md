@@ -62,7 +62,7 @@ Sources for gathering evidence for debates.
 | Wikipedia | `aragora.connectors.wikipedia` | Wikipedia articles |
 | YouTube | `aragora.connectors.youtube_uploader` | Video content |
 
-**See:** [Evidence Connectors Guide](connectors/EVIDENCE_CONNECTORS.md)
+**See:** [Evidence Connectors Guide](../connectors/EVIDENCE_CONNECTORS.md)
 
 ---
 
@@ -157,7 +157,7 @@ Business system integrations for enterprise deployments.
 |-----------|--------|---------|
 | Legal | `aragora.connectors.legal` | Legal document processing |
 
-**See:** [Enterprise Connectors Guide](connectors/ENTERPRISE_CONNECTORS.md)
+**See:** [Enterprise Connectors Guide](../connectors/ENTERPRISE_CONNECTORS.md)
 
 ---
 
@@ -275,7 +275,7 @@ Business operations and SaaS integrations.
 | Airtable | `aragora.connectors.lowcode.airtable` | Database/spreadsheet |
 | Knack | `aragora.connectors.lowcode.knack` | Low-code apps |
 
-**See:** [Operational Connectors Guide](connectors/OPERATIONAL_CONNECTORS.md)
+**See:** [Operational Connectors Guide](../connectors/OPERATIONAL_CONNECTORS.md)
 
 ---
 
@@ -409,8 +409,8 @@ connector = registry.get("custom", config={...})
 
 ## See Also
 
-- [Evidence Connectors Guide](connectors/EVIDENCE_CONNECTORS.md) - Detailed evidence connector docs
-- [Enterprise Connectors Guide](connectors/ENTERPRISE_CONNECTORS.md) - Enterprise integration docs
-- [Operational Connectors Guide](connectors/OPERATIONAL_CONNECTORS.md) - Operations connector docs
-- [API Reference](API_REFERENCE.md) - REST API for connector management
-- [ENVIRONMENT.md](ENVIRONMENT.md) - Environment variable reference
+- [Evidence Connectors Guide](../connectors/EVIDENCE_CONNECTORS.md) - Detailed evidence connector docs
+- [Enterprise Connectors Guide](../connectors/ENTERPRISE_CONNECTORS.md) - Enterprise integration docs
+- [Operational Connectors Guide](../connectors/OPERATIONAL_CONNECTORS.md) - Operations connector docs
+- [API Reference](../api/API_REFERENCE.md) - REST API for connector management
+- [ENVIRONMENT.md](../reference/ENVIRONMENT.md) - Environment variable reference

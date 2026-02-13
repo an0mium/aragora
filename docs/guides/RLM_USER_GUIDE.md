@@ -351,4 +351,4 @@ pip install rlm
 
 - [RLM Paper (arXiv:2512.24601)](https://arxiv.org/abs/2512.24601)
 - [Official RLM Repository](https://github.com/alexzhang13/rlm)
-- [Aragora Memory Documentation](./MEMORY_STRATEGY.md)
+- [Aragora Memory Documentation](../knowledge/MEMORY_STRATEGY.md)

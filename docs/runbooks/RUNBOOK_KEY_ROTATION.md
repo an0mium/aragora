@@ -16,7 +16,7 @@ Aragora uses AES-256-GCM encryption for secrets at rest. Keys should be rotated:
 |-------------|--------------|
 | Cryptography library installed | `python -c "from cryptography.fernet import Fernet; print('OK')"` |
 | Encryption service healthy | `aragora security health` |
-| Backup completed | See [Disaster Recovery](../DISASTER_RECOVERY.md) |
+| Backup completed | See [Disaster Recovery](./DISASTER_RECOVERY.md) |
 | Maintenance window scheduled | Low-traffic period (recommended) |
 
 ## Pre-Rotation Checklist
@@ -313,7 +313,7 @@ All key rotations are logged to:
 
 ## Related Documentation
 
-- [Secrets Management](../SECRETS_MANAGEMENT.md)
-- [Disaster Recovery](../DISASTER_RECOVERY.md)
-- [Security Patterns](../SECURITY_PATTERNS.md)
+- [Secrets Management](../enterprise/SECRETS_MANAGEMENT.md)
+- [Disaster Recovery](./DISASTER_RECOVERY.md)
+- [Security Patterns](../enterprise/SECURITY_PATTERNS.md)
 - [Incident Response](RUNBOOK_INCIDENT.md)

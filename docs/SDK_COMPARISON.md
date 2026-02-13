@@ -411,6 +411,6 @@ app.post("/debates", async (req, res) => {
 ## See Also
 
 - [Python SDK Guide](SDK_GUIDE.md)
-- [TypeScript SDK Reference](SDK_TYPESCRIPT.md)
-- [API Reference](API_REFERENCE.md)
+- [TypeScript SDK Reference](./guides/SDK_TYPESCRIPT.md)
+- [API Reference](./api/API_REFERENCE.md)
 - [TypeScript Examples](../examples/typescript/)

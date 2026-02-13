@@ -34,7 +34,7 @@ curl http://localhost:8080/api/health
 Use this checklist before deploying to production:
 
 ### Environment Setup
-- [ ] All required environment variables configured (see [ENVIRONMENT.md](./ENVIRONMENT.md))
+- [ ] All required environment variables configured (see [ENVIRONMENT.md](../reference/ENVIRONMENT.md))
 - [ ] At least one AI provider API key set (ANTHROPIC_API_KEY or OPENAI_API_KEY)
 - [ ] Database connection configured (ARAGORA_POSTGRES_DSN)
 - [ ] Redis URL configured for caching (ARAGORA_REDIS_URL)
@@ -296,7 +296,7 @@ kubectl apply -f deploy/kubernetes/migration-job.yaml --dry-run=client -o yaml |
 kubectl -n aragora logs job/aragora-migrate-status
 ```
 
-For more database setup details, see [POSTGRESQL_MIGRATION.md](POSTGRESQL_MIGRATION.md).
+For more database setup details, see [POSTGRESQL_MIGRATION.md](../status/POSTGRESQL_MIGRATION.md).
 
 ## Environment Variables
 

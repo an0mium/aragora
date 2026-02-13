@@ -298,11 +298,11 @@ Aragora supports staged retrieval to control token costs and avoid overloading
 agents with full memory dumps. The workflow mirrors "progressive disclosure"
 patterns from agent memory systems:
 
-1. **Search Index** (`/api/v1/memory/search-index`)
+1. **Search Index** (`/api/v1/memory/search-index`)  
    Returns compact previews, token estimates, and IDs.
-2. **Timeline Context** (`/api/v1/memory/search-timeline`)
+2. **Timeline Context** (`/api/v1/memory/search-timeline`)  
    Fetches surrounding entries around an anchor ID.
-3. **Full Entries** (`/api/v1/memory/entries`)
+3. **Full Entries** (`/api/v1/memory/entries`)  
    Retrieves full content only for selected IDs.
 
 This is also surfaced in the built-in Memory Viewer (`/api/v1/memory/viewer`),

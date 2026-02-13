@@ -596,6 +596,6 @@ token = await provider.get_access_token()
 
 ## See Also
 
-- [Connector Integration Index](../CONNECTOR_INTEGRATION_INDEX.md) - Master connector list
+- [Connector Integration Index](../integrations/CONNECTOR_INTEGRATION_INDEX.md) - Master connector list
 - [Evidence Connectors Guide](EVIDENCE_CONNECTORS.md) - Evidence sources
 - [Operational Connectors Guide](OPERATIONAL_CONNECTORS.md) - Operations tools

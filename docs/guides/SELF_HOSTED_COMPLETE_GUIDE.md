@@ -1772,11 +1772,11 @@ See `docs/ENVIRONMENT.md` for the complete reference (70+ variables).
 
 ## Related Documentation
 
-- [ENVIRONMENT.md](ENVIRONMENT.md) - Complete environment variable reference
-- [API_REFERENCE.md](API_REFERENCE.md) - REST API documentation
-- [TLS.md](TLS.md) - Detailed TLS configuration
-- [KUBERNETES.md](KUBERNETES.md) - Kubernetes-specific details
-- [RUNBOOK.md](RUNBOOK.md) - Operational procedures
+- [ENVIRONMENT.md](../reference/ENVIRONMENT.md) - Complete environment variable reference
+- [API_REFERENCE.md](../api/API_REFERENCE.md) - REST API documentation
+- [TLS.md](../deployment/TLS.md) - Detailed TLS configuration
+- [KUBERNETES.md](../deployment/KUBERNETES.md) - Kubernetes-specific details
+- [RUNBOOK.md](../deployment/RUNBOOK.md) - Operational procedures
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Extended troubleshooting
 
 ---

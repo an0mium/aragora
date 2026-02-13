@@ -262,4 +262,4 @@ All RBAC decisions are logged for compliance:
 
 - [Enterprise Features](ENTERPRISE_FEATURES.md)
 - [Security Configuration](SECURITY.md)
-- [API Reference](API_REFERENCE.md)
+- [API Reference](../api/API_REFERENCE.md)

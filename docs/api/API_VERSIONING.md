@@ -41,7 +41,7 @@ Accept: application/json; version=2
 
 ## Deprecation Policy
 
-For the complete deprecation policy covering API endpoints, SDK methods, configuration options, and internal APIs, see **[DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md)**.
+For the complete deprecation policy covering API endpoints, SDK methods, configuration options, and internal APIs, see **[DEPRECATION_POLICY.md](../reference/DEPRECATION_POLICY.md)**.
 
 ### Summary
 
@@ -370,4 +370,4 @@ curl -H "X-API-Version: 2" https://api.aragora.io/api/debates
 3. **Test with new versions early** - Use beta/alpha in staging
 4. **Use semantic versioning** - Major version = breaking changes
 5. **Plan migrations** - Start migration 3+ months before sunset
-6. **Review deprecation policy** - See [DEPRECATION_POLICY.md](./DEPRECATION_POLICY.md) for complete guidelines
+6. **Review deprecation policy** - See [DEPRECATION_POLICY.md](../reference/DEPRECATION_POLICY.md) for complete guidelines

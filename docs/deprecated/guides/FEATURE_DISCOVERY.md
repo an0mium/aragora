@@ -2,9 +2,9 @@
 
 > Deprecated: This inventory reflects an earlier UI snapshot and is no longer
 > maintained. For current capability coverage, see
-> [FEATURES.md](../../FEATURES.md),
-> [FRONTEND_ROUTES.md](../../FRONTEND_ROUTES.md), and
-> [CONTROL_PLANE.md](../../CONTROL_PLANE.md).
+> [FEATURES.md](../../status/FEATURES.md),
+> [FRONTEND_ROUTES.md](../../guides/FRONTEND_ROUTES.md), and
+> [CONTROL_PLANE.md](../../reference/CONTROL_PLANE.md).
 
 Complete catalog of Aragora's **100+ features** organized by use case.
 
@@ -13,7 +13,7 @@ Complete catalog of Aragora's **100+ features** organized by use case.
 - 34,400+ tests with exceptional coverage
 - 117 debate modules with 9-round structured protocol
 - 65 HTTP handlers + 15 WebSocket streams
-- 85% commercially ready (see [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md))
+- 85% commercially ready (see [COMMERCIAL_OVERVIEW.md](../../COMMERCIAL_OVERVIEW.md))
 
 ## Quick Access Reference
 
@@ -188,7 +188,7 @@ These are always visible in the dashboard header:
 | GitHub | `aragora/connectors/enterprise/git/github.py` | Ready |
 | SharePoint/Confluence | `aragora/connectors/enterprise/` | Ready |
 
-See [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) for complete enterprise documentation.
+See [ENTERPRISE_FEATURES.md](../../ENTERPRISE_FEATURES.md) for complete enterprise documentation.
 
 ---
 

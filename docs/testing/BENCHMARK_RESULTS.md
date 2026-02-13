@@ -182,6 +182,6 @@ Core operations profiled with `scripts/profile_hot_paths.py`:
 
 ## Related Documentation
 
-- [Performance Targets](./PERFORMANCE_TARGETS.md)
-- [API Rate Limits](./API_RATE_LIMITS.md)
-- [Monitoring](./OBSERVABILITY.md)
+- [Performance Targets](../observability/PERFORMANCE_TARGETS.md)
+- [API Rate Limits](../api/API_RATE_LIMITS.md)
+- [Monitoring](../observability/OBSERVABILITY.md)

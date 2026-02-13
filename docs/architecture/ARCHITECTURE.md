@@ -519,7 +519,7 @@ Full Model Context Protocol implementation with 8 tools and 4 resource templates
 | `consensus://{id}` | Formal verification proofs |
 | `trending://topics` | Pulse trending topics |
 
-See [MCP_INTEGRATION.md](./MCP_INTEGRATION.md) for details.
+See [MCP_INTEGRATION.md](../integrations/MCP_INTEGRATION.md) for details.
 
 ### Nomic Loop Hardening
 
@@ -563,19 +563,19 @@ Phase 7: Feedback
     └─→ ELO updates, persona refinement, memory persistence
 ```
 
-Each phase is implemented as a separate class with an `async execute(ctx)` method. See [ADR-001](./ADR/001-phase-based-debate-execution.md) for details.
+Each phase is implemented as a separate class with an `async execute(ctx)` method. See [ADR-001](../ADR/001-phase-based-debate-execution.md) for details.
 
 ## Architecture Decision Records
 
-Key architectural decisions are documented in the [ADR directory](./ADR/README.md):
+Key architectural decisions are documented in the [ADR directory](../ADR/README.md):
 
 | ADR | Decision |
 |-----|----------|
-| [001](./ADR/001-phase-based-debate-execution.md) | Phase-based debate execution |
-| [002](./ADR/002-agent-fallback-openrouter.md) | Agent fallback via OpenRouter |
-| [003](./ADR/003-multi-tier-memory-system.md) | Multi-tier memory system |
-| [004](./ADR/004-incremental-type-safety.md) | Incremental type safety migration |
-| [005](./ADR/005-composition-over-inheritance.md) | Composition over inheritance for APIs |
+| [001](../ADR/001-phase-based-debate-execution.md) | Phase-based debate execution |
+| [002](../ADR/002-agent-fallback-openrouter.md) | Agent fallback via OpenRouter |
+| [003](../ADR/003-multi-tier-memory-system.md) | Multi-tier memory system |
+| [004](../ADR/004-incremental-type-safety.md) | Incremental type safety migration |
+| [005](../ADR/005-composition-over-inheritance.md) | Composition over inheritance for APIs |
 
 ## Debate Phase Flow (Mermaid)
 

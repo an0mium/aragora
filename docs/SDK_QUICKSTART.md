@@ -264,8 +264,8 @@ aragora repl
 |------|-------|
 | Full SDK reference | [SDK Guide](SDK_GUIDE.md) |
 | REST API docs | [API Reference](api/API_REFERENCE.md) |
-| Gauntlet (adversarial validation) | [Gauntlet Guide](GAUNTLET.md) |
-| Streaming events (WebSocket) | [WebSocket Events](WEBSOCKET_EVENTS.md) |
+| Gauntlet (adversarial validation) | [Gauntlet Guide](./debate/GAUNTLET.md) |
+| Streaming events (WebSocket) | [WebSocket Events](./streaming/WEBSOCKET_EVENTS.md) |
 | Self-host with Docker | `deploy/docker-compose.yml` |
 | EU AI Act compliance | [EU AI Act Guide](compliance/EU_AI_ACT_GUIDE.md) |
 | Run the quickstart example | `python examples/quickstart/basic_debate.py` |

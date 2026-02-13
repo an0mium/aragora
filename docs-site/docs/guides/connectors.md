@@ -3,18 +3,13 @@ title: Data Connectors Reference
 description: Data Connectors Reference
 ---
 
-:::tip
-Looking for the full inventory? See the [Connector Catalog](./connector-catalog).
-:::
-
-
 # Data Connectors Reference
 
 Aragora is the **control plane for multi-agent vetted decisionmaking across organizational knowledge and channels**. It is **omnivorous by design**—ingesting information from many sources to fuel multi-agent decision making. Evidence connectors ground debates in real-world data from external sources.
 
 **Input Sources**: Documents, APIs, databases, web searches, academic papers, news, social media, financial filings, and more.
 
-**Authoritative inventory:** `docs/connectors/CONNECTOR_REGISTRY.json` (regenerate via `python scripts/update_connector_registry.py`).
+**Authoritative inventory:** `docs/connectors/CONNECTOR_REGISTRY.json` (regenerate via `python scripts/update_connector_registry.py`).  
 **Readable catalog:** `docs/connectors/CONNECTOR_CATALOG.md` (generated from the registry).
 
 > **Full documentation**: See [Evidence System Guide](./evidence) for detailed usage examples.

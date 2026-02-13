@@ -671,6 +671,6 @@ async def sync(self, workspace_id: str, since: datetime | None = None):
 
 ## See Also
 
-- [PLUGIN_DEVELOPMENT.md](./PLUGIN_DEVELOPMENT.md) - Building Aragora plugins
-- [aragora/knowledge/mound/](../aragora/knowledge/mound/) - Knowledge Mound source
-- [tests/knowledge/mound/](../tests/knowledge/mound/) - Adapter test examples
+- [PLUGIN_DEVELOPMENT.md](../integrations/PLUGIN_DEVELOPMENT.md) - Building Aragora plugins
+- [aragora/knowledge/mound/](../../aragora/knowledge/mound/) - Knowledge Mound source
+- [tests/knowledge/mound/](../../tests/knowledge/mound/) - Adapter test examples
