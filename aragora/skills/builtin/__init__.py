@@ -12,6 +12,7 @@ These skills provide core functionality:
 - fact_check: Verify claims against knowledge base
 - file_analysis: Analyze file contents
 - translation: Translate text between languages
+- pr_reviewer: Autonomous PR code review via multi-agent debate
 """
 
 from ..base import Skill
@@ -94,6 +95,13 @@ def register_skills() -> list[Skill]:
         from .translation import TranslationSkill
 
         skills.append(TranslationSkill())
+    except ImportError:
+        pass
+
+    try:
+        from .pr_reviewer import PRReviewerSkill
+
+        skills.append(PRReviewerSkill())
     except ImportError:
         pass
 
