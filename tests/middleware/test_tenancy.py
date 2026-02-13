@@ -321,7 +321,7 @@ class TestWorkspaceManager:
     @pytest.mark.asyncio
     async def test_get_workspace_handles_storage_error(self, mock_storage):
         """get_workspace handles storage errors gracefully."""
-        mock_storage.get_workspace.side_effect = Exception("Database error")
+        mock_storage.get_workspace.side_effect = RuntimeError("Database error")
 
         manager = WorkspaceManager(storage=mock_storage)
         result = await manager.get_workspace("ws-error")
@@ -1013,7 +1013,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_storage_error_in_save_workspace(self, mock_storage):
         """create_default_workspace handles storage save errors."""
-        mock_storage.save_workspace.side_effect = Exception("Write error")
+        mock_storage.save_workspace.side_effect = RuntimeError("Write error")
 
         user = User(id="user-save-error", email="error@example.com", plan="free")
 
@@ -1028,7 +1028,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_storage_error_in_get_usage(self, mock_storage):
         """get_usage returns defaults on storage error."""
-        mock_storage.get_workspace_usage.side_effect = Exception("Query failed")
+        mock_storage.get_workspace_usage.side_effect = RuntimeError("Query failed")
 
         manager = WorkspaceManager(storage=mock_storage)
         usage = await manager.get_usage("ws-error")

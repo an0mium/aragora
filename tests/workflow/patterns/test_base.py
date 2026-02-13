@@ -95,8 +95,8 @@ class TestPatternType:
         assert PatternType.CUSTOM.value == "custom"
 
     def test_total_member_count(self):
-        """PatternType has exactly 8 members."""
-        assert len(PatternType) == 8
+        """PatternType has exactly 9 members."""
+        assert len(PatternType) == 9
 
     def test_all_values_are_strings(self):
         """All PatternType values are strings."""

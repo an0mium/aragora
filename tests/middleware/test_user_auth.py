@@ -442,6 +442,7 @@ class TestSupabaseAuthValidator:
                     "secret",
                     algorithms=["HS256"],
                     audience="authenticated",
+                    issuer=None,
                 )
 
     def test_validate_jwt_caching(self, sample_jwt_payload):
@@ -569,12 +570,15 @@ class TestSupabaseAuthValidator:
                 assert user is None
 
     def test_validate_jwt_development_fallback(self, sample_jwt_payload):
-        """Should use unsafe decode in development without PyJWT."""
+        """Should use unsafe decode in development without PyJWT when explicitly opted in."""
         validator = SupabaseAuthValidator(jwt_secret=None)
         token = create_unsigned_jwt(sample_jwt_payload)
 
         with patch("aragora.server.middleware.user_auth.HAS_JWT", False):
-            with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
+            with patch.dict("os.environ", {
+                "ARAGORA_ENVIRONMENT": "development",
+                "ARAGORA_ALLOW_INSECURE_JWT": "1",
+            }):
                 user = validator.validate_jwt(token)
 
                 assert user is not None
@@ -1443,7 +1447,7 @@ class TestEdgeCases:
                         validator.validate_jwt("test-token")
 
     def test_system_error_in_development(self):
-        """Should return None for system errors in development."""
+        """Should re-raise system errors even in development (fail closed)."""
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.user_auth.HAS_JWT", True):
@@ -1451,8 +1455,8 @@ class TestEdgeCases:
                 mock_jwt.decode.side_effect = RuntimeError("System error")
 
                 with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
-                    user = validator.validate_jwt("test-token")
-                    assert user is None
+                    with pytest.raises(RuntimeError):
+                        validator.validate_jwt("test-token")
 
     def test_type_error_in_jwt_validation(self):
         """Should handle TypeError in JWT validation."""
