@@ -131,14 +131,16 @@ sdk/typescript/
 └── tests/
 ```
 
-### Python SDK (`aragora-py/`)
+### Python SDK (`sdk/python/`)
+
+> Note: The legacy `aragora-py/` directory was removed in February 2026. The canonical Python SDK is now `sdk/python/`.
 
 ```
-aragora-py/
-├── aragora_client/
+sdk/python/
+├── aragora_sdk/
 │   ├── client.py           # Main client
 │   ├── namespaces/         # Namespaced API surface
-│   ├── models/             # Pydantic models
+│   ├── generated_types.py  # Auto-generated Pydantic models
 ├── examples/
 └── tests/
 ```
@@ -160,7 +162,7 @@ python scripts/generate_sdk.py --spec api/openapi.yaml --output sdk/
 
 # Outputs:
 # - sdk/typescript/src/types/generated.ts
-# - aragora-py/aragora_client/models/generated.py
+# - sdk/python/aragora_sdk/generated_types.py
 # - sdk/*/tests/test_*.py (stubs)
 ```
 
@@ -220,7 +222,7 @@ Update this document as endpoints are implemented:
 - **SDK Guide:** `docs/SDK_GUIDE.md`
 - **OpenAPI Spec:** `api/openapi.yaml`
 - **TypeScript SDK:** `sdk/typescript/`
-- **Python SDK:** `aragora-py/`
+- **Python SDK:** `sdk/python/`
 
 ## Issue Tracking
 
