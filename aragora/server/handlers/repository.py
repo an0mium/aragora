@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import TYPE_CHECKING, Any
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
@@ -38,6 +39,37 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+def _validate_repo_path(repo_path: str) -> tuple[str | None, str | None]:
+    """Validate repo_path to prevent path traversal attacks.
+
+    Resolves the path (including symlinks and '..'). If ARAGORA_SCAN_ROOT is
+    configured, the resolved path must remain within that boundary.
+
+    Returns:
+        (resolved_path, None) on success, or (None, error_message) on failure.
+    """
+    if not repo_path or not repo_path.strip():
+        return None, "repo_path is required"
+
+    if "\x00" in repo_path:
+        return None, "repo_path contains invalid null byte"
+
+    allowed_root_env = os.environ.get("ARAGORA_SCAN_ROOT", "").strip()
+    resolved = os.path.realpath(repo_path)
+
+    if allowed_root_env:
+        allowed_root = os.path.realpath(allowed_root_env)
+        # Ensure the resolved path is within the allowed root directory.
+        # The trailing os.sep prevents "/allowed_root_extra" matching "/allowed_root".
+        # Special-case the filesystem root since root + os.sep would be "//".
+        if allowed_root == os.sep:
+            pass  # All absolute paths are under the root
+        elif not (resolved == allowed_root or resolved.startswith(allowed_root + os.sep)):
+            return None, "repo_path must be within the allowed workspace directory"
+
+    return resolved, None
+
 
 # Module-level cache for orchestrator instance
 _orchestrator_instance: Any | None = None
@@ -233,6 +265,12 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         if not repo_path:
             return error_response("repo_path is required", 400)
 
+        # Validate repo_path to prevent path traversal
+        validated_path, path_error = _validate_repo_path(repo_path)
+        if path_error:
+            return error_response(path_error, 400)
+        repo_path = validated_path
+
         # Optional crawl config
         crawl_config = None
         if "crawl_config" in body:
@@ -283,6 +321,12 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         if not repo_path:
             return error_response("repo_path is required", 400)
 
+        # Validate repo_path to prevent path traversal
+        validated_path, path_error = _validate_repo_path(repo_path)
+        if path_error:
+            return error_response(path_error, 400)
+        repo_path = validated_path
+
         try:
             result = await orchestrator.incremental_update(
                 repo_path=repo_path,
@@ -316,8 +360,17 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
             repo_configs = []
             for repo in repos:
+                repo_path = repo.get("path")
+                if repo_path:
+                    validated_path, path_error = _validate_repo_path(repo_path)
+                    if path_error:
+                        return error_response(
+                            f"Invalid path in batch: {path_error}", 400
+                        )
+                    repo_path = validated_path
+
                 config = RepoConfig(
-                    path=repo.get("path"),
+                    path=repo_path,
                     workspace_id=repo.get("workspace_id", "default"),
                     name=repo.get("name"),
                     priority=repo.get("priority", 0),

@@ -527,8 +527,17 @@ class OIDCProvider(SSOProvider):
         if not code:
             raise SSOAuthenticationError("No authorization code provided")
 
+        # SECURITY: State parameter is REQUIRED to prevent CSRF attacks.
+        # An attacker could trick a victim into completing an OAuth flow
+        # initiated by the attacker if state validation is skipped.
+        if not state:
+            raise SSOAuthenticationError(
+                "Missing state parameter - state is required to prevent CSRF attacks",
+                {"code": "MISSING_STATE"},
+            )
+
         # Validate state
-        if state and not self.validate_state(state):
+        if not self.validate_state(state):
             raise SSOAuthenticationError(
                 "Invalid or expired state parameter", {"code": "INVALID_STATE"}
             )

@@ -192,6 +192,14 @@ def dispatch_webhook(
     # Import here to avoid circular dependency
     from aragora.server.handlers.webhooks import generate_signature
 
+    # SSRF protection: validate webhook URL before making outbound request
+    from aragora.security.ssrf_protection import validate_url
+
+    url_check = validate_url(webhook.url)
+    if not url_check.is_safe:
+        logger.warning(f"SSRF blocked for webhook {webhook.id}: {url_check.error}")
+        return False, 0, f"URL validation failed: {url_check.error}"
+
     try:
         # Serialize payload
         payload_json = json.dumps(payload, default=str)

@@ -12,6 +12,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -69,6 +70,36 @@ async def _check_permission(request: web.Request, permission: str) -> web.Respon
             {"success": False, "error": "Authentication required"},
             status=401,
         )
+
+
+def _validate_repo_path(repo_path: str) -> tuple[str | None, str | None]:
+    """Validate repo_path to prevent path traversal attacks.
+
+    Resolves the path (including symlinks and '..'). If ARAGORA_SCAN_ROOT is
+    configured, the resolved path must remain within that boundary.
+
+    Returns:
+        (resolved_path, None) on success, or (None, error_message) on failure.
+    """
+    if not repo_path or not repo_path.strip():
+        return None, "repo_path is required"
+
+    if "\x00" in repo_path:
+        return None, "repo_path contains invalid null byte"
+
+    allowed_root_env = os.environ.get("ARAGORA_SCAN_ROOT", "").strip()
+    resolved = os.path.realpath(repo_path)
+
+    if allowed_root_env:
+        allowed_root = os.path.realpath(allowed_root_env)
+        # The trailing os.sep prevents "/allowed_root_extra" matching "/allowed_root".
+        # Special-case the filesystem root since root + os.sep would be "//".
+        if allowed_root == os.sep:
+            pass  # All absolute paths are under the root
+        elif not (resolved == allowed_root or resolved.startswith(allowed_root + os.sep)):
+            return None, "repo_path must be within the allowed workspace directory"
+
+    return resolved, None
 
 
 # In-memory storage for scan results
@@ -337,12 +368,20 @@ class QuickScanHandler:
                     status=400,
                 )
 
+            # Validate repo_path to prevent path traversal
+            validated_path, path_error = _validate_repo_path(repo_path)
+            if path_error:
+                return web.json_response(
+                    {"success": False, "error": path_error},
+                    status=400,
+                )
+
             severity = body.get("severity_threshold", "medium")
             include_secrets = body.get("include_secrets", True)
 
             # Run scan asynchronously
             result = await run_quick_scan(
-                repo_path=repo_path,
+                repo_path=validated_path,
                 severity_threshold=severity,
                 include_secrets=include_secrets,
             )

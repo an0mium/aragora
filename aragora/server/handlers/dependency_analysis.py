@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -110,14 +111,31 @@ _analysis_cache_lock = threading.Lock()
 
 
 def _validate_repo_path(raw_path: str) -> tuple[Path | None, HandlerResult | None]:
-    """Validate repo path and block traversal attempts."""
+    """Validate repo path and block traversal attempts.
+
+    Resolves the path (including symlinks and '..'). If ARAGORA_SCAN_ROOT is
+    configured, the resolved path must remain within that boundary.
+    """
     if not raw_path:
         return None, error_response("repo_path is required", status=400)
 
-    path = Path(raw_path)
-    if ".." in path.parts:
-        return None, error_response("Invalid repo_path: path traversal is not allowed", status=400)
+    if "\x00" in raw_path:
+        return None, error_response("repo_path contains invalid null byte", status=400)
 
+    allowed_root_env = os.environ.get("ARAGORA_SCAN_ROOT", "").strip()
+    resolved = os.path.realpath(raw_path)
+
+    if allowed_root_env:
+        allowed_root = os.path.realpath(allowed_root_env)
+        # Special-case the filesystem root since root + os.sep would be "//".
+        if allowed_root == os.sep:
+            pass  # All absolute paths are under the root
+        elif not (resolved == allowed_root or resolved.startswith(allowed_root + os.sep)):
+            return None, error_response(
+                "repo_path must be within the allowed workspace directory", status=400
+            )
+
+    path = Path(resolved)
     if not path.exists():
         return None, error_response(f"Path does not exist: {path}", status=404)
 

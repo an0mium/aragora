@@ -905,11 +905,20 @@ class RBACMiddleware:
 
             return decision.allowed, decision.reason, rule.permission_key
 
-        # No matching rule - apply default policy
-        if self.config.default_authenticated and context is None:
+        # No matching rule - default deny
+        # SECURITY: Unmatched routes are denied by default to prevent
+        # unauthorized access to endpoints not explicitly listed in the
+        # route permission rules. This is a fail-closed policy.
+        if context is None:
             return False, "Authentication required", None
 
-        return True, "No permission rule matched", None
+        logger.warning(
+            "RBAC default-deny: no permission rule matched for %s %s "
+            "(authenticated user denied access)",
+            method,
+            path,
+        )
+        return False, "Access denied: no permission rule matched (default-deny policy)", None
 
     def add_route_permission(self, rule: RoutePermission) -> None:
         """Add a route permission rule."""

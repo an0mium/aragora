@@ -458,6 +458,20 @@ async def _deliver_via_webhook(
     try:
         import aiohttp
 
+        from aragora.security.ssrf_protection import validate_url
+
+        # SSRF protection: validate webhook URL before making outbound request
+        url_check = validate_url(webhook_url)
+        if not url_check.is_safe:
+            logger.warning(f"SSRF blocked for receipt webhook: {url_check.error}")
+            return ReceiptDeliveryResult(
+                success=False,
+                channel="webhook",
+                recipient=webhook_url,
+                receipt_id=receipt.receipt_id,
+                error=f"URL validation failed: {url_check.error}",
+            )
+
         # Build payload
         if config.webhook_include_full_receipt:
             payload = receipt.to_dict()

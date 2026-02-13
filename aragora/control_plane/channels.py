@@ -289,6 +289,7 @@ class SlackProvider(ChannelProvider):
         """Send notification to Slack."""
         try:
             from aragora.server.http_client_pool import get_http_pool
+            from aragora.security.ssrf_protection import validate_url
 
             payload = self.format_message(message)
 
@@ -308,6 +309,15 @@ class SlackProvider(ChannelProvider):
                     success=False,
                     channel=NotificationChannel.SLACK,
                     error="No Slack webhook URL or bot token configured",
+                )
+
+            # SSRF protection: validate URL before making outbound request
+            url_check = validate_url(url)
+            if not url_check.is_safe:
+                return NotificationResult(
+                    success=False,
+                    channel=NotificationChannel.SLACK,
+                    error=f"SSRF blocked: {url_check.error}",
                 )
 
             pool = get_http_pool()
@@ -410,12 +420,22 @@ class TeamsProvider(ChannelProvider):
         """Send notification to Microsoft Teams."""
         try:
             from aragora.server.http_client_pool import get_http_pool
+            from aragora.security.ssrf_protection import validate_url
 
             if not config.teams_webhook_url:
                 return NotificationResult(
                     success=False,
                     channel=NotificationChannel.TEAMS,
                     error="No Teams webhook URL configured",
+                )
+
+            # SSRF protection: validate URL before making outbound request
+            url_check = validate_url(config.teams_webhook_url)
+            if not url_check.is_safe:
+                return NotificationResult(
+                    success=False,
+                    channel=NotificationChannel.TEAMS,
+                    error=f"SSRF blocked: {url_check.error}",
                 )
 
             payload = self.format_message(message)
@@ -519,12 +539,22 @@ class WebhookProvider(ChannelProvider):
         """Send notification to a webhook endpoint."""
         try:
             from aragora.server.http_client_pool import get_http_pool
+            from aragora.security.ssrf_protection import validate_url
 
             if not config.webhook_url:
                 return NotificationResult(
                     success=False,
                     channel=NotificationChannel.WEBHOOK,
                     error="No webhook URL configured",
+                )
+
+            # SSRF protection: validate URL before making outbound request
+            url_check = validate_url(config.webhook_url)
+            if not url_check.is_safe:
+                return NotificationResult(
+                    success=False,
+                    channel=NotificationChannel.WEBHOOK,
+                    error=f"SSRF blocked: {url_check.error}",
                 )
 
             payload = self.format_message(message)

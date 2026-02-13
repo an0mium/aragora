@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import html as html_module
 import json
 import logging
 import smtplib
@@ -227,6 +228,14 @@ class SlackProvider(NotificationProvider):
         import aiohttp
 
         from aragora.http_client import WEBHOOK_TIMEOUT
+        from aragora.security.ssrf_protection import validate_url
+
+        # SSRF protection: validate webhook URL before making outbound request
+        url_check = validate_url(self.config.webhook_url)
+        if not url_check.is_safe:
+            raise SlackNotificationError(
+                f"SSRF blocked: {url_check.error}",
+            )
 
         # Add channel to message
         if channel.startswith("#") or channel.startswith("@"):
@@ -382,17 +391,25 @@ class EmailProvider(NotificationProvider):
         }
         color = colors.get(notification.severity, "#9E9E9E")
 
+        safe_title = html_module.escape(notification.title)
+        safe_message = html_module.escape(notification.message)
+
         action_html = ""
         if notification.action_url:
+            safe_action_url = html_module.escape(notification.action_url)
+            safe_action_label = html_module.escape(notification.action_label or "View Details")
             action_html = f"""
             <p style="margin-top: 20px;">
-                <a href="{notification.action_url}"
+                <a href="{safe_action_url}"
                    style="background-color: {color}; color: white; padding: 10px 20px;
                           text-decoration: none; border-radius: 4px;">
-                    {notification.action_label or "View Details"}
+                    {safe_action_label}
                 </a>
             </p>
             """
+
+        safe_resource_type = html_module.escape(notification.resource_type or "")
+        safe_resource_id = html_module.escape(notification.resource_id or "")
 
         return f"""
         <!DOCTYPE html>
@@ -411,15 +428,15 @@ class EmailProvider(NotificationProvider):
         <body>
             <div class="container">
                 <div class="header">
-                    <h2 style="margin: 0;">{notification.title}</h2>
+                    <h2 style="margin: 0;">{safe_title}</h2>
                 </div>
                 <div class="content">
-                    <p>{notification.message}</p>
+                    <p>{safe_message}</p>
                     {action_html}
                     <div class="meta">
                         <p>Severity: {notification.severity.upper()}</p>
                         {
-            f"<p>Resource: {notification.resource_type}/{notification.resource_id}</p>"
+            f"<p>Resource: {safe_resource_type}/{safe_resource_id}</p>"
             if notification.resource_type
             else ""
         }
@@ -502,6 +519,17 @@ class WebhookProvider(NotificationProvider):
 
         try:
             import aiohttp
+
+            from aragora.security.ssrf_protection import validate_url
+
+            # SSRF protection: validate endpoint URL before making outbound request
+            url_check = validate_url(endpoint.url)
+            if not url_check.is_safe:
+                raise WebhookDeliveryError(
+                    webhook_url=endpoint.url,
+                    status_code=0,
+                    message=f"SSRF blocked: {url_check.error}",
+                )
 
             payload = notification.to_dict()
             body = json.dumps(payload)

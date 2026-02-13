@@ -67,6 +67,12 @@ def clean_cache():
         _analysis_cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _allow_any_repo_path(monkeypatch):
+    """Allow any repo_path in tests by setting a permissive scan root."""
+    monkeypatch.setenv("ARAGORA_SCAN_ROOT", "/")
+
+
 @pytest.fixture
 def mock_dependency_tree():
     """Create a mock dependency tree."""
@@ -1147,6 +1153,15 @@ class TestErrorHandling:
 
 class TestPathValidation:
     """Tests for path validation."""
+
+    @pytest.fixture(autouse=True)
+    def _restrict_repo_path(self, monkeypatch, tmp_path):
+        """Override the permissive scan root for path validation tests.
+
+        Uses a unique temporary directory so that paths like /etc/passwd
+        and ./relative/path are rejected.
+        """
+        monkeypatch.setenv("ARAGORA_SCAN_ROOT", str(tmp_path))
 
     @pytest.mark.asyncio
     async def test_path_traversal_protection(self, mock_auth_context):

@@ -75,6 +75,9 @@ BLOCKED_COMMANDS = [
     "exec ",
 ]
 
+# Shell metacharacters that indicate injection attempts
+_SHELL_METACHARACTERS = [";", "&&", "||", "|", "`", "$(", "${"]
+
 
 class DevOpsTask(str, Enum):
     """Tasks the DevOps agent can perform."""
@@ -159,12 +162,28 @@ class DevOpsAgent:
     # ── Command execution with policy enforcement ──────────────────
 
     def _validate_command(self, command: str) -> tuple[bool, str]:
-        """Check command against allowlist and blocklist."""
+        """Check command against allowlist and blocklist.
+
+        Validates the full command string, not just the prefix, to prevent
+        injection via shell metacharacters or embedded blocked commands.
+        """
         cmd = command.strip()
 
+        # Reject shell metacharacters anywhere in the command (defense-in-depth)
+        for meta in _SHELL_METACHARACTERS:
+            if meta in cmd:
+                return False, f"Command contains shell metacharacter: '{meta}'"
+
+        # Scan for blocked commands anywhere in the string, not just at the start
         for blocked in BLOCKED_COMMANDS:
-            if cmd.startswith(blocked):
-                return False, f"Command blocked: starts with '{blocked}'"
+            if blocked in cmd:
+                return False, f"Command contains blocked token: '{blocked.strip()}'"
+
+        # Validate the command parses cleanly with shlex (no unbalanced quotes, etc.)
+        try:
+            shlex.split(cmd)
+        except ValueError as e:
+            return False, f"Command has invalid shell quoting: {e}"
 
         for allowed in ALLOWED_COMMANDS:
             if cmd.startswith(allowed):
@@ -450,7 +469,7 @@ class DevOpsAgent:
 
         # Run tests
         ok, output = self._execute(
-            "python -m pytest tests/ -x -q --tb=short --timeout=120 2>&1 | tail -20",
+            "python -m pytest tests/ -x -q --tb=short --timeout=120",
             "run_tests",
         )
         result.details.append({"step": "tests", "success": ok, "output": output[:500] if output else ""})

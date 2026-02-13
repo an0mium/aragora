@@ -103,6 +103,12 @@ def clear_scan_results():
     _quick_scan_results.clear()
 
 
+@pytest.fixture(autouse=True)
+def _allow_any_repo_path(monkeypatch):
+    """Allow any repo_path in tests by setting a permissive scan root."""
+    monkeypatch.setenv("ARAGORA_SCAN_ROOT", "/")
+
+
 @pytest.fixture
 def handler():
     """Create a QuickScanHandler instance."""

@@ -240,6 +240,87 @@ class SICAConfig:
     on_cycle_complete: Callable[[ImprovementCycleResult], Awaitable[None]] | None = None
 
 
+# Allowed base commands for validation tools (must start with one of these)
+_ALLOWED_VALIDATION_COMMANDS = [
+    "pytest", "mypy", "ruff", "flake8", "pylint", "black", "isort",
+    "pyright", "pyre", "bandit", "safety", "vulture", "pyflakes",
+    "python -m pytest", "python -m mypy", "python -m ruff",
+    "python -m flake8", "python -m pylint", "python -m black",
+]
+
+
+def _validate_tool_command(command: str) -> list[str]:
+    """Validate and split a tool command against the allowlist.
+
+    Args:
+        command: The tool command string (e.g. "ruff check", "mypy --strict")
+
+    Returns:
+        The command split into a list of arguments.
+
+    Raises:
+        ValueError: If the command is not in the allowlist or contains
+            shell metacharacters.
+    """
+    # Reject shell metacharacters
+    for meta in [";", "&&", "||", "|", "`", "$(", "${"]:
+        if meta in command:
+            raise ValueError(
+                f"Tool command contains shell metacharacter: '{meta}'"
+            )
+
+    parts = shlex.split(command)
+    if not parts:
+        raise ValueError("Empty tool command")
+
+    # Check that the command starts with an allowed base command
+    matched = False
+    for allowed in _ALLOWED_VALIDATION_COMMANDS:
+        allowed_parts = shlex.split(allowed)
+        if parts[: len(allowed_parts)] == allowed_parts:
+            matched = True
+            break
+
+    if not matched:
+        raise ValueError(
+            f"Tool command '{parts[0]}' is not in the allowed validation commands"
+        )
+
+    return parts
+
+
+def _validate_file_path(file_path: str, repo_path: Path) -> str:
+    """Validate a file path is safe and within the repository.
+
+    Args:
+        file_path: Relative file path to validate.
+        repo_path: The repository root path.
+
+    Returns:
+        The validated file path.
+
+    Raises:
+        ValueError: If the path is unsafe (traversal, absolute, etc.).
+    """
+    # Reject null bytes
+    if "\x00" in file_path:
+        raise ValueError("File path contains null byte")
+
+    # Reject absolute paths
+    if Path(file_path).is_absolute():
+        raise ValueError(f"File path must be relative, got: {file_path}")
+
+    # Resolve and ensure it stays within repo_path
+    resolved = (repo_path / file_path).resolve()
+    repo_resolved = repo_path.resolve()
+    if not str(resolved).startswith(str(repo_resolved) + "/") and resolved != repo_resolved:
+        raise ValueError(
+            f"File path escapes repository root: {file_path}"
+        )
+
+    return file_path
+
+
 class SICAImprover:
     """Self-Improving Code Assistant.
 
@@ -976,8 +1057,10 @@ Preserve all existing functionality while fixing the issue."""
     async def _run_lint(self, file_path: str) -> tuple[bool, str]:
         """Run linter on file."""
         try:
+            validated_path = _validate_file_path(file_path, self.repo_path)
+            cmd_parts = _validate_tool_command(self.config.lint_command)
             result = subprocess.run(
-                [*shlex.split(self.config.lint_command), file_path],
+                [*cmd_parts, validated_path],
                 shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
@@ -985,14 +1068,18 @@ Preserve all existing functionality while fixing the issue."""
                 timeout=60,
             )
             return result.returncode == 0, result.stdout + result.stderr
+        except ValueError as e:
+            return False, f"Validation error: {e}"
         except Exception as e:
             return False, str(e)
 
     async def _run_typecheck(self, file_path: str) -> tuple[bool, str]:
         """Run type checker on file."""
         try:
+            validated_path = _validate_file_path(file_path, self.repo_path)
+            cmd_parts = _validate_tool_command(self.config.typecheck_command)
             result = subprocess.run(
-                [*shlex.split(self.config.typecheck_command), file_path],
+                [*cmd_parts, validated_path],
                 shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
@@ -1000,6 +1087,8 @@ Preserve all existing functionality while fixing the issue."""
                 timeout=120,
             )
             return result.returncode == 0, result.stdout + result.stderr
+        except ValueError as e:
+            return False, f"Validation error: {e}"
         except Exception as e:
             return False, str(e)
 
@@ -1012,8 +1101,9 @@ Preserve all existing functionality while fixing the issue."""
             test_file = f"tests/test_{test_file}.py"
 
         try:
+            cmd_parts = _validate_tool_command(self.config.test_command)
             result = subprocess.run(
-                [*shlex.split(self.config.test_command), "-x", "-q"],
+                [*cmd_parts, "-x", "-q"],
                 shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
@@ -1021,14 +1111,17 @@ Preserve all existing functionality while fixing the issue."""
                 timeout=self.config.validation_timeout_seconds,
             )
             return result.returncode == 0, result.stdout + result.stderr
+        except ValueError as e:
+            return False, f"Validation error: {e}"
         except Exception as e:
             return False, str(e)
 
     async def _run_tests(self) -> bool:
         """Run full test suite."""
         try:
+            cmd_parts = _validate_tool_command(self.config.test_command)
             result = subprocess.run(
-                [*shlex.split(self.config.test_command), "-x", "-q"],
+                [*cmd_parts, "-x", "-q"],
                 shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
@@ -1036,6 +1129,9 @@ Preserve all existing functionality while fixing the issue."""
                 timeout=self.config.validation_timeout_seconds,
             )
             return result.returncode == 0
+        except ValueError:
+            logger.warning("Tool command validation failed", exc_info=True)
+            return False
         except Exception:
             logger.warning("Test suite execution failed", exc_info=True)
             return False

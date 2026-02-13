@@ -14,6 +14,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
@@ -193,6 +194,9 @@ class BillingNotifier:
                 "We were unable to process your payment. Please update your payment information."
             )
 
+        safe_org_name = html.escape(org_name)
+        safe_invoice_url = html.escape(invoice_url) if invoice_url else None
+
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -212,11 +216,11 @@ class BillingNotifier:
         <div class="header">[ARAGORA BILLING]</div>
         <div class="urgency">{urgency}: Payment Failed</div>
         <div class="message">
-            <p>Hi {org_name},</p>
+            <p>Hi {safe_org_name},</p>
             <p>{urgency_message}</p>
-            <p><strong>Organization:</strong> {org_name}</p>
+            <p><strong>Organization:</strong> {safe_org_name}</p>
             <p><strong>Attempt:</strong> {attempt_count} of 3</p>
-            {'<p><a href="' + invoice_url + '" class="button">UPDATE PAYMENT</a></p>' if invoice_url else ""}
+            {'<p><a href="' + safe_invoice_url + '" class="button">UPDATE PAYMENT</a></p>' if safe_invoice_url else ""}
         </div>
         <div class="footer">
             <p>If you believe this is an error, please contact support@aragora.ai</p>
@@ -304,6 +308,8 @@ If you believe this is an error, please contact support@aragora.ai
             subject = f"[Aragora] {days_remaining} Days Left in Your Trial"
             urgency = "INFO"
 
+        safe_org_name = html.escape(org_name)
+
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -323,7 +329,7 @@ If you believe this is an error, please contact support@aragora.ai
         <div class="header">[ARAGORA TRIAL]</div>
         <div class="highlight">{days_remaining} Days Remaining</div>
         <div class="message">
-            <p>Hi {org_name},</p>
+            <p>Hi {safe_org_name},</p>
             <p>Your Aragora trial will end on {trial_end.strftime("%B %d, %Y")}.</p>
             <p>Upgrade now to keep access to:</p>
             <ul>
@@ -414,6 +420,8 @@ Questions? Contact us at support@aragora.ai
         """
         subject = "[Aragora] Subscription Canceled - We're Sorry to See You Go"
 
+        safe_org_name = html.escape(org_name)
+
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -431,7 +439,7 @@ Questions? Contact us at support@aragora.ai
     <div class="container">
         <div class="header">[ARAGORA]</div>
         <div class="message">
-            <p>Hi {org_name},</p>
+            <p>Hi {safe_org_name},</p>
             <p>Your Aragora subscription has been canceled.</p>
             <p>Your access will continue until the end of your current billing period.</p>
             <p>Changed your mind? You can reactivate anytime:</p>
@@ -510,6 +518,9 @@ We'd love to hear your feedback. What could we have done better?
         """
         subject = "[Aragora] Your Subscription Has Been Downgraded"
 
+        safe_org_name = html.escape(org_name)
+        safe_invoice_url = html.escape(invoice_url) if invoice_url else None
+
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -527,7 +538,7 @@ We'd love to hear your feedback. What could we have done better?
     <div class="container">
         <div class="header">[ARAGORA BILLING]</div>
         <div class="message">
-            <p>Hi {org_name},</p>
+            <p>Hi {safe_org_name},</p>
             <p>Due to unresolved payment issues, your Aragora subscription has been downgraded from <strong>{previous_tier.value.upper()}</strong> to <strong>FREE</strong>.</p>
             <p>Your access to premium features has been suspended. To restore your subscription:</p>
             <ol>
@@ -535,7 +546,7 @@ We'd love to hear your feedback. What could we have done better?
                 <li>Pay any outstanding invoices</li>
                 <li>Upgrade your plan</li>
             </ol>
-            {'<p><a href="' + invoice_url + '" class="button">PAY NOW</a></p>' if invoice_url else '<p><a href="https://aragora.ai/billing" class="button">UPDATE PAYMENT</a></p>'}
+            {'<p><a href="' + safe_invoice_url + '" class="button">PAY NOW</a></p>' if safe_invoice_url else '<p><a href="https://aragora.ai/billing" class="button">UPDATE PAYMENT</a></p>'}
         </div>
         <div class="footer">
             <p>Need help? Contact support@aragora.ai</p>
@@ -617,7 +628,7 @@ Need help? Contact support@aragora.ai
         Returns:
             NotificationResult indicating success/failure
         """
-        display_name = org_name or tenant_id
+        display_name = html.escape(org_name or tenant_id)
 
         # Customize messaging based on alert level
         level_config = {
@@ -771,6 +782,9 @@ You can adjust your budget alerts in your billing settings.
         days_until = (projected_date - datetime.now(timezone.utc)).days
         overage_amount = projected_amount - budget_limit
 
+        safe_org_name = html.escape(org_name)
+        safe_budget_name = html.escape(budget_name)
+
         subject = f"⚠️ Aragora Budget Forecast: Will Exceed {budget_name} in {days_until} days"
 
         html_body = f"""
@@ -783,8 +797,8 @@ You can adjust your budget alerts in your billing settings.
             <div style="padding: 30px; background: #f9f9f9;">
                 <p>Hi,</p>
 
-                <p>Based on your current usage patterns, we project that <strong>{org_name}</strong>
-                will exceed the <strong>{budget_name}</strong> budget.</p>
+                <p>Based on your current usage patterns, we project that <strong>{safe_org_name}</strong>
+                will exceed the <strong>{safe_budget_name}</strong> budget.</p>
 
                 <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f39c12;">
                     <h3 style="margin-top: 0;">Forecast Details</h3>
@@ -911,6 +925,8 @@ View your billing dashboard: https://aragora.ai/dashboard/billing
         """
         expiring_usd = expiring_amount_cents / 100
 
+        safe_org_name = html.escape(org_name)
+
         subject = f"💰 Aragora Credits Expiring: ${expiring_usd:.2f} in {days_until} days"
 
         html_body = f"""
@@ -923,7 +939,7 @@ View your billing dashboard: https://aragora.ai/dashboard/billing
             <div style="padding: 30px; background: #f9f9f9;">
                 <p>Hi,</p>
 
-                <p>This is a reminder that <strong>{org_name}</strong> has credits that will expire soon.</p>
+                <p>This is a reminder that <strong>{safe_org_name}</strong> has credits that will expire soon.</p>
 
                 <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #9b59b6;">
                     <h3 style="margin-top: 0;">Credit Details</h3>

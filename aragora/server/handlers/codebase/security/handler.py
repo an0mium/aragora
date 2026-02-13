@@ -7,6 +7,7 @@ all security-related endpoints by delegating to submodule handlers.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -113,6 +114,37 @@ class SecurityHandler(BaseHandler):
             return error_response(err_msg or "Invalid repo ID", 400)
         return None
 
+    @staticmethod
+    def _validate_repo_path(repo_path: str) -> tuple[str | None, HandlerResult | None]:
+        """Validate repo_path to prevent path traversal attacks.
+
+        Resolves the path (including symlinks and '..'). If ARAGORA_SCAN_ROOT
+        is configured, the resolved path must remain within that boundary.
+
+        Returns:
+            (resolved_path, None) on success, or (None, error_response) on failure.
+        """
+        if not repo_path or not repo_path.strip():
+            return None, error_response("repo_path is required", 400)
+
+        if "\x00" in repo_path:
+            return None, error_response("repo_path contains invalid null byte", 400)
+
+        allowed_root_env = os.environ.get("ARAGORA_SCAN_ROOT", "").strip()
+        resolved = os.path.realpath(repo_path)
+
+        if allowed_root_env:
+            allowed_root = os.path.realpath(allowed_root_env)
+            # Special-case the filesystem root since root + os.sep would be "//".
+            if allowed_root == os.sep:
+                pass  # All absolute paths are under the root
+            elif not (resolved == allowed_root or resolved.startswith(allowed_root + os.sep)):
+                return None, error_response(
+                    "repo_path must be within the allowed workspace directory", 400
+                )
+
+        return resolved, None
+
     # =========================================================================
     # Vulnerability Scan Endpoints
     # =========================================================================
@@ -128,8 +160,12 @@ class SecurityHandler(BaseHandler):
         if not repo_path:
             return error_response("repo_path required", 400)
 
+        validated_path, path_err = self._validate_repo_path(repo_path)
+        if path_err:
+            return path_err
+
         return await handle_scan_repository(
-            repo_path=repo_path,
+            repo_path=validated_path,
             repo_id=repo_id,
             branch=data.get("branch"),
             commit_sha=data.get("commit_sha"),
@@ -210,8 +246,12 @@ class SecurityHandler(BaseHandler):
         if not repo_path:
             return error_response("repo_path required", 400)
 
+        validated_path, path_err = self._validate_repo_path(repo_path)
+        if path_err:
+            return path_err
+
         return await handle_scan_secrets(
-            repo_path=repo_path,
+            repo_path=validated_path,
             repo_id=repo_id,
             branch=data.get("branch"),
             include_history=data.get("include_history", False),
@@ -287,8 +327,15 @@ class SecurityHandler(BaseHandler):
         if err := self._validate_repo_id(repo_id):
             return err
 
+        raw_repo_path = params.get("repo_path", "")
+        if raw_repo_path:
+            validated_path, path_err = self._validate_repo_path(raw_repo_path)
+            if path_err:
+                return path_err
+            raw_repo_path = validated_path
+
         return await handle_scan_sast(
-            repo_path=params.get("repo_path", ""),
+            repo_path=raw_repo_path,
             repo_id=repo_id,
             rule_sets=params.get("rule_sets"),
             workspace_id=params.get("workspace_id"),
@@ -344,8 +391,12 @@ class SecurityHandler(BaseHandler):
         if not repo_path:
             return error_response("repo_path required", 400)
 
+        validated_path, path_err = self._validate_repo_path(repo_path)
+        if path_err:
+            return path_err
+
         return await handle_generate_sbom(
-            repo_path=repo_path,
+            repo_path=validated_path,
             repo_id=repo_id,
             format=data.get("format", "cyclonedx-json"),
             workspace_id=data.get("workspace_id"),
