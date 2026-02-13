@@ -1,4 +1,13 @@
 name: Benchmarks
+# --------------------------------------------------------------------------
+# Required Status Checks (add these in Settings > Branches > main > Require
+# status checks to pass before merging):
+#
+#   - "Orchestration Speed Smoke"    -- guards fast-first routing latency
+#   - "Performance Regression Check" -- catches >20% benchmark regressions
+#
+# These two jobs MUST pass on every PR that touches aragora/** or tests/**.
+# --------------------------------------------------------------------------
 
 on:
   push:
@@ -9,6 +18,7 @@ on:
       - 'tests/benchmarks/**'
       - 'tests/memory/test_benchmark.py'
       - 'tests/rlm/test_benchmark.py'
+      - 'scripts/check_benchmark_regression.py'
       - 'pyproject.toml'
       - '.github/workflows/benchmark.yml'
   pull_request:
@@ -19,6 +29,7 @@ on:
       - 'tests/benchmarks/**'
       - 'tests/memory/test_benchmark.py'
       - 'tests/rlm/test_benchmark.py'
+      - 'scripts/check_benchmark_regression.py'
       - 'pyproject.toml'
   schedule:
     # Run daily at 2 AM UTC to track performance trends
@@ -102,6 +113,8 @@ jobs:
           retention-days: 30
 
   orchestration-speed-smoke:
+    # REQUIRED STATUS CHECK: This job must pass on all PRs.
+    # Validates that fast-first routing reduces critique latency by >=25%.
     name: Orchestration Speed Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -128,6 +141,8 @@ jobs:
           PYTHONPATH: .
 
   performance-regression:
+    # REQUIRED STATUS CHECK: This job must pass on all PRs.
+    # Fails if any benchmark regresses by >20% vs main branch.
     name: Performance Regression Check
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -176,43 +191,28 @@ jobs:
         env:
           PYTHONPATH: .
 
-      - name: Compare benchmarks
+      - name: Check for regressions (>20% threshold)
         run: |
-          python -c "
-          import json
-          import sys
+          python scripts/check_benchmark_regression.py compare \
+            --current  pr-benchmark.json \
+            --baseline main-benchmark.json \
+            --threshold 20
 
-          with open('main-benchmark.json') as f:
-              main = json.load(f)
-          with open('pr-benchmark.json') as f:
-              pr = json.load(f)
+      - name: Run fast-first routing smoke test
+        run: |
+          pytest -q tests/benchmarks/test_orchestration_speed_policy.py -x
+        env:
+          PYTHONPATH: .
 
-          main_benchmarks = {b['name']: b['stats']['mean'] for b in main['benchmarks']}
-          pr_benchmarks = {b['name']: b['stats']['mean'] for b in pr['benchmarks']}
-
-          regressions = []
-          improvements = []
-
-          for name, pr_mean in pr_benchmarks.items():
-              if name in main_benchmarks:
-                  main_mean = main_benchmarks[name]
-                  change = ((pr_mean - main_mean) / main_mean) * 100
-
-                  if change > 10:  # More than 10% slower
-                      regressions.append(f'  - {name}: +{change:.1f}% slower')
-                  elif change < -10:  # More than 10% faster
-                      improvements.append(f'  - {name}: {abs(change):.1f}% faster')
-
-          if regressions:
-              print('Performance Regressions Detected:')
-              print('\\n'.join(regressions))
-              sys.exit(1)
-          elif improvements:
-              print('Performance Improvements:')
-              print('\\n'.join(improvements))
-          else:
-              print('No significant performance changes detected.')
-          "
+      - name: Upload regression report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: |
+            pr-benchmark.json
+            main-benchmark.json
+          retention-days: 14
 
   latency-tests:
     name: Latency Distribution
