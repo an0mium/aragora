@@ -398,8 +398,41 @@ def _add_patterns_parser(subparsers) -> None:
 
 def _add_demo_parser(subparsers) -> None:
     """Add the 'demo' subcommand parser."""
-    demo_parser = subparsers.add_parser("demo", help="Run a quick demo debate")
-    demo_parser.add_argument("name", nargs="?", help="Demo name (rate-limiter, auth, cache)")
+    demo_parser = subparsers.add_parser(
+        "demo",
+        help="Run a self-contained adversarial debate demo (no API keys needed)",
+        description="""
+Run a quick adversarial debate using mock agents -- no API keys required.
+Shows the full debate lifecycle: proposals, critiques, votes, and a decision receipt.
+
+Examples:
+  aragora demo                                         # Default microservices debate
+  aragora demo rate-limiter                            # Named demo scenario
+  aragora demo --topic "Should we rewrite in Rust?"    # Custom topic
+  aragora demo --list                                  # Show available demos
+  aragora demo --server                                # Start offline web UI
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    demo_parser.add_argument(
+        "name", nargs="?",
+        help="Demo name (microservices, rate-limiter, auth, cache, kubernetes)",
+    )
+    demo_parser.add_argument(
+        "--topic", "-t",
+        help="Custom topic to debate (overrides named demo)",
+    )
+    demo_parser.add_argument(
+        "--list",
+        dest="list_demos",
+        action="store_true",
+        help="List available demo scenarios",
+    )
+    demo_parser.add_argument(
+        "--server",
+        action="store_true",
+        help="Start the server in offline demo mode and show web UI instructions",
+    )
     demo_parser.set_defaults(func=cmd_demo)
 
 
