@@ -86,7 +86,7 @@ class TestModels:
         )
         assert request.task == "Should we use microservices?"
         assert request.rounds == 5
-        assert request.consensus == ConsensusType.MAJORITY
+        assert request.consensus == ConsensusType.JUDGE
 
     def test_consensus_result_model(self):
         """Test ConsensusResult model."""

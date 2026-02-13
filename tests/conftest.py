@@ -1920,6 +1920,25 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset approval gate in-memory state to prevent cross-test pollution
+    # via the module-level _pending_approvals dict and _last_cleanup_time
+    try:
+        import aragora.server.middleware.approval_gate as _approval_gate
+
+        _approval_gate._pending_approvals.clear()
+        _approval_gate._last_cleanup_time = 0.0
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset store metrics _initialized flag to prevent Prometheus
+    # CollectorRegistry conflicts (ValueError: Duplicated timeseries)
+    try:
+        import aragora.observability.metrics.stores as _store_metrics
+
+        _store_metrics._initialized = False
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():
@@ -1950,10 +1969,38 @@ def reset_lazy_globals():
     - aragora.observability.otel (_initialized, _tracer_provider, _tracers)
     - aragora.events.dispatcher (_event_rate_limiter, _dispatcher)
     - aragora.audit.unified._unified_logger (UnifiedAuditLogger singleton)
+    - aragora.server.middleware.approval_gate (_pending_approvals, _last_cleanup_time)
+    - aragora.observability.metrics.stores (_initialized flag for Prometheus re-registration)
     """
     _reset_lazy_globals_impl()  # Reset BEFORE test
     yield
     _reset_lazy_globals_impl()  # Reset AFTER test
+
+
+@pytest.fixture(autouse=True)
+def _clear_config_legacy_cache():
+    """Clear any cached legacy constants from aragora.config globals.
+
+    The config package's ``__getattr__`` previously cached legacy names
+    (e.g. ``DEFAULT_CONSENSUS``) in ``globals()`` on first access, causing
+    tests that modify the underlying environment variables to read stale
+    values.  The caching has been removed, but this fixture acts as a
+    safety belt: it scrubs any legacy names that may have leaked into the
+    module's global dict between tests so that ``__getattr__`` is always
+    invoked on the next access.
+    """
+    yield
+    try:
+        import aragora.config as _cfg
+
+        _legacy = getattr(_cfg, "_LEGACY_NAMES", set())
+        _slo = getattr(_cfg, "_SLO_NAMES", set())
+        _to_clear = (_legacy | _slo | {"DEFAULT_AGENT_LIST"})
+        _g = vars(_cfg)
+        for name in _to_clear:
+            _g.pop(name, None)
+    except Exception:
+        pass
 
 
 # ============================================================================

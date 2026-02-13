@@ -46,6 +46,45 @@ from aragora.rbac.models import AuthorizationContext
 # ===========================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_approval_gate_globals():
+    """Reset approval gate module-level globals before and after each test.
+
+    Prevents cross-test contamination from:
+    - _pending_approvals dict accumulating entries from other tests
+    - _last_cleanup_time being set by earlier tests
+    - Prometheus metrics _initialized flag being inconsistent with the
+      actual CollectorRegistry state (causes ValueError on re-registration)
+    """
+    from aragora.server.middleware import approval_gate
+
+    # Reset BEFORE test
+    approval_gate._pending_approvals.clear()
+    approval_gate._last_cleanup_time = 0.0
+
+    # Also reset the store metrics _initialized flag so it doesn't
+    # try to re-register Prometheus collectors that already exist
+    try:
+        import aragora.observability.metrics.stores as store_metrics
+
+        store_metrics._initialized = False
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+    # Reset AFTER test
+    approval_gate._pending_approvals.clear()
+    approval_gate._last_cleanup_time = 0.0
+
+    try:
+        import aragora.observability.metrics.stores as store_metrics
+
+        store_metrics._initialized = False
+    except (ImportError, AttributeError):
+        pass
+
+
 @pytest.fixture
 def auth_context() -> AuthorizationContext:
     """Create a test authorization context."""
