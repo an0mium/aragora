@@ -232,7 +232,7 @@ class TestSLOWebhookIntegrationFlow:
         handler = WebhookHandler(ctx)
 
         # Test status endpoint when not initialized
-        result = handler._handle_slo_status()
+        result = handler._handle_slo_status(None)
         assert result.status_code == 200
         import json
 
@@ -242,7 +242,7 @@ class TestSLOWebhookIntegrationFlow:
         assert body["active_violations"] == 0
 
         # Test test endpoint when not initialized
-        result = handler._handle_slo_test()
+        result = handler._handle_slo_test(None)
         assert result.status_code == 400
         body = json.loads(result.body)
         assert "not enabled" in body["error"]
@@ -273,7 +273,7 @@ class TestSLOWebhookIntegrationFlow:
             handler = WebhookHandler(ctx)
 
             # Test status endpoint after initialization
-            result = handler._handle_slo_status()
+            result = handler._handle_slo_status(None)
             assert result.status_code == 200
             import json
 
@@ -282,7 +282,7 @@ class TestSLOWebhookIntegrationFlow:
             assert body["slo_webhooks"]["initialized"] is True
 
             # Test sending a test notification
-            result = handler._handle_slo_test()
+            result = handler._handle_slo_test(None)
             assert result.status_code == 200
             body = json.loads(result.body)
             assert body["success"] is True
