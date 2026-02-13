@@ -56,6 +56,7 @@ Legacy planning documents should link here.
   - `check_version_alignment` passes on SDK parity changes
   - SDK parity report remains clean for handler changes
   - SDK parity debt follows weekly budget reduction (`scripts/baselines/check_sdk_parity_budget.json`)
+  - Weekly execution tracked in `docs/status/SDK_PARITY_BURNDOWN.md`
 - CI gates:
   - `.github/workflows/sdk-parity.yml` (version alignment + parity)
 
@@ -75,6 +76,7 @@ Legacy planning documents should link here.
 - Acceptance:
   - Findings tracked in `security/pentest/findings.json`
   - Execution plan maintained in `security/pentest/EXECUTION_PLAN.md`
+  - Vendor outreach status tracked in `security/pentest/VENDOR_OUTREACH_LOG.md`
   - CI fails if unresolved HIGH/CRITICAL findings exist
 - CI gates:
   - `.github/workflows/security.yml` `pentest-findings`

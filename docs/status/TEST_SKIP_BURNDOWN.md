@@ -37,3 +37,30 @@ stays actionable and does not hide regression.
 4. Re-run CI gate locally:
    - `python scripts/audit_test_skips.py --count-only`
 
+## Weekly Execution Log
+
+### 2026-02-13 (Kickoff)
+
+- Audit run completed:
+  - `python scripts/audit_test_skips.py --json > /tmp/skip_report.json`
+  - Result: `434` total markers
+- Baseline check:
+  - `tests/.skip_baseline` = `434` (in sync)
+
+#### Week 1 focus files
+
+| File | Current | Week 1 target |
+|---|---:|---:|
+| `tests/test_formal.py` | 24 | 20 |
+| `tests/test_broadcast_pipeline_e2e.py` | 20 | 18 |
+| `tests/test_formal_verification_backends.py` | 19 | 16 |
+| `tests/e2e/test_security_api_e2e.py` | 18 | 16 |
+| `tests/test_handlers_plugins.py` | 16 | 14 |
+
+#### Week 1 category targets
+
+| Category | Current | Week 1 target |
+|---|---:|---:|
+| `uncategorized` | 18 | 12 |
+| `missing_feature` | 183 | 175 |
+| `optional_dependency` | 183 | 178 |
