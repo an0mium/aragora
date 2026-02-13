@@ -1,6 +1,6 @@
 {
   "by_category": {
-    "accounting": 4,
+    "accounting": 6,
     "advertising": 6,
     "analytics": 4,
     "automation": 2,
@@ -12,7 +12,7 @@
     "devices": 5,
     "devops": 1,
     "documents": 1,
-    "ecommerce": 4,
+    "ecommerce": 6,
     "email": 2,
     "enterprise.collaboration": 8,
     "enterprise.communication": 2,
@@ -23,21 +23,22 @@
     "enterprise.healthcare": 2,
     "enterprise.itsm": 1,
     "enterprise.streaming": 3,
-    "evidence": 14,
+    "evidence": 22,
     "knowledge": 1,
-    "legal": 1,
+    "legal": 3,
     "lowcode": 2,
     "marketing": 2,
     "marketplace": 1,
     "memory": 1,
-    "misc": 1,
+    "misc": 2,
     "payments": 2,
-    "support": 4
+    "support": 4,
+    "tax": 1
   },
   "by_kind": {
     "enterprise": 29,
-    "evidence": 16,
-    "operational": 55
+    "evidence": 24,
+    "operational": 63
   },
   "connectors": [
     {
@@ -291,9 +292,41 @@
     {
       "category": "evidence",
       "kind": "evidence",
+      "module": "aragora.connectors.clinical_tables",
+      "name": "ClinicalTablesConnector",
+      "path": "aragora/connectors/clinical_tables.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.courtlistener",
+      "name": "CourtListenerConnector",
+      "path": "aragora/connectors/courtlistener.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.crossref",
+      "name": "CrossRefConnector",
+      "path": "aragora/connectors/crossref.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
       "module": "aragora.connectors.github",
       "name": "GitHubConnector",
       "path": "aragora/connectors/github.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.govinfo",
+      "name": "GovInfoConnector",
+      "path": "aragora/connectors/govinfo.py",
       "status": "implemented"
     },
     {
@@ -315,9 +348,25 @@
     {
       "category": "evidence",
       "kind": "evidence",
+      "module": "aragora.connectors.nice_guidance",
+      "name": "NICEGuidanceConnector",
+      "path": "aragora/connectors/nice_guidance.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
       "module": "aragora.connectors.newsapi",
       "name": "NewsAPIConnector",
       "path": "aragora/connectors/newsapi.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.pubmed",
+      "name": "PubMedConnector",
+      "path": "aragora/connectors/pubmed.py",
       "status": "implemented"
     },
     {
@@ -339,6 +388,14 @@
     {
       "category": "evidence",
       "kind": "evidence",
+      "module": "aragora.connectors.rxnav",
+      "name": "RxNavConnector",
+      "path": "aragora/connectors/rxnav.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
       "module": "aragora.connectors.sec",
       "name": "SECConnector",
       "path": "aragora/connectors/sec.py",
@@ -350,6 +407,14 @@
       "module": "aragora.connectors.sql",
       "name": "SQLConnector",
       "path": "aragora/connectors/sql.py",
+      "status": "implemented"
+    },
+    {
+      "category": "evidence",
+      "kind": "evidence",
+      "module": "aragora.connectors.semantic_scholar",
+      "name": "SemanticScholarConnector",
+      "path": "aragora/connectors/semantic_scholar.py",
       "status": "implemented"
     },
     {
@@ -403,9 +468,25 @@
     {
       "category": "accounting",
       "kind": "operational",
+      "module": "aragora.connectors.accounting.gaap",
+      "name": "FASBConnector",
+      "path": "aragora/connectors/accounting/gaap.py",
+      "status": "implemented"
+    },
+    {
+      "category": "accounting",
+      "kind": "operational",
       "module": "aragora.connectors.accounting.gusto",
       "name": "GustoConnector",
       "path": "aragora/connectors/accounting/gusto.py",
+      "status": "implemented"
+    },
+    {
+      "category": "accounting",
+      "kind": "operational",
+      "module": "aragora.connectors.accounting.irs",
+      "name": "IRSConnector",
+      "path": "aragora/connectors/accounting/irs.py",
       "status": "implemented"
     },
     {
@@ -691,6 +772,14 @@
     {
       "category": "ecommerce",
       "kind": "operational",
+      "module": "aragora.connectors.ecommerce.amazon.client",
+      "name": "AmazonConnector",
+      "path": "aragora/connectors/ecommerce/amazon/client.py",
+      "status": "implemented"
+    },
+    {
+      "category": "ecommerce",
+      "kind": "operational",
       "module": "aragora.connectors.ecommerce.shipstation",
       "name": "ShipStationConnector",
       "path": "aragora/connectors/ecommerce/shipstation.py",
@@ -702,6 +791,14 @@
       "module": "aragora.connectors.ecommerce.shopify",
       "name": "ShopifyConnector",
       "path": "aragora/connectors/ecommerce/shopify.py",
+      "status": "implemented"
+    },
+    {
+      "category": "ecommerce",
+      "kind": "operational",
+      "module": "aragora.connectors.ecommerce.shopify.client",
+      "name": "ShopifyConnector",
+      "path": "aragora/connectors/ecommerce/shopify/client.py",
       "status": "implemented"
     },
     {
@@ -734,6 +831,22 @@
       "module": "aragora.connectors.legal.docusign",
       "name": "DocuSignConnector",
       "path": "aragora/connectors/legal/docusign.py",
+      "status": "implemented"
+    },
+    {
+      "category": "legal",
+      "kind": "operational",
+      "module": "aragora.connectors.legal.lexis",
+      "name": "LexisConnector",
+      "path": "aragora/connectors/legal/lexis.py",
+      "status": "implemented"
+    },
+    {
+      "category": "legal",
+      "kind": "operational",
+      "module": "aragora.connectors.legal.westlaw",
+      "name": "WestlawConnector",
+      "path": "aragora/connectors/legal/westlaw.py",
       "status": "implemented"
     },
     {
@@ -782,6 +895,14 @@
       "module": "aragora.connectors.memory.claude_mem",
       "name": "ClaudeMemConnector",
       "path": "aragora/connectors/memory/claude_mem.py",
+      "status": "implemented"
+    },
+    {
+      "category": "misc",
+      "kind": "operational",
+      "module": "aragora.connectors.conversation_ingestor",
+      "name": "ConversationIngestorConnector",
+      "path": "aragora/connectors/conversation_ingestor.py",
       "status": "implemented"
     },
     {
@@ -839,8 +960,16 @@
       "name": "ZendeskConnector",
       "path": "aragora/connectors/support/zendesk.py",
       "status": "implemented"
+    },
+    {
+      "category": "tax",
+      "kind": "operational",
+      "module": "aragora.connectors.tax.generic",
+      "name": "GenericTaxConnector",
+      "path": "aragora/connectors/tax/generic.py",
+      "status": "implemented"
     }
   ],
-  "generated_at": "2026-02-04T02:14:35.432706+00:00",
-  "total": 100
+  "generated_at": "2026-02-13T16:45:30.079589+00:00",
+  "total": 116
 }
