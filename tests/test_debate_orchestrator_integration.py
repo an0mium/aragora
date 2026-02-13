@@ -13,7 +13,8 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aragora.debate.orchestrator import Arena, ArenaConfig
+from aragora.debate.orchestrator import Arena
+from aragora.debate.arena_config import ArenaConfig
 from aragora.core import (
     Environment,
     DebateProtocol,
@@ -88,19 +89,13 @@ def simple_protocol():
     )
 
 
-# Patch all heavy initialization methods
+# Patch the entire subsystem init sequence to avoid heavy setup
 @pytest.fixture
 def patched_arena_init():
-    """Patch Arena internal initialization to avoid heavy setup."""
-    with (
-        patch.object(Arena, "_init_roles_and_stances", return_value=None),
-        patch.object(Arena, "_init_phases", return_value=None),
-        patch.object(Arena, "_init_termination_checker", return_value=None),
-        patch.object(Arena, "_init_trackers", return_value=None),
-        patch.object(Arena, "_init_user_participation", return_value=None),
-        patch.object(Arena, "_init_event_bus", return_value=None),
-        patch.object(Arena, "_init_convergence", return_value=None),
-        patch.object(Arena, "_init_caches", return_value=None),
+    """Patch Arena subsystem initialization to avoid heavy setup."""
+    with patch(
+        "aragora.debate.orchestrator._init_run_init_subsystems",
+        return_value=None,
     ):
         yield
 
@@ -405,8 +400,8 @@ class TestDebateProtocolDataclass:
     def test_protocol_default_values(self):
         """Protocol should have sensible defaults."""
         protocol = DebateProtocol()
-        assert protocol.rounds == 5  # Default rounds
-        assert protocol.consensus == "majority"
+        assert protocol.rounds == 9  # Default rounds
+        assert protocol.consensus == "judge"
         assert protocol.early_stopping is True
 
     def test_protocol_custom_rounds(self):

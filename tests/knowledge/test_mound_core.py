@@ -31,9 +31,8 @@ from aragora.knowledge.mound_core import (
     KnowledgeRelationship,
     ProvenanceChain,
     ProvenanceType,
-    _to_enum_value,
-    _to_iso_string,
 )
+from aragora.knowledge.mound_types import _to_enum_value, _to_iso_string
 from aragora.knowledge.types import Fact, ValidationStatus
 from aragora.memory.tier_manager import MemoryTier
 
