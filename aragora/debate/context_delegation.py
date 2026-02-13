@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 if TYPE_CHECKING:
@@ -85,16 +85,32 @@ class ContextDelegator:
         domain = self._extract_domain()
         task = self.env.task if self.env else ""
         tenant_id = self._resolve_tenant_id()
+        context_envelope: dict[str, Any] = {}
+        try:
+            from aragora.memory.access import build_access_envelope
+
+            context_envelope = build_access_envelope(
+                self._auth_context,
+                source="debate.context.continuum",
+            )
+        except Exception:
+            context_envelope = {}
         context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
             continuum_memory=self.continuum_memory,
             domain=domain,
             task=task,
             tenant_id=tenant_id,
+            auth_context=self._auth_context,
         )
 
         # Track retrieved IDs and tiers for outcome updates
         if self._cache:
-            self._cache.track_continuum_retrieval(context, retrieved_ids, retrieved_tiers)
+            self._cache.track_continuum_retrieval(
+                context,
+                retrieved_ids,
+                retrieved_tiers,
+                context_envelope=context_envelope,
+            )
         return context
 
     async def perform_research(self, task: str) -> str:

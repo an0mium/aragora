@@ -23,6 +23,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_tracing_context():
+    """Reset tracing context vars to prevent cross-test contamination."""
+    from aragora.server.middleware.tracing import _trace_id, _span_id, _parent_span_id, _span_stack
+
+    tokens = [
+        _trace_id.set(None),
+        _span_id.set(None),
+        _parent_span_id.set(None),
+        _span_stack.set([]),
+    ]
+    yield
+    for var, tok in zip([_trace_id, _span_id, _parent_span_id, _span_stack], tokens):
+        var.reset(tok)
+
+
 # ===========================================================================
 # ID Generation
 # ===========================================================================

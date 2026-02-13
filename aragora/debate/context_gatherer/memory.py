@@ -34,6 +34,7 @@ class MemoryMixin:
         task: str,
         include_glacial_insights: bool = True,
         tenant_id: str | None = None,
+        auth_context: Any | None = None,
     ) -> tuple[str, list[str], dict[str, Any]]:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
@@ -61,6 +62,30 @@ class MemoryMixin:
             return "", [], {}
 
         try:
+            try:
+                from aragora.memory.access import (
+                    emit_denial_telemetry,
+                    filter_entries,
+                    has_memory_read_access,
+                )
+            except Exception:
+                emit_denial_telemetry = None  # type: ignore[assignment]
+                filter_entries = None  # type: ignore[assignment]
+                has_memory_read_access = None  # type: ignore[assignment]
+
+            if (
+                auth_context is not None
+                and has_memory_read_access is not None
+                and not has_memory_read_access(auth_context)
+            ):
+                if emit_denial_telemetry is not None:
+                    emit_denial_telemetry(
+                        "debate.context_gatherer.continuum",
+                        auth_context,
+                        "missing_memory_read_permission",
+                    )
+                return "", [], {}
+
             query = f"{domain}: {task[:200]}"
             all_memories = []
             retrieved_ids = []
@@ -107,6 +132,13 @@ class MemoryMixin:
                         len(glacial_insights),
                     )
                     all_memories.extend(glacial_insights)
+
+            if filter_entries is not None and auth_context is not None:
+                all_memories = filter_entries(
+                    all_memories,
+                    auth_context,
+                    source="debate.context_gatherer.continuum",
+                )
 
             if not all_memories:
                 return "", [], {}

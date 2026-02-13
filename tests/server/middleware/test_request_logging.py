@@ -24,6 +24,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_request_logging_context():
+    """Reset request logging context var to prevent cross-test contamination."""
+    from aragora.server.middleware.request_logging import _current_request_id
+
+    token = _current_request_id.set(None)
+    yield
+    _current_request_id.reset(token)
+
+
 # =============================================================================
 # Test RequestContext
 # =============================================================================

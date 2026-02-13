@@ -34,6 +34,7 @@ class DebateStateCache:
     continuum_context: str = ""
     continuum_retrieved_ids: list[str] = field(default_factory=list)
     continuum_retrieved_tiers: dict[str, Any] = field(default_factory=dict)
+    continuum_context_envelope: dict[str, Any] = field(default_factory=dict)
 
     # Similarity backend cache (avoids recreating per vote grouping call)
     similarity_backend: Any = None
@@ -52,6 +53,7 @@ class DebateStateCache:
         self.continuum_context = ""
         self.continuum_retrieved_ids = []
         self.continuum_retrieved_tiers = {}
+        self.continuum_context_envelope = {}
         self.similarity_backend = None
         self.debate_domain = None
 
@@ -76,6 +78,7 @@ class DebateStateCache:
         context: str,
         retrieved_ids: list[str],
         retrieved_tiers: dict[str, Any],
+        context_envelope: dict[str, Any] | None = None,
     ) -> None:
         """Record continuum memory retrieval results.
 
@@ -87,3 +90,4 @@ class DebateStateCache:
         self.continuum_context = context
         self.continuum_retrieved_ids = retrieved_ids
         self.continuum_retrieved_tiers = retrieved_tiers
+        self.continuum_context_envelope = dict(context_envelope or {})

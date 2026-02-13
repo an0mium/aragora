@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.pipeline.decision_integrity import (
     ContextSnapshot,
     DecisionIntegrityPackage,
@@ -106,6 +107,7 @@ class TestContextSnapshot:
         assert snap.knowledge_sources == []
         assert snap.document_items == []
         assert snap.evidence_items == []
+        assert snap.context_envelope == {}
         assert snap.total_context_tokens == 0
         assert snap.retrieval_time_ms == 0.0
 
@@ -121,6 +123,7 @@ class TestContextSnapshot:
             "knowledge_sources",
             "document_items",
             "evidence_items",
+            "context_envelope",
             "total_context_tokens",
             "retrieval_time_ms",
         }
@@ -135,6 +138,7 @@ class TestContextSnapshot:
             knowledge_sources=["source1"],
             document_items=[{"preview": "doc"}],
             evidence_items=[{"snippet": "evidence"}],
+            context_envelope={"user_id": "u-1", "tenant_id": "ws-1"},
             total_context_tokens=42,
             retrieval_time_ms=12.5,
         )
@@ -146,6 +150,7 @@ class TestContextSnapshot:
         assert d["knowledge_sources"] == ["source1"]
         assert d["document_items"] == [{"preview": "doc"}]
         assert d["evidence_items"] == [{"snippet": "evidence"}]
+        assert d["context_envelope"] == {"user_id": "u-1", "tenant_id": "ws-1"}
         assert d["total_context_tokens"] == 42
         assert d["retrieval_time_ms"] == 12.5
 
@@ -165,8 +170,28 @@ class TestCaptureContextSnapshot:
         assert snap.continuum_entries == []
         assert snap.cross_debate_context == ""
         assert snap.knowledge_items == []
+        assert isinstance(snap.context_envelope, dict)
         assert snap.total_context_tokens == 0
         assert snap.retrieval_time_ms >= 0
+
+    @pytest.mark.asyncio
+    async def test_includes_auth_scope_envelope(self):
+        """Auth scope metadata is captured for auditing."""
+        auth_context = AuthorizationContext(
+            user_id="user-123",
+            workspace_id="ws-123",
+            org_id="org-123",
+            roles={"member"},
+            permissions={"memory:read"},
+        )
+
+        snap = await capture_context_snapshot("test query", auth_context=auth_context)
+
+        assert snap.context_envelope["user_id"] == "user-123"
+        assert snap.context_envelope["workspace_id"] == "ws-123"
+        assert snap.context_envelope["tenant_id"] == "ws-123"
+        assert snap.context_envelope["org_id"] == "org-123"
+        assert snap.context_envelope["source"] == "pipeline.decision_integrity.context"
 
     @pytest.mark.asyncio
     async def test_continuum_memory_retrieval(self):
@@ -191,6 +216,58 @@ class TestCaptureContextSnapshot:
 
         assert len(snap.continuum_entries) == 1
         assert snap.continuum_entries[0]["content"] == "institutional pattern"
+
+    @pytest.mark.asyncio
+    async def test_continuum_retrieval_blocked_without_memory_permission(self):
+        """Unauthorized memory retrieval attempts are blocked."""
+        auth_context = AuthorizationContext(
+            user_id="user-123",
+            workspace_id="ws-123",
+            org_id="org-123",
+            roles={"member"},
+            permissions={"debates:read"},
+        )
+        mock_memory = MagicMock()
+
+        await capture_context_snapshot(
+            "test query",
+            continuum_memory=mock_memory,
+            auth_context=auth_context,
+        )
+
+        mock_memory.retrieve.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_continuum_retrieval_is_tenant_scoped(self, monkeypatch):
+        """Continuum retrieval receives tenant scoping kwargs from auth context."""
+        monkeypatch.setenv("ARAGORA_MEMORY_TENANT_ENFORCE", "1")
+        auth_context = AuthorizationContext(
+            user_id="user-123",
+            workspace_id="ws-tenant",
+            org_id="org-123",
+            roles={"member"},
+            permissions={"memory:read"},
+        )
+        mock_memory = MagicMock()
+        mock_memory.retrieve.return_value = []
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.memory.tier_manager": MagicMock(
+                    MemoryTier=MagicMock(SLOW="SLOW", GLACIAL="GLACIAL")
+                )
+            },
+        ):
+            await capture_context_snapshot(
+                "test query",
+                continuum_memory=mock_memory,
+                auth_context=auth_context,
+            )
+
+        call_kwargs = mock_memory.retrieve.call_args.kwargs
+        assert call_kwargs["tenant_id"] == "ws-tenant"
+        assert call_kwargs["enforce_tenant_isolation"] is True
 
     @pytest.mark.asyncio
     async def test_continuum_memory_non_dataclass_entries(self):
@@ -671,6 +748,28 @@ class TestBuildDecisionIntegrityPackage:
 
         assert pkg.context_snapshot is not None
         assert isinstance(pkg.context_snapshot, ContextSnapshot)
+
+    @pytest.mark.asyncio
+    async def test_include_context_captures_auth_scope_envelope(self):
+        """Auth context is reflected in context snapshot envelope."""
+        debate = _make_debate_dict()
+        auth_context = AuthorizationContext(
+            user_id="user-007",
+            workspace_id="ws-007",
+            org_id="org-007",
+            roles={"member"},
+            permissions={"memory:read"},
+        )
+
+        pkg = await build_decision_integrity_package(
+            debate,
+            include_context=True,
+            auth_context=auth_context,
+        )
+
+        assert pkg.context_snapshot is not None
+        assert pkg.context_snapshot.context_envelope["user_id"] == "user-007"
+        assert pkg.context_snapshot.context_envelope["tenant_id"] == "ws-007"
 
     @pytest.mark.asyncio
     async def test_include_context_with_memory_sources(self):

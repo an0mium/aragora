@@ -287,7 +287,7 @@ class _DebatesHandlerProtocol(Protocol):
 
     # Implementation methods (defined in the mixin below, but referenced via self)
     def _build_integrity_package(
-        self, debate: Any, debate_id: str, rc: _RequestConfig
+        self, debate: Any, debate_id: str, rc: _RequestConfig, handler: Any | None = None
     ) -> tuple[Any, dict[str, Any]]: ...
     def _persist_artifacts(
         self, package: Any, debate_id: str, rc: _RequestConfig, response_payload: dict[str, Any]
@@ -377,7 +377,7 @@ class ImplementationOperationsMixin:
         rc = _parse_request(payload, self.ctx)
 
         # Build the decision integrity package
-        package, response_payload = self._build_integrity_package(debate, debate_id, rc)
+        package, response_payload = self._build_integrity_package(debate, debate_id, rc, handler)
 
         # Persist receipt and plan
         receipt_id, computer_use_plan = self._persist_artifacts(
@@ -408,6 +408,7 @@ class ImplementationOperationsMixin:
         debate: Any,
         debate_id: str,
         rc: _RequestConfig,
+        handler: Any | None = None,
     ) -> tuple[Any, dict[str, Any]]:
         """Build the decision integrity package and initial response payload."""
         continuum_memory = self.ctx.get("continuum_memory") if rc.include_context else None
@@ -424,6 +425,19 @@ class ImplementationOperationsMixin:
             except Exception:
                 evidence_store = None
 
+        auth_context = getattr(handler, "_auth_context", None) if handler is not None else None
+        context_envelope: dict[str, Any] | None = None
+        if auth_context is not None:
+            try:
+                from aragora.memory.access import build_access_envelope
+
+                context_envelope = build_access_envelope(
+                    auth_context,
+                    source="debates.decision_integrity",
+                )
+            except Exception:
+                context_envelope = None
+
         package = run_async(
             build_decision_integrity_package(
                 debate,
@@ -437,6 +451,8 @@ class ImplementationOperationsMixin:
                 knowledge_mound=knowledge_mound,
                 document_store=document_store,
                 evidence_store=evidence_store,
+                auth_context=auth_context,
+                context_envelope=context_envelope,
             )
         )
 

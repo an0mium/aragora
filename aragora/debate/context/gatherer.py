@@ -534,6 +534,7 @@ class ContextGatherer:
         task: str,
         include_glacial_insights: bool = True,
         tenant_id: str | None = None,
+        auth_context: Any | None = None,
     ) -> tuple[str, list[str], dict[str, Any]]:
         """Retrieve relevant memories from ContinuumMemory for debate context.
 
@@ -560,6 +561,7 @@ class ContextGatherer:
             task,
             include_glacial_insights,
             tenant_id=tenant_id,
+            auth_context=auth_context,
         )
 
         if context:

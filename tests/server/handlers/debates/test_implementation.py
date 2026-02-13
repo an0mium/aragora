@@ -1342,6 +1342,38 @@ class TestContextSnapshot:
         assert call_kwargs.kwargs.get("cross_debate_memory") is mock_cross_debate
         assert call_kwargs.kwargs.get("knowledge_mound") is mock_km
 
+    def test_auth_scope_forwarded_to_context_snapshot(self, mock_storage, mock_package):
+        """Auth context and envelope are forwarded for scoped snapshot capture."""
+        h = MockDebatesHandler(
+            ctx={"storage": mock_storage},
+            storage=mock_storage,
+            body={"include_context": True},
+        )
+        mock_http = MagicMock()
+        mock_http._auth_context = h._auth_context
+
+        with (
+            patch(
+                "aragora.server.handlers.debates.implementation.run_async",
+                return_value=mock_package,
+            ),
+            patch(
+                "aragora.server.handlers.debates.implementation._persist_receipt",
+                return_value=None,
+            ),
+            patch("aragora.server.handlers.debates.implementation._persist_plan"),
+            patch(
+                "aragora.server.handlers.debates.implementation.build_decision_integrity_package",
+            ) as mock_build,
+        ):
+            h._create_decision_integrity(mock_http, "debate-001")
+
+        call_kwargs = mock_build.call_args
+        assert call_kwargs.kwargs.get("auth_context") is mock_http._auth_context
+        envelope = call_kwargs.kwargs.get("context_envelope") or {}
+        assert envelope.get("user_id") == "test-user"
+        assert envelope.get("source") == "debates.decision_integrity"
+
     def test_memory_systems_excluded_when_no_context(self, mock_storage, mock_package):
         """Memory systems are None when include_context=False."""
         mock_continuum = MagicMock()

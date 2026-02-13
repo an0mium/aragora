@@ -189,6 +189,18 @@ async def build_decision_integrity_payload(
     continuum_memory = getattr(arena, "continuum_memory", None) if include_context else None
     cross_debate_memory = getattr(arena, "cross_debate_memory", None) if include_context else None
     knowledge_mound = getattr(arena, "knowledge_mound", None) if include_context else None
+    auth_context = getattr(arena, "auth_context", None)
+    context_envelope = None
+    if auth_context is not None:
+        try:
+            from aragora.memory.access import build_access_envelope
+
+            context_envelope = build_access_envelope(
+                auth_context,
+                source="server.decision_integrity_utils",
+            )
+        except Exception:
+            context_envelope = None
 
     try:
         package = await build_decision_integrity_package(
@@ -202,6 +214,8 @@ async def build_decision_integrity_payload(
             knowledge_mound=knowledge_mound,
             document_store=document_store,
             evidence_store=evidence_store,
+            auth_context=auth_context,
+            context_envelope=context_envelope,
         )
     except Exception as exc:
         logger.debug("Decision integrity build failed: %s", exc)

@@ -37,6 +37,7 @@ class ContextSnapshot:
     knowledge_sources: list[str] = field(default_factory=list)
     document_items: list[dict[str, Any]] = field(default_factory=list)
     evidence_items: list[dict[str, Any]] = field(default_factory=list)
+    context_envelope: dict[str, Any] = field(default_factory=dict)
     total_context_tokens: int = 0
     retrieval_time_ms: float = 0.0
 
@@ -49,6 +50,7 @@ class ContextSnapshot:
             "knowledge_sources": self.knowledge_sources,
             "document_items": self.document_items,
             "evidence_items": self.evidence_items,
+            "context_envelope": self.context_envelope,
             "total_context_tokens": self.total_context_tokens,
             "retrieval_time_ms": self.retrieval_time_ms,
         }
@@ -108,6 +110,8 @@ async def capture_context_snapshot(
     debate_id: str | None = None,
     max_entries: int = 10,
     max_tokens: int = 2000,
+    auth_context: Any = None,
+    context_envelope: dict[str, Any] | None = None,
 ) -> ContextSnapshot:
     """Capture a snapshot of all available memory/knowledge context.
 
@@ -126,17 +130,86 @@ async def capture_context_snapshot(
     start = time.monotonic()
     snapshot = ContextSnapshot()
 
+    filter_entries = None
+    resolve_tenant_id = None
+    tenant_enforcement_enabled = None
+    has_memory_read_access = None
+    build_access_envelope = None
+    emit_denial_telemetry = None
+    tenant_id: str | None = None
+    enforce_tenant = False
+
+    try:
+        from aragora.memory.access import (
+            build_access_envelope,
+            emit_denial_telemetry,
+            filter_entries,
+            has_memory_read_access,
+            resolve_tenant_id,
+            tenant_enforcement_enabled,
+        )
+    except Exception:
+        pass
+
+    if context_envelope is not None:
+        snapshot.context_envelope = dict(context_envelope)
+    elif build_access_envelope is not None:
+        snapshot.context_envelope = build_access_envelope(
+            auth_context,
+            source="pipeline.decision_integrity.context",
+        )
+
+    if resolve_tenant_id is not None:
+        tenant_id = resolve_tenant_id(auth_context)
+    if tenant_enforcement_enabled is not None and auth_context is not None:
+        enforce_tenant = tenant_enforcement_enabled()
+
+    memory_access_allowed = True
+    if (
+        auth_context is not None
+        and has_memory_read_access is not None
+        and not has_memory_read_access(auth_context)
+    ):
+        memory_access_allowed = False
+        if emit_denial_telemetry is not None:
+            emit_denial_telemetry(
+                "pipeline.decision_integrity.context",
+                auth_context,
+                "missing_memory_read_permission",
+            )
+
     # 1. Continuum Memory (slow + glacial tiers for institutional memory)
-    if continuum_memory is not None:
+    if continuum_memory is not None and memory_access_allowed:
         try:
             from aragora.memory.tier_manager import MemoryTier
 
-            entries = continuum_memory.retrieve(
-                query=task,
-                tiers=[MemoryTier.SLOW, MemoryTier.GLACIAL],
-                limit=max_entries,
-                min_importance=0.3,
-            )
+            retrieve_kwargs: dict[str, Any] = {
+                "query": task,
+                "tiers": [MemoryTier.SLOW, MemoryTier.GLACIAL],
+                "limit": max_entries,
+                "min_importance": 0.3,
+            }
+            if tenant_id is not None:
+                retrieve_kwargs["tenant_id"] = tenant_id
+            if enforce_tenant:
+                retrieve_kwargs["enforce_tenant_isolation"] = True
+
+            try:
+                entries = continuum_memory.retrieve(**retrieve_kwargs)
+            except TypeError:
+                # Backward-compatible fallback for memory backends that do not
+                # support scoped retrieval kwargs yet.
+                retrieve_kwargs.pop("tenant_id", None)
+                retrieve_kwargs.pop("enforce_tenant_isolation", None)
+                entries = continuum_memory.retrieve(**retrieve_kwargs)
+
+            if filter_entries is not None and auth_context is not None:
+                entries = filter_entries(
+                    entries,
+                    auth_context,
+                    source="pipeline.decision_integrity.continuum",
+                )
+
             snapshot.continuum_entries = [
                 asdict(e) if hasattr(e, "__dataclass_fields__") else {"content": str(e)}
                 for e in entries
@@ -145,7 +218,7 @@ async def capture_context_snapshot(
             logger.debug("Continuum memory retrieval failed: %s", exc)
 
     # 2. Cross-Debate Memory
-    if cross_debate_memory is not None:
+    if cross_debate_memory is not None and memory_access_allowed:
         try:
             context = await cross_debate_memory.get_relevant_context(
                 task=task,
@@ -166,10 +239,17 @@ async def capture_context_snapshot(
     # 3. Knowledge Mound
     if knowledge_mound is not None:
         try:
-            result = await knowledge_mound.query(
-                query=task,
-                limit=max_entries,
-            )
+            query_kwargs: dict[str, Any] = {
+                "query": task,
+                "limit": max_entries,
+            }
+            if tenant_id:
+                query_kwargs["workspace_id"] = tenant_id
+            try:
+                result = await knowledge_mound.query(**query_kwargs)
+            except TypeError:
+                query_kwargs.pop("workspace_id", None)
+                result = await knowledge_mound.query(**query_kwargs)
             if hasattr(result, "items"):
                 snapshot.knowledge_items = [
                     item.to_dict() if hasattr(item, "to_dict") else {"content": str(item)}
@@ -233,6 +313,8 @@ async def build_decision_integrity_package(
     knowledge_mound: Any = None,
     document_store: Any = None,
     evidence_store: Any = None,
+    auth_context: Any = None,
+    context_envelope: dict[str, Any] | None = None,
 ) -> DecisionIntegrityPackage:
     """Build a Decision Integrity package from a debate payload.
 
@@ -274,6 +356,8 @@ async def build_decision_integrity_package(
             document_store=document_store,
             evidence_store=evidence_store,
             debate_id=debate_result.debate_id,
+            auth_context=auth_context,
+            context_envelope=context_envelope,
         )
 
     return DecisionIntegrityPackage(
