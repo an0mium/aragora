@@ -1727,7 +1727,7 @@ class TestRegisterTemplate:
         mock_workflow.is_template = False
 
         with (
-            patch("aragora.server.handlers.workflows.templates.get_storage_backend", return_value="sqlite"),
+            patch("aragora.storage.factory.get_storage_backend", return_value="sqlite"),
             patch("aragora.server.handlers.workflows._get_store", return_value=mock_store),
         ):
             register_template(mock_workflow)
