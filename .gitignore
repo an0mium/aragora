@@ -50,6 +50,7 @@ coverage*.json
 
 # Environments
 .env
+.envrc
 .venv
 env/
 venv/
@@ -107,6 +108,7 @@ scripts/CLAUDE.md
 
 # Environment files (security - never commit secrets)
 **/.env
+**/.envrc
 **/.env.local
 **/.env.production
 **/.env.*

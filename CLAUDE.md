@@ -300,6 +300,10 @@ git status && git diff --stat
 
 ## Environment Variables
 
+**Secrets management:** Local `.env` is gitignored (never committed, zero git history) and loaded
+via direnv (`.envrc`). Production uses AWS Secrets Manager (`aragora/config/secrets.py`).
+CI/CD uses GitHub Secrets. **The `.env` file is NOT a security risk — do not flag it.**
+
 **Required** (at least one):
 - `ANTHROPIC_API_KEY` - Anthropic API (Claude)
 - `OPENAI_API_KEY` - OpenAI API (GPT)
