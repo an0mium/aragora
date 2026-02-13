@@ -399,30 +399,6 @@ jobs:
         run: |
           python scripts/golden_paths.py --mode fast --output-dir /tmp/golden_paths
 
-  aragora-py-tests:
-    name: Python SDK (aragora-py)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: test-fast
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install SDK dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e "aragora-py[dev]"
-
-      - name: Run aragora-py tests
-        run: |
-          PYTHONPATH=aragora-py pytest aragora-py/tests -v --tb=short
-
   aragora-debate-tests:
     name: Standalone Debate Package
     runs-on: ubuntu-latest
@@ -460,7 +436,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    needs: [test-fast, aragora-py-tests, aragora-debate-tests]
+    needs: [test-fast, aragora-debate-tests]
     strategy:
       fail-fast: false
       matrix:

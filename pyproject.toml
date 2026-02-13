@@ -337,7 +337,7 @@ Issues = "https://github.com/an0mium/aragora/issues"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aragora", "aragora.*"]
-exclude = ["aragora-debate*", "aragora-py*"]
+exclude = ["aragora-debate*"]
 
 [tool.setuptools.package-data]
 "aragora" = ["py.typed"]
@@ -369,7 +369,6 @@ ignore = ["E402", "E501"]
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 "deprecated/*" = ["UP"]  # Deprecated code, don't modernize
-"aragora-py/*" = ["UP"]  # Legacy package, don't modernize
 # BLE001: Now enforced on new code - Phase 12 (Feb 2026)
 # Only exempted in specific modules above (cli, migrations, scripts, tests)
 # G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)

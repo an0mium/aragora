@@ -1,7 +1,8 @@
 # Python SDK Consolidation Roadmap (Historical)
 
-> **Superseded guidance (February 2026):** The canonical Python SDK client is `aragora-sdk` in `sdk/python/`.
-> Use `aragora-client` only as a legacy compatibility package during migration.
+> **Status (February 2026):** The canonical Python SDK client is `aragora-sdk` in `sdk/python/`.
+> The legacy `aragora-client` package (`aragora-py/`) has been removed from the repository.
+> This document is retained for historical reference only.
 
 > **Status:** Phase 1 Complete (January 2026)
 > **Next Milestone:** v3.0.0 consolidation (Q2 2026)
@@ -15,7 +16,7 @@ Two packages exist with different focuses:
 | Aspect | `aragora` | `aragora-client` |
 |--------|-----------|------------------|
 | **Version** | 2.6.3 | 2.4.0 |
-| **Location** | `sdk/python/aragora/` | `aragora-py/aragora_client/` |
+| **Location** | `sdk/python/aragora/` | `aragora-py/aragora_client/` (removed) |
 | **API Style** | Both sync + async (`AragoraClient`, `AragoraAsyncClient`) | Async-only (`AragoraClient`) |
 | **Namespaces** | 125 namespace modules | 26 modules |
 | **Tests** | 55 test files | 20 test files |
@@ -226,8 +227,8 @@ Use `aragora-sdk` when you need:
 Use `aragora` when you need:
 - The full control plane package (server + CLI + embedded SDK)
 
-Use `aragora-client` only when you need:
-- Legacy compatibility during migration to `aragora-sdk`
+~~Use `aragora-client` only when you need:~~
+- The `aragora-client` package (`aragora-py/`) has been removed from the repository
 
 ### From `aragora-client` to `aragora` v3.0.0 (Historical Plan)
 
@@ -551,6 +552,5 @@ class AragoraClient:
 ## Related Documentation
 
 - [sdk/python/README.md](../sdk/python/README.md) - Full SDK documentation
-- [aragora-py/README.md](../aragora-py/README.md) - Client documentation
 - [docs/SDK_GUIDE.md](SDK_GUIDE.md) - SDK architecture overview
 - [TypeScript SDK Consolidation](../docs-site/docs/guides/sdk-consolidation.md) - TypeScript equivalent

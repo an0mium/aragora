@@ -88,6 +88,6 @@ The following deprecated modules are **properly maintained** as backwards-compat
 | `aragora.modes.gauntlet` | `aragora.gauntlet` | Shim active, emits DeprecationWarning |
 | `aragora.crawlers` | `aragora.connectors.repository_crawler` | Shim active, emits DeprecationWarning |
 | `aragora.connectors.email.gmail_sync` | New Gmail implementation | Shim active |
-| `aragora-py/` (aragora-client) | `aragora-sdk` (PyPI) | Legacy async-only client (deprecated) for backwards compatibility |
+| `aragora-py/` (aragora-client) | `aragora-sdk` (PyPI) | Removed (Feb 2026). Use `aragora-sdk` in `sdk/python/` |
 
 **Action:** No removal needed until major version bump. Monitor usage via DeprecationWarning logs.

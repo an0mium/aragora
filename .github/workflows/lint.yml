@@ -66,13 +66,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run connector exception guard
-        run: python scripts/check_connector_exception_handling.py --path aragora/connectors
+      - name: Run connector/runtime exception guard
+        run: python scripts/check_connector_exception_handling.py --path aragora/connectors aragora/runtime
 
       - name: Connector guard repro hint
         if: failure()
         run: |
-          echo "Reproduce locally: python scripts/check_connector_exception_handling.py --path aragora/connectors"
+          echo "Reproduce locally: python scripts/check_connector_exception_handling.py --path aragora/connectors aragora/runtime"
 
   agent-registry-sync:
     runs-on: ubuntu-latest

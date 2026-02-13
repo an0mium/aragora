@@ -439,7 +439,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | SDK | Status | Namespaces | Key Files |
 |-----|--------|------------|-----------|
-| **Python SDK** | Stable | 105 namespaces | `aragora-py/` |
+| **Python SDK** | Stable | 105 namespaces | `sdk/python/` |
 | **TypeScript SDK** | Stable | 140 namespaces | `sdk/typescript/` |
 
 ### CLI

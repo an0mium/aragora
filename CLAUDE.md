@@ -83,7 +83,7 @@ Aragora is the **Decision Integrity Platform** -- orchestrating 30+ agent types 
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 3,000+ Python modules | 129,000+ tests | 3,000+ test files | 210+ debate modules | 2,000+ API operations across 1,800+ paths | 28 KM adapters | 159 SDK namespaces
+**Codebase Scale:** 3,000+ Python modules | 129,000+ tests | 3,000+ test files | 210+ debate modules | 2,000+ API operations across 1,800+ paths | 33 KM adapters | 159 SDK namespaces
 
 ## Architecture
 
@@ -115,7 +115,7 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (28 registered)
+│       └── adapters/       # KM adapters (33 registered)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors

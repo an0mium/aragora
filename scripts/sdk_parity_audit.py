@@ -295,7 +295,7 @@ def render_report(
         "",
         "## Executive Summary",
         "",
-        "| Metric | OpenAPI | sdk/typescript | aragora-py |",
+        "| Metric | OpenAPI | sdk/typescript | sdk/python |",
         "|--------|---------|----------------|------------|",
         f"| Total endpoints | {openapi_total} | {ts_total} | {py_total} |",
         f"| Covered endpoints | - | {ts_covered} | {py_covered} |",
@@ -307,24 +307,24 @@ def render_report(
         "- Coverage excludes deprecated endpoints from the OpenAPI total.",
         "- `/api` is normalized to `/api/v1` for SDK comparisons.",
         "- `sdk/typescript` primarily targets `/api` with `/api/v1` aliases.",
-        "- `aragora-py` targets `/api/v1` endpoints.",
+        "- `sdk/python` targets `/api/v1` endpoints.",
         "- `aragora-js` is a lightweight `/api/v1` client (reported below for reference).",
         "",
         "## Coverage by Category (sdk/typescript)",
         "",
         format_table(ts_rows, "TS"),
         "",
-        "## Coverage by Category (aragora-py)",
+        "## Coverage by Category (sdk/python)",
         "",
         format_table(py_rows, "PY"),
         "",
         format_endpoint_list("Missing in sdk/typescript (OpenAPI - TS)", ts_missing),
         "",
-        format_endpoint_list("Missing in aragora-py (OpenAPI - PY)", py_missing),
+        format_endpoint_list("Missing in sdk/python (OpenAPI - PY)", py_missing),
         "",
         format_endpoint_list("sdk/typescript endpoints not in OpenAPI", ts_extras),
         "",
-        format_endpoint_list("aragora-py endpoints not in OpenAPI", py_extras),
+        format_endpoint_list("sdk/python endpoints not in OpenAPI", py_extras),
         "",
         "## Reference: aragora-js (Lightweight /api/v1 client)",
         "",
@@ -334,7 +334,7 @@ def render_report(
         insert_at = lines.index("## Coverage by Category (sdk/typescript)")
         lines[insert_at:insert_at] = [
             "- Note: `/api/v1` debate endpoints are not fully represented in the OpenAPI spec, "
-            "so coverage for `aragora-py` will read low until those paths are added.",
+            "so coverage for `sdk/python` will read low until those paths are added.",
             "",
         ]
 
@@ -382,7 +382,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate SDK parity report")
     parser.add_argument("--openapi", default="docs/api/openapi.json")
     parser.add_argument("--ts-sdk", default="sdk/typescript/src")
-    parser.add_argument("--py-sdk", default="sdk/python/aragora/namespaces")
+    parser.add_argument("--py-sdk", default="sdk/python/aragora_sdk/namespaces")
     parser.add_argument("--ts-client", default="aragora-js/src")
     parser.add_argument("--output", help="Write report to file")
     parser.add_argument(

@@ -107,7 +107,7 @@ Related:
 | ID | Owner | Primary Files/Areas | Definition of Done (Gate) |
 |---|---|---|---|
 | DEV-07 | SDK + Docs | `examples/`, `sdk/typescript/` | TS example app: streaming + receipts; runnable instructions |
-| DEV-08 | SDK + Docs | `examples/`, `sdk/python/` (or `aragora-py/`) | Python SDK basic usage example; runnable instructions |
+| DEV-08 | SDK + Docs | `examples/`, `sdk/python/` | Python SDK basic usage example; runnable instructions |
 | DEV-09 | Docs | `examples/README.md` (or equivalent) | examples directory has a consistent structure and quickstart |
 
 ### Self-Hosted Track

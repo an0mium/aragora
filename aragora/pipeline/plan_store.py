@@ -27,8 +27,10 @@ from aragora.pipeline.decision_plan.core import (
     ApprovalRecord,
     BudgetAllocation,
     DecisionPlan,
+    ImplementationProfile,
     PlanStatus,
 )
+from aragora.pipeline.risk_register import RiskLevel
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +85,12 @@ class PlanStore:
                     task TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'created',
                     approval_mode TEXT NOT NULL DEFAULT 'risk_based',
+                    max_auto_risk TEXT NOT NULL DEFAULT 'low',
                     approved_by TEXT,
                     rejection_reason TEXT,
                     budget_json TEXT,
                     approval_record_json TEXT,
+                    implementation_profile_json TEXT,
                     metadata_json TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
@@ -101,6 +105,17 @@ class PlanStore:
                 CREATE INDEX IF NOT EXISTS idx_plans_status
                 ON plans(status)
             """)
+
+            # Backward-compatible schema migration for existing databases.
+            columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(plans)").fetchall()
+            }
+            if "max_auto_risk" not in columns:
+                conn.execute(
+                    "ALTER TABLE plans ADD COLUMN max_auto_risk TEXT NOT NULL DEFAULT 'low'"
+                )
+            if "implementation_profile_json" not in columns:
+                conn.execute("ALTER TABLE plans ADD COLUMN implementation_profile_json TEXT")
             conn.commit()
         finally:
             conn.close()
@@ -116,6 +131,11 @@ class PlanStore:
         approval_json = (
             json.dumps(plan.approval_record.to_dict()) if plan.approval_record else None
         )
+        implementation_profile_json = (
+            json.dumps(plan.implementation_profile.to_dict())
+            if plan.implementation_profile
+            else None
+        )
         metadata_json = json.dumps(plan.metadata) if plan.metadata else "{}"
 
         conn = self._connect()
@@ -124,9 +144,11 @@ class PlanStore:
                 """
                 INSERT INTO plans (
                     id, debate_id, task, status, approval_mode,
+                    max_auto_risk,
                     approved_by, rejection_reason, budget_json,
-                    approval_record_json, metadata_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    approval_record_json, implementation_profile_json,
+                    metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     plan.id,
@@ -134,12 +156,14 @@ class PlanStore:
                     plan.task,
                     plan.status.value,
                     plan.approval_mode.value,
+                    plan.max_auto_risk.value,
                     plan.approval_record.approver_id if plan.approval_record else None,
                     plan.approval_record.reason
                     if plan.approval_record and not plan.approval_record.approved
                     else None,
                     budget_json,
                     approval_json,
+                    implementation_profile_json,
                     metadata_json,
                     plan.created_at.isoformat(),
                     now,
@@ -301,6 +325,7 @@ class PlanStore:
     @staticmethod
     def _row_to_plan(row: sqlite3.Row) -> DecisionPlan:
         """Convert a database row to a DecisionPlan."""
+        row_keys = set(row.keys())
         budget_data = json.loads(row["budget_json"] or "{}")
         budget = BudgetAllocation(
             limit_usd=budget_data.get("limit_usd"),
@@ -321,7 +346,27 @@ class PlanStore:
                 conditions=ar_data.get("conditions", []),
             )
 
+        implementation_profile = None
+        raw_profile = (
+            row["implementation_profile_json"]
+            if "implementation_profile_json" in row_keys
+            else None
+        )
+        if raw_profile:
+            try:
+                profile_data = json.loads(raw_profile)
+                if isinstance(profile_data, dict):
+                    implementation_profile = ImplementationProfile.from_dict(profile_data)
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                logger.warning("invalid implementation_profile_json for plan %s: %s", row["id"], exc)
+
         metadata = json.loads(row["metadata_json"] or "{}")
+
+        max_auto_risk_raw = row["max_auto_risk"] if "max_auto_risk" in row_keys else RiskLevel.LOW.value
+        try:
+            max_auto_risk = RiskLevel(max_auto_risk_raw)
+        except ValueError:
+            max_auto_risk = RiskLevel.LOW
 
         created_at = datetime.fromisoformat(row["created_at"])
 
@@ -331,9 +376,11 @@ class PlanStore:
             task=row["task"],
             status=PlanStatus(row["status"]),
             approval_mode=ApprovalMode(row["approval_mode"]),
+            max_auto_risk=max_auto_risk,
             budget=budget,
             approval_record=approval_record,
             metadata=metadata,
+            implementation_profile=implementation_profile,
             created_at=created_at,
         )
 

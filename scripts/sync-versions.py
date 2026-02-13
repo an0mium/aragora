@@ -23,7 +23,6 @@ ROOT = Path(__file__).parent.parent
 PACKAGES = {
     "pyproject.toml": "toml",  # Source of truth
     "sdk/typescript/package.json": "json",
-    "aragora-py/pyproject.toml": "toml",
     "aragora-js/package.json": "json",
     "aragora/live/package.json": "json",
 }

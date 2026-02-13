@@ -158,7 +158,6 @@ def main() -> int:
     # Define all version sources
     version_sources: list[tuple[str, Path, str]] = [
         ("pyproject.toml", Path("pyproject.toml"), "pyproject"),
-        ("aragora-py/pyproject.toml", Path("aragora-py/pyproject.toml"), "pyproject"),
         ("sdk/python/pyproject.toml", Path("sdk/python/pyproject.toml"), "pyproject"),
         ("aragora-js/package.json", Path("aragora-js/package.json"), "package"),
         ("aragora/live/package.json", Path("aragora/live/package.json"), "package"),
@@ -171,7 +170,6 @@ def main() -> int:
         ),
     ]
     python_version_sources: list[tuple[str, Path]] = [
-        ("aragora-py/aragora_client/__init__.py", Path("aragora-py/aragora_client/__init__.py")),
         ("sdk/python/aragora/__init__.py", Path("sdk/python/aragora/__init__.py")),
     ]
     doc_sources: list[tuple[str, Path, str]] = [

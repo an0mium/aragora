@@ -143,8 +143,16 @@ jobs:
               echo "--- .env var names ---"
               grep -oP '^[^#][^=]+' /home/ubuntu/aragora/.env 2>/dev/null || true
             fi
-            echo "--- Recent service logs (last 30 lines) ---"
-            sudo journalctl -u aragora --no-pager -n 30 2>/dev/null || true
+
+            # Hit the auth debug endpoint from localhost to trigger any errors
+            echo "--- Auth debug endpoint (localhost) ---"
+            AUTH_PORT=$(grep -oP 'api-port\s+\K\d+' /etc/systemd/system/aragora.service 2>/dev/null || echo "8080")
+            AUTH_DEBUG_RESP=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" "http://localhost:${AUTH_PORT}/api/auth/debug" 2>&1) || true
+            echo "$AUTH_DEBUG_RESP"
+
+            # Capture logs AFTER the curl to include the traceback
+            echo "--- Recent service logs (last 50 lines, after auth/debug curl) ---"
+            sudo journalctl -u aragora --no-pager -n 50 --no-hostname 2>/dev/null || true
             echo "=== End Diagnostics ==="
 
       - name: Verify health

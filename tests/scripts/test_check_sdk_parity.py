@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import scripts.check_sdk_parity as check_sdk_parity
 
@@ -138,14 +143,19 @@ def test_strict_budget_fails_when_stale_exceeds_budget(monkeypatch, tmp_path):
 
 def test_strict_budget_passes_when_within_budget(monkeypatch, tmp_path):
     _patch_report(monkeypatch, missing=2, stale_python=10)
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        '{"missing_from_both_sdks": ["/api/a", "/api/b"]}\n',
+        encoding="utf-8",
+    )
     budget = tmp_path / "budget.json"
     budget.write_text(
         """
 {
-  "start_date": "2026-01-01",
-  "initial_missing_from_both_sdks": 4,
+  "start_date": "2026-02-13",
+  "initial_missing_from_both_sdks": 2,
   "weekly_reduction_missing_from_both_sdks": 1,
-  "initial_stale_python_sdk_paths": 20,
+  "initial_stale_python_sdk_paths": 10,
   "weekly_reduction_stale_python_sdk_paths": 2
 }
 """.strip()
@@ -159,6 +169,8 @@ def test_strict_budget_passes_when_within_budget(monkeypatch, tmp_path):
             "check_sdk_parity.py",
             "--strict",
             "--allow-missing",
+            "--baseline",
+            str(baseline),
             "--budget",
             str(budget),
             "--today",

@@ -72,3 +72,33 @@ def f():
     result = _run("--path", str(tmp_path))
     assert result.returncode == 1
     assert "silent broad exception handler (return value)" in result.stdout
+
+
+def test_scans_multiple_paths(tmp_path: Path):
+    good = tmp_path / "good"
+    bad = tmp_path / "bad"
+    good.mkdir()
+    bad.mkdir()
+
+    (good / "ok.py").write_text(
+        """
+def f():
+    try:
+        return 1
+    except Exception as e:
+        raise RuntimeError("boom") from e
+""".strip()
+    )
+    (bad / "oops.py").write_text(
+        """
+def f():
+    try:
+        return 1
+    except Exception:
+        return None
+""".strip()
+    )
+
+    result = _run("--path", str(good), str(bad))
+    assert result.returncode == 1
+    assert "oops.py" in result.stdout

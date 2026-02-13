@@ -278,7 +278,7 @@ Current released version is **v2.6.3**.
 #### What's New in 2.4.0
 
 **Python SDK Resource Expansion** (FEATURE)
-- **SDK Resources** (`aragora-py/src/aragora_client/`)
+- **SDK Resources** (formerly `aragora-py/`, now consolidated into `sdk/python/`)
   - Organizations namespace for org management
   - Tenants namespace for multi-tenancy
   - Policies namespace for policy configuration

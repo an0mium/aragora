@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Guardrail for connector exception handling hygiene.
+Guardrail for exception handling hygiene in security-sensitive paths.
 
 Fails when connector code silently swallows broad exceptions via:
   - except Exception: pass
@@ -92,29 +92,33 @@ def _iter_python_files(root: Path) -> list[Path]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check connector exception handling hygiene")
+    parser = argparse.ArgumentParser(description="Check exception handling hygiene")
     parser.add_argument(
         "--path",
-        default="aragora/connectors",
-        help="Path to scan (default: aragora/connectors)",
+        nargs="+",
+        default=["aragora/connectors"],
+        help="One or more paths to scan (default: aragora/connectors)",
     )
     args = parser.parse_args()
 
-    root = Path(args.path)
-    if not root.exists():
-        print(f"Path does not exist: {root}", file=sys.stderr)
+    roots = [Path(p) for p in args.path]
+    missing = [root for root in roots if not root.exists()]
+    if missing:
+        for root in missing:
+            print(f"Path does not exist: {root}", file=sys.stderr)
         return 2
 
     findings: list[Finding] = []
     parse_errors: list[tuple[Path, str]] = []
 
-    for file_path in _iter_python_files(root):
-        try:
-            findings.extend(_scan_file(file_path))
-        except SyntaxError as exc:
-            parse_errors.append((file_path, f"SyntaxError: {exc.msg} (line {exc.lineno})"))
-        except OSError as exc:
-            parse_errors.append((file_path, f"OSError: {exc}"))
+    for root in roots:
+        for file_path in _iter_python_files(root):
+            try:
+                findings.extend(_scan_file(file_path))
+            except SyntaxError as exc:
+                parse_errors.append((file_path, f"SyntaxError: {exc.msg} (line {exc.lineno})"))
+            except OSError as exc:
+                parse_errors.append((file_path, f"OSError: {exc}"))
 
     if parse_errors:
         print("Failed to parse one or more files:")
@@ -123,13 +127,14 @@ def main() -> int:
         return 2
 
     if findings:
-        print("Found silent broad exception handlers in connectors:")
+        print("Found silent broad exception handlers:")
         for finding in findings:
             print(f"  - {finding.path}:{finding.lineno}: {finding.message}")
         print("\nReplace silent handlers with targeted exceptions + logging.")
         return 1
 
-    print(f"Connector exception handling check passed ({root})")
+    paths_text = ", ".join(str(root) for root in roots)
+    print(f"Exception handling check passed ({paths_text})")
     return 0
 
 
