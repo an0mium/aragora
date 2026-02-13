@@ -27,6 +27,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 
 def _check_email_permission(
     auth_context: Any | None, permission_key: str
@@ -41,14 +43,28 @@ def _check_email_permission(
     Returns:
         None if allowed, error dict with success=False if denied
     """
-    # Fail closed for write-sensitive operations if RBAC is unavailable.
-    if not RBAC_AVAILABLE or auth_context is None:
+    # Fail closed for all operations in production if RBAC is unavailable.
+    if not RBAC_AVAILABLE:
+        if rbac_fail_closed():
+            return {
+                "success": False,
+                "error": "Service unavailable: access control module not loaded",
+            }
+        # Dev/test: fail closed for write-sensitive operations only
         if permission_key in {"email:write", "email:update", "email:oauth"}:
             return {
                 "success": False,
                 "error": "Permission denied: RBAC unavailable",
             }
-        return None  # Read-only paths degrade gracefully
+        return None  # Read-only paths degrade gracefully in dev/test
+
+    if auth_context is None:
+        if permission_key in {"email:write", "email:update", "email:oauth"}:
+            return {
+                "success": False,
+                "error": "Permission denied: RBAC unavailable",
+            }
+        return None
 
     try:
         decision = check_permission(auth_context, permission_key)

@@ -45,6 +45,8 @@ except ImportError:
     check_permission = None  # type: ignore[assignment]
     PermissionDeniedError = Exception  # type: ignore[misc,assignment]
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 
 def _record_rbac_check(*args: Any, **kwargs: Any) -> None:
     """No-op fallback for when metrics module is not available."""
@@ -86,7 +88,12 @@ def _check_permission(
         perm_checker = getattr(connectors_module, "check_permission", check_permission)
         perm_error_type = getattr(connectors_module, "PermissionDeniedError", PermissionDeniedError)
 
-    if not rbac_enabled or auth_context is None:
+    if not rbac_enabled:
+        if rbac_fail_closed():
+            return error_dict("Service unavailable: access control module not loaded", code="SERVICE_UNAVAILABLE", status=503)
+        return None
+
+    if auth_context is None:
         return None
 
     try:
@@ -934,7 +941,19 @@ async def handle_connector_health(
     stats = scheduler.get_stats()
 
     # Basic health check for unauthenticated requests
-    if not auth_context or not RBAC_AVAILABLE:
+    if not auth_context:
+        return {
+            "status": "healthy",
+            "scheduler_running": scheduler._scheduler_task is not None,
+            "total_connectors": stats["total_jobs"],
+        }
+
+    if not RBAC_AVAILABLE:
+        if rbac_fail_closed():
+            return {
+                "status": "error",
+                "error": "Service unavailable: access control module not loaded",
+            }
         return {
             "status": "healthy",
             "scheduler_running": scheduler._scheduler_task is not None,

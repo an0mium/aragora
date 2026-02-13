@@ -100,6 +100,8 @@ except (ImportError, AttributeError):
     extract_user_from_request = None
     AuthorizationContext = None
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 
 def _tg():
     """Lazy import of the telegram package for patchable attribute access."""
@@ -153,6 +155,8 @@ class TelegramRBACMixin:
     def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check if current user has permission. Returns error response if denied."""
         if not _tg().RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         context = self._get_auth_context(handler)
@@ -182,6 +186,8 @@ class TelegramRBACMixin:
         Fails OPEN by default for Telegram users unless TELEGRAM_RBAC_ENABLED=true.
         """
         if not _tg().RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return False  # Deny in production when RBAC unavailable
             return True
 
         telegram_rbac_enabled = os.environ.get("TELEGRAM_RBAC_ENABLED", "false").lower() == "true"

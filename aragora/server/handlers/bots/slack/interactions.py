@@ -18,6 +18,8 @@ from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .blocks import build_start_debate_modal
 from .constants import (
     AGENT_DISPLAY_NAMES,
@@ -90,6 +92,13 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
         # Helper to check permission for interactions
         def _check_interaction_permission(permission: str) -> HandlerResult | None:
             if not RBAC_AVAILABLE or check_permission is None or not team_id:
+                if rbac_fail_closed():
+                    return json_response(
+                        {
+                            "response_type": "ephemeral",
+                            "text": "Service unavailable: access control module not loaded",
+                        }
+                    )
                 return None
             try:
                 context = None

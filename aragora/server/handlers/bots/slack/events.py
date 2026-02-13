@@ -19,6 +19,8 @@ from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .constants import (
     MAX_TOPIC_LENGTH,
     PERM_SLACK_COMMANDS_EXECUTE,
@@ -196,7 +198,15 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                 )
 
             # RBAC check for command execution
-            if RBAC_AVAILABLE and check_permission is not None and team_id:
+            if not RBAC_AVAILABLE:
+                if rbac_fail_closed():
+                    return json_response(
+                        {
+                            "response_type": "ephemeral",
+                            "text": "Service unavailable: access control module not loaded",
+                        }
+                    )
+            elif check_permission is not None and team_id:
                 try:
                     context = None
                     if AuthorizationContext is not None:

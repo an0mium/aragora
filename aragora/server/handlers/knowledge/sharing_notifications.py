@@ -45,6 +45,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # Rate limiter for notification endpoints
 _notifications_limiter = RateLimiter(requests_per_minute=60)
 
@@ -92,7 +94,10 @@ class SharingNotificationsHandler(BaseHandler):
         user_id = user.user_id or "anonymous"
 
         # RBAC permission check for read operations
-        if RBAC_AVAILABLE and user:
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif user:
             try:
                 auth_ctx = RBACContext(
                     user_id=str(user_id),
@@ -145,7 +150,10 @@ class SharingNotificationsHandler(BaseHandler):
         user_id = user.user_id or "anonymous"
 
         # RBAC permission check for write operations
-        if RBAC_AVAILABLE and user:
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif user:
             try:
                 auth_ctx = RBACContext(
                     user_id=str(user_id),
@@ -206,7 +214,10 @@ class SharingNotificationsHandler(BaseHandler):
         user_id = user.user_id or "anonymous"
 
         # RBAC permission check for write operations (PUT)
-        if RBAC_AVAILABLE and user:
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif user:
             try:
                 auth_ctx = RBACContext(
                     user_id=str(user_id),

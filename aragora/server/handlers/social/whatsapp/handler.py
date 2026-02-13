@@ -77,6 +77,8 @@ from .webhooks import (
     verify_webhook,
 )
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 logger = logging.getLogger(__name__)
 
 
@@ -123,6 +125,8 @@ class WhatsAppHandler(BaseHandler):
     def _check_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check if current user has permission. Returns error response if denied."""
         if not RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         context = self._get_auth_context(handler)
@@ -197,6 +201,8 @@ class WhatsAppHandler(BaseHandler):
             Error message string if permission denied, None if allowed or RBAC unavailable.
         """
         if not RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return "Service unavailable: access control module not loaded"
             # RBAC not available - allow by default (fail open for backwards compat)
             return None
 

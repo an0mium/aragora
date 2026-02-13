@@ -20,6 +20,8 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .commands import handle_slack_commands
 from .constants import (
     PERM_SLACK_ADMIN,
@@ -140,6 +142,8 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
     ) -> HandlerResult | None:
         """Check if user has permission OR is admin."""
         if not RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         context = self._build_auth_context_from_slack(team_id, user_id, channel_id)

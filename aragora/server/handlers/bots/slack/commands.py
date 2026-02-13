@@ -21,6 +21,8 @@ from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .blocks import build_debate_message_blocks
 from .constants import (
     AGENT_DISPLAY_NAMES,
@@ -113,6 +115,13 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
         # Helper to check permission for commands
         def _check_command_permission(permission: str) -> HandlerResult | None:
             if not RBAC_AVAILABLE or check_permission is None or not team_id:
+                if rbac_fail_closed():
+                    return json_response(
+                        {
+                            "response_type": "ephemeral",
+                            "text": "Service unavailable: access control module not loaded",
+                        }
+                    )
                 return None
             try:
                 context = None

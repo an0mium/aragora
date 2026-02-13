@@ -77,6 +77,8 @@ except (ImportError, AttributeError):
     AuthorizationContext = None
     UserAuthContext = None
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # Environment variables
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID") or os.environ.get("MS_APP_ID")
 TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
@@ -494,6 +496,8 @@ class TeamsBot:
     ) -> dict[str, Any] | None:
         """Check if the user in the activity has a specific permission."""
         if not RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return {"error": "Service unavailable: access control module not loaded", "status": 503}
             return None
 
         context = self._get_auth_context_from_activity(activity)
