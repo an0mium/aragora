@@ -320,24 +320,6 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_rate_limit():
                 return
 
-        # Route all /api/* requests through modular handlers
-        if path.startswith("/api/"):
-            if self._try_modular_handler(path, query):
-                return
-            # Fallback for auth/me - return 401 instead of 404 when handler unavailable
-            if path in ("/api/auth/me", "/api/v1/auth/me"):
-                self._send_json(
-                    {"error": "Authentication required", "code": "auth_required"},
-                    status=401,
-                )
-                return
-            # Return 404 for unhandled API endpoints (don't fall through to static files)
-            self._send_json(
-                {"error": f"API endpoint not found: {path}", "code": "not_found"},
-                status=404,
-            )
-            return
-
         # Temporary auth diagnostic endpoint (no secrets exposed)
         if path == "/api/auth/debug":
             try:
@@ -365,7 +347,6 @@ class UnifiedHandler(  # type: ignore[misc]
                     diag["is_production"] = _is_production()
                 except Exception as e:
                     diag["oauth_config_error"] = f"{type(e).__name__}: {e}"
-                # Check auth header from request
                 auth_header = self.headers.get("Authorization", "")
                 diag["auth_header_present"] = bool(auth_header)
                 diag["auth_header_type"] = auth_header.split(" ")[0] if auth_header else None
@@ -390,6 +371,24 @@ class UnifiedHandler(  # type: ignore[misc]
                 self._send_json(diag)
             except Exception as e:
                 self._send_json({"error": f"Debug endpoint error: {type(e).__name__}: {e}"})
+            return
+
+        # Route all /api/* requests through modular handlers
+        if path.startswith("/api/"):
+            if self._try_modular_handler(path, query):
+                return
+            # Fallback for auth/me - return 401 instead of 404 when handler unavailable
+            if path in ("/api/auth/me", "/api/v1/auth/me"):
+                self._send_json(
+                    {"error": "Authentication required", "code": "auth_required"},
+                    status=401,
+                )
+                return
+            # Return 404 for unhandled API endpoints (don't fall through to static files)
+            self._send_json(
+                {"error": f"API endpoint not found: {path}", "code": "not_found"},
+                status=404,
+            )
             return
 
         # Health check endpoints (non-API paths routed to HealthHandler)
