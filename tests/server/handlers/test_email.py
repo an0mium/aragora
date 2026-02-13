@@ -66,6 +66,7 @@ def _reset_global_state():
     old_context = email_storage._context_service
     old_categorizer = email_categorization._categorizer
     old_store = email_storage._email_store
+    old_user_configs = email_storage._user_configs.copy()
 
     yield
 
@@ -74,6 +75,8 @@ def _reset_global_state():
     email_storage._context_service = old_context
     email_categorization._categorizer = old_categorizer
     email_storage._email_store = old_store
+    email_storage._user_configs.clear()
+    email_storage._user_configs.update(old_user_configs)
 
 
 @pytest.fixture
