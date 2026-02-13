@@ -1,606 +1,636 @@
 ---
-title: Aragora Enterprise Features
-description: Aragora Enterprise Features
+title: Aragora Enterprise Features Reference
+description: Aragora Enterprise Features Reference
 ---
 
-# Aragora Enterprise Features
+# Aragora Enterprise Features Reference
 
-*Comprehensive reference for enterprise-grade capabilities*
-
-This document details the enterprise-specific features available in Aragora, organized by category. For commercial positioning and readiness assessment, see [COMMERCIAL_OVERVIEW.md](./commercial-overview).
+Comprehensive reference for Aragora's enterprise capabilities. All features described here are implemented and tested. Features that are framework-level (requiring organizational process beyond the software) are noted as such.
 
 ---
 
 ## Table of Contents
 
-1. [Authentication & Authorization](#1-authentication--authorization)
-2. [Multi-Tenancy](#2-multi-tenancy)
-3. [Security Features](#3-security-features)
-4. [Compliance & Governance](#4-compliance--governance)
-5. [Observability](#5-observability)
-6. [Enterprise Connectors](#6-enterprise-connectors)
-7. [High Availability](#7-high-availability)
-8. [Data Management](#8-data-management)
+1. [Authentication](#authentication)
+2. [Authorization (RBAC v2)](#authorization-rbac-v2)
+3. [Multi-Tenancy](#multi-tenancy)
+4. [Security](#security)
+5. [Compliance](#compliance)
+6. [Observability](#observability)
+7. [Deployment](#deployment)
+8. [Disaster Recovery](#disaster-recovery)
+9. [Decision Audit](#decision-audit)
+10. [Control Plane](#control-plane)
 
 ---
 
-## 1. Authentication & Authorization
+## Authentication
 
-### OIDC Integration
-**Location**: `aragora/auth/oidc.py`
+### OIDC / SAML SSO
 
-OpenID Connect support for enterprise SSO:
-- Discovery document parsing
-- Token validation with JWK verification
-- Claims mapping to user profiles
-- Session management
+Full single sign-on support for enterprise identity providers.
+
+**OIDC (OpenID Connect)**
+
+| Feature | Details |
+|---|---|
+| Supported providers | Azure AD, Okta, Google Workspace, Auth0, Keycloak, any OIDC-compliant provider |
+| Authorization flow | Authorization Code with PKCE (Proof Key for Code Exchange) |
+| Token validation | JWKS-based JWT verification with issuer validation |
+| Discovery | Automatic `.well-known/openid-configuration` endpoint discovery |
+| Session management | Configurable session TTL, secure token storage |
+| Dev mode fallback | Triple-layered production guard with explicit opt-in, never enabled silently |
 
 ```python
-from aragora.auth.oidc import OIDCProvider
+from aragora.auth.oidc import OIDCProvider, OIDCConfig
 
-provider = OIDCProvider(
-    issuer="https://your-idp.com",
-    client_id="aragora-client",
-    client_secret=os.getenv("OIDC_CLIENT_SECRET"),
+config = OIDCConfig(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    issuer_url="https://login.microsoftonline.com/tenant-id/v2.0",
+    callback_url="https://aragora.example.com/auth/callback",
 )
-user = await provider.authenticate(token)
+
+provider = OIDCProvider(config)
+auth_url = await provider.get_authorization_url(state="...")
+user = await provider.authenticate(code="...")
 ```
 
-### SAML Support
-**Location**: `aragora/auth/saml.py`
+**SAML 2.0**
 
-SAML 2.0 integration for enterprise identity providers:
-- SP-initiated and IdP-initiated flows
-- Assertion validation
-- Attribute mapping
-- Metadata exchange
+| Feature | Details |
+|---|---|
+| Bindings | HTTP-POST, HTTP-Redirect |
+| Assertions | Signed and optionally encrypted |
+| Attribute mapping | Configurable mapping from SAML attributes to Aragora user fields |
+| Unsafe fallback | Dual opt-in required (configuration flag + environment variable), audit logged |
 
-### Multi-Factor Authentication
-**Location**: `aragora/server/middleware/mfa.py`
+Implementation: `aragora/auth/oidc.py`, `aragora/auth/saml.py`, `aragora/auth/sso.py`
 
-MFA support via:
-- TOTP (Time-based One-Time Password)
-- HOTP (HMAC-based One-Time Password)
-- Integration with authenticator apps (Google Authenticator, Authy, etc.)
+### Multi-Factor Authentication (MFA)
 
-```python
-from aragora.server.middleware.mfa import require_mfa
-
-@require_mfa
-def sensitive_endpoint(self, handler, user):
-    return {"ok": True}
-```
-
-### API Key Management
-**Location**: `aragora/server/handlers/auth/handler.py`, `aragora/server/middleware/user_auth.py`
-
-- Key generation with configurable entropy
-- Scoped permissions per key
-- Expiration and rotation
-- Usage tracking per key
-
-### Session Management
-**Location**: `aragora/server/session_store.py`
-
-- Token versioning for revocation
-- Lockout tracking (brute force protection)
-- Session cleanup with daemon threads
-- Configurable TTL per session type
-
-### Account Protection
-**Location**: `aragora/auth/lockout.py`
-
-- Failed attempt tracking
-- Progressive lockout delays
-- IP-based and user-based tracking
-- Automatic unlock after cooldown
+| Feature | Details |
+|---|---|
+| TOTP | Time-based One-Time Password (RFC 6238), compatible with Google Authenticator, Authy, 1Password |
+| HOTP | HMAC-based One-Time Password (RFC 4226) for hardware token support |
+| Enforcement | Per-user, per-role, or organization-wide MFA requirements |
+| Recovery | Backup codes generated at enrollment |
+| Bypass audit | MFA bypass attempts are logged to the security audit trail |
 
 ### SCIM 2.0 Provisioning
-**Location**: `aragora/auth/scim/`
 
-Automated user and group provisioning per RFC 7643/7644:
-- **User CRUD**: Create, read, update (PUT/PATCH), delete users
-- **Group CRUD**: Create, read, update (PUT/PATCH), delete groups with member management
-- **Filtering**: Full SCIM filter support (eq, ne, co, sw, ew, pr, gt, ge, lt, le, and, or)
-- **Pagination**: 1-indexed pagination with configurable page sizes (up to 1000)
-- **Soft Delete**: Users marked inactive by default (configurable hard delete)
-- **Bearer Token Auth**: Dedicated SCIM bearer token separate from API auth
-- **Multi-Tenant**: Optional tenant isolation via `SCIM_TENANT_ID`
+Automatic user lifecycle management from identity providers.
 
-**Supported Identity Providers**:
-- Okta (SCIM 2.0 integration)
-- Azure Active Directory (Enterprise app provisioning)
-- OneLogin (SCIM provisioning)
-- Any SCIM 2.0 compliant IdP
+| Feature | Details |
+|---|---|
+| User provisioning | Automatic creation on IdP assignment |
+| User deprovisioning | Automatic deactivation on IdP removal |
+| Group sync | IdP groups map to Aragora roles |
+| Attribute sync | Display name, email, department, and custom attributes |
+| Compliance | SCIM 2.0 specification (RFC 7644) |
 
-**Configuration**:
-```bash
-SCIM_BEARER_TOKEN=your-scim-token    # Required: Bearer token for SCIM endpoints
-SCIM_TENANT_ID=tenant-id             # Optional: Multi-tenant isolation
-SCIM_BASE_URL=https://api.example.com  # Optional: Base URL for resource locations
-```
+### API Key Management
+
+| Feature | Details |
+|---|---|
+| Key generation | Cryptographically secure API key generation |
+| Key rotation | Scheduled rotation with configurable overlap periods |
+| Scoping | Keys can be scoped to specific resources, operations, or IP ranges |
+| Rate limiting | Per-key rate limits with distributed enforcement |
+| Revocation | Immediate revocation with audit trail |
 
 ---
 
-## 2. Multi-Tenancy
+## Authorization (RBAC v2)
+
+Fine-grained role-based access control with hierarchical permissions.
+
+### Permission Model
+
+Permissions are defined as `(ResourceType, Action, Scope)` tuples:
+
+- **16 resource types**: Debate, Agent, Workflow, Document, Memory, Culture, KnowledgeNode, AuditSession, AuditFinding, TrainingJob, SpecialistModel, Workspace, Organization, Billing, APIKey
+- **8 actions**: Create, Read, Update, Delete, Execute, Export, Share, Admin
+- **4 scope levels**: Global, Organization, Workspace, Resource
+
+**390+ named permissions** across all resource domains, including debates, agents, users, organizations, API keys, memory, workflows, analytics, knowledge, provenance, connectors, devices, repositories, webhooks, gauntlet, marketplace, explainability, findings, decisions, policies, compliance, control plane, finance, receipts, scheduling, billing, sessions, approvals, templates, roles, backups, disaster recovery, data governance (classification, retention, lineage, PII), computer use, and more.
+
+### Default Roles
+
+| Role | Scope | Description |
+|---|---|---|
+| **Superadmin** | Global | Full system access across all resources and scopes |
+| **Org Admin** | Organization | Full access within an organization |
+| **Workspace Admin** | Workspace | Full access within a workspace |
+| **Workspace Editor** | Workspace | Create, read, update, delete on debates, documents, workflows, and memory |
+| **Workspace Viewer** | Workspace | Read-only access to all workspace resources |
+| **Auditor** | Workspace | Create, read, and execute audit sessions; read audit findings and documents |
+| **ML Engineer** | Organization | Full CRUD on training jobs and specialist models |
+
+Custom roles can be created with any combination of permissions. Roles support hierarchy -- a workspace admin inherits all workspace editor permissions.
+
+### Enforcement
+
+```python
+from aragora.rbac.decorators import require_permission
+from aragora.rbac.models import AuthorizationContext
+
+@require_permission("backups:read")
+async def get_backups(ctx: AuthorizationContext) -> list:
+    return await manager.list_backups()
+```
+
+- **Decorators**: `@require_permission` and `@require_role` for route-level enforcement
+- **Middleware**: HTTP middleware validates route permissions against `SYSTEM_PERMISSIONS` registry at startup; logs warnings for undefined permissions
+- **Caching**: `PermissionChecker` with LRU caching for fast repeated checks
+- **Audit logging**: All authorization decisions (grant and deny) are recorded
+
+Implementation: `aragora/rbac/models.py`, `aragora/rbac/types.py`, `aragora/rbac/checker.py`, `aragora/rbac/decorators.py`, `aragora/rbac/middleware.py`, `aragora/rbac/audit.py`, `aragora/rbac/defaults/`
+
+---
+
+## Multi-Tenancy
 
 ### Tenant Isolation
-**Location**: `aragora/tenancy/isolation.py`
 
-Complete data isolation between tenants:
-- SQL query auto-filtering by tenant ID
-- Tenant context injection into all operations
-- Cross-tenant access prevention
-
-```python
-from aragora.tenancy import TenantContext
-
-async with TenantContext(tenant_id="acme-corp"):
-    # All operations scoped to this tenant
-    debates = await debate_store.list()  # Only ACME debates
-```
+| Feature | Details |
+|---|---|
+| Data isolation | Tenant-scoped queries enforced at the data access layer |
+| Request context | `IsolationContext` threaded through all request handling with actor ID, org ID, workspace ID |
+| Cross-tenant protection | Queries automatically scoped; cross-tenant data access requires explicit superadmin override |
+| Namespace isolation | Separate storage namespaces per tenant for debates, memory, knowledge, and receipts |
 
 ### Resource Quotas
-**Location**: `aragora/tenancy/quotas.py`
 
-Per-tenant resource limits:
-- Debate count limits
-- API call rate limits
-- Storage quotas
-- Concurrent execution limits
-
-```python
-from aragora.tenancy.quotas import QuotaManager
-
-quotas = QuotaManager(tenant_id="acme-corp")
-if not quotas.can_create_debate():
-    raise QuotaExceededError("Debate limit reached")
-```
+| Quota Type | Configuration |
+|---|---|
+| Debates per month | Per-tenant configurable limit |
+| Agents per debate | Per-tenant maximum |
+| Storage capacity | Per-tenant storage allocation |
+| API request rate | Per-tenant rate limits with distributed enforcement |
+| Concurrent debates | Per-tenant concurrent execution limit |
 
 ### Usage Metering
-**Location**: `aragora/billing/metering.py`
 
-- Tenant-aware usage tracking
-- BillingEvent collection with periodic flush
-- Per-tenant cost calculation
-- Usage projections and alerts
+| Feature | Details |
+|---|---|
+| Real-time tracking | Per-tenant usage counters for debates, API calls, storage, and LLM tokens |
+| Cost attribution | LLM costs tracked per debate, per agent, per tenant |
+| Budget alerts | Configurable thresholds with notification delivery (Slack, Teams, email, webhook) |
+| Usage dashboards | Per-tenant usage visualization with cost breakdown and trend analysis |
+| Export | Usage data exportable for billing integration |
 
-### Tenant Configuration
-**Location**: `aragora/tenancy/context.py`
-
-- Thread-safe tenant context management
-- Async-safe context propagation
-- Tenant-specific settings override
-- Feature flag support per tenant
+Implementation: `aragora/tenancy/isolation.py`, `aragora/billing/cost_tracker.py`, `aragora/billing/budget_manager.py`, `aragora/billing/metering.py`, `aragora/billing/forecaster.py`
 
 ---
 
-## 3. Security Features
+## Security
 
-### Encryption at Rest
-**Location**: `aragora/security/encryption.py`
+### Encryption
 
-AES-256-GCM authenticated encryption:
-- Master key management
-- Key derivation via PBKDF2-SHA256 (100k iterations)
-- Key rotation with versioning
-- Field-level encryption for sensitive data
+**At Rest**
+
+| Feature | Details |
+|---|---|
+| Algorithm | AES-256-GCM authenticated encryption |
+| Key derivation | Password/secret-based key derivation with configurable parameters |
+| Key versioning | Multiple key versions with automatic selection of current active key |
+| Envelope encryption | For large data objects; data key encrypted with master key |
+| Field-level encryption | Selective encryption of sensitive fields within records (HIPAA use case) |
 
 ```python
-from aragora.security.encryption import EncryptionService
+from aragora.security.encryption import get_encryption_service
 
-service = EncryptionService(master_key=os.getenv("MASTER_KEY"))
-encrypted = service.encrypt(sensitive_data)
-decrypted = service.decrypt(encrypted)
+service = get_encryption_service()
+
+# Encrypt with associated data for integrity binding
+encrypted = service.encrypt("sensitive data", associated_data="user_123")
+
+# Field-level encryption for records with mixed sensitivity
+encrypted_record = service.encrypt_fields(
+    {"name": "John", "ssn": "123-45-6789"},
+    sensitive_fields=["ssn"]
+)
 ```
 
-### Input Validation
-**Location**: `aragora/server/validation/`
+**In Transit**
 
-Comprehensive validation framework:
-- JSON body size limits (1MB default)
-- Content-type validation
-- Query parameter validation
-- Schema-based validation
-- Path traversal protection
+- TLS 1.2+ enforced on all API endpoints
+- Certificate management via cert-manager (Kubernetes deployment)
+- WebSocket connections secured with the same TLS configuration
+
+### Key Rotation
+
+| Feature | Details |
+|---|---|
+| Scheduled rotation | Configurable rotation intervals with automatic key generation |
+| Overlap period | Old keys remain valid for decryption during rotation transition |
+| Version tracking | All encrypted data tagged with key version for deterministic decryption |
+| Rotation audit | Key rotation events logged to security audit trail |
+
+Implementation: `aragora/security/encryption.py`, `aragora/security/key_rotation.py`
+
+### SSRF Protection
+
+| Feature | Details |
+|---|---|
+| URL validation | `validate_webhook_url()` blocks requests to internal networks, localhost, and metadata endpoints |
+| Coverage | Enforced at all external integration points (webhooks, connectors, OAuth callbacks) |
+| Allow/deny lists | Configurable domain allow and deny lists |
+
+Implementation: `aragora/security/ssrf_protection.py`
+
+### Anomaly Detection
+
+| Feature | Details |
+|---|---|
+| Pattern detection | Statistical anomaly detection on API access patterns |
+| Rate analysis | Unusual request rate detection per user/tenant/IP |
+| Behavioral baselines | Adaptive baselines that learn normal usage patterns |
+| Alerting | Integration with observability alerting pipeline |
+
+Implementation: `aragora/security/anomaly_detection.py`
 
 ### Rate Limiting
-**Location**: `aragora/server/rate_limit.py`, `aragora/server/handlers/utils/rate_limit.py`
 
-Multi-layer rate limiting:
-- IP-based: 1000 req/min per IP
-- Token-based: Per API key limits
-- Endpoint-based: Custom per-endpoint limits
-- Token bucket algorithm with burst support
-- Redis backend for distributed systems
+| Feature | Details |
+|---|---|
+| Algorithm | Sliding window with Redis-backed distributed enforcement |
+| Fallback | Graceful degradation to in-memory rate limiting when Redis is unavailable |
+| Granularity | Per-user, per-API-key, per-tenant, per-IP |
+| Circuit breaker | Integrated circuit breaker pattern (threshold=5, cooldown=60s) |
+| Security hardening | `builtins.isinstance` monkeypatch check to prevent rate limit bypass |
 
-```bash
-# Configuration
-ARAGORA_RATE_LIMIT_DEFAULT=60      # req/min
-ARAGORA_RATE_LIMIT_IP=1000         # req/min per IP
-ARAGORA_RATE_LIMIT_BURST=10        # burst allowance
-ARAGORA_RATE_LIMIT_FAIL_OPEN=false # fail-open mode
-```
+### Additional Security Features
 
-### Circuit Breaker
-**Location**: `aragora/resilience.py`
-
-Fault tolerance pattern:
-- Configurable failure thresholds
-- Automatic cooldown periods (60s default)
-- Thread-safe global registry
-- Per-service tracking
-- Agent-specific breakers
-
-### Security Barrier
-**Location**: `aragora/debate/security_barrier.py`
-
-Telemetry and content protection:
-- API key redaction from logs
-- Token pattern sanitization
-- Error message filtering
-- Audit-safe output generation
+- **Path traversal protection**: `safe_path()` utility prevents directory traversal in all file operations
+- **SQL injection prevention**: SQL identifier validation with regex-based allowlisting
+- **Input validation**: Schema validation on all API inputs
+- **Security audit logging**: Comprehensive logging of authentication events, authorization decisions, and security-relevant actions
+- **SecurityBarrier**: Telemetry redaction to prevent sensitive data leakage in observability pipelines
 
 ---
 
-## 4. Compliance & Governance
+## Compliance
 
-### Audit Trail
-**Location**: `aragora/audit/`
+### SOC 2 Controls
 
-Tamper-evident logging:
-- Immutable log entries
-- Content-addressable hashing
-- Chain integrity verification
-- Export for compliance review
+Aragora implements technical controls aligned with SOC 2 Trust Service Criteria:
 
-```python
-from aragora.audit import AuditLogger
+| Control | Implementation |
+|---|---|
+| CC6.1 - Logical access security | RBAC v2 with 390+ permissions, OIDC/SAML SSO, MFA |
+| CC6.5 - Secure data disposal | GDPR deletion scheduler with cascade management and erasure verification |
+| CC6.6 - Secure external transmissions | TLS 1.2+ enforced, webhook URL validation, SSRF protection |
+| CC7.1 - Detection of unauthorized activity | Anomaly detection, security audit logging, rate limiting |
+| CC8.1 - Change management | Nomic Loop safety rails, protected file checksums, automatic backups |
+| P4.1 - Data retention and disposal | Configurable retention policies, scheduled deletion with grace periods |
 
-logger = AuditLogger()
-await logger.log_event(
-    event_type="DEBATE_CREATED",
-    actor=user_id,
-    resource=debate_id,
-    details={"topic": topic}
-)
-```
+### GDPR
 
-### SOC 2 Compliance
-**Location**: `docs/COMPLIANCE.md`
+| Capability | Article | Implementation |
+|---|---|---|
+| Right to erasure | Article 17 | `GDPRDeletionScheduler` with grace period, cascade deletion, and erasure verification |
+| Data portability | Article 20 | Data export APIs for all user data |
+| Consent management | Article 7 | Consent tracking and withdrawal support |
+| Storage limitation | Article 5(1)(e) | Retention policies with automatic enforcement |
+| Anonymization | -- | Safe Harbor de-identification standard implementation |
 
-SOC 2 Type II controls documentation:
-- Access control policies
-- Change management procedures
-- Incident response plans
-- Data handling policies
+Implementation: `aragora/privacy/deletion.py`, `aragora/privacy/consent.py`, `aragora/privacy/retention.py`, `aragora/privacy/anonymization.py`
 
-### GDPR Support
-**Location**: `aragora/privacy/`, `docs/GDPR.md`
+### HIPAA
 
-GDPR Article mappings:
-- Right to access (DSAR workflow)
-- Right to erasure
-- Data portability export
-- Consent management
+| Feature | Details |
+|---|---|
+| Field-level encryption | AES-256-GCM encryption of PHI fields within records |
+| Access controls | RBAC enforcement on all PHI-containing resources |
+| Audit trails | Complete access logging for PHI interactions |
+| Data retention | Configurable retention periods meeting HIPAA minimums |
+| BAA compatibility | Architecture supports Business Associate Agreement requirements |
 
-### Data Classification
-**Location**: `docs/DATA_CLASSIFICATION.md`
+**Note:** HIPAA compliance requires organizational safeguards (policies, training, BAA execution) beyond technical controls. Aragora provides the technical infrastructure.
 
-Data handling policies:
-- Public, Internal, Confidential, Restricted tiers
-- Handling procedures per tier
-- Encryption requirements
-- Retention policies
+### EU AI Act
 
-### Incident Response
-**Location**: `docs/INCIDENT_RESPONSE.md`
+Aragora generates compliance artifacts for high-risk AI system requirements:
 
-Incident management:
-- Severity classification
-- Escalation procedures
-- Communication templates
-- Post-incident review
+| Requirement | Article | What Aragora Generates |
+|---|---|---|
+| Risk management | Article 9 | Adversarial debate surfaces risks; Gauntlet mode stress-tests specifications |
+| Event logging | Article 12 | Decision receipts with timestamps, agent identities, and full debate traces |
+| Transparency | Article 13 | Provider identity, known risks, output interpretation guides, reasoning traces |
+| Human oversight | Article 14 | Confidence scores, dissent trails, split opinion flagging for human review |
+| Accuracy & robustness | Article 15 | Multi-model consensus, ELO rankings, Brier calibration scores |
+
+`ComplianceArtifactGenerator` produces Article 12, 13, and 14 artifact bundles with SHA-256 integrity hashing. Artifacts are generated as a byproduct of normal debate operation.
+
+**EU AI Act high-risk enforcement begins August 2, 2026.**
 
 ---
 
-## 5. Observability
+## Observability
 
 ### Prometheus Metrics
-**Location**: `aragora/observability/metrics.py`
 
-14+ custom metrics:
-- `aragora_request_count` - Request counter by endpoint
-- `aragora_request_latency` - Response time histogram
-- `aragora_agent_calls` - Agent invocation counter
-- `aragora_agent_latency` - Agent response time
-- `aragora_active_debates` - Concurrent debate gauge
-- `aragora_consensus_rate` - Consensus achievement rate
-- `aragora_memory_operations` - Memory tier operations
-- `aragora_websocket_connections` - Active WS connections
-- `aragora_cache_hits` / `aragora_cache_misses`
-- `aragora_debate_phase_duration` - Per-phase timing
+| Metric Category | Examples |
+|---|---|
+| Debate metrics | Duration, agent count, consensus rate, rounds to convergence |
+| API metrics | Request rate, latency (p50/p95/p99), error rate, status code distribution |
+| Agent metrics | Response time per provider, failure rate, circuit breaker state |
+| Memory metrics | Tier utilization, promotion/demotion rates, cache hit ratio |
+| Business metrics | Cost per debate, receipt generation rate, active tenants |
 
-```bash
-# Metrics endpoint
-curl http://localhost:9090/metrics
-```
+Metrics endpoint compatible with Prometheus scraping. Pre-built Grafana dashboards available.
 
 ### Grafana Dashboards
-**Location**: `deploy/grafana/`
 
-Pre-built dashboards:
-- System overview
-- Debate performance
-- Agent health
-- Memory utilization
-- Error rates
+Pre-configured dashboards for:
+
+- Debate performance and convergence tracking
+- API health and latency monitoring
+- Agent reliability across providers
+- Cost tracking and budget utilization
+- SLO compliance and error budgets
 
 ### OpenTelemetry Tracing
-**Location**: `aragora/observability/tracing.py`
 
-Distributed tracing support:
-- Automatic trace ID injection
-- Context propagation across services
-- Span attributes for debugging
-- Configurable sampling rates
+| Feature | Details |
+|---|---|
+| OTLP export | Full OpenTelemetry Protocol support (6 backend configurations) |
+| Trace correlation | Request ID and correlation ID propagated through all service calls |
+| Span instrumentation | Automatic spans for debates, agent calls, database operations, and external integrations |
+| Context propagation | `contextvars`-based propagation (zero `threading.local` usage across 63+ migrated files) |
+| Sampling | Configurable sampling rates for cost control |
+
+Implementation: `aragora/observability/tracing.py`, `aragora/observability/otel.py`, `aragora/observability/otlp_export.py`, `aragora/observability/trace_correlation.py`
 
 ### Structured Logging
-**Location**: `aragora/observability/logging.py`
 
-JSON-formatted production logs:
-- Correlation context tracking (trace_id, span_id, debate_id)
-- Log rotation with configurable limits
-- Multiple backend support
-- SIEM integration
+| Feature | Details |
+|---|---|
+| Format | JSON structured logging with consistent field naming |
+| Trace context | Automatic request ID and correlation ID injection |
+| Log levels | Standard Python logging levels with per-module configuration |
+| Backends | Console, file, and external log aggregation (6 backend options) |
+| SIEM integration | Security event format compatible with SIEM ingestion |
+
+### SLO Monitoring
+
+| Feature | Details |
+|---|---|
+| SLO definitions | Configurable service level objectives with error budget tracking |
+| Alerting | SLO breach alerts via Prometheus alerting rules |
+| History | SLO compliance history for reporting |
+| Dashboard | SLO status visualization in Grafana |
+
+Implementation: `aragora/observability/slo.py`, `aragora/observability/slo_alert_bridge.py`, `aragora/observability/slo_history.py`, `aragora/observability/alerting.py`
+
+---
+
+## Deployment
+
+### Docker
+
+**Development / Evaluation**
 
 ```bash
-# Configuration
-ARAGORA_LOG_LEVEL=INFO
-ARAGORA_LOG_FORMAT=json  # or 'text'
-ARAGORA_LOG_FILE=/var/log/aragora/app.log
-ARAGORA_LOG_MAX_BYTES=10485760  # 10MB
-ARAGORA_LOG_BACKUP_COUNT=5
+docker compose -f deploy/docker-compose.yml up
 ```
 
-Structured logging redacts sensitive fields (auth tokens, payment data, PII,
-session identifiers, and key material) before output.
-
-### SLO Framework
-**Location**: `aragora/observability/slo.py`
-
-Service Level Objective tracking:
-- Response time targets
-- Availability thresholds
-- Error rate budgets
-- Automatic alerting on breach
-
----
-
-## 6. Enterprise Connectors
-
-### Chat Platforms
-
-| Platform | Location | Capabilities |
-|----------|----------|--------------|
-| **Slack** | `aragora/connectors/chat/slack/` | Messages, channels, threads, evidence collection |
-| **Discord** | `aragora/connectors/chat/discord.py` | Guilds, channels, DMs, reactions |
-| **Teams** | `aragora/connectors/chat/teams.py` | Teams, channels, meetings |
-| **Google Chat** | `aragora/connectors/chat/google_chat.py` | Spaces, messages |
-
-### Data Sources
-
-| Source | Location | Capabilities |
-|--------|----------|--------------|
-| **GitHub** | `aragora/connectors/enterprise/git/github.py` | Repos, PRs, issues, code search |
-| **ArXiv** | `aragora/connectors/arxiv.py` | Paper search, metadata, PDFs |
-| **Wikipedia** | `aragora/connectors/wikipedia.py` | Article content, references |
-| **SEC Filings** | `aragora/connectors/sec.py` | Company filings, financial data |
-| **Local Docs** | `aragora/connectors/local_docs.py` | File system documents |
-
-### Enterprise Systems
-
-| System | Location | Capabilities |
-|--------|----------|--------------|
-| **SharePoint** | `aragora/connectors/enterprise/documents/` | Document libraries, metadata |
-| **Confluence** | `aragora/connectors/enterprise/collaboration/` | Pages, spaces, attachments |
-| **Notion** | `aragora/connectors/enterprise/collaboration/` | Databases, pages |
-| **PostgreSQL** | `aragora/connectors/enterprise/database/postgres.py` | Table sync, LISTEN/NOTIFY |
-| **MongoDB** | `aragora/connectors/enterprise/database/mongodb.py` | Document queries |
-| **MySQL** | `aragora/connectors/enterprise/database/mysql.py` | Table sync, binlog CDC |
-| **SQL Server** | `aragora/connectors/enterprise/database/sqlserver.py` | Table sync, CDC/Change Tracking |
-| **Snowflake** | `aragora/connectors/enterprise/database/snowflake.py` | Table sync, time travel |
-
-### Healthcare (HL7/FHIR)
-**Location**: `aragora/connectors/enterprise/healthcare/`
-
-Healthcare system integration:
-- HL7v2 message parsing
-- FHIR resource queries
-- Patient data handling (HIPAA-compliant)
-- Clinical document support
-
----
-
-## 7. High Availability
-
-### Connection Pooling
-**Location**: `aragora/server/connection_pool.py`
-
-Adaptive connection management:
-- Min/max connections with overflow
-- Health monitoring (30s intervals)
-- Idle timeout (5 min default)
-- Graceful degradation on exhaustion
+**Production**
 
 ```bash
-# Configuration
-ARAGORA_POOL_MIN_CONNECTIONS=5
-ARAGORA_POOL_MAX_CONNECTIONS=50
-ARAGORA_POOL_IDLE_TIMEOUT=300
-ARAGORA_POOL_HEALTH_CHECK_INTERVAL=30
+docker compose -f deploy/docker-compose.production.yml up -d
 ```
 
-### Database Backends
-**Location**: `aragora/db/backends.py`
+Includes separate service definitions for the application server, PostgreSQL, Redis, and background workers.
 
-Multi-backend support:
-- SQLite for development/single-node
-- PostgreSQL for production scale
-- Parameter placeholder translation
-- Connection validation
+### Kubernetes + Helm
 
-### Caching
-**Location**: `aragora/cache.py`
+Full Helm chart with production-grade configurations:
 
-Unified cache infrastructure:
-- TTLCache: In-memory LRU with TTL
-- RedisTTLCache: Redis-backed distributed cache
-- HybridTTLCache: Intelligent backend selection
-- Per-cache statistics tracking
+| Resource | Description |
+|---|---|
+| `deployment.yaml` | Application deployment with readiness/liveness probes |
+| `service.yaml` | ClusterIP service for internal routing |
+| `ingress.yaml` | Ingress with TLS termination |
+| `hpa.yaml` | Horizontal Pod Autoscaler with custom metrics support |
+| `pdb.yaml` | Pod Disruption Budget for availability during rolling updates |
+| `network-policy.yaml` | Network policies restricting pod-to-pod communication |
+| `resourcequota.yaml` | Namespace resource quotas |
+| `limitrange.yaml` | Per-pod resource limits |
+| `configmap.yaml` | Application configuration |
+| `secrets.yaml` | Sensitive configuration (integrates with External Secrets Operator) |
 
-### Redis Cluster
-**Location**: `aragora/server/redis_cluster.py`
+**Multi-Region Values**
 
-Redis cluster support:
-- Cluster-aware connections
-- Automatic failover
-- Distributed rate limiting
-- Session storage
+Per-region value files for multi-region deployment:
 
----
+- `values-us-east-2.yaml` (US)
+- `values-eu-west-1.yaml` (EU, GDPR data residency)
+- `values-ap-south-1.yaml` (APAC)
 
-## 8. Data Management
+**Supporting Infrastructure**
 
-### Database Migration
-**Location**: `aragora/persistence/schemas/`
+- Redis cluster with StatefulSet
+- PostgreSQL via CloudNativePG (`cnpg-cluster.yaml`)
+- External Secrets Operator integration for secrets management
+- Cert-manager for TLS certificate lifecycle
+- Monitoring alerts (`monitoring/alerts.yaml`)
+- Secrets rotation CronJob
+- Backup CronJob with verification CronJob
 
-Schema management:
-- Version-controlled migrations
-- Rollback support
-- Dry-run validation
-- Multi-database support
+### Terraform
 
-### Backup & Recovery
-**Location**: `docs/DISASTER_RECOVERY.md`
+Infrastructure-as-code for AWS:
 
-Disaster recovery procedures:
-- RTO/RPO definitions
-- Backup procedures
-- Restore verification
-- Failover runbooks
+| Configuration | Description |
+|---|---|
+| `single-region/` | Single-region EC2 deployment with security groups and IAM |
+| `ec2-multiregion/` | Multi-region EC2 deployment with cross-region networking, IAM, and security groups |
 
-### Data Export
-**Location**: `aragora/server/handlers/training.py`
+Both configurations include security group definitions, IAM roles, variable files, and example `terraform.tfvars`.
 
-Export capabilities:
-- Training data (SFT, DPO, Gauntlet formats)
-- Debate transcripts (JSON, HTML)
-- Knowledge graphs (GraphML, D3 JSON)
-- Audit logs (CSV, JSON)
-
-### Data Retention
-**Location**: `aragora/privacy/retention.py`
-
-Retention policy enforcement:
-- Configurable per data type
-- Automatic cleanup jobs
-- Archive before delete option
-- Compliance hold support
-
----
-
-## Configuration Reference
-
-### Environment Variables
+### Offline Mode
 
 ```bash
-# Authentication
-ARAGORA_API_TOKEN=your-secret-token
-ARAGORA_TOKEN_TTL=3600
-ARAGORA_OIDC_ISSUER=https://your-idp.com
-ARAGORA_OIDC_CLIENT_ID=aragora-client
-ARAGORA_OIDC_CLIENT_SECRET=secret
-
-# Security
-ARAGORA_ALLOWED_ORIGINS=https://your-domain.com
-ARAGORA_ENCRYPTION_KEY=base64-encoded-key
-ARAGORA_WS_MAX_MESSAGE_SIZE=65536
-
-# Database
-ARAGORA_DATABASE_URL=postgresql://user:pass@host/db
-ARAGORA_POOL_SIZE=20
-ARAGORA_POOL_MAX_OVERFLOW=10
-
-# Redis
-ARAGORA_REDIS_URL=redis://localhost:6379
-ARAGORA_REDIS_CLUSTER=false
-
-# Observability
-ARAGORA_LOG_LEVEL=INFO
-ARAGORA_LOG_FORMAT=json
-METRICS_ENABLED=true
-METRICS_PORT=9090
-
-# Rate Limiting
-ARAGORA_RATE_LIMIT_DEFAULT=60
-ARAGORA_RATE_LIMIT_IP=1000
-ARAGORA_RATE_LIMIT_FAIL_OPEN=false
+aragora serve --offline
 ```
+
+Sets `ARAGORA_OFFLINE` and `DEMO_MODE` environment variables, configures SQLite backend. No external network dependencies. Suitable for air-gapped and classified environments.
 
 ---
 
-## Getting Started with Enterprise Features
+## Disaster Recovery
 
-### 1. Enable Multi-Tenancy
+### Backup
+
+| Feature | Details |
+|---|---|
+| Incremental backups | Only changed data backed up after initial full backup |
+| Storage backends | Local filesystem, S3, Google Cloud Storage |
+| Compression | gzip compression for backup artifacts |
+| Integrity verification | SHA-256 checksums on all backup artifacts |
+| Backup verification | Automated verification CronJob (Kubernetes) validates backup integrity |
+| SQL injection prevention | SQL identifier validation in backup/restore operations |
 
 ```python
-# In your application setup
-from aragora.tenancy import enable_multi_tenancy
+from aragora.backup.manager import BackupManager
 
-enable_multi_tenancy(
-    isolation_level="strict",
-    quota_enforcement=True,
-    metering=True,
-)
+manager = BackupManager(config)
+backup = await manager.create_backup(backup_type="incremental")
+verified = await manager.verify_backup(backup.id)
 ```
 
-### 2. Configure SSO
+### Retention Policies
 
-```bash
-# Environment variables
-export ARAGORA_OIDC_ISSUER=https://your-idp.com
-export ARAGORA_OIDC_CLIENT_ID=aragora-client
-export ARAGORA_OIDC_CLIENT_SECRET=your-secret
-```
+| Feature | Details |
+|---|---|
+| Configurable retention | Per-backup-type retention periods |
+| Automatic cleanup | Expired backups automatically removed |
+| Policy enforcement | Retention policies enforced on schedule |
 
-### 3. Enable Metrics
+### Disaster Recovery Drills
 
-```bash
-# Start with metrics enabled
-export METRICS_ENABLED=true
-export METRICS_PORT=9090
-aragora serve
-```
+| Feature | Details |
+|---|---|
+| DR drill framework | Automated DR drills to verify recovery procedures |
+| Dry-run restore | Validate restore capability without affecting production data |
+| RTO/RPO tracking | Recovery time and recovery point objective measurement |
 
-### 4. Set Up Audit Logging
+Implementation: `aragora/backup/manager.py`
 
-```python
-from aragora.audit import configure_audit
-
-configure_audit(
-    storage="postgresql",  # or "immutable_log"
-    retention_days=365,
-    export_format="json",
-)
-```
+Kubernetes deployment includes `backup-cronjob.yaml` for scheduled backups and `backup-verification-cronjob.yaml` for automated backup validation.
 
 ---
 
-## Support
+## Decision Audit
 
-For enterprise support inquiries, see the [ENTERPRISE_SUPPORT.md](./support) document.
+### Cryptographic Decision Receipts
+
+Every debate produces a tamper-evident Decision Receipt:
+
+| Component | Details |
+|---|---|
+| Debate transcript | Full record of every proposal, critique, revision, and vote |
+| Agent positions | Each model's initial position, intermediate revisions, and final stance |
+| Consensus proof | Voting breakdown, consensus type (majority/unanimous/judge), confidence level |
+| Dissent trail | Explicit record of disagreements, minority positions, and unresolved critiques |
+| Calibration scores | ELO ratings and Brier scores of participating agents at time of debate |
+| Hash chain | SHA-256 content-addressable hashing for tamper evidence |
+| Cryptographic signing | HMAC-SHA256, RSA-SHA256, or Ed25519 signing backends |
+| Timestamps | UTC timestamps for all events with microsecond precision |
+
+### Export Formats
+
+| Format | Use Case |
+|---|---|
+| Markdown | Human-readable reports, documentation |
+| HTML | Web-viewable reports with styling |
+| PDF | Formal documents for compliance teams and boards |
+| SARIF | Static Analysis Results Interchange Format for developer tool integration |
+| CSV | Data analysis and spreadsheet import |
+
+### Gauntlet Defense
+
+Adversarial stress-testing with attack/defend cycles:
+
+| Attack Type | What It Tests |
+|---|---|
+| Red Team | Security holes, injection points, authentication bypasses |
+| Devil's Advocate | Logic flaws, hidden assumptions, edge cases |
+| Scaling Critic | Performance bottlenecks, single points of failure, thundering herd |
+| Compliance | GDPR, HIPAA, SOC 2, EU AI Act violations |
+
+The `proposer_agent` parameter enables attack/defend cycles where a designated agent defends the specification while adversarial agents probe for weaknesses.
+
+### Full Debate Trace
+
+Every debate action is recorded with:
+
+- Agent identity and provider
+- Timestamp (UTC, microsecond)
+- Action type (propose, critique, revise, vote, synthesize)
+- Content (full text of each contribution)
+- Severity scores (for critiques)
+- Vote weights (calibrated by ELO and Brier scores)
+- Correlation IDs for end-to-end tracing
+
+Traces integrate with OpenTelemetry for distributed tracing across the full request lifecycle.
 
 ---
 
-*Document reflects capabilities discovered through comprehensive codebase exploration (January 2026).*
+## Control Plane
+
+### Agent Registry
+
+| Feature | Details |
+|---|---|
+| Agent discovery | Centralized registry of available agents with capabilities and status |
+| Heartbeat monitoring | Periodic heartbeat checks with configurable timeout |
+| Health status | Per-agent health status (healthy, degraded, unhealthy, unknown) |
+| Capability tags | Agents tagged with domains, strengths, and supported operations |
+| Auto-registration | Agents register on startup, deregister on graceful shutdown |
+
+### Task Scheduler
+
+| Feature | Details |
+|---|---|
+| Priority-based scheduling | Task queue with configurable priority levels |
+| Task distribution | Load-balanced distribution across available agents |
+| Task lifecycle | Submit, claim, execute, complete/fail lifecycle with timeout handling |
+| Retry policies | Configurable retry with exponential backoff |
+| Dead letter queue | Failed tasks routed to DLQ for investigation |
+
+### Health Monitoring
+
+| Feature | Details |
+|---|---|
+| Liveness probes | HTTP-based liveness checks for Kubernetes integration |
+| Readiness probes | Service dependency checks (database, Redis, external APIs) |
+| Dependency health | Aggregate health status across all dependencies |
+| Health history | Historical health data for trend analysis |
+
+### Policy Governance
+
+| Feature | Details |
+|---|---|
+| Policy definitions | Declarative policy rules governing agent behavior and debate protocols |
+| Conflict detection | `PolicyConflictDetector` identifies contradictory policies before they cause issues |
+| Policy cache | `RedisPolicyCache` for distributed fast policy evaluation |
+| Policy sync | `PolicySyncScheduler` for continuous background synchronization |
+| Policy versioning | Version tracking with rollback capability |
+
+### Notifications
+
+| Feature | Details |
+|---|---|
+| Omnichannel delivery | Debate results and alerts delivered to Slack, Teams, email, and webhooks |
+| Notification routing | Configurable routing rules based on debate type, severity, and team |
+| Receipt delivery | Decision receipts auto-delivered to configured channels |
+| Rate limiting | Notification rate limiting to prevent alert fatigue |
+
+Implementation: `aragora/control_plane/policy.py`, `aragora/control_plane/scheduler.py`, `aragora/control_plane/registry.py`, `aragora/control_plane/health.py`, `aragora/control_plane/coordinator.py`, `aragora/control_plane/notifications.py`
+
+1,500+ tests covering the control plane subsystem.
+
+---
+
+## Summary
+
+| Capability | Key Numbers |
+|---|---|
+| Authentication | OIDC + SAML SSO, MFA (TOTP/HOTP), SCIM 2.0, API key management |
+| Authorization | 390+ permissions, 7 default roles, 4 scope levels, 16 resource types |
+| Multi-tenancy | Full isolation, resource quotas, usage metering, cost attribution |
+| Encryption | AES-256-GCM, field-level encryption, key rotation with versioning |
+| Compliance | SOC 2 controls, GDPR (Art. 17/20), HIPAA framework, EU AI Act artifacts |
+| Observability | Prometheus, Grafana, OpenTelemetry (6 backends), structured logging, SLO monitoring |
+| Deployment | Docker, Kubernetes + Helm, Terraform (single/multi-region), offline mode |
+| Disaster recovery | Incremental backups (local/S3/GCS), retention policies, DR drills |
+| Decision audit | Cryptographic receipts (SHA-256 + HMAC/RSA/Ed25519), Gauntlet defense, full trace |
+| Control plane | Agent registry, task scheduler, health monitoring, policy governance, 1,500+ tests |
+
+---
+
+*See [COMMERCIAL_OVERVIEW.md](./commercial-overview) for pricing and deployment tiers. See [WHY_ARAGORA.md](./why-aragora) for competitive positioning. See [STATUS.md](../contributing/status) for detailed feature implementation status.*

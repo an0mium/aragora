@@ -17,7 +17,7 @@ Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain su
 - `aragora-client` - Deprecated; use `aragora-sdk` instead.
 
 TypeScript: use `@aragora/sdk` (official). `@aragora/client` is deprecated.
-Canonical migration path: [Python SDK migration](./python-sdk-migration.md).
+Canonical migration path: [Python SDK migration](./python-sdk-migration).
 
 ## Installation
 
@@ -84,11 +84,11 @@ from aragora.client import AragoraClient
 async def main():
     async with AragoraClient(base_url="http://localhost:8080") as client:
         # Create and wait for debate completion
-        debate = await client.debates.run_async(
+        debate = await client.debates.run(
             task="Design a distributed cache",
             timeout=600,  # 10 minutes
         )
-        print(f"Consensus: {debate.consensus}")
+        print(f"Status: {debate['status']}")
 
 asyncio.run(main())
 ```
@@ -137,25 +137,25 @@ debate = client.debates.run(
 Stress-test specifications, policies, and architectures.
 
 ```python
-# Start a gauntlet analysis
+# Start a gauntlet adversarial validation
 response = client.gauntlet.run(
-    input_content="Your specification or policy text...",
-    input_type="text",     # text, policy, code
-    persona="security",    # security, gdpr, hipaa, ai_act, soc2
-    profile="default",     # quick, default, thorough
+    task="Should we deploy this architecture to production?",
+    attack_rounds=3,
+    proposer_agent="anthropic-api",
+    attacker_agents=["openai-api", "mistral-api"],
 )
 
 # Get decision receipt
-receipt = client.gauntlet.get_receipt(response.gauntlet_id)
-print(f"Verdict: {receipt.verdict}")
-print(f"Risk Score: {receipt.risk_score:.0%}")
+receipt = client.gauntlet.get_receipt(response["gauntlet_id"])
+print(f"Verdict: {receipt['verdict']}")
 
-for finding in receipt.findings:
-    print(f"- [{finding.severity}] {finding.title}")
+for finding in receipt.get("findings", []):
+    print(f"- [{finding['severity']}] {finding['title']}")
 
 # Run and wait for completion
-receipt = client.gauntlet.run_and_wait(
-    input_content="...",
+result = client.gauntlet.run_and_wait(
+    task="Validate our privacy policy compliance",
+    attack_rounds=5,
     timeout=900,
 )
 ```
@@ -696,14 +696,15 @@ debate = client.debates.run(
     consensus="majority",
 )
 
-if debate.consensus and debate.consensus.reached:
-    print(f"Agreement: {debate.consensus.agreement:.0%}")
-    print(f"Answer: {debate.consensus.final_answer}")
+consensus = debate.get("consensus", {})
+if consensus and consensus.get("reached"):
+    print(f"Agreement: {consensus.get('agreement', 0):.0%}")
+    print(f"Answer: {consensus.get('final_answer')}")
 else:
     print("No consensus reached")
-    for round in debate.rounds:
-        for msg in round.messages:
-            print(f"{msg.agent_id}: {msg.content[:100]}...")
+    for round_data in debate.get("rounds", []):
+        for msg in round_data.get("messages", []):
+            print(f"{msg.get('agent_id')}: {msg.get('content', '')[:100]}...")
 ```
 
 ### Streaming Debate Events (Python)
@@ -747,22 +748,21 @@ Data is stored indefinitely.
 Third parties may access data for advertising.
 """
 
-receipt = client.gauntlet.run_and_wait(
-    input_content=policy,
-    input_type="policy",
-    persona="gdpr",
-    profile="thorough",
+result = client.gauntlet.run_and_wait(
+    task=f"Review this privacy policy for GDPR compliance: \{policy\}",
+    attack_rounds=5,
+    timeout=900,
 )
 
-print(f"Verdict: {receipt.verdict.value}")
-print(f"Risk Score: {receipt.risk_score:.0%}")
+print(f"Verdict: {result.get('verdict')}")
 
-for finding in receipt.findings:
-    if finding.severity in ("critical", "high"):
-        print(f"\n[{finding.severity.upper()}] {finding.title}")
-        print(f"  {finding.description}")
-        if finding.mitigation:
-            print(f"  Fix: {finding.mitigation}")
+for finding in result.get("findings", []):
+    severity = finding.get("severity", "")
+    if severity in ("critical", "high"):
+        print(f"\n[{severity.upper()}] {finding.get('title')}")
+        print(f"  {finding.get('description')}")
+        if finding.get("mitigation"):
+            print(f"  Fix: {finding['mitigation']}")
 ```
 
 ### Matrix Debate for Decision Analysis
@@ -808,6 +808,7 @@ asyncio.run(analyze_decision())
 
 ## Related Documentation
 
+- [SDK Quickstart](./sdk-quickstart) - Install to first debate in 2 minutes
 - [API Reference](../api/reference) - Full REST API documentation
 - [WebSocket Events](./websocket-events) - Real-time streaming events
 - [Gauntlet Guide](./gauntlet) - Adversarial validation details

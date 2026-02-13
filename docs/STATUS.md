@@ -2,7 +2,7 @@
 
 *Last updated: February 12, 2026*
 
-> See [README](../README.md) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
+> See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
 
 ## Phase 8 Complete: GA Hardening (February 12, 2026)
 

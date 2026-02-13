@@ -1,131 +1,68 @@
 ---
-title: Documentation Index
-description: Documentation Index
+title: Aragora Documentation Index
+description: Aragora Documentation Index
 ---
 
-# Documentation Index
+# Aragora Documentation Index
 
-Canonical documentation lives in `docs/`. The published site in `docs-site/` is
-synced from these files via `docs-site/scripts/sync-docs.js`.
+Canonical documentation lives in `docs/` and is mirrored into `docs-site/`.
 
-**New to Aragora?** Start with [DOCUMENTATION_HUB.md](./DOCUMENTATION_HUB) for guided navigation.
+This index intentionally links to actively maintained docs with validated paths.
 
-Use this index for fast navigation. For a fuller map, see
-`docs/DOCUMENTATION_MAP.md`. Deprecated and historical documents live in
-`docs/deprecated/`.
+## Getting Started
 
-## Quick Links
+- [Getting Started](../getting-started/overview)
+- [SDK Guide (Python)](../guides/sdk)
+- [CLI Reference (generated)](../api/cli)
 
-| Need | Document |
-|------|----------|
-| Extended reference | [EXTENDED_README.md](EXTENDED_README.md) |
-| Feature discovery | [FEATURE_DISCOVERY.md](FEATURE_DISCOVERY.md) |
-| Project status | [STATUS.md](./status) |
-| First-time setup | [GETTING_STARTED.md](../getting-started/overview) |
-| Control plane overview | [CONTROL_PLANE.md](../enterprise/control-plane-overview) |
-| Control plane operations | [CONTROL_PLANE_GUIDE.md](../enterprise/control-plane) |
-| Capability matrix | [CAPABILITY_MATRIX.md](CAPABILITY_MATRIX.md) |
-| API reference | [API_REFERENCE.md](../api/reference) |
-| Admin API reference | [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md) |
-| API examples | [API_EXAMPLES.md](../api/examples) |
-| Production deployment | [DEPLOYMENT.md](../deployment/overview) |
-| Troubleshooting | [TROUBLESHOOTING.md](../operations/troubleshooting) |
-| Email prioritization | [EMAIL_PRIORITIZATION.md](../guides/email-prioritization) |
-| Unified inbox guide | [INBOX_GUIDE.md](./INBOX_GUIDE) |
-| Shared inbox | [SHARED_INBOX.md](../guides/shared-inbox) |
-| Document ingestion | [DOCUMENTS.md](../guides/documents) |
-| Codebase analysis | [CODEBASE_ANALYSIS.md](../analysis/codebase) |
-| GitHub PR review API | [GITHUB_PR_REVIEW.md](../api/github-pr-review) |
-| Coding assistance | [CODING_ASSISTANCE.md](../guides/coding-assistance) |
-| Cost visibility | [COST_VISIBILITY.md](../guides/cost-visibility) |
-| Accounting automation | [ACCOUNTING.md](../guides/accounting) |
+## API
+
+- [API Reference](../api/reference)
+- [API Endpoint Catalog](../api/endpoints)
+- [API Examples](../api/examples)
+- [API Versioning](../api/versioning)
+- [Webhooks](../api/webhooks)
 
 ## Core Concepts
 
-- Architecture: [ARCHITECTURE.md](../core-concepts/architecture)
-- Debate engine: [DEBATE_INTERNALS.md](../core-concepts/debate-internals)
-- Declarative hooks: [HOOKS.md](HOOKS.md)
-- Workflow engine: [WORKFLOW_ENGINE.md](../core-concepts/workflow-engine)
-- Templates: [TEMPLATES.md](../guides/templates)
-- Knowledge Mound: [KNOWLEDGE_MOUND.md](../core-concepts/knowledge-mound)
-- Memory tiers: [MEMORY_TIERS.md](../core-concepts/memory)
-- Memory overview: [MEMORY.md](../core-concepts/memory-overview)
-- Document ingestion: [DOCUMENTS.md](../guides/documents)
-- Agent catalog: [AGENTS.md](../core-concepts/agents)
-- Skills system: [SKILLS.md](SKILLS.md)
+- [Architecture](../core-concepts/architecture)
+- [Debate Internals](../core-concepts/debate-internals)
+- [Agent System](../core-concepts/agents)
+- [Knowledge Mound](../core-concepts/knowledge-mound)
+- [Workflow Engine](../core-concepts/workflow-engine)
 
-## Control Plane & Operations
+## Operations
 
-- Control plane overview: [CONTROL_PLANE.md](../enterprise/control-plane-overview)
-- Control plane guide: [CONTROL_PLANE_GUIDE.md](../enterprise/control-plane)
-- Operations runbook: [OPERATIONS.md](../operations/overview)
-- Production readiness: [PRODUCTION_READINESS.md](../operations/production-readiness)
-- Observability: [OBSERVABILITY.md](../deployment/observability)
-- Async gateway setup: [deployment/ASYNC_GATEWAY.md](../deployment/async-gateway)
-- Container volume guidance: [deployment/CONTAINER_VOLUMES.md](../deployment/container-volumes)
+- [Production Deployment](../deployment/production-deployment)
+- [Deployment Guide](../deployment/overview)
+- [Security Deployment](../deployment/security)
+- [Runbook](../operations/runbook)
+- [Incident Response](../operations/incident-response)
 
-## Channels & Inbox
+## Security and Compliance
 
-- Channels overview: [CHANNELS.md](../guides/channels)
-- Bot integrations: [BOT_INTEGRATIONS.md](../guides/bot-integrations)
-- Email prioritization: [EMAIL_PRIORITIZATION.md](../guides/email-prioritization)
-- Unified inbox guide: [INBOX_GUIDE.md](./INBOX_GUIDE)
-- Shared inbox: [SHARED_INBOX.md](../guides/shared-inbox)
+- [Security Overview](../security/overview)
+- [Authentication Guide](../security/authentication)
+- [SSO Setup](../enterprise/sso)
+- [Compliance](../enterprise/compliance)
+- [RBAC Matrix](../deployment/RBAC_MATRIX)
 
-## Analysis & Code Health
+## Product Status and Planning
 
-- Codebase analysis: [CODEBASE_ANALYSIS.md](../analysis/codebase)
-- Document analysis: [ANALYSIS.md](../analysis/overview)
+- [Status](./status)
 
-## API & SDK
+## Reference
 
-- API reference: [API_REFERENCE.md](../api/reference)
-- Admin API reference: [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md)
-- Endpoint catalog (auto-generated): [API_ENDPOINTS.md](../api/endpoints)
-- API usage guide: [API_USAGE.md](../guides/api-usage)
-- WebSocket events: [WEBSOCKET_EVENTS.md](../guides/websocket-events)
-- SDK guide (Python): [SDK_GUIDE.md](../guides/sdk)
-- SDK guide (TypeScript): [SDK_TYPESCRIPT.md](../guides/sdk-typescript)
+- [Environment Variables](../getting-started/environment)
+- [Library Usage](../guides/library-usage)
 
-## Enterprise & Security
+## Contributing
 
-- Governance: [GOVERNANCE.md](../enterprise/governance)
-- Compliance: [COMPLIANCE.md](../enterprise/compliance)
-- Compliance presets: [COMPLIANCE_PRESETS.md](../security/compliance-presets)
-- Security overview: [SECURITY.md](../security/overview)
-- Authentication guide: [AUTH_GUIDE.md](../security/authentication)
-- SSO setup: [SSO_SETUP.md](../enterprise/sso)
-- RBAC/ABAC strategy: [security/rbac-abac-strategy.md](security/rbac-abac-strategy.md)
+- [Contributing Guide](./guide)
+- [Reference Index](./documentation-index)
+- [Deprecation Policy](./deprecation)
 
-## Costs & Billing
+## Notes
 
-- Billing overview: [BILLING.md](../enterprise/billing)
-- Cost visibility: [COST_VISIBILITY.md](../guides/cost-visibility)
-- Accounting automation: [ACCOUNTING.md](../guides/accounting)
-
-## Development
-
-- Contributing: [CONTRIBUTING.md](./guide)
-- Frontend development: [FRONTEND_DEVELOPMENT.md](./frontend-development)
-- Frontend routes: [FRONTEND_ROUTES.md](./frontend-routes)
-- Handler reference: [HANDLERS.md](./handlers)
-- Handler development: [HANDLER_DEVELOPMENT.md](./handler-development)
-- Testing: [TESTING.md](./testing)
-- Breaking changes: [BREAKING_CHANGES.md](BREAKING_CHANGES.md)
-- Deprecation policy: [DEPRECATION_POLICY.md](./deprecation)
-- Parity backlog: [PARITY_BACKLOG.md](PARITY_BACKLOG.md)
-
-## Coding & Review
-
-- Coding assistance: [CODING_ASSISTANCE.md](../guides/coding-assistance)
-- GitHub PR review API: [GITHUB_PR_REVIEW.md](../api/github-pr-review)
-
-## Deprecated & Historical
-
-Deprecated docs are archived in `docs/deprecated/`. See
-[docs/deprecated/README.md](../analysis/adr) for the index.
-
-## Inventory
-
-- Markdown files under `docs/`: 435 (includes deprecated)
-- Last updated: 2026-02-03
+- Deprecated and historical docs are in `docs/deprecated/`.
+- For link-health checks, run `python scripts/validate_doc_links.py`.

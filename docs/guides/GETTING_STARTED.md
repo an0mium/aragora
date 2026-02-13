@@ -42,7 +42,7 @@ The wizard guides you through:
 - Database selection (SQLite/PostgreSQL)
 - Optional integrations (Slack, GitHub, Telegram)
 
-See the [CLI Setup Guide](CLI_SETUP_GUIDE.md) for detailed options.
+See the [Developer Quickstart](DEVELOPER_QUICKSTART.md) for detailed local setup options.
 
 #### Option B: Manual Configuration
 

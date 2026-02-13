@@ -438,7 +438,7 @@ aragora knowledge process document.pdf
 aragora knowledge jobs
 ```
 
-See [CLI Reference](CLI_REFERENCE.md#knowledge---knowledge-base-operations) for full command documentation.
+See [CLI Reference](../reference/CLI_REFERENCE.md#command-catalog) for full command documentation.
 
 ---
 

@@ -443,7 +443,7 @@ aragora knowledge process document.pdf
 aragora knowledge jobs
 ```
 
-See [CLI Reference](../api/cli#knowledge---knowledge-base-operations) for full command documentation.
+See [CLI Reference](../api/cli#command-catalog) for full command documentation.
 
 ---
 

@@ -222,7 +222,7 @@ aragora serve --api-port 8080 --ws-port 8765
 
 This gives you the REST API (2,000+ operations), WebSocket streaming, and programmatic access to debates, receipts, and analytics.
 
-See [docs/GITHUB_ACTION_SETUP.md](GITHUB_ACTION_SETUP.md) for full action configuration and [docs/EXTENDED_README.md](EXTENDED_README.md) for architecture details.
+See [API Reference](API_REFERENCE.md) for endpoint-level details and [Documentation Index](INDEX.md) for architecture navigation.
 
 ---
 
@@ -252,7 +252,6 @@ Approximate cost per review (2 agents, 2 rounds, typical PR):
 
 ## Next Steps
 
-- [Full GitHub Action reference](GITHUB_ACTION_SETUP.md) -- all inputs, outputs, and examples
 - [API Reference](API_REFERENCE.md) -- REST API documentation
-- [Extended README](EXTENDED_README.md) -- architecture, memory tiers, agent types
+- [Documentation Index](INDEX.md) -- architecture, memory tiers, and reference entry points
 - Example workflows: `examples/github-action/` in the repository

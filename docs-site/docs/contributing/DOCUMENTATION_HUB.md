@@ -148,4 +148,4 @@ See [CLI_REFERENCE.md](../api/cli) for full documentation.
 
 For the complete document listing, see [INDEX.md](./documentation-index).
 
-For deprecated documentation, see [deprecated/](deprecated/).
+Deprecated documentation is archived in `docs/deprecated/` in the source repository.

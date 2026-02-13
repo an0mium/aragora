@@ -77,7 +77,7 @@ Requires PyPI credentials configured via:
 - [ ] Verify imports: `python -c "from aragora_debate import Arena, Debate; print('OK')"`
 - [ ] Verify optional deps: `pip install aragora-debate[all]`
 - [ ] Verify `python -m aragora_debate` demo runs
-- [ ] Tag release: `git tag v-debate-X.Y.Z && git push --tags`
+- [ ] Tag release: `git tag aragora-debate-vX.Y.Z && git push --tags`
 
 ## Package Structure
 

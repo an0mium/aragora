@@ -351,7 +351,7 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 
 ## Control Plane Watchdog
 
-Three-tier monitoring system for agent health and SLA compliance. See [WATCHDOG.md](./WATCHDOG.md) for architecture details.
+Three-tier monitoring system for agent health and SLA compliance. See [Operations Overview](../operations/overview) for architecture details.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
@@ -387,7 +387,7 @@ CP_WATCHDOG_AUTO_ESCALATE=false
 
 ## Skills System
 
-Skills provide specialized capabilities to agents during debates. See [SKILLS.md](./SKILLS.md) for usage.
+Skills provide specialized capabilities to agents during debates. See [Custom Agents Guide](../guides/custom-agents) for usage.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|

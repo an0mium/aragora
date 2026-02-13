@@ -1,6 +1,6 @@
 ---
-title: Python SDK Migration
-description: Migrate from aragora-client to aragora-sdk
+title: Python SDK Migration (aragora-client -> aragora-sdk)
+description: Python SDK Migration (aragora-client -> aragora-sdk)
 ---
 
 # Python SDK Migration (`aragora-client` -> `aragora-sdk`)
@@ -32,4 +32,4 @@ from aragora_sdk import AragoraClient
 
 For method-level mapping and advanced examples, see:
 
-- `docs/guides/MIGRATION_GUIDE.md#python-aragora-client--aragora-sdk` in the repository source docs.
+- `docs/guides/MIGRATION_GUIDE.md#python-aragora-client--aragora-sdk`

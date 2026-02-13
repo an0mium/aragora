@@ -1,3 +1,8 @@
+---
+title: SDK Quickstart
+description: SDK Quickstart
+---
+
 # SDK Quickstart
 
 Install to first debate in under 2 minutes. No server, no API keys.
@@ -262,10 +267,10 @@ aragora repl
 
 | Goal | Guide |
 |------|-------|
-| Full SDK reference | [SDK Guide](SDK_GUIDE.md) |
-| REST API docs | [API Reference](api/API_REFERENCE.md) |
-| Gauntlet (adversarial validation) | [Gauntlet Guide](GAUNTLET.md) |
-| Streaming events (WebSocket) | [WebSocket Events](WEBSOCKET_EVENTS.md) |
+| Full SDK reference | [SDK Guide](./sdk) |
+| REST API docs | [API Reference](../api/reference) |
+| Gauntlet (adversarial validation) | [Gauntlet Guide](./gauntlet) |
+| Streaming events (WebSocket) | [WebSocket Events](./websocket-events) |
 | Self-host with Docker | `deploy/docker-compose.yml` |
-| EU AI Act compliance | [EU AI Act Guide](compliance/EU_AI_ACT_GUIDE.md) |
+| EU AI Act compliance | [EU AI Act Guide](../security/eu-ai-act-guide) |
 | Run the quickstart example | `python examples/quickstart/basic_debate.py` |

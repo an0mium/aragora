@@ -22,7 +22,7 @@ const DOC_MAP = {
   // Getting Started
   // =========================================================================
   'GETTING_STARTED.md': 'getting-started/overview.md',
-  'DEVELOPER_QUICKSTART.md': 'getting-started/quickstart.md',
+  'QUICKSTART_DEVELOPER.md': 'getting-started/quickstart.md',
   'CONFIGURATION.md': 'getting-started/configuration.md',
   'ENVIRONMENT.md': 'getting-started/environment.md',
 
@@ -47,6 +47,8 @@ const DOC_MAP = {
   // Guides
   // =========================================================================
   'SDK_GUIDE.md': 'guides/sdk.md',
+  'SDK_QUICKSTART.md': 'guides/sdk-quickstart.md',
+  'guides/PYTHON_SDK_MIGRATION.md': 'guides/python-sdk-migration.md',
   'API_QUICK_START.md': 'guides/api-quickstart.md',
   'API_USAGE.md': 'guides/api-usage.md',
   'WORKFLOWS.md': 'guides/workflows.md',
@@ -97,7 +99,7 @@ const DOC_MAP = {
   'API_RATE_LIMITS.md': 'api/rate-limits.md',
   'API_STABILITY.md': 'api/stability.md',
   'API_DISCOVERY.md': 'api/discovery.md',
-  'CLI_REFERENCE.md': 'api/cli.md',
+  'reference/CLI_REFERENCE.md': 'api/cli.md',
   'GITHUB_PR_REVIEW.md': 'api/github-pr-review.md',
   'api/WEBHOOKS.md': 'api/webhooks.md',
 
@@ -150,6 +152,8 @@ const DOC_MAP = {
   'ENTERPRISE_FEATURES.md': 'enterprise/features.md',
   'ENTERPRISE_SUPPORT.md': 'enterprise/support.md',
   'COMMERCIAL_OVERVIEW.md': 'enterprise/commercial-overview.md',
+  'WHY_ARAGORA.md': 'enterprise/why-aragora.md',
+  'PRICING.md': 'enterprise/pricing.md',
   'COMMERCIAL_POSITIONING.md': 'enterprise/positioning.md',
   'BILLING.md': 'enterprise/billing.md',
   'BILLING_UNITS.md': 'enterprise/billing-units.md',
@@ -176,6 +180,7 @@ const DOC_MAP = {
   'OAUTH_GUIDE.md': 'security/oauth-guide.md',
   'OAUTH_SETUP.md': 'security/oauth-setup.md',
   'SESSION_MANAGEMENT.md': 'security/session-management.md',
+  'compliance/EU_AI_ACT_GUIDE.md': 'security/eu-ai-act-guide.md',
 
   // =========================================================================
   // Admin & Management
@@ -233,6 +238,7 @@ const DOC_MAP = {
   // Contributing
   // =========================================================================
   'CONTRIBUTING.md': 'contributing/guide.md',
+  'NEXT_STEPS.md': 'contributing/next-steps.md',
   'FIRST_CONTRIBUTION.md': 'contributing/first-contribution.md',
   'INDEX.md': 'contributing/documentation-index.md',
   'DOCUMENTATION_HUB.md': 'contributing/DOCUMENTATION_HUB.md',

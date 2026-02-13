@@ -1388,4 +1388,4 @@ Primary AI provider API keys. At least one is required.
 - [BOT_INTEGRATIONS.md](./BOT_INTEGRATIONS.md) - Chat platform setup guides
 - [SSO_SETUP.md](./SSO_SETUP.md) - SSO configuration guides
 - [BILLING.md](./BILLING.md) - Billing system documentation
-- [WATCHDOG.md](./WATCHDOG.md) - Control plane watchdog documentation
+- [WATCHDOG](../observability/WATCHDOG.md) - Control plane watchdog documentation

@@ -26,27 +26,18 @@ export TINKER_BASE_MODEL="llama-3.3-70b"  # optional
 
 ```bash
 # Export SFT data from winning debates
-python -m aragora.cli.training export-sft -o sft_data.jsonl --min-confidence 0.8
+curl -sS \"http://localhost:8080/api/v1/training/export/sft\" -o sft_data.jsonl
 
 # Export DPO preference pairs
-python -m aragora.cli.training export-dpo -o dpo_data.jsonl --min-elo-diff 100
+curl -sS \"http://localhost:8080/api/v1/training/export/dpo\" -o dpo_data.jsonl
 
-# Export all data types
-python -m aragora.cli.training export-all -d training_data/
+# Export adversarial gauntlet data
+curl -sS \"http://localhost:8080/api/v1/training/export/gauntlet\" -o gauntlet_data.jsonl
 ```
 
 ### 3. Train a Model
 
-```bash
-# Train SFT model
-python -m aragora.cli.training train-sft --model llama-3.3-70b --limit 1000
-
-# Train DPO model
-python -m aragora.cli.training train-dpo --model llama-3.3-70b --beta 0.1
-
-# Combined pipeline (SFT then DPO)
-python -m aragora.cli.training train-combined --adapter-name aragora-v1
-```
+Use `TinkerClient` from Python to submit and manage training jobs.
 
 ### 4. Use in Debates
 
@@ -326,27 +317,21 @@ registry.deprecate("old-model-v1", notes="Superseded by v2")
 registry.archive("very-old-model")
 ```
 
-## CLI Commands
+## Training Data API Endpoints
+
+Aragora exposes training-data endpoints via HTTP API; there is no top-level
+`aragora training` CLI command in the current parser.
 
 ```bash
-# Data export
-python -m aragora.cli.training export-sft --help
-python -m aragora.cli.training export-dpo --help
-python -m aragora.cli.training export-gauntlet --help
-python -m aragora.cli.training export-all --help
+# Export data
+curl -sS \"http://localhost:8080/api/v1/training/export/sft\" -o sft_data.jsonl
+curl -sS \"http://localhost:8080/api/v1/training/export/dpo\" -o dpo_data.jsonl
+curl -sS \"http://localhost:8080/api/v1/training/export/gauntlet\" -o gauntlet_data.jsonl
 
-# Training
-python -m aragora.cli.training train-sft --help
-python -m aragora.cli.training train-dpo --help
-python -m aragora.cli.training train-combined --help
-
-# Model management
-python -m aragora.cli.training list-models
-python -m aragora.cli.training sample --model-id <id> "Your prompt"
-python -m aragora.cli.training stats
-
-# API testing
-python -m aragora.cli.training test-connection
+# Inspect training metadata
+curl -sS \"http://localhost:8080/api/v1/training/stats\"
+curl -sS \"http://localhost:8080/api/v1/training/formats\"
+curl -sS \"http://localhost:8080/api/v1/training/jobs\"
 ```
 
 ## Environment Variables
@@ -396,15 +381,15 @@ python -m aragora.cli.training test-connection
 ### Connection Issues
 
 ```bash
-# Test API connection
-python -m aragora.cli.training test-connection
+# Check training export endpoint
+curl -sS \"http://localhost:8080/api/v1/training/stats\"
 ```
 
 ### No Training Data
 
 ```bash
-# Check database statistics
-python -m aragora.cli.training stats
+# Check training metadata
+curl -sS \"http://localhost:8080/api/v1/training/stats\"
 ```
 
 ### Training Failures
@@ -436,4 +421,4 @@ aragora/training/
 ## See Also
 
 - [Tinker Documentation](https://thinkingmachines.ai/tinker/)
-- [Agent Selection Guide](AGENT_SELECTION.md)
+- [Agent Selection Guide](../debate/AGENT_SELECTION.md)

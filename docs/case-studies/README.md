@@ -10,7 +10,7 @@ In-depth worked examples showing the full review pipeline from diff to Decision 
 
 | Case Study | Use Case | Key Capability Demonstrated |
 |------------|----------|----------------------------|
-| [Multi-Model Security Review](security-review.md) | OAuth2 token validation PR review | Model disagreement as signal, timing attack detection |
+| [Multi-Model Security Review](security-api-review.md) | OAuth2 token validation PR review | Model disagreement as signal, timing attack detection |
 
 ### Planned Case Studies
 
@@ -62,4 +62,4 @@ aragora gauntlet your-docs.md --persona gdpr --profile thorough
 aragora gauntlet architecture.md --persona security --profile thorough --focus infrastructure
 ```
 
-See the [review CLI](../../aragora/cli/review.py) and [Gauntlet documentation](../GAUNTLET.md) for full configuration options.
+See `aragora/cli/review.py` and [Gauntlet documentation](../debate/GAUNTLET.md) for full configuration options.

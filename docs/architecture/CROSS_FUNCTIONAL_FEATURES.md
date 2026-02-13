@@ -356,7 +356,7 @@ print(f"Registered {count} handlers")
 - `ON_CONVERGENCE` → Convergence tracking
 
 Declarative hook configs can also be layered on top of the HookManager. See
-[HOOKS.md](HOOKS.md) for YAML configuration and built-in actions.
+[Workflow Guide](../workflow/WORKFLOWS.md) for lifecycle automation and built-in actions.
 
 ### Performance-ELO Integration
 

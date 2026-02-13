@@ -382,4 +382,4 @@ export class AragoraClient {
 
 - [sdk/typescript/README.md](../analysis/adr) - SDK documentation
 - [aragora-js/README.md](../analysis/adr) - Client documentation
-- [CONTRIBUTING.md](../contributing/guide#package-naming) - Package naming conventions
+- [CONTRIBUTING.md](../contributing/guide) - Package naming conventions

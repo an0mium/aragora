@@ -5,54 +5,28 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: February 10, 2026*
+*Last updated: February 12, 2026*
 
-> See [README](../analysis/adr) for the five pillars framework. See [EXTENDED_README](EXTENDED_README.md) for the comprehensive technical reference.
+> See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
 
-## Phase 8: GA Final Polish (February 9-10, 2026)
+## Phase 8 Complete: GA Hardening (February 12, 2026)
 
-### Exception Handler Sweep
-- **175+ bare `except Exception: pass` handlers → 0 remaining** across 88+ files
-- All replaced with `logger.debug/warning("message", exc_info=True)` for observability
-- Server modules use graceful degradation pattern; data paths use `logger.warning`; observability uses `logger.debug`
+### Technical Improvement Plan - ALL COMPLETE
+All 18 items from the 8-agent comprehensive assessment have been addressed (see [NEXT_STEPS.md](./next-steps) for detailed evidence):
+- **Type Safety**: 0 mypy errors, TypedHandler hierarchy (6 base classes), 770 ruff violations fixed
+- **Test Health**: 136K+ tests, flaky tests fixed, skips 583→100, randomized CI ordering
+- **Security**: MFA bypass audit logging, token validation hardened, SAML dual opt-in
+- **Architecture**: Orchestrator decomposed (2,520→1,131 lines), ArenaConfig strategy groups
+- **Observability**: Full OTLP integration (6 backends), load testing framework, SLO automation
+- **contextvars Migration**: Complete (63+ files, zero threading.local usage)
+- **API Stability**: v1 sunset infrastructure (RFC 8594), 80+ deprecation mappings, breaking changes docs
+- **SDK Parity**: TypeScript 22/22 OpenClaw, Python 22/22, 159 namespaces
+- **Overall Health Score**: 9.4/10 (up from 8.1/10)
 
-### Pydantic v2 Migration
-- **4 `class Config:` patterns → `model_config = {...}`** in FastAPI routes
-- `aragora/server/fastapi/routes/debates.py` and `decisions.py`
-
-### SDK Consolidation
-- **`aragora-client` package deprecated** — `DeprecationWarning` on import, classifier set to `Development Status :: 7 - Inactive`
-- **`aragora-sdk` confirmed canonical** — CI/CD workflow headers corrected
-- **12 documentation references migrated** from `aragora_client` to `aragora_sdk`
-
-### Database Reliability
-- **Migration version locking**: TOCTOU protection with advisory locks (PostgreSQL) and WAL locking (SQLite)
-- **Connectivity validation at startup**: SQLite and PostgreSQL connectivity checks before migrations run
-
-### Memory & Isolation
-- **Multi-tenant memory isolation**: Tenant-scoped memory operations with RBAC enforcement
-- **Memory coordinator improvements**: Atomic cross-system writes with retry logic
-- **Tier transition race conditions**: Fixed concurrent promote/demote edge cases
-
-### SME Dashboard & Onboarding
-- **Usage Dashboard**: `/usage` page with `CostBreakdown` and `UsageTrend` React components
-- **Onboarding UI**: `IntegrationSelector` component for guided setup
-
-### SDK Routes Expansion
-- **57 new SDK routes**: audit (20), debates (13), auth (12), gateway (12)
-- **Python SDK**: auth 43 methods, gateway 22, debates ~25, audit 38
-- **TypeScript SDK**: matching parity for all 4 namespaces
-
-### Test Suite Improvements
-- **282 new handler tests**: audit_sessions (129), template_marketplace (109), finding_workflow (44)
-- **4 known_bug skips → xfail**: calibration integration tests now run and report expected failures
-- **Skip baseline**: 425 (down from 431)
-- **Type modernization**: 770 ruff violations fixed (761 auto + 9 manual)
-
-### Code Health
-- **File splitting**: 8 files >1500 LOC split into focused modules (sdk_missing, receipt, checkpoint, coordinator, qbo, analytics_metrics, postgres_store, debate_rounds)
-- **Files >1500 LOC**: 23 → 15 (target met)
-- **Tests**: 136,037 collected across 3,000+ test files
+### 30/60/90 Day Roadmap - ALL COMPLETE
+- **Day 1-30**: SDK contract parity, blockchain handler implementation (8/8 endpoints, 45 tests)
+- **Day 31-60**: aragora-debate package (60 tests), tiered packaging (51 tests)
+- **Day 61-90**: OpenClaw demo, decision pipeline, EU AI Act compliance (Art. 12/13/14 artifacts)
 
 ## Phase 7 Complete (February 2026)
 
@@ -163,6 +137,8 @@ Independent verification of production readiness found the project is **98% GA-r
 - **Email Sync Reliability**: Circuit breaker, exponential backoff retry, OAuth token persistence with encryption
 - **Bot Cache Optimization**: Heap-based O(log n) TTL cleanup for response caching
 - **Circuit Breaker Defaults**: Tuned (threshold=5, cooldown=60s) across all resilience patterns
+- **Debate Stability Detection**: Beta-Binomial model with KS-distance for statistical early stopping (opt-in via `enable_stability_detection`)
+- **Knowledge Mound Adapter Base**: 25+ adapters using unified base class with resilience, metrics, and tracing
 
 ---
 
@@ -966,7 +942,7 @@ Current released version is **v2.6.3**.
 #### Key Highlights
 - **40,700+ tests** collected and passing (+2,300 new tests)
 - **Knowledge Mound 100% integrated** - All subsystems bidirectionally wired
-- **28 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, and 14 more
+- **33 KM adapters** - Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, LangExtract, Extraction, NomicCycle, OpenClaw, and 15 more
 - **Cross-debate learning** - Organizational knowledge persists and improves across debates
 - **Semantic search** - Vector-based similarity search in all adapters
 - **SLO alerting** - Adapter performance monitoring with Prometheus metrics

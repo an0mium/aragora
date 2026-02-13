@@ -194,7 +194,7 @@ Aragora supports YAML-defined hooks that attach automation to debate and audit
 events. Hooks are loaded via `HookConfigLoader` and applied to the
 `HookManager` used by the arena runtime.
 
-See [HOOKS.md](HOOKS.md) for the YAML schema, trigger list, and built-in actions.
+See [Workflow Guide](../workflow/WORKFLOWS.md) for lifecycle orchestration patterns and built-in actions.
 
 ## Hook Tracking (GUPP Recovery)
 

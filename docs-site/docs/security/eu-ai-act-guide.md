@@ -1,3 +1,8 @@
+---
+title: EU AI Act Compliance with Aragora
+description: EU AI Act Compliance with Aragora
+---
+
 # EU AI Act Compliance with Aragora
 
 > Comprehensive guide to generating audit-ready compliance artifacts for the
@@ -678,8 +683,8 @@ requirement.
 
 ## Related Documentation
 
-- [Enterprise Compliance Guide](../enterprise/COMPLIANCE.md) -- Operational controls and governance model
+- [Enterprise Compliance Guide](../enterprise/compliance) -- Operational controls and governance model
 - EU AI Act compliance checklist is maintained in `docs/compliance/EU_AI_ACT_CHECKLIST.md`
-- [API Reference](../api/API_REFERENCE.md) -- REST API documentation
-- [Gauntlet Testing](../../aragora/gauntlet/README.md) -- Adversarial stress testing
-- [Decision Receipts](../reference/CLI_REFERENCE.md) -- Receipt command and verification workflow
+- [API Reference](../api/reference) -- REST API documentation
+- [Gauntlet Testing](../analysis/adr) -- Adversarial stress testing
+- [Decision Receipts](../api/cli) -- Receipt command and verification workflow

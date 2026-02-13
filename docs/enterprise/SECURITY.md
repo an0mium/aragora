@@ -13,7 +13,7 @@ This document covers security features implemented in Aragora, including authent
 | [SECURITY_DEPLOYMENT.md](./SECURITY_DEPLOYMENT.md) | Production hardening | Deploying to production |
 | [SECURITY_PATTERNS.md](./SECURITY_PATTERNS.md) | Secure coding patterns | Writing secure code |
 | [SECURITY_RUNTIME.md](./SECURITY_RUNTIME.md) | Runtime monitoring | Ops & incident response |
-| [MFA_BYPASS_POLICY.md](./MFA_BYPASS_POLICY.md) | MFA bypass for service accounts | Service account setup |
+| Service-account MFA exception policy | Internal policy for service-account MFA bypass handling | Service account setup |
 | [OAUTH_SETUP.md](./OAUTH_SETUP.md) | OAuth provider setup | Configuring SSO/OAuth |
 | [SSO_SETUP.md](./SSO_SETUP.md) | Enterprise SSO (SAML/OIDC) | Enterprise authentication |
 | [TLS.md](./TLS.md) | TLS certificate setup | HTTPS configuration |

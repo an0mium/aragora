@@ -285,5 +285,5 @@ SQLite may lock files during writes. If experiencing lock issues:
 ## Related Documentation
 
 - [DISASTER_RECOVERY.md](./disaster-recovery) - Backup and recovery procedures
-- [RUNBOOK_POSTGRESQL_MIGRATION.md](../runbooks/RUNBOOK_POSTGRESQL_MIGRATION.md) - Database migration
+- [RUNBOOK_DATABASE_ISSUES.md](../operations/runbook-database) - Database troubleshooting and recovery
 - [SCALING.md](./scaling) - Scaling guidelines
