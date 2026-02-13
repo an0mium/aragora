@@ -1,0 +1,9 @@
+{
+  "prefixes": [
+    "/api/v1/control-plane/",
+    "/api/v1/sme/",
+    "/api/v1/agent-dashboard/",
+    "/api/v1/sso/",
+    "/api/v1/admin/emergency/"
+  ]
+}

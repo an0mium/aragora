@@ -7,7 +7,10 @@ on:
       - 'aragora/server/handlers/**'
       - 'sdk/**'
       - 'scripts/check_sdk_parity.py'
+      - 'scripts/check_sdk_namespace_parity.py'
+      - 'scripts/contract_drift_report.py'
       - 'scripts/baselines/check_sdk_parity.json'
+      - 'scripts/baselines/check_sdk_namespace_parity.json'
       - 'scripts/check_version_alignment.py'
       - 'pyproject.toml'
       - 'sdk/python/pyproject.toml'
@@ -20,7 +23,10 @@ on:
       - 'aragora/server/handlers/**'
       - 'sdk/**'
       - 'scripts/check_sdk_parity.py'
+      - 'scripts/check_sdk_namespace_parity.py'
+      - 'scripts/contract_drift_report.py'
       - 'scripts/baselines/check_sdk_parity.json'
+      - 'scripts/baselines/check_sdk_namespace_parity.json'
       - 'scripts/check_version_alignment.py'
       - 'pyproject.toml'
       - 'sdk/python/pyproject.toml'
@@ -60,15 +66,25 @@ jobs:
           # Blocking gate: fail on any drift regression beyond tracked baseline
           python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json
 
+      - name: Check Namespace SDK Parity
+        run: |
+          python scripts/check_sdk_namespace_parity.py --strict --baseline scripts/baselines/check_sdk_namespace_parity.json
+
       - name: Generate JSON Report
         if: always()
         run: |
           python scripts/check_sdk_parity.py --json > parity-report.json || true
+          python scripts/check_sdk_namespace_parity.py --json > namespace-parity-report.json || true
+          python scripts/contract_drift_report.py --json-out contract-drift-summary.json --md-out contract-drift-summary.md || true
 
       - name: Upload Parity Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sdk-parity-report
-          path: parity-report.json
+          path: |
+            parity-report.json
+            namespace-parity-report.json
+            contract-drift-summary.json
+            contract-drift-summary.md
           retention-days: 30

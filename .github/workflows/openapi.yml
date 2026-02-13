@@ -13,8 +13,13 @@ on:
       - 'docs/api/openapi*.yaml'
       - 'scripts/verify_sdk_contracts.py'
       - 'scripts/validate_openapi_routes.py'
+      - 'scripts/check_sdk_namespace_parity.py'
+      - 'scripts/contract_drift_report.py'
+      - 'scripts/generate_contract_drift_backlog.py'
       - 'scripts/baselines/verify_sdk_contracts.json'
       - 'scripts/baselines/validate_openapi_routes.json'
+      - 'scripts/baselines/check_sdk_namespace_parity.json'
+      - 'scripts/baselines/internal_route_prefixes.json'
       - 'sdk/python/aragora/namespaces/**'
       - 'sdk/typescript/src/namespaces/**'
   pull_request:
@@ -27,8 +32,13 @@ on:
       - 'scripts/generate_openapi.py'
       - 'scripts/verify_sdk_contracts.py'
       - 'scripts/validate_openapi_routes.py'
+      - 'scripts/check_sdk_namespace_parity.py'
+      - 'scripts/contract_drift_report.py'
+      - 'scripts/generate_contract_drift_backlog.py'
       - 'scripts/baselines/verify_sdk_contracts.json'
       - 'scripts/baselines/validate_openapi_routes.json'
+      - 'scripts/baselines/check_sdk_namespace_parity.json'
+      - 'scripts/baselines/internal_route_prefixes.json'
       - 'sdk/python/aragora/namespaces/**'
       - 'sdk/typescript/src/namespaces/**'
   workflow_dispatch:
@@ -133,6 +143,7 @@ jobs:
             --spec docs/api/openapi.json \
             --fail-on-missing \
             --baseline scripts/baselines/validate_openapi_routes.json \
+            --internal-prefixes scripts/baselines/internal_route_prefixes.json \
             --json | tee /tmp/route-coverage.json
           # Extract coverage and regression stats
           COVERAGE=$(python -c "import json; print(json.load(open('/tmp/route-coverage.json'))['coverage_percentage'])")
@@ -162,6 +173,26 @@ jobs:
             --baseline scripts/baselines/verify_sdk_contracts.json
           echo "SDK contract verification passed"
 
+      - name: Check namespace SDK parity
+        run: |
+          python scripts/check_sdk_namespace_parity.py \
+            --strict \
+            --baseline scripts/baselines/check_sdk_namespace_parity.json
+
+      - name: Generate contract drift summary
+        if: always()
+        run: |
+          python scripts/contract_drift_report.py \
+            --json-out /tmp/contract-drift-summary.json \
+            --md-out /tmp/contract-drift-summary.md
+
+      - name: Generate contract drift backlog seeds
+        if: always()
+        run: |
+          python scripts/generate_contract_drift_backlog.py \
+            --markdown-out /tmp/CONTRACT_DRIFT_BACKLOG.md \
+            --json-out /tmp/CONTRACT_DRIFT_BACKLOG.json
+
       - name: Run contract matrix tests
         run: |
           pip install pytest pytest-asyncio
@@ -177,6 +208,18 @@ jobs:
             sdk/typescript/src/openapi-types.ts
             sdk/python/aragora/generated_types.py
             aragora/live/src/types/api.generated.ts
+          retention-days: 14
+
+      - name: Upload contract drift artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-drift-artifacts
+          path: |
+            /tmp/contract-drift-summary.json
+            /tmp/contract-drift-summary.md
+            /tmp/CONTRACT_DRIFT_BACKLOG.json
+            /tmp/CONTRACT_DRIFT_BACKLOG.md
           retention-days: 14
 
       - name: Comment on PR (if spec changed)

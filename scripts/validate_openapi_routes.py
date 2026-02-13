@@ -31,6 +31,27 @@ DEFAULT_EXCLUDED_PREFIXES = (
 )
 
 
+def load_internal_prefixes(path: str | None = None) -> tuple[str, ...]:
+    """Load internal/private route prefixes from a policy file."""
+    if path is None:
+        path = "scripts/baselines/internal_route_prefixes.json"
+    p = Path(path)
+    if not p.exists():
+        return DEFAULT_EXCLUDED_PREFIXES
+    try:
+        data = json.loads(p.read_text())
+    except (json.JSONDecodeError, OSError):
+        return DEFAULT_EXCLUDED_PREFIXES
+    prefixes = data.get("prefixes")
+    if not isinstance(prefixes, list):
+        return DEFAULT_EXCLUDED_PREFIXES
+    normalized = []
+    for item in prefixes:
+        if isinstance(item, str) and item.startswith("/api/"):
+            normalized.append(item)
+    return tuple(normalized) if normalized else DEFAULT_EXCLUDED_PREFIXES
+
+
 def get_handler_routes() -> set[str]:
     """Extract all routes from handler ROUTES attributes.
 
@@ -136,6 +157,7 @@ def validate_coverage(
     output_json: bool = False,
     baseline_path: str | None = None,
     include_internal: bool = False,
+    internal_prefixes_path: str | None = None,
 ) -> dict[str, Any]:
     """Compare handler routes against OpenAPI spec.
 
@@ -153,16 +175,17 @@ def validate_coverage(
     # Normalize routes for comparison
     normalized_handler = {normalize_route(r) for r in handler_routes}
     normalized_openapi = {normalize_route(r) for r in openapi_routes}
+    internal_prefixes = load_internal_prefixes(internal_prefixes_path)
     if not include_internal:
         normalized_handler = {
             r
             for r in normalized_handler
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in DEFAULT_EXCLUDED_PREFIXES)
+            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
         }
         normalized_openapi = {
             r
             for r in normalized_openapi
-            if not any(r.startswith(prefix.rstrip("/")) for prefix in DEFAULT_EXCLUDED_PREFIXES)
+            if not any(r.startswith(prefix.rstrip("/")) for prefix in internal_prefixes)
         }
 
     # Find discrepancies
@@ -299,6 +322,14 @@ def main():
         action="store_true",
         help="Include known internal/private route families in validation",
     )
+    parser.add_argument(
+        "--internal-prefixes",
+        default="scripts/baselines/internal_route_prefixes.json",
+        help=(
+            "Path to JSON file with internal route prefixes "
+            "(default: scripts/baselines/internal_route_prefixes.json)"
+        ),
+    )
 
     args = parser.parse_args()
     validate_coverage(
@@ -307,6 +338,7 @@ def main():
         args.json,
         args.baseline,
         args.include_internal,
+        args.internal_prefixes,
     )
 
 
