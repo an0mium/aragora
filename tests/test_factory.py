@@ -280,28 +280,32 @@ class TestFactoryMethods:
 
 
 class TestArenaCreation:
-    """Tests for Arena creation via factory."""
+    """Tests for Arena creation via factory.
+
+    The factory groups parameters into config objects (AgentConfig,
+    MemoryConfig, StreamingConfig, ObservabilityConfig) and calls
+    Arena.create() rather than Arena() directly.
+    """
 
     def test_create_minimal_arena(self, factory, mock_environment, mock_agents):
         """Create arena with minimal required parameters."""
-        # Arena is imported inside create(), so we patch at the source
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             arena = factory.create(
                 environment=mock_environment,
                 agents=mock_agents,
             )
 
-            MockArena.assert_called_once()
-            call_kwargs = MockArena.call_args.kwargs
+            MockArena.create.assert_called_once()
+            call_kwargs = MockArena.create.call_args.kwargs
             assert call_kwargs["environment"] is mock_environment
             assert call_kwargs["agents"] is mock_agents
 
     def test_create_with_protocol(self, factory, mock_environment, mock_agents, mock_protocol):
         """Create arena with custom protocol."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             arena = factory.create(
                 environment=mock_environment,
@@ -309,15 +313,14 @@ class TestArenaCreation:
                 protocol=mock_protocol,
             )
 
-            call_kwargs = MockArena.call_args.kwargs
+            call_kwargs = MockArena.create.call_args.kwargs
             assert call_kwargs["protocol"] is mock_protocol
 
     def test_create_with_enable_position_tracking(self, factory, mock_environment, mock_agents):
         """Enable position tracking auto-creates tracker."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
-            # Mock the factory method
             mock_tracker = Mock()
             factory.create_position_tracker = Mock(return_value=mock_tracker)
 
@@ -328,13 +331,13 @@ class TestArenaCreation:
             )
 
             factory.create_position_tracker.assert_called_once()
-            call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["position_tracker"] is mock_tracker
+            call_kwargs = MockArena.create.call_args.kwargs
+            assert call_kwargs["agent_config"].position_tracker is mock_tracker
 
     def test_create_with_enable_calibration(self, factory, mock_environment, mock_agents):
         """Enable calibration auto-creates tracker."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             mock_tracker = Mock()
             factory.create_calibration_tracker = Mock(return_value=mock_tracker)
@@ -346,13 +349,13 @@ class TestArenaCreation:
             )
 
             factory.create_calibration_tracker.assert_called_once()
-            call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["calibration_tracker"] is mock_tracker
+            call_kwargs = MockArena.create.call_args.kwargs
+            assert call_kwargs["agent_config"].calibration_tracker is mock_tracker
 
     def test_create_with_enable_insights(self, factory, mock_environment, mock_agents):
         """Enable insights auto-creates store."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             mock_store = Mock()
             factory.create_insight_store = Mock(return_value=mock_store)
@@ -364,13 +367,13 @@ class TestArenaCreation:
             )
 
             factory.create_insight_store.assert_called_once()
-            call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["insight_store"] is mock_store
+            call_kwargs = MockArena.create.call_args.kwargs
+            assert call_kwargs["memory_config"].insight_store is mock_store
 
     def test_create_with_enable_critique_patterns(self, factory, mock_environment, mock_agents):
         """Enable critique patterns auto-creates memory store."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             mock_store = Mock()
             factory.create_critique_store = Mock(return_value=mock_store)
@@ -382,13 +385,13 @@ class TestArenaCreation:
             )
 
             factory.create_critique_store.assert_called_once()
-            call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["memory"] is mock_store
+            call_kwargs = MockArena.create.call_args.kwargs
+            assert call_kwargs["memory_config"].memory is mock_store
 
     def test_create_explicit_overrides_enable_flag(self, factory, mock_environment, mock_agents):
         """Explicit instance should override enable flag."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             explicit_tracker = Mock()
             factory.create_position_tracker = Mock()
@@ -397,18 +400,18 @@ class TestArenaCreation:
                 environment=mock_environment,
                 agents=mock_agents,
                 enable_position_tracking=True,
-                position_tracker=explicit_tracker,  # Explicit instance
+                position_tracker=explicit_tracker,
             )
 
             # Should not call create_position_tracker
             factory.create_position_tracker.assert_not_called()
-            call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["position_tracker"] is explicit_tracker
+            call_kwargs = MockArena.create.call_args.kwargs
+            assert call_kwargs["agent_config"].position_tracker is explicit_tracker
 
     def test_create_with_all_explicit_dependencies(self, factory, mock_environment, mock_agents):
-        """Create arena with all explicit dependencies."""
+        """Create arena with all explicit dependencies grouped into configs."""
         with patch("aragora.debate.orchestrator.Arena") as MockArena:
-            MockArena.return_value = Mock()
+            MockArena.create.return_value = Mock()
 
             mock_memory = Mock()
             mock_hooks = {"on_start": Mock()}
@@ -460,30 +463,42 @@ class TestArenaCreation:
                 trending_topic=mock_trending,
             )
 
-            call_kwargs = MockArena.call_args.kwargs
-            assert call_kwargs["memory"] is mock_memory
-            assert call_kwargs["event_hooks"] is mock_hooks
-            assert call_kwargs["event_emitter"] is mock_emitter
-            assert call_kwargs["spectator"] is mock_spectator
-            assert call_kwargs["debate_embeddings"] is mock_embeddings
-            assert call_kwargs["insight_store"] is mock_insight_store
-            assert call_kwargs["recorder"] is mock_recorder
-            assert call_kwargs["agent_weights"] is mock_weights
-            assert call_kwargs["position_tracker"] is mock_position_tracker
-            assert call_kwargs["position_ledger"] is mock_position_ledger
-            assert call_kwargs["elo_system"] is mock_elo
-            assert call_kwargs["persona_manager"] is mock_persona_manager
-            assert call_kwargs["dissent_retriever"] is mock_dissent
-            assert call_kwargs["flip_detector"] is mock_flip
-            assert call_kwargs["calibration_tracker"] is mock_calibration
-            assert call_kwargs["continuum_memory"] is mock_continuum
-            assert call_kwargs["relationship_tracker"] is mock_relationship
-            assert call_kwargs["moment_detector"] is mock_moment
-            assert call_kwargs["loop_id"] == "test-loop"
-            assert call_kwargs["strict_loop_scoping"] is True
-            assert call_kwargs["circuit_breaker"] is mock_circuit_breaker
-            assert call_kwargs["initial_messages"] is mock_initial_messages
-            assert call_kwargs["trending_topic"] is mock_trending
+            call_kwargs = MockArena.create.call_args.kwargs
+
+            # AgentConfig fields
+            agent_cfg = call_kwargs["agent_config"]
+            assert agent_cfg.agent_weights is mock_weights
+            assert agent_cfg.position_tracker is mock_position_tracker
+            assert agent_cfg.position_ledger is mock_position_ledger
+            assert agent_cfg.elo_system is mock_elo
+            assert agent_cfg.persona_manager is mock_persona_manager
+            assert agent_cfg.calibration_tracker is mock_calibration
+            assert agent_cfg.relationship_tracker is mock_relationship
+            assert agent_cfg.circuit_breaker is mock_circuit_breaker
+
+            # MemoryConfig fields
+            mem_cfg = call_kwargs["memory_config"]
+            assert mem_cfg.memory is mock_memory
+            assert mem_cfg.continuum_memory is mock_continuum
+            assert mem_cfg.debate_embeddings is mock_embeddings
+            assert mem_cfg.insight_store is mock_insight_store
+            assert mem_cfg.dissent_retriever is mock_dissent
+            assert mem_cfg.flip_detector is mock_flip
+            assert mem_cfg.moment_detector is mock_moment
+
+            # StreamingConfig fields
+            stream_cfg = call_kwargs["streaming_config"]
+            assert stream_cfg.event_hooks is mock_hooks
+            assert stream_cfg.event_emitter is mock_emitter
+            assert stream_cfg.spectator is mock_spectator
+            assert stream_cfg.recorder is mock_recorder
+            assert stream_cfg.loop_id == "test-loop"
+            assert stream_cfg.strict_loop_scoping is True
+
+            # ObservabilityConfig fields
+            obs_cfg = call_kwargs["observability_config"]
+            assert obs_cfg.trending_topic is mock_trending
+            assert obs_cfg.initial_messages is mock_initial_messages
 
 
 # ============================================================================

@@ -84,7 +84,7 @@ def get_formatter(channel_type: str) -> ReceiptFormatter | None:
 
 
 def format_receipt_for_channel(
-    receipt: DecisionReceipt,
+    receipt: Any,
     channel_type: str,
     options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:

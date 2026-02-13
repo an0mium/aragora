@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_int

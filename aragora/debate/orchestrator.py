@@ -314,6 +314,12 @@ class Arena(ArenaDelegatesMixin):
     cross_debate_memory: Any
     enable_cross_debate_memory: bool
 
+    # Skills and propulsion (initialized by orchestrator_init.init_skills_and_propulsion)
+    skill_registry: Any
+    enable_skills: bool
+    propulsion_engine: Any
+    enable_propulsion: bool
+
     # Setup attributes (initialized by orchestrator_setup helpers)
     _fabric: Any
     _fabric_config: Any

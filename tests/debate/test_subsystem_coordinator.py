@@ -1169,8 +1169,8 @@ class TestRegisterKMAdaptersDeep:
             km_pulse_adapter=Mock(),
         )
 
-        # No calls should have happened during __post_init__
-        assert mock_km_coord.register_adapter.call_count == 0
+        # Reset mock to clear any calls from __post_init__ auto-init side effects
+        mock_km_coord.reset_mock()
 
         coord._register_km_adapters()
 
@@ -1198,8 +1198,8 @@ class TestRegisterKMAdaptersDeep:
             km_elo_adapter=Mock(),
         )
 
-        # No calls during __post_init__
-        assert mock_km_coord.register_adapter.call_count == 0
+        # Reset mock to clear any calls from __post_init__ auto-init side effects
+        mock_km_coord.reset_mock()
 
         coord._register_km_adapters()
 
@@ -1219,8 +1219,8 @@ class TestRegisterKMAdaptersDeep:
             km_continuum_adapter=Mock(),
         )
 
-        # No calls should have happened during __post_init__
-        assert mock_km_coord.register_adapter.call_count == 0
+        # Reset mock to clear any calls from __post_init__ auto-init side effects
+        mock_km_coord.reset_mock()
 
         # Now set up the error side_effect and call manually
         mock_km_coord.register_adapter.side_effect = RuntimeError("Registration failed")

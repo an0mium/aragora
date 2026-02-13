@@ -316,8 +316,11 @@ class StandaloneGatewayServer:
     def _get_version(self) -> str:
         """Get the Aragora version."""
         try:
-            from aragora import __version__
-            return __version__
+            # Import from the dedicated version module to avoid package-level
+            # import ambiguity with the aragora.__version__ submodule.
+            from aragora.__version__ import __version__ as package_version
+
+            return str(package_version)
         except ImportError:
             return "unknown"
 

@@ -68,6 +68,23 @@ def _bypass_rbac_for_compliance_e2e(monkeypatch):
     monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context_from_args)
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Reset rate limiters between tests.
+
+    ComplianceHandler.handle() is decorated with @rate_limit(requests_per_minute=20).
+    The rate limiter is a shared singleton that persists across tests. Without reset,
+    tests beyond the 20th call in a suite run will receive 429 instead of 200.
+    """
+    yield
+    try:
+        from aragora.server.middleware.rate_limit.registry import reset_rate_limiters
+
+        reset_rate_limiters()
+    except (ImportError, RuntimeError):
+        pass
+
+
 @pytest.fixture
 def mock_server_context():
     """Create a mock server context for handlers."""

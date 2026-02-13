@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -81,7 +81,9 @@ _DEFAULT_TOPIC = "Should we use microservices or a monolith?"
 _DEFAULT_ROUNDS = 2
 _DEFAULT_AGENTS = 3
 
-_AGENT_STYLES = ["supportive", "critical", "balanced", "contrarian"]
+_AGENT_STYLES: list[Literal["supportive", "critical", "balanced", "contrarian"]] = [
+    "supportive", "critical", "balanced", "contrarian",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +217,7 @@ class PlaygroundHandler(BaseHandler):
 
         arena = Arena(
             question=topic,
-            agents=agents,
+            agents=agents,  # type: ignore[arg-type]  # StyledMockAgent extends Agent
             config=config,
         )
 

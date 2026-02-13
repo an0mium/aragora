@@ -28,7 +28,7 @@ class TestStandaloneGatewayServer:
         assert server.port == DEFAULT_PORT
         assert server.default_policy == "deny"
         assert server.policy_file is None
-        assert server.cors_origins == ["*"]
+        assert server.cors_origins == ["http://localhost:3000"]
 
     def test_custom_config(self):
         """Server accepts custom configuration."""
