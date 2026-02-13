@@ -52,21 +52,18 @@ class TestRunAsync:
             run_async(failing())
 
     @pytest.mark.asyncio
-    async def test_raises_in_async_context(self):
-        """Raises RuntimeError when called from async context.
+    async def test_works_in_async_context_via_nest_asyncio(self):
+        """Works in async context via nest_asyncio fallback.
 
-        run_async() cannot be safely called from within an async context because
-        asyncpg connection pools are bound to specific event loops. If we used
-        ThreadPoolExecutor with asyncio.run(), the pools would be created in a
-        different event loop and become unusable.
+        When called from an async context without a pool manager (e.g., tests),
+        run_async applies nest_asyncio to allow nested run_until_complete.
         """
 
         async def inner():
-            return "never"
+            return "nested"
 
-        # Called from async context should raise RuntimeError
-        with pytest.raises(RuntimeError, match="cannot be called from an async context"):
-            run_async(inner(), timeout=0.1)
+        result = run_async(inner(), timeout=0.1)
+        assert result == "nested"
 
     def test_works_from_sync_context(self):
         """Works when called from sync context (no running loop)."""
@@ -79,20 +76,14 @@ class TestRunAsync:
         assert result == "sync-context"
 
     @pytest.mark.asyncio
-    async def test_fails_from_async_context(self):
-        """Fails when called from async context (running loop).
-
-        This is intentional behavior - run_async() should NOT be called from
-        async contexts because it would create event loop issues with asyncpg pools.
-        The caller should use 'await coro' directly instead.
-        """
+    async def test_async_context_returns_correct_value(self):
+        """Returns correct values when called from async context."""
 
         async def inner():
             return "async-context"
 
-        # Call run_async from within async context should raise
-        with pytest.raises(RuntimeError, match="cannot be called from an async context"):
-            run_async(inner(), timeout=5.0)
+        result = run_async(inner(), timeout=5.0)
+        assert result == "async-context"
 
     def test_handles_coroutine_returning_none(self):
         """Handles coroutines returning None."""
