@@ -48,7 +48,7 @@ def clear_history():
     _verification_history.clear()
     # Disable GovernanceStore during tests to ensure isolation
     with patch(
-        "aragora.server.handlers.verification.formal_verification._get_governance_store",
+        "aragora.server.handlers.verification.formal_verification._governance_store.get",
         return_value=None,
     ):
         yield

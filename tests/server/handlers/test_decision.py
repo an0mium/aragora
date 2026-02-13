@@ -124,7 +124,7 @@ class TestListDecisions:
 
     def test_returns_empty_list(self, handler, clear_fallback):
         """Returns empty list when no decisions exist."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._list_decisions({})
             parsed = parse_result(result)
 
@@ -146,7 +146,7 @@ class TestListDecisions:
             "completed_at": "2024-01-02T12:00:00Z",
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._list_decisions({})
             parsed = parse_result(result)
 
@@ -161,7 +161,7 @@ class TestListDecisions:
                 "status": "completed",
             }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._list_decisions({"limit": "3"})
             parsed = parse_result(result)
 
@@ -173,7 +173,7 @@ class TestListDecisions:
         mock_store.list_recent.return_value = [{"request_id": "dec_001", "status": "completed"}]
         mock_store.count.return_value = 1
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=mock_store):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_store):
             result = handler._list_decisions({})
             parsed = parse_result(result)
 
@@ -197,7 +197,7 @@ class TestGetDecision:
             "result": {"answer": "Test answer"},
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._get_decision("dec_123")
             parsed = parse_result(result)
 
@@ -206,7 +206,7 @@ class TestGetDecision:
 
     def test_returns_404_when_not_found(self, handler, clear_fallback):
         """Returns 404 when decision not found."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._get_decision("nonexistent")
             parsed = parse_result(result)
 
@@ -218,7 +218,7 @@ class TestGetDecision:
         mock_store = MagicMock()
         mock_store.get.return_value = {"request_id": "dec_123", "status": "completed"}
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=mock_store):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_store):
             result = handler._get_decision("dec_123")
             parsed = parse_result(result)
 
@@ -242,7 +242,7 @@ class TestGetDecisionStatus:
             "completed_at": "2024-01-01T12:00:00Z",
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._get_decision_status("dec_123")
             parsed = parse_result(result)
 
@@ -251,7 +251,7 @@ class TestGetDecisionStatus:
 
     def test_returns_not_found_status(self, handler, clear_fallback):
         """Returns not_found status for missing decision."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = handler._get_decision_status("nonexistent")
             parsed = parse_result(result)
 
@@ -263,7 +263,7 @@ class TestGetDecisionStatus:
         mock_store = MagicMock()
         mock_store.get_status.return_value = {"request_id": "dec_123", "status": "running"}
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=mock_store):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_store):
             result = handler._get_decision_status("dec_123")
             parsed = parse_result(result)
 
@@ -287,7 +287,7 @@ class TestCancelDecision:
             "status": "pending",
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._cancel_decision("dec_123", mock_handler)
             parsed = parse_result(result)
 
@@ -303,7 +303,7 @@ class TestCancelDecision:
             "status": "running",
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._cancel_decision("dec_123", mock_handler)
             parsed = parse_result(result)
 
@@ -317,7 +317,7 @@ class TestCancelDecision:
             "status": "completed",
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._cancel_decision("dec_123", mock_handler)
             parsed = parse_result(result)
 
@@ -328,7 +328,7 @@ class TestCancelDecision:
     @pytest.mark.asyncio
     async def test_cancel_not_found(self, handler, clear_fallback, mock_handler):
         """Returns 404 for nonexistent decision."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._cancel_decision("nonexistent", mock_handler)
             parsed = parse_result(result)
 
@@ -348,7 +348,7 @@ class TestCancelDecision:
             return_value=({"reason": "User requested cancellation"}, None)
         )
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._cancel_decision("dec_123", mock_handler)
             parsed = parse_result(result)
 
@@ -371,7 +371,7 @@ class TestRetryDecision:
             "status": "completed",
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._retry_decision("dec_123", mock_handler)
             parsed = parse_result(result)
 
@@ -381,7 +381,7 @@ class TestRetryDecision:
     @pytest.mark.asyncio
     async def test_retry_not_found(self, handler, clear_fallback, mock_handler):
         """Returns 404 for nonexistent decision."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._retry_decision("nonexistent", mock_handler)
             parsed = parse_result(result)
 
@@ -410,7 +410,7 @@ class TestRetryDecision:
         mock_router = MagicMock()
         mock_router.route = AsyncMock(return_value=mock_result)
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             with patch(
                 "aragora.server.handlers.decision._get_decision_router", return_value=mock_router
             ):
@@ -445,7 +445,7 @@ class TestRetryDecision:
         mock_router = MagicMock()
         mock_router.route = AsyncMock(return_value=mock_result)
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             with patch(
                 "aragora.server.handlers.decision._get_decision_router", return_value=mock_router
             ):
@@ -463,7 +463,7 @@ class TestRetryDecision:
             "result": {},  # No content
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = await handler._retry_decision("dec_123", mock_handler)
             parsed = parse_result(result)
 
@@ -479,7 +479,7 @@ class TestRetryDecision:
             "result": {"request": {"content": "Test"}},
         }
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             with patch("aragora.server.handlers.decision._get_decision_router", return_value=None):
                 result = await handler._retry_decision("dec_123", mock_handler)
                 parsed = parse_result(result)
@@ -575,14 +575,14 @@ class TestHelperFunctions:
 
     def test_save_and_get_result(self, clear_fallback):
         """save_result and get_result work together."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             _save_result("test_id", {"status": "completed"})
             result = _get_result("test_id")
             assert result["status"] == "completed"
 
     def test_get_result_returns_none_for_missing(self, clear_fallback):
         """get_result returns None for missing ID."""
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=None):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None):
             result = _get_result("nonexistent")
             assert result is None
 
@@ -590,7 +590,7 @@ class TestHelperFunctions:
         """Uses persistent store for save when available."""
         mock_store = MagicMock()
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=mock_store):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_store):
             _save_result("test_id", {"status": "completed"})
             mock_store.save.assert_called_once_with("test_id", {"status": "completed"})
 
@@ -599,7 +599,7 @@ class TestHelperFunctions:
         mock_store = MagicMock()
         mock_store.save.side_effect = Exception("Store error")
 
-        with patch("aragora.server.handlers.decision._get_result_store", return_value=mock_store):
+        with patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_store):
             _save_result("test_id", {"status": "completed"})
             # Should be saved to fallback
             assert _decision_results_fallback["test_id"]["status"] == "completed"

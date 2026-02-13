@@ -247,7 +247,7 @@ def handler(mock_server_context, mock_result_store):
 
     # Create patches that we'll apply
     with (
-        patch("aragora.server.handlers.decision._get_result_store", return_value=mock_result_store),
+        patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_result_store),
         patch("aragora.server.handlers.decision._get_result", side_effect=mock_result_store.get),
         patch("aragora.server.handlers.decision._save_result", side_effect=mock_result_store.save),
         patch(
@@ -431,7 +431,7 @@ class TestListDecisions:
         mock_handler = create_mock_handler()
 
         with patch(
-            "aragora.server.handlers.decision._get_result_store", return_value=mock_result_store
+            "aragora.server.handlers.decision._decision_result_store.get", return_value=mock_result_store
         ):
             result = h.handle("/api/v1/decisions", {}, mock_handler)
             assert result.status_code == 200
@@ -446,7 +446,7 @@ class TestListDecisions:
         mock_handler = create_mock_handler()
 
         with patch(
-            "aragora.server.handlers.decision._get_result_store", return_value=mock_result_store
+            "aragora.server.handlers.decision._decision_result_store.get", return_value=mock_result_store
         ):
             result = h.handle("/api/v1/decisions", {"limit": "5"}, mock_handler)
             assert result.status_code == 200
@@ -491,7 +491,7 @@ class TestGetDecisionStatus:
         mock_handler = create_mock_handler()
 
         with patch(
-            "aragora.server.handlers.decision._get_result_store",
+            "aragora.server.handlers.decision._decision_result_store.get",
             return_value=mock_result_store,
         ):
             result = h.handle("/api/v1/decisions/dec_existing123/status", {}, mock_handler)
@@ -506,7 +506,7 @@ class TestGetDecisionStatus:
         mock_handler = create_mock_handler()
 
         with patch(
-            "aragora.server.handlers.decision._get_result_store",
+            "aragora.server.handlers.decision._decision_result_store.get",
             return_value=mock_result_store,
         ):
             result = h.handle("/api/v1/decisions/nonexistent/status", {}, mock_handler)
@@ -815,7 +815,7 @@ class TestDecisionHandlerErrors:
 
         # When store returns None, should use fallback
         with (
-            patch("aragora.server.handlers.decision._get_result_store", return_value=None),
+            patch("aragora.server.handlers.decision._decision_result_store.get", return_value=None),
             patch(
                 "aragora.server.handlers.decision._decision_results_fallback",
                 {

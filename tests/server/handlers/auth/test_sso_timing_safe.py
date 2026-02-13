@@ -27,7 +27,7 @@ import pytest
 from aragora.server.handlers.auth import sso_handlers
 from aragora.server.handlers.auth.sso_handlers import (
     handle_sso_callback,
-    _get_sso_state_store,
+    _sso_state_store,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.oauth_state_store import (
@@ -321,7 +321,7 @@ class TestSsoCallbackStateValidation:
 
         with patch.object(sso_handlers, "_get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
-            with patch.object(sso_handlers, "_get_sso_state_store") as mock_store:
+            with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
                 mock_store.return_value = memory_state_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "test_jwt_token"
@@ -355,7 +355,7 @@ class TestSsoCallbackStateValidation:
 
         with patch.object(sso_handlers, "_get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
-            with patch.object(sso_handlers, "_get_sso_state_store") as mock_store:
+            with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
                 mock_store.return_value = memory_state_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "test_jwt_token"
@@ -379,7 +379,7 @@ class TestSsoCallbackStateValidation:
         # Wait a moment for expiration
         await asyncio.sleep(0.01)
 
-        with patch.object(sso_handlers, "_get_sso_state_store") as mock_store:
+        with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
             mock_store.return_value = memory_state_store
 
             result = await handle_sso_callback(
@@ -452,7 +452,7 @@ class TestStateStoreValidationMocking:
 
         memory_state_store.validate_and_consume = spy_validate
 
-        with patch.object(sso_handlers, "_get_sso_state_store") as mock_store:
+        with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
             mock_store.return_value = memory_state_store
 
             await handle_sso_callback(
@@ -500,7 +500,7 @@ class TestStateStoreValidationMocking:
 
         with patch.object(sso_handlers, "_get_sso_provider") as mock_get:
             mock_get.return_value = mock_provider
-            with patch.object(sso_handlers, "_get_sso_state_store") as mock_store:
+            with patch.object(sso_handlers._sso_state_store, "get") as mock_store:
                 mock_store.return_value = memory_state_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "jwt"
