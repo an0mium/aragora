@@ -304,11 +304,13 @@ def _run_init_subsystems(env_dict, caplog, pre_hook=None):
                 "aragora.knowledge.mound": MagicMock(),
             },
         ),
+        patch("aragora.security.anomaly_detection.get_anomaly_detector", return_value=MagicMock()),
     ):
         if pre_hook is not None:
             pre_hook(UnifiedHandler)
 
         instance = object.__new__(UnifiedServer)
+        instance.nomic_dir = Path("/tmp/test_nomic")
 
         with caplog.at_level(logging.DEBUG, logger="aragora.server.unified_server"):
             instance._init_subsystems(Path("/tmp/test_nomic"))
