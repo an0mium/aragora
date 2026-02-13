@@ -27,6 +27,14 @@ from aragora.pipeline.decision_plan import (
     record_plan_outcome,
 )
 from aragora.pipeline.execution_notifier import ExecutionNotifier, ExecutionProgress
+from aragora.pipeline.notifications import (
+    notify_plan_created,
+    notify_plan_approved,
+    notify_plan_rejected,
+    notify_execution_started,
+    notify_execution_completed,
+    notify_execution_failed,
+)
 from aragora.pipeline.executor import PlanExecutor, get_plan, list_plans, store_plan
 from aragora.pipeline.pr_generator import DecisionMemo, PatchPlan, PRGenerator
 from aragora.pipeline.risk_register import Risk, RiskRegister
@@ -54,6 +62,13 @@ __all__ = [
     # Execution notifications
     "ExecutionNotifier",
     "ExecutionProgress",
+    # Plan lifecycle notifications
+    "notify_plan_created",
+    "notify_plan_approved",
+    "notify_plan_rejected",
+    "notify_execution_started",
+    "notify_execution_completed",
+    "notify_execution_failed",
     # Executor
     "PlanExecutor",
     "get_plan",
