@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
 **Generated**: 2026-02-13
-**Total Skip Markers**: 434
+**Total Skip Markers**: 393
 
 ---
 
@@ -9,20 +9,19 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| missing_feature | 183 | 42.2% |
-| optional_dependency | 183 | 42.2% |
-| integration_dependency | 28 | 6.5% |
-| uncategorized | 18 | 4.1% |
-| platform_specific | 13 | 3.0% |
-| known_bug | 6 | 1.4% |
-| performance | 3 | 0.7% |
+| optional_dependency | 178 | 45.3% |
+| missing_feature | 157 | 39.9% |
+| integration_dependency | 29 | 7.4% |
+| platform_specific | 14 | 3.6% |
+| known_bug | 12 | 3.1% |
+| performance | 3 | 0.8% |
 
 ## Summary by Marker Type
 
 | Type | Count |
 |------|-------|
 | `skipif` | 233 |
-| `pytest.skip` | 201 |
+| `pytest.skip` | 160 |
 
 ## High-Skip Files (Top 10)
 
@@ -36,8 +35,8 @@
 | `tests/resilience/test_timeout.py` | 16 |
 | `tests/sdk/test_openclaw_parity.py` | 15 |
 | `tests/integration/test_handler_registration.py` | 12 |
-| `tests/gauntlet/test_signing.py` | 12 |
-| `tests/integration/test_security_hardening_e2e.py` | 10 |
+| `tests/gauntlet/test_signing.py` | 11 |
+| `tests/connectors/chat/test_jwt_verify.py` | 9 |
 
 ---
 
@@ -69,7 +68,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **434** skips
+Current baseline: **393** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.
