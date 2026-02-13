@@ -96,8 +96,193 @@ class SecurityHandler(BaseHandler):
         return False
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
-        """Route security endpoint requests."""
+        """Route GET security endpoint requests.
+
+        Applies authentication and permission checks before dispatching
+        to the appropriate endpoint handler.
+        """
+        if not self.can_handle(path):
+            return None
+
+        # Auth and permission checks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "codebase:read")
+        if perm_err:
+            return perm_err
+
+        return self._route_get(path, query_params)
+
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route POST security endpoint requests.
+
+        Applies authentication and permission checks before dispatching
+        to the appropriate endpoint handler.
+        """
+        if not self.can_handle(path):
+            return None
+
+        # Auth and permission checks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "codebase:scan")
+        if perm_err:
+            return perm_err
+
+        # Parse request body
+        data: dict[str, Any] = {}
+        if handler and hasattr(handler, "rfile"):
+            import json as _json
+
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+                if content_length > 0:
+                    raw = handler.rfile.read(content_length)
+                    data = _json.loads(raw)
+            except (ValueError, TypeError):
+                pass
+
+        return await self._route_post(path, data, query_params)
+
+    def _route_get(self, path: str, params: dict[str, Any]) -> HandlerResult | None:
+        """Dispatch GET requests to the appropriate handler method."""
+        # CVE endpoint: GET /api/v1/cve/{cve_id}
+        if path.startswith("/api/v1/cve/"):
+            cve_id = path.split("/api/v1/cve/", 1)[1].rstrip("/")
+            if cve_id:
+                import asyncio
+
+                return asyncio.get_event_loop().run_until_complete(
+                    self.handle_get_cve(params, cve_id)
+                )
+        if path == "/api/v1/cve":
+            return None
+
+        # Extract repo_id from /api/v1/codebase/{repo_id}/...
+        repo_id, sub_path = self._extract_repo_and_subpath(path)
+        if not repo_id:
+            return None
+
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+
+        # Vulnerability scan status
+        if sub_path == "/scan/latest":
+            return loop.run_until_complete(self.handle_get_scan_latest(params, repo_id))
+        if sub_path.startswith("/scan/secrets/"):
+            scan_id = sub_path.split("/scan/secrets/", 1)[1].rstrip("/")
+            if scan_id and scan_id != "latest":
+                return loop.run_until_complete(
+                    self.handle_get_secrets_scan(params, repo_id, scan_id)
+                )
+        if sub_path == "/scan/secrets/latest":
+            return loop.run_until_complete(
+                self.handle_get_secrets_scan_latest(params, repo_id)
+            )
+        if sub_path.startswith("/scan/sast/"):
+            scan_id = sub_path.split("/scan/sast/", 1)[1].rstrip("/")
+            if scan_id:
+                return loop.run_until_complete(
+                    self.handle_get_sast_scan_status(params, repo_id, scan_id)
+                )
+        if sub_path.startswith("/scan/"):
+            scan_id = sub_path.split("/scan/", 1)[1].rstrip("/")
+            if scan_id and scan_id not in ("latest", "secrets", "sast"):
+                return loop.run_until_complete(
+                    self.handle_get_scan(params, repo_id, scan_id)
+                )
+
+        # Vulnerability listings
+        if sub_path == "/vulnerabilities" or sub_path.startswith("/vulnerabilities?"):
+            return loop.run_until_complete(
+                self.handle_get_vulnerabilities(params, repo_id)
+            )
+
+        # Scan listings
+        if sub_path == "/scans" or sub_path == "/scans/":
+            return loop.run_until_complete(self.handle_list_scans(params, repo_id))
+        if sub_path == "/scans/secrets" or sub_path == "/scans/secrets/":
+            return loop.run_until_complete(
+                self.handle_list_secrets_scans(params, repo_id)
+            )
+
+        # Secrets
+        if sub_path == "/secrets" or sub_path.startswith("/secrets?"):
+            return loop.run_until_complete(self.handle_get_secrets(params, repo_id))
+
+        # SAST
+        if sub_path == "/sast/findings" or sub_path.startswith("/sast/findings?"):
+            return loop.run_until_complete(
+                self.handle_get_sast_findings(params, repo_id)
+            )
+        if sub_path == "/sast/owasp-summary":
+            return loop.run_until_complete(
+                self.handle_get_owasp_summary(params, repo_id)
+            )
+
+        # SBOM
+        if sub_path == "/sbom/latest":
+            return loop.run_until_complete(self.handle_get_sbom_latest(params, repo_id))
+        if sub_path == "/sbom/list":
+            return loop.run_until_complete(self.handle_list_sbom(params, repo_id))
+        if sub_path.startswith("/sbom/") and sub_path.endswith("/download"):
+            sbom_id = sub_path.split("/sbom/", 1)[1].rsplit("/download", 1)[0]
+            if sbom_id:
+                return loop.run_until_complete(
+                    self.handle_download_sbom_content(params, repo_id, sbom_id)
+                )
+        if sub_path.startswith("/sbom/"):
+            sbom_id = sub_path.split("/sbom/", 1)[1].rstrip("/")
+            if sbom_id and sbom_id not in ("latest", "list", "compare"):
+                return loop.run_until_complete(
+                    self.handle_get_sbom_by_id(params, repo_id, sbom_id)
+                )
+
         return None
+
+    async def _route_post(
+        self, path: str, data: dict[str, Any], params: dict[str, Any]
+    ) -> HandlerResult | None:
+        """Dispatch POST requests to the appropriate handler method."""
+        repo_id, sub_path = self._extract_repo_and_subpath(path)
+        if not repo_id:
+            return None
+
+        if sub_path == "/scan" or sub_path == "/scan/":
+            return await self.handle_post_scan(data, repo_id)
+        if sub_path == "/scan/secrets" or sub_path == "/scan/secrets/":
+            return await self.handle_post_secrets_scan(data, repo_id)
+        if sub_path == "/scan/sast" or sub_path == "/scan/sast/":
+            return await self.handle_scan_sast(data, repo_id)
+        if sub_path == "/sbom" or sub_path == "/sbom/":
+            return await self.handle_post_sbom(data, repo_id)
+        if sub_path == "/sbom/compare" or sub_path == "/sbom/compare/":
+            return await self.handle_compare_sbom(data, repo_id)
+
+        return None
+
+    @staticmethod
+    def _extract_repo_and_subpath(path: str) -> tuple[str | None, str]:
+        """Extract repo_id and sub-path from a codebase URL.
+
+        Handles both /api/v1/codebase/{repo}/... and /api/codebase/{repo}/...
+
+        Returns:
+            Tuple of (repo_id, sub_path). repo_id is None if path doesn't match.
+        """
+        for prefix in ("/api/v1/codebase/", "/api/codebase/"):
+            if path.startswith(prefix):
+                remainder = path[len(prefix):]
+                if "/" in remainder:
+                    repo_id, sub_path = remainder.split("/", 1)
+                    return repo_id, "/" + sub_path
+                return remainder.rstrip("/") or None, ""
+        return None, ""
 
     # =========================================================================
     # Path Traversal Validation Helper
