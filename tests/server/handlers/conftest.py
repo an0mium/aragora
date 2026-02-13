@@ -1035,22 +1035,30 @@ def _reset_rate_limiters():
     Without this fixture, earlier tests consume the rate limit budget,
     causing later tests to receive 429 responses.
 
-    Clears both before (setup) and after (teardown) to handle pollution
-    from tests in other conftest scopes that ran before this fixture.
+    Uses sys.modules lookup because the utils __init__.py exports
+    rate_limit as a function name, which shadows the module import.
     """
-    try:
-        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+    import sys
 
-        clear_all_limiters()
-    except ImportError:
-        pass
+    rl_mod = sys.modules.get("aragora.server.handlers.utils.rate_limit")
+    if rl_mod is None:
+        try:
+            import importlib
+
+            rl_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
+        except ImportError:
+            rl_mod = None
+
+    if rl_mod is not None:
+        rl_mod.clear_all_limiters()
+
     yield
-    try:
-        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
 
-        clear_all_limiters()
-    except ImportError:
-        pass
+    if rl_mod is not None:
+        try:
+            rl_mod.clear_all_limiters()
+        except Exception:
+            pass
 
 
 @pytest.fixture
@@ -1120,6 +1128,145 @@ def _reset_sso_state():
         sso_mod._auth_sessions.clear()
         if hasattr(sso_mod._sso_state_store, "reset"):
             sso_mod._sso_state_store.reset()
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _reset_handler_global_state():
+    """Reset module-level handler state between tests.
+
+    Clears persistent data structures that accumulate across test runs,
+    preventing order-dependent failures. Runs after each test.
+    """
+    yield
+
+    # Reset signup state
+    try:
+        from aragora.server.handlers.auth import signup_handlers as su_mod
+
+        su_mod._pending_signups.clear()
+        su_mod._pending_invites.clear()
+        if hasattr(su_mod, "_onboarding_status"):
+            su_mod._onboarding_status.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset Slack bot state
+    try:
+        from aragora.server.handlers.bots.slack import state as slack_state
+
+        if hasattr(slack_state, "_active_debates"):
+            slack_state._active_debates.clear()
+        if hasattr(slack_state, "_user_votes"):
+            slack_state._user_votes.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset Teams bot state
+    try:
+        from aragora.server.handlers.bots import teams_utils
+
+        if hasattr(teams_utils, "_active_debates"):
+            teams_utils._active_debates.clear()
+        if hasattr(teams_utils, "_user_votes"):
+            teams_utils._user_votes.clear()
+        if hasattr(teams_utils, "_conversation_references"):
+            teams_utils._conversation_references.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset task execution state
+    try:
+        from aragora.server.handlers.tasks import execution
+
+        if hasattr(execution, "_tasks"):
+            execution._tasks.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset transcription state
+    try:
+        from aragora.server.handlers import transcription
+
+        if hasattr(transcription, "_transcription_jobs"):
+            transcription._transcription_jobs.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset code review state
+    try:
+        from aragora.server.handlers import code_review
+
+        if hasattr(code_review, "_review_results"):
+            code_review._review_results.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset gastown dashboard cache
+    try:
+        from aragora.server.handlers import gastown_dashboard
+
+        if hasattr(gastown_dashboard, "_gt_dashboard_cache"):
+            gastown_dashboard._gt_dashboard_cache.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset onboarding flows
+    try:
+        from aragora.server.handlers import onboarding
+
+        if hasattr(onboarding, "_onboarding_flows"):
+            onboarding._onboarding_flows.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset cloud storage tokens
+    try:
+        from aragora.server.handlers.features import cloud_storage
+
+        if hasattr(cloud_storage, "_tokens"):
+            cloud_storage._tokens.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset plugins state
+    try:
+        from aragora.server.handlers.features import plugins
+
+        if hasattr(plugins, "_installed_plugins"):
+            plugins._installed_plugins.clear()
+        if hasattr(plugins, "_plugin_submissions"):
+            plugins._plugin_submissions.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset advertising state
+    try:
+        from aragora.server.handlers.features import advertising
+
+        if hasattr(advertising, "_platform_credentials"):
+            advertising._platform_credentials.clear()
+        if hasattr(advertising, "_platform_connectors"):
+            advertising._platform_connectors.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset email snoozed state
+    try:
+        from aragora.server.handlers import email_services
+
+        if hasattr(email_services, "_snoozed_emails"):
+            email_services._snoozed_emails.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset workspace circuit breakers
+    try:
+        from aragora.server.handlers.workspace import workspace_utils
+
+        if hasattr(workspace_utils, "_workspace_circuit_breakers"):
+            workspace_utils._workspace_circuit_breakers.clear()
     except (ImportError, AttributeError):
         pass
 
