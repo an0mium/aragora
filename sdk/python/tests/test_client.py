@@ -123,7 +123,7 @@ class TestAragoraClientHeaders:
         client = AragoraClient(base_url="https://api.aragora.ai")
         headers = client._build_headers()
         assert "User-Agent" in headers
-        assert "aragora-python" in headers["User-Agent"]
+        assert "aragora-python-sdk" in headers["User-Agent"]
         client.close()
 
     def test_headers_include_authorization_with_api_key(self) -> None:

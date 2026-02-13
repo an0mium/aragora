@@ -38,7 +38,7 @@ from ._lazy_imports import ALL_HANDLER_NAMES, HANDLER_MODULES
 # 1. base.py imports from admin.cache
 # 2. admin/__init__.py imports from handler.py, which imports from base.py
 # By pre-loading admin.cache, we break the circular dependency.
-from .admin import cache as _admin_cache  # noqa: F401
+from .admin import cache as cache  # noqa: F401, PLC0414  -- public for patch paths
 
 # Expose utils submodule for tests
 from . import utils as utils  # noqa: PLC0414

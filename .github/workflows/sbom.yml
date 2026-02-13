@@ -38,26 +38,26 @@ jobs:
           VERSION="${{ github.event.release.tag_name || github.event.inputs.version || 'latest' }}"
           cyclonedx-py environment \
             --output-format json \
-            --output-file aragora-python-sbom-${VERSION}.json
+            --output-file aragora-sdk-sbom-${VERSION}.json
           cyclonedx-py environment \
             --output-format xml \
-            --output-file aragora-python-sbom-${VERSION}.xml
+            --output-file aragora-sdk-sbom-${VERSION}.xml
 
       - name: Upload Python SBOM
         uses: actions/upload-artifact@v4
         with:
           name: python-sbom
           path: |
-            aragora-python-sbom-*.json
-            aragora-python-sbom-*.xml
+            aragora-sdk-sbom-*.json
+            aragora-sdk-sbom-*.xml
 
       - name: Attach SBOM to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            aragora-python-sbom-*.json
-            aragora-python-sbom-*.xml
+            aragora-sdk-sbom-*.json
+            aragora-sdk-sbom-*.xml
 
   generate-node-sbom:
     name: Generate Node.js SBOM

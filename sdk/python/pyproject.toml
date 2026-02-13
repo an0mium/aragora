@@ -58,8 +58,8 @@ dev = [
 [project.urls]
 Homepage = "https://aragora.ai"
 Documentation = "https://docs.aragora.ai/sdk/python"
-Repository = "https://github.com/aragora/aragora-python"
-Changelog = "https://github.com/aragora/aragora-python/blob/main/CHANGELOG.md"
+Repository = "https://github.com/aragora/aragora/tree/main/sdk/python"
+Changelog = "https://github.com/aragora/aragora/blob/main/sdk/python/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["aragora_sdk"]

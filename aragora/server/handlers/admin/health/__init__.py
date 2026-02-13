@@ -2,7 +2,17 @@
 Health handler package.
 
 Provides health and readiness endpoints for Kubernetes deployments.
-The handler is split into logical modules for better maintainability:
+
+Focused handlers (recommended for new code):
+
+- LivenessHandler: /healthz endpoint only (liveness.py)
+- ReadinessHandler: /readyz endpoints only (readiness.py)
+- StorageHealthHandler: /api/health/stores and /api/health/database (storage_health.py)
+
+The monolithic HealthHandler remains for backward compatibility and handles
+all routes. New integrations should prefer the focused handlers above.
+
+Implementation modules:
 
 - kubernetes.py: K8s liveness/readiness probes
 - database.py: Schema and stores health checks
@@ -14,11 +24,17 @@ The handler is split into logical modules for better maintainability:
 - helpers.py: Sync, circuits, slow debates, component health
 - workers.py: Background workers and job queue health
 
-For backward compatibility, import HealthHandler from this package:
+For backward compatibility, import HealthHandler from this package::
 
     from aragora.server.handlers.admin.health import HealthHandler
 
-Or from the legacy path:
+Or use focused handlers for specific concerns::
+
+    from aragora.server.handlers.admin.health import LivenessHandler
+    from aragora.server.handlers.admin.health import ReadinessHandler
+    from aragora.server.handlers.admin.health import StorageHealthHandler
+
+Legacy path still works::
 
     from aragora.server.handlers.admin._health_impl import HealthHandler
 """
@@ -95,6 +111,11 @@ from .workers import (
 from .probes import ProbesMixin
 from .knowledge import KnowledgeMixin
 from .stores import StoresMixin
+
+# Focused handlers (split from monolithic HealthHandler)
+from .liveness import LivenessHandler
+from .readiness import ReadinessHandler
+from .storage_health import StorageHealthHandler
 
 
 class HealthHandler(SecureHandler):
@@ -364,8 +385,12 @@ class HealthHandler(SecureHandler):
 
 
 __all__ = [
-    # Main handler
+    # Main handler (backward compat - handles all routes)
     "HealthHandler",
+    # Focused handlers (recommended for new code)
+    "LivenessHandler",
+    "ReadinessHandler",
+    "StorageHealthHandler",
     # Mixins (backward compat)
     "ProbesMixin",
     "KnowledgeMixin",

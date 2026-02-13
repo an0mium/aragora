@@ -13,27 +13,15 @@ Last Updated: 2026-02-13
 #### ~~2. `aragora/observability/metrics/core.py` (was 2,991 lines)~~
 **Status:** DONE. Consolidated into the modular metrics package.
 
-### MEDIUM Priority (5,121 lines combined)
+### MEDIUM Priority -- COMPLETED
 
-#### 3. `aragora/events/cross_subscribers.py` (2,572 lines)
-**Issue:** Single monolithic `CrossSubscriberManager` class handling multiple event types.
+#### ~~3. `aragora/events/cross_subscribers.py` (was 2,572 lines)~~
+**Status:** DONE. Decomposed into `manager.py` (427 lines), `dispatch.py` (327 lines),
+`admin.py` (313 lines), plus 4 handler modules in `handlers/`. No file exceeds 650 lines.
 
-**Recommendation:**
-- Extract subscriber types: `MemorySubscriber`, `ELOSubscriber`, `KnowledgeSubscriber`
-- Use composition: manager delegates to specialized handlers
-- Each handler manages own circuit breaker and metrics
-
-**Estimated Effort:** 3-4 hours
-
-#### 4. `aragora/server/handlers/admin/health.py` (2,549 lines)
-**Issue:** `HealthHandler` class with 21 methods covering diverse health checks.
-
-**Recommendation:**
-- Split into focused handlers: `LivenessHandler`, `ReadinessHandler`, `StorageHealthHandler`
-- Use composition for unified health endpoint
-- Improves testing granularity
-
-**Estimated Effort:** 2-3 hours
+#### ~~4. `aragora/server/handlers/admin/health.py` (was 2,549 lines)~~
+**Status:** DONE. Extracted `LivenessHandler` (65 lines), `ReadinessHandler` (83 lines),
+`StorageHealthHandler` (112 lines). Original `HealthHandler` preserved as facade.
 
 ### Keep As-Is (Justified Design)
 
