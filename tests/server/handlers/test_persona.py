@@ -1248,6 +1248,7 @@ class TestPersonaHandlerRBAC:
         method = handler.handle_delete
         assert callable(method)
 
+    @pytest.mark.no_auto_auth
     def test_rbac_enforced_when_real_auth_enabled(self, mock_http_handler):
         """Test that RBAC returns 401 when real auth is enabled without token."""
         handler = PersonaHandler({})

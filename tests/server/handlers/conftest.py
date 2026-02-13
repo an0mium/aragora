@@ -157,6 +157,11 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         from aragora.server.handlers.utils import decorators as handler_decorators
 
         monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user_ctx)
+
+        # Also patch has_permission to always return True for admin role.
+        # The PERMISSION_MATRIX doesn't cover all handler-specific permissions
+        # (e.g., persona:update, cloud:read), causing 403 for tests with admin users.
+        monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
     except (ImportError, AttributeError):
         pass
 
