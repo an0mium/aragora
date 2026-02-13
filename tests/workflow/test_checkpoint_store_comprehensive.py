@@ -1896,7 +1896,7 @@ class TestFactoryFunctions:
             get_default_knowledge_mound,
             set_default_knowledge_mound,
         )
-        import aragora.workflow.checkpoint_store as cs
+        import aragora.workflow.checkpoints.factory as _factory
 
         original = get_default_knowledge_mound()
 
@@ -1907,7 +1907,7 @@ class TestFactoryFunctions:
             set_default_knowledge_mound(mock_mound)
             assert get_default_knowledge_mound() is mock_mound
         finally:
-            cs._default_mound = original
+            _factory._default_mound = original
 
     def test_get_checkpoint_store_priority(self, mock_knowledge_mound, mock_redis):
         """Explicit mound takes priority over Redis."""

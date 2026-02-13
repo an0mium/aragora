@@ -252,7 +252,12 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
+        async def mock_auth_ctx(req, require_auth=True):
+            return mock_http_handler._auth_context
+
+        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
+             patch.object(handler, "check_permission", return_value=None):
+            result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
         assert result.status_code == 200
@@ -275,7 +280,12 @@ class TestHealthEndpoints:
         mock_storage.list_recent.return_value = []
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
+        async def mock_auth_ctx(req, require_auth=True):
+            return mock_http_handler._auth_context
+
+        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
+             patch.object(handler, "check_permission", return_value=None):
+            result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         body = json.loads(result.body)
         assert "database" in body["checks"]
@@ -1357,7 +1367,12 @@ class TestHealthDegradation:
         handler = HealthHandler(ctx)
         mock_elo_system.get_leaderboard.return_value = []
 
-        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
+        async def mock_auth_ctx(req, require_auth=True):
+            return mock_http_handler._auth_context
+
+        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
+             patch.object(handler, "check_permission", return_value=None):
+            result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
         # Database errors are non-critical - health remains healthy with warning
@@ -1379,7 +1394,12 @@ class TestHealthDegradation:
         handler = HealthHandler(ctx)
         mock_storage.list_recent.return_value = []
 
-        result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
+        async def mock_auth_ctx(req, require_auth=True):
+            return mock_http_handler._auth_context
+
+        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
+             patch.object(handler, "check_permission", return_value=None):
+            result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
         # ELO is non-critical, so health remains healthy with warning

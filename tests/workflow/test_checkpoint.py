@@ -1220,7 +1220,7 @@ class TestFactoryFunctions:
 
     def test_set_and_get_default_mound(self, mock_knowledge_mound):
         """set_default_knowledge_mound and get_default_knowledge_mound work."""
-        import aragora.workflow.checkpoint_store as cs
+        import aragora.workflow.checkpoints.factory as _factory
 
         original = get_default_knowledge_mound()
 
@@ -1228,7 +1228,7 @@ class TestFactoryFunctions:
             set_default_knowledge_mound(mock_knowledge_mound)
             assert get_default_knowledge_mound() is mock_knowledge_mound
         finally:
-            cs._default_mound = original
+            _factory._default_mound = original
 
 
 # =============================================================================

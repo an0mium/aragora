@@ -1227,7 +1227,7 @@ class TestGetCheckpointStoreFactoryDeep:
         mock_mound = MagicMock()
         mock_mound._workspace_id = "default-mound"
 
-        with patch("aragora.workflow.checkpoint_store._default_mound", mock_mound):
+        with patch("aragora.workflow.checkpoints.factory._default_mound", mock_mound):
             from aragora.workflow.checkpoint_store import (
                 KnowledgeMoundCheckpointStore,
                 get_checkpoint_store,
@@ -1242,7 +1242,7 @@ class TestGetCheckpointStoreFactoryDeep:
         mock_mound._workspace_id = "skip-me"
 
         with (
-            patch("aragora.workflow.checkpoint_store._default_mound", mock_mound),
+            patch("aragora.workflow.checkpoints.factory._default_mound", mock_mound),
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", False),
             patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", False),
         ):

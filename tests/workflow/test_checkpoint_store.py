@@ -1473,10 +1473,10 @@ class TestSetDefaultKnowledgeMound:
             set_default_knowledge_mound(mock_mound)
             assert get_default_knowledge_mound() is mock_mound
         finally:
-            # Restore original (or None)
-            import aragora.workflow.checkpoint_store as cs
+            # Restore original (or None) on the factory module
+            import aragora.workflow.checkpoints.factory as _factory
 
-            cs._default_mound = original
+            _factory._default_mound = original
 
 
 class TestGetCheckpointStoreAsync:
@@ -2880,7 +2880,7 @@ class TestFactoryEdgeCases:
 
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
-            patch("aragora.workflow.checkpoint_store._default_mound", mock_mound),
+            patch("aragora.workflow.checkpoints.factory._default_mound", mock_mound),
         ):
             from aragora.workflow.checkpoint_store import (
                 KnowledgeMoundCheckpointStore,
@@ -2898,7 +2898,7 @@ class TestFactoryEdgeCases:
         explicit_mound = MagicMock()
         explicit_mound._workspace_id = "explicit"
 
-        with patch("aragora.workflow.checkpoint_store._default_mound", default_mound):
+        with patch("aragora.workflow.checkpoints.factory._default_mound", default_mound):
             from aragora.workflow.checkpoint_store import (
                 KnowledgeMoundCheckpointStore,
                 get_checkpoint_store,

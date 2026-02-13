@@ -209,7 +209,7 @@ Respond with just "yes" or "no".""",
                     )
                 return results
 
-        except (httpx.HTTPError, OSError, ValueError) as e:
+        except (httpx.HTTPError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Brave search failed: {e}")
             return []
 
@@ -243,7 +243,7 @@ Respond with just "yes" or "no".""",
                     )
                 return results
 
-        except (httpx.HTTPError, OSError, ValueError) as e:
+        except (httpx.HTTPError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Serper search failed: {e}")
             return []
 
