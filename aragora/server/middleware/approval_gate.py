@@ -637,7 +637,7 @@ def _record_approval_request_created(request: OperationApprovalRequest) -> None:
     except ImportError:
         # Metrics module not available (optional dependency)
         pass
-    except (AttributeError, TypeError, RuntimeError) as e:
+    except (AttributeError, TypeError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to record approval creation metric: {e}")
 
 
@@ -650,7 +650,7 @@ def _record_approval_resolved(request: OperationApprovalRequest) -> None:
     except ImportError:
         # Metrics module not available (optional dependency)
         pass
-    except (AttributeError, TypeError, RuntimeError) as e:
+    except (AttributeError, TypeError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to record approval resolution metric: {e}")
 
     # Audit log

@@ -546,6 +546,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                 "channel": result.channel_id,
             }
         except Exception as e:
+            logger.warning("%s receipt delivery failed: %s", "Slack", e)
             return {"success": False, "error": str(e)}
 
     def _send_test_to_teams(
@@ -595,6 +596,7 @@ class ReceiptDeliveryHandler(SecureHandler):
             result = asyncio.run(send())
             return {"success": True, "message_id": result.message_id}
         except Exception as e:
+            logger.warning("%s receipt delivery failed: %s", "Teams", e)
             return {"success": False, "error": str(e)}
 
     def _send_test_to_email(self, email_address: str, message: str) -> dict[str, Any]:
@@ -623,6 +625,7 @@ class ReceiptDeliveryHandler(SecureHandler):
 
             return {"success": True, "email_sent_to": email_address}
         except Exception as e:
+            logger.warning("%s receipt delivery failed: %s", "Email", e)
             return {"success": False, "error": str(e)}
 
     def _send_test_to_webhook(self, webhook_url: str, message: str, org_id: str) -> dict[str, Any]:
@@ -653,6 +656,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                 return {"success": True, "status_code": resp.status_code}
             return {"success": False, "error": f"HTTP {resp.status_code}"}
         except Exception as e:
+            logger.warning("%s receipt delivery failed: %s", "Webhook", e)
             return {"success": False, "error": str(e)}
 
     @handle_errors("get delivery stats")

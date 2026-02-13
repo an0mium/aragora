@@ -323,6 +323,7 @@ class ReceiptDeliveryHook:
             )
 
         except Exception as e:
+            logger.warning("Receipt delivery failed (slack): %s", e)
             return DeliveryResult(
                 channel_type="slack",
                 channel_id=channel_id,
@@ -388,6 +389,7 @@ class ReceiptDeliveryHook:
             )
 
         except Exception as e:
+            logger.warning("Receipt delivery failed (teams): %s", e)
             return DeliveryResult(
                 channel_type="teams",
                 channel_id=channel_id,
@@ -439,6 +441,7 @@ class ReceiptDeliveryHook:
             )
 
         except Exception as e:
+            logger.warning("Receipt delivery failed (email): %s", e)
             return DeliveryResult(
                 channel_type="email",
                 channel_id=email_address,
@@ -486,6 +489,7 @@ class ReceiptDeliveryHook:
                 )
 
         except Exception as e:
+            logger.warning("Receipt delivery failed (webhook): %s", e)
             return DeliveryResult(
                 channel_type="webhook",
                 channel_id=webhook_url,

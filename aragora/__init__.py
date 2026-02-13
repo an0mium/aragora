@@ -89,9 +89,11 @@ try:
         from aragora.config.secrets import hydrate_env_from_secrets
 
         hydrate_env_from_secrets(overwrite=True)
-except Exception:
+except Exception as exc:
     # Best-effort: avoid blocking imports if secrets hydration fails.
-    pass
+    import logging as _logging
+    _logging.getLogger(__name__).debug("Secrets hydration skipped: %s", exc)
+    del _logging
 
 _EXPORT_MAP = {
     "Agent": ("aragora.core", "Agent"),

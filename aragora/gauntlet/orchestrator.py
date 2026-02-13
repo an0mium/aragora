@@ -587,8 +587,8 @@ class GauntletOrchestrator:
             if self.on_phase_complete:
                 try:
                     self.on_phase_complete(GauntletPhase.RISK_ASSESSMENT, phase_result)
-                except Exception:
-                    pass  # Don't let callback errors break the run
+                except Exception as exc:
+                    logger.debug("Phase complete callback failed: %s", exc)
 
             # Extract and count claims
             claims = self._extract_claims(input_text)

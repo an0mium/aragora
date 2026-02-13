@@ -362,17 +362,23 @@ def __getattr__(name: str) -> _Any:
     if name in _LEGACY_NAMES:
         mod = _get_legacy_mod()
         value = getattr(mod, name)
-        globals()[name] = value
+        # NOTE: We intentionally do NOT cache in globals() here.
+        # Legacy constants (e.g. DEFAULT_CONSENSUS) are computed from
+        # environment variables at import time in the legacy module.
+        # Caching them in this module's globals() would prevent tests
+        # that modify env vars from seeing updated values, causing
+        # cross-test pollution.  The performance cost of the extra
+        # getattr on the legacy module is negligible since these names
+        # are rarely accessed in hot paths.
         return value
     if name in _SLO_NAMES:
         mod = _get_slo_mod()
         value = getattr(mod, name)
-        globals()[name] = value
+        # Same rationale as legacy names: avoid globals() caching.
         return value
     if name == "DEFAULT_AGENT_LIST":
-        val = _default_agent_list_from_csv(__getattr__("DEFAULT_AGENTS"))
-        globals()["DEFAULT_AGENT_LIST"] = val
-        return val
+        # Derived from DEFAULT_AGENTS; must not be cached either.
+        return _default_agent_list_from_csv(__getattr__("DEFAULT_AGENTS"))
     raise AttributeError(f"module 'aragora.config' has no attribute {name!r}")
 
 

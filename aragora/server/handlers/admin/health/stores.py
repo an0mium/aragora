@@ -173,6 +173,7 @@ class StoresMixin:
                 "error_type": "data_access",
             }, False
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "debate_storage", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -212,6 +213,7 @@ class StoresMixin:
                 "error_type": "data_access",
             }, False
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "elo_system", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -234,6 +236,7 @@ class StoresMixin:
                     "hint": "Will auto-create on first insight",
                 }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "insight_store", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -255,6 +258,7 @@ class StoresMixin:
                     "status": "not_initialized",
                 }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "flip_detector", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -276,6 +280,7 @@ class StoresMixin:
                     "status": "not_initialized",
                 }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "user_store", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -312,6 +317,7 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "consensus_memory", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -358,6 +364,7 @@ class StoresMixin:
                     "status": "nomic_dir_not_set",
                 }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "agent_metadata", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -387,6 +394,7 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "integration_store", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -416,6 +424,7 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "gmail_token_store", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -445,6 +454,7 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "sync_store", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
@@ -474,6 +484,7 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
+            logger.debug("Health check failed for %s: %s", "decision_result_store", e)
             return {
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",

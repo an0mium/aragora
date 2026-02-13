@@ -273,10 +273,10 @@ def optional_auth(func: Callable) -> Callable:
                         for r in auth_context.roles:
                             permissions |= get_role_permissions(r, include_inherited=True)
                         auth_context.permissions = permissions
-                    except (ImportError, Exception):
-                        pass
-            except (ImportError, Exception):
-                pass
+                    except (ImportError, Exception) as exc:
+                        logger.warning("RBAC permission loading failed: %s", exc)
+            except (ImportError, Exception) as exc:
+                logger.debug("Token payload extraction failed: %s", exc)
 
         # Inject auth context
         kwargs["auth_context"] = auth_context

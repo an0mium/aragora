@@ -180,7 +180,9 @@ def init_store_metrics() -> bool:
         logger.debug("Store metrics initialized")
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
+        # ValueError: Prometheus registry conflict (duplicate timeseries) --
+        # happens when _initialized is reset without unregistering collectors.
         _init_noop_metrics()
         _initialized = True
         return False
