@@ -1,0 +1,47 @@
+# Aragora Demo — one-click local deployment
+#
+# Usage:
+#   docker compose -f deploy/demo/docker-compose.yml up
+#
+# This starts Aragora in offline/demo mode with:
+# - SQLite backend (no external database needed)
+# - Mock agents (no API keys needed)
+# - Demo data pre-loaded
+# - Web UI on http://localhost:8080
+# - WebSocket on ws://localhost:8765
+#
+# For production deployment, see deploy/kubernetes/ or deploy/openclaw/
+
+services:
+  aragora:
+    build:
+      context: ../..
+      dockerfile: deploy/demo/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8765:8765"
+    environment:
+      # Offline mode: no external APIs needed
+      - ARAGORA_OFFLINE=true
+      - ARAGORA_DEMO_MODE=true
+      - ARAGORA_DB_BACKEND=sqlite
+      - ARAGORA_ENV=development
+      # Server config
+      - ARAGORA_API_PORT=8080
+      - ARAGORA_WS_PORT=8765
+      - ARAGORA_ALLOWED_ORIGINS=*
+      # Disable features that need external services
+      - ARAGORA_DISABLE_TELEMETRY=true
+      - ARAGORA_DISABLE_REDIS=true
+    volumes:
+      - demo-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  demo-data:
