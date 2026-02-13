@@ -31,9 +31,7 @@ try:
 except ImportError:
     pass
 
-from contextlib import asynccontextmanager
-
-from aragora_sdk import AragoraClient
+from aragora_sdk import AragoraAsyncClient
 from aragora_sdk.exceptions import (
     AragoraError,
     AuthenticationError,
@@ -42,17 +40,11 @@ from aragora_sdk.exceptions import (
 from aragora_sdk.websocket import stream_debate
 
 
-@asynccontextmanager
-async def get_client(args: argparse.Namespace):
-    """Create an Aragora client, respecting --demo flag."""
+def get_client(args: argparse.Namespace) -> AragoraAsyncClient:
+    """Create an async Aragora client, respecting --demo flag."""
     if getattr(args, "demo", False):
-        client = AragoraClient(demo=True)
-    else:
-        client = AragoraClient(base_url=args.server)
-    try:
-        yield client
-    finally:
-        client.close()
+        return AragoraAsyncClient(demo=True)
+    return AragoraAsyncClient(base_url=args.server)
 
 
 # =============================================================================
@@ -69,20 +61,22 @@ async def cmd_debate_async(args: argparse.Namespace) -> int:
         print(f"  Rounds: {args.rounds}")
 
         try:
-            result = await client.debates.run(
-                task=args.topic,
-                agents=args.agents,
-                rounds=args.rounds,
-            )
+            result = await client.request("POST", "/api/v1/debates", json={
+                "task": args.topic,
+                "agents": args.agents,
+                "rounds": args.rounds,
+            })
 
+            consensus = result.get("consensus", {})
             print("\nResults:")
-            print(f"  Consensus: {'Yes' if result.consensus.reached else 'No'}")
-            print(f"  Confidence: {result.consensus.confidence:.1%}")
-            print(f"  Rounds completed: {result.rounds_completed}")
+            print(f"  Consensus: {'Yes' if consensus.get('reached') else 'No'}")
+            confidence = consensus.get("confidence", 0)
+            print(f"  Confidence: {confidence:.1%}" if isinstance(confidence, float) else f"  Confidence: {confidence}")
+            print(f"  Rounds completed: {result.get('rounds_completed', result.get('rounds', 'N/A'))}")
 
             print("\nFinal Answer:")
-            answer = result.consensus.final_answer or "No answer generated"
-            for line in answer.split("\n"):
+            answer = consensus.get("conclusion", consensus.get("final_answer", "No answer generated"))
+            for line in str(answer).split("\n"):
                 print(f"  {line}")
 
             return 0
@@ -206,17 +200,19 @@ async def cmd_rankings_async(args: argparse.Namespace) -> int:
 
     async with get_client(args) as client:
         try:
-            rankings = await client.leaderboard.list(limit=args.limit)
+            data = await client.request("GET", "/api/v1/rankings")
+            rankings = data.get("rankings", data) if isinstance(data, dict) else data
 
             if not rankings:
                 print("  No agents found.")
                 return 0
 
             for i, agent in enumerate(rankings, 1):
-                elo = agent.elo or 1500
-                wins = agent.wins or 0
-                losses = agent.losses or 0
-                print(f"  {i:2}. {agent.name:<20} {elo:>6.0f} ELO  ({wins}W/{losses}L)")
+                name = agent.get("agent", agent.get("name", "unknown"))
+                elo = agent.get("elo", 1500)
+                wins = agent.get("wins", 0)
+                losses = agent.get("losses", 0)
+                print(f"  {i:2}. {name:<20} {elo:>6.0f} ELO  ({wins}W/{losses}L)")
 
             return 0
 
@@ -498,13 +494,14 @@ def cmd_onboarding(args: argparse.Namespace) -> int:
 
 async def cmd_health_async(args: argparse.Namespace) -> int:
     """Check server health."""
-    print(f"\nChecking server at {args.server}...")
+    server = "demo" if getattr(args, "demo", False) else args.server
+    print(f"\nChecking server at {server}...")
 
     async with get_client(args) as client:
         try:
             health = await client.health.check()
-            print(f"  Status: {health.status}")
-            print(f"  Version: {health.version or 'unknown'}")
+            print(f"  Status: {health.get('status', 'unknown')}")
+            print(f"  Version: {health.get('version', 'unknown')}")
             return 0
 
         except AragoraConnectionError as e:
