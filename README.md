@@ -4,6 +4,7 @@ Aragora orchestrates 42 AI agents to adversarially vet decisions through structu
 
 ### The Decision Integrity Platform
 
+[![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -15,21 +16,60 @@ Aragora orchestrates 42 agent types in structured adversarial debates -- forcing
 ## Try It Now
 
 ```bash
-# Zero-config demo — runs a debate and opens the receipt in your browser
-aragora quickstart --demo
+pip install aragora
 
+# Zero-config demo — runs a full adversarial debate, no API keys needed
+aragora demo
+
+# Or run the guided quickstart (opens receipt in your browser)
+aragora quickstart --demo
+```
+
+<details>
+<summary>What you'll see (click to expand)</summary>
+
+```
+================================================================
+  ARAGORA DEMO -- Adversarial Decision Stress-Test
+================================================================
+
+  Topic:  Should we adopt microservices?
+  Agents: Analyst, Critic, Synthesizer, Devil's Advocate
+  Rounds: 2
+
+  --- Round 1 --------------------------------------------------
+
+  [ANALYST] (supportive)
+    This is a sound strategy. The evidence points toward
+    significant gains in maintainability and team productivity.
+
+  [CRITIC] (critical)
+    The claimed benefits are overstated. Most organizations
+    underestimated the operational burden by 3-5x. I recommend
+    a modular monolith as the safer path.
+
+  [SYNTHESIZER] (balanced)
+    The tradeoffs here are real. On one hand, the current
+    architecture limits independent scaling. On the other,
+    the migration carries execution risk.
+
+  --- Decision Receipt -----------------------------------------
+
+  Verdict:    CONDITIONAL APPROVAL
+  Confidence: 72%
+  Consensus:  Partial (3 of 4 agents)
+  Dissent:    Devil's Advocate flagged migration risk
+```
+
+</details>
+
+```bash
 # Review your current changes against main
 git diff main | aragora review --demo
 
 # Or review a GitHub PR
 aragora review --pr https://github.com/org/repo/pull/123 --demo
 ```
-
-> **What happens when you run `quickstart --demo`?** Three mock agents (analyst, critic,
-> synthesizer) debate your question through structured rounds, then a styled
-> [Decision Receipt](docs/QUICKSTART_DEVELOPER.md) opens in your browser showing the
-> verdict, confidence score, consensus proof, and full provenance chain.
-> No API keys needed. [Full quickstart →](docs/QUICKSTART_DEVELOPER.md)
 
 ```bash
 # Stress-test a specification
@@ -141,12 +181,12 @@ See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the com
 
 ### 3. Develop with the SDK
 
-| Package | Install | Purpose |
-|---|---|---|
-| `aragora` | `pip install aragora` | Full platform (server, CLI, debate engine) |
-| `aragora-sdk` | `pip install aragora-sdk` | Python client SDK for connecting to aragora |
-| `aragora-debate` | `pip install aragora-debate` | Standalone debate engine (no server needed) |
-| `@aragora/sdk` | `npm install @aragora/sdk` | TypeScript/Node.js client SDK |
+| Package | Install | Purpose | PyPI |
+|---|---|---|---|
+| `aragora` | `pip install aragora` | Full platform (server, CLI, debate engine) | [v2.6.3](https://pypi.org/project/aragora/) |
+| `aragora-debate` | `pip install aragora-debate` | Standalone debate engine (no server needed) | [v0.2.0](https://pypi.org/project/aragora-debate/) |
+| `aragora-sdk` | `pip install aragora-sdk` | Python client SDK for connecting to aragora | [v2.6.3](https://pypi.org/project/aragora-sdk/) |
+| `@aragora/sdk` | `npm install @aragora/sdk` | TypeScript/Node.js client SDK | — |
 
 ---
 
@@ -317,9 +357,13 @@ Safety: automatic backups, protected file checksums, rollback on failure, human 
 # Local development
 aragora serve --api-port 8080 --ws-port 8765
 
-# Production (AWS Lightsail + Cloudflare Tunnel)
-./deploy/lightsail-setup.sh
+# Docker (self-hosted)
+git clone https://github.com/an0mium/aragora.git && cd aragora
+cp .env.example .env  # add your API keys
+docker compose -f deploy/docker-compose.yml up
 ```
+
+See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) for the full self-hosting guide.
 
 **API:** REST endpoints at `/api/v2/*` | WebSocket streaming at `/ws`
 **Docs:** OpenAPI at `/api/openapi` | Swagger UI at `/api/docs`
