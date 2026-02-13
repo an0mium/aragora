@@ -313,7 +313,7 @@ class TestEncryptionMigrator:
     def test_migrate_store_encryption_error(self):
         """Test handling of encryption errors."""
         mock_service = MagicMock()
-        mock_service.encrypt_fields.side_effect = Exception("Encryption failed")
+        mock_service.encrypt_fields.side_effect = RuntimeError("Encryption failed")
 
         migrator = EncryptionMigrator(encryption_service=mock_service)
 
@@ -516,7 +516,7 @@ class TestRunStartupMigration:
 
         with patch(
             "aragora.security.migration.migrate_integration_store",
-            side_effect=Exception("DB error"),
+            side_effect=RuntimeError("DB error"),
         ):
             with pytest.raises(Exception) as exc_info:
                 run_startup_migration(config)
@@ -535,7 +535,7 @@ class TestRunStartupMigration:
 
         with patch(
             "aragora.security.migration.migrate_integration_store",
-            side_effect=Exception("DB error"),
+            side_effect=RuntimeError("DB error"),
         ):
             with patch(
                 "aragora.security.migration.migrate_sync_store", return_value=success_result
