@@ -624,7 +624,7 @@ Comprehensive getting started guide:
 - [ ] Available at docs.aragora.ai
 
 **Files:**
-- `docs/GETTING_STARTED.md`
+- `docs/guides/GETTING_STARTED.md`
 - `docs/tutorials/`
 
 ---

@@ -78,7 +78,7 @@ python -m ipykernel install --user --name aragora
 
 ## Further Resources
 
-- [Getting Started Guide](../docs/GETTING_STARTED.md)
+- [Getting Started Guide](../docs/guides/GETTING_STARTED.md)
 - [API Reference](../docs/API_REFERENCE.md)
 - [CLI Reference](../docs/CLI_REFERENCE.md)
 - [Examples](../examples/)
