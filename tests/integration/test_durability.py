@@ -445,15 +445,17 @@ class TestProductionRequirements:
         """Test startup validator detects missing requirements."""
         from aragora.server.startup import check_production_requirements
 
-        original_env = os.environ.get("ARAGORA_ENV")
-        original_multi = os.environ.get("ARAGORA_MULTI_INSTANCE")
-        original_redis = os.environ.get("REDIS_URL")
+        # Use patch.dict for proper isolation - automatically restores on exit
+        env_overrides = {
+            "ARAGORA_ENV": "production",
+            "ARAGORA_MULTI_INSTANCE": "true",
+        }
+        # Remove REDIS_URL to trigger the missing-requirement check
+        keys_to_remove = ["REDIS_URL"]
 
-        try:
-            # Set production mode without Redis
-            os.environ["ARAGORA_ENV"] = "production"
-            os.environ["ARAGORA_MULTI_INSTANCE"] = "true"
-            os.environ.pop("REDIS_URL", None)
+        with patch.dict(os.environ, env_overrides):
+            for key in keys_to_remove:
+                os.environ.pop(key, None)
 
             missing = check_production_requirements()
 
@@ -462,41 +464,20 @@ class TestProductionRequirements:
                 f"Expected REDIS_URL warning, got: {missing}"
             )
 
-        finally:
-            if original_env is not None:
-                os.environ["ARAGORA_ENV"] = original_env
-            else:
-                os.environ.pop("ARAGORA_ENV", None)
-            if original_multi is not None:
-                os.environ["ARAGORA_MULTI_INSTANCE"] = original_multi
-            else:
-                os.environ.pop("ARAGORA_MULTI_INSTANCE", None)
-            if original_redis is not None:
-                os.environ["REDIS_URL"] = original_redis
-
     def test_connector_sync_store_requires_db_in_production(self):
         """Test connector sync store requires database in production."""
         from aragora.connectors.enterprise.sync_store import SyncStore
         from aragora.control_plane.leader import DistributedStateError
 
-        original_env = os.environ.get("ARAGORA_ENV")
-
-        try:
-            os.environ["ARAGORA_ENV"] = "production"
-
+        # Use patch.dict for proper isolation - automatically restores on exit
+        with patch.dict(os.environ, {"ARAGORA_ENV": "production"}):
             # Test with SQLite URL but aiosqlite not available
             with patch.dict("sys.modules", {"aiosqlite": None}):
                 store = SyncStore(database_url="sqlite:///nonexistent.db")
 
                 # Initialization should raise DistributedStateError in production
                 with pytest.raises(DistributedStateError, match="aiosqlite not installed"):
-                    asyncio.get_event_loop().run_until_complete(store.initialize())
-
-        finally:
-            if original_env is not None:
-                os.environ["ARAGORA_ENV"] = original_env
-            else:
-                os.environ.pop("ARAGORA_ENV", None)
+                    asyncio.run(store.initialize())
 
 
 class TestExplainabilityBatchJobPersistence:
