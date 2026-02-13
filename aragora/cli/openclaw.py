@@ -445,6 +445,86 @@ def cmd_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    """Run autonomous PR code review with policy enforcement."""
+    import asyncio
+    import json as json_mod
+
+    from aragora.compat.openclaw.pr_review_runner import PRReviewRunner, load_policy
+
+    pr_url = getattr(args, "pr", None)
+    repo_url = getattr(args, "repo", None)
+
+    if not pr_url and not repo_url:
+        print("Error: Either --pr or --repo is required.")
+        print("Usage: aragora openclaw review --pr https://github.com/owner/repo/pull/123")
+        return 1
+
+    policy = load_policy(getattr(args, "policy", None))
+    runner = PRReviewRunner(
+        policy=policy,
+        dry_run=args.dry_run,
+        ci_mode=args.ci,
+        fail_on_critical=args.fail_on_critical,
+        demo=args.demo,
+        agents=args.agents,
+        rounds=args.rounds,
+        gauntlet=args.gauntlet,
+    )
+
+    if pr_url:
+        result = asyncio.run(runner.review_pr(pr_url))
+        results = [result]
+    else:
+        results = asyncio.run(runner.review_repo(repo_url))
+
+    # Output results
+    exit_code = 0
+    for result in results:
+        if result.error:
+            print(f"Error reviewing {result.pr_url}: {result.error}")
+            exit_code = 1
+            continue
+
+        if args.ci:
+            # Machine-readable output
+            summary = {
+                "pr_url": result.pr_url,
+                "pr_number": result.pr_number,
+                "findings": len(result.findings),
+                "critical": result.critical_count,
+                "high": result.high_count,
+                "agreement_score": result.agreement_score,
+                "comment_posted": result.comment_posted,
+            }
+            print(json_mod.dumps(summary))
+        else:
+            print(f"\nReview: {result.pr_url}")
+            print(f"  Findings: {len(result.findings)} "
+                  f"({result.critical_count} critical, {result.high_count} high)")
+            print(f"  Agreement: {result.agreement_score:.0%}")
+            print(f"  Comment: {'posted' if result.comment_posted else 'skipped'}")
+            if result.receipt:
+                print(f"  Receipt: {result.receipt.review_id} "
+                      f"(checksum: {result.receipt.checksum[:12]}...)")
+
+        if args.fail_on_critical and result.has_critical:
+            exit_code = 2
+
+    # Write JSON output if requested
+    output_path = getattr(args, "output", None)
+    if output_path:
+        output_data = []
+        for r in results:
+            if r.receipt:
+                output_data.append(r.receipt.to_dict())
+        Path(output_path).write_text(json_mod.dumps(output_data, indent=2))
+        if not args.ci:
+            print(f"\nResults written to {output_path}")
+
+    return exit_code
+
+
 def _cmd_serve_gateway(args: argparse.Namespace) -> int:
     """Launch the standalone OpenClaw governance gateway."""
     from aragora.compat.openclaw.standalone import cmd_openclaw_serve
@@ -589,3 +669,66 @@ Examples:
         help="Log level (default: INFO)",
     )
     serve_parser.set_defaults(func=_cmd_serve_gateway)
+
+    # Review command -- autonomous PR review
+    review_parser = openclaw_subparsers.add_parser(
+        "review",
+        help="Run autonomous PR code review with policy enforcement",
+        description="""
+Autonomous multi-agent PR code review.
+
+Point it at a PR or repo and it will:
+  1. Fetch the diff
+  2. Run multi-agent debate (security, quality, performance reviewers)
+  3. Post findings as PR comments
+  4. Generate audit receipts
+
+Examples:
+    aragora openclaw review --pr https://github.com/owner/repo/pull/123
+    aragora openclaw review --repo https://github.com/owner/repo
+    aragora openclaw review --pr $PR_URL --dry-run
+    aragora openclaw review --pr $PR_URL --ci --fail-on-critical
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    review_parser.add_argument(
+        "--pr", help="GitHub PR URL to review",
+    )
+    review_parser.add_argument(
+        "--repo", help="GitHub repo URL to review all open PRs",
+    )
+    review_parser.add_argument(
+        "--policy", help="Path to policy YAML file (default: bundled pr-reviewer policy)",
+    )
+    review_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Analyze but don't post PR comments",
+    )
+    review_parser.add_argument(
+        "--ci", action="store_true",
+        help="CI mode: machine-readable output with exit codes",
+    )
+    review_parser.add_argument(
+        "--fail-on-critical", action="store_true",
+        help="Exit non-zero if critical issues found",
+    )
+    review_parser.add_argument(
+        "--demo", action="store_true",
+        help="Demo mode (no API keys required)",
+    )
+    review_parser.add_argument(
+        "--agents", default="anthropic-api,openai-api",
+        help="Comma-separated agent list (default: anthropic-api,openai-api)",
+    )
+    review_parser.add_argument(
+        "--rounds", type=int, default=2,
+        help="Number of debate rounds (default: 2)",
+    )
+    review_parser.add_argument(
+        "--gauntlet", action="store_true",
+        help="Run adversarial stress-test on findings",
+    )
+    review_parser.add_argument(
+        "--output", "-o", help="Write JSON results to file",
+    )
+    review_parser.set_defaults(func=cmd_review)
