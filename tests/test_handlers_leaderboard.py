@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from aragora.server.handlers.agents import LeaderboardViewHandler
 from aragora.server.handlers.base import clear_cache
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 
 @dataclass
@@ -69,6 +70,12 @@ def handler_no_nomic():
 
 
 @pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC auth for all tests."""
+    setup_full_auth_bypass(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
 def reset_cache():
     """Clear cache between tests."""
     clear_cache()
@@ -94,9 +101,10 @@ class TestLeaderboardRouting:
         assert handler.can_handle("/api/v1/agents") is False
         assert handler.can_handle("/api/v1/metrics") is False
 
-    def test_handle_returns_none_for_unknown(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_returns_none_for_unknown(self, handler):
         """handle returns None for paths it doesn't handle."""
-        result = handler.handle("/api/unknown", {}, None)
+        result = await handler.handle("/api/unknown", {}, None)
         assert result is None
 
 
