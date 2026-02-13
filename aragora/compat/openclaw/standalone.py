@@ -160,7 +160,7 @@ class StandaloneGatewayServer:
                 for param in query_string.split("&"):
                     if "=" in param:
                         key, value = param.split("=", 1)
-                        query_params[key] = value
+                        query_params[unquote(key)] = unquote(value)
 
             # Read headers (F04: bounded to prevent slowloris)
             headers: dict[str, str] = {}

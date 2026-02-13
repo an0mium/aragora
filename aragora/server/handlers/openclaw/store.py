@@ -35,12 +35,47 @@ class OpenClawGatewayStore:
     (PostgreSQL, Redis, etc.).
     """
 
-    def __init__(self) -> None:
+    # Default session idle timeout: 24 hours (F10)
+    DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS = 86400
+
+    def __init__(self, session_idle_timeout: int | None = None) -> None:
         self._sessions: dict[str, Session] = {}
         self._actions: dict[str, Action] = {}
         self._credentials: dict[str, Credential] = {}
         self._credential_secrets: dict[str, str] = {}  # Stored separately
         self._audit_log: list[AuditEntry] = []
+        self._session_idle_timeout = (
+            session_idle_timeout
+            if session_idle_timeout is not None
+            else self.DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS
+        )
+
+    def cleanup_expired_sessions(self) -> int:
+        """Close sessions idle past the timeout (F10).
+
+        Returns the number of sessions closed.
+        """
+        if self._session_idle_timeout <= 0:
+            return 0
+        now = datetime.now(timezone.utc)
+        expired_ids = []
+        for sid, session in self._sessions.items():
+            if session.status != SessionStatus.ACTIVE:
+                continue
+            idle_seconds = (now - session.last_activity_at).total_seconds()
+            if idle_seconds > self._session_idle_timeout:
+                expired_ids.append(sid)
+
+        for sid in expired_ids:
+            self._sessions[sid].status = SessionStatus.CLOSED
+            self._sessions[sid].updated_at = now
+        if expired_ids:
+            logger.info(
+                "Closed %d idle sessions (timeout=%ds)",
+                len(expired_ids),
+                self._session_idle_timeout,
+            )
+        return len(expired_ids)
 
     # Session methods
     def create_session(
@@ -267,6 +302,10 @@ class OpenClawGatewayStore:
         self._audit_log.append(entry)
         # Keep only last 10000 entries
         if len(self._audit_log) > 10000:
+            logger.warning(
+                "In-memory audit log exceeded 10,000 entries; oldest entries dropped. "
+                "Use OpenClawPersistentStore for unlimited audit retention."
+            )
             self._audit_log = self._audit_log[-10000:]
         return entry
 

@@ -17,12 +17,12 @@
 | INFO     | 2 |
 | **Total** | **13** |
 
-**Overall assessment:** The OpenClaw gateway has strong security fundamentals -- RBAC
-decorators on all handler endpoints, parameterized SQL queries, input validation with
-regex whitelisting, and comprehensive audit logging. However, the standalone server
-(`standalone.py`) bypasses most of these controls, and the persistent store has a
-cryptographic fallback that silently degrades to base64 encoding when the encryption
-library is unavailable. These represent the two most significant findings.
+**Overall assessment:** All 13 findings have been remediated. The OpenClaw gateway has
+strong security fundamentals -- RBAC decorators on all handler endpoints, parameterized
+SQL queries, input validation with regex whitelisting, and comprehensive audit logging.
+The standalone server now has API key authentication (F01), bounded request parsing
+(F03/F04), SSRF validation (F07), session expiration (F10), and safe CORS defaults (F05).
+The credential store blocks base64 fallback in production (F02).
 
 ## Findings
 
@@ -172,7 +172,7 @@ library is unavailable. These represent the two most significant findings.
   if not result.is_safe:
       raise ValueError(f"Unsafe URL: {result.error}")
   ```
-- **Status:** Open
+- **Status:** Fixed (NavigateAction.__post_init__ validates via validate_url + raises SSRFValidationError)
 
 ### [MEDIUM] F08: Health Endpoint Leaks Exception Strings
 
@@ -200,7 +200,7 @@ library is unavailable. These represent the two most significant findings.
   exploitation path.
 - **Recommendation:** Use `urllib.parse.unquote()` on both key and value after
   splitting.
-- **Status:** Open
+- **Status:** Fixed (unquote applied to key and value)
 
 ### [LOW] F10: In-Memory Store Has No Session Expiration
 
@@ -214,7 +214,7 @@ library is unavailable. These represent the two most significant findings.
   increase the window for session hijacking if session IDs are leaked.
 - **Recommendation:** Add a configurable session idle timeout (e.g., 24 hours)
   and a periodic cleanup task that closes sessions past their TTL.
-- **Status:** Open
+- **Status:** Fixed (cleanup_expired_sessions with 24h default timeout)
 
 ### [LOW] F11: Audit Log Has Fixed 10,000-Entry Cap
 
@@ -227,7 +227,7 @@ library is unavailable. These represent the two most significant findings.
 - **Recommendation:** For the in-memory store, log a warning when the cap is hit.
   For production, use the persistent store which has no cap. Consider adding a
   separate rate-limited alert when audit entries are being dropped.
-- **Status:** Accepted Risk (persistent store used in production)
+- **Status:** Fixed (logger.warning emitted when cap is hit; persistent store has no cap)
 
 ### [INFO] F12: YAML Parser Uses `yaml.safe_load` Correctly
 
