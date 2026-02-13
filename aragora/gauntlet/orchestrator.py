@@ -399,7 +399,10 @@ class GauntletOrchestrator:
         self.agents = agents or []
         self.run_agent_fn = run_agent_fn or self._default_run_agent
         self.on_progress = on_progress
-        self.nomic_dir = nomic_dir or Path(".nomic")
+        if nomic_dir is None:
+            from aragora.persistence.db_config import get_nomic_dir
+            nomic_dir = get_nomic_dir()
+        self.nomic_dir = nomic_dir
         self.on_phase_complete = on_phase_complete
         self.on_finding = on_finding
 
