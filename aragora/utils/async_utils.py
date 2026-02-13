@@ -64,6 +64,16 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
         except ImportError:
             pass
 
+        # Fallback: apply nest_asyncio to allow nested run_until_complete
+        # (covers test environments and CLI where pool_manager is absent)
+        try:
+            import nest_asyncio
+
+            nest_asyncio.apply(running_loop)
+            return running_loop.run_until_complete(coro)
+        except Exception:
+            pass
+
         # Running loop but NOT the main pool loop - caller bug
         coro.close()
         raise RuntimeError(
