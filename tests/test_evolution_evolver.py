@@ -520,7 +520,7 @@ class TestRefineStrategy:
         mock_response.json.return_value = {"content": [{"text": "Refined prompt from Claude"}]}
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
-            with patch("requests.Session.post", return_value=mock_response):
+            with patch("httpx.Client.post", return_value=mock_response):
                 result = evolver._evolve_refine("Original prompt", patterns)
 
         assert result == "Refined prompt from Claude"
@@ -540,19 +540,19 @@ class TestRefineStrategy:
         with patch.dict(os.environ, env_vars, clear=False):
             # Remove Anthropic key if present
             with patch.dict(os.environ, {"ANTHROPIC_API_KEY": ""}, clear=False):
-                with patch("requests.Session.post", return_value=mock_response):
+                with patch("httpx.Client.post", return_value=mock_response):
                     result = evolver._evolve_refine("Original prompt", patterns)
 
         assert result == "Refined prompt from GPT"
 
     def test_refine_fallback_on_api_error(self, evolver):
         """REFINE should fallback to append on API error."""
-        import requests
+        import httpx
 
         patterns = [{"type": "issue_identification", "text": "Check errors"}]
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
-            with patch("requests.Session.post", side_effect=requests.RequestException("API down")):
+            with patch("httpx.Client.post", side_effect=httpx.RequestError("API down")):
                 result = evolver._evolve_refine("Original prompt", patterns)
 
         # Should fallback to append
@@ -568,7 +568,7 @@ class TestRefineStrategy:
         mock_response.json.side_effect = json.JSONDecodeError("Invalid", "", 0)
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
-            with patch("requests.Session.post", return_value=mock_response):
+            with patch("httpx.Client.post", return_value=mock_response):
                 result = evolver._evolve_refine("Original prompt", patterns)
 
         # Should fallback to append
@@ -583,7 +583,7 @@ class TestRefineStrategy:
         mock_response.json.return_value = {"error": "Internal error"}
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
-            with patch("requests.Session.post", return_value=mock_response):
+            with patch("httpx.Client.post", return_value=mock_response):
                 result = evolver._evolve_refine("Original prompt", patterns)
 
         # Should fallback to append

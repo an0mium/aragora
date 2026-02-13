@@ -51,7 +51,7 @@ class ConcreteVerticalAgent(VerticalSpecialistAgent):
 def model_config():
     """Create a basic model config."""
     return ModelConfig(
-        model_id="test-model",
+        primary_model="test-model",
         temperature=0.7,
         top_p=0.9,
         max_tokens=2048,

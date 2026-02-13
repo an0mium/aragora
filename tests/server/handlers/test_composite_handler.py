@@ -125,10 +125,15 @@ def circuit_breaker():
 
 @pytest.fixture(autouse=True)
 def clear_circuit_breakers():
-    """Clear circuit breakers before each test."""
+    """Clear circuit breakers and rate limiter state before each test."""
     _clear_cached_components()
+    # Reset the module-level rate limiter so tests don't pollute each other
+    import aragora.server.handlers.composite as _comp_mod
+
+    _comp_mod._composite_limiter._buckets.clear()
     yield
     _clear_cached_components()
+    _comp_mod._composite_limiter._buckets.clear()
 
 
 def make_mock_handler(client_address=("192.168.1.1", 12345)):

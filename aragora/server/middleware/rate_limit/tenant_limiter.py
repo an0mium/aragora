@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from .base import (
@@ -36,17 +36,19 @@ DEFAULT_TENANT_RATE_LIMITS: dict[str, int] = {
 class TenantRateLimitConfig:
     """Configuration for tenant rate limiting."""
 
-    requests_per_minute: int = DEFAULT_RATE_LIMIT
-    burst_size: int | None = None
+    default_limit: int = DEFAULT_RATE_LIMIT
+    default_burst: int | None = None
     max_tenants: int = 10000
+    use_quota_manager: bool = True
+    fallback_to_default: bool = True
 
 
 class TenantRateLimiter:
     """
     Per-tenant rate limiter.
 
-    Uses a token bucket per (action, tenant_id). This allows different
-    limits for different operations while isolating tenants.
+    Uses a token bucket per tenant. Supports optional TenantContext
+    integration for automatic tenant resolution.
     """
 
     def __init__(
@@ -54,76 +56,160 @@ class TenantRateLimiter:
         action_limits: dict[str, int] | None = None,
         default_limit: int = DEFAULT_RATE_LIMIT,
         max_tenants: int = 10000,
+        *,
+        config: TenantRateLimitConfig | None = None,
+        quota_manager: Any = None,
     ) -> None:
+        if config is not None:
+            self.config = config
+            default_limit = config.default_limit
+            max_tenants = config.max_tenants
+        else:
+            self.config = TenantRateLimitConfig(
+                default_limit=default_limit,
+                max_tenants=max_tenants,
+            )
         self.action_limits = action_limits or DEFAULT_TENANT_RATE_LIMITS
         self.default_limit = default_limit
         self.max_tenants = max_tenants
+        self._quota_manager = quota_manager
 
-        self._tenant_buckets: dict[str, OrderedDict[str, TokenBucket]] = {}
+        # Flat tenant buckets: tenant_id -> TokenBucket
+        self._tenant_buckets: OrderedDict[str, TokenBucket] = OrderedDict()
         self._lock = threading.Lock()
         self._last_cleanup = time.monotonic()
+
+        # Stats tracking
+        self._total_requests = 0
+        self._total_rejections = 0
+        self._requests_by_tenant: dict[str, int] = {}
+        self._rejections_by_tenant: dict[str, int] = {}
 
     def get_action_limit(self, action: str) -> int:
         """Get rate limit for an action."""
         return self.action_limits.get(action, self.default_limit)
 
-    def allow(self, tenant_id: str, action: str = "default") -> RateLimitResult:
-        """Check if tenant can perform action."""
-        limit = self.get_action_limit(action)
-        burst = int(limit * BURST_MULTIPLIER)
+    def get_stats(self) -> dict[str, Any]:
+        """Get rate limiter statistics."""
+        with self._lock:
+            return {
+                "total_requests": self._total_requests,
+                "total_rejections": self._total_rejections,
+                "tenant_count": len(self._tenant_buckets),
+                "requests_by_tenant": dict(self._requests_by_tenant),
+                "rejections_by_tenant": dict(self._rejections_by_tenant),
+            }
+
+    def get_tenant_stats(self, tenant_id: str) -> dict[str, Any]:
+        """Get stats for a specific tenant."""
+        with self._lock:
+            bucket = self._tenant_buckets.get(tenant_id)
+            return {
+                "tenant_id": tenant_id,
+                "rate_limit": self.default_limit,
+                "burst_size": int(self.default_limit * BURST_MULTIPLIER)
+                if self.config.default_burst is None
+                else self.config.default_burst,
+                "requests": self._requests_by_tenant.get(tenant_id, 0),
+                "remaining": bucket.remaining if bucket else self.default_limit,
+            }
+
+    def allow(
+        self, tenant_id: str | None = None, action: str = "default"
+    ) -> RateLimitResult:
+        """Check if tenant can perform action.
+
+        If tenant_id is not provided, reads from TenantContext.
+        """
+        # Resolve tenant_id
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant_from_context()
+
+        if not tenant_id:
+            if not self.config.fallback_to_default:
+                return RateLimitResult(
+                    allowed=True, remaining=0, limit=0, retry_after=0, key="no_tenant"
+                )
+            tenant_id = "default"
+
+        limit = self.default_limit
+        burst = (
+            int(limit * BURST_MULTIPLIER)
+            if self.config.default_burst is None
+            else self.config.default_burst
+        )
 
         with self._lock:
-            if action not in self._tenant_buckets:
-                self._tenant_buckets[action] = OrderedDict()
+            self._total_requests += 1
+            self._requests_by_tenant[tenant_id] = (
+                self._requests_by_tenant.get(tenant_id, 0) + 1
+            )
 
-            buckets = self._tenant_buckets[action]
-
-            if tenant_id in buckets:
-                buckets.move_to_end(tenant_id)
-                bucket = buckets[tenant_id]
+            if tenant_id in self._tenant_buckets:
+                self._tenant_buckets.move_to_end(tenant_id)
+                bucket = self._tenant_buckets[tenant_id]
             else:
-                max_per_action = self.max_tenants // max(1, len(self._tenant_buckets))
-                while len(buckets) >= max_per_action:
-                    buckets.popitem(last=False)
-
+                while len(self._tenant_buckets) >= self.max_tenants:
+                    self._tenant_buckets.popitem(last=False)
                 bucket = TokenBucket(limit, burst_size=burst)
-                buckets[tenant_id] = bucket
+                self._tenant_buckets[tenant_id] = bucket
 
         allowed = bucket.consume(1)
+
+        if not allowed:
+            with self._lock:
+                self._total_rejections += 1
+                self._rejections_by_tenant[tenant_id] = (
+                    self._rejections_by_tenant.get(tenant_id, 0) + 1
+                )
+
+        key = f"tenant:{tenant_id}" if tenant_id != "default" else "default"
 
         return RateLimitResult(
             allowed=allowed,
             remaining=bucket.remaining,
             limit=limit,
             retry_after=bucket.get_retry_after() if not allowed else 0,
-            key=f"tenant:{tenant_id}:{action}",
+            key=key,
         )
+
+    def _resolve_tenant_from_context(self) -> str | None:
+        """Read tenant ID from TenantContext if available."""
+        try:
+            from aragora.tenancy.context import get_current_tenant_id
+
+            return get_current_tenant_id()
+        except ImportError:
+            return None
+
+    def reset_tenant(self, tenant_id: str) -> None:
+        """Reset rate limit state for a specific tenant."""
+        with self._lock:
+            self._tenant_buckets.pop(tenant_id, None)
+            self._requests_by_tenant.pop(tenant_id, None)
+            self._rejections_by_tenant.pop(tenant_id, None)
 
     def cleanup(self, max_age_seconds: int = 600) -> int:
         """Remove stale tenant entries."""
         with self._lock:
             now = time.monotonic()
-            removed = 0
-
-            for action, buckets in list(self._tenant_buckets.items()):
-                stale = [
-                    tenant
-                    for tenant, bucket in buckets.items()
-                    if now - bucket.last_refill > max_age_seconds
-                ]
-                for tenant in stale:
-                    del buckets[tenant]
-                    removed += 1
-
-                if not buckets:
-                    del self._tenant_buckets[action]
-
-            return removed
+            stale = [
+                tenant
+                for tenant, bucket in self._tenant_buckets.items()
+                if now - bucket.last_refill > max_age_seconds
+            ]
+            for tenant in stale:
+                del self._tenant_buckets[tenant]
+            return len(stale)
 
     def reset(self) -> None:
         """Reset all tenant rate limiter state."""
         with self._lock:
             self._tenant_buckets.clear()
+            self._total_requests = 0
+            self._total_rejections = 0
+            self._requests_by_tenant.clear()
+            self._rejections_by_tenant.clear()
 
 
 _tenant_limiter: TenantRateLimiter | None = None
@@ -173,11 +259,34 @@ def _extract_tenant_id(handler: Any) -> str:
     return sanitize_rate_limit_key_component(_extract_client_ip(headers, remote_ip))
 
 
-def check_tenant_rate_limit(handler: Any, action: str = "default") -> RateLimitResult:
-    """Check tenant rate limit for handler."""
+def check_tenant_rate_limit(
+    handler: Any = None,
+    action: str = "default",
+    *,
+    tenant_id: str | None = None,
+) -> RateLimitResult:
+    """Check tenant rate limit.
+
+    Can be called with:
+    - handler: Extract tenant from request handler
+    - tenant_id: Use explicit tenant ID
+    - Neither: Read from TenantContext
+    """
     limiter = get_tenant_rate_limiter()
-    tenant_id = _extract_tenant_id(handler)
-    return limiter.allow(tenant_id, action)
+    if tenant_id is not None:
+        resolved_id = sanitize_rate_limit_key_component(tenant_id)
+    elif handler is not None:
+        resolved_id = _extract_tenant_id(handler)
+    else:
+        # Read from TenantContext
+        try:
+            from aragora.tenancy.context import get_current_tenant_id
+
+            tid = get_current_tenant_id()
+            resolved_id = sanitize_rate_limit_key_component(tid or "anonymous")
+        except ImportError:
+            resolved_id = "anonymous"
+    return limiter.allow(resolved_id, action)
 
 
 __all__ = [

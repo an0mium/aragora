@@ -23,11 +23,18 @@ from aragora.server.handlers import (
     error_response,
 )
 from aragora.server.handlers.genesis import _genesis_limiter
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC checks for all tests in this module."""
+    setup_full_auth_bypass(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

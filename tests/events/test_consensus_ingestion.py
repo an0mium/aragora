@@ -316,7 +316,7 @@ class TestConsensusIngestionIntegration:
     """Integration tests for consensus ingestion."""
 
     @patch("aragora.knowledge.mound.get_knowledge_mound")
-    @patch("aragora.events.cross_subscribers.record_km_inbound_event")
+    @patch("aragora.events.cross_subscribers.handlers.validation.record_km_inbound_event")
     def test_full_ingestion_flow(
         self, mock_record, mock_get_mound, subscriber_manager, consensus_event
     ):
