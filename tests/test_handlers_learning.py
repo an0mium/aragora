@@ -20,7 +20,15 @@ from aragora.server.handlers.memory import LearningHandler
 
 def _bypass_rbac(handler):
     """Bypass RBAC auth checks on a LearningHandler for unit testing."""
-    handler.get_auth_context = AsyncMock(return_value=Mock())
+    from aragora.rbac.models import AuthorizationContext
+
+    auth_ctx = AuthorizationContext(
+        user_id="test-admin",
+        permissions={"memory:read", "memory:write"},
+        roles={"admin"},
+    )
+    handler._auth_context = auth_ctx
+    handler.get_auth_context = AsyncMock(return_value=auth_ctx)
     handler.check_permission = Mock()
     return handler
 
@@ -160,6 +168,16 @@ def temp_nomic_dir():
         conn.close()
 
         yield nomic_dir
+
+
+@pytest.fixture(autouse=True)
+def _clear_learning_rate_limiters():
+    """Clear rate limiters between tests to prevent order-dependent failures."""
+    from aragora.server.handlers.memory.learning import _learning_limiter
+
+    _learning_limiter.clear()
+    yield
+    _learning_limiter.clear()
 
 
 @pytest.fixture
