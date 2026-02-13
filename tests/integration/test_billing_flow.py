@@ -565,7 +565,10 @@ class TestUsageAPI:
             }
         )
 
-        result = billing_handler_no_tracker._get_usage(request, user=user)
+        # Call the unwrapped method directly to bypass require_permission decorator
+        # (in pytest mode it overrides user kwarg with _TestUserCtx(user_id="test_user"))
+        unwrapped = billing_handler_no_tracker._get_usage.__wrapped__.__wrapped__
+        result = unwrapped(billing_handler_no_tracker, request, user=user)
         data, status = parse_result(result)
 
         assert status == 200
