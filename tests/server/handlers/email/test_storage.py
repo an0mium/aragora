@@ -210,16 +210,22 @@ class TestUserConfigCache:
 class TestPersistentStoreHelpers:
     """Tests for _load_config_from_store and _save_config_to_store."""
 
+    def _patch_store(self, mock_store):
+        """Patch _email_store.get() to return the given mock store."""
+        lazy = MagicMock()
+        lazy.get.return_value = mock_store
+        return patch.object(storage_mod, "_email_store", lazy)
+
     def test_load_returns_empty_when_no_store(self):
         """Returns empty dict when email store is unavailable."""
-        with patch.object(storage_mod, "get_email_store", return_value=None):
+        with self._patch_store(None):
             result = storage_mod._load_config_from_store("u1")
         assert result == {}
 
     def test_load_returns_config_from_store(self):
         mock_store = MagicMock()
         mock_store.get_user_config.return_value = {"vip_domains": ["test.com"]}
-        with patch.object(storage_mod, "get_email_store", return_value=mock_store):
+        with self._patch_store(mock_store):
             result = storage_mod._load_config_from_store("u1", "ws1")
         assert result == {"vip_domains": ["test.com"]}
         mock_store.get_user_config.assert_called_once_with("u1", "ws1")
@@ -227,19 +233,19 @@ class TestPersistentStoreHelpers:
     def test_load_returns_empty_on_store_exception(self):
         mock_store = MagicMock()
         mock_store.get_user_config.side_effect = RuntimeError("db down")
-        with patch.object(storage_mod, "get_email_store", return_value=mock_store):
+        with self._patch_store(mock_store):
             result = storage_mod._load_config_from_store("u1")
         assert result == {}
 
     def test_save_calls_store(self):
         mock_store = MagicMock()
-        with patch.object(storage_mod, "get_email_store", return_value=mock_store):
+        with self._patch_store(mock_store):
             storage_mod._save_config_to_store("u1", {"key": "val"}, "ws1")
         mock_store.save_user_config.assert_called_once_with("u1", "ws1", {"key": "val"})
 
     def test_save_does_not_raise_on_exception(self):
         mock_store = MagicMock()
         mock_store.save_user_config.side_effect = RuntimeError("db down")
-        with patch.object(storage_mod, "get_email_store", return_value=mock_store):
+        with self._patch_store(mock_store):
             storage_mod._save_config_to_store("u1", {"key": "val"})
         # no exception raised

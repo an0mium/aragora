@@ -340,6 +340,75 @@ def pytest_configure(config):
 
 
 # ============================================================================
+# RBAC Bypass for Root-Level Handler Tests
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _bypass_rbac_for_root_handler_tests(request, monkeypatch):
+    """Auto-bypass RBAC for root-level test_handlers_*.py files.
+
+    The tests/server/handlers/ directory has its own conftest with comprehensive
+    auth bypass. Root-level handler test files (tests/test_handlers_*.py) also
+    call handler methods directly but lack RBAC context. This fixture provides
+    a minimal bypass for those files only.
+    """
+    # Only activate for root-level handler test files
+    test_file = request.fspath.basename
+    if not test_file.startswith("test_handlers_") and not test_file.startswith("test_agents_handler"):
+        yield
+        return
+
+    # Respect no_auto_auth marker
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    try:
+        from aragora.rbac import decorators
+        from aragora.rbac.models import AuthorizationContext
+
+        mock_auth_ctx = AuthorizationContext(
+            user_id="test-user-001",
+            org_id="test-org-001",
+            roles={"admin", "owner"},
+            permissions={"*"},
+        )
+
+        original_get_context = decorators._get_context_from_args
+
+        def patched_get_context(args, kwargs, context_param):
+            result = original_get_context(args, kwargs, context_param)
+            if result is None:
+                return mock_auth_ctx
+            return result
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context)
+    except (ImportError, AttributeError):
+        pass
+
+    # Also bypass the PermissionChecker
+    try:
+        from aragora.rbac.checker import get_permission_checker
+        from aragora.rbac.models import AuthorizationDecision
+
+        checker = get_permission_checker()
+
+        def _always_allow(context, permission_key, resource_id=None):
+            return AuthorizationDecision(
+                allowed=True,
+                reason="Test bypass",
+                permission_key=permission_key,
+            )
+
+        monkeypatch.setattr(checker, "check_permission", _always_allow)
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+
+# ============================================================================
 # Global Test Setup
 # ============================================================================
 

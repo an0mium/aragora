@@ -519,6 +519,7 @@ class TestOAuthRedirects:
 # ===========================================================================
 
 
+@pytest.mark.no_auto_auth
 class TestOAuthPermissionChecks:
     """Tests for RBAC permission checks in OAuth handler."""
 

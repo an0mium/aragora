@@ -1545,6 +1545,7 @@ class TestBaseHandlerAdminAuth:
             assert user.user_id == "owner-user"
 
 
+@pytest.mark.no_auto_auth
 class TestBaseHandlerPermissionAuth:
     """Tests for BaseHandler permission authentication methods."""
 

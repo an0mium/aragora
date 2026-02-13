@@ -324,15 +324,16 @@ class TestCommandHandlers:
             demo=False,
         )
 
-        with patch("aragora.cli.commands.debate.asyncio.run") as mock_run:
-            mock_result = MagicMock()
-            mock_result.final_answer = "Test answer"
-            mock_result.dissenting_views = []
-            mock_run.return_value = mock_result
+        with patch("aragora.cli.commands.debate._is_server_available", return_value=False):
+            with patch("aragora.cli.commands.debate.asyncio.run") as mock_run:
+                mock_result = MagicMock()
+                mock_result.final_answer = "Test answer"
+                mock_result.dissenting_views = []
+                mock_run.return_value = mock_result
 
-            cmd_ask(args)
+                cmd_ask(args)
 
-            mock_run.assert_called_once()
+                mock_run.assert_called_once()
 
     def test_cmd_stats_shows_statistics(self):
         """Should display memory statistics."""
