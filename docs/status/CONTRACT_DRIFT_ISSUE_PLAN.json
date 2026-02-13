@@ -1,0 +1,462 @@
+{
+  "generated_on": "2026-02-13",
+  "program_total_items": 922,
+  "max_seed_tickets": 40,
+  "owner_priority": [
+    {
+      "owner": "@team-platform",
+      "open_items": 600
+    },
+    {
+      "owner": "@team-core",
+      "open_items": 125
+    },
+    {
+      "owner": "@team-integrations",
+      "open_items": 104
+    },
+    {
+      "owner": "@team-finops",
+      "open_items": 37
+    },
+    {
+      "owner": "@team-growth",
+      "open_items": 26
+    },
+    {
+      "owner": "@team-risk",
+      "open_items": 22
+    },
+    {
+      "owner": "@team-analytics",
+      "open_items": 8
+    }
+  ],
+  "source_priority": [
+    {
+      "source": "verify_typescript_sdk_drift",
+      "open_items": 424
+    },
+    {
+      "source": "verify_python_sdk_drift",
+      "open_items": 174
+    },
+    {
+      "source": "routes_missing_in_spec",
+      "open_items": 119
+    },
+    {
+      "source": "sdk_missing_from_both",
+      "open_items": 118
+    },
+    {
+      "source": "routes_orphaned_in_spec",
+      "open_items": 87
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "total_open_items": 233,
+      "focus_owners": [
+        "@team-core",
+        "@team-platform",
+        "@team-finops"
+      ],
+      "tickets": [
+        {
+          "ticket": "CD-028",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "debates",
+          "owner": "@team-core",
+          "open_items": 37,
+          "target_weekly_burn": 4,
+          "issue_title": "Contract drift: verify typescript sdk drift - debates (37 items)"
+        },
+        {
+          "ticket": "CD-029",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "knowledge",
+          "owner": "@team-core",
+          "open_items": 35,
+          "target_weekly_burn": 4,
+          "issue_title": "Contract drift: verify typescript sdk drift - knowledge (35 items)"
+        },
+        {
+          "ticket": "CD-126",
+          "source": "routes_orphaned_in_spec",
+          "domain": "accounting",
+          "owner": "@team-platform",
+          "open_items": 30,
+          "target_weekly_burn": 3,
+          "issue_title": "Contract drift: routes orphaned in spec - accounting (30 items)"
+        },
+        {
+          "ticket": "CD-030",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "memory",
+          "owner": "@team-core",
+          "open_items": 24,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: verify typescript sdk drift - memory (24 items)"
+        },
+        {
+          "ticket": "CD-150",
+          "source": "sdk_missing_from_both",
+          "domain": "audit",
+          "owner": "@team-risk",
+          "open_items": 20,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: sdk missing from both - audit (20 items)"
+        },
+        {
+          "ticket": "CD-031",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "inbox",
+          "owner": "@team-platform",
+          "open_items": 19,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: verify typescript sdk drift - inbox (19 items)"
+        },
+        {
+          "ticket": "CD-032",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "integrations",
+          "owner": "@team-integrations",
+          "open_items": 18,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: verify typescript sdk drift - integrations (18 items)"
+        },
+        {
+          "ticket": "CD-001",
+          "source": "verify_python_sdk_drift",
+          "domain": "costs",
+          "owner": "@team-finops",
+          "open_items": 17,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: verify python sdk drift - costs (17 items)"
+        },
+        {
+          "ticket": "CD-033",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "costs",
+          "owner": "@team-finops",
+          "open_items": 17,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: verify typescript sdk drift - costs (17 items)"
+        },
+        {
+          "ticket": "CD-089",
+          "source": "routes_missing_in_spec",
+          "domain": "v2",
+          "owner": "@team-platform",
+          "open_items": 16,
+          "target_weekly_burn": 2,
+          "issue_title": "Contract drift: routes missing in spec - v2 (16 items)"
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "total_open_items": 117,
+      "focus_owners": [
+        "@team-platform",
+        "@team-integrations"
+      ],
+      "tickets": [
+        {
+          "ticket": "CD-034",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "payments",
+          "owner": "@team-platform",
+          "open_items": 14,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - payments (14 items)"
+        },
+        {
+          "ticket": "CD-035",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "webhooks",
+          "owner": "@team-platform",
+          "open_items": 14,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - webhooks (14 items)"
+        },
+        {
+          "ticket": "CD-037",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "outlook",
+          "owner": "@team-integrations",
+          "open_items": 12,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - outlook (12 items)"
+        },
+        {
+          "ticket": "CD-002",
+          "source": "verify_python_sdk_drift",
+          "domain": "index",
+          "owner": "@team-platform",
+          "open_items": 12,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - index (12 items)"
+        },
+        {
+          "ticket": "CD-003",
+          "source": "verify_python_sdk_drift",
+          "domain": "tenants",
+          "owner": "@team-platform",
+          "open_items": 12,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - tenants (12 items)"
+        },
+        {
+          "ticket": "CD-036",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "facts",
+          "owner": "@team-platform",
+          "open_items": 12,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - facts (12 items)"
+        },
+        {
+          "ticket": "CD-038",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "replays",
+          "owner": "@team-platform",
+          "open_items": 11,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - replays (11 items)"
+        },
+        {
+          "ticket": "CD-004",
+          "source": "verify_python_sdk_drift",
+          "domain": "integrations",
+          "owner": "@team-integrations",
+          "open_items": 10,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - integrations (10 items)"
+        },
+        {
+          "ticket": "CD-006",
+          "source": "verify_python_sdk_drift",
+          "domain": "monitoring",
+          "owner": "@team-platform",
+          "open_items": 10,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - monitoring (10 items)"
+        },
+        {
+          "ticket": "CD-005",
+          "source": "verify_python_sdk_drift",
+          "domain": "teams",
+          "owner": "@team-platform",
+          "open_items": 10,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - teams (10 items)"
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "total_open_items": 84,
+      "focus_owners": [
+        "@team-platform",
+        "@team-integrations",
+        "@team-growth"
+      ],
+      "tickets": [
+        {
+          "ticket": "CD-039",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "workspaces",
+          "owner": "@team-platform",
+          "open_items": 10,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - workspaces (10 items)"
+        },
+        {
+          "ticket": "CD-040",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "notifications",
+          "owner": "@team-integrations",
+          "open_items": 9,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - notifications (9 items)"
+        },
+        {
+          "ticket": "CD-007",
+          "source": "verify_python_sdk_drift",
+          "domain": "backups",
+          "owner": "@team-platform",
+          "open_items": 9,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - backups (9 items)"
+        },
+        {
+          "ticket": "CD-043",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "partners",
+          "owner": "@team-growth",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - partners (8 items)"
+        },
+        {
+          "ticket": "CD-090",
+          "source": "routes_missing_in_spec",
+          "domain": "chat",
+          "owner": "@team-integrations",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: routes missing in spec - chat (8 items)"
+        },
+        {
+          "ticket": "CD-091",
+          "source": "routes_missing_in_spec",
+          "domain": "outlook",
+          "owner": "@team-integrations",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: routes missing in spec - outlook (8 items)"
+        },
+        {
+          "ticket": "CD-151",
+          "source": "sdk_missing_from_both",
+          "domain": "crm",
+          "owner": "@team-integrations",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: sdk missing from both - crm (8 items)"
+        },
+        {
+          "ticket": "CD-127",
+          "source": "routes_orphaned_in_spec",
+          "domain": "rlm",
+          "owner": "@team-platform",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: routes orphaned in spec - rlm (8 items)"
+        },
+        {
+          "ticket": "CD-008",
+          "source": "verify_python_sdk_drift",
+          "domain": "admin",
+          "owner": "@team-platform",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - admin (8 items)"
+        },
+        {
+          "ticket": "CD-009",
+          "source": "verify_python_sdk_drift",
+          "domain": "ap",
+          "owner": "@team-platform",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - ap (8 items)"
+        }
+      ]
+    },
+    {
+      "wave": 4,
+      "total_open_items": 73,
+      "focus_owners": [
+        "@team-platform",
+        "@team-analytics",
+        "@team-integrations"
+      ],
+      "tickets": [
+        {
+          "ticket": "CD-044",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "admin",
+          "owner": "@team-platform",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - admin (8 items)"
+        },
+        {
+          "ticket": "CD-041",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "cross-pollination",
+          "owner": "@team-platform",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - cross-pollination (8 items)"
+        },
+        {
+          "ticket": "CD-042",
+          "source": "verify_typescript_sdk_drift",
+          "domain": "gmail",
+          "owner": "@team-platform",
+          "open_items": 8,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify typescript sdk drift - gmail (8 items)"
+        },
+        {
+          "ticket": "CD-152",
+          "source": "sdk_missing_from_both",
+          "domain": "analytics",
+          "owner": "@team-analytics",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: sdk missing from both - analytics (7 items)"
+        },
+        {
+          "ticket": "CD-092",
+          "source": "routes_missing_in_spec",
+          "domain": "notifications",
+          "owner": "@team-integrations",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: routes missing in spec - notifications (7 items)"
+        },
+        {
+          "ticket": "CD-128",
+          "source": "routes_orphaned_in_spec",
+          "domain": "features",
+          "owner": "@team-platform",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: routes orphaned in spec - features (7 items)"
+        },
+        {
+          "ticket": "CD-012",
+          "source": "verify_python_sdk_drift",
+          "domain": "decisions",
+          "owner": "@team-platform",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - decisions (7 items)"
+        },
+        {
+          "ticket": "CD-010",
+          "source": "verify_python_sdk_drift",
+          "domain": "documents",
+          "owner": "@team-platform",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - documents (7 items)"
+        },
+        {
+          "ticket": "CD-013",
+          "source": "verify_python_sdk_drift",
+          "domain": "gusto",
+          "owner": "@team-platform",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - gusto (7 items)"
+        },
+        {
+          "ticket": "CD-011",
+          "source": "verify_python_sdk_drift",
+          "domain": "replays",
+          "owner": "@team-platform",
+          "open_items": 7,
+          "target_weekly_burn": 1,
+          "issue_title": "Contract drift: verify python sdk drift - replays (7 items)"
+        }
+      ]
+    }
+  ]
+}

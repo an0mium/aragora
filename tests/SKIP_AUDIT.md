@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-01-27
-**Total Skip Markers**: 595
+**Generated**: 2026-02-13
+**Total Skip Markers**: 434
 
 ---
 
@@ -9,36 +9,35 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| missing_feature | 346 | 58.2% |
-| optional_dependency | 193 | 32.4% |
-| integration_dependency | 30 | 5.0% |
-| known_bug | 12 | 2.0% |
-| platform_specific | 9 | 1.5% |
-| performance | 3 | 0.5% |
-| flaky_test | 2 | 0.3% |
+| missing_feature | 183 | 42.2% |
+| optional_dependency | 183 | 42.2% |
+| integration_dependency | 28 | 6.5% |
+| uncategorized | 18 | 4.1% |
+| platform_specific | 13 | 3.0% |
+| known_bug | 6 | 1.4% |
+| performance | 3 | 0.7% |
 
 ## Summary by Marker Type
 
 | Type | Count |
 |------|-------|
-| `pytest.skip` | 369 |
-| `skipif` | 224 |
-| `skip` | 2 |
+| `skipif` | 233 |
+| `pytest.skip` | 201 |
 
 ## High-Skip Files (Top 10)
 
 | File | Skip Count |
 |------|------------|
-| `tests/test_matrix_debates_integration.py` | 24 |
 | `tests/test_formal.py` | 24 |
-| `tests/server/handlers/test_workflows_handler.py` | 22 |
-| `tests/test_handlers_tournaments_extended.py` | 20 |
-| `tests/test_formal_verification_backends.py` | 20 |
 | `tests/test_broadcast_pipeline_e2e.py` | 20 |
-| `tests/rlm/test_compressor.py` | 18 |
+| `tests/test_formal_verification_backends.py` | 19 |
 | `tests/e2e/test_security_api_e2e.py` | 18 |
 | `tests/test_handlers_plugins.py` | 16 |
-| `tests/test_connectors_twitter.py` | 15 |
+| `tests/resilience/test_timeout.py` | 16 |
+| `tests/sdk/test_openclaw_parity.py` | 15 |
+| `tests/integration/test_handler_registration.py` | 12 |
+| `tests/gauntlet/test_signing.py` | 12 |
+| `tests/integration/test_security_hardening_e2e.py` | 10 |
 
 ---
 
@@ -70,7 +69,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **595** skips
+Current baseline: **434** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

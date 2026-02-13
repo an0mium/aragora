@@ -348,6 +348,7 @@ class TestRequireDistributedStore:
         env = {
             "ARAGORA_ENV": "production",
             "ARAGORA_REQUIRE_DISTRIBUTED": "true",
+            "PYTEST_CURRENT_TEST": "",
         }
         with patch.dict(os.environ, env, clear=False):
             with pytest.raises(DistributedStateError) as exc_info:
@@ -363,6 +364,7 @@ class TestRequireDistributedStore:
         env = {
             "ARAGORA_ENV": "production",
             "ARAGORA_REQUIRE_DISTRIBUTED": "true",
+            "PYTEST_CURRENT_TEST": "",
         }
         with patch.dict(os.environ, env, clear=False):
             with pytest.raises(DistributedStateError):
@@ -377,6 +379,7 @@ class TestRequireDistributedStore:
         env = {
             "ARAGORA_ENV": "production",
             "ARAGORA_REQUIRE_DISTRIBUTED": "true",
+            "PYTEST_CURRENT_TEST": "",
         }
         with patch.dict(os.environ, env, clear=False):
             with pytest.raises(DistributedStateError):
@@ -516,6 +519,7 @@ class TestValidateStoreConfig:
         env = {
             "ARAGORA_ENV": "production",
             "ARAGORA_REQUIRE_DISTRIBUTED": "true",
+            "PYTEST_CURRENT_TEST": "",
         }
         with patch.dict(os.environ, env, clear=False):
             with pytest.raises(DistributedStateError):

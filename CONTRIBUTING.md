@@ -39,6 +39,10 @@ make serve
 ### Running Tests
 
 ```bash
+# Baseline command (matches CI deterministic gate)
+python -m pip install -e ".[dev,research,test]"
+python scripts/run_test_baseline.py
+
 # Run all tests
 make test
 

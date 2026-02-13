@@ -16,10 +16,10 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -e ".[dev]"
+pip install -e ".[dev,research,test]"
 
-# Run tests to verify setup
-pytest tests/ -v --timeout=30
+# Run baseline deterministic test command (same as CI)
+python scripts/run_test_baseline.py
 
 # Start the development server
 python -m aragora.server --api-port 8080 --ws-port 8765
@@ -106,6 +106,9 @@ make guard-strict  # includes untracked artifacts
 ## Running Tests
 
 ```bash
+# Baseline command (same tooling and addopts as CI)
+python scripts/run_test_baseline.py
+
 # Run all tests
 pytest tests/ -v
 
@@ -215,6 +218,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 ### Pull Request Checklist
 
 - [ ] Tests pass locally (`pytest tests/ -v`)
+- [ ] Baseline gate passes locally (`python scripts/run_test_baseline.py`)
 - [ ] Code is formatted (`black .`)
 - [ ] Linting passes (`ruff check .`)
 - [ ] New code has tests

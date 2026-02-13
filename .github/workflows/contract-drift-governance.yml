@@ -1,0 +1,125 @@
+name: Contract Drift Governance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/server/handlers/**'
+      - 'sdk/**'
+      - 'docs/api/openapi*.json'
+      - 'scripts/check_contract_drift_ratchet.py'
+      - 'scripts/contract_drift_report.py'
+      - 'scripts/generate_contract_drift_backlog.py'
+      - 'scripts/generate_contract_drift_issue_plan.py'
+      - 'scripts/baselines/**'
+      - '.github/workflows/contract-drift-governance.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/server/handlers/**'
+      - 'sdk/**'
+      - 'docs/api/openapi*.json'
+      - 'scripts/check_contract_drift_ratchet.py'
+      - 'scripts/contract_drift_report.py'
+      - 'scripts/generate_contract_drift_backlog.py'
+      - 'scripts/generate_contract_drift_issue_plan.py'
+      - 'scripts/baselines/**'
+      - '.github/workflows/contract-drift-governance.yml'
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: contract-drift-governance-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Generate drift summary and planning artifacts
+        run: |
+          python scripts/contract_drift_report.py \
+            --json-out /tmp/contract-drift-summary.json \
+            --md-out /tmp/contract-drift-summary.md
+
+          python scripts/generate_contract_drift_backlog.py \
+            --markdown-out /tmp/CONTRACT_DRIFT_BACKLOG.md \
+            --json-out /tmp/CONTRACT_DRIFT_BACKLOG.json
+
+          python scripts/generate_contract_drift_issue_plan.py \
+            --backlog-json /tmp/CONTRACT_DRIFT_BACKLOG.json \
+            --markdown-out /tmp/CONTRACT_DRIFT_ISSUE_PLAN.md \
+            --json-out /tmp/CONTRACT_DRIFT_ISSUE_PLAN.json
+
+      - name: Enforce weekly ratchet
+        run: |
+          python scripts/check_contract_drift_ratchet.py --strict --json > /tmp/contract-drift-ratchet.json
+
+      - name: Write ratchet summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('/tmp/contract-drift-ratchet.json')
+          if not p.exists():
+              print('Ratchet output missing')
+              raise SystemExit(0)
+
+          data = json.loads(p.read_text())
+          program = data['program']
+          current = data['current']
+          target = data['target']
+
+          lines = [
+              '## Contract Drift Ratchet',
+              '',
+              f"- As of: `{program['as_of']}`",
+              f"- Start total: `{program['start_total_items']}`",
+              f"- Current total: `{current['total_items']}`",
+              f"- Target max: `{target['max_open_items']}`",
+              f"- Delta to target: `{data['delta_to_target']:+d}`",
+              f"- Passing: `{data['passing']}`",
+          ]
+
+          summary = Path(Path.cwd() / 'ratchet-summary.md')
+          summary.write_text('\n'.join(lines) + '\n')
+          print(summary.read_text())
+          PY
+
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            cat ratchet-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload governance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-drift-governance
+          path: |
+            /tmp/contract-drift-summary.json
+            /tmp/contract-drift-summary.md
+            /tmp/CONTRACT_DRIFT_BACKLOG.json
+            /tmp/CONTRACT_DRIFT_BACKLOG.md
+            /tmp/CONTRACT_DRIFT_ISSUE_PLAN.json
+            /tmp/CONTRACT_DRIFT_ISSUE_PLAN.md
+            /tmp/contract-drift-ratchet.json
+            ratchet-summary.md
+          retention-days: 30
