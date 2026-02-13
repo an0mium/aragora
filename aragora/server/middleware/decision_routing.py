@@ -582,6 +582,17 @@ class DecisionRoutingMiddleware:
                 "error": str(e),
                 "request_id": context.request_id,
             }
+        except Exception as e:
+            logger.error(f"Unexpected routing error for {context.request_id}: {e}")
+
+            if self._deduplicator:
+                await self._deduplicator.fail(content, context.user_id, context.channel, e)
+
+            return {
+                "success": False,
+                "error": str(e),
+                "request_id": context.request_id,
+            }
 
     async def _register_origin(self, content: str, context: RoutingContext) -> None:
         """Register the origin for bidirectional routing."""
