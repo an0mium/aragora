@@ -91,6 +91,24 @@ If you touch docs or the catalog, also resync the docs site:
 node docs-site/scripts/sync-docs.js
 ```
 
+### Working Tree Hygiene
+
+To reduce noisy diffs and keep release preparation deterministic:
+
+- Keep runtime artifacts out of commits (`.nomic/`, `.tmp/`, `artifacts/`, `exports/` are gitignored).
+- Treat nested `*/CLAUDE.md` files as generated context unless intentionally maintained.
+- Before opening a PR, verify the tree only includes intentional changes:
+
+```bash
+git status -sb
+```
+
+- If you ran long local workflows/tests, clean local scratch artifacts before commit:
+
+```bash
+python scripts/cleanup_runtime_artifacts.py --apply
+```
+
 ### Development Server
 
 ```bash
