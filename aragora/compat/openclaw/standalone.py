@@ -389,7 +389,7 @@ def cmd_openclaw_serve(args: argparse.Namespace) -> None:
     port = getattr(args, "port", DEFAULT_PORT)
     policy_file = getattr(args, "policy", None)
     default_policy = getattr(args, "default_policy", DEFAULT_POLICY)
-    cors = getattr(args, "cors", "*")
+    cors = getattr(args, "cors", "http://localhost:3000")
 
     cors_origins = [o.strip() for o in cors.split(",") if o.strip()]
 
@@ -441,7 +441,7 @@ def main() -> None:
         help="Default policy when no rule matches (default: deny)",
     )
     parser.add_argument(
-        "--cors", default="*", help="CORS allowed origins (comma-separated, default: *)",
+        "--cors", default="http://localhost:3000", help="CORS allowed origins (comma-separated, default: http://localhost:3000)",
     )
     parser.add_argument(
         "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],

@@ -123,7 +123,7 @@ library is unavailable. These represent the two most significant findings.
   enables remote exploitation via a victim's browser.
 - **Recommendation:** Change the default to an empty list or `["http://localhost"]`
   and require explicit configuration for production CORS origins.
-- **Status:** Open
+- **Status:** Fixed (CLI default changed to `http://localhost:3000`)
 
 ### [MEDIUM] F06: OpenClaw Routes Missing from RBAC Middleware
 
@@ -143,7 +143,7 @@ library is unavailable. These represent the two most significant findings.
 - **Recommendation:** Add `RoutePermission` entries for `/api/gateway/openclaw/`
   routes to the `DEFAULT_ROUTE_PERMISSIONS` list, mirroring the permissions used
   by the handler decorators.
-- **Status:** Open
+- **Status:** Fixed (33 RoutePermission entries added for all OpenClaw routes)
 
 ### [MEDIUM] F07: NavigateAction Accepts Arbitrary URLs Without SSRF Validation
 
@@ -186,7 +186,7 @@ library is unavailable. These represent the two most significant findings.
   unauthenticated callers (health endpoints are typically public).
 - **Recommendation:** Replace `str(e)` with a generic message like
   `"Internal health check failed"` and log the actual exception server-side.
-- **Status:** Open
+- **Status:** Fixed (replaced `str(e)` with `safe_error_message()`)
 
 ### [LOW] F09: Query Parameter Values Not URL-Decoded
 

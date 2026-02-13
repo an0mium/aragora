@@ -308,7 +308,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                 {
                     "status": "error",
                     "healthy": False,
-                    "error": str(e),
+                    "error": safe_error_message(e, "openclaw_health"),
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 },
                 status=503,
