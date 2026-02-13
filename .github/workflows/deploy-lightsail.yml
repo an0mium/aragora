@@ -1,0 +1,94 @@
+name: Deploy to Lightsail
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip test step'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: deploy-lightsail
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: ${{ github.event.inputs.skip_tests != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install and test
+        run: |
+          pip install -e ".[dev]" pytest-timeout httpx
+          pytest tests/test_handlers_debates.py tests/test_api_handler.py \
+            --timeout=60 -x --tb=short
+        env:
+          PYTHONPATH: .
+
+  deploy:
+    needs: test
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -e
+            echo "=== Deploying Aragora to Lightsail ==="
+
+            cd /home/ubuntu/aragora || cd /home/ec2-user/aragora
+
+            # Record rollback point
+            PREV=$(git rev-parse HEAD)
+            echo "Rollback: $PREV"
+
+            # Pull latest
+            git stash --include-untracked || true
+            git fetch origin main
+            git checkout main 2>/dev/null || git checkout -b main origin/main
+            git reset --hard origin/main
+
+            NEW=$(git rev-parse HEAD)
+            echo "Deployed: $PREV -> $NEW"
+
+            # Install
+            source venv/bin/activate 2>/dev/null || source .venv/bin/activate 2>/dev/null || true
+            pip install -e . --quiet --no-cache-dir 2>/dev/null || true
+
+            # Import check
+            python -c "from aragora.server.unified_server import UnifiedServer; print('Import OK')"
+
+            # Restart
+            sudo systemctl restart aragora
+            sleep 5
+            systemctl is-active --quiet aragora && echo "Service: RUNNING" || echo "Service: FAILED"
+
+            echo "=== Deploy complete ==="
+
+      - name: Verify health
+        run: |
+          for i in $(seq 1 12); do
+            if curl -sf "https://api.aragora.ai/api/health" -o /dev/null 2>/dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Waiting... attempt $i/12"
+            sleep 5
+          done
+          echo "::warning::Health check failed after 60s"
+          exit 1
