@@ -27,7 +27,7 @@ from ..base import (
 )
 from ..openapi_decorator import api_endpoint
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
-from ..versioning.compat import strip_version_prefix
+from aragora.server.versioning.compat import strip_version_prefix
 
 # Suspicious patterns for task sanitization
 _SUSPICIOUS_PATTERNS = [

@@ -181,10 +181,10 @@ class SlackWorkspaceStore:
         """
         global _encryption_warning_shown
 
-        # Enforce encryption in production — read env vars dynamically so that
-        # monkeypatching in tests doesn't permanently taint the module-level value.
-        encryption_key = os.environ.get("ARAGORA_ENCRYPTION_KEY", "") or ENCRYPTION_KEY
-        env_mode = os.environ.get("ARAGORA_ENV", "") or ARAGORA_ENV
+        # Read env vars dynamically — the module-level constants are captured at
+        # import time and can be permanently tainted by earlier test monkeypatches.
+        encryption_key = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
+        env_mode = os.environ.get("ARAGORA_ENV", "development")
         if not encryption_key:
             if env_mode == "production":
                 raise ValueError(

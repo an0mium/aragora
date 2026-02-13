@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .base import BaseHandler, HandlerResult, error_response, safe_error_message
-from ..versioning.compat import strip_version_prefix
+from aragora.server.versioning.compat import strip_version_prefix
 
 if TYPE_CHECKING:
     pass
