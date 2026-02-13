@@ -19,6 +19,7 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 from aragora.server.handlers.base import BaseHandler, HandlerResult
+from aragora.server.handlers.workflows.handler import _normalize_execute_inputs
 
 
 # =============================================================================
@@ -162,7 +163,7 @@ class TestRouteMatching:
     def test_can_handle_exact_match(self):
         """Test exact route matching."""
         handler = TestHandler(server_context={})
-        assert handler.can_handle("/api/v1/test") is True
+        assert handler.can_handle("/api/test") is True
 
     def test_can_handle_no_match(self):
         """Test non-matching route."""
@@ -651,6 +652,37 @@ class TestSearch:
         assert params.get("category") == "programming"
 
 
+# =============================================================================
+# Workflow Execute Payload Tests
+# =============================================================================
+
+
+class TestWorkflowExecutePayloadNormalization:
+    """Tests for workflow execute payload compatibility behavior."""
+
+    def test_accepts_nested_inputs_object(self):
+        inputs, err = _normalize_execute_inputs({"inputs": {"foo": "bar"}})
+        assert err is None
+        assert inputs == {"foo": "bar"}
+
+    def test_accepts_flat_payload_as_inputs(self):
+        inputs, err = _normalize_execute_inputs({"foo": "bar", "notify_steps": True})
+        assert err is None
+        assert inputs == {"foo": "bar", "notify_steps": True}
+
+    def test_merges_compat_keys_into_nested_inputs(self):
+        inputs, err = _normalize_execute_inputs(
+            {"inputs": {"foo": "bar"}, "thread_id": "thr-123", "notify_steps": True}
+        )
+        assert err is None
+        assert inputs == {"foo": "bar", "thread_id": "thr-123", "notify_steps": True}
+
+    def test_rejects_non_object_inputs(self):
+        inputs, err = _normalize_execute_inputs({"inputs": "bad"})
+        assert inputs == {}
+        assert err == "inputs must be an object"
+
+
 __all__ = [
     "TestBaseHandler",
     "TestHandlerResult",
@@ -667,4 +699,5 @@ __all__ = [
     "TestFiltering",
     "TestSorting",
     "TestSearch",
+    "TestWorkflowExecutePayloadNormalization",
 ]

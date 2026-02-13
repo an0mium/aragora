@@ -186,3 +186,156 @@ def test_create_plan_rejects_non_object_metadata() -> None:
     assert result.status_code == 400
     assert "metadata must be an object" in _parse_body(result)["error"]
     mock_build.assert_not_called()
+
+
+def test_execute_plan_accepts_execution_overrides() -> None:
+    """Execute endpoint should forward execution overrides to PlanExecutor."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler(
+        {
+            "execution_mode": "hybrid",
+            "parallel_execution": True,
+            "max_parallel": 4,
+        }
+    )
+    user = SimpleNamespace(
+        user_id="user-1",
+        role="member",
+        roles=["member"],
+        permissions=["decisions:update"],
+    )
+
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+    mock_plan.to_dict.return_value = {"id": "plan-1"}
+
+    mock_outcome = MagicMock()
+    mock_outcome.success = True
+    mock_outcome.to_dict.return_value = {"success": True}
+
+    mock_executor = MagicMock()
+    mock_executor.execute.return_value = "coro"
+
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = mock_outcome
+
+    with (
+        patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
+        patch("aragora.pipeline.executor.PlanExecutor", return_value=mock_executor) as mock_exec_cls,
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+    ):
+        result = handler._handle_execute_plan("plan-1", request, user)
+
+    assert result.status_code == 200
+    mock_exec_cls.assert_called_once_with(max_parallel=4)
+    kwargs = mock_executor.execute.call_args.kwargs
+    assert kwargs["execution_mode"] == "hybrid"
+    assert kwargs["parallel_execution"] is True
+
+
+def test_execute_plan_rejects_invalid_execution_mode() -> None:
+    """Execute endpoint should validate execution_mode values."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({"execution_mode": "warp-drive"})
+    user = SimpleNamespace(user_id="user-1")
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+
+    with patch("aragora.pipeline.executor.get_plan", return_value=mock_plan):
+        result = handler._handle_execute_plan("plan-1", request, user)
+
+    assert result.status_code == 400
+    assert "Invalid execution_mode" in _parse_body(result)["error"]
+
+
+def test_execute_plan_rejects_invalid_parallel_settings() -> None:
+    """Execute endpoint should validate parallel settings."""
+    handler = DecisionPipelineHandler({})
+    user = SimpleNamespace(user_id="user-1")
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+
+    with patch("aragora.pipeline.executor.get_plan", return_value=mock_plan):
+        result_parallel = handler._handle_execute_plan(
+            "plan-1",
+            _make_http_handler({"parallel_execution": "yes"}),
+            user,
+        )
+        result_max_parallel = handler._handle_execute_plan(
+            "plan-1",
+            _make_http_handler({"max_parallel": 0}),
+            user,
+        )
+
+    assert result_parallel.status_code == 400
+    assert "parallel_execution must be a boolean" in _parse_body(result_parallel)["error"]
+    assert result_max_parallel.status_code == 400
+    assert "max_parallel must be >= 1" in _parse_body(result_max_parallel)["error"]
+
+
+def test_execute_plan_normalizes_execution_mode_alias() -> None:
+    """Execute endpoint should normalize known execution-mode aliases."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({"execution_mode": "workflow_execute"})
+    user = SimpleNamespace(user_id="user-1", role="member", roles=["member"], permissions=[])
+
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+    mock_plan.to_dict.return_value = {"id": "plan-1"}
+
+    mock_outcome = MagicMock()
+    mock_outcome.success = True
+    mock_outcome.to_dict.return_value = {"success": True}
+
+    mock_executor = MagicMock()
+    mock_executor.execute.return_value = "coro"
+
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = mock_outcome
+
+    with (
+        patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
+        patch("aragora.pipeline.executor.PlanExecutor", return_value=mock_executor),
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+    ):
+        result = handler._handle_execute_plan("plan-1", request, user)
+
+    assert result.status_code == 200
+    kwargs = mock_executor.execute.call_args.kwargs
+    assert kwargs["execution_mode"] == "workflow"
+
+
+def test_create_plan_normalizes_profile_execution_mode_alias() -> None:
+    """Create-plan endpoint should normalize execution-mode aliases in profile payload."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler(
+        {
+            "debate_id": "deb-123",
+            "execution_mode": "computer-use",
+        }
+    )
+
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+    mock_plan.debate_id = "deb-123"
+    mock_plan.requires_human_approval = False
+    mock_plan.status = SimpleNamespace(value="approved")
+    mock_plan.to_dict.return_value = {"id": "plan-1"}
+
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = object()
+
+    with (
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch(
+            "aragora.server.handlers.decisions.pipeline._load_debate_result",
+            return_value=object(),
+        ),
+        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result", return_value=mock_plan) as mock_build,
+        patch("aragora.pipeline.executor.store_plan"),
+    ):
+        result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
+
+    assert result.status_code == 201
+    kwargs = mock_build.call_args.kwargs
+    assert kwargs["implementation_profile"]["execution_mode"] == "computer_use"

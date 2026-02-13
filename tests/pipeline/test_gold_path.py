@@ -720,6 +720,11 @@ class TestHybridExecutorBridge:
 
         assert isinstance(outcome, PlanOutcome)
         mock_eng.execute.assert_awaited_once()
+        exec_kwargs = mock_eng.execute.call_args.kwargs
+        assert exec_kwargs["metadata"]["plan_id"] == plan.id
+        assert exec_kwargs["metadata"]["debate_id"] == plan.debate_id
+        assert exec_kwargs["metadata"]["execution_mode"] == "workflow"
+        assert plan.metadata["last_execution_mode"] == "workflow"
 
     def test_execution_mode_default_from_env(self):
         """Execution mode should default from environment variable."""

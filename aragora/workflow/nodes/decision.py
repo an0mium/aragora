@@ -148,6 +148,8 @@ class DecisionStep(BaseStep):
             "outputs": context.step_outputs,
             "step": context.step_outputs,  # Alias for convenience
             "state": context.state,
+            "metadata": context.metadata if isinstance(context.metadata, dict) else {},
+            "meta": context.metadata if isinstance(context.metadata, dict) else {},
             # Safe builtins
             "len": len,
             "str": str,

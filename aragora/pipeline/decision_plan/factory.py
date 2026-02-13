@@ -28,6 +28,29 @@ from aragora.pipeline.verification_plan import (
     VerificationType,
 )
 
+_EXECUTION_MODE_ALIASES = {
+    "execute_workflow": "workflow",
+    "workflow_execute": "workflow",
+    "computer-use": "computer_use",
+    "computeruse": "computer_use",
+}
+_CANONICAL_EXECUTION_MODES = {"workflow", "hybrid", "fabric", "computer_use"}
+
+
+def normalize_execution_mode(value: str | None) -> str | None:
+    """Normalize execution-mode aliases to canonical values.
+
+    Unknown modes are returned in normalized (lowercase, underscore) form so
+    callers can still validate and fail fast at API/CLI boundaries.
+    """
+    if value is None:
+        return None
+    normalized = str(value).strip().lower().replace("-", "_")
+    normalized = _EXECUTION_MODE_ALIASES.get(normalized, normalized)
+    if normalized in _CANONICAL_EXECUTION_MODES:
+        return normalized
+    return normalized
+
 
 class DecisionPlanFactory:
     """Factory for creating DecisionPlan from DebateResult.
@@ -86,13 +109,22 @@ class DecisionPlanFactory:
         profile: ImplementationProfile | None = None
         if isinstance(implementation_profile, ImplementationProfile):
             profile = implementation_profile
+            profile.execution_mode = normalize_execution_mode(profile.execution_mode)
         elif isinstance(implementation_profile, dict):
-            profile = ImplementationProfile.from_dict(implementation_profile)
+            profile_payload = dict(implementation_profile)
+            profile_payload["execution_mode"] = normalize_execution_mode(
+                profile_payload.get("execution_mode")
+            )
+            profile = ImplementationProfile.from_dict(profile_payload)
         else:
             impl_payload = merged_metadata.get("implementation_profile") or merged_metadata.get(
                 "implementation"
             )
             if isinstance(impl_payload, dict):
+                impl_payload = dict(impl_payload)
+                impl_payload["execution_mode"] = normalize_execution_mode(
+                    impl_payload.get("execution_mode")
+                )
                 profile = ImplementationProfile.from_dict(impl_payload)
 
         if profile is not None:
@@ -157,8 +189,13 @@ class DecisionPlanFactory:
         profile: ImplementationProfile | None = None
         if isinstance(implementation_profile, ImplementationProfile):
             profile = implementation_profile
+            profile.execution_mode = normalize_execution_mode(profile.execution_mode)
         elif isinstance(implementation_profile, dict):
-            profile = ImplementationProfile.from_dict(implementation_profile)
+            profile_payload = dict(implementation_profile)
+            profile_payload["execution_mode"] = normalize_execution_mode(
+                profile_payload.get("execution_mode")
+            )
+            profile = ImplementationProfile.from_dict(profile_payload)
 
         return DecisionPlan(
             debate_id=debate_id,

@@ -264,6 +264,12 @@ class WorkflowEngine:
         user_id = metadata.get("user_id")
         if user_id:
             payload["user_id"] = user_id
+        plan_id = metadata.get("plan_id")
+        if plan_id:
+            payload["plan_id"] = plan_id
+        execution_mode = metadata.get("execution_mode")
+        if execution_mode:
+            payload["execution_mode"] = execution_mode
         return payload
 
     def _emit_event(

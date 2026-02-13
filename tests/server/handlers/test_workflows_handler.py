@@ -2067,6 +2067,40 @@ class TestWorkflowHandlersStatic:
             assert result["status"] == "completed"
 
     @pytest.mark.asyncio
+    async def test_handle_execute_workflow_accepts_flat_payload(self):
+        """Static execute handler accepts flat payload for inputs."""
+        from aragora.server.handlers.workflows import WorkflowHandlers
+
+        with patch("aragora.server.handlers.workflows.execute_workflow") as mock_execute:
+            mock_execute.return_value = {"id": "exec_123", "status": "completed"}
+
+            await WorkflowHandlers.handle_execute_workflow(
+                "wf_123",
+                {"key": "value", "notify_steps": True},
+                {},
+            )
+
+            mock_execute.assert_called_once_with(
+                "wf_123",
+                inputs={"key": "value", "notify_steps": True},
+                tenant_id="default",
+                user_id=None,
+                org_id=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_handle_execute_workflow_rejects_non_object_inputs(self):
+        """Static execute handler rejects non-object inputs payload."""
+        from aragora.server.handlers.workflows import WorkflowHandlers
+
+        with pytest.raises(ValueError, match="inputs must be an object"):
+            await WorkflowHandlers.handle_execute_workflow(
+                "wf_123",
+                {"inputs": "invalid"},
+                {},
+            )
+
+    @pytest.mark.asyncio
     async def test_handle_list_templates(self):
         """Static handler for list templates."""
         from aragora.server.handlers.workflows import WorkflowHandlers
@@ -3377,6 +3411,12 @@ class TestStorageErrorHandling:
 
                     # Handler catches TimeoutError and returns 503
                     assert result.status_code == 503
+
+    def test_execute_workflow_rejects_non_object_inputs(self, handler, mock_http):
+        """Execute workflow returns 400 when inputs is not an object."""
+        with patch.object(handler, "_check_permission", return_value=None):
+            result = handler._handle_execute("wf_123", {"inputs": "invalid"}, {}, mock_http)
+            assert result.status_code == 400
 
 
 # =============================================================================

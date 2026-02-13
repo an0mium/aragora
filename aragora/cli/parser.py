@@ -1218,13 +1218,18 @@ Examples:
     execute_exec_group = execute_parser.add_mutually_exclusive_group()
     execute_exec_group.add_argument(
         "--execution-mode",
-        choices=["workflow", "hybrid", "computer_use"],
+        choices=["workflow", "hybrid", "fabric", "computer_use"],
         help="Execution engine for implementation tasks",
     )
     execute_exec_group.add_argument(
         "--hybrid",
         action="store_true",
         help="Use hybrid executor (Claude + Codex)",
+    )
+    execute_exec_group.add_argument(
+        "--fabric",
+        action="store_true",
+        help="Use fabric multi-agent execution",
     )
     execute_exec_group.add_argument(
         "--computer-use",

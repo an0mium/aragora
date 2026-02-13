@@ -25,6 +25,7 @@ __all__ = ["DecisionPipelineHandler"]
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 from aragora.resilience import get_circuit_breaker
 
 from ..base import (
@@ -70,7 +71,10 @@ def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any
         if key not in payload:
             payload[key] = value
 
-    _maybe_set("execution_mode", body.get("execution_engine") or body.get("execution_mode"))
+    _maybe_set(
+        "execution_mode",
+        normalize_execution_mode(body.get("execution_engine") or body.get("execution_mode")),
+    )
     _maybe_set("implementers", body.get("implementers"))
     _maybe_set("critic", body.get("critic"))
     _maybe_set("reviser", body.get("reviser"))
@@ -552,6 +556,34 @@ class DecisionPipelineHandler(SecureHandler):
         if not plan:
             return error_response("Plan not found", 404)
 
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        allowed_execution_modes = {"workflow", "hybrid", "fabric", "computer_use"}
+        raw_execution_mode = body.get("execution_mode")
+        execution_mode = normalize_execution_mode(raw_execution_mode)
+        if raw_execution_mode is not None:
+            if not isinstance(raw_execution_mode, str) or execution_mode not in allowed_execution_modes:
+                allowed = ", ".join(sorted(allowed_execution_modes))
+                return error_response(
+                    f"Invalid execution_mode: {raw_execution_mode}. Allowed values: {allowed}",
+                    400,
+                )
+
+        parallel_execution = body.get("parallel_execution")
+        if parallel_execution is not None and not isinstance(parallel_execution, bool):
+            return error_response("parallel_execution must be a boolean", 400)
+
+        max_parallel = body.get("max_parallel")
+        if max_parallel is not None:
+            try:
+                max_parallel = int(max_parallel)
+            except (TypeError, ValueError):
+                return error_response("max_parallel must be an integer", 400)
+            if max_parallel < 1:
+                return error_response("max_parallel must be >= 1", 400)
+
         # Build authorization context from user for defense-in-depth permission checks
         # Note: handler-level permission check already passed (DECISION_UPDATE_PERMISSION)
         role_values = set(getattr(user, "roles", []) or [])
@@ -572,11 +604,16 @@ class DecisionPipelineHandler(SecureHandler):
             permissions=permissions,
         )
 
-        executor = PlanExecutor()
+        executor = PlanExecutor(max_parallel=max_parallel)
 
         try:
             outcome = asyncio.get_event_loop().run_until_complete(
-                executor.execute(plan, auth_context=auth_context)
+                executor.execute(
+                    plan,
+                    auth_context=auth_context,
+                    execution_mode=execution_mode,
+                    parallel_execution=parallel_execution,
+                )
             )
         except PermissionError as e:
             return error_response(str(e), 403)

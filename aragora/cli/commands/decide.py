@@ -160,12 +160,16 @@ def cmd_decide(args: argparse.Namespace) -> None:
         _parse_auto_select_config,
         _parse_document_ids,
     )
+    from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 
     execution_mode = getattr(args, "execution_mode", None)
     if getattr(args, "computer_use", False):
         execution_mode = "computer_use"
     elif getattr(args, "hybrid", False):
         execution_mode = "hybrid"
+    elif getattr(args, "fabric", False):
+        execution_mode = "fabric"
+    execution_mode = normalize_execution_mode(execution_mode)
 
     implementation_profile = None
     raw_profile = getattr(args, "implementation_profile", None)
@@ -180,6 +184,9 @@ def cmd_decide(args: argparse.Namespace) -> None:
         if not isinstance(implementation_profile, dict):
             print("--implementation-profile must be a JSON object", file=sys.stderr)
             raise SystemExit(2)
+        implementation_profile["execution_mode"] = normalize_execution_mode(
+            implementation_profile.get("execution_mode")
+        )
 
     def _split_csv(raw: str | None) -> list[str] | None:
         if not raw:
@@ -215,7 +222,9 @@ def cmd_decide(args: argparse.Namespace) -> None:
         if thread_id_by_platform and "thread_id_by_platform" not in implementation_profile:
             implementation_profile["thread_id_by_platform"] = thread_id_by_platform
 
-    if execution_mode and implementation_profile is not None:
+    if execution_mode:
+        if implementation_profile is None:
+            implementation_profile = {}
         implementation_profile.setdefault("execution_mode", execution_mode)
 
     auto_select = bool(getattr(args, "auto_select", False))

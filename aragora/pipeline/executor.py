@@ -270,6 +270,12 @@ class PlanExecutor:
             )
             mode = "workflow"
 
+        if not isinstance(plan.metadata, dict):
+            plan.metadata = {}
+        plan.metadata["last_execution_mode"] = mode
+        if execution_mode:
+            plan.metadata["requested_execution_mode"] = execution_mode
+
         notifier = None
         if on_task_complete is None and mode in {"hybrid", "fabric"}:
             meta = plan.metadata if isinstance(plan.metadata, dict) else {}
@@ -433,10 +439,19 @@ class PlanExecutor:
             if workspace_id:
                 inputs["workspace_id"] = workspace_id
 
+        execution_metadata: dict[str, Any] = {}
+        if isinstance(plan.metadata, dict):
+            execution_metadata.update(plan.metadata)
+        execution_metadata.setdefault("plan_id", plan.id)
+        execution_metadata.setdefault("debate_id", plan.debate_id)
+        execution_metadata.setdefault("execution_mode", "workflow")
+        execution_metadata.setdefault("workflow_name", definition.name)
+
         result = await engine.execute(
             definition,
             inputs=inputs,
             workflow_id=plan.workflow_id,
+            metadata=execution_metadata,
         )
 
         duration = time.time() - start_time

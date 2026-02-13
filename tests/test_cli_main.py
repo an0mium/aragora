@@ -12,6 +12,7 @@ import sys
 
 import pytest
 
+from aragora.cli import parser as cli_parser
 from aragora.cli.main import (
     parse_agents,
     get_event_emitter_if_available,
@@ -272,6 +273,33 @@ class TestArgumentParser:
         assert args.verbose is True
 
 
+class TestPlansExecuteParser:
+    """Tests for plans execute parser options."""
+
+    @staticmethod
+    def _build_plans_parser() -> argparse.ArgumentParser:
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        cli_parser._add_plans_parser(subparsers)
+        return parser
+
+    def test_parse_plans_execute_allows_fabric_mode(self):
+        parser = self._build_plans_parser()
+        args = parser.parse_args(
+            ["plans", "execute", "plan_123", "--execution-mode", "fabric"]
+        )
+        assert args.command == "plans"
+        assert args.plans_action == "execute"
+        assert args.execution_mode == "fabric"
+
+    def test_parse_plans_execute_fabric_flag(self):
+        parser = self._build_plans_parser()
+        args = parser.parse_args(["plans", "execute", "plan_123", "--fabric"])
+        assert args.command == "plans"
+        assert args.plans_action == "execute"
+        assert args.fabric is True
+
+
 # =============================================================================
 # Command Handler Tests
 # =============================================================================
@@ -296,7 +324,7 @@ class TestCommandHandlers:
             demo=False,
         )
 
-        with patch("aragora.cli.main.asyncio.run") as mock_run:
+        with patch("aragora.cli.commands.debate.asyncio.run") as mock_run:
             mock_result = MagicMock()
             mock_result.final_answer = "Test answer"
             mock_result.dissenting_views = []
@@ -322,7 +350,7 @@ class TestCommandHandlers:
             "patterns_by_type": {"security": 5, "performance": 3},
         }
 
-        with patch("aragora.cli.main.CritiqueStore", return_value=mock_store):
+        with patch("aragora.cli.commands.stats.CritiqueStore", return_value=mock_store):
             cmd_stats(args)
 
             mock_store.get_stats.assert_called_once()
@@ -347,7 +375,7 @@ class TestCommandHandlers:
         mock_pattern.suggestion_text = "Use parameterized queries"
         mock_store.retrieve_patterns.return_value = [mock_pattern]
 
-        with patch("aragora.cli.main.CritiqueStore", return_value=mock_store):
+        with patch("aragora.cli.commands.stats.CritiqueStore", return_value=mock_store):
             cmd_patterns(args)
 
             mock_store.retrieve_patterns.assert_called_once_with(
@@ -362,16 +390,12 @@ class TestCommandHandlers:
 
         args = argparse.Namespace(name="rate-limiter")
 
-        with patch("aragora.cli.main.asyncio.run") as mock_run:
-            mock_result = MagicMock()
-            mock_result.consensus_reached = True
-            mock_result.confidence = 0.9
-            mock_result.final_answer = "Demo answer"
-            mock_run.return_value = mock_result
+        with patch("aragora.cli.demo.main") as mock_demo_main:
+            mock_demo_main.return_value = None
 
             cmd_demo(args)
 
-            mock_run.assert_called_once()
+            mock_demo_main.assert_called_once_with(args)
 
     def test_cmd_demo_unknown_name(self, capsys):
         """Should report unknown demo name."""
@@ -406,16 +430,12 @@ class TestDemoTasks:
 
         args = argparse.Namespace(name="auth")
 
-        with patch("aragora.cli.main.asyncio.run") as mock_run:
-            mock_result = MagicMock()
-            mock_result.consensus_reached = True
-            mock_result.confidence = 0.8
-            mock_result.final_answer = "Auth answer"
-            mock_run.return_value = mock_result
+        with patch("aragora.cli.demo.main") as mock_demo_main:
+            mock_demo_main.return_value = None
 
             cmd_demo(args)
             # If it gets here without error, demo exists
-            assert mock_run.called
+            assert mock_demo_main.called
 
     def test_cache_demo_exists(self):
         """Should have cache demo defined."""
@@ -423,15 +443,11 @@ class TestDemoTasks:
 
         args = argparse.Namespace(name="cache")
 
-        with patch("aragora.cli.main.asyncio.run") as mock_run:
-            mock_result = MagicMock()
-            mock_result.consensus_reached = True
-            mock_result.confidence = 0.85
-            mock_result.final_answer = "Cache answer"
-            mock_run.return_value = mock_result
+        with patch("aragora.cli.demo.main") as mock_demo_main:
+            mock_demo_main.return_value = None
 
             cmd_demo(args)
-            assert mock_run.called
+            assert mock_demo_main.called
 
 
 # =============================================================================
@@ -453,7 +469,7 @@ class TestMain:
     def test_main_calls_command_func(self):
         """Should call the appropriate command function."""
         with patch("sys.argv", ["agora", "stats"]):
-            with patch("aragora.cli.main.CritiqueStore") as mock_store:
+            with patch("aragora.cli.commands.stats.CritiqueStore") as mock_store:
                 mock_store.return_value.get_stats.return_value = {
                     "total_debates": 0,
                     "consensus_debates": 0,
@@ -479,11 +495,11 @@ class TestRunDebate:
         """Should create agents from specification."""
         from aragora.cli.main import run_debate
 
-        with patch("aragora.cli.main.create_agent") as mock_create:
+        with patch("aragora.cli.commands.debate.create_agent") as mock_create:
             mock_agent = MagicMock()
             mock_create.return_value = mock_agent
 
-            with patch("aragora.cli.main.Arena") as mock_arena:
+            with patch("aragora.cli.commands.debate.Arena") as mock_arena:
                 mock_result = MagicMock()
                 mock_arena.return_value.run = AsyncMock(return_value=mock_result)
 
@@ -510,8 +526,8 @@ class TestRunDebate:
             created_agents.append(kwargs)
             return agent
 
-        with patch("aragora.cli.main.create_agent", side_effect=track_create):
-            with patch("aragora.cli.main.Arena") as mock_arena:
+        with patch("aragora.cli.commands.debate.create_agent", side_effect=track_create):
+            with patch("aragora.cli.commands.debate.Arena") as mock_arena:
                 mock_result = MagicMock()
                 mock_arena.return_value.run = AsyncMock(return_value=mock_result)
 
@@ -531,14 +547,14 @@ class TestRunDebate:
         """Should use CritiqueStore when learn=True."""
         from aragora.cli.main import run_debate
 
-        with patch("aragora.cli.main.create_agent") as mock_create:
+        with patch("aragora.cli.commands.debate.create_agent") as mock_create:
             mock_create.return_value = MagicMock()
 
-            with patch("aragora.cli.main.Arena") as mock_arena:
+            with patch("aragora.cli.commands.debate.Arena") as mock_arena:
                 mock_result = MagicMock()
                 mock_arena.return_value.run = AsyncMock(return_value=mock_result)
 
-                with patch("aragora.cli.main.CritiqueStore") as mock_store:
+                with patch("aragora.cli.commands.debate.CritiqueStore") as mock_store:
                     await run_debate(
                         task="Test",
                         agents_str="codex",

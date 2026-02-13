@@ -28,7 +28,13 @@ from aragora.workflow.nodes.decision import DecisionStep, SwitchStep
 from aragora.workflow.step import WorkflowContext
 
 
-def _make_context(inputs=None, state=None, step_outputs=None, current_step_config=None):
+def _make_context(
+    inputs=None,
+    state=None,
+    step_outputs=None,
+    current_step_config=None,
+    metadata=None,
+):
     """Create a WorkflowContext for testing."""
     return WorkflowContext(
         workflow_id="wf_test",
@@ -37,6 +43,7 @@ def _make_context(inputs=None, state=None, step_outputs=None, current_step_confi
         state=state or {},
         step_outputs=step_outputs or {},
         current_step_config=current_step_config or {},
+        metadata=metadata or {},
     )
 
 
@@ -171,6 +178,28 @@ class TestDecisionStepFirstMatch:
 
         assert result["decision"] == "good"
         assert result["decision_name"] == "medium_score"
+
+    @pytest.mark.asyncio
+    async def test_first_match_with_metadata_expression(self):
+        """Decision expressions can branch on workflow metadata."""
+        step = DecisionStep(
+            name="Metadata Check",
+            config={
+                "conditions": [
+                    {
+                        "name": "hybrid_mode",
+                        "expression": "metadata['execution_mode'] == 'hybrid'",
+                        "next_step": "run_hybrid",
+                    },
+                    {"name": "fallback", "expression": "True", "next_step": "run_workflow"},
+                ]
+            },
+        )
+        ctx = _make_context(metadata={"execution_mode": "hybrid"})
+        result = await step.execute(ctx)
+
+        assert result["decision"] == "run_hybrid"
+        assert result["decision_name"] == "hybrid_mode"
 
 
 # ============================================================================

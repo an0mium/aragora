@@ -77,6 +77,47 @@ def _workflows_module():
     return module
 
 
+def _normalize_execute_inputs(
+    payload: dict[str, Any] | None,
+) -> tuple[dict[str, Any], str | None]:
+    """Normalize workflow execute payloads.
+
+    Accepts both of these request body shapes:
+    - {"inputs": {...}} (canonical)
+    - {...} (flat payload treated as inputs)
+
+    Also merges workflow notification-related top-level fields into nested
+    `inputs` for compatibility with CLI payload conventions.
+    """
+    if payload is None:
+        return {}, None
+    if not isinstance(payload, dict):
+        return {}, "Request body must be a JSON object"
+
+    raw_inputs = payload.get("inputs")
+    if raw_inputs is None:
+        return dict(payload), None
+    if not isinstance(raw_inputs, dict):
+        return {}, "inputs must be an object"
+
+    inputs = dict(raw_inputs)
+    compat_keys = (
+        "channel_targets",
+        "chat_targets",
+        "notify_channels",
+        "approval_targets",
+        "notify_steps",
+        "thread_id",
+        "origin_thread_id",
+        "thread_id_by_platform",
+    )
+    for key in compat_keys:
+        if key in payload and key not in inputs:
+            inputs[key] = payload[key]
+
+    return inputs, None
+
+
 # =============================================================================
 # Legacy HTTP Route Handlers (for integration with unified_server)
 # =============================================================================
@@ -154,9 +195,12 @@ class WorkflowHandlers:
     ) -> dict[str, Any]:
         """POST /api/workflows/:id/execute"""
         workflows_module = _workflows_module()
+        inputs, input_error = _normalize_execute_inputs(data)
+        if input_error:
+            raise ValueError(input_error)
         return await workflows_module.execute_workflow(
             workflow_id,
-            inputs=data.get("inputs"),
+            inputs=inputs,
             tenant_id=params.get("tenant_id", "default"),
             user_id=params.get("user_id"),
             org_id=params.get("org_id"),
@@ -825,6 +869,10 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             return error
 
         try:
+            inputs, input_error = _normalize_execute_inputs(body)
+            if input_error:
+                return error_response(input_error, 400)
+
             tenant_id = self._get_tenant_id(handler, query_params)
             auth_ctx = self._get_auth_context(handler) if self._rbac_enabled() else None
             user_id = None
@@ -836,7 +884,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             result = self._run_async_fn()(
                 execute_workflow(
                     workflow_id,
-                    inputs=body.get("inputs"),
+                    inputs=inputs,
                     tenant_id=tenant_id,
                     user_id=user_id,
                     org_id=org_id,

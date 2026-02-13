@@ -27,6 +27,7 @@ from aragora.pipeline.decision_integrity import (
     build_decision_integrity_package,
     capture_context_snapshot,
 )
+from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 from aragora.pipeline.execution_notifier import ExecutionNotifier, ExecutionProgress
 
 
@@ -1170,3 +1171,23 @@ class TestExecutionNotifier:
         await notifier.send_completion_summary()
 
         assert notifier.progress.elapsed_seconds >= 0
+
+
+# ---------------------------------------------------------------------------
+# Execution mode normalization tests
+# ---------------------------------------------------------------------------
+
+
+class TestExecutionModeNormalization:
+    """Tests for cross-surface execution-mode alias normalization."""
+
+    def test_normalizes_known_aliases(self):
+        assert normalize_execution_mode("workflow_execute") == "workflow"
+        assert normalize_execution_mode("execute_workflow") == "workflow"
+        assert normalize_execution_mode("computer-use") == "computer_use"
+
+    def test_preserves_canonical_modes(self):
+        assert normalize_execution_mode("workflow") == "workflow"
+        assert normalize_execution_mode("hybrid") == "hybrid"
+        assert normalize_execution_mode("fabric") == "fabric"
+        assert normalize_execution_mode("computer_use") == "computer_use"
