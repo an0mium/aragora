@@ -85,8 +85,8 @@ from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .oauth import AsyncOAuthAPI, OAuthAPI
 from .oauth_wizard import AsyncOAuthWizardAPI, OAuthWizardAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
-from .openclaw import AsyncOpenclawAPI, OpenclawAPI
 from .openapi import AsyncOpenApiAPI, OpenApiAPI
+from .openclaw import AsyncOpenclawAPI, OpenclawAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .outlook import AsyncOutlookAPI, OutlookAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI

@@ -150,17 +150,17 @@ class AragoraClient:
         from .namespaces.approvals import ApprovalsAPI
         from .namespaces.ar_automation import ARAutomationAPI
         from .namespaces.audio import AudioAPI
-        from .namespaces.audit_trail import AuditTrailAPI
         from .namespaces.audit import AuditAPI
+        from .namespaces.audit_trail import AuditTrailAPI
         from .namespaces.auditing import AuditingAPI
         from .namespaces.auth import AuthAPI
         from .namespaces.backups import BackupsAPI
         from .namespaces.batch import BatchAPI
         from .namespaces.belief import BeliefAPI
         from .namespaces.billing import BillingAPI
+        from .namespaces.blockchain import BlockchainAPI
         from .namespaces.bots import BotsAPI
         from .namespaces.budgets import BudgetsAPI
-        from .namespaces.blockchain import BlockchainAPI
         from .namespaces.calibration import CalibrationAPI
         from .namespaces.canvas import CanvasAPI
         from .namespaces.chat import ChatAPI
@@ -217,8 +217,8 @@ class AragoraClient:
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.oauth_wizard import OAuthWizardAPI
         from .namespaces.onboarding import OnboardingAPI
-        from .namespaces.openclaw import OpenclawAPI
         from .namespaces.openapi import OpenApiAPI
+        from .namespaces.openclaw import OpenclawAPI
         from .namespaces.orchestration import OrchestrationAPI
         from .namespaces.organizations import OrganizationsAPI
         from .namespaces.outlook import OutlookAPI
@@ -690,9 +690,9 @@ class AragoraAsyncClient:
         from .namespaces.batch import AsyncBatchAPI
         from .namespaces.belief import AsyncBeliefAPI
         from .namespaces.billing import AsyncBillingAPI
+        from .namespaces.blockchain import AsyncBlockchainAPI
         from .namespaces.bots import AsyncBotsAPI
         from .namespaces.budgets import AsyncBudgetsAPI
-        from .namespaces.blockchain import AsyncBlockchainAPI
         from .namespaces.calibration import AsyncCalibrationAPI
         from .namespaces.canvas import AsyncCanvasAPI
         from .namespaces.chat import AsyncChatAPI
@@ -749,8 +749,8 @@ class AragoraAsyncClient:
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.oauth_wizard import AsyncOAuthWizardAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
-        from .namespaces.openclaw import AsyncOpenclawAPI
         from .namespaces.openapi import AsyncOpenApiAPI
+        from .namespaces.openclaw import AsyncOpenclawAPI
         from .namespaces.orchestration import AsyncOrchestrationAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
         from .namespaces.outlook import AsyncOutlookAPI
