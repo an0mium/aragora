@@ -52,11 +52,11 @@ TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID")
 TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")
 TEAMS_REDIRECT_URI = os.environ.get("TEAMS_REDIRECT_URI")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not TEAMS_CLIENT_ID:
-    logger.warning("TEAMS_CLIENT_ID not configured - Teams OAuth disabled")
+    logger.debug("TEAMS_CLIENT_ID not configured - Teams OAuth disabled")
 if not TEAMS_CLIENT_SECRET:
-    logger.warning("TEAMS_CLIENT_SECRET not configured - Teams OAuth disabled")
+    logger.debug("TEAMS_CLIENT_SECRET not configured - Teams OAuth disabled")
 
 # Default OAuth scopes for Aragora Teams app
 DEFAULT_SCOPES = "https://graph.microsoft.com/.default offline_access"

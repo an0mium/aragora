@@ -362,7 +362,7 @@ class ConformityReport:
     def to_markdown(self) -> str:
         """Export as human-readable markdown."""
         lines = [
-            f"# EU AI Act Conformity Report",
+            "# EU AI Act Conformity Report",
             "",
             f"**Report ID:** {self.report_id}",
             f"**Receipt ID:** {self.receipt_id}",

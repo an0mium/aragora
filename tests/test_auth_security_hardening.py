@@ -94,17 +94,12 @@ class TestMFARateLimiting:
         # Check the method exists and has rate limiting
         assert hasattr(AuthHandler, "_handle_mfa_verify")
 
-    @pytest.mark.skipif(
-        True,
-        reason="pyotp not installed in test environment",  # Skip if pyotp is not available
-    )
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_mfa_user_rate_limit_triggered(
         self, mock_validate_pending, mock_extract_user, mock_user_store, mock_user, mock_handler
     ):
         """Test that user-specific MFA rate limit is enforced."""
-        pytest.importorskip("pyotp")  # Skip if pyotp not available
         from aragora.server.handlers.auth import AuthHandler
         from aragora.server.handlers.utils.rate_limit import _get_limiter
 
@@ -183,7 +178,7 @@ class TestSessionRegeneration:
 
     def test_mfa_enable_invalidates_sessions(self, mock_user_store, mock_user, mock_handler):
         """Test that enabling MFA calls increment_token_version."""
-        pyotp = pytest.importorskip("pyotp")  # Skip if pyotp not installed
+        import pyotp
         from aragora.server.handlers.auth import AuthHandler
 
         # Setup - user has MFA secret but not enabled yet

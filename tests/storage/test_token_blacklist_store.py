@@ -653,7 +653,6 @@ class TestGlobalStoreManagement:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_REDIS, reason="Redis not installed")
 class TestRedisBlacklist:
     """Tests for RedisBlacklist (only run if redis is installed)."""
 

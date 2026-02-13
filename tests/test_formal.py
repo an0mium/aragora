@@ -15,9 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Import centralized skip markers for Z3
-from tests.conftest import requires_z3, REQUIRES_Z3
-
 from aragora.verification.formal import (
     FormalLanguage,
     FormalProofResult,
@@ -339,35 +336,29 @@ class TestZ3Backend:
         """language property returns Z3_SMT."""
         assert backend.language == FormalLanguage.Z3_SMT
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_is_available_when_z3_installed(self, backend):
         """is_available returns True when z3 is installed."""
         assert backend.is_available is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_z3_version_returns_string(self, backend):
         """z3_version returns version string."""
         version = backend.z3_version
         assert isinstance(version, str)
         assert "z3" in version.lower() or version == "unknown"
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_smtlib2_format(self, backend):
         """can_verify returns True for SMT-LIB2 format claims."""
         smtlib = "(declare-const x Int)\n(assert (= x 1))"
         assert backend.can_verify(smtlib) is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_arithmetic_claim_type(self, backend):
         """can_verify returns True for arithmetic claim type."""
         assert backend.can_verify("x > y", claim_type="arithmetic") is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_logical_claim_type(self, backend):
         """can_verify returns True for logical claim type."""
         assert backend.can_verify("p implies q", claim_type="logical") is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_quantifiable_patterns(self, backend):
         """can_verify returns True for claims with quantifiable patterns."""
         claims = [
@@ -379,7 +370,6 @@ class TestZ3Backend:
         for claim in claims:
             assert backend.can_verify(claim) is True, f"Should verify: {claim}"
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_math_patterns(self, backend):
         """can_verify returns True for claims with math notation."""
         claims = ["x > y", "a + b = c", "x ≤ y", "p → q", "a ∧ b"]
@@ -413,19 +403,16 @@ class TestZ3Backend:
         for stmt in invalid:
             assert backend._is_smtlib2(stmt) is False, f"Should reject: {stmt}"
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_accepts_valid(self, backend):
         """_validate_smtlib2 accepts valid SMT-LIB2."""
         valid = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
         assert backend._validate_smtlib2(valid) is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_rejects_invalid(self, backend):
         """_validate_smtlib2 rejects malformed SMT-LIB2."""
         invalid = "(declare-const x Int\n(missing paren)"
         assert backend._validate_smtlib2(invalid) is False
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_passthrough_smtlib2(self, backend):
         """translate returns valid SMT-LIB2 unchanged."""
@@ -433,7 +420,6 @@ class TestZ3Backend:
         result = await backend.translate(smtlib)
         assert result == smtlib
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_returns_none_for_complex_claim(self, backend):
         """translate returns None for claims it cannot translate."""
@@ -441,7 +427,6 @@ class TestZ3Backend:
         result = await backend.translate("The eigenvalues of a symmetric matrix are real")
         assert result is None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_valid_claim(self, backend):
         """prove returns PROOF_FOUND for valid claims."""
@@ -458,7 +443,6 @@ class TestZ3Backend:
         assert result.proof_text is not None
         assert result.proof_hash is not None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_invalid_claim(self, backend):
         """prove returns PROOF_FAILED for invalid claims with counterexample."""
@@ -480,7 +464,6 @@ class TestZ3Backend:
             result = await backend.prove("(check-sat)")
             assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_handles_parse_error(self, backend):
         """prove returns TRANSLATION_FAILED for malformed input."""
@@ -488,7 +471,6 @@ class TestZ3Backend:
         assert result.status == FormalProofStatus.TRANSLATION_FAILED
         assert "parse" in result.error_message.lower()
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_records_timing(self, backend):
         """prove records proof search time."""
@@ -496,7 +478,6 @@ class TestZ3Backend:
         result = await backend.prove(smtlib)
         assert result.proof_search_time_ms >= 0
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_records_version(self, backend):
         """prove records prover version."""
@@ -504,7 +485,6 @@ class TestZ3Backend:
         result = await backend.prove(smtlib)
         assert "z3" in result.prover_version.lower()
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_verify_proof_returns_true_for_valid(self, backend):
         """verify_proof returns True for valid proofs."""
@@ -517,7 +497,6 @@ class TestZ3Backend:
         result = await backend.verify_proof(smtlib, "QED")
         assert result is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_verify_proof_returns_false_for_invalid(self, backend):
         """verify_proof returns False for invalid claims."""
@@ -564,7 +543,6 @@ class TestFormalVerificationManager:
         for backend in available:
             assert backend.is_available is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_get_backend_for_claim_arithmetic(self, manager):
         """get_backend_for_claim returns Z3 for arithmetic claims."""
         backend = manager.get_backend_for_claim("x > y", claim_type="arithmetic")
@@ -579,7 +557,6 @@ class TestFormalVerificationManager:
                 backend = manager.get_backend_for_claim("unsupported claim")
                 assert backend is None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_attempt_formal_verification_success(self, manager):
         """attempt_formal_verification succeeds for valid Z3 claims."""
@@ -600,7 +577,6 @@ class TestFormalVerificationManager:
             result = await manager.attempt_formal_verification("unsupported claim")
             assert result.status == FormalProofStatus.NOT_SUPPORTED
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_attempt_formal_verification_translation_failed(self, manager):
         """attempt_formal_verification returns TRANSLATION_FAILED when translation fails."""
@@ -685,7 +661,6 @@ class TestFormalVerificationBackendProtocol:
 class TestFormalVerificationIntegration:
     """Integration tests for formal verification workflow."""
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_full_z3_verification_workflow(self):
         """Test complete Z3 verification from claim to proof."""
@@ -706,7 +681,6 @@ class TestFormalVerificationIntegration:
         assert result.language == FormalLanguage.Z3_SMT
         assert result.proof_hash is not None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_proof_result_serialization(self):
         """Test that proof results can be serialized to dict."""
@@ -730,7 +704,6 @@ class TestFormalVerificationIntegration:
         assert deserialized["status"] == result.status.value
         assert deserialized["language"] == result.language.value
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_counterexample_detection(self):
         """Test that counterexamples are properly detected and reported."""

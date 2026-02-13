@@ -334,7 +334,6 @@ class TestBackendSelection:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_REDIS, reason="Redis not installed")
 class TestRedisBlacklist:
     """Tests for RedisBlacklist backend (requires redis-py)."""
 

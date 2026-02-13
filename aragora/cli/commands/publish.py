@@ -183,12 +183,12 @@ def publish_package(
     # 2. Check build tools
     if pkg_type == "python":
         for tool in ["build", "twine"]:
-            if not _check_tool(f"python"):
-                print(f"  FAIL: python not found")
+            if not _check_tool("python"):
+                print("  FAIL: python not found")
                 return False
     elif pkg_type == "npm":
         if not _check_tool("npm"):
-            print(f"  FAIL: npm not found")
+            print("  FAIL: npm not found")
             return False
 
     # 3. Check credentials
@@ -201,14 +201,14 @@ def publish_package(
 
     # 4. Run tests (unless skipped)
     if not skip_tests and pkg.get("test_cmd"):
-        print(f"  Running tests...")
+        print("  Running tests...")
         ok, out = _run(pkg["test_cmd"], pkg_dir, dry_run)
         if not ok:
-            print(f"  FAIL: tests failed")
+            print("  FAIL: tests failed")
             if verbose and out:
                 print(f"  {out[:500]}")
             return False
-        print(f"  Tests: PASSED")
+        print("  Tests: PASSED")
 
     # 5. Clean old builds
     if pkg_type == "python":
@@ -217,14 +217,14 @@ def publish_package(
             shutil.rmtree(dist_dir)
 
     # 6. Build
-    print(f"  Building...")
+    print("  Building...")
     ok, out = _run(pkg["build_cmd"], pkg_dir, dry_run)
     if not ok:
-        print(f"  FAIL: build failed")
+        print("  FAIL: build failed")
         if verbose and out:
             print(f"  {out[:500]}")
         return False
-    print(f"  Build: OK")
+    print("  Build: OK")
 
     # 7. Verify (Python only)
     if pkg_type == "python" and not dry_run:
@@ -236,7 +236,7 @@ def publish_package(
         print(f"  Verify: {msg}")
 
     # 8. Publish
-    print(f"  Publishing...")
+    print("  Publishing...")
     if pkg_type == "python":
         dist_dir = pkg_dir / "dist"
         ok, out = _publish_python(dist_dir, dry_run)
@@ -244,7 +244,7 @@ def publish_package(
         ok, out = _publish_npm(pkg_dir, dry_run)
 
     if not ok:
-        print(f"  FAIL: publish failed")
+        print("  FAIL: publish failed")
         if verbose and out:
             print(f"  {out[:500]}")
         return False

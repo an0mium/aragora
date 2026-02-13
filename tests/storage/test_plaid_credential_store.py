@@ -76,9 +76,6 @@ def master_key():
 @pytest.fixture
 def encryption_service(master_key):
     """Create an encryption service with a test key."""
-    if not CRYPTO_AVAILABLE:
-        pytest.skip("cryptography package not installed")
-
     from aragora.security.encryption import EncryptionService
 
     return EncryptionService(master_key=master_key)
@@ -404,7 +401,6 @@ class TestSQLiteStore:
 # ============================================================================
 
 
-@pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
 class TestEncryptionDecryptionFlows:
     """Tests for encryption and decryption of access tokens."""
 
@@ -512,7 +508,6 @@ class TestEncryptionDecryptionFlows:
 # ============================================================================
 
 
-@pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
 class TestAADBinding:
     """Tests for AAD binding credentials to user/tenant/item."""
 
@@ -755,7 +750,6 @@ class TestErrorHandling:
 
         assert result is None
 
-    @pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
     @pytest.mark.asyncio
     async def test_encryption_failure_without_crypto(self):
         """Should handle encryption unavailability gracefully."""
@@ -771,7 +765,6 @@ class TestErrorHandling:
                 result = _encrypt_token("test-token")
                 assert result == "test-token"
 
-    @pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
     @pytest.mark.asyncio
     async def test_encryption_required_without_crypto_raises(self):
         """Should raise error when encryption required but unavailable."""
@@ -804,7 +797,6 @@ class TestErrorHandling:
 # ============================================================================
 
 
-@pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
 class TestKeyRotation:
     """Tests for encryption key rotation scenarios."""
 
@@ -1180,7 +1172,6 @@ class TestEdgeCasesAndSecurity:
 # ============================================================================
 
 
-@pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
 class TestCorruptedData:
     """Tests for handling corrupted encrypted data."""
 
@@ -1240,7 +1231,6 @@ class TestCorruptedData:
 # ============================================================================
 
 
-@pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
 class TestIntegration:
     """Integration tests combining multiple features."""
 

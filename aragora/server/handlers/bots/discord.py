@@ -63,11 +63,11 @@ try:
 except ImportError:
     pass
 
-# Log warnings at module load time for missing dependencies/secrets
+# Log at debug level for unconfigured optional integrations
 if not DISCORD_PUBLIC_KEY:
-    logger.warning("DISCORD_PUBLIC_KEY not configured - signature verification disabled")
+    logger.debug("DISCORD_PUBLIC_KEY not configured - signature verification disabled")
 if not _NACL_AVAILABLE:
-    logger.warning(
+    logger.debug(
         "PyNaCl not installed - Discord Ed25519 signature verification unavailable. "
         "Install with: pip install pynacl"
     )

@@ -373,7 +373,7 @@ def cmd_autopilot(args: argparse.Namespace) -> None:
     # Phase 2: Execute TODO tasks
     todo = [(t, d) for t, s, d in statuses if s == "TODO"]
     if not todo:
-        print(f"\n  All tasks complete. Nothing to do.")
+        print("\n  All tasks complete. Nothing to do.")
         return
 
     print(f"\n  Executing {len(todo)} task(s)...\n")
@@ -393,7 +393,7 @@ def cmd_autopilot(args: argparse.Namespace) -> None:
 
     failed = [(n, m) for n, ok, m in results if not ok]
     if failed:
-        print(f"\n  Failed:")
+        print("\n  Failed:")
         for name, msg in failed:
             print(f"    {name}: {msg}")
         sys.exit(1)

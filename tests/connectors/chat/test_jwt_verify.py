@@ -68,9 +68,6 @@ from aragora.connectors.chat.jwt_verify import (
 @pytest.fixture
 def rsa_key_pair():
     """Generate an RSA key pair for testing JWT signatures."""
-    if not HAS_CRYPTO:
-        pytest.skip("Cryptography library not available")
-
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -95,9 +92,6 @@ def rsa_key_pair():
 @pytest.fixture
 def second_rsa_key_pair():
     """Generate a second RSA key pair for key rotation testing."""
-    if not HAS_CRYPTO:
-        pytest.skip("Cryptography library not available")
-
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -256,7 +250,6 @@ class TestJWTVerifierInit:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestJWTTokenParsing:
     """Test JWT token parsing with real tokens."""
 
@@ -308,7 +301,6 @@ class TestJWTTokenParsing:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestExpiredTokenHandling:
     """Test handling of expired JWT tokens."""
 
@@ -391,7 +383,6 @@ class TestExpiredTokenHandling:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestInvalidSignatureDetection:
     """Test detection of invalid JWT signatures."""
 
@@ -477,7 +468,6 @@ class TestInvalidSignatureDetection:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestIssuerAudienceValidation:
     """Test issuer and audience claim validation."""
 
@@ -683,7 +673,6 @@ class TestJWKSCaching:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
 class TestKeyRotationHandling:
     """Test handling of key rotation scenarios."""
 
@@ -934,7 +923,6 @@ class TestTeamsWebhookVerification:
         result = verify_teams_webhook("Bearer ", "app123")
         assert result is False
 
-    @pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
     def test_valid_teams_token_accepted(self, rsa_key_pair, mock_jwks_client):
         """Valid Teams token with proper claims is accepted."""
         private_key, public_key, _, _ = rsa_key_pair
@@ -1010,7 +998,6 @@ class TestGoogleChatWebhookVerification:
                 assert result.valid is False
                 assert "production" in result.error.lower() or "project_id" in result.error.lower()
 
-    @pytest.mark.skipif(not HAS_CRYPTO, reason="Cryptography library required")
     def test_valid_google_token_accepted(self, rsa_key_pair, mock_jwks_client):
         """Valid Google token with proper claims is accepted."""
         private_key, public_key, _, _ = rsa_key_pair

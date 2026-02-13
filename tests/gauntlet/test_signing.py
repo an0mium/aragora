@@ -340,10 +340,6 @@ class TestRSASigner:
         signer = RSASigner.generate_keypair()
         assert signer.algorithm == "RSA-SHA256"
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_generate_keypair(self):
         """Test RSASigner.generate_keypair."""
         from aragora.gauntlet.signing import RSASigner
@@ -353,10 +349,6 @@ class TestRSASigner:
         assert signer.algorithm == "RSA-SHA256"
         assert signer.key_id == "test-rsa"
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_sign_and_verify(self):
         """Test RSASigner sign and verify round-trip."""
         from aragora.gauntlet.signing import RSASigner
@@ -368,10 +360,6 @@ class TestRSASigner:
 
         assert signer.verify(data, signature) is True
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_verify_invalid(self):
         """Test RSASigner.verify with invalid signature."""
         from aragora.gauntlet.signing import RSASigner
@@ -381,10 +369,6 @@ class TestRSASigner:
 
         assert signer.verify(data, b"invalid" * 32) is False
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_export_public_key(self):
         """Test RSASigner.export_public_key."""
         from aragora.gauntlet.signing import RSASigner
@@ -396,10 +380,6 @@ class TestRSASigner:
         assert "BEGIN PUBLIC KEY" in pem
         assert "END PUBLIC KEY" in pem
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_sign_without_private_key(self):
         """Test RSASigner.sign without private key raises error."""
         from aragora.gauntlet.signing import RSASigner
@@ -409,10 +389,6 @@ class TestRSASigner:
         with pytest.raises(ValueError, match="Private key required"):
             signer.sign(b"data")
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_verify_without_public_key(self):
         """Test RSASigner.verify without public key raises error."""
         from aragora.gauntlet.signing import RSASigner
@@ -431,10 +407,6 @@ class TestRSASigner:
 class TestEd25519Signer:
     """Tests for Ed25519Signer backend."""
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_generate_keypair(self):
         """Test Ed25519Signer.generate_keypair."""
         from aragora.gauntlet.signing import Ed25519Signer
@@ -444,10 +416,6 @@ class TestEd25519Signer:
         assert signer.algorithm == "Ed25519"
         assert signer.key_id == "test-ed25519"
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_sign_and_verify(self):
         """Test Ed25519Signer sign and verify round-trip."""
         from aragora.gauntlet.signing import Ed25519Signer
@@ -459,10 +427,6 @@ class TestEd25519Signer:
 
         assert signer.verify(data, signature) is True
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_verify_invalid(self):
         """Test Ed25519Signer.verify with invalid signature."""
         from aragora.gauntlet.signing import Ed25519Signer
@@ -472,10 +436,6 @@ class TestEd25519Signer:
 
         assert signer.verify(data, b"i" * 64) is False
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_sign_without_private_key(self):
         """Test Ed25519Signer.sign without private key raises error."""
         from aragora.gauntlet.signing import Ed25519Signer
@@ -485,10 +445,6 @@ class TestEd25519Signer:
         with pytest.raises(ValueError, match="Private key required"):
             signer.sign(b"data")
 
-    @pytest.mark.skipif(
-        not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,
-        reason="cryptography package required",
-    )
     def test_verify_without_public_key(self):
         """Test Ed25519Signer.verify without public key raises error."""
         from aragora.gauntlet.signing import Ed25519Signer

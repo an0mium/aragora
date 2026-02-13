@@ -18,13 +18,7 @@ from aragora.connectors.enterprise.sync_store import (
     CREDENTIAL_KEYWORDS,
 )
 
-# Check if aiosqlite is available
-try:
-    import aiosqlite
-
-    HAS_AIOSQLITE = True
-except ImportError:
-    HAS_AIOSQLITE = False
+import aiosqlite  # noqa: F401
 
 
 class TestSensitiveKeyDetection:
@@ -358,7 +352,6 @@ class TestConnectorConfig:
         assert config.items_indexed == 0
 
 
-@pytest.mark.skipif(not HAS_AIOSQLITE, reason="aiosqlite required for recovery tests")
 class TestSyncJobRecovery:
     """Tests for sync job recovery on startup."""
 

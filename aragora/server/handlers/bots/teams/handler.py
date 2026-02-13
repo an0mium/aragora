@@ -83,12 +83,12 @@ TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
 TEAMS_TENANT_ID = os.environ.get("TEAMS_TENANT_ID")
 
 if not TEAMS_APP_ID:
-    logger.warning(
+    logger.debug(
         "TEAMS_APP_ID (or MS_APP_ID) not configured - "
         "Bot Framework JWT validation will reject all requests"
     )
 if not TEAMS_APP_PASSWORD:
-    logger.warning("TEAMS_APP_PASSWORD not configured - Teams bot authentication disabled")
+    logger.debug("TEAMS_APP_PASSWORD not configured - Teams bot authentication disabled")
 
 # Agent display names for UI
 AGENT_DISPLAY_NAMES: dict[str, str] = {

@@ -212,12 +212,12 @@ def _cmd_classify(args: argparse.Namespace) -> None:
         print(f"Keywords:   {', '.join(result.matched_keywords)}")
 
     if result.applicable_articles:
-        print(f"\nApplicable Articles:")
+        print("\nApplicable Articles:")
         for art in result.applicable_articles:
             print(f"  - {art}")
 
     if result.obligations:
-        print(f"\nObligations:")
+        print("\nObligations:")
         for obl in result.obligations:
             print(f"  - {obl}")
 
@@ -294,7 +294,7 @@ def _cmd_eu_ai_act_generate(args: argparse.Namespace) -> None:
 
     # Print summary to stdout
     classification = bundle.risk_classification
-    print(f"EU AI Act Compliance Artifact Bundle Generated")
+    print("EU AI Act Compliance Artifact Bundle Generated")
     print(f"{'=' * 50}")
     print(f"Bundle ID:       {bundle.bundle_id}")
     print(f"Receipt ID:      {bundle.receipt_id}")
@@ -303,18 +303,18 @@ def _cmd_eu_ai_act_generate(args: argparse.Namespace) -> None:
         print(f"Annex III:       Cat. {classification.annex_iii_number} ({classification.annex_iii_category})")
     print(f"Conformity:      {bundle.conformity_report.overall_status.upper()}")
     print(f"Integrity Hash:  {bundle.integrity_hash}")
-    print(f"Deadline:        August 2, 2026")
+    print("Deadline:        August 2, 2026")
     print()
 
     # List generated files
     print(f"Generated files in {output_dir}/:")
-    print(f"  compliance_bundle.json          Full artifact bundle")
+    print("  compliance_bundle.json          Full artifact bundle")
     if args.output_format == "all":
-        print(f"  article_12_record_keeping.json  Art. 12 event log, tech docs, retention policy")
-        print(f"  article_13_transparency.json    Art. 13 provider identity, risks, interpretation")
-        print(f"  article_14_human_oversight.json  Art. 14 oversight model, override, stop mechanisms")
-        print(f"  conformity_report.md            Human-readable conformity assessment")
-        print(f"  conformity_report.json          Machine-readable conformity assessment")
+        print("  article_12_record_keeping.json  Art. 12 event log, tech docs, retention policy")
+        print("  article_13_transparency.json    Art. 13 provider identity, risks, interpretation")
+        print("  article_14_human_oversight.json  Art. 14 oversight model, override, stop mechanisms")
+        print("  conformity_report.md            Human-readable conformity assessment")
+        print("  conformity_report.json          Machine-readable conformity assessment")
     print()
 
     # Article compliance summary

@@ -7,9 +7,6 @@ and coordinate merges.
 Usage:
     from aragora.workflow.engine import WorkflowEngine
     from aragora.workflow.templates.self_development import (
-import logging
-logger = logging.getLogger(__name__)
-
         create_self_development_workflow,
     )
 
@@ -21,6 +18,7 @@ logger = logging.getLogger(__name__)
     result = await engine.execute(workflow, inputs={"max_cycles": 3})
 """
 
+import logging
 from typing import Any, Optional
 
 from aragora.workflow.types import (
@@ -29,6 +27,8 @@ from aragora.workflow.types import (
     TransitionRule,
     WorkflowCategory,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_self_development_workflow(

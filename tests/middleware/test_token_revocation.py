@@ -515,8 +515,6 @@ class TestRedisRevocationStore:
 
     def test_get_client_creates_redis_connection(self, redis_store):
         """Test _get_client creates Redis connection."""
-        pytest.importorskip("redis")
-
         # Reset any cached client first
         redis_store._client = None
 
@@ -852,12 +850,6 @@ class TestGetRevocationStore:
 
     def test_get_revocation_store_redis_when_available(self):
         """Test Redis store is used when REDIS_URL is set."""
-        # Skip if redis package not installed
-        try:
-            import redis
-        except ImportError:
-            pytest.skip("redis package not installed")
-
         with patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379"}):
             with patch("redis.from_url") as mock_redis:
                 mock_redis.return_value = MagicMock()

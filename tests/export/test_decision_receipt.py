@@ -563,10 +563,6 @@ class TestDecisionReceiptPDF:
             duration_seconds=45.5,
         )
 
-    @pytest.mark.skipif(
-        not _has_weasyprint(),
-        reason="weasyprint not installed",
-    )
     def test_to_pdf_basic(self, receipt_for_pdf: DecisionReceipt):
         """Test basic PDF generation."""
         pdf_bytes = receipt_for_pdf.to_pdf()
@@ -576,10 +572,6 @@ class TestDecisionReceiptPDF:
         assert len(pdf_bytes) > 1000  # Should be substantial
         assert pdf_bytes[:4] == b"%PDF"
 
-    @pytest.mark.skipif(
-        not _has_weasyprint(),
-        reason="weasyprint not installed",
-    )
     def test_to_pdf_with_header_footer(self, receipt_for_pdf: DecisionReceipt):
         """Test PDF generation with header/footer."""
         pdf_with = receipt_for_pdf.to_pdf(include_header_footer=True)
@@ -594,10 +586,6 @@ class TestDecisionReceiptPDF:
         assert len(pdf_with) > 0
         assert len(pdf_without) > 0
 
-    @pytest.mark.skipif(
-        not _has_weasyprint(),
-        reason="weasyprint not installed",
-    )
     def test_to_pdf_all_verdicts(self):
         """Test PDF generation for all verdict types."""
         verdicts = ["APPROVED", "APPROVED_WITH_CONDITIONS", "NEEDS_REVIEW", "REJECTED"]

@@ -40,8 +40,8 @@ services:
       # Redis
       - REDIS_URL=redis://redis:6379
       # Environment mode
-      - ARAGORA_ENV=${ARAGORA_ENV:-production}
-      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-production}
+      - ARAGORA_ENV=${ARAGORA_ENV:-development}
+      - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-development}
       - ARAGORA_CANONICAL_STORE_PERSIST=1
       - ARAGORA_DATA_DIR=/app/data
       - ARAGORA_STORE_DIR=/app/data/.aragora_beads

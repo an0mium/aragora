@@ -6,8 +6,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
 
-pytest.importorskip("weaviate")
-
 from aragora.documents.indexing.weaviate_store import (
     WeaviateStore,
     WeaviateConfig,
@@ -118,8 +116,6 @@ class TestWeaviateStore:
 
     def test_weaviate_available(self):
         """Test that weaviate library is detected when installed."""
-        if not WEAVIATE_AVAILABLE:
-            pytest.skip("weaviate not installed")
         assert WEAVIATE_AVAILABLE is True
 
 

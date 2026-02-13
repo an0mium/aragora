@@ -20,14 +20,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-try:
-    import aiohttp  # noqa: F401
-
-    _HAS_AIOHTTP = True
-except ImportError:
-    _HAS_AIOHTTP = False
-
-_REQUIRES_AIOHTTP = "aiohttp not installed (pip install aiohttp)"
+import aiohttp  # noqa: F401
 
 
 # =============================================================================
@@ -474,7 +467,6 @@ class TestAddV1HeadersToHandler:
 # =============================================================================
 
 
-@pytest.mark.skipif(not _HAS_AIOHTTP, reason=_REQUIRES_AIOHTTP)
 class TestAiohttpMiddleware:
     """Tests for aiohttp v1_sunset_middleware."""
 
@@ -570,7 +562,6 @@ class TestAiohttpMiddleware:
         assert "Sunset" not in result.headers
 
 
-@pytest.mark.skipif(not _HAS_AIOHTTP, reason=_REQUIRES_AIOHTTP)
 class TestCreateV1SunsetMiddleware:
     """Tests for create_v1_sunset_middleware factory."""
 

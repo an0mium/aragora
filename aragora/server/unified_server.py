@@ -754,7 +754,7 @@ class UnifiedServer:
         )
 
         # Create Canvas WebSocket server
-        self.canvas_stream: CanvasStreamServer | None = None
+        self.canvas_stream: Any | None = None
         try:
             from aragora.server.stream.canvas_stream import CanvasStreamServer
 

@@ -69,11 +69,11 @@ logger = logging.getLogger(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not TELEGRAM_BOT_TOKEN:
-    logger.warning("TELEGRAM_BOT_TOKEN not configured - Telegram bot disabled")
+    logger.debug("TELEGRAM_BOT_TOKEN not configured - Telegram bot disabled")
 if not TELEGRAM_WEBHOOK_SECRET:
-    logger.warning("TELEGRAM_WEBHOOK_SECRET not configured - webhook secret verification disabled")
+    logger.debug("TELEGRAM_WEBHOOK_SECRET not configured - webhook secret verification disabled")
 
 # Compute expected webhook token from bot token (Telegram recommendation)
 TELEGRAM_WEBHOOK_TOKEN = ""

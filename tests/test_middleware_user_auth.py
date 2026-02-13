@@ -679,12 +679,9 @@ class TestJWTWithPyJWT:
     @pytest.fixture
     def jwt_available(self):
         """Ensure jwt module is available for these tests."""
-        try:
-            import jwt
+        import jwt
 
-            return True
-        except ImportError:
-            pytest.skip("PyJWT not installed")
+        return True
 
     def test_validate_jwt_with_pyjwt(self, jwt_available):
         """validate_jwt uses PyJWT when available with secret."""

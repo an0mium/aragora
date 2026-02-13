@@ -1095,16 +1095,6 @@ class TestQdrantVectorStoreImportError:
 # =============================================================================
 
 
-# Check if weaviate-client is available
-try:
-    import weaviate
-
-    WEAVIATE_AVAILABLE = True
-except ImportError:
-    WEAVIATE_AVAILABLE = False
-
-
-@pytest.mark.skipif(not WEAVIATE_AVAILABLE, reason="weaviate-client not installed")
 class TestWeaviateVectorStore:
     """Tests for WeaviateVectorStore with mocked Weaviate client."""
 

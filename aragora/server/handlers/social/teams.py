@@ -87,11 +87,11 @@ TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID")
 TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
 TEAMS_TENANT_ID = os.environ.get("TEAMS_TENANT_ID")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not TEAMS_APP_ID:
-    logger.warning("TEAMS_APP_ID not configured - Teams integration disabled")
+    logger.debug("TEAMS_APP_ID not configured - Teams integration disabled")
 if not TEAMS_APP_PASSWORD:
-    logger.warning("TEAMS_APP_PASSWORD not configured - Teams integration disabled")
+    logger.debug("TEAMS_APP_PASSWORD not configured - Teams integration disabled")
 
 # Command patterns
 COMMAND_PATTERN = re.compile(r"^(?:@\w+\s+)?(\w+)(?:\s+(.*))?$", re.IGNORECASE)

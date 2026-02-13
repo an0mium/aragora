@@ -604,8 +604,6 @@ def _cmd_healthcare_review(args: argparse.Namespace) -> None:
 
     # Human-readable output
     receipt = result["receipt"]
-    debate_result = result.get("debate_result")
-
     print("\n" + "=" * 60)
     print("HEALTHCARE CLINICAL REVIEW")
     print("=" * 60)

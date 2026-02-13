@@ -382,46 +382,38 @@ class TestRedisOAuthStateStore:
 
     def test_generate_with_mock_redis(self, mock_redis):
         """Test state generation with mocked Redis."""
-        # Import redis module to patch
-        try:
-            import redis as redis_module
+        import redis as redis_module
 
-            with patch.object(redis_module, "from_url", return_value=mock_redis):
-                store = RedisOAuthStateStore(redis_url="redis://localhost:6379")
-                state = store.generate(user_id="user123")
+        with patch.object(redis_module, "from_url", return_value=mock_redis):
+            store = RedisOAuthStateStore(redis_url="redis://localhost:6379")
+            state = store.generate(user_id="user123")
 
-                assert state is not None
-                mock_redis.setex.assert_called_once()
-        except ImportError:
-            pytest.skip("redis package not installed")
+            assert state is not None
+            mock_redis.setex.assert_called_once()
 
     def test_validate_with_mock_redis(self, mock_redis):
         """Test state validation with mocked Redis."""
         import json
+        import redis as redis_module
 
-        try:
-            import redis as redis_module
+        # Mock pipeline for atomic get-delete
+        mock_pipe = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
 
-            # Mock pipeline for atomic get-delete
-            mock_pipe = MagicMock()
-            mock_redis.pipeline.return_value = mock_pipe
+        state_data = {
+            "user_id": "user123",
+            "redirect_url": "http://localhost",
+            "expires_at": time.time() + 600,
+            "created_at": time.time(),
+        }
+        mock_pipe.execute.return_value = [json.dumps(state_data), 1]
 
-            state_data = {
-                "user_id": "user123",
-                "redirect_url": "http://localhost",
-                "expires_at": time.time() + 600,
-                "created_at": time.time(),
-            }
-            mock_pipe.execute.return_value = [json.dumps(state_data), 1]
+        with patch.object(redis_module, "from_url", return_value=mock_redis):
+            store = RedisOAuthStateStore(redis_url="redis://localhost:6379")
+            result = store.validate_and_consume("test_state")
 
-            with patch.object(redis_module, "from_url", return_value=mock_redis):
-                store = RedisOAuthStateStore(redis_url="redis://localhost:6379")
-                result = store.validate_and_consume("test_state")
-
-                assert result is not None
-                assert result.user_id == "user123"
-        except ImportError:
-            pytest.skip("redis package not installed")
+            assert result is not None
+            assert result.user_id == "user123"
 
 
 class TestConvenienceFunctions:

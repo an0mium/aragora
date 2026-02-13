@@ -90,8 +90,8 @@ def _print_banner(topic: str, agents: list[str]) -> None:
     print()
     print(f"  Topic:  {topic}")
     print(f"  Agents: {', '.join(agents)}")
-    print(f"  Rounds: 2")
-    print(f"  Mode:   Offline (mock agents, no API keys needed)")
+    print("  Rounds: 2")
+    print("  Mode:   Offline (mock agents, no API keys needed)")
     print()
     print("-" * 64)
 
@@ -364,7 +364,7 @@ def main(args: argparse.Namespace) -> None:
         for name, info in DEMO_TASKS.items():
             marker = " (default)" if name == _DEFAULT_DEMO else ""
             print(f"  {name:<16} {info['description']}{marker}")
-        print(f"\nRun with: aragora demo <name>")
+        print("\nRun with: aragora demo <name>")
         return
 
     # --server flag

@@ -497,9 +497,6 @@ class TestZ3Backend:
     @pytest.mark.asyncio
     async def test_prove_simple_unsat(self, backend):
         """Should prove simple unsatisfiable formula."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         # x > 0 AND x < 0 is unsatisfiable
         smtlib = """
         (declare-const x Int)
@@ -517,9 +514,6 @@ class TestZ3Backend:
     @pytest.mark.asyncio
     async def test_prove_returns_result(self, backend):
         """Should return FormalProofResult."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         smtlib = """
         (declare-const x Int)
         (assert (not (= (+ x 0) x)))
@@ -536,9 +530,6 @@ class TestZ3Backend:
     @pytest.mark.asyncio
     async def test_prove_invalid_smtlib(self, backend):
         """Should handle invalid SMT-LIB2 syntax."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         result = await backend.prove("invalid syntax (((")
 
         assert result.status == FormalProofStatus.TRANSLATION_FAILED

@@ -51,11 +51,11 @@ WHATSAPP_ACCESS_TOKEN = os.environ.get("WHATSAPP_ACCESS_TOKEN")
 WHATSAPP_PHONE_NUMBER_ID = os.environ.get("WHATSAPP_PHONE_NUMBER_ID")
 WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not WHATSAPP_VERIFY_TOKEN:
-    logger.warning("WHATSAPP_VERIFY_TOKEN not configured - webhook verification disabled")
+    logger.debug("WHATSAPP_VERIFY_TOKEN not configured - webhook verification disabled")
 if not WHATSAPP_APP_SECRET:
-    logger.warning("WHATSAPP_APP_SECRET not configured - signature verification disabled")
+    logger.debug("WHATSAPP_APP_SECRET not configured - signature verification disabled")
 
 # WhatsApp Cloud API
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"

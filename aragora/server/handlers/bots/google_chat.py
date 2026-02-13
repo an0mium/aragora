@@ -70,9 +70,9 @@ logger = logging.getLogger(__name__)
 GOOGLE_CHAT_CREDENTIALS = os.environ.get("GOOGLE_CHAT_CREDENTIALS")
 GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not GOOGLE_CHAT_CREDENTIALS:
-    logger.warning("GOOGLE_CHAT_CREDENTIALS not configured - Google Chat bot disabled")
+    logger.debug("GOOGLE_CHAT_CREDENTIALS not configured - Google Chat bot disabled")
 
 
 def _verify_google_chat_token(auth_header: str) -> bool:

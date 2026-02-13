@@ -79,11 +79,11 @@ TOPIC_PATTERN = re.compile(r'^["\']?([^"\']+)["\']?$')
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not SLACK_SIGNING_SECRET:
-    logger.warning("SLACK_SIGNING_SECRET not configured - signature verification disabled")
+    logger.debug("SLACK_SIGNING_SECRET not configured - signature verification disabled")
 if not SLACK_BOT_TOKEN:
-    logger.warning("SLACK_BOT_TOKEN not configured - Slack bot responses disabled")
+    logger.debug("SLACK_BOT_TOKEN not configured - Slack bot responses disabled")
 
 # Agent display name mapping
 AGENT_DISPLAY_NAMES: dict[str, str] = {

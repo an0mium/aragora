@@ -12,7 +12,10 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.pipeline.decision_plan.core import DecisionPlan
 
 from aragora.server.handlers.base import (
     BaseHandler,

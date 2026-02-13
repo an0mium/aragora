@@ -157,9 +157,6 @@ class TestPostgreSQLBackend:
         from aragora.storage.backends import PostgreSQLBackend, POSTGRESQL_AVAILABLE
         from unittest.mock import MagicMock, patch
 
-        if not POSTGRESQL_AVAILABLE:
-            pytest.skip("psycopg2 not installed")
-
         # Create mock pool
         with patch("aragora.storage.backends.pg_pool") as mock_pool:
             mock_pool.ThreadedConnectionPool.return_value = MagicMock()

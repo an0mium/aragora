@@ -456,7 +456,6 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         print(json.dumps(output, indent=2))
     else:
         # Human-readable output
-        verdict = result.verdict.value
         if result.is_dangerous:
             verdict_display = f"DANGEROUS ({result.risk_score}/100)"
         elif result.risk_score > 0:

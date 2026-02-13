@@ -157,11 +157,6 @@ class TestProofSandboxExecution:
     @pytest.mark.asyncio
     async def test_execute_z3_code(self):
         """Should execute Z3 SMT code."""
-        import shutil
-
-        if not shutil.which("z3"):
-            pytest.skip("Z3 not installed")
-
         with ProofSandbox(timeout=10.0) as sandbox:
             # Simple Z3 SMT-LIB2 code that should succeed
             z3_code = "(check-sat)"

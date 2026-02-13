@@ -580,7 +580,6 @@ __all__ = [
     "handle_get_sso_config",
     "get_sso_handlers",
     # Internal but exported for testing
-    "_get_sso_state_store",
     "_sso_providers",
     "_sso_providers_lock",
     "AUTH_SESSION_TTL",

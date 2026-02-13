@@ -219,7 +219,6 @@ class TestUtilityFunctions:
 # =============================================================================
 
 
-@pytest.mark.skipif(not LANGCHAIN_AVAILABLE, reason="LangChain not installed")
 class TestLangChainIntegration:
     """Integration tests that require LangChain."""
 

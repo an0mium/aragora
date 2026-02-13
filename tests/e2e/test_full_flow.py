@@ -32,10 +32,6 @@ from tests.e2e.harness import (
     create_mock_agent,
 )
 
-# Skip all tests if control plane dependencies are missing
-pytest.importorskip("redis", reason="redis package required for control plane tests")
-
-
 # ============================================================================
 # Basic Harness Tests
 # ============================================================================

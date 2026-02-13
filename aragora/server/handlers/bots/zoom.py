@@ -48,9 +48,9 @@ ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
 ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID")
 ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN")
 
-# Log warnings at module load time for missing secrets
+# Log at debug level for unconfigured optional integrations
 if not ZOOM_SECRET_TOKEN:
-    logger.warning("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
+    logger.debug("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
 
 
 class ZoomHandler(BotHandlerMixin, SecureHandler):

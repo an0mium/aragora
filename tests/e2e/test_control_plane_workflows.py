@@ -21,9 +21,6 @@ import uuid
 
 import pytest
 
-# Skip all tests if redis is not installed (required by scheduler)
-pytest.importorskip("redis", reason="redis required for control plane tests")
-
 from aragora.control_plane import (
     ControlPlaneCoordinator,
     AgentRegistry,

@@ -614,17 +614,14 @@ class TestNLIContradictionDetection:
     @pytest.fixture
     def nli_backend(self):
         """Create a SentenceTransformerBackend with NLI enabled."""
-        try:
-            from aragora.debate.similarity.backends import SentenceTransformerBackend
+        from aragora.debate.similarity.backends import SentenceTransformerBackend
 
-            # Clear ALL class-level caches including model caches
-            # This ensures we get fresh real models, not cached mocks
-            SentenceTransformerBackend.clear_cache()
-            SentenceTransformerBackend._nli_model_cache = None
-            SentenceTransformerBackend._nli_model_name_cache = None
-            return SentenceTransformerBackend(use_nli=True)
-        except ImportError:
-            pytest.skip("sentence-transformers not installed")
+        # Clear ALL class-level caches including model caches
+        # This ensures we get fresh real models, not cached mocks
+        SentenceTransformerBackend.clear_cache()
+        SentenceTransformerBackend._nli_model_cache = None
+        SentenceTransformerBackend._nli_model_name_cache = None
+        return SentenceTransformerBackend(use_nli=True)
 
     @pytest.mark.slow
     def test_nli_detects_accept_reject(self, nli_backend):
@@ -663,15 +660,12 @@ class TestNLIContradictionDetection:
 
     def test_nli_fallback_when_disabled(self):
         """Should fall back to pattern matching when NLI is disabled."""
-        try:
-            from aragora.debate.similarity.backends import SentenceTransformerBackend
+        from aragora.debate.similarity.backends import SentenceTransformerBackend
 
-            backend = SentenceTransformerBackend(use_nli=False)
+        backend = SentenceTransformerBackend(use_nli=False)
 
-            # Should still work with pattern matching
-            assert backend.is_contradictory("Accept this", "Reject this")
-        except ImportError:
-            pytest.skip("sentence-transformers not installed")
+        # Should still work with pattern matching
+        assert backend.is_contradictory("Accept this", "Reject this")
 
 
 class TestVotingEngineCounting:

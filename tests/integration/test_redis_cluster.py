@@ -209,11 +209,6 @@ class TestRedisClusterOperations:
 
     def test_cluster_get_set_operations(self):
         """Test basic get/set operations through cluster client."""
-        try:
-            import redis
-        except ImportError:
-            pytest.skip("redis package not installed")
-
         from aragora.server.redis_cluster import RedisClusterClient, ClusterConfig
 
         with patch("redis.from_url") as mock_from_url:

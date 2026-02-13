@@ -20,10 +20,6 @@ from aragora.verification.formal import (
     FormalLanguage,
 )
 
-# Import centralized skip markers
-from tests.conftest import requires_z3, REQUIRES_Z3
-
-
 # ============================================================================
 # Z3Backend Tests
 # ============================================================================
@@ -115,7 +111,6 @@ class TestZ3BackendTranslate:
         """Create a Z3Backend instance."""
         return Z3Backend()
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_already_smtlib2(self, backend):
         """Already valid SMT-LIB2 should be returned as-is."""
@@ -123,7 +118,6 @@ class TestZ3BackendTranslate:
         result = await backend.translate(smtlib)
         assert result == smtlib
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_invalid_smtlib2(self, backend):
         """Invalid SMT-LIB2 should return None."""
@@ -132,7 +126,6 @@ class TestZ3BackendTranslate:
         result = await backend.translate(invalid)
         assert result is None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_simple_transitivity(self, backend):
         """Should translate simple transitivity claims."""
@@ -142,14 +135,12 @@ class TestZ3BackendTranslate:
         # Just verify it doesn't crash
         assert result is None or isinstance(result, str)
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_empty_string(self, backend):
         """Empty string should return None."""
         result = await backend.translate("")
         assert result is None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_with_llm_translator(self, backend):
         """Should use LLM translator when available."""
@@ -161,7 +152,6 @@ class TestZ3BackendTranslate:
         result = await backend_with_llm.translate("x is positive")
         assert result is not None
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_with_llm_returns_markdown(self, backend):
         """Should extract SMT-LIB2 from markdown code blocks."""
@@ -178,7 +168,6 @@ class TestZ3BackendTranslate:
         assert result is not None
         assert "```" not in result
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_with_llm_failure(self, backend):
         """Should handle LLM translator failures gracefully."""
@@ -208,7 +197,6 @@ class TestZ3BackendProve:
             assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
             assert result.language == FormalLanguage.Z3_SMT
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_valid_unsat(self, backend):
         """Should return PROOF_FOUND for valid unsat result."""
@@ -222,7 +210,6 @@ class TestZ3BackendProve:
         assert result.status == FormalProofStatus.PROOF_FOUND
         assert result.is_verified is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_valid_sat(self, backend):
         """Should return PROOF_FAILED for sat result (counterexample exists)."""
@@ -236,7 +223,6 @@ class TestZ3BackendProve:
         assert result.status == FormalProofStatus.PROOF_FAILED
         assert result.is_verified is False
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_empty_statement(self, backend):
         """Should handle empty statement gracefully."""
@@ -246,14 +232,12 @@ class TestZ3BackendProve:
             FormalProofStatus.PROOF_FAILED,
         )
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_invalid_syntax(self, backend):
         """Should handle invalid SMT-LIB2 syntax."""
         result = await backend.prove("this is not valid SMT-LIB2")
         assert result.status == FormalProofStatus.TRANSLATION_FAILED
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_timeout(self, backend):
         """Should timeout on complex problems."""
@@ -292,13 +276,11 @@ class TestZ3BackendHelpers:
         valid = "   (declare-const x Int)   "
         assert backend._is_smtlib2(valid) is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_valid(self, backend):
         """Should validate correct SMT-LIB2."""
         valid = "(declare-const x Int)\n(assert (> x 0))\n(check-sat)"
         assert backend._validate_smtlib2(valid) is True
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_invalid(self, backend):
         """Should reject invalid SMT-LIB2."""
         invalid = "(declare-const x UnknownType)"
@@ -490,7 +472,6 @@ class TestFormalVerificationEdgeCases:
     def z3_backend(self):
         return Z3Backend()
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_very_long_claim(self, z3_backend):
         """Should handle very long claims without crashing."""
@@ -498,7 +479,6 @@ class TestFormalVerificationEdgeCases:
         result = z3_backend.can_verify(long_claim)
         assert isinstance(result, bool)
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_null_bytes_in_claim(self, z3_backend):
         """Should handle null bytes in claims."""
@@ -506,7 +486,6 @@ class TestFormalVerificationEdgeCases:
         result = z3_backend.can_verify(claim_with_null)
         assert isinstance(result, bool)
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_unicode_in_smtlib2(self, z3_backend):
         """Should handle unicode in SMT-LIB2 gracefully."""
@@ -515,7 +494,6 @@ class TestFormalVerificationEdgeCases:
         result = await z3_backend.translate(smtlib)
         # May return None if invalid, just shouldn't crash
 
-    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_concurrent_prove_calls(self, z3_backend):
         """Should handle concurrent prove calls safely."""
@@ -534,7 +512,6 @@ class TestFormalVerificationEdgeCases:
 # ============================================================================
 
 
-@pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
 class TestZ3BackendCache:
     """Tests for Z3Backend proof caching."""
 

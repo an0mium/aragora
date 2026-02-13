@@ -505,11 +505,11 @@ def cmd_rotate_token(args: argparse.Namespace) -> int:
         )
 
         if result.success:
-            print(f"\n✓ Token rotation completed successfully")
+            print("\n✓ Token rotation completed successfully")
             print(f"  Stores updated: {', '.join(result.stores_updated)}")
             print(f"  Rotated at: {result.rotated_at.isoformat()}")
         else:
-            print(f"\n⚠️  Token rotation completed with errors")
+            print("\n⚠️  Token rotation completed with errors")
             if result.stores_updated:
                 print(f"  Stores updated: {', '.join(result.stores_updated)}")
             for store, error in result.errors.items():

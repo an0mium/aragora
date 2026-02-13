@@ -134,9 +134,6 @@ class TestOIDCAuthorizationFlow:
         from aragora.auth.oidc import OIDCProvider, OIDCConfig, HAS_JWT
         from aragora.auth.sso import SSOProviderType
 
-        if not HAS_JWT:
-            pytest.skip("PyJWT not installed")
-
         # Provide explicit jwks_uri to avoid OIDC discovery
         config = OIDCConfig(
             provider_type=SSOProviderType.OIDC,
