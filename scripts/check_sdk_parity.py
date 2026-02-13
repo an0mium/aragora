@@ -7,7 +7,8 @@ routes lack corresponding SDK bindings.
 
 Usage:
     python scripts/check_sdk_parity.py             # Report only
-    python scripts/check_sdk_parity.py --strict     # Exit 1 if gaps found
+    python scripts/check_sdk_parity.py --strict    # Exit 1 if gaps found
+    python scripts/check_sdk_parity.py --strict --allow-missing  # transitional override
     python scripts/check_sdk_parity.py --json       # JSON output
 """
 
@@ -340,6 +341,11 @@ def print_report(report: dict[str, Any]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check SDK parity with handler endpoints")
     parser.add_argument("--strict", action="store_true", help="Exit 1 if any gaps found")
+    parser.add_argument(
+        "--allow-missing",
+        action="store_true",
+        help="When used with --strict, allow routes missing from both SDKs (transitional override)",
+    )
     parser.add_argument("--json", action="store_true", help="Output JSON report")
     parser.add_argument(
         "--threshold",
@@ -370,10 +376,10 @@ def main() -> int:
             print(f"\nFAIL: Coverage below threshold ({args.threshold}%)")
             return 1
         missing = report["summary"]["routes_missing_from_both_sdks"]
-        if missing > 0 and args.threshold == 0:
-            # In default strict mode, just warn but don't fail
-            # since many internal routes may not need SDK coverage
-            pass
+        if missing > 0 and not args.allow_missing:
+            print(f"\nFAIL: {missing} routes lack SDK coverage.")
+            print("Run with --allow-missing only as a temporary migration override.")
+            return 1
 
     return 0
 
