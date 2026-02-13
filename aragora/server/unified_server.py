@@ -338,6 +338,57 @@ class UnifiedHandler(  # type: ignore[misc]
             )
             return
 
+        # Temporary auth diagnostic endpoint (no secrets exposed)
+        if path == "/api/auth/debug":
+            import hashlib as _h
+            diag: dict[str, Any] = {}
+            try:
+                from aragora.billing.auth.config import _get_jwt_secret, MIN_SECRET_LENGTH
+                secret = _get_jwt_secret()
+                diag["jwt_secret_set"] = bool(secret)
+                diag["jwt_secret_length"] = len(secret) if secret else 0
+                diag["jwt_secret_fingerprint"] = _h.sha256(secret.encode()).hexdigest()[:8] if secret else None
+                diag["jwt_secret_strong"] = len(secret) >= MIN_SECRET_LENGTH if secret else False
+            except Exception as e:
+                diag["jwt_secret_error"] = str(e)
+            try:
+                from aragora.server.handlers.oauth.config import (
+                    _get_google_client_id, _get_oauth_success_url, _get_allowed_redirect_hosts,
+                    _is_production, _get_google_redirect_uri,
+                )
+                diag["google_client_id_set"] = bool(_get_google_client_id())
+                diag["oauth_success_url"] = _get_oauth_success_url()
+                diag["google_redirect_uri"] = _get_google_redirect_uri()
+                diag["allowed_redirect_hosts"] = sorted(_get_allowed_redirect_hosts())
+                diag["is_production"] = _is_production()
+            except Exception as e:
+                diag["oauth_config_error"] = str(e)
+            # Check auth header from request
+            auth_header = self.headers.get("Authorization", "")
+            diag["auth_header_present"] = bool(auth_header)
+            diag["auth_header_type"] = auth_header.split(" ")[0] if auth_header else None
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+                diag["token_length"] = len(token)
+                diag["token_fingerprint"] = _h.sha256(token.encode()).hexdigest()[:8]
+                try:
+                    from aragora.billing.auth.tokens import decode_jwt
+                    payload = decode_jwt(token)
+                    if payload:
+                        diag["jwt_valid"] = True
+                        diag["jwt_user_id"] = payload.user_id
+                        diag["jwt_email"] = payload.email
+                        diag["jwt_exp"] = payload.exp
+                    else:
+                        diag["jwt_valid"] = False
+                except Exception as e:
+                    diag["jwt_decode_error"] = str(e)
+            import os
+            diag["aragora_env"] = os.environ.get("ARAGORA_ENV", "(not set)")
+            diag["aragora_environment"] = os.environ.get("ARAGORA_ENVIRONMENT", "(not set)")
+            self._send_json(diag)
+            return
+
         # Health check endpoints (non-API paths routed to HealthHandler)
         # These are required by Kubernetes probes and load balancers
         if path in ("/healthz", "/readyz", "/health", "/ready", "/metrics", "/health/threads"):

@@ -110,6 +110,8 @@ class AuthChecksMixin:
             # Playground - public demo endpoints (rate-limited, mock agents only)
             "/api/v1/playground/debate",
             "/api/v1/playground/status",
+            # Temporary auth diagnostic
+            "/api/auth/debug",
         ]
     )
 
