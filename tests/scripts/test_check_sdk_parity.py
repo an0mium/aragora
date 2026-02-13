@@ -9,13 +9,14 @@ import scripts.check_sdk_parity as check_sdk_parity
 
 
 def _patch_report(monkeypatch, *, missing: int, py_cov: float = 100.0, ts_cov: float = 100.0) -> None:
+    missing_routes = [f"/api/{chr(ord('a') + i)}" for i in range(missing)]
     report: dict[str, Any] = {
         "summary": {
             "python_sdk_coverage_pct": py_cov,
             "typescript_sdk_coverage_pct": ts_cov,
             "routes_missing_from_both_sdks": missing,
         },
-        "gaps": {},
+        "gaps": {"missing_from_both_sdks": missing_routes},
         "handler_coverage": [],
     }
     monkeypatch.setattr(check_sdk_parity, "extract_handler_routes", lambda: {})
@@ -43,3 +44,18 @@ def test_strict_threshold_still_enforced(monkeypatch):
         sys, "argv", ["check_sdk_parity.py", "--strict", "--threshold", "90"]
     )
     assert check_sdk_parity.main() == 1
+
+
+def test_strict_passes_when_missing_routes_are_in_baseline(monkeypatch, tmp_path):
+    _patch_report(monkeypatch, missing=2)
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(
+        '{"missing_from_both_sdks": ["/api/a", "/api/b"]}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["check_sdk_parity.py", "--strict", "--baseline", str(baseline)],
+    )
+    assert check_sdk_parity.main() == 0

@@ -12,6 +12,9 @@ on:
       - 'docs/api/openapi*.json'
       - 'docs/api/openapi*.yaml'
       - 'scripts/verify_sdk_contracts.py'
+      - 'scripts/validate_openapi_routes.py'
+      - 'scripts/baselines/verify_sdk_contracts.json'
+      - 'scripts/baselines/validate_openapi_routes.json'
       - 'sdk/python/aragora/namespaces/**'
       - 'sdk/typescript/src/namespaces/**'
   pull_request:
@@ -23,6 +26,9 @@ on:
       - 'scripts/export_openapi.py'
       - 'scripts/generate_openapi.py'
       - 'scripts/verify_sdk_contracts.py'
+      - 'scripts/validate_openapi_routes.py'
+      - 'scripts/baselines/verify_sdk_contracts.json'
+      - 'scripts/baselines/validate_openapi_routes.json'
       - 'sdk/python/aragora/namespaces/**'
       - 'sdk/typescript/src/namespaces/**'
   workflow_dispatch:
@@ -123,20 +129,20 @@ jobs:
 
       - name: Validate handler route coverage
         run: |
-          python scripts/validate_openapi_routes.py --spec docs/api/openapi_generated.json --json | tee /tmp/route-coverage.json
-          # Extract coverage percentage and enforce minimum
+          python scripts/validate_openapi_routes.py \
+            --spec docs/api/openapi.json \
+            --fail-on-missing \
+            --baseline scripts/baselines/validate_openapi_routes.json \
+            --json | tee /tmp/route-coverage.json
+          # Extract coverage and regression stats
           COVERAGE=$(python -c "import json; print(json.load(open('/tmp/route-coverage.json'))['coverage_percentage'])")
           MISSING=$(python -c "import json; print(json.load(open('/tmp/route-coverage.json'))['missing_in_spec_count'])")
+          NEW_MISSING=$(python -c "import json; print(json.load(open('/tmp/route-coverage.json'))['new_missing_in_spec_count'])")
+          NEW_ORPHANED=$(python -c "import json; print(json.load(open('/tmp/route-coverage.json'))['new_orphaned_in_spec_count'])")
           echo "Handler route coverage: ${COVERAGE}%"
           echo "Routes missing from spec: ${MISSING}"
-
-          # BLOCKING: Fail if coverage drops below 30% (drift prevention gate)
-          if [ "$(echo "$COVERAGE < 30" | bc)" -eq 1 ]; then
-            echo "::error::Handler route coverage (${COVERAGE}%) below minimum threshold (30%). Update OpenAPI spec to document new routes."
-            exit 1
-          elif [ "$(echo "$COVERAGE < 50" | bc)" -eq 1 ]; then
-            echo "::warning::Low handler route coverage (${COVERAGE}%). Many handler routes may not be documented in OpenAPI spec."
-          fi
+          echo "New missing vs baseline: ${NEW_MISSING}"
+          echo "New orphaned vs baseline: ${NEW_ORPHANED}"
 
       - name: Check for missing operationIds (warning only)
         run: |
@@ -151,7 +157,9 @@ jobs:
 
       - name: Verify SDK contracts against spec
         run: |
-          python scripts/verify_sdk_contracts.py
+          python scripts/verify_sdk_contracts.py \
+            --strict \
+            --baseline scripts/baselines/verify_sdk_contracts.json
           echo "SDK contract verification passed"
 
       - name: Run contract matrix tests

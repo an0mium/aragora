@@ -7,6 +7,7 @@ on:
       - 'aragora/server/handlers/**'
       - 'sdk/**'
       - 'scripts/check_sdk_parity.py'
+      - 'scripts/baselines/check_sdk_parity.json'
       - 'scripts/check_version_alignment.py'
       - 'pyproject.toml'
       - 'sdk/python/pyproject.toml'
@@ -19,6 +20,7 @@ on:
       - 'aragora/server/handlers/**'
       - 'sdk/**'
       - 'scripts/check_sdk_parity.py'
+      - 'scripts/baselines/check_sdk_parity.json'
       - 'scripts/check_version_alignment.py'
       - 'pyproject.toml'
       - 'sdk/python/pyproject.toml'
@@ -55,8 +57,8 @@ jobs:
 
       - name: Check SDK Parity
         run: |
-          # Run parity check and display summary
-          python scripts/check_sdk_parity.py
+          # Blocking gate: fail on any drift regression beyond tracked baseline
+          python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json
 
       - name: Generate JSON Report
         if: always()

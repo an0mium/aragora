@@ -9,6 +9,7 @@ Usage:
     python scripts/check_sdk_parity.py             # Report only
     python scripts/check_sdk_parity.py --strict    # Exit 1 if gaps found
     python scripts/check_sdk_parity.py --strict --allow-missing  # transitional override
+    python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json
     python scripts/check_sdk_parity.py --json       # JSON output
 """
 
@@ -346,6 +347,12 @@ def main() -> int:
         action="store_true",
         help="When used with --strict, allow routes missing from both SDKs (transitional override)",
     )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=Path("scripts/baselines/check_sdk_parity.json"),
+        help="Path to parity drift baseline file (default: scripts/baselines/check_sdk_parity.json)",
+    )
     parser.add_argument("--json", action="store_true", help="Output JSON report")
     parser.add_argument(
         "--threshold",
@@ -368,6 +375,19 @@ def main() -> int:
     else:
         print_report(report)
 
+    baseline_missing: set[str] = set()
+    if args.baseline and args.baseline.exists():
+        baseline_data = json.loads(args.baseline.read_text())
+        baseline_missing = set(baseline_data.get("missing_from_both_sdks", []))
+    missing_set = set(report["gaps"]["missing_from_both_sdks"])
+    new_missing = missing_set - baseline_missing
+    if args.baseline and not args.json:
+        print(f"\nBaseline regressions: missing_from_both={len(new_missing)}")
+        for route in sorted(new_missing)[:20]:
+            print(f"  NEW: {route}")
+        if len(new_missing) > 20:
+            print(f"  ... and {len(new_missing) - 20} more")
+
     # Strict mode: fail if gaps exceed threshold
     if args.strict:
         py_cov = report["summary"]["python_sdk_coverage_pct"]
@@ -376,8 +396,11 @@ def main() -> int:
             print(f"\nFAIL: Coverage below threshold ({args.threshold}%)")
             return 1
         missing = report["summary"]["routes_missing_from_both_sdks"]
-        if missing > 0 and not args.allow_missing:
-            print(f"\nFAIL: {missing} routes lack SDK coverage.")
+        if len(new_missing) > 0 and not args.allow_missing:
+            print(
+                f"\nFAIL: {len(new_missing)} new routes lack SDK coverage "
+                f"(total missing: {missing})."
+            )
             print("Run with --allow-missing only as a temporary migration override.")
             return 1
 

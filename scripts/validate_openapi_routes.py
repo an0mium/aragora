@@ -10,6 +10,7 @@ Usage:
     python scripts/validate_openapi_routes.py
     python scripts/validate_openapi_routes.py --spec docs/api/openapi.json
     python scripts/validate_openapi_routes.py --fail-on-missing  # Exit 1 if routes missing
+    python scripts/validate_openapi_routes.py --fail-on-missing --baseline scripts/baselines/validate_openapi_routes.json
     python scripts/validate_openapi_routes.py --json  # Output as JSON
 """
 
@@ -125,6 +126,7 @@ def validate_coverage(
     spec_path: str,
     fail_on_missing: bool = False,
     output_json: bool = False,
+    baseline_path: str | None = None,
 ) -> dict[str, Any]:
     """Compare handler routes against OpenAPI spec.
 
@@ -171,13 +173,29 @@ def validate_coverage(
     # Routes that are truly orphaned in OpenAPI
     orphaned_in_spec = missing_handlers - known_dynamic_patterns
 
+    baseline_missing: set[str] = set()
+    baseline_orphaned: set[str] = set()
+    if baseline_path:
+        baseline_file = Path(baseline_path)
+        if baseline_file.exists():
+            baseline_data = json.loads(baseline_file.read_text())
+            baseline_missing = set(baseline_data.get("missing_in_spec", []))
+            baseline_orphaned = set(baseline_data.get("orphaned_in_spec", []))
+
+    new_missing_in_spec = sorted(set(missing_in_spec) - baseline_missing)
+    new_orphaned_in_spec = sorted(set(orphaned_in_spec) - baseline_orphaned)
+
     results = {
         "handler_routes_count": len(handler_routes),
         "openapi_routes_count": len(openapi_routes),
         "missing_in_spec": sorted(missing_in_spec),
         "missing_in_spec_count": len(missing_in_spec),
+        "new_missing_in_spec": new_missing_in_spec,
+        "new_missing_in_spec_count": len(new_missing_in_spec),
         "orphaned_in_spec": sorted(orphaned_in_spec),
         "orphaned_in_spec_count": len(orphaned_in_spec),
+        "new_orphaned_in_spec": new_orphaned_in_spec,
+        "new_orphaned_in_spec_count": len(new_orphaned_in_spec),
         "dynamic_routes_skipped": len(known_dynamic_patterns),
         "coverage_percentage": round(
             (1 - len(missing_in_spec) / max(len(handler_routes), 1)) * 100, 1
@@ -194,6 +212,14 @@ def validate_coverage(
         print(f"OpenAPI routes:  {results['openapi_routes_count']}")
         print(f"Coverage:        {results['coverage_percentage']}%")
         print()
+        if baseline_path:
+            print(
+                f"New missing in spec vs baseline: {results['new_missing_in_spec_count']}"
+            )
+            print(
+                f"New orphaned in spec vs baseline: {results['new_orphaned_in_spec_count']}"
+            )
+            print()
 
         if missing_in_spec:
             print(f"Routes missing from OpenAPI spec ({len(missing_in_spec)}):")
@@ -214,8 +240,12 @@ def validate_coverage(
         if not missing_in_spec and not orphaned_in_spec:
             print("All routes properly documented!")
 
-    if fail_on_missing and missing_in_spec:
-        sys.exit(1)
+    if fail_on_missing:
+        if baseline_path:
+            if new_missing_in_spec or new_orphaned_in_spec:
+                sys.exit(1)
+        elif missing_in_spec:
+            sys.exit(1)
 
     return results
 
@@ -239,9 +269,14 @@ def main():
         action="store_true",
         help="Output results as JSON",
     )
+    parser.add_argument(
+        "--baseline",
+        default="scripts/baselines/validate_openapi_routes.json",
+        help="Path to baseline drift file (default: scripts/baselines/validate_openapi_routes.json)",
+    )
 
     args = parser.parse_args()
-    validate_coverage(args.spec, args.fail_on_missing, args.json)
+    validate_coverage(args.spec, args.fail_on_missing, args.json, args.baseline)
 
 
 if __name__ == "__main__":
