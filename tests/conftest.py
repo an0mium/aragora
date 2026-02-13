@@ -1719,6 +1719,16 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset distributed rate limiter singleton to prevent cross-test pollution.
+    # The distributed limiter has its own internal memory backend that accumulates
+    # state independently of the _limiters registry cleared above.
+    try:
+        from aragora.server.middleware.rate_limit.distributed import reset_distributed_limiter
+
+        reset_distributed_limiter()
+    except (ImportError, AttributeError):
+        pass
+
     # Clear module-level rate limiters (not in registry)
     try:
         import aragora.server.handlers.analytics as analytics
@@ -1861,6 +1871,14 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset unified audit logger singleton
+    try:
+        import aragora.audit.unified as _unified_audit
+
+        _unified_audit._unified_logger = None
+    except (ImportError, AttributeError):
+        pass
+
     # Reset event dispatcher singletons
     try:
         import aragora.events.dispatcher as _evt
@@ -1884,7 +1902,9 @@ def reset_lazy_globals():
     - aragora.debate.orchestrator (9 globals)
     - aragora.server.handlers.* (2-4 globals each)
     - aragora.storage.schema.DatabaseManager (singleton cache)
-    - Rate limiters (via clear_all_limiters and module-level cleanup):
+    - Rate limiters (via clear_all_limiters, distributed reset, and module-level cleanup):
+      - _limiters registry (all auth_rate_limit and rate_limit decorators)
+      - DistributedRateLimiter singleton (reset_distributed_limiter)
       - analytics._analytics_limiter
       - external_integrations (_create/_list/_delete/_test_limiter)
       - metrics._metrics_limiter
@@ -1896,6 +1916,7 @@ def reset_lazy_globals():
     - aragora.observability.slo (3 SLO metric globals + _slo_metrics_initialized)
     - aragora.observability.otel (_initialized, _tracer_provider, _tracers)
     - aragora.events.dispatcher (_event_rate_limiter, _dispatcher)
+    - aragora.audit.unified._unified_logger (UnifiedAuditLogger singleton)
     """
     _reset_lazy_globals_impl()  # Reset BEFORE test
     yield

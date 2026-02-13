@@ -334,17 +334,44 @@ def maybe_await(result):
 
 @pytest.fixture(autouse=True)
 def clear_rate_limiters():
-    """Clear rate limiter state before each test."""
+    """Clear rate limiter state before each test.
+
+    Resets both the local _limiters registry (used by auth_rate_limit) and the
+    distributed rate limiter singleton (used by the rate_limit decorator).
+    Without this, rate limiter state leaks across tests and low-RPM endpoints
+    like password change (3 RPM) can hit 429 under randomized ordering.
+    """
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
 
         for limiter in _limiters.values():
             limiter.clear()
-        yield
+    except ImportError:
+        pass
+
+    try:
+        from aragora.server.middleware.rate_limit.distributed import reset_distributed_limiter
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
+
+    yield
+
+    try:
+        from aragora.server.handlers.utils.rate_limit import _limiters
+
         for limiter in _limiters.values():
             limiter.clear()
     except ImportError:
-        yield
+        pass
+
+    try:
+        from aragora.server.middleware.rate_limit.distributed import reset_distributed_limiter
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
 
 
 @pytest.fixture

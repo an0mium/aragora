@@ -2,12 +2,17 @@
 Tests for the memory profiler module.
 
 Tests memory profiling functionality for KM and consensus operations.
+
+gc.get_objects() is mocked module-wide to avoid heap-scanning timeouts
+when prior tests leave many objects alive (observed under randomized
+ordering with seed 54321).
 """
 
 from __future__ import annotations
 
 import gc
 import time
+from unittest.mock import patch
 
 import pytest
 
@@ -26,6 +31,22 @@ from aragora.observability.memory_profiler import (
     profile_memory,
     track_memory,
 )
+
+# Sentinel list returned by the mocked gc.get_objects().
+# len() on a pre-built list is O(1), avoiding the O(n) heap walk.
+_FAKE_GC_OBJECTS: list[object] = [None] * 5000
+
+
+@pytest.fixture(autouse=True)
+def _fast_gc_get_objects():
+    """Replace gc.get_objects with a cheap stub for the entire module.
+
+    The memory profiler only uses ``len(gc.get_objects())`` to record
+    counts; it never inspects individual objects.  Returning a fixed-size
+    list makes every snapshot O(1) instead of O(heap-size).
+    """
+    with patch("gc.get_objects", return_value=_FAKE_GC_OBJECTS):
+        yield
 
 
 class TestMemorySnapshot:
