@@ -261,6 +261,15 @@ def create_app(
             "Request validation running in WARN-ONLY mode (ARAGORA_VALIDATION_BLOCKING=false). "
             "Invalid requests will be logged but not rejected."
         )
+    else:
+        logger.info(
+            "Request validation enabled in BLOCKING mode "
+            "(max_body=%s, max_depth=%s, max_array=%s, max_keys=%s)",
+            validation_limits.max_body_size,
+            validation_limits.max_json_depth,
+            validation_limits.max_array_items,
+            validation_limits.max_object_keys,
+        )
     app.add_middleware(RequestValidationMiddleware, limits=validation_limits)
 
     # Register routes
