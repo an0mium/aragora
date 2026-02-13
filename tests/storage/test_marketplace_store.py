@@ -297,8 +297,8 @@ class TestMarketplaceStoreInit:
     def test_default_db_path(self, monkeypatch, tmp_path):
         """Store uses default path when not specified (ARAGORA_DATA_DIR)."""
         data_dir = tmp_path / "data"
-        # Must patch DATA_DIR directly as it's evaluated at module load time
-        monkeypatch.setattr("aragora.config.legacy.DATA_DIR", data_dir)
+        # resolve_db_path() reads ARAGORA_DATA_DIR dynamically via get_default_data_dir().
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(data_dir))
         store = MarketplaceStore()
         expected_path = data_dir / "marketplace.db"
         assert store.db_path == expected_path

@@ -423,12 +423,11 @@ class TestSlackWorkspaceStoreErrors:
 
         store = SlackWorkspaceStore(db_path=temp_db_path)
 
-        # Replace the thread local connection with a mock
+        # Force store methods to use a failing mock connection.
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = sqlite3.Error("DB error")
-        store._local.connection = mock_conn
-
-        result = store.save(sample_workspace)
+        with patch.object(store, "_get_connection", return_value=mock_conn):
+            result = store.save(sample_workspace)
 
         assert result is False
 
@@ -438,12 +437,11 @@ class TestSlackWorkspaceStoreErrors:
 
         store = SlackWorkspaceStore(db_path=temp_db_path)
 
-        # Replace the thread local connection with a mock
+        # Force store methods to use a failing mock connection.
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = sqlite3.Error("DB error")
-        store._local.connection = mock_conn
-
-        result = store.get("T12345678")
+        with patch.object(store, "_get_connection", return_value=mock_conn):
+            result = store.get("T12345678")
 
         assert result is None
 
@@ -453,12 +451,11 @@ class TestSlackWorkspaceStoreErrors:
 
         store = SlackWorkspaceStore(db_path=temp_db_path)
 
-        # Replace the thread local connection with a mock
+        # Force store methods to use a failing mock connection.
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = sqlite3.Error("DB error")
-        store._local.connection = mock_conn
-
-        result = store.list_active()
+        with patch.object(store, "_get_connection", return_value=mock_conn):
+            result = store.list_active()
 
         assert result == []
 

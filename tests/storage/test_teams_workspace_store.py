@@ -227,6 +227,7 @@ class TestTeamsWorkspaceStoreInit:
         with pytest.raises(ValueError, match="ARAGORA_ENCRYPTION_KEY"):
             TeamsWorkspaceStore(db_path=temp_db_path)
 
+    @patch("aragora.storage.teams_workspace_store.ARAGORA_ENV", "development")
     @patch("aragora.storage.teams_workspace_store.ENCRYPTION_KEY", "")
     def test_warns_in_development_without_encryption_key(self, temp_db_path, caplog):
         """Test initialization warns in development without encryption key."""
