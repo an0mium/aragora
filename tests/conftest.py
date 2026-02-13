@@ -1907,6 +1907,19 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset ELO system singleton and class-level caches to prevent
+    # cross-test contamination via shared mutable state
+    try:
+        import aragora.ranking.elo as _elo_mod
+
+        _elo_mod._elo_store = None
+        _elo_mod.EloSystem._rating_cache.clear()
+        _elo_mod.EloSystem._leaderboard_cache.clear()
+        _elo_mod.EloSystem._stats_cache.clear()
+        _elo_mod.EloSystem._calibration_cache.clear()
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():
@@ -1931,6 +1944,7 @@ def reset_lazy_globals():
       - transcription (_audio/_youtube_limiter)
       - payments (_payment_write/_payment_read/_webhook_limiter)
     - aragora.rbac.checker._permission_checker (PermissionChecker singleton)
+    - aragora.ranking.elo._elo_store (EloSystem singleton + class-level TTL caches)
     - aragora.observability.decision_metrics (11 metric globals + _initialized)
     - aragora.observability.slo (3 SLO metric globals + _slo_metrics_initialized)
     - aragora.observability.otel (_initialized, _tracer_provider, _tracers)

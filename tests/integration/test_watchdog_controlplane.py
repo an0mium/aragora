@@ -36,8 +36,24 @@ def watchdog():
     reset_watchdog()
     wd = ThreeTierWatchdog()
     yield wd
-    # Cleanup
-    asyncio.get_event_loop().run_until_complete(wd.stop())
+    # Cleanup: stop the watchdog, handling the case where no event loop exists
+    # (e.g. after pytest-asyncio tears down its loop in suite runs).
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        # Inside an async context (e.g. pytest-asyncio test) -- schedule stop
+        loop.create_task(wd.stop())
+    else:
+        # No running loop -- create a temporary one for cleanup
+        try:
+            _loop = asyncio.new_event_loop()
+            _loop.run_until_complete(wd.stop())
+            _loop.close()
+        except Exception:
+            pass  # Best-effort cleanup; watchdog was likely never started
 
 
 @pytest.fixture

@@ -271,9 +271,18 @@ class TestEloLifecycleIntegration:
         assert hasattr(result, "winner")
 
     @pytest.mark.asyncio
-    async def test_elo_updated_after_debate(self, lifecycle_agents, temp_db):
+    async def test_elo_updated_after_debate(self, lifecycle_agents, temp_db, monkeypatch):
         """ELO system should be updated after debate completion."""
+        import aragora.ranking.elo as elo_module
         from aragora.ranking.elo import EloSystem
+        from aragora.utils.cache import TTLCache
+
+        # Isolate from shared class-level caches and module singleton
+        monkeypatch.setattr(elo_module, "_elo_store", None)
+        monkeypatch.setattr(EloSystem, "_rating_cache", TTLCache(maxsize=200, ttl_seconds=300))
+        monkeypatch.setattr(EloSystem, "_leaderboard_cache", TTLCache(maxsize=50, ttl_seconds=300))
+        monkeypatch.setattr(EloSystem, "_stats_cache", TTLCache(maxsize=10, ttl_seconds=300))
+        monkeypatch.setattr(EloSystem, "_calibration_cache", TTLCache(maxsize=20, ttl_seconds=300))
 
         elo = EloSystem(temp_db)
         env = Environment(task="ELO lifecycle test", max_rounds=2)
@@ -291,8 +300,13 @@ class TestEloLifecycleIntegration:
     @pytest.mark.asyncio
     async def test_multiple_debate_elo_accumulation(self, tmp_path, monkeypatch):
         """ELO should accumulate across multiple debates."""
+        import aragora.ranking.elo as elo_module
         from aragora.ranking.elo import EloSystem
         from aragora.utils.cache import TTLCache
+
+        # Reset the module-level singleton to prevent any code path from
+        # accidentally using a stale EloSystem from a prior test.
+        monkeypatch.setattr(elo_module, "_elo_store", None)
 
         # Replace class-level caches with fresh instances to fully isolate
         # from any prior test contamination (caches are shared across all
