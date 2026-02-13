@@ -316,7 +316,7 @@ class TestTracedDecorator:
             result = await my_async_func(7)
             assert result == 8
 
-        asyncio.get_event_loop().run_until_complete(_run())
+        asyncio.run(_run())
 
     def test_traced_defaults_to_function_name(self):
         """@traced() uses function name when no operation is given."""

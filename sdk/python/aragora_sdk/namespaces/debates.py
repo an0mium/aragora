@@ -58,18 +58,6 @@ class DebatesAPI:
 
         return self._client.request("POST", "/api/v1/debates", json=data)
 
-    def get(self, debate_id: str) -> dict[str, Any]:
-        """
-        Get a debate by ID.
-
-        Args:
-            debate_id: The debate ID
-
-        Returns:
-            Debate details
-        """
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}")
-
     def list(
         self,
         limit: int = 20,
@@ -156,18 +144,6 @@ class DebatesAPI:
             json={"content": content, "role": role},
         )
 
-    def get_consensus(self, debate_id: str) -> dict[str, Any]:
-        """
-        Get consensus information for a debate.
-
-        Args:
-            debate_id: The debate ID
-
-        Returns:
-            Consensus details
-        """
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/consensus")
-
     def get_export(
         self,
         debate_id: str,
@@ -201,38 +177,6 @@ class DebatesAPI:
         """
         return self._client.request("POST", f"/api/v1/debates/{debate_id}/cancel")
 
-    def get_by_slug(self, slug: str) -> dict[str, Any]:
-        """Get a debate by slug."""
-        return self._client.request("GET", f"/api/v1/debates/slug/{slug}")
-
-    def get_explainability(self, debate_id: str) -> dict[str, Any]:
-        """Get explainability data for a debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/explainability")
-
-    def get_explainability_factors(self, debate_id: str) -> dict[str, Any]:
-        """Get factor decomposition for a debate decision."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/explainability/factors")
-
-    def get_explainability_narrative(self, debate_id: str) -> dict[str, Any]:
-        """Get natural language narrative explanation."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/explainability/narrative")
-
-    def get_explainability_provenance(self, debate_id: str) -> dict[str, Any]:
-        """Get provenance chain for debate claims."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/explainability/provenance")
-
-    def get_explainability_counterfactual(self, debate_id: str) -> dict[str, Any]:
-        """Get counterfactual analysis."""
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/explainability/counterfactual"
-        )
-
-    def create_counterfactual(self, debate_id: str, changes: dict[str, Any]) -> dict[str, Any]:
-        """Create a counterfactual scenario."""
-        return self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/explainability/counterfactual", json=changes
-        )
-
     def get_citations(self, debate_id: str) -> dict[str, Any]:
         """Get citations used in debate."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/citations")
@@ -245,21 +189,9 @@ class DebatesAPI:
         """Get evidence collected during debate."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/evidence")
 
-    def get_graph_stats(self, debate_id: str) -> dict[str, Any]:
-        """Get graph statistics for debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/graph/stats")
-
     def get_impasse(self, debate_id: str) -> dict[str, Any]:
         """Get impasse analysis if debate is stuck."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/impasse")
-
-    def get_meta_critique(self, debate_id: str) -> dict[str, Any]:
-        """Get meta-critique of debate process."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/meta-critique")
-
-    def get_red_team(self, debate_id: str) -> dict[str, Any]:
-        """Get red team analysis."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
 
     def capability_probe(self, task: str, agents: _List[str] | None = None) -> dict[str, Any]:
         """Run a capability probe debate."""
@@ -312,61 +244,6 @@ class DebatesAPI:
             "GET", "/api/v1/history/debates", params={"limit": limit, "offset": offset}
         )
 
-    # ========== Additional CRUD ==========
-
-    def update(self, debate_id: str, updates: dict[str, Any]) -> dict[str, Any]:
-        """Update an existing debate."""
-        return self._client.request("PUT", f"/api/v1/debates/{debate_id}", json=updates)
-
-    def delete(self, debate_id: str) -> dict[str, Any]:
-        """Delete a debate."""
-        return self._client.request("DELETE", f"/api/v1/debates/{debate_id}")
-
-    def clone(
-        self,
-        debate_id: str,
-        preserve_agents: bool = True,
-        preserve_context: bool = False,
-    ) -> dict[str, Any]:
-        """Clone a debate (create a copy with fresh state)."""
-        return self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/clone",
-            json={"preserveAgents": preserve_agents, "preserveContext": preserve_context},
-        )
-
-    def archive(self, debate_id: str) -> dict[str, Any]:
-        """Archive a debate."""
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/archive")
-
-    # ========== Lifecycle ==========
-
-    def start(self, debate_id: str) -> dict[str, Any]:
-        """Start a debate."""
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/start")
-
-    def stop(self, debate_id: str) -> dict[str, Any]:
-        """Stop a running debate."""
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/stop")
-
-    def pause(self, debate_id: str) -> dict[str, Any]:
-        """Pause a running debate."""
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/pause")
-
-    def resume(self, debate_id: str) -> dict[str, Any]:
-        """Resume a paused debate."""
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/resume")
-
-    # ========== Analysis ==========
-
-    def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
-        """Get rhetorical pattern observations for a debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/rhetorical")
-
-    def get_trickster(self, debate_id: str) -> dict[str, Any]:
-        """Get trickster hollow consensus detection status."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/trickster")
-
     def get_summary(self, debate_id: str) -> dict[str, Any]:
         """Get a human-readable summary of the debate."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
@@ -374,18 +251,6 @@ class DebatesAPI:
     def get_verification_report(self, debate_id: str) -> dict[str, Any]:
         """Get the verification report for debate conclusions."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/verification-report")
-
-    def verify_claim(
-        self,
-        debate_id: str,
-        claim_id: str,
-        evidence: str | None = None,
-    ) -> dict[str, Any]:
-        """Verify a specific claim from the debate."""
-        payload: dict[str, Any] = {"claim_id": claim_id}
-        if evidence:
-            payload["evidence"] = evidence
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/verify", json=payload)
 
     # ========== Follow-up & Continuation ==========
 
@@ -410,37 +275,6 @@ class DebatesAPI:
     def list_forks(self, debate_id: str) -> dict[str, Any]:
         """List all forks created from a debate."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/forks")
-
-    # ========== Rounds, Agents, Votes ==========
-
-    def get_rounds(self, debate_id: str) -> dict[str, Any]:
-        """Get rounds from a debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/rounds")
-
-    def get_agents(self, debate_id: str) -> dict[str, Any]:
-        """Get agents participating in a debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/agents")
-
-    def get_votes(self, debate_id: str) -> dict[str, Any]:
-        """Get votes from a debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/votes")
-
-    def add_user_input(
-        self,
-        debate_id: str,
-        input_text: str,
-        input_type: str = "suggestion",  # 'suggestion' | 'vote' | 'question' | 'context'
-    ) -> dict[str, Any]:
-        """Add user input to a debate."""
-        return self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/user-input",
-            json={"input": input_text, "type": input_type},
-        )
-
-    def get_timeline(self, debate_id: str) -> dict[str, Any]:
-        """Get the timeline of events in a debate."""
-        return self._client.request("GET", f"/api/v1/debates/{debate_id}/timeline")
 
     def add_evidence(
         self,
@@ -506,33 +340,6 @@ class DebatesAPI:
     def get_queue_status(self) -> dict[str, Any]:
         """Get the current queue status."""
         return self._client.request("GET", "/api/v1/debates/queue/status")
-
-    # ========== Graph & Visualization ==========
-
-    def get_graph(self, debate_id: str) -> dict[str, Any]:
-        """Get the argument graph for a debate."""
-        return self._client.request("GET", f"/api/v1/debates/graph/{debate_id}")
-
-    def get_graph_branches(self, debate_id: str) -> dict[str, Any]:
-        """Get branches in the argument graph."""
-        return self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/branches")
-
-    def get_matrix_comparison(self, debate_id: str) -> dict[str, Any]:
-        """Get matrix comparison for a multi-scenario debate."""
-        return self._client.request("GET", f"/api/v1/debates/matrix/{debate_id}")
-
-    # ========== Streaming ==========
-
-    def stream_debates(self) -> dict[str, Any]:
-        """Stream debate events via Server-Sent Events.
-
-        Returns an SSE stream of real-time debate events including
-        debate_started, round_start, agent_message, consensus, and debate_end.
-
-        Returns:
-            SSE stream response with debate events
-        """
-        return self._client.request("GET", "/api/v1/debates/stream")
 
     # ========== RLM / Compression ==========
 
@@ -636,180 +443,6 @@ class DebatesAPI:
             "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
         )
 
-    # ========== Intervention ==========
-
-    def intervention_inject(
-        self,
-        debate_id: str,
-        content: str,
-        injection_type: str = "argument",
-        source: str = "user",
-    ) -> dict[str, Any]:
-        """Inject a user argument or follow-up question into a debate.
-
-        The injected content will be included in the next round's context
-        and considered by all agents.
-
-        Args:
-            debate_id: The active debate ID
-            content: The argument or question to inject
-            injection_type: Type of injection ("argument" or "follow_up")
-            source: Source identifier (default "user")
-
-        Returns:
-            Injection result with injection_id and confirmation
-        """
-        return self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/intervention/inject",
-            json={"content": content, "type": injection_type, "source": source},
-        )
-
-    def intervention_log(self, debate_id: str, limit: int = 50) -> dict[str, Any]:
-        """Get the intervention audit log for a debate.
-
-        Returns all interventions with timestamps for compliance and audit purposes.
-
-        Args:
-            debate_id: The debate ID
-            limit: Maximum number of log entries to return (default 50)
-
-        Returns:
-            Intervention log with total_interventions and interventions list
-        """
-        return self._client.request(
-            "GET",
-            f"/api/v1/debates/{debate_id}/intervention/log",
-            params={"limit": limit},
-        )
-
-    def intervention_pause(self, debate_id: str) -> dict[str, Any]:
-        """Pause an active debate.
-
-        Pausing stops agent responses but preserves all debate state.
-        The debate can be resumed at any point.
-
-        Args:
-            debate_id: The active debate ID
-
-        Returns:
-            Pause result with is_paused status and paused_at timestamp
-        """
-        return self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/intervention/pause"
-        )
-
-    def intervention_resume(self, debate_id: str) -> dict[str, Any]:
-        """Resume a paused debate.
-
-        Resumes agent responses from where they left off.
-
-        Args:
-            debate_id: The paused debate ID
-
-        Returns:
-            Resume result with resumed_at timestamp and pause_duration_seconds
-        """
-        return self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/intervention/resume"
-        )
-
-    def intervention_state(self, debate_id: str) -> dict[str, Any]:
-        """Get the current intervention state for a debate.
-
-        Returns pause status, agent weights, consensus threshold,
-        and counts of pending injections and follow-ups.
-
-        Args:
-            debate_id: The debate ID
-
-        Returns:
-            Intervention state with is_paused, consensus_threshold, agent_weights,
-            pending_injections, and pending_follow_ups
-        """
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/intervention/state"
-        )
-
-    def intervention_update_threshold(
-        self, debate_id: str, threshold: float
-    ) -> dict[str, Any]:
-        """Update the consensus threshold for a debate.
-
-        Threshold is the minimum agreement level required for consensus:
-        0.5 = simple majority, 0.75 = strong majority (default), 1.0 = unanimous.
-
-        Args:
-            debate_id: The active debate ID
-            threshold: New threshold value (0.5 to 1.0)
-
-        Returns:
-            Update result with old_threshold and new_threshold
-        """
-        return self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/threshold",
-            json={"threshold": threshold},
-        )
-
-    def intervention_update_weights(
-        self, debate_id: str, agent: str, weight: float
-    ) -> dict[str, Any]:
-        """Update an agent's influence weight in a debate.
-
-        Weight affects how much the agent's vote counts in consensus:
-        0.0 = muted, 1.0 = normal influence, 2.0 = double influence.
-
-        Args:
-            debate_id: The active debate ID
-            agent: Agent name or ID
-            weight: New weight value (0.0 to 2.0)
-
-        Returns:
-            Update result with agent, old_weight, and new_weight
-        """
-        return self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/weights",
-            json={"agent": agent, "weight": weight},
-        )
-
-    def run(
-        self,
-        task: str,
-        agents: _List[str] | None = None,
-        timeout: float = 300,
-        poll_interval: float = 2.0,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Create a debate and wait for it to complete.
-
-        Convenience method that calls ``create()`` then polls ``get()``
-        until the debate reaches a terminal state.
-
-        Args:
-            task: The topic or question to debate
-            agents: List of agent names to participate
-            timeout: Maximum seconds to wait
-            poll_interval: Seconds between status polls
-            **kwargs: Additional debate options
-
-        Returns:
-            The completed debate record
-        """
-        import time
-
-        result = self.create(task=task, agents=agents, **kwargs)
-        debate_id = result.get("debate_id") or result.get("id", "")
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            debate = self.get(debate_id)
-            status = debate.get("status", "")
-            if status in ("completed", "failed", "cancelled"):
-                return debate
-            time.sleep(poll_interval)
-        return self.get(debate_id)
-
 
 class AsyncDebatesAPI:
     """
@@ -838,10 +471,6 @@ class AsyncDebatesAPI:
             data["protocol"] = protocol
 
         return await self._client.request("POST", "/api/v1/debates", json=data)
-
-    async def get(self, debate_id: str) -> dict[str, Any]:
-        """Get a debate by ID."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}")
 
     async def list(
         self,
@@ -936,10 +565,6 @@ class AsyncDebatesAPI:
             json={"content": content, "role": role},
         )
 
-    async def get_consensus(self, debate_id: str) -> dict[str, Any]:
-        """Get consensus information for a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/consensus")
-
     async def get_export(
         self,
         debate_id: str,
@@ -956,46 +581,6 @@ class AsyncDebatesAPI:
         """Cancel a debate."""
         return await self._client.request("POST", f"/api/v1/debates/{debate_id}/cancel")
 
-    async def get_by_slug(self, slug: str) -> dict[str, Any]:
-        """Get a debate by slug."""
-        return await self._client.request("GET", f"/api/v1/debates/slug/{slug}")
-
-    async def get_explainability(self, debate_id: str) -> dict[str, Any]:
-        """Get explainability data for a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/explainability")
-
-    async def get_explainability_factors(self, debate_id: str) -> dict[str, Any]:
-        """Get factor decomposition for a debate decision."""
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/explainability/factors"
-        )
-
-    async def get_explainability_narrative(self, debate_id: str) -> dict[str, Any]:
-        """Get natural language narrative explanation."""
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/explainability/narrative"
-        )
-
-    async def get_explainability_provenance(self, debate_id: str) -> dict[str, Any]:
-        """Get provenance chain for debate claims."""
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/explainability/provenance"
-        )
-
-    async def get_explainability_counterfactual(self, debate_id: str) -> dict[str, Any]:
-        """Get counterfactual analysis."""
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/explainability/counterfactual"
-        )
-
-    async def create_counterfactual(
-        self, debate_id: str, changes: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Create a counterfactual scenario."""
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/explainability/counterfactual", json=changes
-        )
-
     async def get_citations(self, debate_id: str) -> dict[str, Any]:
         """Get citations used in debate."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/citations")
@@ -1008,21 +593,9 @@ class AsyncDebatesAPI:
         """Get evidence collected during debate."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/evidence")
 
-    async def get_graph_stats(self, debate_id: str) -> dict[str, Any]:
-        """Get graph statistics for debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/graph/stats")
-
     async def get_impasse(self, debate_id: str) -> dict[str, Any]:
         """Get impasse analysis if debate is stuck."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/impasse")
-
-    async def get_meta_critique(self, debate_id: str) -> dict[str, Any]:
-        """Get meta-critique of debate process."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/meta-critique")
-
-    async def get_red_team(self, debate_id: str) -> dict[str, Any]:
-        """Get red team analysis."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
 
     async def capability_probe(self, task: str, agents: _List[str] | None = None) -> dict[str, Any]:
         """Run a capability probe debate."""
@@ -1079,82 +652,13 @@ class AsyncDebatesAPI:
             "GET", "/api/v1/history/debates", params={"limit": limit, "offset": offset}
         )
 
-    # ========== Additional CRUD ==========
-
-    async def update(self, debate_id: str, updates: dict[str, Any]) -> dict[str, Any]:
-        """Update an existing debate."""
-        return await self._client.request("PUT", f"/api/v1/debates/{debate_id}", json=updates)
-
-    async def delete(self, debate_id: str) -> dict[str, Any]:
-        """Delete a debate."""
-        return await self._client.request("DELETE", f"/api/v1/debates/{debate_id}")
-
-    async def clone(
-        self,
-        debate_id: str,
-        preserve_agents: bool = True,
-        preserve_context: bool = False,
-    ) -> dict[str, Any]:
-        """Clone a debate (create a copy with fresh state)."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/clone",
-            json={"preserveAgents": preserve_agents, "preserveContext": preserve_context},
-        )
-
-    async def archive(self, debate_id: str) -> dict[str, Any]:
-        """Archive a debate."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/archive")
-
-    # ========== Lifecycle ==========
-
-    async def start(self, debate_id: str) -> dict[str, Any]:
-        """Start a debate."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/start")
-
-    async def stop(self, debate_id: str) -> dict[str, Any]:
-        """Stop a running debate."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/stop")
-
-    async def pause(self, debate_id: str) -> dict[str, Any]:
-        """Pause a running debate."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/pause")
-
-    async def resume(self, debate_id: str) -> dict[str, Any]:
-        """Resume a paused debate."""
-        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/resume")
-
-    # ========== Analysis ==========
-
-    async def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
-        """Get rhetorical pattern observations for a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/rhetorical")
-
-    async def get_trickster(self, debate_id: str) -> dict[str, Any]:
-        """Get trickster hollow consensus detection status."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/trickster")
-
-    async def get_summary(self, debate_id: str) -> dict[str, Any]:
+    def get_summary(self, debate_id: str) -> dict[str, Any]:
         """Get a human-readable summary of the debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/summary")
 
     async def get_verification_report(self, debate_id: str) -> dict[str, Any]:
         """Get the verification report for debate conclusions."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/verification-report")
-
-    async def verify_claim(
-        self,
-        debate_id: str,
-        claim_id: str,
-        evidence: str | None = None,
-    ) -> dict[str, Any]:
-        """Verify a specific claim from the debate."""
-        payload: dict[str, Any] = {"claim_id": claim_id}
-        if evidence:
-            payload["evidence"] = evidence
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/verify", json=payload
-        )
 
     # ========== Follow-up & Continuation ==========
 
@@ -1181,37 +685,6 @@ class AsyncDebatesAPI:
     async def list_forks(self, debate_id: str) -> dict[str, Any]:
         """List all forks created from a debate."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/forks")
-
-    # ========== Rounds, Agents, Votes ==========
-
-    async def get_rounds(self, debate_id: str) -> dict[str, Any]:
-        """Get rounds from a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/rounds")
-
-    async def get_agents(self, debate_id: str) -> dict[str, Any]:
-        """Get agents participating in a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/agents")
-
-    async def get_votes(self, debate_id: str) -> dict[str, Any]:
-        """Get votes from a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/votes")
-
-    async def add_user_input(
-        self,
-        debate_id: str,
-        input_text: str,
-        input_type: str = "suggestion",  # 'suggestion' | 'vote' | 'question' | 'context'
-    ) -> dict[str, Any]:
-        """Add user input to a debate."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/user-input",
-            json={"input": input_text, "type": input_type},
-        )
-
-    async def get_timeline(self, debate_id: str) -> dict[str, Any]:
-        """Get the timeline of events in a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/timeline")
 
     async def add_evidence(
         self,
@@ -1281,33 +754,6 @@ class AsyncDebatesAPI:
     async def get_queue_status(self) -> dict[str, Any]:
         """Get the current queue status."""
         return await self._client.request("GET", "/api/v1/debates/queue/status")
-
-    # ========== Graph & Visualization ==========
-
-    async def get_graph(self, debate_id: str) -> dict[str, Any]:
-        """Get the argument graph for a debate."""
-        return await self._client.request("GET", f"/api/v1/debates/graph/{debate_id}")
-
-    async def get_graph_branches(self, debate_id: str) -> dict[str, Any]:
-        """Get branches in the argument graph."""
-        return await self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/branches")
-
-    async def get_matrix_comparison(self, debate_id: str) -> dict[str, Any]:
-        """Get matrix comparison for a multi-scenario debate."""
-        return await self._client.request("GET", f"/api/v1/debates/matrix/{debate_id}")
-
-    # ========== Streaming ==========
-
-    async def stream_debates(self) -> dict[str, Any]:
-        """Stream debate events via Server-Sent Events.
-
-        Returns an SSE stream of real-time debate events including
-        debate_started, round_start, agent_message, consensus, and debate_end.
-
-        Returns:
-            SSE stream response with debate events
-        """
-        return await self._client.request("GET", "/api/v1/debates/stream")
 
     # ========== RLM / Compression ==========
 
@@ -1410,178 +856,3 @@ class AsyncDebatesAPI:
         return await self._client.request(
             "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
         )
-
-    # ========== Intervention ==========
-
-    async def intervention_inject(
-        self,
-        debate_id: str,
-        content: str,
-        injection_type: str = "argument",
-        source: str = "user",
-    ) -> dict[str, Any]:
-        """Inject a user argument or follow-up question into a debate.
-
-        The injected content will be included in the next round's context
-        and considered by all agents.
-
-        Args:
-            debate_id: The active debate ID
-            content: The argument or question to inject
-            injection_type: Type of injection ("argument" or "follow_up")
-            source: Source identifier (default "user")
-
-        Returns:
-            Injection result with injection_id and confirmation
-        """
-        return await self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/intervention/inject",
-            json={"content": content, "type": injection_type, "source": source},
-        )
-
-    async def intervention_log(self, debate_id: str, limit: int = 50) -> dict[str, Any]:
-        """Get the intervention audit log for a debate.
-
-        Returns all interventions with timestamps for compliance and audit purposes.
-
-        Args:
-            debate_id: The debate ID
-            limit: Maximum number of log entries to return (default 50)
-
-        Returns:
-            Intervention log with total_interventions and interventions list
-        """
-        return await self._client.request(
-            "GET",
-            f"/api/v1/debates/{debate_id}/intervention/log",
-            params={"limit": limit},
-        )
-
-    async def intervention_pause(self, debate_id: str) -> dict[str, Any]:
-        """Pause an active debate.
-
-        Pausing stops agent responses but preserves all debate state.
-        The debate can be resumed at any point.
-
-        Args:
-            debate_id: The active debate ID
-
-        Returns:
-            Pause result with is_paused status and paused_at timestamp
-        """
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/intervention/pause"
-        )
-
-    async def intervention_resume(self, debate_id: str) -> dict[str, Any]:
-        """Resume a paused debate.
-
-        Resumes agent responses from where they left off.
-
-        Args:
-            debate_id: The paused debate ID
-
-        Returns:
-            Resume result with resumed_at timestamp and pause_duration_seconds
-        """
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/intervention/resume"
-        )
-
-    async def intervention_state(self, debate_id: str) -> dict[str, Any]:
-        """Get the current intervention state for a debate.
-
-        Returns pause status, agent weights, consensus threshold,
-        and counts of pending injections and follow-ups.
-
-        Args:
-            debate_id: The debate ID
-
-        Returns:
-            Intervention state with is_paused, consensus_threshold, agent_weights,
-            pending_injections, and pending_follow_ups
-        """
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/intervention/state"
-        )
-
-    async def intervention_update_threshold(
-        self, debate_id: str, threshold: float
-    ) -> dict[str, Any]:
-        """Update the consensus threshold for a debate.
-
-        Threshold is the minimum agreement level required for consensus:
-        0.5 = simple majority, 0.75 = strong majority (default), 1.0 = unanimous.
-
-        Args:
-            debate_id: The active debate ID
-            threshold: New threshold value (0.5 to 1.0)
-
-        Returns:
-            Update result with old_threshold and new_threshold
-        """
-        return await self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/threshold",
-            json={"threshold": threshold},
-        )
-
-    async def intervention_update_weights(
-        self, debate_id: str, agent: str, weight: float
-    ) -> dict[str, Any]:
-        """Update an agent's influence weight in a debate.
-
-        Weight affects how much the agent's vote counts in consensus:
-        0.0 = muted, 1.0 = normal influence, 2.0 = double influence.
-
-        Args:
-            debate_id: The active debate ID
-            agent: Agent name or ID
-            weight: New weight value (0.0 to 2.0)
-
-        Returns:
-            Update result with agent, old_weight, and new_weight
-        """
-        return await self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/weights",
-            json={"agent": agent, "weight": weight},
-        )
-
-    async def run(
-        self,
-        task: str,
-        agents: _List[str] | None = None,
-        timeout: float = 300,
-        poll_interval: float = 2.0,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Create a debate and wait for it to complete.
-
-        Async convenience method that calls ``create()`` then polls ``get()``
-        until the debate reaches a terminal state.
-
-        Args:
-            task: The topic or question to debate
-            agents: List of agent names to participate
-            timeout: Maximum seconds to wait
-            poll_interval: Seconds between status polls
-            **kwargs: Additional debate options
-
-        Returns:
-            The completed debate record
-        """
-        import asyncio
-
-        result = await self.create(task=task, agents=agents, **kwargs)
-        debate_id = result.get("debate_id") or result.get("id", "")
-        loop = asyncio.get_event_loop()
-        deadline = loop.time() + timeout
-        while loop.time() < deadline:
-            debate = await self.get(debate_id)
-            status = debate.get("status", "")
-            if status in ("completed", "failed", "cancelled"):
-                return debate
-            await asyncio.sleep(poll_interval)
-        return await self.get(debate_id)

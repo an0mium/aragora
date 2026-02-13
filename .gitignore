@@ -116,6 +116,7 @@ scripts/CLAUDE.md
 !**/.env.example
 !**/.env.local.example
 !**/.env.template
+!**/.env.*.example
 
 # Live dashboard
 aragora/live/node_modules/

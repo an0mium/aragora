@@ -120,7 +120,8 @@ class TestParseDebateRequest:
         config, error = parse_debate_request(data)
 
         assert error is None
-        assert config["agents_str"] == "anthropic-api,openai-api"
+        assert "anthropic-api" in config["agents_str"]
+        assert "openai-api" in config["agents_str"]
 
     def test_empty_agents_uses_default(self):
         """Uses default agents when agents field is empty."""

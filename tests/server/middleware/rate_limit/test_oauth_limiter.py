@@ -621,7 +621,7 @@ class TestOAuthRateLimitDecorator:
         async def async_handler_func(handler):
             return {"status": "async_success"}
 
-        result = asyncio.get_event_loop().run_until_complete(async_handler_func(mock_handler))
+        result = asyncio.run(async_handler_func(mock_handler))
 
         assert result["status"] == "async_success"
 

@@ -685,7 +685,7 @@ class TestRequireWorkspaceDecorator:
         async def endpoint():
             return {"success": True}
 
-        result = asyncio.get_event_loop().run_until_complete(endpoint())
+        result = asyncio.run(endpoint())
 
         assert get_status(result) == 500
 
@@ -697,7 +697,7 @@ class TestRequireWorkspaceDecorator:
             async def endpoint(handler):
                 return {"success": True}
 
-            result = asyncio.get_event_loop().run_until_complete(endpoint(handler=mock_handler))
+            result = asyncio.run(endpoint(handler=mock_handler))
 
             assert get_status(result) == 401
 
