@@ -448,30 +448,34 @@ class TestDistributedRateLimiting:
             DistributedRateLimiter,
         )
 
-        # Track consume calls per client
-        client_counts: dict[str, int] = {}
+        # Track consume calls per bucket key
+        bucket_counts: dict[str, int] = {}
         limit = 3
 
-        def mock_consume(n, key=None):
-            """Track consumes by the bucket key."""
-            # Use current bucket key from mock_bucket
-            current_key = getattr(mock_bucket, "_current_key", "unknown")
-            client_counts[current_key] = client_counts.get(current_key, 0) + n
-            return client_counts[current_key] <= limit
+        # Create separate mock buckets per key so each has its own counter
+        buckets: dict[str, MagicMock] = {}
+
+        def create_bucket(redis, key, rate, burst, prefix, ttl):
+            if key not in buckets:
+                bucket = MagicMock()
+                bucket._key = key
+                bucket.remaining = 0
+                bucket.get_retry_after.return_value = 1.0
+
+                def make_consume(k):
+                    def _consume(n):
+                        bucket_counts[k] = bucket_counts.get(k, 0) + n
+                        return bucket_counts[k] <= limit
+                    return _consume
+
+                bucket.consume.side_effect = make_consume(key)
+                buckets[key] = bucket
+            return buckets[key]
 
         with patch(
             "aragora.server.middleware.rate_limit.redis_limiter.RedisTokenBucket"
         ) as mock_bucket_class:
-            mock_bucket = MagicMock()
-
-            def create_bucket(redis, key, rate, burst, prefix, ttl):
-                mock_bucket._current_key = key
-                return mock_bucket
-
             mock_bucket_class.side_effect = create_bucket
-            mock_bucket.consume.side_effect = lambda n: mock_consume(n)
-            mock_bucket.remaining = 0
-            mock_bucket.get_retry_after.return_value = 1.0
 
             shared_redis = SharedMockRedis("shared")
 
@@ -491,17 +495,14 @@ class TestDistributedRateLimiting:
 
                 # Client A makes 3 requests (should all be allowed)
                 for _ in range(limit):
-                    mock_bucket._current_key = "ip:192.168.1.1"
                     result = limiter.allow(client_ip="192.168.1.1", endpoint="/api/test")
                     assert result.allowed is True
 
                 # Client A's 4th request should be rejected
-                mock_bucket._current_key = "ip:192.168.1.1"
                 result = limiter.allow(client_ip="192.168.1.1", endpoint="/api/test")
                 assert result.allowed is False
 
                 # Client B should still be able to make requests
-                mock_bucket._current_key = "ip:192.168.1.2"
                 result = limiter.allow(client_ip="192.168.1.2", endpoint="/api/test")
                 assert result.allowed is True
 

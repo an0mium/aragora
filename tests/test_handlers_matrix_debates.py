@@ -12,6 +12,7 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.debates import MatrixDebatesHandler
 
 
@@ -21,9 +22,23 @@ from aragora.server.handlers.debates import MatrixDebatesHandler
 
 
 @pytest.fixture
-def handler():
-    """Create MatrixDebatesHandler instance."""
-    return MatrixDebatesHandler({})
+def _mock_auth():
+    """Provide admin auth context for all handler tests."""
+    ctx = AuthorizationContext(
+        user_id="test-user",
+        roles={"admin"},
+        permissions={"debates:read", "debates:create", "debates:delete"},
+    )
+    return AsyncMock(return_value=ctx)
+
+
+@pytest.fixture
+def handler(_mock_auth):
+    """Create MatrixDebatesHandler instance with auth bypass."""
+    h = MatrixDebatesHandler({})
+    h.get_auth_context = _mock_auth
+    h.check_permission = Mock()
+    return h
 
 
 @pytest.fixture
@@ -72,11 +87,11 @@ class TestMatrixDebatesRouting:
 
     def test_routes_defined(self, handler):
         """Test handler has routes defined."""
-        assert "/api/debates/matrix" in handler.ROUTES
+        assert "/api/v1/debates/matrix" in handler.ROUTES
 
     def test_auth_required_endpoints(self, handler):
         """Test auth required endpoints defined."""
-        assert "/api/debates/matrix" in handler.AUTH_REQUIRED_ENDPOINTS
+        assert "/api/v1/debates/matrix" in handler.AUTH_REQUIRED_ENDPOINTS
 
 
 # ============================================================================
