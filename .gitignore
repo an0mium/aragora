@@ -97,6 +97,7 @@ drafts/
 # Local exports / generated artifacts
 exports/
 artifacts/
+smoke_output/
 
 # Claude-mem context files
 aragora/**/CLAUDE.md

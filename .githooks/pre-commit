@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Pre-commit hook: warn if runtime artifacts are staged for commit.
+#
+# Install with:
+#   git config core.hooksPath .githooks
+#
+# Or symlink into .git/hooks/:
+#   ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
+
+set -euo pipefail
+
+BLOCKED_PATTERNS=(
+    ".nomic/audit_logs/"
+    ".nomic/eval/"
+    ".nomic/backups/"
+    ".nomic/checkpoints/"
+    ".nomic/sessions/"
+    "artifacts/"
+    "smoke_output/"
+)
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+blocked_files=()
+for file in $staged; do
+    for pattern in "${BLOCKED_PATTERNS[@]}"; do
+        if [[ "$file" == ${pattern}* ]]; then
+            blocked_files+=("$file")
+        fi
+    done
+done
+
+if [[ ${#blocked_files[@]} -gt 0 ]]; then
+    echo "========================================="
+    echo " WARNING: Runtime artifacts are staged!"
+    echo "========================================="
+    echo ""
+    echo "The following files look like runtime artifacts"
+    echo "and should not be committed:"
+    echo ""
+    for f in "${blocked_files[@]}"; do
+        echo "  - $f"
+    done
+    echo ""
+    echo "Run 'git reset HEAD <file>' to unstage them,"
+    echo "or 'git rm --cached <file>' to untrack them."
+    echo ""
+    echo "To bypass this check (not recommended):"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
