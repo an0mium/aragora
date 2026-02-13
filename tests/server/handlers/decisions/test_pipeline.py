@@ -339,3 +339,97 @@ def test_create_plan_normalizes_profile_execution_mode_alias() -> None:
     assert result.status_code == 201
     kwargs = mock_build.call_args.kwargs
     assert kwargs["implementation_profile"]["execution_mode"] == "computer_use"
+
+
+def test_create_plan_rejects_invalid_channel_targets_shape() -> None:
+    """Create-plan should reject non-string/list channel target payloads."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler(
+        {
+            "debate_id": "deb-123",
+            "channel_targets": {"slack": "#eng"},
+        }
+    )
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = object()
+
+    with (
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch(
+            "aragora.server.handlers.decisions.pipeline._load_debate_result",
+            return_value=object(),
+        ),
+        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+    ):
+        result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
+
+    assert result.status_code == 400
+    assert "channel_targets" in _parse_body(result)["error"]
+    mock_build.assert_not_called()
+
+
+def test_create_plan_rejects_invalid_thread_id_by_platform_shape() -> None:
+    """Create-plan should reject non-object thread map payloads."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler(
+        {
+            "debate_id": "deb-123",
+            "thread_id_by_platform": ["not", "a", "map"],
+        }
+    )
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = object()
+
+    with (
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch(
+            "aragora.server.handlers.decisions.pipeline._load_debate_result",
+            return_value=object(),
+        ),
+        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+    ):
+        result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
+
+    assert result.status_code == 400
+    assert "thread_id_by_platform" in _parse_body(result)["error"]
+    mock_build.assert_not_called()
+
+
+def test_create_plan_normalizes_channel_targets_and_thread_map() -> None:
+    """Create-plan should normalize channel targets and thread mapping payloads."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler(
+        {
+            "debate_id": "deb-123",
+            "channel_targets": "slack:#eng, teams:ops",
+            "thread_id": " thread-42 ",
+            "thread_id_by_platform": {"slack": " abc ", "teams": "xyz"},
+        }
+    )
+
+    mock_plan = MagicMock()
+    mock_plan.id = "plan-1"
+    mock_plan.debate_id = "deb-123"
+    mock_plan.requires_human_approval = False
+    mock_plan.status = SimpleNamespace(value="approved")
+    mock_plan.to_dict.return_value = {"id": "plan-1"}
+
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = object()
+
+    with (
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch(
+            "aragora.server.handlers.decisions.pipeline._load_debate_result",
+            return_value=object(),
+        ),
+        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result", return_value=mock_plan) as mock_build,
+        patch("aragora.pipeline.executor.store_plan"),
+    ):
+        result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
+
+    assert result.status_code == 201
+    profile = mock_build.call_args.kwargs["implementation_profile"]
+    assert profile["channel_targets"] == ["slack:#eng", "teams:ops"]
+    assert profile["thread_id"] == "thread-42"
+    assert profile["thread_id_by_platform"] == {"slack": "abc", "teams": "xyz"}

@@ -12,8 +12,10 @@ from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     BudgetAllocation,
     DecisionPlan,
+    ImplementationProfile,
     PlanStatus,
 )
+from aragora.pipeline.risk_register import RiskLevel
 from aragora.pipeline.plan_store import PlanStore
 
 
@@ -68,6 +70,44 @@ class TestPlanStoreCreate:
         assert retrieved is not None
         assert retrieved.metadata["priority"] == "high"
         assert len(retrieved.metadata["action_items"]) == 1
+
+    def test_create_preserves_max_auto_risk(self, store: PlanStore) -> None:
+        plan = DecisionPlan(
+            id="dp-risk-roundtrip",
+            debate_id="debate-risk",
+            task="Risk persistence test",
+            max_auto_risk=RiskLevel.MEDIUM,
+        )
+        store.create(plan)
+        retrieved = store.get(plan.id)
+
+        assert retrieved is not None
+        assert retrieved.max_auto_risk == RiskLevel.MEDIUM
+
+    def test_create_preserves_implementation_profile(self, store: PlanStore) -> None:
+        plan = DecisionPlan(
+            id="dp-profile-roundtrip",
+            debate_id="debate-profile",
+            task="Profile persistence test",
+            implementation_profile=ImplementationProfile(
+                execution_mode="workflow",
+                channel_targets=["slack:#eng", "teams:ops"],
+                thread_id="thread-123",
+                thread_id_by_platform={"slack": "abc", "teams": "xyz"},
+            ),
+        )
+        store.create(plan)
+        retrieved = store.get(plan.id)
+
+        assert retrieved is not None
+        assert retrieved.implementation_profile is not None
+        assert retrieved.implementation_profile.execution_mode == "workflow"
+        assert retrieved.implementation_profile.channel_targets == ["slack:#eng", "teams:ops"]
+        assert retrieved.implementation_profile.thread_id == "thread-123"
+        assert retrieved.implementation_profile.thread_id_by_platform == {
+            "slack": "abc",
+            "teams": "xyz",
+        }
 
     def test_get_nonexistent_returns_none(self, store: PlanStore) -> None:
         assert store.get("does-not-exist") is None
