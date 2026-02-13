@@ -1559,10 +1559,13 @@ class TestIntegration:
                 jwt_validator1.validate_jwt("token1")
                 jwt_validator2.validate_jwt("token2")
 
-                assert "token1" in jwt_validator1._cache
-                assert "token1" not in jwt_validator2._cache
-                assert "token2" in jwt_validator2._cache
-                assert "token2" not in jwt_validator1._cache
+                token1_key = jwt_validator1._hash_token("token1")
+                token2_key = jwt_validator2._hash_token("token2")
+
+                assert token1_key in jwt_validator1._cache
+                assert token1_key not in jwt_validator2._cache
+                assert token2_key in jwt_validator2._cache
+                assert token2_key not in jwt_validator1._cache
 
 
 if __name__ == "__main__":
