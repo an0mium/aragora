@@ -80,6 +80,9 @@ _email_store = LazyStoreFactory(
     logger_context="EmailHandler",
 )
 
+# Public alias so other modules can import get_email_store
+get_email_store = _email_store.get
+
 
 def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict[str, Any]:
     """Load config from persistent store into memory cache."""

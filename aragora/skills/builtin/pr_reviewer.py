@@ -161,7 +161,7 @@ class PRReviewerSkill(Skill):
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Run the Aragora review engine on a diff."""
         try:
-            from aragora.cli.review import run_review_on_diff
+            from aragora.cli.review import run_review_on_diff  # type: ignore[attr-defined]
             findings = await run_review_on_diff(diff, demo=self._demo)
             return findings, None
         except ImportError:
