@@ -558,11 +558,14 @@ class TestSloMiddleware:
         import logging
 
         @slo_mod.slo_middleware
-        def do_GET():  # No self argument
+        def do_GET(self_handler):
             return "ok"
 
+        # Pass an object that has no .path attribute
+        handler_without_path = object()
+
         with caplog.at_level(logging.WARNING):
-            do_GET()
+            do_GET(handler_without_path)
 
         # Should not crash; should log 'unknown' for path
         assert any("slo_violation" in record.message for record in caplog.records)
