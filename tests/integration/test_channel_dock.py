@@ -158,6 +158,7 @@ def failing_dock():
 def registry(mock_dock):
     """Create a registry with mock dock."""
     reg = DockRegistry()
+    reg._dock_classes["test"] = type(mock_dock)
     reg._dock_instances["test"] = mock_dock
     mock_dock._initialized = True
     return reg
