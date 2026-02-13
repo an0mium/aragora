@@ -109,11 +109,11 @@ class MockKnowledgeMound:
         return grant
 
     async def share_with_user(
-        self, item_id, from_workspace_id, to_user_id, shared_by, permissions, expires_at
+        self, item_id, from_workspace_id, user_id, shared_by, permissions, expires_at
     ):
         grant = MagicMock()
         grant.item_id = item_id
-        grant.grantee_id = to_user_id
+        grant.grantee_id = user_id
         self._grants.append(grant)
         return grant
 

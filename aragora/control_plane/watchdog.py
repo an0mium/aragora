@@ -38,6 +38,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import time
 from collections import defaultdict
@@ -48,6 +49,9 @@ from typing import Any
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+# Module-level counter to ensure unique issue IDs even within the same millisecond
+_issue_counter = itertools.count()
 
 
 class WatchdogTier(str, Enum):
@@ -100,7 +104,7 @@ class WatchdogIssue:
     details: dict[str, Any] = field(default_factory=dict)
 
     # Tracking
-    id: str = field(default_factory=lambda: f"issue-{int(time.time() * 1000) % 1000000}")
+    id: str = field(default_factory=lambda: f"issue-{int(time.time() * 1000) % 1000000}-{next(_issue_counter)}")
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     detected_by: WatchdogTier | None = None
 

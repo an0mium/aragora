@@ -53,11 +53,18 @@ def handler_context():
 
 @pytest.fixture
 def mock_http_handler():
-    """Create a mock HTTP handler."""
+    """Create a mock HTTP handler with admin auth context."""
+    from aragora.rbac.models import AuthorizationContext
+
     handler = MagicMock()
     handler.client_address = ("127.0.0.1", 12345)
     handler.headers = {"Content-Length": "0"}
     handler.command = "GET"
+    handler._auth_context = AuthorizationContext(
+        user_id="test-user",
+        roles={"admin"},
+        permissions={"*"},
+    )
     return handler
 
 
@@ -125,8 +132,16 @@ class TestHandlerSmoke:
     def test_rlm_strategies_endpoint(self, handler_context, mock_http_handler):
         """Verify RLM strategies endpoint works."""
         handler = RLMContextHandler(handler_context)
-        # RLMContextHandler.handle is synchronous
-        result = handler.handle("/api/v1/rlm/strategies", {}, mock_http_handler)
+        # Bypass auth check in require_permission decorator (smoke test focuses on handler logic)
+        mock_user = MagicMock()
+        mock_user.is_authenticated = True
+        mock_user.user_id = "test"
+        mock_user.role = "admin"
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/v1/rlm/strategies", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 200

@@ -129,7 +129,7 @@ class TestDebateStoragePersistence:
         # Setup with real storage
         protocol = DebateProtocol(rounds=1, consensus="majority")
         memory = CritiqueStore(str(temp_db_path))
-        arena = Arena(simple_environment, mock_agents, protocol, memory)
+        arena = Arena(simple_environment, mock_agents, protocol, memory=memory)
 
         # Execute
         result = await run_debate_to_completion(arena)
@@ -182,7 +182,7 @@ class TestConsensusMemoryLeaderboardChain:
         protocol = DebateProtocol(rounds=2, consensus="majority")
         memory = CritiqueStore(str(temp_db_path))
 
-        arena = Arena(simple_environment, consensus_agents, protocol, memory)
+        arena = Arena(simple_environment, consensus_agents, protocol, memory=memory)
         result = await run_debate_to_completion(arena)
 
         # Consensus agents should reach agreement
@@ -202,9 +202,10 @@ class TestConsensusMemoryLeaderboardChain:
             for agent in mock_agents:
                 elo_system.register_agent(agent.name, agent.model)
 
-            # Get initial ratings
-            initial_ratings = {
-                agent.name: elo_system.get_rating(agent.name) for agent in mock_agents
+            # Capture initial ELO values (floats, not mutable AgentRating objects)
+            initial_elos = {
+                agent.name: elo_system.get_rating(agent.name).elo
+                for agent in mock_agents
             }
 
             # Run debate
@@ -214,15 +215,22 @@ class TestConsensusMemoryLeaderboardChain:
 
             # Simulate match recording (would be done by orchestrator)
             if len(mock_agents) >= 2:
-                winner = mock_agents[0].name
-                loser = mock_agents[1].name
-                elo_system.record_match(winner, loser, draw=False)
+                elo_system.record_match(
+                    winner=mock_agents[0].name,
+                    loser=mock_agents[1].name,
+                    draw=False,
+                )
 
             # Verify ratings changed
-            final_ratings = {agent.name: elo_system.get_rating(agent.name) for agent in mock_agents}
+            final_elos = {
+                agent.name: elo_system.get_rating(agent.name).elo
+                for agent in mock_agents
+            }
 
             # At least one rating should have changed
-            assert any(initial_ratings[name] != final_ratings[name] for name in initial_ratings)
+            assert any(
+                initial_elos[name] != final_elos[name] for name in initial_elos
+            )
 
 
 # =============================================================================

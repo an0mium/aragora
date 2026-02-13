@@ -73,6 +73,20 @@ def mock_auth():
     def mock_check_permission(*args, **kwargs):
         return True  # Allow all permissions
 
+    # Create a mock user auth context for @require_permission decorator
+    from aragora.billing.auth.context import UserAuthContext
+
+    mock_user_ctx = UserAuthContext(
+        authenticated=True,
+        user_id="test_user_123",
+        org_id="test_tenant",
+        role="owner",
+        token_type="access",
+    )
+
+    def mock_extract_user(*args, **kwargs):
+        return mock_user_ctx
+
     with (
         patch(
             "aragora.server.handlers.secure.get_auth_context",
@@ -81,6 +95,14 @@ def mock_auth():
         patch(
             "aragora.server.handlers.secure.SecureHandler.check_permission",
             side_effect=mock_check_permission,
+        ),
+        patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            side_effect=mock_extract_user,
+        ),
+        patch(
+            "aragora.server.handlers.utils.decorators.has_permission",
+            return_value=True,
         ),
     ):
         yield
@@ -642,7 +664,7 @@ class TestDemoModesConsistency:
         inbox_request = MagicMock()
         inbox_request.tenant_id = tenant_id
 
-        inbox_result = await inbox_handler.handle(inbox_request, "/api/v1/inbox/stats", "GET")
+        inbox_result = await inbox_handler.handle_request(inbox_request, "/api/v1/inbox/stats", "GET")
         assert inbox_result.status_code == 200
 
         # Reconciliation demo

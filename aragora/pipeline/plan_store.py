@@ -21,6 +21,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import uuid
 
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
@@ -104,6 +105,36 @@ class PlanStore:
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_plans_status
                 ON plans(status)
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS plan_executions (
+                    execution_id TEXT PRIMARY KEY,
+                    plan_id TEXT NOT NULL,
+                    debate_id TEXT NOT NULL,
+                    correlation_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    error_json TEXT,
+                    metadata_json TEXT,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_plan_executions_plan_id
+                ON plan_executions(plan_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_plan_executions_debate_id
+                ON plan_executions(debate_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_plan_executions_status
+                ON plan_executions(status)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_plan_executions_started_at
+                ON plan_executions(started_at DESC)
             """)
 
             # Backward-compatible schema migration for existing databases.
@@ -308,6 +339,220 @@ class PlanStore:
         finally:
             conn.close()
 
+    def update_status_if_current(
+        self,
+        plan_id: str,
+        *,
+        expected_statuses: list[PlanStatus] | tuple[PlanStatus, ...],
+        new_status: PlanStatus,
+        approved_by: str | None = None,
+        rejection_reason: str | None = None,
+    ) -> bool:
+        """Atomically update status only when the current status matches.
+
+        Returns True if the row was claimed/updated, False otherwise.
+        """
+        expected_values = [status.value for status in expected_statuses]
+        if not expected_values:
+            return False
+
+        now = datetime.utcnow().isoformat()
+        fields = ["status = ?", "updated_at = ?"]
+        params: list[Any] = [new_status.value, now]
+
+        if approved_by is not None:
+            fields.append("approved_by = ?")
+            params.append(approved_by)
+
+        if rejection_reason is not None:
+            fields.append("rejection_reason = ?")
+            params.append(rejection_reason)
+
+        if new_status == PlanStatus.APPROVED:
+            fields.append("approved_at = ?")
+            params.append(now)
+            approval_record = ApprovalRecord(
+                approved=True,
+                approver_id=approved_by or "unknown",
+                reason="",
+            )
+            fields.append("approval_record_json = ?")
+            params.append(json.dumps(approval_record.to_dict()))
+
+        if new_status == PlanStatus.REJECTED:
+            approval_record = ApprovalRecord(
+                approved=False,
+                approver_id=approved_by or "unknown",
+                reason=rejection_reason or "",
+            )
+            fields.append("approval_record_json = ?")
+            params.append(json.dumps(approval_record.to_dict()))
+
+        placeholders = ", ".join("?" for _ in expected_values)
+        query = (
+            f"UPDATE plans SET {', '.join(fields)} "
+            f"WHERE id = ? AND status IN ({placeholders})"
+        )
+        query_params = [*params, plan_id, *expected_values]
+
+        conn = self._connect()
+        try:
+            cursor = conn.execute(query, query_params)
+            conn.commit()
+            updated = cursor.rowcount > 0
+            if updated:
+                logger.info(
+                    "Atomically updated plan %s to status %s (expected: %s)",
+                    plan_id,
+                    new_status.value,
+                    ",".join(expected_values),
+                )
+            return updated
+        finally:
+            conn.close()
+
+    # -------------------------------------------------------------------------
+    # Execution records
+    # -------------------------------------------------------------------------
+
+    def create_execution_record(
+        self,
+        *,
+        plan_id: str,
+        debate_id: str,
+        status: str,
+        correlation_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        error: dict[str, Any] | None = None,
+        execution_id: str | None = None,
+    ) -> str:
+        """Create a persistent execution record and return the execution ID."""
+        record_id = execution_id or f"exec-{uuid.uuid4().hex[:12]}"
+        corr_id = correlation_id or f"corr-{uuid.uuid4().hex[:12]}"
+        now = datetime.utcnow().isoformat()
+
+        conn = self._connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO plan_executions (
+                    execution_id, plan_id, debate_id, correlation_id, status,
+                    error_json, metadata_json, started_at, completed_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record_id,
+                    plan_id,
+                    debate_id,
+                    corr_id,
+                    status,
+                    json.dumps(error) if error else None,
+                    json.dumps(metadata) if metadata else "{}",
+                    now,
+                    now if status in {"succeeded", "failed", "canceled"} else None,
+                    now,
+                ),
+            )
+            conn.commit()
+            return record_id
+        finally:
+            conn.close()
+
+    def update_execution_record(
+        self,
+        execution_id: str,
+        *,
+        status: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        error: dict[str, Any] | None = None,
+    ) -> bool:
+        """Update an execution record. Returns True when record exists."""
+        now = datetime.utcnow().isoformat()
+        fields = ["updated_at = ?"]
+        params: list[Any] = [now]
+
+        if status is not None:
+            fields.append("status = ?")
+            params.append(status)
+            if status in {"succeeded", "failed", "canceled"}:
+                fields.append("completed_at = ?")
+                params.append(now)
+
+        if metadata is not None:
+            fields.append("metadata_json = ?")
+            params.append(json.dumps(metadata))
+
+        if error is not None:
+            fields.append("error_json = ?")
+            params.append(json.dumps(error))
+
+        params.append(execution_id)
+
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                f"UPDATE plan_executions SET {', '.join(fields)} WHERE execution_id = ?",
+                params,
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def get_execution_record(self, execution_id: str) -> dict[str, Any] | None:
+        """Fetch a single execution record by ID."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM plan_executions WHERE execution_id = ?",
+                (execution_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return self._row_to_execution_record(row)
+        finally:
+            conn.close()
+
+    def list_execution_records(
+        self,
+        *,
+        plan_id: str | None = None,
+        debate_id: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """List execution records filtered by plan/debate/status."""
+        clauses: list[str] = []
+        params: list[Any] = []
+
+        if plan_id is not None:
+            clauses.append("plan_id = ?")
+            params.append(plan_id)
+        if debate_id is not None:
+            clauses.append("debate_id = ?")
+            params.append(debate_id)
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+
+        where = ""
+        if clauses:
+            where = "WHERE " + " AND ".join(clauses)
+
+        query = (
+            "SELECT * FROM plan_executions "
+            f"{where} ORDER BY started_at DESC LIMIT ? OFFSET ?"
+        )
+        params.extend([limit, offset])
+
+        conn = self._connect()
+        try:
+            rows = conn.execute(query, params).fetchall()
+            return [self._row_to_execution_record(row) for row in rows]
+        finally:
+            conn.close()
+
     def delete(self, plan_id: str) -> bool:
         """Delete a plan by ID. Returns True if deleted."""
         conn = self._connect()
@@ -385,6 +630,38 @@ class PlanStore:
         )
 
         return plan
+
+    @staticmethod
+    def _row_to_execution_record(row: sqlite3.Row) -> dict[str, Any]:
+        """Convert execution row to dictionary payload."""
+        error_payload = None
+        if row["error_json"]:
+            try:
+                error_payload = json.loads(row["error_json"])
+            except (TypeError, ValueError, json.JSONDecodeError):
+                error_payload = {"message": str(row["error_json"])}
+
+        metadata_payload: dict[str, Any] = {}
+        if row["metadata_json"]:
+            try:
+                parsed = json.loads(row["metadata_json"])
+                if isinstance(parsed, dict):
+                    metadata_payload = parsed
+            except (TypeError, ValueError, json.JSONDecodeError):
+                metadata_payload = {}
+
+        return {
+            "execution_id": row["execution_id"],
+            "plan_id": row["plan_id"],
+            "debate_id": row["debate_id"],
+            "correlation_id": row["correlation_id"],
+            "status": row["status"],
+            "error": error_payload,
+            "metadata": metadata_payload,
+            "started_at": row["started_at"],
+            "completed_at": row["completed_at"],
+            "updated_at": row["updated_at"],
+        }
 
 
 # ---------------------------------------------------------------------------

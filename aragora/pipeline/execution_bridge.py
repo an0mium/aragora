@@ -21,6 +21,7 @@ import logging
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+import uuid
 
 from aragora.pipeline.decision_plan import DecisionPlan, PlanOutcome, PlanStatus
 
@@ -69,6 +70,8 @@ class ExecutionBridge:
         *,
         auth_context: AuthorizationContext | None = None,
         execution_mode: ExecutionMode | None = None,
+        execution_id: str | None = None,
+        correlation_id: str | None = None,
     ) -> PlanOutcome:
         """Execute an approved plan end-to-end.
 
@@ -106,10 +109,56 @@ class ExecutionBridge:
         if plan.requires_human_approval and not plan.is_approved:
             raise ValueError(f"Plan {plan_id} requires approval before execution")
 
-        # Transition to executing in the persistent store
-        store.update_status(plan_id, PlanStatus.EXECUTING)
+        expected_statuses = [PlanStatus.APPROVED]
+        if not plan.requires_human_approval:
+            expected_statuses.append(PlanStatus.CREATED)
+
+        # Atomic claim: ensures exactly one execution worker can transition the plan.
+        claimed = store.update_status_if_current(
+            plan_id,
+            expected_statuses=expected_statuses,
+            new_status=PlanStatus.EXECUTING,
+        )
+        if not claimed:
+            current = store.get(plan_id)
+            if current is None:
+                raise ValueError(f"Plan not found: {plan_id}")
+            if current.status == PlanStatus.EXECUTING:
+                raise ValueError(f"Plan {plan_id} is already executing")
+            if current.status in (PlanStatus.COMPLETED, PlanStatus.FAILED):
+                raise ValueError(
+                    f"Plan {plan_id} has already been executed ({current.status.value})"
+                )
+            raise ValueError(
+                f"Plan {plan_id} is not in an executable state ({current.status.value})"
+            )
+
         plan.status = PlanStatus.EXECUTING
         plan.execution_started_at = datetime.now()
+
+        resolved_execution_id = execution_id or f"exec-{uuid.uuid4().hex[:12]}"
+        resolved_correlation_id = correlation_id or f"corr-{uuid.uuid4().hex[:12]}"
+        if store.get_execution_record(resolved_execution_id) is None:
+            store.create_execution_record(
+                execution_id=resolved_execution_id,
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                correlation_id=resolved_correlation_id,
+                status="running",
+                metadata={
+                    "execution_mode": execution_mode or "default",
+                    "started_by": getattr(auth_context, "user_id", None),
+                },
+            )
+        else:
+            store.update_execution_record(
+                resolved_execution_id,
+                status="running",
+                metadata={
+                    "execution_mode": execution_mode or "default",
+                    "started_by": getattr(auth_context, "user_id", None),
+                },
+            )
 
         logger.info("Executing plan %s (debate: %s)", plan_id, plan.debate_id)
 
@@ -122,11 +171,43 @@ class ExecutionBridge:
         except Exception as exc:
             logger.error("Plan %s execution failed: %s", plan_id, exc)
             store.update_status(plan_id, PlanStatus.FAILED)
+            store.update_execution_record(
+                resolved_execution_id,
+                status="failed",
+                error={
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                    "at": datetime.utcnow().isoformat(),
+                },
+                metadata={
+                    "execution_mode": execution_mode or "default",
+                    "terminal_state": "failed",
+                },
+            )
             raise
 
         # Persist final status
         final_status = PlanStatus.COMPLETED if outcome.success else PlanStatus.FAILED
         store.update_status(plan_id, final_status)
+        failure_error = None
+        if not outcome.success:
+            failure_error = {
+                "type": "ExecutionFailure",
+                "message": outcome.error or "Execution returned unsuccessful outcome",
+                "at": datetime.utcnow().isoformat(),
+            }
+        store.update_execution_record(
+            resolved_execution_id,
+            status="succeeded" if outcome.success else "failed",
+            error=failure_error,
+            metadata={
+                "execution_mode": execution_mode or "default",
+                "duration_seconds": outcome.duration_seconds,
+                "tasks_completed": outcome.tasks_completed,
+                "tasks_total": outcome.tasks_total,
+                "terminal_state": "succeeded" if outcome.success else "failed",
+            },
+        )
 
         logger.info(
             "Plan %s execution %s (%.1fs, %d/%d tasks)",
@@ -138,6 +219,28 @@ class ExecutionBridge:
         )
 
         return outcome
+
+    def get_execution_record(self, execution_id: str) -> dict[str, Any] | None:
+        """Fetch one execution record."""
+        return self.plan_store.get_execution_record(execution_id)
+
+    def list_execution_records(
+        self,
+        *,
+        plan_id: str | None = None,
+        debate_id: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """List execution records for plan/debate lookups."""
+        return self.plan_store.list_execution_records(
+            plan_id=plan_id,
+            debate_id=debate_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
 
     def schedule_execution(
         self,
@@ -151,12 +254,30 @@ class ExecutionBridge:
         Non-blocking: returns immediately. Errors are logged, not raised.
         """
 
+        record_execution_id = f"exec-{uuid.uuid4().hex[:12]}"
+        record_correlation_id = f"corr-{uuid.uuid4().hex[:12]}"
+        plan = self.plan_store.get(plan_id)
+        if plan is not None:
+            self.plan_store.create_execution_record(
+                execution_id=record_execution_id,
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                correlation_id=record_correlation_id,
+                status="queued",
+                metadata={
+                    "execution_mode": execution_mode or "default",
+                    "scheduled_by": getattr(auth_context, "user_id", None),
+                },
+            )
+
         async def _run() -> None:
             try:
                 await self.execute_approved_plan(
                     plan_id,
                     auth_context=auth_context,
                     execution_mode=execution_mode,
+                    execution_id=record_execution_id,
+                    correlation_id=record_correlation_id,
                 )
             except Exception as exc:
                 logger.error(
@@ -171,6 +292,15 @@ class ExecutionBridge:
             logger.warning(
                 "No running event loop; cannot schedule background execution for plan %s",
                 plan_id,
+            )
+            self.plan_store.update_execution_record(
+                record_execution_id,
+                status="canceled",
+                error={
+                    "type": "RuntimeError",
+                    "message": "No running event loop available for background execution",
+                    "at": datetime.utcnow().isoformat(),
+                },
             )
 
 

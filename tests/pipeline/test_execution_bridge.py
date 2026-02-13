@@ -249,6 +249,77 @@ class TestExecutionBridgeExecute:
         call_kwargs = bridge.executor.execute.call_args
         assert call_kwargs.kwargs.get("execution_mode") == "hybrid"
 
+    @pytest.mark.asyncio
+    async def test_execute_approved_plan_is_claimed_exactly_once(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        async def _slow_success(plan: DecisionPlan, **kwargs: Any) -> PlanOutcome:
+            await asyncio.sleep(0.05)
+            return PlanOutcome(
+                plan_id=plan.id,
+                debate_id=plan.debate_id,
+                task=plan.task,
+                success=True,
+                tasks_completed=1,
+                tasks_total=1,
+                duration_seconds=0.05,
+            )
+
+        bridge.executor.execute = AsyncMock(side_effect=_slow_success)
+        store.create(approved_plan)
+
+        first, second = await asyncio.gather(
+            bridge.execute_approved_plan(approved_plan.id),
+            bridge.execute_approved_plan(approved_plan.id),
+            return_exceptions=True,
+        )
+
+        outcomes = [item for item in (first, second) if isinstance(item, PlanOutcome)]
+        errors = [item for item in (first, second) if isinstance(item, Exception)]
+
+        assert len(outcomes) == 1
+        assert len(errors) == 1
+        assert isinstance(errors[0], ValueError)
+        assert "already executing" in str(errors[0])
+        bridge.executor.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_execution_records_queryable_by_plan_and_debate(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        store.create(approved_plan)
+
+        outcome = await bridge.execute_approved_plan(approved_plan.id, execution_mode="workflow")
+        assert outcome.success is True
+
+        by_plan = bridge.list_execution_records(plan_id=approved_plan.id)
+        by_debate = bridge.list_execution_records(debate_id=approved_plan.debate_id)
+
+        assert len(by_plan) == 1
+        assert len(by_debate) == 1
+        assert by_plan[0]["execution_id"] == by_debate[0]["execution_id"]
+        assert by_plan[0]["plan_id"] == approved_plan.id
+        assert by_plan[0]["debate_id"] == approved_plan.debate_id
+        assert by_plan[0]["status"] == "succeeded"
+        assert by_plan[0]["correlation_id"]
+
+    @pytest.mark.asyncio
+    async def test_execution_failure_records_structured_error(
+        self, bridge: ExecutionBridge, store: PlanStore, approved_plan: DecisionPlan
+    ) -> None:
+        bridge.executor.execute = AsyncMock(side_effect=RuntimeError("workflow exploded"))
+        store.create(approved_plan)
+
+        with pytest.raises(RuntimeError, match="workflow exploded"):
+            await bridge.execute_approved_plan(approved_plan.id, execution_mode="workflow")
+
+        records = bridge.list_execution_records(plan_id=approved_plan.id)
+        assert len(records) == 1
+        assert records[0]["status"] == "failed"
+        assert records[0]["completed_at"] is not None
+        assert records[0]["error"]["type"] == "RuntimeError"
+        assert records[0]["error"]["message"] == "workflow exploded"
+
 
 class TestExecutionBridgeSchedule:
     """Tests for schedule_execution (background task)."""

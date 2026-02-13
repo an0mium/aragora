@@ -41,7 +41,7 @@ class MockKnowledgeMound:
         self.workspace_id = "test-workspace"
         self._stored_items = []
 
-    async def query_semantic(self, query: str, limit: int = 10, min_confidence: float = 0.5):
+    async def query_semantic(self, text: str, limit: int = 10, min_confidence: float = 0.5):
         """Mock semantic query."""
         from dataclasses import dataclass
 

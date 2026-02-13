@@ -152,7 +152,7 @@ class TestInputValidation:
         """Password must meet minimum length."""
         valid, err = validate_password("short")
         assert not valid
-        assert "at least 8 characters" in err
+        assert "at least 12 characters" in err
 
     def test_password_max_length(self):
         """Password must not exceed maximum length."""
@@ -226,7 +226,7 @@ class TestRegistrationFlow:
         request = create_mock_request(
             body={
                 "email": "existing@example.com",
-                "password": "NewPass456!",
+                "password": "NewPassword456!",
             }
         )
 

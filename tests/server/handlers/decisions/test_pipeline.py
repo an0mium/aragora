@@ -7,6 +7,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from aragora.pipeline.decision_plan import DecisionPlan, PlanStatus
 from aragora.server.handlers.base import error_response
 from aragora.server.handlers.decisions.pipeline import (
     DECISION_CREATE_PERMISSION,
@@ -433,3 +434,78 @@ def test_create_plan_normalizes_channel_targets_and_thread_map() -> None:
     assert profile["channel_targets"] == ["slack:#eng", "teams:ops"]
     assert profile["thread_id"] == "thread-42"
     assert profile["thread_id_by_platform"] == {"slack": "abc", "teams": "xyz"}
+
+
+def test_approve_plan_records_actor_reason_and_timestamp() -> None:
+    """Approve should capture an auditable approval record."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({"reason": "review complete", "conditions": ["qa-pass"]})
+    user = SimpleNamespace(user_id="approver-123")
+    plan = DecisionPlan(id="plan-approve-1", debate_id="deb-1", task="Ship it")
+    plan.status = PlanStatus.AWAITING_APPROVAL
+
+    with patch("aragora.pipeline.executor.get_plan", return_value=plan), patch(
+        "aragora.pipeline.executor.store_plan"
+    ) as mock_store:
+        result = handler._handle_approve_plan(plan.id, request, user)
+
+    assert result.status_code == 200
+    payload = _parse_body(result)
+    record = payload["plan"]["approval_record"]
+    assert record["approver_id"] == "approver-123"
+    assert record["reason"] == "review complete"
+    assert record["timestamp"]
+    mock_store.assert_called_once()
+
+
+def test_reject_plan_records_actor_reason_and_timestamp() -> None:
+    """Reject should capture an auditable rejection record."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({"reason": "risk unresolved"})
+    user = SimpleNamespace(user_id="reviewer-9")
+    plan = DecisionPlan(id="plan-reject-1", debate_id="deb-2", task="Deploy change")
+    plan.status = PlanStatus.CREATED
+
+    with patch("aragora.pipeline.executor.get_plan", return_value=plan), patch(
+        "aragora.pipeline.executor.store_plan"
+    ) as mock_store:
+        result = handler._handle_reject_plan(plan.id, request, user)
+
+    assert result.status_code == 200
+    payload = _parse_body(result)
+    record = payload["plan"]["approval_record"]
+    assert record["approver_id"] == "reviewer-9"
+    assert record["reason"] == "risk unresolved"
+    assert record["timestamp"]
+    assert record["approved"] is False
+    mock_store.assert_called_once()
+
+
+def test_approve_plan_rejects_illegal_state_transition() -> None:
+    """Approving an already approved/rejected/executing plan should fail with 409."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({})
+    user = SimpleNamespace(user_id="approver-123")
+    plan = DecisionPlan(id="plan-approve-illegal", debate_id="deb-3", task="Task")
+    plan.status = PlanStatus.APPROVED
+
+    with patch("aragora.pipeline.executor.get_plan", return_value=plan):
+        result = handler._handle_approve_plan(plan.id, request, user)
+
+    assert result.status_code == 409
+    assert "cannot be approved in status" in _parse_body(result)["error"]
+
+
+def test_reject_plan_rejects_illegal_state_transition() -> None:
+    """Rejecting an already approved/rejected/executing plan should fail with 409."""
+    handler = DecisionPipelineHandler({})
+    request = _make_http_handler({"reason": "late rejection"})
+    user = SimpleNamespace(user_id="reviewer-9")
+    plan = DecisionPlan(id="plan-reject-illegal", debate_id="deb-4", task="Task")
+    plan.status = PlanStatus.REJECTED
+
+    with patch("aragora.pipeline.executor.get_plan", return_value=plan):
+        result = handler._handle_reject_plan(plan.id, request, user)
+
+    assert result.status_code == 409
+    assert "cannot be rejected in status" in _parse_body(result)["error"]

@@ -228,7 +228,7 @@ class TestPatternMatcherIntegration:
             # Classify each subtask
             for subtask in result.subtasks:
                 pattern = matcher.classify_task(subtask.description)
-                assert pattern in matcher.TASK_PATTERNS or pattern == "general"
+                assert pattern in matcher.patterns or pattern == "general"
 
     def test_pattern_history_affects_agent_selection(self):
         """Historical pattern data should influence agent selection scores."""
