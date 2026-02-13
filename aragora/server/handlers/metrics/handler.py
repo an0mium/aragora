@@ -77,6 +77,15 @@ class MetricsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for metrics endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # Require auth and permission for /api/metrics/* endpoints
+        if path.startswith("/api/metrics"):
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+            _, perm_err = self.require_permission_or_error(handler, "metrics:read")
+            if perm_err:
+                return perm_err
+
         # Authenticate /metrics endpoint if ARAGORA_METRICS_TOKEN is set
         if path == "/metrics":
             metrics_token = os.environ.get("ARAGORA_METRICS_TOKEN")

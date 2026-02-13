@@ -199,6 +199,13 @@ class TaskExecutionHandler(BaseHandler):
         if not self.can_handle(path):
             return None
 
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "tasks:read")
+        if perm_err:
+            return perm_err
+
         parts = path.rstrip("/").split("/")
         # /api/v2/tasks -> ["", "api", "v2", "tasks"]
         # /api/v2/tasks/<id> -> ["", "api", "v2", "tasks", "<id>"]
@@ -223,6 +230,13 @@ class TaskExecutionHandler(BaseHandler):
         """Handle POST requests for task endpoints."""
         if not self.can_handle(path):
             return None
+
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "tasks:execute")
+        if perm_err:
+            return perm_err
 
         parts = path.rstrip("/").split("/")
 

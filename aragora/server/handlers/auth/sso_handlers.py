@@ -288,18 +288,47 @@ async def handle_sso_callback(
 
         # Create or update user in our system
         from aragora.billing.jwt_auth import create_access_token
+        from aragora.storage.user_store.singleton import get_user_store
 
-        # Generate JWT token for our system
+        user_store = get_user_store()
+        if not user_store:
+            logger.error("User store unavailable during SSO callback")
+            return error_response("User service unavailable", 503)
+
+        # Check if user already exists by email
+        existing_user = user_store.get_user_by_email(sso_user.email)
+
+        if existing_user:
+            # Update name from SSO provider if available
+            sso_name = sso_user.name or sso_user.email.split("@")[0]
+            if hasattr(user_store, "update_user"):
+                user_store.update_user(existing_user.id, name=sso_name)
+            user = user_store.get_user_by_id(existing_user.id) or existing_user
+        else:
+            # Create new user (SSO users have no local password)
+            user = user_store.create_user(
+                email=sso_user.email,
+                password_hash="sso",
+                password_salt="",
+                name=sso_user.name or sso_user.email.split("@")[0],
+            )
+
+        # Generate JWT token using Aragora user ID (not SSO provider ID)
         access_token = create_access_token(
-            user_id=sso_user.id,
-            email=sso_user.email,
+            user_id=user.id,
+            email=user.email,
         )
 
         return success_response(
             {
                 "access_token": access_token,
                 "token_type": "bearer",
-                "user": sso_user.to_dict(),
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": getattr(user, "name", sso_user.name),
+                    "role": getattr(user, "role", "member"),
+                },
                 "redirect_url": redirect_url,
                 "sso_access_token": sso_user.access_token,  # For API calls to IdP
                 "expires_at": sso_user.token_expires_at,

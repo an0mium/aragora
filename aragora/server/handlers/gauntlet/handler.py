@@ -261,6 +261,15 @@ class GauntletHandler(
                 # Flatten single-value lists for convenience
                 query_params = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
 
+        # Auth and permission checks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        perm_key = "gauntlet:write" if method == "POST" else "gauntlet:read"
+        _, perm_err = self.require_permission_or_error(handler, perm_key)
+        if perm_err:
+            return perm_err
+
         # Normalize path for routing (remove version prefix)
         path = self._normalize_path(path)
 

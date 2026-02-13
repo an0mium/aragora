@@ -335,9 +335,19 @@ class TestHandleSsoCallback:
 
     @pytest.mark.asyncio
     async def test_callback_success(self, valid_auth_session, mock_oidc_provider, mock_sso_user):
-        """Valid callback should return JWT and user info."""
+        """Valid callback should return JWT, create user in DB, and use Aragora user ID."""
         state, mock_store = valid_auth_session
         mock_oidc_provider.authenticate.return_value = mock_sso_user
+
+        # Mock user store to verify user creation
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_email.return_value = None  # New user
+        mock_aragora_user = MagicMock()
+        mock_aragora_user.id = "aragora_user_456"
+        mock_aragora_user.email = "user@example.com"
+        mock_aragora_user.name = "SSO User"
+        mock_aragora_user.role = "member"
+        mock_user_store.create_user.return_value = mock_aragora_user
 
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
@@ -347,13 +357,17 @@ class TestHandleSsoCallback:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "our_jwt_token"
+                    with patch(
+                        "aragora.storage.user_store.singleton.get_user_store"
+                    ) as mock_get_store:
+                        mock_get_store.return_value = mock_user_store
 
-                    result = await handle_sso_callback(
-                        {
-                            "code": "auth_code_123",
-                            "state": state,
-                        }
-                    )
+                        result = await handle_sso_callback(
+                            {
+                                "code": "auth_code_123",
+                                "state": state,
+                            }
+                        )
 
         status, _ = parse_result(result)
         body = get_data(result)
@@ -362,6 +376,12 @@ class TestHandleSsoCallback:
         assert body["token_type"] == "bearer"
         assert "user" in body
         assert body["redirect_url"] == "/dashboard"
+        # Verify user was created in Aragora DB with SSO email
+        mock_user_store.create_user.assert_called_once()
+        call_kwargs = mock_user_store.create_user.call_args
+        assert call_kwargs[1]["email"] == "user@example.com" or call_kwargs[0][0] == "user@example.com"
+        # Verify JWT uses Aragora user ID, not SSO provider ID
+        mock_jwt.assert_called_once_with(user_id="aragora_user_456", email="user@example.com")
 
     @pytest.mark.asyncio
     async def test_callback_removes_session(
@@ -371,6 +391,11 @@ class TestHandleSsoCallback:
         state, mock_store = valid_auth_session
         mock_oidc_provider.authenticate.return_value = mock_sso_user
 
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_email.return_value = None
+        mock_user = MagicMock(id="u1", email="user@example.com", name="SSO User", role="member")
+        mock_user_store.create_user.return_value = mock_user
+
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
@@ -379,8 +404,12 @@ class TestHandleSsoCallback:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "jwt"
+                    with patch(
+                        "aragora.storage.user_store.singleton.get_user_store"
+                    ) as mock_get_store:
+                        mock_get_store.return_value = mock_user_store
 
-                    await handle_sso_callback({"code": "code", "state": state})
+                        await handle_sso_callback({"code": "code", "state": state})
 
         # State should be consumed (can't use twice)
         assert mock_store.validate_and_consume(state) is None
@@ -492,6 +521,11 @@ class TestHandleSsoCallback:
         state, mock_store = valid_auth_session
         mock_oidc_provider.authenticate.return_value = mock_sso_user
 
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_email.return_value = None
+        mock_user = MagicMock(id="u1", email="user@example.com", name="SSO User", role="member")
+        mock_user_store.create_user.return_value = mock_user
+
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
@@ -500,9 +534,13 @@ class TestHandleSsoCallback:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "jwt"
+                    with patch(
+                        "aragora.storage.user_store.singleton.get_user_store"
+                    ) as mock_get_store:
+                        mock_get_store.return_value = mock_user_store
 
-                    result1 = await handle_sso_callback({"code": "code1", "state": state})
-                    result2 = await handle_sso_callback({"code": "code2", "state": state})
+                        result1 = await handle_sso_callback({"code": "code1", "state": state})
+                        result2 = await handle_sso_callback({"code": "code2", "state": state})
 
         status1, _ = parse_result(result1)
         status2, _ = parse_result(result2)
@@ -517,6 +555,11 @@ class TestHandleSsoCallback:
         state, mock_store = valid_auth_session
         mock_oidc_provider.authenticate.return_value = mock_sso_user
 
+        mock_user_store = MagicMock()
+        mock_user_store.get_user_by_email.return_value = None
+        mock_user = MagicMock(id="u1", email="user@example.com", name="SSO User", role="member")
+        mock_user_store.create_user.return_value = mock_user
+
         with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
             mock_get.return_value = mock_oidc_provider
             with patch(
@@ -525,8 +568,12 @@ class TestHandleSsoCallback:
                 mock_store_fn.return_value = mock_store
                 with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
                     mock_jwt.return_value = "jwt"
+                    with patch(
+                        "aragora.storage.user_store.singleton.get_user_store"
+                    ) as mock_get_store:
+                        mock_get_store.return_value = mock_user_store
 
-                    result = await handle_sso_callback({"code": "code", "state": state})
+                        result = await handle_sso_callback({"code": "code", "state": state})
 
         body = get_data(result)
         assert body["sso_access_token"] == "sso_access_token_abc"

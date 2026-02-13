@@ -78,6 +78,13 @@ class ConnectorManagementHandler(BaseHandler):
         if not path.startswith(_PREFIX):
             return None
 
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "connectors:read")
+        if perm_err:
+            return perm_err
+
         sub = path[len(_PREFIX) :]
 
         # GET /api/v1/connectors  or  /api/v1/connectors/
@@ -112,6 +119,13 @@ class ConnectorManagementHandler(BaseHandler):
         """Route POST requests under ``/api/v1/connectors``."""
         if not path.startswith(_PREFIX):
             return None
+
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "connectors:test")
+        if perm_err:
+            return perm_err
 
         sub = path[len(_PREFIX) :]
         parts = sub.lstrip("/").split("/")

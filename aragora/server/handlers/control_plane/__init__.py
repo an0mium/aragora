@@ -202,6 +202,14 @@ class ControlPlaneHandler(
     @track_handler("control-plane/main", method="GET")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
+        # Auth and permission check
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "control-plane:read")
+        if perm_err:
+            return perm_err
+
         path = self._normalize_path(path)
 
         # /api/control-plane/deliberations/:id[/status]
@@ -307,6 +315,14 @@ class ControlPlaneHandler(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle POST requests."""
+        # Auth and permission check
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "control-plane:write")
+        if perm_err:
+            return perm_err
+
         path = self._normalize_path(path)
 
         # /api/control-plane/deliberations

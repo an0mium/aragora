@@ -1251,128 +1251,122 @@ class TestRBACPermissions:
     These tests use @pytest.mark.no_auto_auth to disable the autouse fixture
     that auto-injects admin auth context, so we can test actual RBAC behavior.
 
-    NOTE: ReplaysHandler is currently a public endpoint (exempt from RBAC).
-    Tests verifying actual enforcement are marked xfail individually.
+    ReplaysHandler enforces auth via require_auth_or_error() and
+    require_permission_or_error(handler, "debates:read").
     """
+
+    @staticmethod
+    def _make_mock_user(permissions=None, role="viewer"):
+        """Create a mock UserAuthContext for extract_user_from_request."""
+        user = MagicMock()
+        user.is_authenticated = True
+        user.user_id = "test-user"
+        user.email = "test@example.com"
+        user.roles = set()
+        user.permissions = permissions or set()
+        user.role = role
+        return user
+
+    @staticmethod
+    def _make_unauthenticated_user():
+        """Create a mock unauthenticated UserAuthContext."""
+        user = MagicMock()
+        user.is_authenticated = False
+        return user
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
     def test_handle_with_valid_permission(self, mock_limiter, handler, temp_nomic_dir):
-        """handle() succeeds when caller has replays:read permission."""
+        """handle() succeeds when caller has debates:read permission."""
         mock_limiter.is_allowed.return_value = True
-        ctx = make_auth_context(permissions={"replays:read"})
+        mock_user = self._make_mock_user(permissions={"debates:read"})
 
-        # The decorator finds AuthorizationContext via _auth_context on handler arg
-        mock_http = MockHandler()
-        mock_http._auth_context = ctx
-
-        with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
-            mock_decision = MagicMock()
-            mock_decision.allowed = True
-            mock_checker.return_value.check_permission.return_value = mock_decision
-
-            result = handler.handle("/api/replays", {}, mock_http)
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/replays", {}, MockHandler())
             assert result is not None
             assert result.status_code == 200
 
-    @pytest.mark.xfail(reason="ReplaysHandler has no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
-    def test_handle_without_permission_raises(self, mock_limiter, handler, temp_nomic_dir):
-        """handle() raises PermissionDeniedError when permission is denied."""
+    def test_handle_without_permission_returns_403(self, mock_limiter, handler, temp_nomic_dir):
+        """handle() returns 403 when user lacks debates:read permission."""
         mock_limiter.is_allowed.return_value = True
-        ctx = make_denied_context()
+        mock_user = self._make_mock_user(permissions=set())
 
-        mock_http = MockHandler()
-        mock_http._auth_context = ctx
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/replays", {}, MockHandler())
+            assert result is not None
+            assert result.status_code == 403
+            data = parse_response(result)
+            assert "debates:read" in data["error"]
 
-        with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
-            mock_decision = MagicMock()
-            mock_decision.allowed = False
-            mock_decision.reason = "Permission replays:read denied"
-            mock_decision.permission_key = "replays:read"
-            mock_checker.return_value.check_permission.return_value = mock_decision
-
-            with pytest.raises(PermissionDeniedError):
-                handler.handle("/api/replays", {}, mock_http)
-
-    @pytest.mark.xfail(reason="ReplaysHandler has no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
-    def test_handle_no_auth_context_raises(self, mock_limiter, handler, temp_nomic_dir):
-        """handle() raises PermissionDeniedError when no AuthorizationContext is provided.
-
-        The @require_permission decorator on handle() requires an AuthorizationContext.
-        When none is found in arguments, it raises PermissionDeniedError.
-        """
+    def test_handle_no_auth_returns_401(self, mock_limiter, handler, temp_nomic_dir):
+        """handle() returns 401 when user is not authenticated."""
         mock_limiter.is_allowed.return_value = True
+        mock_user = self._make_unauthenticated_user()
 
-        with pytest.raises(PermissionDeniedError, match="No AuthorizationContext found"):
-            handler.handle("/api/replays", {}, MockHandler())
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/replays", {}, MockHandler())
+            assert result is not None
+            assert result.status_code == 401
+            data = parse_response(result)
+            assert "authentication" in data["error"].lower()
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
     def test_handle_evolution_requires_permission(self, mock_limiter, handler, temp_nomic_dir):
-        """Evolution endpoint also requires replays:read permission."""
+        """Evolution endpoint also requires debates:read permission."""
         mock_limiter.is_allowed.return_value = True
-        ctx = make_auth_context(permissions={"replays:read"})
+        mock_user = self._make_mock_user(permissions={"debates:read"})
 
-        mock_http = MockHandler()
-        mock_http._auth_context = ctx
-
-        with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
-            mock_decision = MagicMock()
-            mock_decision.allowed = True
-            mock_checker.return_value.check_permission.return_value = mock_decision
-
-            result = handler.handle("/api/learning/evolution", {}, mock_http)
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/learning/evolution", {}, MockHandler())
             assert result is not None
             assert result.status_code == 200
 
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
     def test_handle_meta_stats_requires_permission(self, mock_limiter, handler, temp_nomic_dir):
-        """Meta-learning stats endpoint also requires replays:read permission."""
+        """Meta-learning stats endpoint also requires debates:read permission."""
         mock_limiter.is_allowed.return_value = True
-        ctx = make_auth_context(permissions={"replays:read"})
+        mock_user = self._make_mock_user(permissions={"debates:read"})
 
-        mock_http = MockHandler()
-        mock_http._auth_context = ctx
-
-        with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
-            mock_decision = MagicMock()
-            mock_decision.allowed = True
-            mock_checker.return_value.check_permission.return_value = mock_decision
-
-            result = handler.handle("/api/meta-learning/stats", {}, mock_http)
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/meta-learning/stats", {}, MockHandler())
             assert result is not None
             assert result.status_code == 200
 
-    @pytest.mark.xfail(reason="ReplaysHandler has no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.replays._replays_limiter")
-    def test_permission_checker_called_with_correct_key(
-        self, mock_limiter, handler, temp_nomic_dir
-    ):
-        """The permission checker is called with 'replays:read' permission key."""
+    def test_admin_bypasses_permission_check(self, mock_limiter, handler, temp_nomic_dir):
+        """Admin users bypass the debates:read permission check."""
         mock_limiter.is_allowed.return_value = True
-        ctx = make_auth_context(permissions={"replays:read"})
+        mock_user = self._make_mock_user(permissions=set(), role="admin")
 
-        mock_http = MockHandler()
-        mock_http._auth_context = ctx
-
-        with patch("aragora.rbac.decorators.get_permission_checker") as mock_checker:
-            mock_decision = MagicMock()
-            mock_decision.allowed = True
-            mock_checker.return_value.check_permission.return_value = mock_decision
-
-            handler.handle("/api/replays", {}, mock_http)
-
-            # Verify permission checker was called with correct permission key
-            mock_checker.return_value.check_permission.assert_called_once()
-            call_args = mock_checker.return_value.check_permission.call_args
-            assert call_args[0][0] == ctx  # first arg is the context
-            assert call_args[0][1] == "replays:read"  # second arg is the permission key
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=mock_user,
+        ):
+            result = handler.handle("/api/replays", {}, MockHandler())
+            assert result is not None
+            assert result.status_code == 200
 
 
 # =============================================================================

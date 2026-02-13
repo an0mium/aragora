@@ -84,6 +84,14 @@ class EvolutionHandler(BaseHandler):
         if not normalized.startswith("/api/evolution/"):
             return None
 
+        # Auth and permission checks
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "evolution:read")
+        if perm_err:
+            return perm_err
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _evolution_limiter.is_allowed(client_ip):

@@ -546,6 +546,15 @@ class UnifiedMetricsHandler(BaseHandler):
         """
         path = strip_version_prefix(path)
 
+        # Require auth and permission for API-versioned prometheus endpoints
+        if path in ("/api/metrics/prometheus", "/api/metrics/prometheus/summary"):
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+            _, perm_err = self.require_permission_or_error(handler, "metrics:read")
+            if perm_err:
+                return perm_err
+
         if path == "/metrics" or path == "/api/metrics/prometheus":
             return self._get_prometheus_metrics(query_params)
 

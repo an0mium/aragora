@@ -59,6 +59,14 @@ class ReviewsHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for reviews endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # Auth and permission check
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "reviews:read")
+        if perm_err:
+            return perm_err
+
         # Normalize and strip prefix
         normalized = strip_version_prefix(path)
         prefix = "/api/reviews"

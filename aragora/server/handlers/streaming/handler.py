@@ -152,6 +152,13 @@ class StreamingConnectorHandler(BaseHandler):
         if not path.startswith(_PREFIX):
             return None
 
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "streaming:read")
+        if perm_err:
+            return perm_err
+
         sub = path[len(_PREFIX) :]
 
         # GET /api/streaming/connectors
@@ -186,6 +193,13 @@ class StreamingConnectorHandler(BaseHandler):
         """Route POST requests under ``/api/streaming/connectors``."""
         if not path.startswith(_PREFIX):
             return None
+
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "streaming:admin")
+        if perm_err:
+            return perm_err
 
         sub = path[len(_PREFIX) :]
         parts = sub.lstrip("/").split("/")

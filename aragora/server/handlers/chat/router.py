@@ -770,6 +770,13 @@ if HANDLER_BASE_AVAILABLE:
             logger.debug(f"Chat request: {path}")
 
             if path == "/api/v1/chat/status":
+                # Auth and permission check for status endpoint
+                user, err = self.require_auth_or_error(handler)
+                if err:
+                    return err
+                _, perm_err = self.require_permission_or_error(handler, "chat:read")
+                if perm_err:
+                    return perm_err
                 return self._get_status()
 
             # All webhook endpoints require POST

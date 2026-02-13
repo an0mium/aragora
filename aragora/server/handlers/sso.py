@@ -416,11 +416,32 @@ class SSOHandler(SecureHandler):
                 state=relay_state,
             )
 
-            # Generate session token
+            # Persist user to Aragora database (create or update)
+            from aragora.storage.user_store.singleton import get_user_store
+
+            user_store = get_user_store()
+            aragora_user = None
+            if user_store:
+                existing = user_store.get_user_by_email(user.email)
+                if existing:
+                    sso_name = user.name or user.email.split("@")[0]
+                    if hasattr(user_store, "update_user"):
+                        user_store.update_user(existing.id, name=sso_name)
+                    aragora_user = user_store.get_user_by_id(existing.id) or existing
+                else:
+                    aragora_user = user_store.create_user(
+                        email=user.email,
+                        password_hash="sso",
+                        password_salt="",
+                        name=user.name or user.email.split("@")[0],
+                    )
+
+            # Generate session token using Aragora user ID when available
             if not auth_config:
                 raise ConfigurationError("SSOHandler", "auth_config not initialized")
+            token_user_id = aragora_user.id if aragora_user else user.id
             session_token = auth_config.generate_token(
-                loop_id=user.id,
+                loop_id=token_user_id,
                 expires_in=provider.config.session_duration_seconds,
             )
 
