@@ -73,6 +73,22 @@ def reset_global_store():
     reset_webhook_config_store()
 
 
+@pytest.fixture(autouse=True)
+def webhook_store_test_env(monkeypatch):
+    """Stabilize encryption/secrets behavior for webhook store unit tests."""
+    monkeypatch.setenv("ARAGORA_ENV", "development")
+    monkeypatch.setenv("ARAGORA_ENCRYPTION_REQUIRED", "false")
+    monkeypatch.setenv("ARAGORA_SECRETS_STRICT", "false")
+    monkeypatch.setenv("ARAGORA_ENCRYPTION_KEY", "0" * 64)
+
+    # Clear cached encryption service so each test sees patched env values.
+    from aragora.security import encryption as encryption_module
+
+    encryption_module._encryption_service = None  # type: ignore[attr-defined]
+    yield
+    encryption_module._encryption_service = None  # type: ignore[attr-defined]
+
+
 # =============================================================================
 # EncryptionError Tests
 # =============================================================================

@@ -140,6 +140,29 @@ jobs:
           path: /tmp/capability-matrix-summary.md
           retention-days: 14
 
+  baseline-determinism:
+    name: Baseline Determinism
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    needs: version-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install baseline test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,test]"
+
+      - name: Verify deterministic baseline command
+        run: python scripts/run_test_baseline.py
+
   # Skip marker audit (warns if skip count increases)
   skip-audit:
     name: Skip Marker Audit
@@ -191,6 +214,7 @@ jobs:
     name: Zero Coverage Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: baseline-determinism
 
     steps:
       - name: Checkout
@@ -251,6 +275,7 @@ jobs:
   test-fast:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: baseline-determinism
     strategy:
       fail-fast: false
       matrix:
@@ -568,6 +593,7 @@ jobs:
     name: CLI Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: baseline-determinism
 
     steps:
       - name: Checkout
@@ -625,6 +651,7 @@ jobs:
     name: Nightly Slow Tier
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: baseline-determinism
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -847,6 +874,7 @@ jobs:
     name: Optional Deps (Full)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    needs: baseline-determinism
     # Run on schedule, push to main, or workflow_dispatch
     if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
 

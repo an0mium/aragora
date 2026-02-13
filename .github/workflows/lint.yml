@@ -71,7 +71,8 @@ jobs:
 
       - name: Connector guard repro hint
         if: failure()
-        run: echo "Reproduce locally: python scripts/check_connector_exception_handling.py --path aragora/connectors"
+        run: |
+          echo "Reproduce locally: python scripts/check_connector_exception_handling.py --path aragora/connectors"
 
   agent-registry-sync:
     runs-on: ubuntu-latest
@@ -97,7 +98,8 @@ jobs:
 
       - name: Agent registry repro hint
         if: failure()
-        run: echo "Reproduce locally: python scripts/check_agent_registry_sync.py"
+        run: |
+          echo "Reproduce locally: python scripts/check_agent_registry_sync.py"
 
   typecheck:
     runs-on: ubuntu-latest

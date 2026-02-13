@@ -22,6 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Repo hygiene guard
+        run: python scripts/guard_repo_clean.py --check-working-tree
+
       - name: Get version
         id: get-version
         run: |
@@ -96,6 +99,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,research,code-intel,test]"
           pip install pytest-timeout pytest-xdist
+
+      - name: Verify required test dependencies
+        run: python scripts/check_test_dependencies.py
 
       - name: Run tests
         run: |

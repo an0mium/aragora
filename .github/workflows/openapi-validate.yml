@@ -3,18 +3,8 @@ name: "API: OpenAPI Spec Validation"
 on:
   push:
     branches: [main]
-    paths:
-      - 'aragora/server/handlers/**'
-      - 'aragora/server/openapi/**'
-      - 'aragora/server/openapi_impl.py'
-      - 'scripts/generate_openapi.py'
   pull_request:
     branches: [main]
-    paths:
-      - 'aragora/server/handlers/**'
-      - 'aragora/server/openapi/**'
-      - 'aragora/server/openapi_impl.py'
-      - 'scripts/generate_openapi.py'
   workflow_dispatch:
 
 concurrency:

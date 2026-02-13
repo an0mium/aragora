@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import importlib
 import json
 import os
@@ -375,6 +376,20 @@ def print_report(report: dict[str, Any]) -> None:
         print(f"WARN: {s['routes_missing_from_both_sdks']} routes lack SDK coverage.")
 
 
+def _expected_budget_max(
+    *,
+    initial: int,
+    weekly_reduction: int,
+    start_date: dt.date,
+    today: dt.date,
+) -> int:
+    """Compute expected maximum debt after weekly reduction cadence."""
+    if weekly_reduction <= 0 or today <= start_date:
+        return initial
+    weeks_elapsed = (today - start_date).days // 7
+    return max(0, initial - (weeks_elapsed * weekly_reduction))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check SDK parity with handler endpoints")
     parser.add_argument("--strict", action="store_true", help="Exit 1 if any gaps found")
@@ -400,6 +415,18 @@ def main() -> int:
         type=float,
         default=0.0,
         help="Minimum coverage %% for --strict mode (default: 0)",
+    )
+    parser.add_argument(
+        "--budget",
+        type=Path,
+        default=Path("scripts/baselines/check_sdk_parity_budget.json"),
+        help="Optional budget file for progressive parity debt reduction",
+    )
+    parser.add_argument(
+        "--today",
+        type=str,
+        default=None,
+        help="Override current date (YYYY-MM-DD) for deterministic budget checks",
     )
     args = parser.parse_args()
 
@@ -430,6 +457,58 @@ def main() -> int:
         if len(new_missing) > 20:
             print(f"  ... and {len(new_missing) - 20} more")
 
+    budget_status: dict[str, int] | None = None
+    if args.budget and args.budget.exists():
+        try:
+            budget_data = json.loads(args.budget.read_text(encoding="utf-8"))
+            start_date_str = str(budget_data.get("start_date", "")).strip()
+            if not start_date_str:
+                raise ValueError("budget.start_date is required")
+            start_date = dt.date.fromisoformat(start_date_str)
+            today = dt.date.fromisoformat(args.today) if args.today else dt.date.today()
+
+            initial_missing = int(
+                budget_data.get(
+                    "initial_missing_from_both_sdks",
+                    report["summary"]["routes_missing_from_both_sdks"],
+                )
+            )
+            weekly_missing = int(budget_data.get("weekly_reduction_missing_from_both_sdks", 0))
+            expected_missing = _expected_budget_max(
+                initial=initial_missing,
+                weekly_reduction=weekly_missing,
+                start_date=start_date,
+                today=today,
+            )
+
+            stale_current = len(report["gaps"]["stale_python_sdk_paths"])
+            initial_stale = int(
+                budget_data.get("initial_stale_python_sdk_paths", stale_current)
+            )
+            weekly_stale = int(budget_data.get("weekly_reduction_stale_python_sdk_paths", 0))
+            expected_stale = _expected_budget_max(
+                initial=initial_stale,
+                weekly_reduction=weekly_stale,
+                start_date=start_date,
+                today=today,
+            )
+
+            budget_status = {
+                "expected_missing_max": expected_missing,
+                "current_missing": report["summary"]["routes_missing_from_both_sdks"],
+                "expected_stale_python_max": expected_stale,
+                "current_stale_python": stale_current,
+            }
+            if not args.json:
+                print(
+                    "\nBudget status: "
+                    f"missing_from_both {budget_status['current_missing']}/{budget_status['expected_missing_max']} "
+                    f"| stale_python {budget_status['current_stale_python']}/{budget_status['expected_stale_python_max']}"
+                )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            print(f"\nFAIL: Invalid SDK parity budget file ({args.budget}): {exc}")
+            return 2
+
     # Strict mode: fail if gaps exceed threshold
     if args.strict:
         py_cov = report["summary"]["python_sdk_coverage_pct"]
@@ -445,6 +524,20 @@ def main() -> int:
             )
             print("Run with --allow-missing only as a temporary migration override.")
             return 1
+        if budget_status:
+            if budget_status["current_missing"] > budget_status["expected_missing_max"]:
+                print(
+                    "\nFAIL: Missing-from-both debt exceeds budget "
+                    f"({budget_status['current_missing']} > {budget_status['expected_missing_max']})."
+                )
+                return 1
+            if budget_status["current_stale_python"] > budget_status["expected_stale_python_max"]:
+                print(
+                    "\nFAIL: Stale Python SDK debt exceeds budget "
+                    f"({budget_status['current_stale_python']} > "
+                    f"{budget_status['expected_stale_python_max']})."
+                )
+                return 1
 
     return 0
 

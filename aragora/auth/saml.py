@@ -51,14 +51,24 @@ logger = logging.getLogger(__name__)
 # Pre-declare OneLogin_Saml2_Auth for optional import fallback
 OneLogin_Saml2_Auth: Any
 
+SAML_LIB_IMPORT_ERROR: Exception | None = None
+
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth as _OneLogin_Saml2_Auth_impl
 
     OneLogin_Saml2_Auth = _OneLogin_Saml2_Auth_impl
     HAS_SAML_LIB = True
-except ImportError:
+except Exception as exc:  # noqa: BLE001
+    # Some environments have python3-saml installed but fail at import-time
+    # due to native xmlsec/libxml2 incompatibilities. Treat this the same as
+    # "library unavailable" and keep secure fallback behavior in SAMLProvider.
     HAS_SAML_LIB = False
-    logger.debug("python3-saml not installed - SAML authentication unavailable")
+    SAML_LIB_IMPORT_ERROR = exc
+    logger.warning(
+        "python3-saml unavailable - SAML authentication fallback only (%s: %s)",
+        type(exc).__name__,
+        exc,
+    )
 
 
 class SAMLError(SSOError):

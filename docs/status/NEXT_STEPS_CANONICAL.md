@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 This is the single source of truth for project-wide execution priorities.
 Legacy planning documents should link here.
@@ -14,6 +14,7 @@ Legacy planning documents should link here.
   - Randomized test gate passes for 3 fixed seeds
   - No cross-test state leaks in global fixtures/singletons/event loops
   - Full PR test suite remains green
+  - Skip marker debt tracked and burned down from audited baseline (`docs/status/TEST_SKIP_BURNDOWN.md`)
 - CI gates:
   - `.github/workflows/test.yml` `test-pollution-randomized`
 
@@ -33,6 +34,7 @@ Legacy planning documents should link here.
 - Acceptance:
   - Offline tests validate no audience/network probes and no network-backed subsystems
   - Demo CLI smoke run passes with `ARAGORA_OFFLINE=1`
+  - Local reproducibility script passes: `scripts/run_offline_golden_path.sh`
 - CI gates:
   - `.github/workflows/smoke.yml` `offline-golden-path`
   - Tests: `tests/cli/test_offline_golden_path.py`
@@ -53,6 +55,7 @@ Legacy planning documents should link here.
 - Acceptance:
   - `check_version_alignment` passes on SDK parity changes
   - SDK parity report remains clean for handler changes
+  - SDK parity debt follows weekly budget reduction (`scripts/baselines/check_sdk_parity_budget.json`)
 - CI gates:
   - `.github/workflows/sdk-parity.yml` (version alignment + parity)
 
@@ -71,6 +74,7 @@ Legacy planning documents should link here.
 - Goal: unresolved HIGH/CRITICAL pentest findings cannot drift unnoticed
 - Acceptance:
   - Findings tracked in `security/pentest/findings.json`
+  - Execution plan maintained in `security/pentest/EXECUTION_PLAN.md`
   - CI fails if unresolved HIGH/CRITICAL findings exist
 - CI gates:
   - `.github/workflows/security.yml` `pentest-findings`
@@ -79,3 +83,4 @@ Legacy planning documents should link here.
 ## Operating Rules
 - Any new roadmap or status doc must link this file instead of redefining priorities.
 - If priorities change, update this file first, then update linked summaries.
+- Legacy planning docs should be compatibility pointers, not alternate priority sources.
