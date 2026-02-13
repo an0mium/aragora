@@ -833,7 +833,7 @@ class TestEdgeCases:
     def test_null_api_key(self, store, test_user):
         """Should handle null API key."""
         user = store.get_user_by_id(test_user.id)
-        assert user.api_key is None
+        assert user.api_key_hash is None
 
     def test_last_login_tracking(self, store, test_user):
         """Should track last login time."""
