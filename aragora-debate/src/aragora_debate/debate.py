@@ -239,7 +239,12 @@ def create_agent(
     if prov == "mock":
         from aragora_debate._mock import MockAgent
 
-        return MockAgent(name=agent_name, system_prompt=system_prompt, stance=stance)  # type: ignore[arg-type]
+        return MockAgent(
+            name=agent_name,
+            system_prompt=system_prompt,
+            stance=stance,  # type: ignore[arg-type]
+            **{k: v for k, v in kwargs.items() if k in ("proposal", "vote_for", "critique_issues")},
+        )
 
     raise ValueError(
         f"Unknown provider {provider!r}. "
