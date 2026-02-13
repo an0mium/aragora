@@ -30,6 +30,225 @@ logger = logging.getLogger(__name__)
 # This allows proper type hints without requiring type: ignore comments
 HandlerType = Optional[type[Any]]
 
+# =============================================================================
+# Handler Tier Classification
+# =============================================================================
+# Tiers control which handlers are loaded at startup.
+# Set ARAGORA_HANDLER_TIERS env var to a comma-separated list of tiers
+# to load (e.g., "core,extended"). Default: all tiers.
+
+HANDLER_TIERS: dict[str, str] = {
+    # ── Core (always loaded) ──────────────────────────────────────────
+    "_health_handler": "core",
+    "_system_handler": "core",
+    "_docs_handler": "core",
+    "_debates_handler": "core",
+    "_agents_handler": "core",
+    "_auth_handler": "core",
+    "_oauth_handler": "core",
+    "_consensus_handler": "core",
+    "_receipts_handler": "core",
+    "_gauntlet_handler": "core",
+    "_skills_handler": "core",
+    "_webhook_handler": "core",
+    "_features_handler": "core",
+    "_tournament_handler": "core",
+    "_playground_handler": "core",
+    "_ranking_handler": "core",
+    "_leaderboard_handler": "core",
+    "_onboarding_handler": "core",
+    "_status_page_handler": "core",
+    # ── Extended (loaded by default, can disable) ─────────────────────
+    "_nomic_handler": "extended",
+    "_analytics_dashboard_handler": "extended",
+    "_analytics_metrics_handler": "extended",
+    "_endpoint_analytics_handler": "extended",
+    "_pulse_handler": "extended",
+    "_memory_handler": "extended",
+    "_document_handler": "extended",
+    "_document_batch_handler": "extended",
+    "_belief_handler": "extended",
+    "_knowledge_handler": "extended",
+    "_knowledge_chat_handler": "extended",
+    "_insights_handler": "extended",
+    "_learning_handler": "extended",
+    "_gallery_handler": "extended",
+    "_moments_handler": "extended",
+    "_persona_handler": "extended",
+    "_calibration_handler": "extended",
+    "_replays_handler": "extended",
+    "_graph_debates_handler": "extended",
+    "_matrix_debates_handler": "extended",
+    "_decision_explain_handler": "extended",
+    "_decision_handler": "extended",
+    "_critique_handler": "extended",
+    "_explainability_handler": "extended",
+    "_dashboard_handler": "extended",
+    "_notification_handler": "extended",
+    "_code_review_handler": "extended",
+    "_pr_review_handler": "extended",
+    "_receipt_delivery_handler": "extended",
+    "_plans_handler": "extended",
+    "_decision_pipeline_handler": "extended",
+    # ── Enterprise (loaded only with ARAGORA_ENTERPRISE=1) ────────────
+    "_admin_handler": "enterprise",
+    "_control_plane_handler": "enterprise",
+    "_policy_handler": "enterprise",
+    "_security_handler": "enterprise",
+    "_moderation_handler": "enterprise",
+    "_oauth_wizard_handler": "enterprise",
+    "_scim_handler": "enterprise",
+    "_sso_handler": "enterprise",
+    "_billing_handler": "enterprise",
+    "_budget_handler": "enterprise",
+    "_budget_controls_handler": "enterprise",
+    "_credits_admin_handler": "enterprise",
+    "_organizations_handler": "enterprise",
+    "_workspace_handler": "enterprise",
+    "_compliance_handler": "enterprise",
+    "_backup_handler": "enterprise",
+    "_dr_handler": "enterprise",
+    "_privacy_handler": "enterprise",
+    "_audit_trail_handler": "enterprise",
+    "_audit_sessions_handler": "enterprise",
+    "_csp_report_handler": "enterprise",
+    "_rbac_handler": "enterprise",
+    "_emergency_access_handler": "enterprise",
+    "_unified_approvals_handler": "enterprise",
+    "_connector_management_handler": "enterprise",
+    "_task_execution_handler": "enterprise",
+    # ── Experimental (loaded only with ARAGORA_EXPERIMENTAL=1) ────────
+    "_genesis_handler": "experimental",
+    "_erc8004_handler": "experimental",
+    "_evolution_handler": "experimental",
+    "_evolution_ab_testing_handler": "experimental",
+    "_computer_use_handler": "experimental",
+    "_laboratory_handler": "experimental",
+    "_probes_handler": "experimental",
+    "_breakpoints_handler": "experimental",
+    "_introspection_handler": "experimental",
+    "_rlm_context_handler": "experimental",
+    "_rlm_handler": "experimental",
+    "_ml_handler": "experimental",
+    "_verticals_handler": "experimental",
+    "_canvas_handler": "experimental",
+    # ── Optional (feature-specific, loaded by default) ────────────────
+    "_gateway_handler": "optional",
+    "_openclaw_gateway_handler": "optional",
+    "_gateway_credentials_handler": "optional",
+    "_gateway_health_handler": "optional",
+    "_gateway_config_handler": "optional",
+    "_external_integrations_handler": "optional",
+    "_integration_management_handler": "optional",
+    "_feature_integrations_handler": "optional",
+    "_connectors_handler": "optional",
+    "_streaming_connector_handler": "optional",
+    "_marketplace_handler": "optional",
+    "_automation_handler": "optional",
+    "_workflow_handler": "optional",
+    "_queue_handler": "optional",
+    "_workflow_templates_handler": "optional",
+    "_workflow_patterns_handler": "optional",
+    "_workflow_categories_handler": "optional",
+    "_workflow_pattern_templates_handler": "optional",
+    "_sme_workflows_handler": "optional",
+    "_plugins_handler": "optional",
+    "_devices_handler": "optional",
+    "_relationship_handler": "optional",
+    "_routing_handler": "optional",
+    "_routing_rules_handler": "optional",
+    "_advertising_handler": "optional",
+    "_crm_handler": "optional",
+    "_support_handler": "optional",
+    "_ecommerce_handler": "optional",
+    "_reconciliation_handler": "optional",
+    "_codebase_audit_handler": "optional",
+    "_legal_handler": "optional",
+    "_devops_handler": "optional",
+    "_ap_automation_handler": "optional",
+    "_ar_automation_handler": "optional",
+    "_invoice_handler": "optional",
+    "_expense_handler": "optional",
+    "_skill_marketplace_handler": "optional",
+    "_template_marketplace_handler": "optional",
+    "_template_recommendations_handler": "optional",
+    "_audit_github_bridge_handler": "optional",
+    "_bindings_handler": "optional",
+    "_dependency_analysis_handler": "optional",
+    "_repository_handler": "optional",
+    "_scheduler_handler": "optional",
+    "_threat_intel_handler": "optional",
+    "_finding_workflow_handler": "optional",
+    "_quick_scan_handler": "optional",
+    "_cloud_storage_handler": "optional",
+    "_smart_upload_handler": "optional",
+    "_partner_handler": "optional",
+    "_alert_handler": "optional",
+    "_approval_handler": "optional",
+    "_trigger_handler": "optional",
+    "_monitoring_handler": "optional",
+    "_cost_dashboard_handler": "optional",
+    "_gastown_dashboard_handler": "optional",
+    "_sme_usage_dashboard_handler": "optional",
+    "_sme_success_dashboard_handler": "optional",
+    "_agent_dashboard_handler": "optional",
+    "_code_intelligence_handler": "optional",
+    "_auditing_handler": "optional",
+    "_uncertainty_handler": "optional",
+    "_verification_handler": "optional",
+    "_deliberations_handler": "optional",
+    "_orchestration_handler": "optional",
+}
+
+
+def get_active_tiers() -> set[str]:
+    """Determine which handler tiers should be loaded.
+
+    Controlled by ARAGORA_HANDLER_TIERS env var (comma-separated).
+    Defaults to all tiers. Core is always included.
+    """
+    tiers_env = os.environ.get("ARAGORA_HANDLER_TIERS", "").strip()
+    if tiers_env:
+        tiers = {t.strip() for t in tiers_env.split(",") if t.strip()}
+        tiers.add("core")  # Core is always loaded
+        return tiers
+
+    # Default: load all tiers, but respect feature flags
+    tiers = {"core", "extended", "optional"}
+    if os.environ.get("ARAGORA_ENTERPRISE", "").strip() in ("1", "true", "yes"):
+        tiers.add("enterprise")
+    if os.environ.get("ARAGORA_EXPERIMENTAL", "").strip() in ("1", "true", "yes"):
+        tiers.add("experimental")
+
+    # If neither enterprise nor experimental flag is set but no tier filter
+    # is configured, load everything for backward compatibility
+    if not tiers_env:
+        tiers.update({"enterprise", "experimental"})
+
+    return tiers
+
+
+def filter_registry_by_tier(
+    registry: list[tuple[str, Any]],
+    active_tiers: set[str] | None = None,
+) -> list[tuple[str, Any]]:
+    """Filter handler registry to only include handlers in active tiers.
+
+    Handlers not in HANDLER_TIERS are assumed to be 'extended' (loaded by default).
+    """
+    if active_tiers is None:
+        active_tiers = get_active_tiers()
+
+    filtered = []
+    for attr_name, handler_class in registry:
+        tier = HANDLER_TIERS.get(attr_name, "extended")
+        if tier in active_tiers:
+            filtered.append((attr_name, handler_class))
+        else:
+            logger.debug(f"[handlers] Skipping {attr_name} (tier={tier})")
+
+    return filtered
+
 
 def _safe_import(module_path: str, class_name: str) -> HandlerType:
     """Safely import a handler class with graceful fallback.

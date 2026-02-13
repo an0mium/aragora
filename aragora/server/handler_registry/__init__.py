@@ -46,12 +46,15 @@ from aragora.server.middleware.rate_limit import (
 
 # Import core infrastructure
 from .core import (
+    HANDLER_TIERS,
     HandlerType,
     HandlerValidationError,
     RouteIndex,
     _run_handler_coroutine,
     _safe_import,
     check_handler_coverage,
+    filter_registry_by_tier,
+    get_active_tiers,
     get_route_index,
     validate_all_handlers,
     validate_handler_class,
@@ -189,24 +192,33 @@ class HandlerRegistryMixin:
             "knowledge_mound": getattr(cls, "knowledge_mound", None),
         }
 
-        # Initialize all handlers from registry with auto-instrumentation
-        for attr_name, handler_class in HANDLER_REGISTRY:
+        # Filter registry by active tiers
+        active_tiers = get_active_tiers()
+        active_registry = filter_registry_by_tier(HANDLER_REGISTRY, active_tiers)
+
+        # Initialize handlers from filtered registry with auto-instrumentation
+        for attr_name, handler_class in active_registry:
             if handler_class is not None:
                 instance = handler_class(ctx)
                 auto_instrument_handler(instance)
                 setattr(cls, attr_name, instance)
 
         cls._handlers_initialized = True
-        logger.info(f"[handlers] Modular handlers initialized ({len(HANDLER_REGISTRY)} handlers)")
+        skipped = len(HANDLER_REGISTRY) - len(active_registry)
+        tier_info = ",".join(sorted(active_tiers))
+        logger.info(
+            f"[handlers] Initialized {len(active_registry)}/{len(HANDLER_REGISTRY)} "
+            f"handlers (tiers={tier_info}, skipped={skipped})"
+        )
 
         # Check for unregistered handler classes in the codebase
         try:
-            check_handler_coverage(HANDLER_REGISTRY)
+            check_handler_coverage(active_registry)
         except Exception as e:
             logger.debug(f"[handlers] Handler coverage check failed: {e}")
 
         # Validate instantiated handlers
-        validation_results = validate_handlers_on_init(cls, HANDLER_REGISTRY)
+        validation_results = validate_handlers_on_init(cls, active_registry)
         if validation_results["invalid"]:
             logger.warning(
                 f"[handlers] {len(validation_results['invalid'])} handlers have validation issues"
@@ -214,7 +226,7 @@ class HandlerRegistryMixin:
 
         # Build route index for O(1) dispatch
         route_index = get_route_index()
-        route_index.build(cls, HANDLER_REGISTRY)
+        route_index.build(cls, active_registry)
 
         # Log resource availability for observability
         cls._log_resource_availability(nomic_dir)
