@@ -60,6 +60,43 @@ def _get_circuit_breaker():  # type: ignore[no-untyped-def]
     return _pipeline_cb
 
 
+def _normalize_string_list(value: Any, field_name: str) -> list[str] | None:
+    """Validate and normalize comma-separated or list-based string fields."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        items = [item.strip() for item in value.split(",") if item.strip()]
+        return items or None
+    if isinstance(value, (list, tuple)):
+        items: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                raise ValueError(f"{field_name} must be a string or list of strings")
+            normalized = item.strip()
+            if normalized:
+                items.append(normalized)
+        return items or None
+    raise ValueError(f"{field_name} must be a string or list of strings")
+
+
+def _normalize_thread_map(value: Any) -> dict[str, str] | None:
+    """Validate and normalize per-platform thread mapping."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("thread_id_by_platform must be an object")
+
+    normalized: dict[str, str] = {}
+    for raw_platform, raw_thread in value.items():
+        if not isinstance(raw_platform, str) or not isinstance(raw_thread, str):
+            raise ValueError("thread_id_by_platform keys and values must be strings")
+        platform = raw_platform.strip()
+        thread = raw_thread.strip()
+        if platform and thread:
+            normalized[platform] = thread
+    return normalized or None
+
+
 def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any] | None:
     """Build an implementation profile payload from request fields."""
     profile = body.get("implementation_profile")
@@ -96,6 +133,29 @@ def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any
     _maybe_set("channel_targets", body.get("channel_targets") or body.get("chat_targets"))
     _maybe_set("thread_id", body.get("thread_id") or body.get("origin_thread_id"))
     _maybe_set("thread_id_by_platform", body.get("thread_id_by_platform"))
+
+    if "channel_targets" in payload:
+        normalized_targets = _normalize_string_list(payload.get("channel_targets"), "channel_targets")
+        if normalized_targets is None:
+            payload.pop("channel_targets", None)
+        else:
+            payload["channel_targets"] = normalized_targets
+
+    if "thread_id" in payload:
+        thread_id = payload.get("thread_id")
+        if thread_id is None:
+            payload.pop("thread_id", None)
+        elif not isinstance(thread_id, str) or not thread_id.strip():
+            raise ValueError("thread_id must be a non-empty string")
+        else:
+            payload["thread_id"] = thread_id.strip()
+
+    if "thread_id_by_platform" in payload:
+        normalized_map = _normalize_thread_map(payload.get("thread_id_by_platform"))
+        if normalized_map is None:
+            payload.pop("thread_id_by_platform", None)
+        else:
+            payload["thread_id_by_platform"] = normalized_map
 
     return payload or None
 
@@ -371,7 +431,10 @@ class DecisionPipelineHandler(SecureHandler):
         elif not isinstance(metadata, dict):
             return error_response("metadata must be an object", 400)
 
-        implementation_profile = _build_implementation_profile_payload(body)
+        try:
+            implementation_profile = _build_implementation_profile_payload(body)
+        except ValueError as exc:
+            return error_response(str(exc), 400)
 
         # Build the plan
         plan = DecisionPlanFactory.from_debate_result(
