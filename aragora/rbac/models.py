@@ -345,6 +345,18 @@ class Action(str, Enum):
     CREDENTIAL_DELETE = "credential.delete"  # Delete credentials
     CREDENTIAL_ROTATE = "credential.rotate"  # Rotate credentials
     HYBRID_DEBATE = "hybrid_debate"  # Execute hybrid debates
+    SESSION_CREATE = "sessions.create"
+    SESSION_READ = "sessions.read"
+    SESSION_DELETE = "sessions.delete"
+    ACTION_EXECUTE = "actions.execute"
+    ACTION_READ = "actions.read"
+    ACTION_CANCEL = "actions.cancel"
+    POLICY_READ = "policy.read"
+    POLICY_WRITE = "policy.write"
+    APPROVAL_READ = "approvals.read"
+    APPROVAL_WRITE = "approvals.write"
+    METRICS_READ = "metrics.read"
+    AUDIT_READ = "audit.read"
 
     # Wildcard
     ALL = "*"

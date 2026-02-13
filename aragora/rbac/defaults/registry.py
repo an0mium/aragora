@@ -1016,3 +1016,52 @@ for _key, _perm in list(SYSTEM_PERMISSIONS.items()):
             _CONTROLPLANE_ALIASES[_alias_key] = _perm
 
 SYSTEM_PERMISSIONS.update(_CONTROLPLANE_ALIASES)
+
+# ---------------------------------------------------------------------------
+# Gateway OpenClaw sub-resource permissions
+# These are referenced by middleware route rules for OpenClaw session, action,
+# policy, approval, metrics, and audit endpoints.
+# ---------------------------------------------------------------------------
+from aragora.rbac.models import Action as _Action, ResourceType as _ResourceType
+
+_OPENCLAW_PERMS: list[tuple[str, str, str]] = [
+    ("gateway.sessions.create", "Create Gateway Sessions", "Create OpenClaw agent sessions"),
+    ("gateway.sessions.read", "View Gateway Sessions", "View OpenClaw agent sessions"),
+    ("gateway.sessions.delete", "Delete Gateway Sessions", "Terminate OpenClaw agent sessions"),
+    ("gateway.actions.execute", "Execute Gateway Actions", "Execute actions via OpenClaw agents"),
+    ("gateway.actions.read", "View Gateway Actions", "View OpenClaw action results and status"),
+    ("gateway.actions.cancel", "Cancel Gateway Actions", "Cancel running OpenClaw actions"),
+    ("gateway.policy.read", "View Gateway Policies", "View OpenClaw policy rules"),
+    ("gateway.policy.write", "Manage Gateway Policies", "Create and delete OpenClaw policy rules"),
+    ("gateway.approvals.read", "View Gateway Approvals", "View pending approval requests"),
+    ("gateway.approvals.write", "Manage Gateway Approvals", "Approve or deny gateway requests"),
+    ("gateway.metrics.read", "View Gateway Metrics", "View OpenClaw performance metrics"),
+    ("gateway.audit.read", "View Gateway Audit", "View OpenClaw audit logs"),
+]
+
+for _oc_key, _oc_name, _oc_desc in _OPENCLAW_PERMS:
+    _oc_resource_str, _oc_action_str = _oc_key.split(".", 1)
+    _oc_perm = Permission(
+        id=_oc_key,
+        name=_oc_name,
+        resource=_ResourceType(_oc_resource_str),
+        action=_Action(_oc_action_str),
+        description=_oc_desc,
+    )
+    SYSTEM_PERMISSIONS[_oc_key] = _oc_perm
+    _oc_colon_key = _oc_key.replace(".", ":", 1)
+    SYSTEM_PERMISSIONS[_oc_colon_key] = _oc_perm
+    _oc_full_colon_key = _oc_key.replace(".", ":")
+    if _oc_full_colon_key != _oc_colon_key:
+        SYSTEM_PERMISSIONS[_oc_full_colon_key] = _oc_perm
+
+# ---------------------------------------------------------------------------
+# Missing permission: evolution.read
+# PERM_EVOLUTION_READ is defined in permissions/knowledge.py but was not
+# included in _ALL_PERMISSIONS, so it never appeared in SYSTEM_PERMISSIONS.
+# ---------------------------------------------------------------------------
+from .permissions.knowledge import PERM_EVOLUTION_READ as _PERM_EVO_READ
+
+SYSTEM_PERMISSIONS[_PERM_EVO_READ.key] = _PERM_EVO_READ
+_evo_colon_key = _PERM_EVO_READ.key.replace(".", ":", 1)
+SYSTEM_PERMISSIONS[_evo_colon_key] = _PERM_EVO_READ

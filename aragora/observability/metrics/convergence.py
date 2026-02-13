@@ -60,7 +60,7 @@ def init_convergence_metrics() -> None:
         _initialized = True
         logger.debug("Convergence metrics initialized")
 
-    except ImportError:
+    except (ImportError, ValueError):
         _init_noop_metrics()
         _initialized = True
     except Exception as e:
