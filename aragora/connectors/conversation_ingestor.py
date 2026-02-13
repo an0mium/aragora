@@ -369,7 +369,7 @@ class ConversationIngestorConnector(BaseConnector):
 
     def _parse_chatgpt_conversation(self, data: dict) -> Conversation | None:
         """Parse a single ChatGPT conversation."""
-        conv_id = data.get("id", data.get("conversation_id", hashlib.md5(str(data).encode()).hexdigest()[:16]))
+        conv_id = data.get("id", data.get("conversation_id", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]))
         title = data.get("title", "Untitled Conversation")
 
         # Parse timestamps
@@ -464,7 +464,7 @@ class ConversationIngestorConnector(BaseConnector):
 
     def _parse_claude_conversation(self, data: dict) -> Conversation | None:
         """Parse a single Claude conversation."""
-        conv_id = data.get("uuid", data.get("id", hashlib.md5(str(data).encode()).hexdigest()[:16]))
+        conv_id = data.get("uuid", data.get("id", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]))
         title = data.get("name", data.get("title", "Untitled Conversation"))
 
         # Parse timestamps
@@ -569,7 +569,7 @@ class ConversationIngestorConnector(BaseConnector):
 
     def _parse_generic_conversation(self, data: dict) -> Conversation | None:
         """Best-effort parsing of unknown conversation format."""
-        conv_id = str(data.get("id", data.get("uuid", hashlib.md5(str(data).encode()).hexdigest()[:16])))
+        conv_id = str(data.get("id", data.get("uuid", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16])))
         title = str(data.get("title", data.get("name", "Untitled")))
 
         # Try to find messages in various keys

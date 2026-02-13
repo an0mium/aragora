@@ -210,7 +210,9 @@ class TranscriptionWorker:
                 import base64
 
                 suffix = payload.get("file_extension", ".mp3")
-                temp_path = Path(tempfile.mktemp(suffix=suffix))
+                fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+                temp_path = Path(tmp_name)
+                os.close(fd)
                 temp_path.write_bytes(base64.b64decode(file_data))
                 audio_path = temp_path
             else:
@@ -258,7 +260,9 @@ class TranscriptionWorker:
                 import base64
 
                 suffix = payload.get("file_extension", ".mp4")
-                temp_path = Path(tempfile.mktemp(suffix=suffix))
+                fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+                temp_path = Path(tmp_name)
+                os.close(fd)
                 temp_path.write_bytes(base64.b64decode(file_data))
                 video_path = temp_path
             else:

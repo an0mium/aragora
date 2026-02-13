@@ -22,6 +22,7 @@ Features:
 from __future__ import annotations
 
 import logging
+import os
 import re
 import tempfile
 import threading
@@ -643,8 +644,10 @@ class TranscriptionHandler(BaseHandler):
             if not content_valid:
                 return error_response(content_error, 400)
 
-            # Save to temp file
-            temp_path = Path(tempfile.mktemp(suffix=suffix))
+            # Save to temp file (mkstemp avoids TOCTOU race condition)
+            fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+            temp_path = Path(tmp_name)
+            os.close(fd)
             temp_path.write_bytes(file_data)
 
             try:
@@ -770,7 +773,9 @@ class TranscriptionHandler(BaseHandler):
             if not content_valid:
                 return error_response(content_error, 400)
 
-            temp_path = Path(tempfile.mktemp(suffix=suffix))
+            fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+            temp_path = Path(tmp_name)
+            os.close(fd)
             temp_path.write_bytes(file_data)
 
             try:

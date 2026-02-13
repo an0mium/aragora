@@ -19,6 +19,7 @@ import difflib
 import hashlib
 import json
 import logging
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -307,7 +308,7 @@ class SICAImprover:
         Returns:
             Result of the improvement cycle
         """
-        cycle_id = hashlib.md5(f"{datetime.now().isoformat()}".encode()).hexdigest()[:12]
+        cycle_id = hashlib.md5(f"{datetime.now().isoformat()}".encode(), usedforsecurity=False).hexdigest()[:12]
         started_at = datetime.now()
 
         result = ImprovementCycleResult(
@@ -976,8 +977,8 @@ Preserve all existing functionality while fixing the issue."""
         """Run linter on file."""
         try:
             result = subprocess.run(
-                f"{self.config.lint_command} {file_path}",
-                shell=True,
+                [*shlex.split(self.config.lint_command), file_path],
+                shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -991,8 +992,8 @@ Preserve all existing functionality while fixing the issue."""
         """Run type checker on file."""
         try:
             result = subprocess.run(
-                f"{self.config.typecheck_command} {file_path}",
-                shell=True,
+                [*shlex.split(self.config.typecheck_command), file_path],
+                shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -1012,8 +1013,8 @@ Preserve all existing functionality while fixing the issue."""
 
         try:
             result = subprocess.run(
-                f"{self.config.test_command} -x -q",
-                shell=True,
+                [*shlex.split(self.config.test_command), "-x", "-q"],
+                shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -1027,8 +1028,8 @@ Preserve all existing functionality while fixing the issue."""
         """Run full test suite."""
         try:
             result = subprocess.run(
-                f"{self.config.test_command} -x -q",
-                shell=True,
+                [*shlex.split(self.config.test_command), "-x", "-q"],
+                shell=False,
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,
@@ -1077,11 +1078,12 @@ Preserve all existing functionality while fixing the issue."""
         if not patch.validation_result == ValidationResult.PASSED:
             return False
 
-        # Find the opportunity
+        if not self._cycle_history:
+            return False
+
+        # Find the opportunity in the most recent cycle.
         opp = next(
-            (o for o in self._cycle_history[-1].opportunities if o.id == patch.opportunity_id)
-            if self._cycle_history
-            else None,
+            (o for o in self._cycle_history[-1].opportunities if o.id == patch.opportunity_id),
             None,
         )
 
@@ -1135,7 +1137,7 @@ Preserve all existing functionality while fixing the issue."""
         """Create a backup of a file."""
         full_path = self.repo_path / file_path
         content = full_path.read_text()
-        content_hash = hashlib.md5(content.encode()).hexdigest()
+        content_hash = hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()
 
         if self.config.backup_dir:
             backup_path = self.config.backup_dir / f"{content_hash}.bak"

@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -39,6 +40,7 @@ ALLOWED_COMMANDS = [
     "aragora compliance",
     "git diff",
     "git log",
+    "git push",
     "git status",
     "git tag",
     "pip install",
@@ -196,8 +198,8 @@ class DevOpsAgent:
 
         try:
             result = subprocess.run(
-                command,
-                shell=True,
+                shlex.split(command),
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=120,

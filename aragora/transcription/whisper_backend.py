@@ -472,7 +472,9 @@ class WhisperCppBackend(TranscriptionBackend):
         # Convert to WAV if needed (whisper.cpp prefers WAV)
         wav_path = path
         if path.suffix.lower() != ".wav":
-            wav_path = Path(tempfile.mktemp(suffix=".wav"))
+            fd, tmp_name = tempfile.mkstemp(suffix=".wav")
+            os.close(fd)
+            wav_path = Path(tmp_name)
             await self._convert_to_wav(path, wav_path)
 
         start_time = time.time()
@@ -713,8 +715,10 @@ async def transcribe_video(
     if not path.exists():
         raise FileNotFoundError(f"Video file not found: {path}")
 
-    # Extract audio to temp file
-    audio_path = Path(tempfile.mktemp(suffix=".mp3"))
+    # Extract audio to temp file (mkstemp avoids TOCTOU race condition)
+    fd, tmp_name = tempfile.mkstemp(suffix=".mp3")
+    os.close(fd)
+    audio_path = Path(tmp_name)
 
     try:
         cmd = [
