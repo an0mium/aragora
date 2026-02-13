@@ -83,6 +83,18 @@ jobs:
             # Import check
             python -c "from aragora.server.unified_server import UnifiedServer; print('Import OK')"
 
+            # Ensure data directory exists with correct permissions
+            ARAGORA_DIR=$(pwd)
+            sudo mkdir -p "$ARAGORA_DIR/.nomic" /opt/aragora 2>/dev/null || true
+            sudo chown -R $(whoami):$(id -gn) "$ARAGORA_DIR/.nomic" /opt/aragora 2>/dev/null || true
+            # Also check if service runs as a different user
+            SERVICE_USER=$(grep -oP '(?<=User=)\S+' /etc/systemd/system/aragora.service 2>/dev/null || echo "")
+            if [ -n "$SERVICE_USER" ] && [ "$SERVICE_USER" != "$(whoami)" ]; then
+              echo "Service runs as: $SERVICE_USER"
+              sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$ARAGORA_DIR/.nomic" /opt/aragora 2>/dev/null || true
+              sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$ARAGORA_DIR" 2>/dev/null || true
+            fi
+
             # Restart service - try multiple methods
             echo "Restarting service..."
             if sudo systemctl restart aragora 2>/dev/null; then
