@@ -115,15 +115,14 @@ def mock_unauth_context():
 def clear_caches():
     """Clear caches and rate limiters before and after each test."""
     clear_cache()
-    # Clear all rate limiter buckets
+    # Clear all rate limiter buckets (but don't remove from registry —
+    # that orphans limiters held in decorator closures)
     for limiter in _limiters.values():
         limiter.clear()
-    _limiters.clear()
     yield
     clear_cache()
     for limiter in _limiters.values():
         limiter.clear()
-    _limiters.clear()
 
 
 # ============================================================================

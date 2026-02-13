@@ -387,8 +387,11 @@ class TestWhatsAppWebhookRateLimits:
         # Import the rate_limit module to access _limiters
         rate_limit_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
 
-        # Clear all limiters
+        # Save existing limiters so we can restore them after the test.
+        # Clearing _limiters orphans limiter objects held in decorator closures,
+        # making clear_all_limiters() unable to reset them in subsequent tests.
         rate_limit_mod.clear_all_limiters()
+        saved_limiters = dict(rate_limit_mod._limiters)
         with rate_limit_mod._limiters_lock:
             rate_limit_mod._limiters.clear()
 
@@ -399,7 +402,9 @@ class TestWhatsAppWebhookRateLimits:
 
         yield
 
-        # Cleanup
+        # Restore saved limiters and clear all
+        with rate_limit_mod._limiters_lock:
+            rate_limit_mod._limiters.update(saved_limiters)
         rate_limit_mod.clear_all_limiters()
 
     def test_whatsapp_handler_has_high_rate_limit(self, mock_server_context):
