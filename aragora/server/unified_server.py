@@ -324,8 +324,9 @@ class UnifiedHandler(  # type: ignore[misc]
         if path == "/api/auth/debug":
             try:
                 import hashlib as _h
+                import json as _json
                 import os as _os
-                diag = {}
+                diag: dict[str, Any] = {}
                 try:
                     from aragora.billing.auth.config import _get_jwt_secret, MIN_SECRET_LENGTH
                     secret = _get_jwt_secret()
@@ -359,18 +360,37 @@ class UnifiedHandler(  # type: ignore[misc]
                         payload = decode_jwt(token)
                         if payload:
                             diag["jwt_valid"] = True
-                            diag["jwt_user_id"] = payload.user_id
-                            diag["jwt_email"] = payload.email
-                            diag["jwt_exp"] = payload.exp
+                            diag["jwt_user_id"] = str(payload.user_id)
+                            diag["jwt_email"] = str(payload.email)
+                            # Convert exp to string to handle datetime or int
+                            diag["jwt_exp"] = str(payload.exp) if payload.exp is not None else None
                         else:
                             diag["jwt_valid"] = False
                     except Exception as e:
                         diag["jwt_decode_error"] = f"{type(e).__name__}: {e}"
                 diag["aragora_env"] = _os.environ.get("ARAGORA_ENV", "(not set)")
                 diag["aragora_environment"] = _os.environ.get("ARAGORA_ENVIRONMENT", "(not set)")
-                self._send_json(diag)
+                # Use default=str as safety net for any non-serializable values
+                content = _json.dumps(diag, default=str).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
             except Exception as e:
-                self._send_json({"error": f"Debug endpoint error: {type(e).__name__}: {e}"})
+                # Fallback: send minimal response bypassing _send_json entirely
+                try:
+                    err = _json.dumps({"error": f"Debug endpoint error: {type(e).__name__}: {e}"}).encode()
+                except Exception:
+                    err = b'{"error": "Debug endpoint critically failed"}'
+                try:
+                    self.send_response(500)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(err)))
+                    self.end_headers()
+                    self.wfile.write(err)
+                except Exception:
+                    pass  # Response already started, nothing we can do
             return
 
         # Route all /api/* requests through modular handlers

@@ -49,6 +49,7 @@ from aragora.server.handlers.base import (
     json_response,
     safe_error_message,
 )
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
@@ -73,23 +74,31 @@ class ReceiptsHandler(BaseHandler):
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._store = None  # Lazy initialization
-        self._share_store = None  # Lazy initialization for share tokens
+        self._store_factory = LazyStoreFactory(
+            store_name="receipt_store",
+            import_path="aragora.storage.receipt_store",
+            factory_name="get_receipt_store",
+            logger_context="Receipts",
+        )
+        self._share_store_factory = LazyStoreFactory(
+            store_name="receipt_share_store",
+            import_path="aragora.storage.receipt_share_store",
+            factory_name="get_receipt_share_store",
+            logger_context="Receipts",
+        )
+        self._store = None  # Set by tests or lazy init
+        self._share_store = None  # Set by tests or lazy init
 
     def _get_store(self):
-        """Get or create receipt store (lazy initialization)."""
+        """Get receipt store (lazy initialization)."""
         if self._store is None:
-            from aragora.storage.receipt_store import get_receipt_store
-
-            self._store = get_receipt_store()
+            self._store = self._store_factory.get()
         return self._store
 
     def _get_share_store(self):
-        """Get or create receipt share store (lazy initialization)."""
+        """Get receipt share store (lazy initialization)."""
         if self._share_store is None:
-            from aragora.storage.receipt_share_store import get_receipt_share_store
-
-            self._share_store = get_receipt_share_store()
+            self._share_store = self._share_store_factory.get()
         return self._share_store
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

@@ -720,7 +720,7 @@ class TestTokenVersion:
         assert payload is not None
 
     def test_validate_access_token_handles_store_error(self, mock_env_secret):
-        """Test validate_access_token handles user store errors gracefully."""
+        """Test validate_access_token fails closed on user store errors."""
         token = create_access_token(
             user_id="user-123",
             email="test@example.com",
@@ -731,12 +731,12 @@ class TestTokenVersion:
         mock_store = MagicMock()
         mock_store.get_user_by_id.side_effect = Exception("Database error")
 
-        # Should still validate (don't block on store errors)
+        # Should fail closed
         payload = validate_access_token(token, user_store=mock_store)
-        assert payload is not None
+        assert payload is None
 
     def test_validate_access_token_handles_user_not_found(self, mock_env_secret):
-        """Test validate_access_token handles non-existent user."""
+        """Test validate_access_token fails closed for non-existent users."""
         token = create_access_token(
             user_id="nonexistent-user",
             email="test@example.com",
@@ -747,6 +747,6 @@ class TestTokenVersion:
         mock_store = MagicMock()
         mock_store.get_user_by_id.return_value = None
 
-        # Should still validate (user might be deleted but token valid)
+        # Should fail closed
         payload = validate_access_token(token, user_store=mock_store)
-        assert payload is not None
+        assert payload is None

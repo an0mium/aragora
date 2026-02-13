@@ -13,6 +13,7 @@ import asyncio
 import functools
 import json
 import logging
+import re
 import threading
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
@@ -749,6 +750,14 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         )
         if not self.database_url:
             raise ValueError("PostgreSQL backend requires DATABASE_URL or ARAGORA_DATABASE_URL")
+
+        # Validate table_prefix to prevent SQL injection via DDL/DML interpolation.
+        # Only alphanumeric characters and underscores are allowed, max 64 chars.
+        if not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]{0,63}", table_prefix):
+            raise ValueError(
+                f"Invalid table_prefix {table_prefix!r}: must match "
+                "^[a-zA-Z_][a-zA-Z0-9_]{{0,63}}$ (alphanumeric and underscores only)"
+            )
 
         self.table_prefix = table_prefix
         self.entries_table = f"{table_prefix}audit_entries"

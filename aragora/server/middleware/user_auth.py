@@ -237,9 +237,23 @@ class SupabaseAuthValidator:
     - Role/claims extraction
     """
 
+    #: Minimum JWT secret length required in production to prevent brute-force attacks.
+    _MIN_JWT_SECRET_LENGTH: int = 32
+
     def __init__(self, jwt_secret: str | None = None, supabase_url: str | None = None):
         self.jwt_secret = jwt_secret or os.getenv("SUPABASE_JWT_SECRET")
         self.supabase_url = supabase_url or os.getenv("SUPABASE_URL")
+
+        # SECURITY: Enforce minimum JWT secret length in production.
+        # Short secrets are vulnerable to brute-force / dictionary attacks.
+        env = os.getenv("ARAGORA_ENV", "development").lower()
+        is_production = env in ("production", "staging")
+        if is_production and self.jwt_secret and len(self.jwt_secret) < self._MIN_JWT_SECRET_LENGTH:
+            raise RuntimeError(
+                f"SUPABASE_JWT_SECRET is too short ({len(self.jwt_secret)} chars). "
+                f"Production requires at least {self._MIN_JWT_SECRET_LENGTH} characters. "
+                "Generate a strong secret with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
 
         # Cache for validated tokens (short TTL)
         # Stores: (user, cached_at, token_exp)
@@ -604,11 +618,52 @@ def extract_token(handler: Any) -> str | None:
     return None
 
 
+def _get_trusted_proxy_cidrs() -> list[str]:
+    """Return the list of trusted proxy CIDRs from configuration.
+
+    Reads ``TRUSTED_PROXY_CIDRS`` (comma-separated).  When empty (the
+    default), X-Forwarded-For is never trusted and the direct connection
+    IP is used instead.
+    """
+    raw = os.getenv("TRUSTED_PROXY_CIDRS", "").strip()
+    if not raw:
+        return []
+    return [cidr.strip() for cidr in raw.split(",") if cidr.strip()]
+
+
+def _ip_in_cidrs(ip_str: str, cidrs: list[str]) -> bool:
+    """Check whether *ip_str* falls within any of the given CIDRs.
+
+    Uses ``ipaddress`` from the standard library.  Returns ``False`` on
+    any parse error so we fail closed.
+    """
+    import ipaddress
+
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    for cidr in cidrs:
+        try:
+            if addr in ipaddress.ip_network(cidr, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def extract_client_ip(handler: Any) -> str | None:
     """
     Extract client IP from request handler.
 
-    Checks X-Forwarded-For for proxied requests, then client_address.
+    Only trusts X-Forwarded-For when the direct connection IP comes from
+    a network listed in ``TRUSTED_PROXY_CIDRS``.  When the env var is
+    empty (the default), X-Forwarded-For is ignored and the direct
+    connection IP is returned.
+
+    If the direct connection IP cannot be determined, the rightmost
+    (nearest-proxy) value in X-Forwarded-For is used as a conservative
+    fallback.
 
     Args:
         handler: HTTP request handler.
@@ -619,20 +674,30 @@ def extract_client_ip(handler: Any) -> str | None:
     if handler is None:
         return None
 
+    # Determine direct connection IP
+    direct_ip: str | None = None
+    if hasattr(handler, "client_address"):
+        addr = handler.client_address
+        if isinstance(addr, tuple) and len(addr) >= 1:
+            direct_ip = str(addr[0])
+
+    trusted_cidrs = _get_trusted_proxy_cidrs()
+
     # Check for forwarded IP (behind proxy)
     if hasattr(handler, "headers"):
         forwarded = handler.headers.get("X-Forwarded-For", "")
         if forwarded:
-            # Take first IP in chain (original client)
-            return forwarded.split(",")[0].strip()
+            parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+            if direct_ip and trusted_cidrs and _ip_in_cidrs(direct_ip, trusted_cidrs):
+                # Trusted proxy: use leftmost (original client) IP
+                return parts[0]
+            elif direct_ip is None and parts:
+                # Cannot determine connection IP -- use the rightmost
+                # value which was set by the nearest proxy.
+                return parts[-1]
 
-    # Check for direct connection
-    if hasattr(handler, "client_address"):
-        addr = handler.client_address
-        if isinstance(addr, tuple) and len(addr) >= 1:
-            return str(addr[0])
-
-    return None
+    # Fall back to direct connection IP
+    return direct_ip
 
 
 async def authenticate_request(handler: Any) -> User | None:

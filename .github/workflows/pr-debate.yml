@@ -1,7 +1,13 @@
 name: Aragora PR Review
 
+# SECURITY: Uses pull_request_target so secrets are available, but ONLY the
+# base-branch code is checked out and installed.  The PR diff is fetched via
+# `gh pr diff` (read-only) so untrusted PR code never executes with secrets.
+# Do NOT change checkout ref to the PR head branch without a thorough security
+# review -- doing so would let any PR author exfiltrate API keys.
+
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize]
   workflow_dispatch:
     inputs:
@@ -21,9 +27,13 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
 
     steps:
-      - name: Checkout
+      # SECURITY: Checkout the BASE branch (trusted code), NOT the PR branch.
+      # This ensures that `pip install -e .` only installs known-safe code
+      # while secrets are present in the environment.
+      - name: Checkout base branch (trusted code only)
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
           fetch-depth: 0
 
       - name: Setup Python
@@ -32,10 +42,10 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install aragora from PR
+      - name: Install aragora from base branch
         run: |
           pip install --upgrade pip
-          # Install from checked-out PR code (editable mode)
+          # Install from base branch code (NOT PR code) to prevent secret exfiltration
           pip install -e .
 
       - name: Get PR diff

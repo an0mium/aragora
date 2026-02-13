@@ -462,30 +462,78 @@ class WebSocketHandlerMixin:
                             # This ensures clients only receive events for debates they subscribed to
                             debate_id = data.get("debate_id") or data.get("loop_id")
                             if debate_id:
-                                with self._client_subscriptions_lock:
-                                    self._client_subscriptions[ws_id] = debate_id
-                                setattr(ws, "_bound_loop_id", debate_id)
-                                logger.info(
-                                    f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
-                                )
-                                # Send current debate state if available
-                                with self._debate_states_lock:
-                                    state = self.debate_states.get(debate_id)
-                                if state:
-                                    await ws.send_json(
-                                        {
-                                            "type": "sync",
-                                            "data": state,
-                                            "debate_id": debate_id,
-                                        }
+                                # SECURITY: Verify RBAC permission before subscribing
+                                subscribe_allowed = True
+                                try:
+                                    from aragora.rbac.checker import check_permission as rbac_check
+                                    from aragora.rbac.models import AuthorizationContext
+
+                                    if self.is_ws_authenticated(ws_id):
+                                        auth_state = self.get_ws_auth_state(ws_id) or {}
+                                        auth_ctx = AuthorizationContext(
+                                            user_id=auth_state.get("user_id", client_id),
+                                            roles=auth_state.get("roles", {"viewer"}),
+                                        )
+                                        decision = rbac_check(auth_ctx, "debates.read", debate_id)
+                                        if not decision.allowed:
+                                            subscribe_allowed = False
+                                            await ws.send_json(
+                                                {
+                                                    "type": "error",
+                                                    "data": {
+                                                        "message": "Permission denied: debates:read required",
+                                                        "code": 403,
+                                                    },
+                                                }
+                                            )
+                                except ImportError:
+                                    pass  # RBAC module not available, allow subscription
+
+                                # Also check tenant isolation
+                                if subscribe_allowed:
+                                    try:
+                                        from .tenant_filter import get_tenant_filter
+                                        tf = get_tenant_filter()
+                                        tenant_ok, tenant_msg = tf.validate_subscription(ws_id, debate_id)
+                                        if not tenant_ok:
+                                            subscribe_allowed = False
+                                            await ws.send_json(
+                                                {
+                                                    "type": "error",
+                                                    "data": {
+                                                        "message": tenant_msg,
+                                                        "code": 403,
+                                                    },
+                                                }
+                                            )
+                                    except ImportError:
+                                        pass
+
+                                if subscribe_allowed:
+                                    with self._client_subscriptions_lock:
+                                        self._client_subscriptions[ws_id] = debate_id
+                                    setattr(ws, "_bound_loop_id", debate_id)
+                                    logger.info(
+                                        f"[ws] Client {client_id[:8]}... subscribed to {debate_id}"
                                     )
-                                else:
-                                    await ws.send_json(
-                                        {
-                                            "type": "subscribed",
-                                            "data": {"debate_id": debate_id},
-                                        }
-                                    )
+                                    # Send current debate state if available
+                                    with self._debate_states_lock:
+                                        state = self.debate_states.get(debate_id)
+                                    if state:
+                                        await ws.send_json(
+                                            {
+                                                "type": "sync",
+                                                "data": state,
+                                                "debate_id": debate_id,
+                                            }
+                                        )
+                                    else:
+                                        await ws.send_json(
+                                            {
+                                                "type": "subscribed",
+                                                "data": {"debate_id": debate_id},
+                                            }
+                                        )
                             else:
                                 await ws.send_json(
                                     {
@@ -658,11 +706,11 @@ class WebSocketHandlerMixin:
                     # Send if:
                     # 1. Event has no loop_id (system-wide events like heartbeat)
                     # 2. Client is subscribed to this specific debate
-                    # 3. Client has no subscription (legacy behavior, will receive all)
+                    # SECURITY: Unsubscribed clients (subscribed_id is None) do NOT
+                    # receive debate-scoped events to prevent data leakage.
                     should_send = (
                         not event_loop_id  # System events go to all
                         or subscribed_id == event_loop_id  # Subscribed to this debate
-                        or subscribed_id is None  # No subscription = legacy client
                     )
 
                     if should_send:

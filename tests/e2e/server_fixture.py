@@ -105,7 +105,9 @@ async def wait_for_server(
 
 
 @pytest_asyncio.fixture
-async def live_server(tmp_path: Path) -> AsyncGenerator[LiveServerInfo, None]:
+async def live_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> AsyncGenerator[LiveServerInfo, None]:
     """Start a real UnifiedServer for E2E testing.
 
     This fixture:
@@ -122,6 +124,38 @@ async def live_server(tmp_path: Path) -> AsyncGenerator[LiveServerInfo, None]:
     Yields:
         LiveServerInfo with ports and URLs for the running server
     """
+    # Keep smoke fixture in test mode so /readyz does not depend on production infra.
+    monkeypatch.setenv("ARAGORA_ENV", "test")
+    monkeypatch.setenv("ARAGORA_API_TOKEN", "test-token-012345")
+    monkeypatch.setenv("ARAGORA_REQUIRE_DISTRIBUTED", "false")
+    monkeypatch.setenv("ARAGORA_REQUIRE_DATABASE", "false")
+    monkeypatch.setenv("ARAGORA_SINGLE_INSTANCE", "true")
+    monkeypatch.setenv("ARAGORA_USE_SHARED_POOL", "false")
+    monkeypatch.setenv("ARAGORA_DURABLE_GAUNTLET", "0")
+    monkeypatch.setenv("ARAGORA_NOTIFICATION_WORKER", "0")
+    monkeypatch.setenv("ARAGORA_TESTFIXER_WORKER", "0")
+    monkeypatch.setenv("ARAGORA_TESTFIXER_TASK_WORKER", "0")
+
+    for var in (
+        "SUPABASE_POSTGRES_DSN",
+        "SUPABASE_URL",
+        "SUPABASE_KEY",
+        "SUPABASE_DB_PASSWORD",
+        "ARAGORA_POSTGRES_DSN",
+        "DATABASE_URL",
+        "KM_POSTGRES_URL",
+        "REDIS_URL",
+        "ARAGORA_REDIS_URL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    # Ensure no stale global pools bleed across tests/event loops.
+    from aragora.storage.connection_factory import reset_pools
+    from aragora.storage.pool_manager import reset_shared_pool
+
+    reset_pools()
+    reset_shared_pool()
+
     # Allocate dynamic ports
     http_port = find_free_port()
     ws_port = find_free_port()

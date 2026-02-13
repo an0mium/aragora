@@ -425,12 +425,14 @@ class EmailWebhooksHandler(BaseHandler):
 
         See: https://cloud.google.com/pubsub/docs/push#authentication
         """
-        if os.environ.get("PYTEST_CURRENT_TEST"):
+        if os.environ.get("PYTEST_CURRENT_TEST") and os.environ.get(
+            "ARAGORA_ENV", "development"
+        ).lower() not in ("production", "staging"):
             log_verification_attempt(
                 "gmail_pubsub",
                 True,
                 "bypassed",
-                "PYTEST_CURRENT_TEST set - verification skipped for tests",
+                "PYTEST_CURRENT_TEST set - verification skipped for tests (non-production)",
             )
             return True
 
@@ -518,12 +520,14 @@ class EmailWebhooksHandler(BaseHandler):
 
         SECURITY: In production, all notifications MUST be verified.
         """
-        if os.environ.get("PYTEST_CURRENT_TEST"):
+        if os.environ.get("PYTEST_CURRENT_TEST") and os.environ.get(
+            "ARAGORA_ENV", "development"
+        ).lower() not in ("production", "staging"):
             log_verification_attempt(
                 "outlook",
                 True,
                 "bypassed",
-                "PYTEST_CURRENT_TEST set - verification skipped for tests",
+                "PYTEST_CURRENT_TEST set - verification skipped for tests (non-production)",
             )
             return True
 

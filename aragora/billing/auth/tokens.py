@@ -381,20 +381,25 @@ def validate_access_token(
         blacklist.revoke(token_jti, payload.exp)
         return None
 
-    # Check token version against user's current version (logout-all support)
+    # Check token version against user's current version (logout-all support).
+    # Fail closed if the user store is unavailable or user lookup fails.
     if user_store is not None:
         try:
             user = user_store.get_user_by_id(payload.user_id)
-            if user is not None:
-                user_token_version = getattr(user, "token_version", 1)
-                if payload.tv < user_token_version:
-                    logger.debug("jwt_validate_failed: token version mismatch")
-                    return None
         except Exception as e:
             logger.warning(
                 f"jwt_validate_failed: error checking token version - {type(e).__name__}"
             )
-            # Continue validation - don't block on store errors
+            return None
+
+        if user is None:
+            logger.debug("jwt_validate_failed: user not found during token version check")
+            return None
+
+        user_token_version = getattr(user, "token_version", 1)
+        if payload.tv < user_token_version:
+            logger.debug("jwt_validate_failed: token version mismatch")
+            return None
 
     return payload
 
@@ -449,19 +454,25 @@ def validate_refresh_token(
         blacklist.revoke(token_jti, payload.exp)
         return None
 
-    # Check token version against user's current version (logout-all support)
+    # Check token version against user's current version (logout-all support).
+    # Fail closed if the user store is unavailable or user lookup fails.
     if user_store is not None:
         try:
             user = user_store.get_user_by_id(payload.user_id)
-            if user is not None:
-                user_token_version = getattr(user, "token_version", 1)
-                if payload.tv < user_token_version:
-                    logger.debug("jwt_validate_failed: refresh token version mismatch")
-                    return None
         except Exception as e:
             logger.warning(
                 f"jwt_validate_failed: error checking token version - {type(e).__name__}"
             )
+            return None
+
+        if user is None:
+            logger.debug("jwt_validate_failed: user not found during refresh version check")
+            return None
+
+        user_token_version = getattr(user, "token_version", 1)
+        if payload.tv < user_token_version:
+            logger.debug("jwt_validate_failed: refresh token version mismatch")
+            return None
 
     return payload
 

@@ -33,6 +33,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit, RateLimiter, ge
 from aragora.server.handlers.utils.tenant_validation import validate_tenant_access
 from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 
 logger = logging.getLogger(__name__)
 
@@ -72,23 +73,31 @@ class IntegrationsHandler(BaseHandler):
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._slack_store = None
-        self._teams_store = None
+        self._slack_store_factory = LazyStoreFactory(
+            store_name="slack_workspace_store",
+            import_path="aragora.storage.slack_workspace_store",
+            factory_name="get_slack_workspace_store",
+            logger_context="IntegrationMgmt",
+        )
+        self._teams_store_factory = LazyStoreFactory(
+            store_name="teams_workspace_store",
+            import_path="aragora.storage.teams_workspace_store",
+            factory_name="get_teams_workspace_store",
+            logger_context="IntegrationMgmt",
+        )
+        self._slack_store = None  # Set by tests or lazy init
+        self._teams_store = None  # Set by tests or lazy init
 
     def _get_slack_store(self):
-        """Get or create Slack workspace store (lazy initialization)."""
+        """Get Slack workspace store (lazy initialization)."""
         if self._slack_store is None:
-            from aragora.storage.slack_workspace_store import get_slack_workspace_store
-
-            self._slack_store = get_slack_workspace_store()
+            self._slack_store = self._slack_store_factory.get()
         return self._slack_store
 
     def _get_teams_store(self):
-        """Get or create Teams workspace store (lazy initialization)."""
+        """Get Teams workspace store (lazy initialization)."""
         if self._teams_store is None:
-            from aragora.storage.teams_workspace_store import get_teams_workspace_store
-
-            self._teams_store = get_teams_workspace_store()
+            self._teams_store = self._teams_store_factory.get()
         return self._teams_store
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

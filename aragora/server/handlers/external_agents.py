@@ -253,8 +253,6 @@ class ExternalAgentsHandler(BaseHandler):
                 if hasattr(user, "permissions")
                 else set(user.get("permissions", []))
             )
-            if not permissions and os.environ.get("PYTEST_CURRENT_TEST"):
-                permissions = {"*"}
             self._auth_context = AuthorizationContext(
                 user_id=user_id,
                 org_id=org_id,

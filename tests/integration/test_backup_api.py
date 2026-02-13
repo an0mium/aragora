@@ -134,9 +134,9 @@ class TestBackupAPIEndpoints:
         """Test listing backups endpoint."""
         with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
             result = await backup_handler.handle(
-                method="GET",
                 path="/api/v2/backups",
                 query_params={"limit": "10"},
+                handler=None,
             )
 
             assert result is not None
@@ -146,11 +146,18 @@ class TestBackupAPIEndpoints:
     async def test_create_backup(self, backup_handler, mock_backup_manager):
         """Test creating a backup."""
         with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
-            result = await backup_handler.handle(
-                method="POST",
-                path="/api/v2/backups",
-                body={"source_path": "/path/to/db", "type": "full", "description": "Manual backup"},
-            )
+            mock_req = MagicMock()
+            mock_req.command = "POST"
+            with patch.object(
+                backup_handler,
+                "read_json_body",
+                return_value={"source_path": "/path/to/db", "type": "full", "description": "Manual backup"},
+            ):
+                result = await backup_handler.handle(
+                    path="/api/v2/backups",
+                    query_params={},
+                    handler=mock_req,
+                )
 
             assert result is not None
             # May return 201 (created), 200, or 202 for async operation
@@ -161,8 +168,9 @@ class TestBackupAPIEndpoints:
         """Test getting backup metadata."""
         with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
             result = await backup_handler.handle(
-                method="GET",
                 path="/api/v2/backups/bkp_001",
+                query_params={},
+                handler=None,
             )
 
             assert result is not None
@@ -172,9 +180,12 @@ class TestBackupAPIEndpoints:
     async def test_verify_backup(self, backup_handler, mock_backup_manager):
         """Test verifying backup integrity."""
         with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
+            mock_req = MagicMock()
+            mock_req.command = "POST"
             result = await backup_handler.handle(
-                method="POST",
                 path="/api/v2/backups/bkp_001/verify",
+                query_params={},
+                handler=mock_req,
             )
 
             assert result is not None
@@ -184,9 +195,12 @@ class TestBackupAPIEndpoints:
     async def test_restore_test(self, backup_handler, mock_backup_manager):
         """Test dry-run restore."""
         with patch.object(backup_handler, "_get_manager", return_value=mock_backup_manager):
+            mock_req = MagicMock()
+            mock_req.command = "POST"
             result = await backup_handler.handle(
-                method="POST",
                 path="/api/v2/backups/bkp_001/restore-test",
+                query_params={},
+                handler=mock_req,
             )
 
             assert result is not None

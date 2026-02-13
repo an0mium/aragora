@@ -658,6 +658,42 @@ class TestAccessTokenValidation:
         )
         assert payload is not None
 
+    def test_token_version_store_error_fails_closed(self):
+        """Store lookup errors should fail closed."""
+        token = create_access_token(
+            user_id="user123",
+            email="test@example.com",
+            token_version=1,
+        )
+
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.side_effect = RuntimeError("database unavailable")
+
+        payload = validate_access_token(
+            token,
+            use_persistent_blacklist=False,
+            user_store=mock_store,
+        )
+        assert payload is None
+
+    def test_token_version_user_not_found_fails_closed(self):
+        """Missing users should fail closed when version checks are enabled."""
+        token = create_access_token(
+            user_id="deleted-user",
+            email="test@example.com",
+            token_version=1,
+        )
+
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.return_value = None
+
+        payload = validate_access_token(
+            token,
+            use_persistent_blacklist=False,
+            user_store=mock_store,
+        )
+        assert payload is None
+
 
 class TestRefreshTokenValidation:
     """Test refresh token validation."""
@@ -698,6 +734,34 @@ class TestRefreshTokenValidation:
         mock_user = MagicMock()
         mock_user.token_version = 2
         mock_store.get_user_by_id.return_value = mock_user
+
+        payload = validate_refresh_token(
+            token,
+            use_persistent_blacklist=False,
+            user_store=mock_store,
+        )
+        assert payload is None
+
+    def test_token_version_store_error_fails_closed(self):
+        """Refresh validation should fail closed on store errors."""
+        token = create_refresh_token(user_id="user123", token_version=1)
+
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.side_effect = RuntimeError("database unavailable")
+
+        payload = validate_refresh_token(
+            token,
+            use_persistent_blacklist=False,
+            user_store=mock_store,
+        )
+        assert payload is None
+
+    def test_token_version_user_not_found_fails_closed(self):
+        """Refresh validation should fail closed for deleted users."""
+        token = create_refresh_token(user_id="deleted-user", token_version=1)
+
+        mock_store = MagicMock()
+        mock_store.get_user_by_id.return_value = None
 
         payload = validate_refresh_token(
             token,

@@ -341,7 +341,8 @@ class RepositoryCrawler:
         start_time = datetime.now(timezone.utc)
 
         # Determine if local or remote
-        if source.startswith(("http://", "https://", "git@", "ssh://")):
+        if source.startswith(("http://", "https://", "git://", "git@", "ssh://")):
+            self._validate_git_url(source)
             repo_path = await self._clone_repository(source)
             repo_name = self._extract_repo_name(source)
         else:
@@ -502,9 +503,38 @@ class RepositoryCrawler:
 
         return nodes_created
 
+    @staticmethod
+    def _validate_git_url(url: str) -> None:
+        """Validate a git URL to prevent command injection.
+
+        Rejects:
+        - URLs starting with '-' (git argument injection)
+        - URLs containing 'ext::' (arbitrary command execution via git)
+        - URLs with schemes other than https, http, git, ssh, or git@ SCP syntax
+
+        Raises:
+            ValueError: If the URL is unsafe for use with git.
+        """
+        if url.startswith("-"):
+            raise ValueError(
+                f"Rejected git URL starting with '-' (argument injection risk): {url!r}"
+            )
+        if "ext::" in url:
+            raise ValueError(
+                f"Rejected git URL containing 'ext::' (arbitrary command execution risk): {url!r}"
+            )
+        allowed_prefixes = ("https://", "http://", "git://", "ssh://", "git@")
+        if not url.startswith(allowed_prefixes):
+            raise ValueError(
+                f"Rejected git URL with disallowed scheme: {url!r}. "
+                f"Allowed: https://, http://, git://, ssh://, git@"
+            )
+
     async def _clone_repository(self, url: str) -> Path:
         """Clone a remote repository to temp directory."""
         import tempfile
+
+        self._validate_git_url(url)
 
         temp_dir = Path(tempfile.mkdtemp(prefix="aragora_crawl_"))
         repo_name = self._extract_repo_name(url)

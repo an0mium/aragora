@@ -310,13 +310,15 @@ class AuthChecksMixin:
         Returns:
             True if request is allowed, False if denied
         """
-        from aragora.billing.auth import extract_user_from_request
-        from aragora.rbac import AuthorizationContext, get_role_permissions
-
+        # Check exemptions BEFORE imports so exempt paths work even if
+        # billing/rbac modules have import issues
         if self._is_path_exempt(path):
             return True
         if method.upper() == "GET" and self._is_path_exempt_for_get(path):
             return True
+
+        from aragora.billing.auth import extract_user_from_request
+        from aragora.rbac import AuthorizationContext, get_role_permissions
 
         logger.debug(f"RBAC auth check: {method} {path}")
 

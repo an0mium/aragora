@@ -99,8 +99,9 @@ class TestComplianceAPIEndpoints:
     async def test_get_compliance_status(self, compliance_handler, mock_compliance_data):
         """Test getting compliance status endpoint."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/status",
+            query_params={},
+            handler=None,
         )
 
         assert result is not None
@@ -110,9 +111,9 @@ class TestComplianceAPIEndpoints:
     async def test_get_soc2_report_json(self, compliance_handler, mock_compliance_data):
         """Test generating SOC 2 report in JSON format."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/soc2-report",
             query_params={"format": "json"},
+            handler=None,
         )
 
         assert result is not None
@@ -122,9 +123,9 @@ class TestComplianceAPIEndpoints:
     async def test_get_soc2_report_html(self, compliance_handler, mock_compliance_data):
         """Test generating SOC 2 report in HTML format."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/soc2-report",
             query_params={"format": "html"},
+            handler=None,
         )
 
         assert result is not None
@@ -134,9 +135,9 @@ class TestComplianceAPIEndpoints:
     async def test_gdpr_export_json(self, compliance_handler, mock_compliance_data):
         """Test GDPR data export in JSON format."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/gdpr-export",
             query_params={"user_id": "user_123", "format": "json"},
+            handler=None,
         )
 
         assert result is not None
@@ -146,9 +147,9 @@ class TestComplianceAPIEndpoints:
     async def test_gdpr_export_csv(self, compliance_handler, mock_compliance_data):
         """Test GDPR data export in CSV format."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/gdpr-export",
             query_params={"user_id": "user_123", "format": "csv"},
+            handler=None,
         )
 
         assert result is not None
@@ -157,11 +158,18 @@ class TestComplianceAPIEndpoints:
     @pytest.mark.asyncio
     async def test_audit_verify(self, compliance_handler):
         """Test audit trail verification."""
-        result = await compliance_handler.handle(
-            method="POST",
-            path="/api/v2/compliance/audit-verify",
-            body={"date_from": "2024-01-01", "date_to": "2024-01-31"},
-        )
+        mock_handler = MagicMock()
+        mock_handler.command = "POST"
+        with patch.object(
+            compliance_handler,
+            "read_json_body",
+            return_value={"date_from": "2024-01-01", "date_to": "2024-01-31"},
+        ):
+            result = await compliance_handler.handle(
+                path="/api/v2/compliance/audit-verify",
+                query_params={},
+                handler=mock_handler,
+            )
 
         assert result is not None
         assert result.status_code in (200, 500)
@@ -170,9 +178,9 @@ class TestComplianceAPIEndpoints:
     async def test_audit_events_elasticsearch(self, compliance_handler):
         """Test audit events export in Elasticsearch format."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/audit-events",
             query_params={"format": "elasticsearch"},
+            handler=None,
         )
 
         assert result is not None
@@ -182,9 +190,9 @@ class TestComplianceAPIEndpoints:
     async def test_audit_events_ndjson(self, compliance_handler):
         """Test audit events export in NDJSON format."""
         result = await compliance_handler.handle(
-            method="GET",
             path="/api/v2/compliance/audit-events",
             query_params={"format": "ndjson"},
+            handler=None,
         )
 
         assert result is not None

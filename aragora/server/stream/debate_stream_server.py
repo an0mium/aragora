@@ -476,11 +476,13 @@ class DebateStreamServer(ServerBase):
             subscribed_id = self._client_subscriptions.get(client_ws_id)
 
             # Send if:
-            # 1. Event has no loop_id (system-wide events)
+            # 1. Event has no loop_id (system-wide events like heartbeat)
             # 2. Client is subscribed to this specific debate
-            # 3. Client has no subscription (legacy behavior)
+            # SECURITY: Unsubscribed clients (subscribed_id is None) do NOT
+            # receive debate-scoped events to prevent data leakage.
             should_send = (
-                not event_loop_id or subscribed_id == event_loop_id or subscribed_id is None
+                not event_loop_id  # System events go to all
+                or subscribed_id == event_loop_id  # Subscribed to this debate
             )
 
             if should_send:
@@ -536,9 +538,11 @@ class DebateStreamServer(ServerBase):
             client_ws_id = id(client)
             subscribed_id = self._client_subscriptions.get(client_ws_id)
 
-            # Send if subscribed to this debate or no subscription (legacy)
+            # Send if subscribed to this debate
+            # SECURITY: Unsubscribed clients do NOT receive debate-scoped events
             should_send = (
-                not batch_loop_id or subscribed_id == batch_loop_id or subscribed_id is None
+                not batch_loop_id  # System events go to all
+                or subscribed_id == batch_loop_id  # Subscribed to this debate
             )
 
             if should_send:
@@ -1253,9 +1257,59 @@ class DebateStreamServer(ServerBase):
                     # This ensures clients only receive events for debates they subscribed to
                     debate_id = data.get("debate_id") or data.get("loop_id")
                     if debate_id:
-                        self._client_subscriptions[ws_id] = debate_id
-                        logger.info(f"[ws] Client {client_id[:8]}... subscribed to {debate_id}")
-                        await self._send_debate_state(websocket, debate_id)
+                        # SECURITY: Verify RBAC permission before subscribing
+                        subscribe_allowed = True
+                        try:
+                            from aragora.rbac.checker import check_permission as rbac_check
+                            from aragora.rbac.models import AuthorizationContext
+
+                            if is_authenticated and ws_token:
+                                # Build auth context from token metadata
+                                auth_state = self._ws_auth_states.get(ws_id, {})
+                                auth_ctx = AuthorizationContext(
+                                    user_id=auth_state.get("user_id", client_id),
+                                    roles=auth_state.get("roles", {"viewer"}),
+                                )
+                                decision = rbac_check(auth_ctx, "debates.read", debate_id)
+                                if not decision.allowed:
+                                    subscribe_allowed = False
+                                    await websocket.send(
+                                        json.dumps(
+                                            {
+                                                "type": "error",
+                                                "data": {
+                                                    "message": "Permission denied: debates:read required",
+                                                    "code": 403,
+                                                },
+                                            }
+                                        )
+                                    )
+                        except ImportError:
+                            pass  # RBAC module not available, allow subscription
+
+                        # Also check tenant isolation
+                        if subscribe_allowed:
+                            from .tenant_filter import get_tenant_filter
+                            tf = get_tenant_filter()
+                            tenant_ok, tenant_msg = tf.validate_subscription(ws_id, debate_id)
+                            if not tenant_ok:
+                                subscribe_allowed = False
+                                await websocket.send(
+                                    json.dumps(
+                                        {
+                                            "type": "error",
+                                            "data": {
+                                                "message": tenant_msg,
+                                                "code": 403,
+                                            },
+                                        }
+                                    )
+                                )
+
+                        if subscribe_allowed:
+                            self._client_subscriptions[ws_id] = debate_id
+                            logger.info(f"[ws] Client {client_id[:8]}... subscribed to {debate_id}")
+                            await self._send_debate_state(websocket, debate_id)
                     else:
                         await websocket.send(
                             json.dumps(

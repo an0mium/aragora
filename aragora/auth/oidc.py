@@ -364,8 +364,15 @@ class OIDCProvider(SSOProvider):
                 {"missing_dependency": "PyJWT"},
             )
 
-        # PKCE state (code_verifier stored by state)
-        self._pkce_store: dict[str, str] = {}
+        # PKCE state (code_verifier stored by state) - bounded OrderedDict
+        from collections import OrderedDict
+
+        self._pkce_store: OrderedDict[str, tuple[str, float]] = OrderedDict()
+        self._pkce_store_max_size: int = 10_000
+        self._pkce_entry_ttl: float = 600.0  # 10 minutes
+
+        # Nonce store (nonce stored by state for ID token validation) - bounded OrderedDict
+        self._nonce_store: OrderedDict[str, tuple[str, float]] = OrderedDict()
 
         # Discovery cache
         self._discovery_cache: dict[str, Any] | None = None
@@ -433,6 +440,25 @@ class OIDCProvider(SSOProvider):
         result: str = discovery.get(name, "")
         return result
 
+    def _evict_bounded_store(self, store: dict) -> None:
+        """Evict expired and overflow entries from a bounded OrderedDict store.
+
+        Each value is expected to be a tuple of (data, timestamp).
+        Entries older than ``_pkce_entry_ttl`` are removed first.
+        If the store still exceeds ``_pkce_store_max_size``, the oldest
+        entries are dropped until the size is within limits.
+        """
+        now = time.time()
+        # Remove expired entries
+        expired_keys = [
+            k for k, v in store.items() if now - v[1] > self._pkce_entry_ttl
+        ]
+        for k in expired_keys:
+            del store[k]
+        # Enforce max size by evicting oldest entries
+        while len(store) >= self._pkce_store_max_size:
+            store.popitem(last=False)
+
     def _generate_pkce(self) -> tuple[str, str]:
         """Generate PKCE code verifier and challenge."""
         # Generate random code verifier (43-128 chars)
@@ -488,12 +514,17 @@ class OIDCProvider(SSOProvider):
             nonce = secrets.token_urlsafe(16)
         params["nonce"] = nonce
 
+        # Store nonce keyed by state for later validation
+        self._evict_bounded_store(self._nonce_store)
+        self._nonce_store[state] = (nonce, time.time())
+
         # PKCE
         if self.config.use_pkce:
             code_verifier, code_challenge = self._generate_pkce()
             params["code_challenge"] = code_challenge
             params["code_challenge_method"] = "S256"
-            self._pkce_store[state] = code_verifier
+            self._evict_bounded_store(self._pkce_store)
+            self._pkce_store[state] = (code_verifier, time.time())
 
         # Provider-specific parameters
         if self.config.provider_type == SSOProviderType.AZURE_AD:
@@ -545,13 +576,21 @@ class OIDCProvider(SSOProvider):
         # Get PKCE code verifier
         code_verifier = None
         if self.config.use_pkce and state:
-            code_verifier = self._pkce_store.pop(state, None)
+            pkce_entry = self._pkce_store.pop(state, None)
+            if pkce_entry is not None:
+                code_verifier = pkce_entry[0]  # (verifier, timestamp)
+
+        # Retrieve stored nonce for this state (for ID token validation)
+        expected_nonce: str | None = None
+        nonce_entry = self._nonce_store.pop(state, None) if state else None
+        if nonce_entry is not None:
+            expected_nonce = nonce_entry[0]  # (nonce, timestamp)
 
         # Exchange code for tokens
         tokens = await self._exchange_code(code, code_verifier)
 
-        # Get user info
-        user = await self._get_user_info(tokens)
+        # Get user info (pass expected nonce for ID token validation)
+        user = await self._get_user_info(tokens, expected_nonce=expected_nonce)
 
         # Check domain restriction
         if not self.is_domain_allowed(user.email):
@@ -619,7 +658,9 @@ class OIDCProvider(SSOProvider):
             logger.error(f"Token exchange failed - invalid data: {e}")
             raise SSOAuthenticationError(f"Token exchange failed: {e}")
 
-    async def _get_user_info(self, tokens: dict[str, Any]) -> SSOUser:
+    async def _get_user_info(
+        self, tokens: dict[str, Any], expected_nonce: str | None = None
+    ) -> SSOUser:
         """Get user info from tokens or userinfo endpoint."""
         access_token = tokens.get("access_token")
         id_token = tokens.get("id_token")
@@ -631,6 +672,23 @@ class OIDCProvider(SSOProvider):
             try:
                 # Validate and decode ID token
                 claims = await self._validate_id_token(id_token)
+
+                # SECURITY: Validate nonce claim to prevent ID token replay attacks.
+                # The nonce was generated during get_authorization_url and stored
+                # keyed by state. The IdP must echo it back in the ID token.
+                if expected_nonce is not None:
+                    token_nonce = claims.get("nonce")
+                    if not token_nonce:
+                        raise SSOAuthenticationError(
+                            "ID token missing required nonce claim",
+                            {"code": "MISSING_NONCE"},
+                        )
+                    if not secrets.compare_digest(str(token_nonce), expected_nonce):
+                        raise SSOAuthenticationError(
+                            "ID token nonce does not match expected value - "
+                            "possible token replay attack",
+                            {"code": "NONCE_MISMATCH"},
+                        )
             except (
                 ValueError,
                 KeyError,

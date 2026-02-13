@@ -58,14 +58,33 @@ from ..base import (
     ttl_cache,
     validate_path_segment,
 )
+from ..utils.lazy_stores import LazyStore
 from ..utils.rate_limit import rate_limit
 
 _pulse_lock = threading.Lock()
 _shared_pulse_manager = None
 _shared_scheduler = None
-_shared_debate_store = None
+_shared_debate_store: LazyStore[Any] | None = None
 
 MAX_TOPIC_LENGTH = 200
+
+
+def _create_debate_store() -> Any:
+    """Create a ScheduledDebateStore instance."""
+    from aragora.persistence.db_config import get_default_data_dir
+    from aragora.pulse.store import ScheduledDebateStore
+
+    db_path = get_default_data_dir() / "scheduled_debates.db"
+    return ScheduledDebateStore(db_path)
+
+
+def _create_lazy_debate_store() -> LazyStore[Any]:
+    """Create lazy wrapper for ScheduledDebateStore singleton."""
+    return LazyStore(
+        factory=lambda: _create_debate_store(),
+        store_name="scheduled_debate_store",
+        logger_context="Pulse",
+    )
 
 
 def get_pulse_manager() -> Any:
@@ -105,16 +124,8 @@ def get_scheduled_debate_store() -> Any:
     if _shared_debate_store is None:
         with _pulse_lock:
             if _shared_debate_store is None:
-                try:
-                    from aragora.persistence.db_config import get_default_data_dir
-                    from aragora.pulse.store import ScheduledDebateStore
-
-                    db_path = get_default_data_dir() / "scheduled_debates.db"
-                    _shared_debate_store = ScheduledDebateStore(db_path)
-                except (ImportError, OSError, sqlite3.Error) as e:
-                    logger.warning(f"Failed to initialize ScheduledDebateStore: {e}")
-                    return None
-    return _shared_debate_store
+                _shared_debate_store = _create_lazy_debate_store()
+    return _shared_debate_store.get()
 
 
 def get_pulse_scheduler() -> Any:

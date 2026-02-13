@@ -19,7 +19,9 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
+import os
 import secrets
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -147,6 +149,8 @@ class TenantDataIsolation:
         self._audit_log: list[IsolationAuditEntry] = []
         # OrderedDict provides O(1) LRU eviction via move_to_end and popitem
         self._encryption_keys: OrderedDict[str, bytes] = OrderedDict()
+        # Per-tenant random salts for key derivation (prevents deterministic keys)
+        self._tenant_salts: dict[str, bytes] = {}
 
         # SECURITY: Validate that all shared_resources are in the allow-list
         invalid_shared = self.config.shared_resources - ALLOWED_SHARED_RESOURCES
@@ -448,14 +452,25 @@ class TenantDataIsolation:
             if key is not None:
                 self._encryption_keys[tid] = key
             else:
-                # Fallback: Generate deterministic key from tenant ID
-                # WARNING: Only use in development - not cryptographically secure
+                # Fallback: Derive key using HKDF with a per-tenant random salt.
+                # The salt is generated once and stored in memory so that keys
+                # are consistent within a process lifetime but cannot be
+                # predicted from the tenant ID alone.
                 logger.warning(
-                    f"Using deterministic key generation for tenant {tid}. "
+                    f"Using salt-based key derivation for tenant {tid}. "
                     "Configure a KMS provider for production use."
                 )
-                seed = f"aragora_tenant_key_{tid}".encode()
-                self._encryption_keys[tid] = hashlib.sha256(seed).digest()
+                if tid not in self._tenant_salts:
+                    self._tenant_salts[tid] = os.urandom(32)
+                salt = self._tenant_salts[tid]
+                # HKDF-like derivation: HMAC(salt, tenant_id) provides
+                # non-deterministic keys that require both the salt and
+                # tenant ID to reproduce.
+                self._encryption_keys[tid] = hmac.new(
+                    salt,
+                    f"aragora_tenant_key_{tid}".encode(),
+                    hashlib.sha256,
+                ).digest()
 
             # LRU: key already at end from assignment, evict if at capacity
             if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
@@ -575,13 +590,19 @@ class TenantDataIsolation:
             if key is not None:
                 self._encryption_keys[tid] = key
             else:
-                # Fallback: Generate deterministic key from tenant ID
+                # Fallback: Derive key using HKDF with a per-tenant random salt.
                 logger.warning(
-                    f"Using deterministic key generation for tenant {tid}. "
+                    f"Using salt-based key derivation for tenant {tid}. "
                     "Configure a KMS provider for production use."
                 )
-                seed = f"aragora_tenant_key_{tid}".encode()
-                self._encryption_keys[tid] = hashlib.sha256(seed).digest()
+                if tid not in self._tenant_salts:
+                    self._tenant_salts[tid] = os.urandom(32)
+                salt = self._tenant_salts[tid]
+                self._encryption_keys[tid] = hmac.new(
+                    salt,
+                    f"aragora_tenant_key_{tid}".encode(),
+                    hashlib.sha256,
+                ).digest()
 
             # LRU: key already at end from assignment, evict if at capacity
             if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:

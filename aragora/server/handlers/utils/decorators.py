@@ -616,20 +616,6 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
             """Common permission checking logic, returns (user_ctx, error_response) tuple."""
             import os
 
-            # Skip permission checks in test mode (pytest sets this)
-            # Tests can set ARAGORA_TEST_REAL_AUTH=1 to test actual auth behavior
-            if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
-                "ARAGORA_TEST_REAL_AUTH"
-            ):
-                # Return mock authenticated user for tests
-                class _TestUserCtx:
-                    is_authenticated = True
-                    user_id = "test_user"
-                    role = "admin"
-                    error_reason = None
-
-                return _TestUserCtx(), None
-
             from aragora.billing.jwt_auth import extract_user_from_request
 
             handler = kwargs.get("handler")

@@ -20,8 +20,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
-import random
+import os
 import re
+import secrets
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -230,14 +231,18 @@ class HIPAAAnonymizer:
 
         Args:
             hash_salt: Salt for hashing operations (improves security)
-            pseudonym_seed: Seed for pseudonymization (ensures consistency)
+            pseudonym_seed: Seed for pseudonymization (ensures consistency).
+                NOTE: The seed parameter is accepted for API compatibility
+                but pseudonymization now uses cryptographically secure
+                randomness (secrets module) regardless of this value.
         """
         self.hash_salt = hash_salt or str(uuid4())
         self.pseudonym_seed = pseudonym_seed
         self._pseudonym_map: dict[str, str] = {}
-
-        if pseudonym_seed is not None:
-            random.seed(pseudonym_seed)
+        # Use cryptographically secure RNG for HIPAA-compliant pseudonymization.
+        # Python's random module (Mersenne Twister) is predictable and must not
+        # be used for security-sensitive operations.
+        self._secure_rng = secrets.SystemRandom()
 
     def detect_identifiers(self, content: str) -> list[DetectedIdentifier]:
         """
@@ -487,26 +492,30 @@ class HIPAAAnonymizer:
         return pseudonym
 
     def _generate_pseudonym(self, identifier_type: IdentifierType) -> str:
-        """Generate a fake value for an identifier type."""
+        """Generate a fake value for an identifier type.
+
+        Uses cryptographically secure randomness (secrets module) to prevent
+        pseudonym reversal, as required for HIPAA compliance.
+        """
         if identifier_type == IdentifierType.NAME:
             first_names = ["Alex", "Jordan", "Taylor", "Casey", "Morgan", "Riley", "Quinn"]
             last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Davis", "Miller"]
-            return f"{random.choice(first_names)} {random.choice(last_names)}"
+            return f"{secrets.choice(first_names)} {secrets.choice(last_names)}"
 
         elif identifier_type == IdentifierType.EMAIL:
-            return f"user{random.randint(1000, 9999)}@example.com"
+            return f"user{secrets.randbelow(9000) + 1000}@example.com"
 
         elif identifier_type == IdentifierType.PHONE:
-            return f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            return f"555-{secrets.randbelow(900) + 100}-{secrets.randbelow(9000) + 1000}"
 
         elif identifier_type == IdentifierType.SSN:
-            return f"XXX-XX-{random.randint(1000, 9999)}"
+            return f"XXX-XX-{secrets.randbelow(9000) + 1000}"
 
         elif identifier_type == IdentifierType.IP:
-            return f"192.0.2.{random.randint(1, 254)}"
+            return f"192.0.2.{secrets.randbelow(254) + 1}"
 
         elif identifier_type == IdentifierType.ADDRESS:
-            return f"{random.randint(100, 999)} Main Street"
+            return f"{secrets.randbelow(900) + 100} Main Street"
 
         return f"PSEUDO_{uuid4().hex[:8]}"
 
@@ -649,6 +658,8 @@ class DifferentialPrivacy:
 
         self.epsilon = epsilon
         self.delta = delta
+        # Use cryptographically secure RNG to prevent noise prediction
+        self._secure_rng = secrets.SystemRandom()
 
     def add_laplace_noise(
         self,
@@ -685,7 +696,7 @@ class DifferentialPrivacy:
             Value with Gaussian noise added
         """
         sigma = self._gaussian_sigma(sensitivity)
-        noise = random.gauss(0, sigma)
+        noise = self._secure_rng.gauss(0, sigma)
         return value + noise
 
     def privatize_count(self, count: int) -> int:
@@ -743,8 +754,8 @@ class DifferentialPrivacy:
         return self.add_laplace_noise(true_mean, sensitivity)
 
     def _laplace_sample(self, scale: float) -> float:
-        """Sample from Laplace distribution."""
-        u = random.random() - 0.5
+        """Sample from Laplace distribution using cryptographically secure RNG."""
+        u = self._secure_rng.random() - 0.5
         return -scale * math.copysign(1, u) * math.log(1 - 2 * abs(u))
 
     def _gaussian_sigma(self, sensitivity: float) -> float:

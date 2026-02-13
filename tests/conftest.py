@@ -35,7 +35,10 @@ def _check_import(module_name: str) -> bool:
     try:
         __import__(module_name)
         return True
-    except ImportError:
+    except Exception:
+        # Optional dependencies may fail with non-ImportError exceptions
+        # (for example, native library load errors). Treat these as unavailable
+        # so optional dependency markers can skip cleanly.
         return False
 
 
@@ -353,7 +356,21 @@ def _suppress_auth_cleanup_threads():
     This session-scoped autouse fixture patches _start_cleanup_thread to a
     no-op and stops any already-running thread on the module-level singleton.
     """
-    from aragora.server.auth import AuthConfig, auth_config
+    # Ensure production-mode env vars don't leak into auth module import.
+    # Earlier tests (or the outer shell) may set ARAGORA_ENV=production which
+    # causes auth_config.configure_from_env() to raise at import time.
+    saved_env = os.environ.get("ARAGORA_ENV")
+    if saved_env == "production":
+        os.environ["ARAGORA_ENV"] = "development"
+
+    try:
+        from aragora.server.auth import AuthConfig, auth_config
+    except Exception:
+        # If import still fails, nothing to suppress
+        if saved_env is not None:
+            os.environ["ARAGORA_ENV"] = saved_env
+        yield
+        return
 
     # Stop the thread on the module-level singleton (spawned at import time)
     auth_config.stop_cleanup_thread()
@@ -366,6 +383,8 @@ def _suppress_auth_cleanup_threads():
 
     # Restore original method
     AuthConfig._start_cleanup_thread = original
+    if saved_env is not None:
+        os.environ["ARAGORA_ENV"] = saved_env
 
 
 @pytest.fixture

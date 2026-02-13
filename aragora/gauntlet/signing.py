@@ -20,12 +20,15 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 # Try to import cryptography for RSA/Ed25519 support
 try:
@@ -198,10 +201,36 @@ class HMACSigner(SigningBackend):
 
     @classmethod
     def from_env(cls, env_var: str = "ARAGORA_RECEIPT_SIGNING_KEY") -> HMACSigner:
-        """Create signer from environment variable (hex-encoded key)."""
+        """Create signer from environment variable (hex-encoded key).
+
+        In production mode (ARAGORA_ENV=production), a configured signing key
+        is required. Without it, receipts signed with an ephemeral key cannot
+        be verified after a restart and are vulnerable to forgery.
+
+        Raises:
+            RuntimeError: If running in production without a configured key.
+        """
         key_hex = os.environ.get(env_var)
         if key_hex:
             return cls(secret_key=bytes.fromhex(key_hex))
+
+        # Check if we are running in production
+        env_mode = os.environ.get("ARAGORA_ENV", "").lower()
+        if env_mode == "production":
+            raise RuntimeError(
+                f"Receipt signing key ({env_var}) is required in production. "
+                "Ephemeral keys cannot verify receipts after restart and are "
+                "vulnerable to forgery. Set the environment variable to a "
+                "64-character hex string (32 bytes)."
+            )
+
+        _logger.warning(
+            "No receipt signing key configured (%s). Using ephemeral key. "
+            "Receipts will NOT be verifiable after restart. "
+            "Set %s for production use.",
+            env_var,
+            env_var,
+        )
         return cls()
 
 

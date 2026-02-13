@@ -19,11 +19,15 @@ Classes:
 from __future__ import annotations
 
 import json
+import logging
+import os
 import warnings
 from dataclasses import dataclass
 from typing import Any
 
 from aragora.server.errors import ErrorCode
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -185,6 +189,16 @@ def error_response(
         )
         # -> {"error": {"code": "VALIDATION_ERROR", "message": "...", "suggestion": "..."}}
     """
+    # SECURITY: For 5xx errors, sanitize the message to prevent leaking internal
+    # details (file paths, SQL queries, stack traces) to clients.  The original
+    # message is logged server-side for debugging.
+    if status >= 500:
+        _include_details = os.environ.get("ARAGORA_ENV", "").lower() != "production"
+        if not _include_details:
+            if message and message != "Internal server error":
+                _logger.error("Sanitized 500 error detail: %s", message)
+                message = "Internal server error"
+
     # Build error payload
     if structured or code or trace_id or suggestion or details:
         # Use structured format

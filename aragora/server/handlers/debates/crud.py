@@ -168,11 +168,59 @@ class CrudOperationsMixin:
 
         Checks both persistent storage and in-progress debates (_active_debates).
         In-progress debates haven't been persisted yet but should still be queryable.
+
+        SECURITY: After retrieval, verifies the requesting user's tenant/org matches
+        the debate's tenant to prevent cross-tenant data access (IDOR).
         """
         # First check persistent storage
         storage = self.get_storage()
         debate = storage.get_debate(slug)
         if debate:
+            # SECURITY: Verify tenant isolation - requesting user must belong
+            # to the same org/tenant as the debate, or the debate must be public
+            user = self.get_current_user(handler)
+            if user:
+                debate_org_id = (
+                    debate.get("org_id")
+                    or debate.get("tenant_id")
+                    or debate.get("workspace_id")
+                )
+                user_org_id = getattr(user, "org_id", None)
+
+                if debate_org_id and user_org_id and debate_org_id != user_org_id:
+                    # Cross-tenant access attempt
+                    logger.warning(
+                        "Tenant isolation: user %s (org=%s) denied access to debate %s (org=%s)",
+                        user.user_id,
+                        user_org_id,
+                        slug,
+                        debate_org_id,
+                    )
+                    return error_response(f"Debate not found: {slug}", 404)
+
+                # If debate has an owner and is not public, check participation
+                debate_visibility = debate.get("visibility", "private")
+                debate_owner_id = debate.get("user_id") or debate.get("owner_id")
+                if (
+                    debate_visibility != "public"
+                    and debate_owner_id
+                    and not debate_org_id
+                ):
+                    # No org scoping -- fall back to ownership/participant check
+                    participants = debate.get("participants", [])
+                    if (
+                        user.user_id != debate_owner_id
+                        and user.user_id not in participants
+                        and getattr(user, "role", "user") not in ("admin", "superadmin")
+                    ):
+                        logger.warning(
+                            "IDOR blocked: user %s denied access to debate %s owned by %s",
+                            user.user_id,
+                            slug,
+                            debate_owner_id,
+                        )
+                        return error_response(f"Debate not found: {slug}", 404)
+
             return json_response(normalize_debate_response(debate))
 
         # Fallback: check in-progress debates that haven't been persisted yet

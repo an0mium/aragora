@@ -595,7 +595,11 @@ class WebSocketBroadcaster:
         return self.client_manager.clients
 
     async def broadcast(self, event: StreamEvent) -> None:
-        """Send event to all connected clients.
+        """Send event to subscribed clients only.
+
+        SECURITY: Debate-scoped events are only sent to clients that have
+        subscribed to the specific debate_id. Unsubscribed clients only
+        receive system-level events (no loop_id).
 
         Args:
             event: Event to broadcast
@@ -605,9 +609,17 @@ class WebSocketBroadcaster:
             return
 
         message = event.to_json()
+        event_loop_id = event.loop_id
         disconnected = set()
 
         for client in clients:
+            # Filter by subscription: only send debate-scoped events to
+            # clients subscribed to that debate
+            if event_loop_id:
+                bound_id = getattr(client, "_bound_loop_id", None)
+                if bound_id != event_loop_id:
+                    continue
+
             try:
                 await client.send(message)
             except (ConnectionError, OSError, RuntimeError) as e:
@@ -619,9 +631,11 @@ class WebSocketBroadcaster:
             self.client_manager.remove_client(client)
 
     async def broadcast_batch(self, events: list[StreamEvent]) -> None:
-        """Send multiple events in a single message.
+        """Send multiple events in a single message to subscribed clients only.
 
-        Batching reduces WebSocket overhead by sending events as a JSON array.
+        SECURITY: Debate-scoped events are only sent to clients that have
+        subscribed to the specific debate_id. Batching reduces WebSocket
+        overhead by sending events as a JSON array.
 
         Args:
             events: List of events to broadcast
@@ -630,10 +644,19 @@ class WebSocketBroadcaster:
         if not clients or not events:
             return
 
+        # Determine loop_id from first event (batches are typically same-debate)
+        batch_loop_id = events[0].loop_id if events else None
         message = json.dumps([e.to_dict() for e in events])
         disconnected = set()
 
         for client in clients:
+            # Filter by subscription: only send debate-scoped events to
+            # clients subscribed to that debate
+            if batch_loop_id:
+                bound_id = getattr(client, "_bound_loop_id", None)
+                if bound_id != batch_loop_id:
+                    continue
+
             try:
                 await client.send(message)
             except (ConnectionError, OSError, RuntimeError) as e:
