@@ -22,6 +22,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+DEFAULT_EXCLUDED_PREFIXES = (
+    "/api/v1/control-plane/",
+    "/api/v1/sme/",
+    "/api/v1/agent-dashboard/",
+    "/api/v1/sso/",
+    "/api/v1/admin/emergency/",
+)
+
 
 def get_handler_routes() -> set[str]:
     """Extract all routes from handler ROUTES attributes.
@@ -127,6 +135,7 @@ def validate_coverage(
     fail_on_missing: bool = False,
     output_json: bool = False,
     baseline_path: str | None = None,
+    include_internal: bool = False,
 ) -> dict[str, Any]:
     """Compare handler routes against OpenAPI spec.
 
@@ -144,6 +153,17 @@ def validate_coverage(
     # Normalize routes for comparison
     normalized_handler = {normalize_route(r) for r in handler_routes}
     normalized_openapi = {normalize_route(r) for r in openapi_routes}
+    if not include_internal:
+        normalized_handler = {
+            r
+            for r in normalized_handler
+            if not any(r.startswith(prefix.rstrip("/")) for prefix in DEFAULT_EXCLUDED_PREFIXES)
+        }
+        normalized_openapi = {
+            r
+            for r in normalized_openapi
+            if not any(r.startswith(prefix.rstrip("/")) for prefix in DEFAULT_EXCLUDED_PREFIXES)
+        }
 
     # Find discrepancies
     # Routes in handlers but not in OpenAPI (these need to be documented)
@@ -274,9 +294,20 @@ def main():
         default="scripts/baselines/validate_openapi_routes.json",
         help="Path to baseline drift file (default: scripts/baselines/validate_openapi_routes.json)",
     )
+    parser.add_argument(
+        "--include-internal",
+        action="store_true",
+        help="Include known internal/private route families in validation",
+    )
 
     args = parser.parse_args()
-    validate_coverage(args.spec, args.fail_on_missing, args.json, args.baseline)
+    validate_coverage(
+        args.spec,
+        args.fail_on_missing,
+        args.json,
+        args.baseline,
+        args.include_internal,
+    )
 
 
 if __name__ == "__main__":

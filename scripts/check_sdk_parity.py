@@ -77,6 +77,38 @@ def extract_handler_routes() -> dict[str, list[str]]:
     return handler_routes
 
 
+def extract_openapi_routes(spec_path: Path | None = None) -> set[str]:
+    """Extract normalized route paths documented in OpenAPI."""
+    if spec_path is None:
+        spec_path = PROJECT_ROOT / "docs" / "api" / "openapi.json"
+    if not spec_path.exists():
+        return set()
+
+    try:
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+    documented: set[str] = set()
+    paths = spec.get("paths", {})
+    if not isinstance(paths, dict):
+        return documented
+
+    for path, methods in paths.items():
+        if not isinstance(path, str) or not isinstance(methods, dict):
+            continue
+        # Keep path only if at least one HTTP operation is present.
+        has_http_op = any(
+            isinstance(method, str)
+            and method.lower() in {"get", "post", "put", "patch", "delete", "options", "head"}
+            for method in methods
+        )
+        if has_http_op:
+            documented.add(normalize_route(path))
+
+    return documented
+
+
 def normalize_route(route: str) -> str:
     """Normalize a route for comparison.
 
@@ -191,6 +223,7 @@ def build_parity_report(
     handler_routes: dict[str, list[str]],
     python_sdk: dict[str, set[str]],
     typescript_sdk: dict[str, set[str]],
+    documented_routes: set[str] | None = None,
 ) -> dict[str, Any]:
     """Build a parity report comparing handlers vs SDKs.
 
@@ -218,6 +251,9 @@ def build_parity_report(
     # Filter out internal routes
     internal_normalized = {normalize_route(r) for r in INTERNAL_ROUTES}
     public_handler_paths = all_handler_paths - internal_normalized
+    if documented_routes is not None:
+        # SDK coverage should be enforced for documented API routes.
+        public_handler_paths = public_handler_paths & documented_routes
 
     # Find gaps
     missing_from_py_sdk = public_handler_paths - all_py_paths
@@ -355,6 +391,11 @@ def main() -> int:
     )
     parser.add_argument("--json", action="store_true", help="Output JSON report")
     parser.add_argument(
+        "--include-undocumented",
+        action="store_true",
+        help="Include handler routes not present in docs/api/openapi.json (default: documented routes only)",
+    )
+    parser.add_argument(
         "--threshold",
         type=float,
         default=0.0,
@@ -366,9 +407,10 @@ def main() -> int:
     handler_routes = extract_handler_routes()
     python_sdk = extract_sdk_paths_python()
     typescript_sdk = extract_sdk_paths_typescript()
+    documented_routes = None if args.include_undocumented else extract_openapi_routes()
 
     # Build report
-    report = build_parity_report(handler_routes, python_sdk, typescript_sdk)
+    report = build_parity_report(handler_routes, python_sdk, typescript_sdk, documented_routes)
 
     if args.json:
         print(json.dumps(report, indent=2))

@@ -59,3 +59,23 @@ def test_strict_passes_when_missing_routes_are_in_baseline(monkeypatch, tmp_path
         ["check_sdk_parity.py", "--strict", "--baseline", str(baseline)],
     )
     assert check_sdk_parity.main() == 0
+
+
+def test_extract_openapi_routes_normalizes_versioned_paths(tmp_path):
+    spec = tmp_path / "openapi.json"
+    spec.write_text(
+        """
+{
+  "paths": {
+    "/api/v1/alpha/{id}": {"get": {"summary": "x"}},
+    "/api/v1/beta": {"post": {"summary": "y"}},
+    "/not-http": {"x-meta": {}}
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    routes = check_sdk_parity.extract_openapi_routes(spec)
+    assert "/api/alpha/{id}" in routes
+    assert "/api/beta" in routes

@@ -9,6 +9,7 @@ Usage:
     python scripts/verify_sdk_contracts.py
     python scripts/verify_sdk_contracts.py --strict  # Fail on any drift
     python scripts/verify_sdk_contracts.py --strict --baseline scripts/baselines/verify_sdk_contracts.json
+    python scripts/verify_sdk_contracts.py --extra-spec docs/api/openapi_generated.json
 """
 
 from __future__ import annotations
@@ -53,6 +54,14 @@ def _load_openapi_endpoints(spec_path: Path) -> set[tuple[str, str]]:
         for method in ops:
             if method.lower() in HTTP_METHODS:
                 endpoints.add((method.lower(), _normalize(path)))
+    return endpoints
+
+
+def _load_openapi_endpoints_multi(spec_paths: list[Path]) -> set[tuple[str, str]]:
+    endpoints: set[tuple[str, str]] = set()
+    for path in spec_paths:
+        if path.exists():
+            endpoints |= _load_openapi_endpoints(path)
     return endpoints
 
 
@@ -102,6 +111,12 @@ def main() -> int:
         default=Path("scripts/baselines/verify_sdk_contracts.json"),
         help="Path to drift baseline file (default: scripts/baselines/verify_sdk_contracts.json)",
     )
+    parser.add_argument(
+        "--extra-spec",
+        action="append",
+        default=[],
+        help="Additional OpenAPI JSON spec path(s) to union for drift comparison",
+    )
     args = parser.parse_args()
 
     repo = Path(__file__).resolve().parent.parent
@@ -110,8 +125,26 @@ def main() -> int:
         print("ERROR: docs/api/openapi.json not found", file=sys.stderr)
         return 1
 
-    openapi_eps = _load_openapi_endpoints(spec_path)
-    print(f"OpenAPI spec: {len(openapi_eps)} endpoints")
+    spec_paths = [spec_path]
+    default_generated = repo / "docs/api/openapi_generated.json"
+    if default_generated.exists():
+        spec_paths.append(default_generated)
+    for extra in args.extra_spec:
+        p = Path(extra)
+        if not p.is_absolute():
+            p = repo / p
+        spec_paths.append(p)
+
+    openapi_eps = _load_openapi_endpoints_multi(spec_paths)
+
+    def _label(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo))
+        except ValueError:
+            return str(path)
+
+    spec_labels = ", ".join(_label(p) for p in spec_paths)
+    print(f"OpenAPI spec (union: {spec_labels}): {len(openapi_eps)} endpoints")
 
     # Check Python SDK
     py_dir = repo / "sdk/python/aragora_sdk/namespaces"
