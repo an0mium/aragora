@@ -80,6 +80,7 @@ USER aragora
 # Environment configuration
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    ARAGORA_BIND_HOST=0.0.0.0 \
     ARAGORA_NOMIC_DIR=/app/.nomic \
     ARAGORA_LOG_FORMAT=json \
     ARAGORA_LOG_LEVEL=INFO \
@@ -112,7 +113,7 @@ LABEL org.opencontainers.image.title="Aragora" \
       org.opencontainers.image.source="https://github.com/aragora/aragora"
 
 # Default command: Run unified server
-CMD ["python", "-m", "aragora.server.unified_server", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "aragora.server", "--host", "0.0.0.0", "--http-port", "8080", "--ws-port", "8765"]
 
 # =============================================================================
 # Stage 3: Development - Includes dev tools
@@ -133,4 +134,4 @@ USER aragora
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=2 \
     CMD curl -f http://localhost:8080/healthz || exit 1
 
-CMD ["python", "-m", "aragora.server.unified_server", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "aragora.server", "--host", "0.0.0.0", "--http-port", "8080", "--ws-port", "8765"]

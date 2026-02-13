@@ -162,7 +162,7 @@ services:
       - "traefik.http.routers.aragora.tls.certresolver=letsencrypt"
       - "traefik.http.routers.aragora.service=aragora"
       - "traefik.http.services.aragora.loadbalancer.server.port=8080"
-      - "traefik.http.services.aragora.loadbalancer.healthcheck.path=/api/health"
+      - "traefik.http.services.aragora.loadbalancer.healthcheck.path=/healthz"
       - "traefik.http.services.aragora.loadbalancer.healthcheck.interval=10s"
       # Sticky sessions for WebSocket
       - "traefik.http.services.aragora.loadbalancer.sticky.cookie=true"

@@ -27,7 +27,7 @@ services:
       - ARAGORA_REDIS_URL=redis://redis:6379
       # Server settings
       - ARAGORA_ENV=production
-      - ARAGORA_HOST=0.0.0.0
+      - ARAGORA_BIND_HOST=0.0.0.0
       - ARAGORA_API_PORT=8080
       - ARAGORA_WS_PORT=8765
       # Security

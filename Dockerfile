@@ -2,7 +2,7 @@
 # Multi-stage build for smaller final image
 
 # Build stage
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -11,16 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only requirements first for better caching
-COPY pyproject.toml ./
-COPY README.md ./
+# Copy project metadata and source for install
+COPY pyproject.toml README.md ./
+COPY aragora/__init__.py ./aragora/__init__.py
 
-# Install dependencies
+# Install dependencies (non-editable, only needs __init__.py for metadata)
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e ".[postgres,redis,monitoring]"
+    pip install --no-cache-dir ".[postgres,redis,monitoring]"
 
 # Production stage
-FROM python:3.11-slim as production
+FROM python:3.11-slim AS production
 
 WORKDIR /app
 
@@ -37,22 +37,25 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY aragora/ ./aragora/
 COPY pyproject.toml README.md ./
 COPY deploy/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create non-root user for security
 RUN useradd -m -u 1000 aragora && \
+    mkdir -p /app/data && \
     chown -R aragora:aragora /app
 USER aragora
 
 # Environment defaults
+# ARAGORA_BIND_HOST is the env var read by the server for bind address
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ARAGORA_ENV=production \
-    ARAGORA_HOST=0.0.0.0 \
+    ARAGORA_BIND_HOST=0.0.0.0 \
     ARAGORA_API_PORT=8080 \
     ARAGORA_WS_PORT=8765
 
-# Health check (use standard K8s liveness probe endpoint)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${ARAGORA_API_PORT}/healthz || exit 1
 
 # Expose ports
@@ -60,7 +63,7 @@ EXPOSE 8080 8765
 
 # Entrypoint runs migrations, then starts the server
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["python", "-m", "aragora.server.unified_server", \
+CMD ["python", "-m", "aragora.server", \
      "--host", "0.0.0.0", \
-     "--port", "8080", \
+     "--http-port", "8080", \
      "--ws-port", "8765"]

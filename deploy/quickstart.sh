@@ -60,7 +60,7 @@ fi
 
 # Wait for health endpoint, return 0 on success
 wait_healthy() {
-    local url="http://localhost:${API_PORT}/api/health" max="$1" elapsed=0
+    local url="http://localhost:${API_PORT}/healthz" max="$1" elapsed=0
     info "Waiting for health check..."
     while [ "$elapsed" -lt "$max" ]; do
         curl -sf "$url" >/dev/null 2>&1 && echo "" && ok "Aragora is healthy" && return 0
@@ -121,7 +121,7 @@ EOF
     echo ""
     echo "  API:       http://localhost:${API_PORT}"
     echo "  WebSocket: ws://localhost:${WS_PORT}/ws"
-    echo "  Health:    http://localhost:${API_PORT}/api/health"
+    echo "  Health:    http://localhost:${API_PORT}/healthz"
     echo "  Frontend:  http://localhost:3000"
     echo ""
     echo -e "${BOLD}Commands:${NC}"
@@ -177,7 +177,7 @@ deploy_python() {
     echo ""
     echo "  API:       http://localhost:${API_PORT}"
     echo "  WebSocket: ws://localhost:${WS_PORT}/ws"
-    echo "  Health:    http://localhost:${API_PORT}/api/health"
+    echo "  Health:    http://localhost:${API_PORT}/healthz"
     echo "  Logs:      ${base}/server.log"
     echo ""
     echo -e "${BOLD}Stop:${NC}  kill \$(cat ${pid_file})"

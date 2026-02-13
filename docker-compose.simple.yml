@@ -6,10 +6,9 @@
 #   2. At least one AI provider API key
 #
 # Quick Start:
-#   cp .env.example .env
-#   # Edit .env and add your API key(s)
+#   export ANTHROPIC_API_KEY=sk-ant-...   # or set in .env file
 #   docker compose -f docker-compose.simple.yml up -d
-#   # Open http://localhost:8080/api/health
+#   # Open http://localhost:8080/healthz
 
 services:
   aragora:
@@ -19,6 +18,7 @@ services:
     container_name: aragora
     ports:
       - "8080:8080"
+      - "8765:8765"
     environment:
       # AI Provider Keys (at least one required)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -27,15 +27,16 @@ services:
       - XAI_API_KEY=${XAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
 
-      # Server settings
-      - ARAGORA_ENVIRONMENT=development
+      # Server settings -- SQLite for zero-dependency storage
+      - ARAGORA_ENV=development
       - ARAGORA_DB_BACKEND=sqlite
       - ARAGORA_DATA_DIR=/app/data
+      - ARAGORA_BIND_HOST=0.0.0.0
       - ARAGORA_CANONICAL_STORE_PERSIST=1
       - ARAGORA_STORE_DIR=/app/data/.aragora_beads
 
       # CORS (adjust for your frontend URL)
-      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-http://localhost:3000}
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}
 
       # Optional: API token for authentication
       - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
@@ -51,7 +52,7 @@ services:
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -61,4 +62,4 @@ volumes:
   aragora-data:
 
 # For production with PostgreSQL, use docker-compose.yml instead:
-#   docker compose --profile postgres up -d
+#   docker compose up -d

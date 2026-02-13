@@ -9,8 +9,6 @@
 # Override defaults:
 #   GATEWAY_PORT=9000 docker-compose -f docker-compose.standalone.yml up -d
 
-version: '3.8'
-
 services:
   aragora-gateway:
     image: aragora/gateway:latest
