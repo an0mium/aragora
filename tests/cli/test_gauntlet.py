@@ -320,6 +320,7 @@ class TestCmdGauntlet:
         args.no_redteam = False
         args.no_probing = False
         args.no_audit = False
+        args.local = True
         return args
 
     def test_input_file_not_found(self, capsys):

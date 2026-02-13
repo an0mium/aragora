@@ -492,7 +492,7 @@ class TestBroadcasting:
 
     @pytest.mark.asyncio
     async def test_broadcast_sends_to_all_clients(self):
-        """Should send event to all connected clients."""
+        """Should send event to all subscribed clients."""
         server = DebateStreamServer()
 
         # Create mock clients
@@ -500,6 +500,10 @@ class TestBroadcasting:
         client2 = AsyncMock()
         server.clients = {client1, client2}
         server._clients_lock = asyncio.Lock()
+
+        # Subscribe both clients to the same debate
+        server._client_subscriptions[id(client1)] = "debate-1"
+        server._client_subscriptions[id(client2)] = "debate-1"
 
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,
@@ -552,6 +556,10 @@ class TestBroadcasting:
 
         server.clients = {client1, client2}
         server._clients_lock = asyncio.Lock()
+
+        # Subscribe both clients to the debate
+        server._client_subscriptions[id(client1)] = "debate-1"
+        server._client_subscriptions[id(client2)] = "debate-1"
 
         event = StreamEvent(
             type=StreamEventType.DEBATE_START,

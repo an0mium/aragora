@@ -300,13 +300,16 @@ class TestExecuteDebateThread:
             ):
                 yield debates
 
-    def test_too_many_agents_sets_error(self, mock_emitter, mock_active_debates):
+    @patch("aragora.server.stream.debate_executor.AgentSpec")
+    def test_too_many_agents_sets_error(self, mock_spec_class, mock_emitter, mock_active_debates):
         """Sets error status for too many agents."""
         debate_id = "test-debate-1"
         mock_active_debates[debate_id] = {"status": "starting"}
 
         # Create agent string with more than MAX_AGENTS_PER_DEBATE
         agents_str = ",".join([f"agent{i}" for i in range(100)])
+        # Mock coerce_list to return 100 fake specs
+        mock_spec_class.coerce_list.return_value = [MagicMock() for _ in range(100)]
 
         execute_debate_thread(
             debate_id=debate_id,
@@ -363,7 +366,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
 
         # Mock registry to return specs with no env vars required
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
@@ -425,7 +428,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec, mock_spec2]
         mock_spec_class.return_value = MagicMock()  # Fallback spec
 
         # First provider missing key, second has key
@@ -497,7 +500,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         # Setup agent creation
@@ -571,7 +574,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         mock_agent = MagicMock()
@@ -626,7 +629,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         # All agent creations fail
@@ -678,7 +681,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         mock_agent = MagicMock()
@@ -743,7 +746,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         mock_agent = MagicMock()
@@ -815,7 +818,7 @@ class TestExecuteDebateThread:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         mock_agent = MagicMock()
@@ -1044,7 +1047,7 @@ class TestErrorHandling:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         mock_agent = MagicMock()
@@ -1109,7 +1112,7 @@ class TestErrorHandling:
         mock_spec2.persona = None
         mock_spec2.role = None
 
-        mock_spec_class.parse_list.return_value = [mock_spec1, mock_spec2]
+        mock_spec_class.coerce_list.return_value = [mock_spec1, mock_spec2]
         mock_registry.get_spec.return_value = MagicMock(env_vars=None)
 
         mock_agent = MagicMock()
