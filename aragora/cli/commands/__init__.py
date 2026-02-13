@@ -61,6 +61,8 @@ from aragora.cli.commands.receipt import (
 )
 from aragora.cli.commands.deploy import cmd_deploy, add_deploy_parser
 from aragora.cli.commands.memory_ops import cmd_memory_ops, add_memory_ops_parser
+from aragora.cli.commands.publish import cmd_publish, add_publish_parser
+from aragora.cli.commands.autopilot import cmd_autopilot, add_autopilot_parser
 
 __all__ = [
     # debate
@@ -125,4 +127,10 @@ __all__ = [
     # memory operations (API-backed)
     "cmd_memory_ops",
     "add_memory_ops_parser",
+    # package publishing
+    "cmd_publish",
+    "add_publish_parser",
+    # autopilot GTM
+    "cmd_autopilot",
+    "add_autopilot_parser",
 ]

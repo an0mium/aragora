@@ -143,6 +143,9 @@ Examples:
     add_quickstart_parser(subparsers)
     _add_receipt_parser(subparsers)
     _add_compliance_parser(subparsers)
+    _add_publish_parser(subparsers)
+    _add_autopilot_parser(subparsers)
+    _add_agent_parser(subparsers)
 
     return parser
 
@@ -1262,3 +1265,117 @@ def _add_compliance_parser(subparsers) -> None:
     from aragora.cli.commands.compliance import add_compliance_parser
 
     add_compliance_parser(subparsers)
+
+
+def _add_publish_parser(subparsers) -> None:
+    """Add the 'publish' subcommand for package publishing."""
+    from aragora.cli.commands.publish import add_publish_parser
+
+    add_publish_parser(subparsers)
+
+
+def _add_autopilot_parser(subparsers) -> None:
+    """Add the 'autopilot' subcommand for autonomous GTM tasks."""
+    from aragora.cli.commands.autopilot import add_autopilot_parser
+
+    add_autopilot_parser(subparsers)
+
+
+def _add_agent_parser(subparsers) -> None:
+    """Add the 'agent' subcommand for autonomous agent operations."""
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help="Run autonomous agents (DevOps, review, triage)",
+        description="""
+Run autonomous agents that handle repository operations through
+policy-controlled execution. Every action is audited.
+
+Examples:
+    aragora agent run devops --repo an0mium/aragora --task health-check
+    aragora agent run devops --repo an0mium/aragora --task review-prs --dry-run
+    aragora agent run devops --repo an0mium/aragora --mode watch
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    agent_sub = agent_parser.add_subparsers(dest="agent_command")
+
+    run_parser = agent_sub.add_parser("run", help="Run an agent")
+    run_parser.add_argument(
+        "agent_type",
+        choices=["devops"],
+        help="Agent type to run",
+    )
+    run_parser.add_argument(
+        "--repo",
+        required=True,
+        help="GitHub repository (owner/repo format)",
+    )
+    run_parser.add_argument(
+        "--task",
+        choices=["review-prs", "triage-issues", "prepare-release", "health-check"],
+        help="Specific task to run",
+    )
+    run_parser.add_argument(
+        "--mode",
+        choices=["once", "watch"],
+        default="once",
+        help="Execution mode (default: once)",
+    )
+    run_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview actions without executing",
+    )
+    run_parser.add_argument(
+        "--allow-destructive",
+        action="store_true",
+        help="Allow destructive operations (publish, tag, merge)",
+    )
+    run_parser.add_argument(
+        "--poll-interval",
+        type=int,
+        default=300,
+        help="Seconds between polls in watch mode",
+    )
+    run_parser.set_defaults(func=cmd_agent_run)
+
+    agent_parser.set_defaults(func=lambda args: agent_parser.print_help())
+
+
+def cmd_agent_run(args):
+    """Run an autonomous agent."""
+    from aragora.agents.devops.agent import (
+        DevOpsAgent,
+        DevOpsAgentConfig,
+        DevOpsTask,
+    )
+
+    config = DevOpsAgentConfig(
+        repo=args.repo,
+        dry_run=args.dry_run,
+        allow_destructive=args.allow_destructive,
+        poll_interval=args.poll_interval,
+    )
+    agent = DevOpsAgent(config=config)
+
+    if args.mode == "watch":
+        tasks = [DevOpsTask(args.task)] if args.task else None
+        agent.watch(tasks=tasks)
+        return 0
+
+    if not args.task:
+        print("Error: --task is required in 'once' mode")
+        return 1
+
+    task = DevOpsTask(args.task)
+    result = agent.run_task(task)
+
+    status = "OK" if result.success else "FAILED"
+    print(f"\nTask: {result.task} [{status}]")
+    print(f"Processed: {result.items_processed}  Skipped: {result.items_skipped}")
+    print(f"Duration: {result.duration_seconds:.1f}s")
+    if result.errors:
+        for err in result.errors:
+            print(f"  Error: {err}")
+
+    return 0 if result.success else 1
