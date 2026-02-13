@@ -21,6 +21,7 @@ from aragora.server.collaboration import (
     get_session_manager,
 )
 from aragora.server.handlers.base import error_response, json_response
+from aragora.server.handlers.utils.lazy_stores import LazyStore
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
@@ -565,17 +566,15 @@ class SocialCollaborationStore:
             return True
 
 
-_social_collab_store: SocialCollaborationStore | None = None
-_social_collab_store_lock = threading.Lock()
+_social_collab_store_lazy = LazyStore(
+    factory=SocialCollaborationStore,
+    store_name="social_collaboration_store",
+    logger_context="Collaboration",
+)
 
 
 def _get_social_collab_store() -> SocialCollaborationStore:
-    global _social_collab_store
-    if _social_collab_store is None:
-        with _social_collab_store_lock:
-            if _social_collab_store is None:
-                _social_collab_store = SocialCollaborationStore()
-    return _social_collab_store
+    return _social_collab_store_lazy.get()
 
 
 class CollaborationHandler:

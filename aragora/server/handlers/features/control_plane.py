@@ -37,6 +37,7 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 
 logger = logging.getLogger(__name__)
 
@@ -59,22 +60,17 @@ _metrics: dict[str, Any] = {
 }
 
 # Shared state for multi-instance persistence (initialized lazily)
-_shared_state: Any | None = None
+_shared_state_lazy = LazyStoreFactory(
+    store_name="shared_control_plane_state",
+    import_path="aragora.control_plane.shared_state",
+    factory_name="get_shared_state_sync",
+    logger_context="ControlPlane",
+)
 
 
 def _get_shared_state() -> Any | None:
     """Get shared state if available, otherwise None."""
-    global _shared_state
-    if _shared_state is not None:
-        return _shared_state
-
-    try:
-        from aragora.control_plane.shared_state import get_shared_state_sync
-
-        _shared_state = get_shared_state_sync()
-        return _shared_state
-    except ImportError:
-        return None
+    return _shared_state_lazy.get()
 
 
 class AgentDashboardHandler(SecureHandler):

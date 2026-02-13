@@ -26,7 +26,6 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -37,50 +36,35 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.openapi_decorator import api_endpoint
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 
-# Thread-safe service instance
-_team_inbox_emitter: Any | None = None
-_team_inbox_emitter_lock = threading.Lock()
+# Thread-safe lazy-initialized service instances
+_team_inbox_emitter = LazyStoreFactory(
+    store_name="team_inbox_emitter",
+    import_path="aragora.server.stream.team_inbox",
+    factory_name="get_team_inbox_emitter",
+    logger_context="TeamInbox",
+)
 
-# Activity store for persistent logging
-_activity_store: Any | None = None
-_activity_store_lock = threading.Lock()
+_activity_store = LazyStoreFactory(
+    store_name="inbox_activity_store",
+    import_path="aragora.storage.inbox_activity_store",
+    factory_name="get_inbox_activity_store",
+    logger_context="TeamInbox",
+)
 
 
 def get_team_inbox_emitter_instance():
     """Get or create team inbox emitter (thread-safe)."""
-    global _team_inbox_emitter
-    if _team_inbox_emitter is not None:
-        return _team_inbox_emitter
-
-    with _team_inbox_emitter_lock:
-        if _team_inbox_emitter is None:
-            from aragora.server.stream.team_inbox import get_team_inbox_emitter
-
-            _team_inbox_emitter = get_team_inbox_emitter()
-        return _team_inbox_emitter
+    return _team_inbox_emitter.get()
 
 
 def _get_activity_store():
     """Get or create the activity store (lazy init, thread-safe)."""
-    global _activity_store
-    if _activity_store is not None:
-        return _activity_store
-    with _activity_store_lock:
-        if _activity_store is None:
-            try:
-                from aragora.storage.inbox_activity_store import get_inbox_activity_store
-
-                _activity_store = get_inbox_activity_store()
-                logger.info("[TeamInbox] Initialized inbox activity store")
-            except ImportError as e:
-                logger.warning(f"[TeamInbox] Activity store module not available: {e}")
-            except (OSError, RuntimeError) as e:
-                logger.warning(f"[TeamInbox] Failed to init activity store: {e}")
-        return _activity_store
+    return _activity_store.get()
 
 
 def _log_activity(

@@ -125,3 +125,48 @@ jobs:
           echo "- CORS and API routes" >> $GITHUB_STEP_SUMMARY
           echo "- WebSocket connectivity" >> $GITHUB_STEP_SUMMARY
           echo "- Server startup within 30s SLO" >> $GITHUB_STEP_SUMMARY
+
+  decision-action-smoke:
+    name: Decision-to-Action Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+
+      - name: Run decision-to-action smoke scenario
+        env:
+          PYTHONPATH: .
+          DECISION_ACTION_SMOKE_ARTIFACT_DIR: test-results/decision-action-smoke
+        run: |
+          pytest tests/e2e/test_decision_action_smoke.py -v --tb=short --timeout=120
+
+      - name: Upload decision-to-action smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: decision-action-smoke-artifacts
+          path: test-results/decision-action-smoke/
+          if-no-files-found: ignore
+
+      - name: Decision-to-action smoke summary
+        if: always()
+        run: |
+          echo "## Decision-to-Action Smoke Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Scenario coverage:" >> $GITHUB_STEP_SUMMARY
+          echo "- Debate result -> decision plan creation" >> $GITHUB_STEP_SUMMARY
+          echo "- Human approval transition" >> $GITHUB_STEP_SUMMARY
+          echo "- Execution bridge invocation" >> $GITHUB_STEP_SUMMARY
+          echo "- Completion artifact emission for reproducible debugging" >> $GITHUB_STEP_SUMMARY

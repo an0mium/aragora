@@ -22,13 +22,21 @@ from aragora.reasoning.provenance import (
 )
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 
 if TYPE_CHECKING:
     from aragora.storage.provenance_store import ProvenanceStore
 
 logger = logging.getLogger(__name__)
 
-# Global provenance store singleton
+# Global provenance store singleton (thread-safe lazy init)
+_provenance_store_lazy = LazyStoreFactory(
+    store_name="provenance_store",
+    import_path="aragora.storage.provenance_store",
+    factory_name="ProvenanceStore",
+    logger_context="Provenance",
+)
+# Test-assignable override (tests set _provenance_store = mock directly)
 _provenance_store: ProvenanceStore | None = None
 
 # In-memory cache for active managers (avoids repeated DB loads)
@@ -37,13 +45,9 @@ _provenance_managers: dict[str, ProvenanceManager] = {}
 
 def get_provenance_store() -> ProvenanceStore:
     """Get or create the global ProvenanceStore instance."""
-    global _provenance_store
-    if _provenance_store is None:
-        from aragora.storage.provenance_store import ProvenanceStore
-
-        _provenance_store = ProvenanceStore()
-        logger.info("ProvenanceStore initialized")
-    return _provenance_store
+    if _provenance_store is not None:
+        return _provenance_store
+    return _provenance_store_lazy.get()
 
 
 def get_provenance_manager(debate_id: str) -> ProvenanceManager:

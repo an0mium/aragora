@@ -29,6 +29,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
@@ -52,14 +53,18 @@ class DRHandler(BaseHandler):
     def __init__(self, server_context: dict[str, Any]):
         """Initialize with server context."""
         super().__init__(server_context)
-        self._manager = None  # Lazy initialization
+        self._manager_factory = LazyStoreFactory(
+            store_name="backup_manager",
+            import_path="aragora.backup.manager",
+            factory_name="get_backup_manager",
+            logger_context="DR",
+        )
+        self._manager = None  # Set by tests or lazy init
 
     def _get_backup_manager(self) -> BackupManager:
         """Get backup manager for DR operations."""
         if self._manager is None:
-            from aragora.backup.manager import get_backup_manager
-
-            self._manager = get_backup_manager()
+            self._manager = self._manager_factory.get()
         return self._manager
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

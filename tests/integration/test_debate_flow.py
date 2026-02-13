@@ -610,6 +610,13 @@ class TestDebateEloIntegration:
         """After a debate, we can use the result to update ELO ratings."""
         from aragora.ranking.elo import EloSystem
 
+        # Clear class-level caches to prevent cross-test contamination
+        # (the Arena's internal EloSystem shares the class-level cache)
+        EloSystem._rating_cache.clear()
+        EloSystem._leaderboard_cache.clear()
+        EloSystem._stats_cache.clear()
+        EloSystem._calibration_cache.clear()
+
         # Run debate
         env = Environment(task="ELO test debate", max_rounds=2)
         protocol = DebateProtocol(rounds=2)
@@ -648,6 +655,13 @@ class TestDebateEloIntegration:
     async def test_multiple_debates_accumulate_elo(self, temp_db):
         """Multiple debates should accumulate ELO changes."""
         from aragora.ranking.elo import EloSystem
+
+        # Clear class-level caches to prevent cross-test contamination
+        # (the Arena's internal EloSystem shares the class-level cache)
+        EloSystem._rating_cache.clear()
+        EloSystem._leaderboard_cache.clear()
+        EloSystem._stats_cache.clear()
+        EloSystem._calibration_cache.clear()
 
         elo = EloSystem(temp_db)
 

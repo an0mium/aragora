@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
     get_clamped_int_param,
     json_response,
 )
+from aragora.server.handlers.utils.lazy_stores import LazyStore
 
 logger = logging.getLogger(__name__)
 
@@ -199,16 +200,17 @@ class FeedbackStore:
         }
 
 
-# Global store instance
-_feedback_store: FeedbackStore | None = None
+# Global store instance (thread-safe lazy init)
+_feedback_store_lazy = LazyStore(
+    factory=FeedbackStore,
+    store_name="feedback_store",
+    logger_context="Feedback",
+)
 
 
 def get_feedback_store() -> FeedbackStore:
     """Get or create the feedback store."""
-    global _feedback_store
-    if _feedback_store is None:
-        _feedback_store = FeedbackStore()
-    return _feedback_store
+    return _feedback_store_lazy.get()
 
 
 async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:

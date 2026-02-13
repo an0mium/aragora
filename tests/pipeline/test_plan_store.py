@@ -243,3 +243,83 @@ class TestPlanStoreCombinedFilters:
         result = store.list(debate_id="dA", status=PlanStatus.APPROVED)
         assert len(result) == 1
         assert result[0].id == "dp-1"
+
+
+class TestPlanStoreExecutionClaims:
+    """Tests for atomic execution claim semantics."""
+
+    def test_update_status_if_current_claims_once(self, store: PlanStore) -> None:
+        plan = DecisionPlan(
+            id="dp-claim-1",
+            debate_id="debate-claim",
+            task="Claim me once",
+            status=PlanStatus.APPROVED,
+        )
+        store.create(plan)
+
+        first = store.update_status_if_current(
+            plan.id,
+            expected_statuses=[PlanStatus.APPROVED],
+            new_status=PlanStatus.EXECUTING,
+        )
+        second = store.update_status_if_current(
+            plan.id,
+            expected_statuses=[PlanStatus.APPROVED],
+            new_status=PlanStatus.EXECUTING,
+        )
+
+        assert first is True
+        assert second is False
+        updated = store.get(plan.id)
+        assert updated is not None
+        assert updated.status == PlanStatus.EXECUTING
+
+
+class TestPlanStoreExecutionRecords:
+    """Tests for persistent execution record storage."""
+
+    def test_execution_record_roundtrip_and_filters(self, store: PlanStore) -> None:
+        store.create(DecisionPlan(id="dp-exec-1", debate_id="debate-x", task="T1"))
+        store.create(DecisionPlan(id="dp-exec-2", debate_id="debate-y", task="T2"))
+
+        exec_id_1 = store.create_execution_record(
+            plan_id="dp-exec-1",
+            debate_id="debate-x",
+            status="running",
+            correlation_id="corr-1",
+            metadata={"execution_mode": "workflow"},
+        )
+        exec_id_2 = store.create_execution_record(
+            plan_id="dp-exec-2",
+            debate_id="debate-y",
+            status="queued",
+            correlation_id="corr-2",
+        )
+
+        updated = store.update_execution_record(
+            exec_id_1,
+            status="failed",
+            error={"type": "RuntimeError", "message": "boom"},
+            metadata={"terminal_state": "failed"},
+        )
+        assert updated is True
+
+        record = store.get_execution_record(exec_id_1)
+        assert record is not None
+        assert record["execution_id"] == exec_id_1
+        assert record["plan_id"] == "dp-exec-1"
+        assert record["debate_id"] == "debate-x"
+        assert record["status"] == "failed"
+        assert record["error"]["type"] == "RuntimeError"
+        assert record["completed_at"] is not None
+
+        by_plan = store.list_execution_records(plan_id="dp-exec-1")
+        by_debate = store.list_execution_records(debate_id="debate-y")
+        by_status = store.list_execution_records(status="queued")
+
+        assert len(by_plan) == 1
+        assert by_plan[0]["execution_id"] == exec_id_1
+        assert len(by_debate) == 1
+        assert by_debate[0]["execution_id"] == exec_id_2
+        assert len(by_status) == 1
+        assert by_status[0]["execution_id"] == exec_id_2

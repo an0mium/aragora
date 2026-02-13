@@ -91,7 +91,7 @@ class TestEvidenceKMFlow:
         from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 
         mock_adapter = Mock(spec=EvidenceAdapter)
-        mock_adapter.search_similar.side_effect = Exception("KM unavailable")
+        mock_adapter.search_similar.side_effect = ConnectionError("KM unavailable")
 
         store = EvidenceStore(km_adapter=mock_adapter)
 
@@ -120,7 +120,6 @@ class TestEloKMFlow:
 
         mock_adapter.get_agent_skill_history.assert_called_once_with(
             agent_name="claude",
-            domain="ai",
             limit=50,
         )
         assert len(results) == 1
@@ -229,7 +228,7 @@ class TestPulseKMFlow:
         results = scheduler.query_km_for_past_debates("AI regulation")
 
         mock_adapter.search_past_debates.assert_called_once_with(
-            query="AI regulation",
+            topic_text="AI regulation",
             limit=5,
         )
         assert len(results) == 1
@@ -419,7 +418,7 @@ class TestEvidenceCollectorKMFlow:
         from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 
         mock_adapter = Mock(spec=EvidenceAdapter)
-        mock_adapter.search_by_topic.side_effect = Exception("KM unavailable")
+        mock_adapter.search_by_topic.side_effect = ConnectionError("KM unavailable")
 
         collector = EvidenceCollector(km_adapter=mock_adapter)
 

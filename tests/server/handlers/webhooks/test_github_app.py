@@ -282,6 +282,9 @@ class TestEventHandlers:
 class TestHandleGitHubWebhook:
     """Integration tests for the main webhook handler."""
 
+    # Bypass RBAC decorator to test webhook logic directly
+    _handler = staticmethod(handle_github_webhook.__wrapped__)
+
     def create_mock_context(
         self,
         event_type: str = "ping",
@@ -320,7 +323,7 @@ class TestHandleGitHubWebhook:
             {"GITHUB_WEBHOOK_SECRET": "", "ARAGORA_ENV": "test"},
             clear=False,
         ):
-            result = await handle_github_webhook(ctx)
+            result = await self._handler(ctx)
 
         body = json.loads(result.body.decode("utf-8"))
         assert body["success"] is True
@@ -338,7 +341,7 @@ class TestHandleGitHubWebhook:
         )
 
         with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": secret}, clear=False):
-            result = await handle_github_webhook(ctx)
+            result = await self._handler(ctx)
 
         assert result.status_code == 200
 
@@ -349,7 +352,7 @@ class TestHandleGitHubWebhook:
         ctx["headers"]["x-hub-signature-256"] = "sha256=invalid"
 
         with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": "real-secret"}, clear=False):
-            result = await handle_github_webhook(ctx)
+            result = await self._handler(ctx)
 
         assert result.status_code == 401
 
@@ -363,11 +366,11 @@ class TestHandleGitHubWebhook:
             {"GITHUB_WEBHOOK_SECRET": "", "ARAGORA_ENV": "test"},
             clear=False,
         ):
-            result = await handle_github_webhook(ctx)
+            result = await self._handler(ctx)
 
         body = json.loads(result.body.decode("utf-8"))
         assert body["success"] is True
-        # Unknown events default to PING which returns pong
+        # Unknown events map to PING handler which returns pong
         assert body["message"] == "pong"
 
     @pytest.mark.asyncio
@@ -394,7 +397,7 @@ class TestHandleGitHubWebhook:
                 return_value="test-debate-123",
             ),
         ):
-            result = await handle_github_webhook(ctx)
+            result = await self._handler(ctx)
 
         body = json.loads(result.body.decode("utf-8"))
         assert body["success"] is True

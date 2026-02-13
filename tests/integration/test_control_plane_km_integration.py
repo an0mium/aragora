@@ -1,9 +1,9 @@
 """
-End-to-End Integration Tests: Control Plane ↔ Knowledge Mound Learning Loop.
+End-to-End Integration Tests: Control Plane <-> Knowledge Mound Learning Loop.
 
 Tests the complete bidirectional flow between Control Plane and KM:
-1. Task completion → KM storage
-2. KM recommendations → Agent selection
+1. Task completion -> KM storage
+2. KM recommendations -> Agent selection
 3. Cross-workspace insight sharing
 4. Full learning loop verification
 """
@@ -23,6 +23,36 @@ from aragora.knowledge.mound.adapters.control_plane_adapter import (
     AgentCapabilityRecord,
     CrossWorkspaceInsight,
 )
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+
+def _make_km_item(content, confidence, metadata):
+    """Create a mock KnowledgeItem-like object with attribute access.
+
+    The adapter code uses ``getattr(result, "metadata", {})`` and similar
+    attribute access, so plain dicts won't work -- we need objects.
+    """
+    item = MagicMock()
+    item.content = content
+    item.confidence = confidence
+    item.metadata = metadata
+    return item
+
+
+def _make_query_result(items):
+    """Wrap a list of items in an object with an ``.items`` attribute.
+
+    The adapter code does:
+        query_result.items if hasattr(query_result, "items") else []
+    so the mock query must return an object with ``.items``, not a plain list.
+    """
+    qr = MagicMock()
+    qr.items = items
+    return qr
 
 
 # ============================================================================
@@ -181,7 +211,7 @@ def coordinator(mock_registry, mock_scheduler, mock_health_monitor, mock_knowled
 
 
 # ============================================================================
-# Task Outcome → KM Storage Tests
+# Task Outcome -> KM Storage Tests
 # ============================================================================
 
 
@@ -258,7 +288,7 @@ class TestTaskOutcomeStorage:
 
 
 # ============================================================================
-# KM Recommendations → Agent Selection Tests
+# KM Recommendations -> Agent Selection Tests
 # ============================================================================
 
 
@@ -268,34 +298,37 @@ class TestKMRecommendations:
     @pytest.mark.asyncio
     async def test_get_recommendations_from_km(self, coordinator, mock_knowledge_mound):
         """Should query KM for agent recommendations."""
-        # Pre-populate KM with capability data (clear side_effect first)
+        # The adapter's get_capability_recommendations expects query() to return
+        # an object with .items attribute, where each item has .metadata,
+        # .confidence, and .content as attributes (KnowledgeItem-like objects).
         mock_knowledge_mound.query.side_effect = None
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Agent claude-3 capability 'debate': 95% success",
-                "confidence": 0.9,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "claude-3",
-                    "capability": "debate",
-                    "success_count": 95,
-                    "failure_count": 5,
-                    "avg_duration_seconds": 12.5,
-                },
+
+        item1 = _make_km_item(
+            content="Agent claude-3 capability 'debate': 95% success",
+            confidence=0.9,
+            metadata={
+                "type": "control_plane_capability",
+                "agent_id": "claude-3",
+                "capability": "debate",
+                "success_count": 95,
+                "failure_count": 5,
+                "avg_duration_seconds": 12.5,
             },
-            {
-                "content": "Agent gpt-4 capability 'debate': 85% success",
-                "confidence": 0.8,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "gpt-4",
-                    "capability": "debate",
-                    "success_count": 85,
-                    "failure_count": 15,
-                    "avg_duration_seconds": 15.0,
-                },
+        )
+        item2 = _make_km_item(
+            content="Agent gpt-4 capability 'debate': 85% success",
+            confidence=0.8,
+            metadata={
+                "type": "control_plane_capability",
+                "agent_id": "gpt-4",
+                "capability": "debate",
+                "success_count": 85,
+                "failure_count": 15,
+                "avg_duration_seconds": 15.0,
             },
-        ]
+        )
+
+        mock_knowledge_mound.query.return_value = _make_query_result([item1, item2])
 
         recommendations = await coordinator.get_agent_recommendations("debate")
 
@@ -357,32 +390,35 @@ class TestCrossWorkspaceInsights:
             workspace_id="workspace_a",
         )
 
-        # Clear side_effect to use return_value
+        # The adapter's get_cross_workspace_insights expects query() to return
+        # an object with .items attribute, where each item has .metadata,
+        # .confidence, and .content as attributes (KnowledgeItem-like objects).
         mock_knowledge_mound.query.side_effect = None
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Own insight",
-                "confidence": 0.8,
-                "metadata": {
-                    "type": "cross_workspace_insight",
-                    "insight_id": "insight_1",
-                    "source_workspace": "workspace_a",  # Same as adapter
-                    "target_workspaces": [],
-                    "task_type": "debate",
-                },
+
+        item1 = _make_km_item(
+            content="Own insight",
+            confidence=0.8,
+            metadata={
+                "type": "cross_workspace_insight",
+                "insight_id": "insight_1",
+                "source_workspace": "workspace_a",  # Same as adapter
+                "target_workspaces": [],
+                "task_type": "debate",
             },
-            {
-                "content": "Other workspace insight",
-                "confidence": 0.9,
-                "metadata": {
-                    "type": "cross_workspace_insight",
-                    "insight_id": "insight_2",
-                    "source_workspace": "workspace_b",  # Different
-                    "target_workspaces": ["workspace_a"],
-                    "task_type": "debate",
-                },
+        )
+        item2 = _make_km_item(
+            content="Other workspace insight",
+            confidence=0.9,
+            metadata={
+                "type": "cross_workspace_insight",
+                "insight_id": "insight_2",
+                "source_workspace": "workspace_b",  # Different
+                "target_workspaces": ["workspace_a"],
+                "task_type": "debate",
             },
-        ]
+        )
+
+        mock_knowledge_mound.query.return_value = _make_query_result([item1, item2])
 
         insights = await adapter.get_cross_workspace_insights("debate")
 
@@ -400,7 +436,7 @@ class TestFullLearningLoop:
 
     @pytest.mark.asyncio
     async def test_learning_loop_complete_flow(self, coordinator, mock_knowledge_mound):
-        """Test complete flow: task → KM → recommendations."""
+        """Test complete flow: task -> KM -> recommendations."""
         # Step 1: Complete several tasks
         for i in range(5):
             task_id = await coordinator.submit_task(
@@ -418,21 +454,24 @@ class TestFullLearningLoop:
         assert mock_knowledge_mound.ingest.call_count == 5
 
         # Step 2: Query for recommendations (clear side_effect first)
+        # The adapter expects query() to return an object with .items,
+        # containing KnowledgeItem-like objects with attribute access.
         mock_knowledge_mound.query.side_effect = None
-        mock_knowledge_mound.query.return_value = [
-            {
-                "content": "Agent claude-3 capability 'debate': 100% success",
-                "confidence": 0.95,
-                "metadata": {
-                    "type": "control_plane_capability",
-                    "agent_id": "claude-3",
-                    "capability": "debate",
-                    "success_count": 5,
-                    "failure_count": 0,
-                    "avg_duration_seconds": 5.2,
-                },
+
+        item = _make_km_item(
+            content="Agent claude-3 capability 'debate': 100% success",
+            confidence=0.95,
+            metadata={
+                "type": "control_plane_capability",
+                "agent_id": "claude-3",
+                "capability": "debate",
+                "success_count": 5,
+                "failure_count": 0,
+                "avg_duration_seconds": 5.2,
             },
-        ]
+        )
+
+        mock_knowledge_mound.query.return_value = _make_query_result([item])
 
         recommendations = await coordinator.get_agent_recommendations("debate")
 

@@ -336,7 +336,6 @@ def register_event_handler(event_type: GitHubEventType):
 
 
 @register_event_handler(GitHubEventType.PING)
-@require_permission("debates:read")
 async def handle_ping(event: GitHubWebhookEvent) -> dict[str, Any]:
     """Handle GitHub ping event (webhook test)."""
     logger.info(f"GitHub App ping received: zen='{event.payload.get('zen')}'")
@@ -348,7 +347,6 @@ async def handle_ping(event: GitHubWebhookEvent) -> dict[str, Any]:
 
 
 @register_event_handler(GitHubEventType.PULL_REQUEST)
-@require_permission("debates:read")
 async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
     """
     Handle pull request events.
@@ -391,7 +389,6 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
 
 
 @register_event_handler(GitHubEventType.ISSUES)
-@require_permission("debates:read")
 async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
     """
     Handle issue events.
@@ -429,7 +426,6 @@ async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
 
 
 @register_event_handler(GitHubEventType.PUSH)
-@require_permission("debates:read")
 async def handle_push(event: GitHubWebhookEvent) -> dict[str, Any]:
     """
     Handle push events.
@@ -452,7 +448,6 @@ async def handle_push(event: GitHubWebhookEvent) -> dict[str, Any]:
 
 
 @register_event_handler(GitHubEventType.INSTALLATION)
-@require_permission("debates:read")
 async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
     """
     Handle app installation events.

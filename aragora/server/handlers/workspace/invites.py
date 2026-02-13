@@ -21,6 +21,7 @@ from typing import Any, TYPE_CHECKING
 from aragora.events.handler_events import emit_handler_event, CREATED, COMPLETED
 from aragora.server.handlers.base import handle_errors, log_request
 from aragora.server.handlers.openapi_decorator import api_endpoint
+from aragora.server.handlers.utils.lazy_stores import LazyStore
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
@@ -185,16 +186,17 @@ class InviteStore:
         return None
 
 
-# Global invite store instance
-_invite_store: InviteStore | None = None
+# Global invite store instance (thread-safe lazy init)
+_invite_store_lazy = LazyStore(
+    factory=InviteStore,
+    store_name="invite_store",
+    logger_context="WorkspaceInvites",
+)
 
 
 def get_invite_store() -> InviteStore:
     """Get the global invite store instance."""
-    global _invite_store
-    if _invite_store is None:
-        _invite_store = InviteStore()
-    return _invite_store
+    return _invite_store_lazy.get()
 
 
 class WorkspaceInvitesMixin:

@@ -159,7 +159,7 @@ class TestUnifiedInboxWebhookIntegration:
             }
         )
 
-        connect_result = await inbox_handler.handle(
+        connect_result = await inbox_handler.handle_request(
             connect_request, "/api/v1/inbox/connect", "POST"
         )
         # Result depends on OAuth implementation - validate handler processes request
@@ -207,7 +207,7 @@ class TestUnifiedInboxWebhookIntegration:
         list_request.tenant_id = tenant_id
         list_request.query = {}
 
-        list_result = await inbox_handler.handle(list_request, "/api/v1/inbox/messages", "GET")
+        list_result = await inbox_handler.handle_request(list_request, "/api/v1/inbox/messages", "GET")
         assert list_result.status_code == 200
 
     @pytest.mark.asyncio
@@ -250,7 +250,7 @@ class TestUnifiedInboxWebhookIntegration:
         stats_request = MagicMock()
         stats_request.tenant_id = tenant_id
 
-        stats_result = await inbox_handler.handle(stats_request, "/api/v1/inbox/stats", "GET")
+        stats_result = await inbox_handler.handle_request(stats_request, "/api/v1/inbox/stats", "GET")
         assert stats_result.status_code == 200
 
         # Step 2: Triage messages
@@ -265,7 +265,7 @@ class TestUnifiedInboxWebhookIntegration:
             }
         )
 
-        triage_result = await inbox_handler.handle(triage_request, "/api/v1/inbox/triage", "POST")
+        triage_result = await inbox_handler.handle_request(triage_request, "/api/v1/inbox/triage", "POST")
         # Expect 404 when no messages exist (no connected accounts)
         assert triage_result.status_code in [200, 404]
         if triage_result.status_code == 404:

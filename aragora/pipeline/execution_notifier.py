@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
@@ -93,6 +94,10 @@ class ExecutionNotifier:
         self._start_time = time.monotonic()
         self._task_descriptions: dict[str, str] = {}
         self._listeners: list[Callable[[ExecutionProgress], Any]] = []
+        self._task_outcomes: dict[str, tuple[bool, str | None]] = {}
+        self._completion_sent = False
+        self._delivery_errors: list[dict[str, Any]] = []
+        self._last_dispatch_key: str | None = None
 
     def set_task_descriptions(self, tasks: list[Any]) -> None:
         """Pre-populate task descriptions from ImplementTask list."""
@@ -106,6 +111,11 @@ class ExecutionNotifier:
         """Register an additional listener for progress events."""
         self._listeners.append(fn)
 
+    @property
+    def delivery_errors(self) -> list[dict[str, Any]]:
+        """Structured delivery errors collected during notification attempts."""
+        return list(self._delivery_errors)
+
     def on_task_complete(self, task_id: str, result: Any) -> None:
         """Callback for HybridExecutor.execute_plan's on_task_complete.
 
@@ -113,6 +123,22 @@ class ExecutionNotifier:
         """
         self.progress.elapsed_seconds = time.monotonic() - self._start_time
         success = getattr(result, "success", True)
+        error = getattr(result, "error", None)
+        normalized_error = str(error) if error is not None else None
+
+        previous = self._task_outcomes.get(task_id)
+        if previous is not None and previous == (bool(success), normalized_error):
+            # Idempotency guard: duplicate callback, no progress delta or resend.
+            return
+
+        if previous is not None:
+            prev_success, _ = previous
+            if prev_success:
+                self.progress.completed_tasks = max(0, self.progress.completed_tasks - 1)
+            else:
+                self.progress.failed_tasks = max(0, self.progress.failed_tasks - 1)
+
+        self._task_outcomes[task_id] = (bool(success), normalized_error)
 
         if success:
             self.progress.completed_tasks += 1
@@ -127,7 +153,7 @@ class ExecutionNotifier:
                 "success": success,
                 "model_used": getattr(result, "model_used", None),
                 "duration_seconds": getattr(result, "duration_seconds", 0.0),
-                "error": getattr(result, "error", None),
+                "error": error,
             }
         )
 
@@ -136,6 +162,14 @@ class ExecutionNotifier:
 
     def _dispatch_progress(self) -> None:
         """Send progress update to channels and WebSocket."""
+        dispatch_key = (
+            f"{self.progress.completed_tasks}:{self.progress.failed_tasks}:"
+            f"{self.progress.current_task_id}:{len(self.progress.task_results)}"
+        )
+        if self._last_dispatch_key == dispatch_key:
+            return
+        self._last_dispatch_key = dispatch_key
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -169,6 +203,7 @@ class ExecutionNotifier:
 
                 await route_result(self.progress.debate_id, event_payload)
             except Exception as exc:
+                self._record_delivery_error("channel_route", exc)
                 logger.debug("Channel progress notification failed: %s", exc)
 
         # 2. Broadcast to WebSocket subscribers
@@ -182,6 +217,7 @@ class ExecutionNotifier:
                     debate_id=self.progress.debate_id,
                 )
             except Exception as exc:
+                self._record_delivery_error("websocket_broadcast", exc)
                 logger.debug("WebSocket progress broadcast failed: %s", exc)
 
         # 3. Custom listeners
@@ -191,6 +227,7 @@ class ExecutionNotifier:
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as exc:
+                self._record_delivery_error("listener", exc)
                 logger.debug("Progress listener failed: %s", exc)
 
         # 4. Explicit channel targets (if provided)
@@ -218,19 +255,13 @@ class ExecutionNotifier:
 
             platform_thread_id = self._thread_id_by_platform.get(platform) or self._thread_id
             for channel_id in channels:
-                try:
-                    await connector.send_message(
-                        channel_id=channel_id,
-                        text=text,
-                        thread_id=platform_thread_id,
-                    )
-                except Exception as exc:
-                    logger.debug(
-                        "Failed to send execution update to %s:%s: %s",
-                        platform,
-                        channel_id,
-                        exc,
-                    )
+                await self._send_target_message(
+                    connector=connector,
+                    platform=platform,
+                    channel_id=channel_id,
+                    text=text,
+                    thread_id=platform_thread_id,
+                )
 
     def _format_progress_text(self, payload: dict[str, Any], *, is_complete: bool) -> str:
         """Create a short progress message for chat connectors."""
@@ -245,6 +276,13 @@ class ExecutionNotifier:
 
     async def send_completion_summary(self) -> None:
         """Send a final summary when execution completes."""
+        if self._completion_sent:
+            logger.debug(
+                "Completion summary already sent for %s",
+                self.progress.plan_id or self.progress.debate_id,
+            )
+            return
+        self._completion_sent = True
         self.progress.elapsed_seconds = time.monotonic() - self._start_time
         summary_payload = {
             "debate_id": self.progress.debate_id,
@@ -252,6 +290,7 @@ class ExecutionNotifier:
             "summary": {
                 **self.progress.to_dict(),
                 "task_results": self.progress.task_results,
+                "notification_errors": self.delivery_errors,
             },
         }
 
@@ -261,6 +300,7 @@ class ExecutionNotifier:
 
                 await route_result(self.progress.debate_id, summary_payload)
             except Exception as exc:
+                self._record_delivery_error("channel_route", exc)
                 logger.debug("Channel completion notification failed: %s", exc)
 
         if self._notify_websocket:
@@ -273,6 +313,7 @@ class ExecutionNotifier:
                     debate_id=self.progress.debate_id,
                 )
             except Exception as exc:
+                self._record_delivery_error("websocket_broadcast", exc)
                 logger.debug("WebSocket completion broadcast failed: %s", exc)
 
         if self._channel_targets:
@@ -281,3 +322,67 @@ class ExecutionNotifier:
                 summary if isinstance(summary, dict) else {},
                 is_complete=True,
             )
+
+    async def _send_target_message(
+        self,
+        *,
+        connector: Any,
+        platform: str,
+        channel_id: str,
+        text: str,
+        thread_id: str | None,
+        max_attempts: int = 2,
+    ) -> None:
+        """Send one target message with retry and structured failure tracking."""
+        for attempt in range(1, max_attempts + 1):
+            try:
+                await connector.send_message(
+                    channel_id=channel_id,
+                    text=text,
+                    thread_id=thread_id,
+                )
+                return
+            except Exception as exc:
+                retryable = attempt < max_attempts
+                self._record_delivery_error(
+                    "target_dispatch",
+                    exc,
+                    platform=platform,
+                    channel_id=channel_id,
+                    retryable=retryable,
+                    attempt=attempt,
+                )
+                if not retryable:
+                    logger.warning(
+                        "Failed to send execution update to %s:%s after %d attempts: %s",
+                        platform,
+                        channel_id,
+                        attempt,
+                        exc,
+                    )
+                    return
+                await asyncio.sleep(0.01)
+
+    def _record_delivery_error(
+        self,
+        stage: str,
+        error: Exception,
+        *,
+        platform: str | None = None,
+        channel_id: str | None = None,
+        retryable: bool = False,
+        attempt: int | None = None,
+    ) -> None:
+        """Persist structured notification failure context for observability."""
+        self._delivery_errors.append(
+            {
+                "stage": stage,
+                "error_type": type(error).__name__,
+                "error_message": str(error),
+                "platform": platform,
+                "channel_id": channel_id,
+                "retryable": retryable,
+                "attempt": attempt,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )

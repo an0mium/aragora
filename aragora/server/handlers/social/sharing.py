@@ -33,6 +33,7 @@ from ..base import (
     handle_errors,
     json_response,
 )
+from ..utils.lazy_stores import LazyStore
 from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
@@ -245,50 +246,44 @@ class SocialShareStore:
             return self._shares.pop(share_id, None) is not None
 
 
-# Global store instance for social shares
-_social_share_store: SocialShareStore | None = None
-_social_share_store_lock = threading.Lock()
+# Global store instances (thread-safe lazy init)
+_social_share_store_lazy = LazyStore(
+    factory=SocialShareStore,
+    store_name="social_share_store",
+    logger_context="Sharing",
+)
 
 
 def get_social_share_store() -> SocialShareStore:
     """Get the global social share store instance (thread-safe)."""
-    global _social_share_store
-    if _social_share_store is None:
-        with _social_share_store_lock:
-            if _social_share_store is None:
-                _social_share_store = SocialShareStore()
-    return _social_share_store
+    return _social_share_store_lazy.get()
 
 
-# Global store instance with thread-safe initialization
-# Can be either in-memory ShareStore or SQLite-backed ShareLinkStore
-# Use Any to allow dynamic ShareLinkStore assignment without import cycle
-_share_store: Any | None = None
-_share_store_lock = threading.Lock()
+def _create_share_store() -> Any:
+    """Create a ShareLinkStore with SQLite fallback to in-memory."""
+    try:
+        from aragora.persistence.db_config import get_default_data_dir
+        from aragora.storage.share_store import ShareLinkStore
+
+        db_path = get_default_data_dir() / "share_links.db"
+        store = ShareLinkStore(db_path)
+        logger.info(f"Using SQLite ShareLinkStore: {db_path}")
+        return store
+    except Exception as e:
+        logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
+        return ShareStore()
+
+
+_share_store_lazy = LazyStore(
+    factory=_create_share_store,
+    store_name="share_store",
+    logger_context="Sharing",
+)
 
 
 def get_share_store() -> Any:
-    """Get the global share store instance (thread-safe).
-
-    Uses SQLite-backed ShareLinkStore for production persistence,
-    with fallback to in-memory ShareStore if database unavailable.
-    """
-    global _share_store
-    if _share_store is None:
-        with _share_store_lock:
-            # Double-check after acquiring lock
-            if _share_store is None:
-                try:
-                    from aragora.persistence.db_config import get_default_data_dir
-                    from aragora.storage.share_store import ShareLinkStore
-
-                    db_path = get_default_data_dir() / "share_links.db"
-                    _share_store = ShareLinkStore(db_path)
-                    logger.info(f"Using SQLite ShareLinkStore: {db_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
-                    _share_store = ShareStore()
-    return _share_store
+    """Get the global share store instance (thread-safe)."""
+    return _share_store_lazy.get()
 
 
 class SharingHandler(BaseHandler):
