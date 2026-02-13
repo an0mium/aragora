@@ -7,6 +7,8 @@ This is a lightweight CI guard that validates:
 - aragora depends_on includes postgres + 3 sentinels
 - sentinel Redis env wiring is present
 - required vars exist in .env.production.example
+- session/rate-limit defaults are wired for distributed deployments
+- self-host runbook includes startup/health/recovery sections
 """
 
 from __future__ import annotations
@@ -35,6 +37,38 @@ REQUIRED_ENV_KEYS = {
     "POSTGRES_PASSWORD",
     "ARAGORA_API_TOKEN",
     "ARAGORA_JWT_SECRET",
+    "ARAGORA_RATE_LIMIT_BACKEND",
+    "ARAGORA_REDIS_MODE",
+    "ARAGORA_REDIS_SENTINEL_HOSTS",
+    "ARAGORA_REDIS_SENTINEL_MASTER",
+    "ARAGORA_STRICT_DEPLOYMENT",
+}
+
+REQUIRED_ARAGORA_ENV_PREFIXES = {
+    "DATABASE_URL",
+    "ARAGORA_DB_BACKEND",
+    "ARAGORA_REDIS_MODE",
+    "ARAGORA_REDIS_SENTINEL_HOSTS",
+    "ARAGORA_REDIS_SENTINEL_MASTER",
+    "ARAGORA_JWT_SECRET",
+    "ARAGORA_RATE_LIMIT_BACKEND",
+}
+
+REQUIRED_HEALTHCHECK_SERVICES = {
+    "aragora",
+    "postgres",
+    "redis-master",
+    "redis-replica-1",
+    "redis-replica-2",
+    "sentinel-1",
+    "sentinel-2",
+    "sentinel-3",
+}
+
+REQUIRED_RUNBOOK_MARKERS = {
+    "Startup and Readiness Verification",
+    "Health Checks",
+    "Failure Recovery Playbook",
 }
 
 
@@ -50,20 +84,48 @@ def _parse_env_keys(path: Path) -> set[str]:
     return keys
 
 
+def _parse_service_env(service: dict[str, object]) -> dict[str, str]:
+    raw_env = service.get("environment", [])
+    parsed: dict[str, str] = {}
+    if isinstance(raw_env, dict):
+        for key, value in raw_env.items():
+            parsed[str(key)] = "" if value is None else str(value)
+        return parsed
+
+    if isinstance(raw_env, list):
+        for item in raw_env:
+            text = str(item)
+            if "=" not in text:
+                continue
+            key, value = text.split("=", 1)
+            parsed[key.strip()] = value.strip()
+    return parsed
+
+
+def _contains_required_runbook_markers(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    return [marker for marker in sorted(REQUIRED_RUNBOOK_MARKERS) if marker not in text]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate production self-host compose configuration")
     parser.add_argument("--compose", default="docker-compose.production.yml")
     parser.add_argument("--env-example", default=".env.production.example")
+    parser.add_argument("--runbook", default="docs/SELF_HOSTING.md")
     args = parser.parse_args()
 
     compose_path = Path(args.compose)
     env_path = Path(args.env_example)
+    runbook_path = Path(args.runbook)
 
     if not compose_path.exists():
         print(f"Compose file not found: {compose_path}", file=sys.stderr)
         return 2
     if not env_path.exists():
         print(f"Env example file not found: {env_path}", file=sys.stderr)
+        return 2
+    if not runbook_path.exists():
+        print(f"Runbook file not found: {runbook_path}", file=sys.stderr)
         return 2
 
     try:
@@ -97,18 +159,48 @@ def main() -> int:
     if missing_dependencies:
         errors.append(f"aragora service missing required dependencies: {missing_dependencies}")
 
-    env_entries = aragora_service.get("environment", [])
-    env_lines = [str(item) for item in env_entries] if isinstance(env_entries, list) else []
+    parsed_aragora_env = _parse_service_env(aragora_service)
+    env_lines = [f"{k}={v}" for k, v in parsed_aragora_env.items()]
 
-    if not any("ARAGORA_REDIS_MODE=" in line for line in env_lines):
-        errors.append("aragora service missing ARAGORA_REDIS_MODE environment wiring")
-    if not any("ARAGORA_REDIS_SENTINEL_HOSTS=" in line for line in env_lines):
-        errors.append("aragora service missing ARAGORA_REDIS_SENTINEL_HOSTS environment wiring")
+    missing_aragora_env = sorted(
+        key for key in REQUIRED_ARAGORA_ENV_PREFIXES if key not in parsed_aragora_env
+    )
+    if missing_aragora_env:
+        errors.append(f"aragora service missing required env wiring: {missing_aragora_env}")
+
+    db_backend = parsed_aragora_env.get("ARAGORA_DB_BACKEND", "")
+    if "postgres" not in db_backend:
+        errors.append(
+            "aragora service should set ARAGORA_DB_BACKEND=postgres for production compose"
+        )
+
+    rate_limit_backend = parsed_aragora_env.get("ARAGORA_RATE_LIMIT_BACKEND", "")
+    if "redis" not in rate_limit_backend:
+        errors.append(
+            "aragora service should set ARAGORA_RATE_LIMIT_BACKEND=redis for distributed limits"
+        )
+
+    redis_mode = parsed_aragora_env.get("ARAGORA_REDIS_MODE", "")
+    if "sentinel" not in redis_mode:
+        errors.append("aragora service should set ARAGORA_REDIS_MODE=sentinel")
+
+    missing_healthcheck = sorted(
+        name
+        for name in REQUIRED_HEALTHCHECK_SERVICES
+        if name in services and not isinstance(services[name], dict)
+        or (name in services and "healthcheck" not in services[name])
+    )
+    if missing_healthcheck:
+        errors.append(f"services missing healthcheck configuration: {missing_healthcheck}")
 
     env_keys = _parse_env_keys(env_path)
     missing_env_keys = sorted(REQUIRED_ENV_KEYS - env_keys)
     if missing_env_keys:
         errors.append(f".env production example missing required keys: {missing_env_keys}")
+
+    missing_markers = _contains_required_runbook_markers(runbook_path)
+    if missing_markers:
+        errors.append(f"self-host runbook missing required sections: {missing_markers}")
 
     if errors:
         print("Self-host compose validation failed:")
