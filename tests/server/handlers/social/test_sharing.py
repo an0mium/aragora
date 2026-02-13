@@ -174,8 +174,6 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def share_handler(handler_context, mock_share_store):
-    if not HANDLER_AVAILABLE:
-        pytest.skip("SharingHandler not available")
     handler = SharingHandler(handler_context)
     yield handler
 

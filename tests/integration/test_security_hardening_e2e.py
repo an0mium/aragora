@@ -99,13 +99,10 @@ class TestRBACIntegration:
     @pytest.fixture
     def rbac_setup(self):
         """Set up RBAC for testing."""
-        try:
-            from aragora.rbac import AuthorizationContext, check_permission
-            from aragora.rbac.models import AuthorizationDecision
+        from aragora.rbac import AuthorizationContext, check_permission
+        from aragora.rbac.models import AuthorizationDecision
 
-            return AuthorizationContext, check_permission, AuthorizationDecision
-        except ImportError:
-            pytest.skip("RBAC module not available")
+        return AuthorizationContext, check_permission, AuthorizationDecision
 
     def test_admin_has_all_permissions(self, rbac_setup):
         """Test that admin role has all permissions."""
@@ -510,10 +507,7 @@ class TestSecurityHardeningComplete:
         """Test the RBAC handler pattern used across handlers."""
         # This tests the pattern, not the actual handlers
 
-        try:
-            from aragora.rbac import AuthorizationContext, check_permission
-        except ImportError:
-            pytest.skip("RBAC not available")
+        from aragora.rbac import AuthorizationContext, check_permission
 
         # Pattern used in handlers:
         def _check_rbac_permission(user_id, roles, org_id, permission_key):
@@ -607,8 +601,7 @@ class TestHeaderTrustVulnerabilityFix:
         """Test that WorkflowHandler rejects spoofed headers without JWT."""
         from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
 
-        if not RBAC_AVAILABLE:
-            pytest.skip("RBAC not available")
+        assert RBAC_AVAILABLE, "RBAC should be available"
 
         handler = WorkflowHandler({})
 
@@ -652,8 +645,7 @@ class TestHeaderTrustVulnerabilityFix:
         """Test that _check_permission returns 401 for unauthenticated requests."""
         from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
 
-        if not RBAC_AVAILABLE:
-            pytest.skip("RBAC not available")
+        assert RBAC_AVAILABLE, "RBAC should be available"
 
         handler = WorkflowHandler({})
 
@@ -675,8 +667,7 @@ class TestHeaderTrustVulnerabilityFix:
         """Test that valid JWT authentication is accepted."""
         from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
 
-        if not RBAC_AVAILABLE:
-            pytest.skip("RBAC not available")
+        assert RBAC_AVAILABLE, "RBAC should be available"
 
         handler = WorkflowHandler({})
         request = MagicMock()
@@ -703,8 +694,7 @@ class TestHeaderTrustVulnerabilityFix:
         """Test that X-User-Roles header cannot escalate privileges."""
         from aragora.server.handlers.workflows import WorkflowHandler, RBAC_AVAILABLE
 
-        if not RBAC_AVAILABLE:
-            pytest.skip("RBAC not available")
+        assert RBAC_AVAILABLE, "RBAC should be available"
 
         handler = WorkflowHandler({})
 

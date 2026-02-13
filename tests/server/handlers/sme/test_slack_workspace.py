@@ -194,8 +194,6 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def slack_handler(handler_context, mock_workspace_store, mock_slack_client):
-    if not HANDLER_AVAILABLE:
-        pytest.skip("SlackWorkspaceHandler not available")
     handler = SlackWorkspaceHandler(handler_context)
     yield handler
 

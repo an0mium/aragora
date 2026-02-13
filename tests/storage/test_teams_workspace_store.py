@@ -606,64 +606,56 @@ class TestTeamsWorkspaceStoreEncryption:
     @patch("aragora.storage.teams_workspace_store.ENCRYPTION_KEY", "test-encryption-key-32chars!!")
     def test_token_encrypted_with_key(self, temp_db_path, sample_workspace):
         """Test tokens are encrypted when key is set."""
-        try:
-            from cryptography.fernet import Fernet
+        from cryptography.fernet import Fernet  # noqa: F401
 
-            store = TeamsWorkspaceStore(db_path=temp_db_path)
-            store.save(sample_workspace)
+        store = TeamsWorkspaceStore(db_path=temp_db_path)
+        store.save(sample_workspace)
 
-            # Get raw from database
-            conn = store._get_connection()
-            cursor = conn.execute(
-                "SELECT access_token FROM teams_workspaces WHERE tenant_id = ?",
-                ("test-tenant-12345",),
-            )
-            row = cursor.fetchone()
-            raw_token = row["access_token"]
+        # Get raw from database
+        conn = store._get_connection()
+        cursor = conn.execute(
+            "SELECT access_token FROM teams_workspaces WHERE tenant_id = ?",
+            ("test-tenant-12345",),
+        )
+        row = cursor.fetchone()
+        raw_token = row["access_token"]
 
-            # Token should NOT start with "ey" (encrypted)
-            assert not raw_token.startswith("ey")
-            # Should have version prefix
-            assert raw_token.startswith("v2:")
+        # Token should NOT start with "ey" (encrypted)
+        assert not raw_token.startswith("ey")
+        # Should have version prefix
+        assert raw_token.startswith("v2:")
 
-            # But retrieved workspace should have decrypted token
-            workspace = store.get("test-tenant-12345")
-            assert workspace.access_token.startswith("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9")
+        # But retrieved workspace should have decrypted token
+        workspace = store.get("test-tenant-12345")
+        assert workspace.access_token.startswith("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9")
 
-            store.close()
-
-        except ImportError:
-            pytest.skip("cryptography package not available")
+        store.close()
 
     @patch("aragora.storage.teams_workspace_store.ENCRYPTION_KEY", "test-encryption-key-32chars!!")
     def test_refresh_token_encrypted(self, temp_db_path, sample_workspace):
         """Test refresh tokens are also encrypted."""
-        try:
-            from cryptography.fernet import Fernet
+        from cryptography.fernet import Fernet  # noqa: F401
 
-            store = TeamsWorkspaceStore(db_path=temp_db_path)
-            store.save(sample_workspace)
+        store = TeamsWorkspaceStore(db_path=temp_db_path)
+        store.save(sample_workspace)
 
-            # Get raw from database
-            conn = store._get_connection()
-            cursor = conn.execute(
-                "SELECT refresh_token FROM teams_workspaces WHERE tenant_id = ?",
-                ("test-tenant-12345",),
-            )
-            row = cursor.fetchone()
-            raw_token = row["refresh_token"]
+        # Get raw from database
+        conn = store._get_connection()
+        cursor = conn.execute(
+            "SELECT refresh_token FROM teams_workspaces WHERE tenant_id = ?",
+            ("test-tenant-12345",),
+        )
+        row = cursor.fetchone()
+        raw_token = row["refresh_token"]
 
-            # Token should be encrypted
-            assert raw_token.startswith("v2:")
+        # Token should be encrypted
+        assert raw_token.startswith("v2:")
 
-            # But retrieved workspace should have decrypted refresh token
-            workspace = store.get("test-tenant-12345")
-            assert workspace.refresh_token == sample_workspace.refresh_token
+        # But retrieved workspace should have decrypted refresh token
+        workspace = store.get("test-tenant-12345")
+        assert workspace.refresh_token == sample_workspace.refresh_token
 
-            store.close()
-
-        except ImportError:
-            pytest.skip("cryptography package not available")
+        store.close()
 
     def test_decrypt_unencrypted_jwt_token(self, workspace_store):
         """Test decrypting an already unencrypted JWT token returns as-is."""

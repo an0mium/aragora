@@ -609,8 +609,7 @@ class TestPDFExport:
 
     def test_export_receipt_pdf_returns_bytes(self, sample_receipt, export_options):
         """Test exporting receipt to PDF returns bytes."""
-        if not is_pdf_export_available():
-            pytest.skip("WeasyPrint not installed")
+        assert is_pdf_export_available(), "WeasyPrint should be available"
 
         result = export_receipt(
             sample_receipt,
@@ -692,8 +691,7 @@ class TestPDFExport:
 
     def test_export_receipt_pdf_to_file(self, sample_receipt, export_options, tmp_path):
         """Test exporting receipt PDF directly to file."""
-        if not is_pdf_export_available():
-            pytest.skip("WeasyPrint not installed")
+        assert is_pdf_export_available(), "WeasyPrint should be available"
 
         output_path = tmp_path / "receipt.pdf"
 

@@ -284,8 +284,7 @@ class TestPrometheusMetrics:
         """Gauge tracks registered thread count."""
         from aragora.server.lifecycle import REGISTERED_THREADS_GAUGE
 
-        if REGISTERED_THREADS_GAUGE is None:
-            pytest.skip("prometheus_client not installed")
+        assert REGISTERED_THREADS_GAUGE is not None
 
         registry = ThreadRegistry()
         t, s = _make_stoppable_thread()
@@ -307,8 +306,7 @@ class TestPrometheusMetrics:
         """Shutdown duration is observed in histogram."""
         from aragora.server.lifecycle import SHUTDOWN_DURATION_HISTOGRAM
 
-        if SHUTDOWN_DURATION_HISTOGRAM is None:
-            pytest.skip("prometheus_client not installed")
+        assert SHUTDOWN_DURATION_HISTOGRAM is not None
 
         registry = ThreadRegistry()
         t, s = _make_stoppable_thread()

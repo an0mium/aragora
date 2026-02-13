@@ -407,52 +407,40 @@ class TestRegistryWithRealDocks:
 
     def test_slack_dock_registration(self):
         """Test registering Slack dock."""
-        try:
-            from aragora.channels.docks.slack import SlackDock
+        from aragora.channels.docks.slack import SlackDock
 
-            registry = DockRegistry()
-            registry.register(SlackDock)
+        registry = DockRegistry()
+        registry.register(SlackDock)
 
-            assert registry.has_dock("slack")
-            dock = registry.get_dock("slack")
-            assert dock is not None
-        except ImportError:
-            pytest.skip("SlackDock not available")
+        assert registry.has_dock("slack")
+        dock = registry.get_dock("slack")
+        assert dock is not None
 
     def test_telegram_dock_registration(self):
         """Test registering Telegram dock."""
-        try:
-            from aragora.channels.docks.telegram import TelegramDock
+        from aragora.channels.docks.telegram import TelegramDock
 
-            registry = DockRegistry()
-            registry.register(TelegramDock)
+        registry = DockRegistry()
+        registry.register(TelegramDock)
 
-            assert registry.has_dock("telegram")
-            dock = registry.get_dock("telegram")
-            assert dock is not None
-        except ImportError:
-            pytest.skip("TelegramDock not available")
+        assert registry.has_dock("telegram")
+        dock = registry.get_dock("telegram")
+        assert dock is not None
 
     def test_teams_dock_registration(self):
         """Test registering Teams dock."""
-        try:
-            from aragora.channels.docks.teams import TeamsDock
+        from aragora.channels.docks.teams import TeamsDock
 
-            registry = DockRegistry()
-            registry.register(TeamsDock)
+        registry = DockRegistry()
+        registry.register(TeamsDock)
 
-            assert registry.has_dock("teams")
-        except ImportError:
-            pytest.skip("TeamsDock not available")
+        assert registry.has_dock("teams")
 
     def test_discord_dock_registration(self):
         """Test registering Discord dock."""
-        try:
-            from aragora.channels.docks.discord import DiscordDock
+        from aragora.channels.docks.discord import DiscordDock
 
-            registry = DockRegistry()
-            registry.register(DiscordDock)
+        registry = DockRegistry()
+        registry.register(DiscordDock)
 
-            assert registry.has_dock("discord")
-        except ImportError:
-            pytest.skip("DiscordDock not available")
+        assert registry.has_dock("discord")

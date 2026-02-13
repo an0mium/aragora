@@ -333,15 +333,12 @@ class TestRSASigner:
 
     def test_requires_cryptography(self):
         """Test RSASigner requires cryptography package."""
-        from aragora.gauntlet.signing import CRYPTO_AVAILABLE
+        from aragora.gauntlet.signing import CRYPTO_AVAILABLE, RSASigner
 
-        if CRYPTO_AVAILABLE:
-            from aragora.gauntlet.signing import RSASigner
+        assert CRYPTO_AVAILABLE, "cryptography package should be available"
 
-            signer = RSASigner.generate_keypair()
-            assert signer.algorithm == "RSA-SHA256"
-        else:
-            pytest.skip("cryptography package not available")
+        signer = RSASigner.generate_keypair()
+        assert signer.algorithm == "RSA-SHA256"
 
     @pytest.mark.skipif(
         not __import__("aragora.gauntlet.signing", fromlist=["CRYPTO_AVAILABLE"]).CRYPTO_AVAILABLE,

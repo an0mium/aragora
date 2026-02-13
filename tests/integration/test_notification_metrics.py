@@ -113,11 +113,7 @@ class TestNotificationMetricsRecording:
             )
         )
 
-        # Skip if aiohttp not available
-        try:
-            import aiohttp
-        except ImportError:
-            pytest.skip("aiohttp not installed")
+        import aiohttp  # noqa: F401 - verify aiohttp is available
 
         # Mock at the aiohttp module level
         with patch("aiohttp.ClientSession") as mock_session:

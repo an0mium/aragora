@@ -52,6 +52,10 @@ CATEGORY_PATTERNS = {
         r"^\w+\s+required",  # "aiosqlite required for..."
         r"is installed",  # "python3-saml is installed" (inverted check)
         r"binary.*not.*PATH",  # "whisper.cpp binary not in PATH"
+        r"Could not load",  # "Could not load adapter class"
+        r"Could not import",  # "Could not import X.Y: Z"
+        r"could not be imported",  # "ComputerUseHandler could not be imported"
+        r"not importable",  # "Module X not importable (optional dependency?)"
     ],
     "missing_feature": [
         r"not.*available",
@@ -76,6 +80,8 @@ CATEGORY_PATTERNS = {
         r"external.*service",
         r"requires running server",
         r"requires.*server",
+        r"requires running.*instance",  # "requires running Milvus instance"
+        r"Integration test requires",  # "Integration test requires..."
         r"API.*KEY",  # "Requires ANTHROPIC_API_KEY"
         r"ARAGORA_TEST_",  # "ARAGORA_TEST_SERVER_URL not set"
         r"_URL not set",
@@ -97,6 +103,7 @@ CATEGORY_PATTERNS = {
         r"GIL",  # Python GIL limitations
         r"main thread",  # "signal.alarm requires main thread"
         r"/etc/",  # "Test requires /etc/hostname"
+        r"overridden via environment",  # "Server defaults overridden via environment"
     ],
     "flaky_test": [
         r"flaky",
@@ -126,6 +133,9 @@ CATEGORY_PATTERNS = {
         r"behavior differs",  # "behavior differs from test expectation"
         r"signature incompatible",  # "Handler method signature incompatible"
         r"requires.*refactoring",  # "Requires handler refactoring"
+        r"No endpoints extracted",  # SDK namespace has no extractable endpoints
+        r"No.*files found",  # Defensive skip when test data missing
+        r"Need at least.*docs",  # Insufficient test data
     ],
     "performance": [
         r"slow",

@@ -193,8 +193,6 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def teams_handler(handler_context, mock_teams_store, mock_teams_client):
-    if not HANDLER_AVAILABLE:
-        pytest.skip("TeamsWorkspaceHandler not available")
     handler = TeamsWorkspaceHandler(handler_context)
     yield handler
 

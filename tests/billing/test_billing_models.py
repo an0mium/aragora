@@ -152,8 +152,7 @@ class TestPasswordHashing:
 
     def test_hash_password_bcrypt(self):
         """Test password hashing with bcrypt (when available)."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
 
         password = "secure_password_123"
         hashed, salt = hash_password(password)
@@ -163,8 +162,7 @@ class TestPasswordHashing:
 
     def test_verify_password_bcrypt(self):
         """Test password verification with bcrypt."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
 
         password = "test_password"
         hashed, salt = hash_password(password)
@@ -213,16 +211,14 @@ class TestPasswordHashing:
 
     def test_needs_rehash_sha256_with_bcrypt_available(self):
         """Test that SHA-256 hash needs rehash when bcrypt is available."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
 
         sha256_hash = f"{HASH_VERSION_SHA256}{'a' * 64}"
         assert needs_rehash(sha256_hash) is True
 
     def test_needs_rehash_bcrypt_hash(self):
         """Test that bcrypt hash doesn't need rehash."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
 
         password = "test"
         hashed, _ = hash_password(password)
@@ -1128,8 +1124,7 @@ class TestPasswordHashingExtended:
 
     def test_verify_password_bcrypt_checkpw_exception(self):
         """Test verify_password handles bcrypt.checkpw exception gracefully."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
         # A malformed bcrypt hash will cause checkpw to raise
         bad_bcrypt_hash = f"{HASH_VERSION_BCRYPT}$2b$12$invalidhashdata"
         result = verify_password("test", bad_bcrypt_hash, "")
@@ -1185,8 +1180,7 @@ class TestPasswordHashingExtended:
 
     def test_needs_rehash_legacy_unprefixed_sha256(self):
         """Test that legacy unprefixed SHA-256 hash needs rehash."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
 
         legacy_hash = "a" * 64  # 64-char hex looks like legacy SHA-256
         assert needs_rehash(legacy_hash) is True
@@ -1228,8 +1222,7 @@ class TestUserExtended:
 
     def test_user_upgrade_password_hash_when_needed(self):
         """Test password hash upgrade when hash is legacy SHA-256."""
-        if not HAS_BCRYPT:
-            pytest.skip("bcrypt not installed")
+
 
         user = User()
         # Set a legacy SHA-256 hash manually

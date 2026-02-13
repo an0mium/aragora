@@ -203,8 +203,6 @@ def handler_context(
 
 @pytest.fixture
 def social_handler(handler_context):
-    if not HANDLER_AVAILABLE:
-        pytest.skip("SocialMediaHandler not available")
     handler = SocialMediaHandler(handler_context)
     yield handler
 

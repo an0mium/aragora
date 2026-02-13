@@ -178,8 +178,6 @@ def handler_context(mock_user_store):
 
 @pytest.fixture
 def collab_handler(handler_context, mock_session_store):
-    if not HANDLER_AVAILABLE:
-        pytest.skip("CollaborationHandler not available")
     handler = CollaborationHandler(handler_context)
     yield handler
 

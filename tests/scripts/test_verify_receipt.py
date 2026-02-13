@@ -186,10 +186,7 @@ class TestVerifyReceiptWithRSA:
     @pytest.fixture
     def rsa_signed_receipt(self, tmp_path):
         """Create an RSA-signed receipt."""
-        try:
-            from aragora.gauntlet.signing import RSASigner, ReceiptSigner
-        except ImportError:
-            pytest.skip("cryptography package not available")
+        from aragora.gauntlet.signing import RSASigner, ReceiptSigner
 
         signer_backend = RSASigner.generate_keypair(key_id="test-rsa")
         signer = ReceiptSigner(backend=signer_backend)
@@ -232,12 +229,9 @@ class TestVerifyReceiptWithEd25519:
     @pytest.fixture
     def ed25519_signed_receipt(self, tmp_path):
         """Create an Ed25519-signed receipt."""
-        try:
-            from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives import serialization
 
-            from aragora.gauntlet.signing import Ed25519Signer, ReceiptSigner
-        except ImportError:
-            pytest.skip("cryptography package not available")
+        from aragora.gauntlet.signing import Ed25519Signer, ReceiptSigner
 
         signer_backend = Ed25519Signer.generate_keypair(key_id="test-ed25519")
         signer = ReceiptSigner(backend=signer_backend)

@@ -266,8 +266,6 @@ class TestComputeRelationshipScores:
 @pytest.fixture
 def handler():
     """Create a RelationshipHandler with RBAC bypassed."""
-    if not HANDLER_AVAILABLE:
-        pytest.skip("RelationshipHandler not available")
     # Bypass RBAC by giving the handler's handle method the context it needs
     return RelationshipHandler(ctx={})
 

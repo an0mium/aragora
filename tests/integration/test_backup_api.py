@@ -212,12 +212,9 @@ class TestBackupManagerIntegration:
 
     def test_backup_manager_import(self):
         """Test that BackupManager can be imported."""
-        try:
-            from aragora.backup.manager import BackupManager
+        from aragora.backup.manager import BackupManager
 
-            assert BackupManager is not None
-        except ImportError:
-            pytest.skip("BackupManager not available")
+        assert BackupManager is not None
 
     def test_backup_handler_import(self):
         """Test that BackupHandler can be imported."""

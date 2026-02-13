@@ -377,30 +377,26 @@ class TestSlackWorkspaceStoreEncryption:
     @patch("aragora.storage.slack_workspace_store.ENCRYPTION_KEY", "test-encryption-key-32chars!!")
     def test_token_encrypted_with_key(self, temp_db_path, sample_workspace):
         """Test tokens are encrypted when key is set."""
-        try:
-            from cryptography.fernet import Fernet
+        from cryptography.fernet import Fernet  # noqa: F401
 
-            store = SlackWorkspaceStore(db_path=temp_db_path)
-            store.save(sample_workspace)
+        store = SlackWorkspaceStore(db_path=temp_db_path)
+        store.save(sample_workspace)
 
-            # Get raw from database
-            conn = store._get_connection()
-            cursor = conn.execute(
-                "SELECT access_token FROM slack_workspaces WHERE workspace_id = ?",
-                ("T12345678",),
-            )
-            row = cursor.fetchone()
-            raw_token = row["access_token"]
+        # Get raw from database
+        conn = store._get_connection()
+        cursor = conn.execute(
+            "SELECT access_token FROM slack_workspaces WHERE workspace_id = ?",
+            ("T12345678",),
+        )
+        row = cursor.fetchone()
+        raw_token = row["access_token"]
 
-            # Token should NOT start with xoxb- (encrypted)
-            assert not raw_token.startswith("xoxb-")
+        # Token should NOT start with xoxb- (encrypted)
+        assert not raw_token.startswith("xoxb-")
 
-            # But retrieved workspace should have decrypted token
-            workspace = store.get("T12345678")
-            assert workspace.access_token == "xoxb-test-token-12345"
-
-        except ImportError:
-            pytest.skip("cryptography package not available")
+        # But retrieved workspace should have decrypted token
+        workspace = store.get("T12345678")
+        assert workspace.access_token == "xoxb-test-token-12345"
 
     def test_decrypt_unencrypted_token(self, workspace_store):
         """Test decrypting an already unencrypted token returns as-is."""

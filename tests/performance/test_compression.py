@@ -370,8 +370,7 @@ class TestCompressBrotli:
         """Brotli compresses data when available."""
         from aragora.performance.compression import BROTLI_AVAILABLE, compress_brotli
 
-        if not BROTLI_AVAILABLE:
-            pytest.skip("brotli not installed")
+        assert BROTLI_AVAILABLE, "brotli should be available"
 
         compressed = compress_brotli(sample_text_data)
         assert len(compressed) < len(sample_text_data)
@@ -405,8 +404,7 @@ class TestCompressResponse:
         """Brotli encoding works when available."""
         from aragora.performance.compression import BROTLI_AVAILABLE
 
-        if not BROTLI_AVAILABLE:
-            pytest.skip("brotli not installed")
+        assert BROTLI_AVAILABLE, "brotli should be available"
 
         compressed = compress_response(sample_text_data, encoding="br")
         assert len(compressed) < len(sample_text_data)

@@ -38,9 +38,7 @@ class TestMixAudio:
         """Test mix_audio handles missing files gracefully."""
         import aragora.broadcast.mixer as mixer
 
-        # If pydub not available, this test is not meaningful
-        if not mixer.PYDUB_AVAILABLE:
-            pytest.skip("pydub not installed")
+        assert mixer.PYDUB_AVAILABLE, "pydub should be available"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "output.mp3"

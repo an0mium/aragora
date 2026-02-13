@@ -936,10 +936,7 @@ class TestPydanticSchemas:
     def _skip_if_no_pydantic(self):
         from aragora.workflow.schema import PYDANTIC_AVAILABLE
 
-        if not PYDANTIC_AVAILABLE:
-            import pytest
-
-            pytest.skip("Pydantic not available")
+        assert PYDANTIC_AVAILABLE, "Pydantic should be available"
 
     def test_workflow_schema_valid(self):
         self._skip_if_no_pydantic()
