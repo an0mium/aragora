@@ -6,6 +6,7 @@ Fails when connector code silently swallows broad exceptions via:
   - except Exception: pass
   - except Exception as e: pass
   - bare except: pass
+  - except Exception: return <value>
   - except Exception: return None
   - except Exception: continue/break
 """
@@ -53,6 +54,7 @@ def _is_silent_action(node: ast.stmt) -> tuple[bool, str]:
             return True, "return"
         if isinstance(node.value, ast.Constant) and node.value.value is None:
             return True, "return None"
+        return True, "return value"
     return False, ""
 
 

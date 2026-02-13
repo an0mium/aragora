@@ -55,3 +55,20 @@ def f():
     result = _run("--path", str(tmp_path))
     assert result.returncode == 1
     assert "silent broad exception handler" in result.stdout
+
+
+def test_fails_on_silent_exception_return_value(tmp_path: Path):
+    source = tmp_path / "bad_return.py"
+    source.write_text(
+        """
+def f():
+    try:
+        return 1
+    except Exception:
+        return {}
+""".strip()
+    )
+
+    result = _run("--path", str(tmp_path))
+    assert result.returncode == 1
+    assert "silent broad exception handler (return value)" in result.stdout
