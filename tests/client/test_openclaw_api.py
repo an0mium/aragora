@@ -561,7 +561,7 @@ class TestAuditQueries:
         assert records[0].metadata == {"command": "ls"}
         mock_client._get.assert_called_once_with(
             "/api/v1/openclaw/audit",
-            params={"limit": 50},
+            params={"limit": 100},
         )
 
     def test_query_audit_with_all_filters(self, api: OpenClawAPI, mock_client: MagicMock):
@@ -572,7 +572,6 @@ class TestAuditQueries:
             user_id="user-x",
             session_id="sess-x",
             event_type="session_created",
-            tenant_id="tenant-x",
             limit=10,
         )
 
@@ -583,7 +582,6 @@ class TestAuditQueries:
                 "user_id": "user-x",
                 "session_id": "sess-x",
                 "event_type": "session_created",
-                "tenant_id": "tenant-x",
             },
         )
 
