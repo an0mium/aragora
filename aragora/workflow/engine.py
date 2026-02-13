@@ -142,6 +142,15 @@ class WorkflowEngine:
         except ImportError as e:
             logger.debug(f"Some Phase 2 step types not available: {e}")
 
+        # Nomic loop step aliases
+        try:
+            from aragora.workflow.nodes.nomic import NomicLoopStep
+
+            self._step_types["nomic"] = NomicLoopStep
+            self._step_types["nomic_loop"] = NomicLoopStep
+        except ImportError as e:
+            logger.debug(f"Nomic step type not available: {e}")
+
         # Implementation pipeline steps (gold path)
         try:
             from aragora.workflow.nodes.implementation import (

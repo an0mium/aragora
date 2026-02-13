@@ -313,6 +313,13 @@ class TestEngineInitialization:
         assert "conditional" in engine._step_types
         assert "loop" in engine._step_types
 
+    def test_nomic_step_aliases_registered(self):
+        """Test Nomic workflow step aliases are available by default."""
+        engine = WorkflowEngine()
+        assert "nomic" in engine._step_types
+        assert "nomic_loop" in engine._step_types
+        assert engine._step_types["nomic"] is engine._step_types["nomic_loop"]
+
     def test_register_step_type(self, engine):
         """Test registering a new step type."""
 
