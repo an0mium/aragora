@@ -389,6 +389,21 @@ class TestRegistration:
 class TestLogin:
     """Test login flows."""
 
+    @pytest.fixture(autouse=True)
+    def _clear_auth_limiter(self):
+        """Clear auth rate limiter before each login test."""
+        import sys
+
+        rl_mod = sys.modules.get("aragora.server.handlers.utils.rate_limit")
+        if rl_mod:
+            rl_mod.clear_all_limiters()
+            auth_limiter = rl_mod._limiters.get("auth_login")
+            if auth_limiter:
+                auth_limiter._buckets.clear()
+        yield
+        if rl_mod:
+            rl_mod.clear_all_limiters()
+
     def test_login_success_no_mfa(
         self, auth_handler, mock_user_store, mock_user, mock_tokens, mock_lockout_tracker
     ):
