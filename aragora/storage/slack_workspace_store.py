@@ -181,9 +181,12 @@ class SlackWorkspaceStore:
         """
         global _encryption_warning_shown
 
-        # Enforce encryption in production
-        if not ENCRYPTION_KEY:
-            if ARAGORA_ENV == "production":
+        # Enforce encryption in production — read env vars dynamically so that
+        # monkeypatching in tests doesn't permanently taint the module-level value.
+        encryption_key = os.environ.get("ARAGORA_ENCRYPTION_KEY", "") or ENCRYPTION_KEY
+        env_mode = os.environ.get("ARAGORA_ENV", "") or ARAGORA_ENV
+        if not encryption_key:
+            if env_mode == "production":
                 raise ValueError(
                     "ARAGORA_ENCRYPTION_KEY environment variable is required in production. "
                     "Slack OAuth tokens must be encrypted at rest."
