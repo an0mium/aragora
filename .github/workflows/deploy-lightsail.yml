@@ -51,13 +51,23 @@ jobs:
             set -e
             echo "=== Deploying Aragora to Lightsail ==="
 
-            cd /home/ubuntu/aragora || cd /home/ec2-user/aragora
+            # Find the aragora directory
+            if [ -d /home/ubuntu/aragora ]; then
+              cd /home/ubuntu/aragora
+            elif [ -d /home/ec2-user/aragora ]; then
+              cd /home/ec2-user/aragora
+            else
+              echo "ERROR: aragora directory not found"
+              exit 1
+            fi
+            echo "Working directory: $(pwd)"
 
             # Record rollback point
             PREV=$(git rev-parse HEAD)
             echo "Rollback: $PREV"
 
             # Pull latest
+            sudo chown -R $(whoami):$(id -gn) .git || true
             git stash --include-untracked || true
             git fetch origin main
             git checkout main 2>/dev/null || git checkout -b main origin/main
@@ -73,10 +83,35 @@ jobs:
             # Import check
             python -c "from aragora.server.unified_server import UnifiedServer; print('Import OK')"
 
-            # Restart
-            sudo systemctl restart aragora
+            # Restart service - try multiple methods
+            echo "Restarting service..."
+            if sudo systemctl restart aragora 2>/dev/null; then
+              echo "systemctl restart succeeded"
+            elif sudo systemctl restart aragora.service 2>/dev/null; then
+              echo "systemctl restart aragora.service succeeded"
+            else
+              echo "systemctl failed, trying process-based restart..."
+              # Kill existing server processes and let systemd/supervisor restart them
+              sudo pkill -f "unified_server\|aragora.*serve" 2>/dev/null || true
+              sleep 2
+              # If still not running, try starting directly
+              if ! sudo systemctl is-active --quiet aragora 2>/dev/null; then
+                echo "Attempting direct start..."
+                sudo systemctl start aragora 2>/dev/null || true
+              fi
+            fi
+
             sleep 5
-            systemctl is-active --quiet aragora && echo "Service: RUNNING" || echo "Service: FAILED"
+
+            # Check if running
+            if sudo systemctl is-active --quiet aragora 2>/dev/null; then
+              echo "Service: RUNNING (systemd)"
+            elif pgrep -f "unified_server\|aragora.*serve" > /dev/null 2>&1; then
+              echo "Service: RUNNING (process)"
+            else
+              echo "Service: NOT RUNNING - checking logs..."
+              sudo journalctl -u aragora --no-pager -n 20 2>/dev/null || true
+            fi
 
             echo "=== Deploy complete ==="
 
