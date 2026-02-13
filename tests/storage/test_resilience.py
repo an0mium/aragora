@@ -389,7 +389,7 @@ class TestConnectionPoolInit:
         db_path = str(tmp_path / "test.db")
         pool = ConnectionPool(db_path)
 
-        assert pool.db_path == db_path
+        assert pool.db_path == Path(db_path)
         assert pool.max_connections == 5
         assert pool.enable_wal is True
 
