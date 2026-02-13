@@ -662,8 +662,8 @@ class TestExecute:
 
         await phase.execute(ctx)
 
-        # Should complete all rounds and record convergence status
-        assert ctx.result.rounds_used == 3
+        # Convergence should stop the loop early.
+        assert ctx.result.rounds_used == 1
         assert ctx.result.convergence_status == "converged"
         assert ctx.result.convergence_similarity == 0.95
 
@@ -686,8 +686,8 @@ class TestExecute:
 
         await phase.execute(ctx)
 
-        # Completes all rounds but sets early_termination metadata
-        assert ctx.result.rounds_used == 3
+        # Judge termination should stop further rounds.
+        assert ctx.result.rounds_used == 1
         assert ctx.result.metadata.get("early_termination") is True
 
     @pytest.mark.asyncio

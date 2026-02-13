@@ -8,7 +8,7 @@ orchestrator size and improve testability.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.debate.context_gatherer import ContextGatherer
 from aragora.debate.disagreement import DisagreementReporter

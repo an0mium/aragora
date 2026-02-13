@@ -352,6 +352,7 @@ class TestSupabaseAuthValidator:
                     "secret",
                     algorithms=["HS256"],
                     audience="authenticated",
+                    issuer=None,
                 )
 
     def test_validate_jwt_caching(self, sample_jwt_payload):
@@ -1243,20 +1244,20 @@ class TestEdgeCases:
                         validator.validate_jwt("test-token")
 
     def test_system_error_in_development(self):
-        """Should return None for system errors in development with explicit opt-in."""
+        """System errors always propagate (fail-closed security)."""
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
         with patch("aragora.server.middleware.user_auth.HAS_JWT", True):
             with patch("aragora.server.middleware.user_auth._jwt_module") as mock_jwt:
                 mock_jwt.decode.side_effect = RuntimeError("System error")
 
-                # Insecure mode now requires explicit opt-in
+                # Even with ARAGORA_ALLOW_INSECURE_JWT, system errors always raise
                 with patch.dict(
                     "os.environ",
                     {"ARAGORA_ENVIRONMENT": "development", "ARAGORA_ALLOW_INSECURE_JWT": "1"},
                 ):
-                    user = validator.validate_jwt("test-token")
-                    assert user is None
+                    with pytest.raises(RuntimeError, match="System error"):
+                        validator.validate_jwt("test-token")
 
     def test_system_error_in_development_no_opt_in_raises(self):
         """Should raise for system errors in development without opt-in."""

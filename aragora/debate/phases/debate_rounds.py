@@ -28,7 +28,7 @@ from aragora.debate.phases.convergence_tracker import (
 )
 from aragora.debate.phases.debate_rounds_helpers import (
     DEFAULT_CALLBACK_TIMEOUT,
-    REVISION_PHASE_BASE_TIMEOUT,
+    REVISION_PHASE_BASE_TIMEOUT as _REVISION_PHASE_BASE_TIMEOUT,
     build_final_synthesis_prompt,
     calculate_phase_timeout,
     compress_debate_context,
@@ -53,6 +53,8 @@ _calculate_phase_timeout = calculate_phase_timeout
 _is_effectively_empty_critique = is_effectively_empty_critique
 _with_callback_timeout = with_callback_timeout
 _record_adaptive_round = record_adaptive_round
+# Backward-compatible constant re-export for tests/importers.
+REVISION_PHASE_BASE_TIMEOUT = _REVISION_PHASE_BASE_TIMEOUT
 
 
 if TYPE_CHECKING:
@@ -114,6 +116,7 @@ class DebateRoundsPhase:
         enable_skills: bool = False,  # Enable skill invocation during evidence refresh
         propulsion_engine: Any = None,  # PropulsionEngine for push-based work assignment
         enable_propulsion: bool = False,  # Enable propulsion events at stage transitions
+        performance_router_bridge: Any = None,  # PerformanceRouterBridge for speed ranking
     ):
         """
         Initialize the debate rounds phase.
@@ -148,6 +151,7 @@ class DebateRoundsPhase:
             debate_strategy: Optional DebateStrategy for memory-based round estimation
             skill_registry: Optional SkillRegistry for skill-based evidence refresh
             enable_skills: Enable skill invocation during evidence refresh
+            performance_router_bridge: Optional bridge for latency-aware agent ranking
         """
         self.protocol = protocol
         self.debate_strategy = debate_strategy
@@ -182,6 +186,54 @@ class DebateRoundsPhase:
         self._enable_skills = enable_skills
         self._propulsion_engine = propulsion_engine
         self._enable_propulsion = enable_propulsion
+        self._performance_router_bridge = performance_router_bridge
+
+        # Speed policy and per-debate parallelism bounds (all optional protocol fields).
+        self._max_parallel_critiques = self._coerce_int(
+            getattr(protocol, "max_parallel_critiques", MAX_CONCURRENT_CRITIQUES),
+            default=MAX_CONCURRENT_CRITIQUES,
+            minimum=1,
+            maximum=MAX_CONCURRENT_CRITIQUES,
+        )
+        self._max_parallel_revisions = self._coerce_int(
+            getattr(protocol, "max_parallel_revisions", MAX_CONCURRENT_REVISIONS),
+            default=MAX_CONCURRENT_REVISIONS,
+            minimum=1,
+            maximum=MAX_CONCURRENT_REVISIONS,
+        )
+        self._fast_first_routing = bool(getattr(protocol, "fast_first_routing", False))
+        self._fast_first_low_contention_agent_threshold = self._coerce_int(
+            getattr(protocol, "fast_first_low_contention_agent_threshold", 3),
+            default=3,
+            minimum=1,
+        )
+        self._fast_first_max_critics_per_proposal = self._coerce_int(
+            getattr(protocol, "fast_first_max_critics_per_proposal", 2),
+            default=2,
+            minimum=1,
+        )
+        self._fast_first_min_round = self._coerce_int(
+            getattr(protocol, "fast_first_min_round", 2),
+            default=2,
+            minimum=1,
+        )
+        self._fast_first_max_total_issues = self._coerce_int(
+            getattr(protocol, "fast_first_max_total_issues", 2),
+            default=2,
+            minimum=0,
+        )
+        self._fast_first_max_critique_severity = self._coerce_float(
+            getattr(protocol, "fast_first_max_critique_severity", 0.2),
+            default=0.2,
+            minimum=0.0,
+        )
+        self._fast_first_convergence_threshold = self._coerce_float(
+            getattr(protocol, "fast_first_convergence_threshold", 0.9),
+            default=0.9,
+            minimum=0.0,
+            maximum=1.0,
+        )
+        self._fast_first_early_exit = bool(getattr(protocol, "fast_first_early_exit", True))
 
         # Internal state
         self._partial_messages: list[Message] = []
@@ -226,6 +278,40 @@ class DebateRoundsPhase:
             self.rhetorical_observer, self.event_emitter, self.hooks,
             agent, content, round_num, loop_id,
         )
+
+    @staticmethod
+    def _coerce_int(
+        value: Any,
+        default: int,
+        minimum: int = 1,
+        maximum: int | None = None,
+    ) -> int:
+        """Safely coerce an integer config value with bounds."""
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = default
+        parsed = max(minimum, parsed)
+        if maximum is not None:
+            parsed = min(parsed, maximum)
+        return parsed
+
+    @staticmethod
+    def _coerce_float(
+        value: Any,
+        default: float,
+        minimum: float = 0.0,
+        maximum: float | None = None,
+    ) -> float:
+        """Safely coerce a float config value with bounds."""
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            parsed = default
+        parsed = max(minimum, parsed)
+        if maximum is not None:
+            parsed = min(parsed, maximum)
+        return parsed
 
     async def execute(self, ctx: DebateContext) -> None:
         """
@@ -278,15 +364,17 @@ class DebateRoundsPhase:
 
         for round_num in range(1, rounds + 1):
             # Check for cancellation before each round
-            if ctx.cancellation_token and ctx.cancellation_token.is_cancelled:
+            cancellation_token = getattr(ctx, "cancellation_token", None)
+            if cancellation_token and cancellation_token.is_cancelled:
                 from aragora.debate.cancellation import DebateCancelled
 
-                raise DebateCancelled(ctx.cancellation_token.reason)
+                raise DebateCancelled(cancellation_token.reason)
 
             # Check budget before each round (allows graceful pause on budget exceeded)
-            if ctx.budget_check_callback:
+            budget_check_callback = getattr(ctx, "budget_check_callback", None)
+            if budget_check_callback:
                 try:
-                    allowed, reason = ctx.budget_check_callback(round_num)
+                    allowed, reason = budget_check_callback(round_num)
                     if not allowed:
                         logger.warning(
                             "budget_exceeded_pause round=%s reason=%s", round_num, reason
@@ -395,8 +483,9 @@ class DebateRoundsPhase:
         critics = self._get_critics(ctx)
 
         # Critique phase with performance tracking
+        round_critiques: list[Critique] = []
         with perf_monitor.track_phase(ctx.debate_id, "critique"):
-            await self._critique_phase(ctx, critics, round_num)
+            round_critiques = await self._critique_phase(ctx, critics, round_num)
 
         # Fire propulsion event: critiques ready for next stage
         await self._fire_propulsion_event(
@@ -411,13 +500,27 @@ class DebateRoundsPhase:
             await self._refresh_evidence_for_round(ctx, round_num)
 
         # Fire propulsion event: evidence ready
-        evidence_count = len(ctx.evidence_pack.snippets) if ctx.evidence_pack else 0
+        evidence_pack = getattr(ctx, "evidence_pack", None)
+        evidence_snippets = getattr(evidence_pack, "snippets", []) if evidence_pack else []
+        evidence_count = len(evidence_snippets or [])
         await self._fire_propulsion_event(
             "evidence_ready",
             ctx,
             round_num,
             {"evidence_count": evidence_count},
         )
+
+        # Fast-first consensus probe: in low-contention rounds we can exit early
+        # before the revision phase if convergence is already strong.
+        fast_exit, probed_convergence = self._maybe_fast_first_early_exit(
+            ctx=ctx,
+            round_num=round_num,
+            total_rounds=total_rounds,
+            round_critiques=round_critiques,
+        )
+        if fast_exit:
+            result.rounds_used = round_num
+            return False
 
         # Revision phase with performance tracking
         with perf_monitor.track_phase(ctx.debate_id, "revision"):
@@ -459,7 +562,9 @@ class DebateRoundsPhase:
         self._emit_heartbeat(f"round_{round_num}", "checking_convergence")
 
         # Convergence detection
-        convergence_result = self._convergence_tracker.check_convergence(ctx, round_num)
+        convergence_result = probed_convergence or self._convergence_tracker.check_convergence(
+            ctx, round_num
+        )
         should_break = convergence_result.converged and not convergence_result.blocked_by_trickster
 
         # Record round duration for slow debate detection
@@ -526,21 +631,122 @@ class DebateRoundsPhase:
 
         return critics
 
+    def _rank_agents_fast_first(self, agents: list[Agent]) -> list[Agent]:
+        """Rank agents for low-latency execution in fast-first mode."""
+        if len(agents) <= 1:
+            return list(agents)
+
+        ranked = list(agents)
+
+        # Prefer bridge-provided latency rankings when available.
+        if self._performance_router_bridge is not None:
+            try:
+                names = [a.name for a in ranked]
+                ranked_names = self._performance_router_bridge.rank_agents_for_task(
+                    names,
+                    task_type="speed",
+                )
+                order = {name: idx for idx, (name, _) in enumerate(ranked_names)}
+                ranked.sort(key=lambda a: order.get(a.name, len(order)))
+            except Exception as exc:
+                logger.debug("fast_first_bridge_ranking_failed: %s", exc)
+
+        # Fallback tie-breaker: lower timeout implies faster model path.
+        ranked.sort(
+            key=lambda a: (
+                float(getattr(a, "timeout", AGENT_TIMEOUT_SECONDS)),
+                getattr(a, "name", ""),
+            )
+        )
+        return ranked
+
+    def _is_low_contention_round(
+        self,
+        proposal_count: int,
+        critic_count: int,
+        round_num: int,
+    ) -> bool:
+        """Determine whether this round qualifies for fast-first routing."""
+        if not self._fast_first_routing:
+            return False
+        if round_num < self._fast_first_min_round:
+            return False
+        return proposal_count <= self._fast_first_low_contention_agent_threshold and critic_count > 0
+
+    def _maybe_fast_first_early_exit(
+        self,
+        ctx: DebateContext,
+        round_num: int,
+        total_rounds: int,
+        round_critiques: list[Critique],
+    ) -> tuple[bool, Any | None]:
+        """Probe convergence before revision in low-contention rounds.
+
+        Returns:
+            Tuple of (should_exit, convergence_result_if_probed)
+        """
+        if not (self._fast_first_routing and self._fast_first_early_exit):
+            return False, None
+        if round_num < self._fast_first_min_round or round_num >= total_rounds:
+            return False, None
+        if len(ctx.proposals) > self._fast_first_low_contention_agent_threshold:
+            return False, None
+        if not round_critiques:
+            return False, None
+
+        total_issues = 0
+        max_severity = 0.0
+        for critique in round_critiques:
+            total_issues += len(getattr(critique, "issues", []) or [])
+            max_severity = max(
+                max_severity,
+                self._coerce_float(getattr(critique, "severity", 0.0), default=0.0, minimum=0.0),
+            )
+
+        if total_issues > self._fast_first_max_total_issues:
+            return False, None
+        if max_severity > self._fast_first_max_critique_severity:
+            return False, None
+
+        convergence_result = self._convergence_tracker.check_convergence(ctx, round_num)
+        similarity = self._coerce_float(
+            getattr(convergence_result, "similarity", getattr(convergence_result, "avg_similarity", 0.0)),
+            default=0.0,
+            minimum=0.0,
+            maximum=1.0,
+        )
+        should_exit = bool(getattr(convergence_result, "converged", False)) or (
+            similarity >= self._fast_first_convergence_threshold
+            and not bool(getattr(convergence_result, "blocked_by_trickster", False))
+        )
+        if should_exit and ctx.result is not None:
+            if ctx.result.metadata is None:
+                ctx.result.metadata = {}
+            ctx.result.metadata["fast_first_early_exit"] = {
+                "round": round_num,
+                "total_issues": total_issues,
+                "max_severity": max_severity,
+                "similarity": similarity,
+            }
+
+        return should_exit, convergence_result
+
     async def _critique_phase(
         self,
         ctx: DebateContext,
         critics: list[Agent],
         round_num: int,
-    ) -> None:
+    ) -> list[Critique]:
         """Execute critique phase with parallel generation."""
         from aragora.core import Message
 
         result = ctx.result
         proposals = ctx.proposals
+        round_critiques: list[Critique] = []
 
         if not self._critique_with_agent:
             logger.warning("No critique_with_agent callback, skipping critiques")
-            return
+            return round_critiques
 
         async def generate_critique(critic, proposal_agent, proposal):
             """Generate critique and return (critic, proposal_agent, result_or_error)."""
@@ -604,7 +810,7 @@ class DebateRoundsPhase:
 
         # Create critique tasks based on topology with bounded concurrency
         # Semaphore prevents exhausting API rate limits with too many parallel requests
-        critique_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CRITIQUES)
+        critique_semaphore = asyncio.Semaphore(self._max_parallel_critiques)
 
         async def generate_critique_bounded(critic, proposal_agent, proposal):
             """Wrap critique generation with semaphore for bounded concurrency."""
@@ -622,12 +828,23 @@ class DebateRoundsPhase:
             skipped = [a for a in proposals if a not in valid_proposals]
             logger.warning("critique_skip_empty_proposals skipped=%s", skipped)
 
+        low_contention = self._is_low_contention_round(
+            proposal_count=len(valid_proposals),
+            critic_count=len(critics),
+            round_num=round_num,
+        )
+
         for proposal_agent, proposal in valid_proposals.items():
             if self._select_critics_for_proposal:
                 selected_critics = self._select_critics_for_proposal(proposal_agent, critics)
             else:
                 # Default: all critics except self
                 selected_critics = [c for c in critics if c.name != proposal_agent]
+
+            if low_contention:
+                selected_critics = self._rank_agents_fast_first(list(selected_critics))[
+                    : self._fast_first_max_critics_per_proposal
+                ]
 
             for critic in selected_critics:
                 critique_tasks.append(
@@ -707,6 +924,7 @@ class DebateRoundsPhase:
                 )
                 result.critiques.append(placeholder_critique)
                 self._partial_critiques.append(placeholder_critique)
+                round_critiques.append(placeholder_critique)
 
                 # Emit placeholder critique event
                 if "on_critique" in self.hooks:
@@ -723,6 +941,7 @@ class DebateRoundsPhase:
                     self.circuit_breaker.record_success(critic.name)
                 result.critiques.append(crit_result)
                 self._partial_critiques.append(crit_result)
+                round_critiques.append(crit_result)
 
                 logger.debug(
                     "critique_complete critic=%s target=%s issues=%s severity=%s",
@@ -775,6 +994,8 @@ class DebateRoundsPhase:
                 result.messages.append(msg)
                 self._partial_messages.append(msg)
 
+        return round_critiques
+
     async def _revision_phase(
         self,
         ctx: DebateContext,
@@ -800,7 +1021,7 @@ class DebateRoundsPhase:
             return
 
         # Semaphore prevents exhausting API rate limits with too many parallel requests
-        revision_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REVISIONS)
+        revision_semaphore = asyncio.Semaphore(self._max_parallel_revisions)
 
         async def generate_revision_bounded(agent, revision_prompt):
             """Wrap revision generation with semaphore for bounded concurrency."""
@@ -855,7 +1076,15 @@ class DebateRoundsPhase:
 
         revision_tasks = []
         revision_agents = []
-        for agent in ctx.proposers:
+        revision_candidates = list(ctx.proposers)
+        if self._is_low_contention_round(
+            proposal_count=len(ctx.proposals),
+            critic_count=len(critics),
+            round_num=round_num,
+        ):
+            revision_candidates = self._rank_agents_fast_first(revision_candidates)
+
+        for agent in revision_candidates:
             # Filter critiques specifically targeting this agent
             # This ensures each agent only sees critiques directed at their proposal
             agent_critiques = [c for c in all_critiques if c.target_agent == agent.name]
@@ -880,7 +1109,11 @@ class DebateRoundsPhase:
                 )
             except (ValueError, TypeError, AttributeError):
                 base_phase_timeout = AGENT_TIMEOUT_SECONDS
-        phase_timeout = _calculate_phase_timeout(len(revision_agents), base_phase_timeout)
+        phase_timeout = _calculate_phase_timeout(
+            len(revision_agents),
+            base_phase_timeout,
+            self._max_parallel_revisions,
+        )
 
         # Emit heartbeat before revision phase
         self._emit_heartbeat(

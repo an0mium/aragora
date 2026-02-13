@@ -1752,3 +1752,195 @@ class TestHookEmission:
             await phase._revision_phase(ctx, critics=[], round_num=1)
 
         on_message.assert_called_once()
+
+
+# =============================================================================
+# Speed Policy and Parallelism Bounds
+# =============================================================================
+
+
+class TestSpeedPolicy:
+    """Tests for fast-first routing and protocol-level parallelism bounds."""
+
+    @pytest.mark.asyncio
+    async def test_critique_phase_enforces_protocol_parallelism_bound(self):
+        """Critique semaphore should respect protocol.max_parallel_critiques."""
+        protocol = MockProtocol(rounds=1)
+        protocol.max_parallel_critiques = 2
+
+        concurrent = 0
+        max_seen = 0
+
+        async def critique_fn(critic, proposal, task, context, target_agent=None):
+            nonlocal concurrent, max_seen
+            concurrent += 1
+            max_seen = max(max_seen, concurrent)
+            try:
+                await asyncio.sleep(0.01)
+                return MockCritique(agent=critic.name, target_agent=target_agent or "unknown")
+            finally:
+                concurrent -= 1
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=critique_fn,
+            select_critics_for_proposal=lambda _proposal_agent, critics: list(critics),
+        )
+
+        critics = [MockAgent(name=f"critic-{i}", role="critic") for i in range(4)]
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal-1", "agent-2": "proposal-2"},
+            result=MockResult(),
+        )
+
+        with patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov:
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._critique_phase(ctx, critics=critics, round_num=1)
+
+        assert max_seen <= 2
+
+    @pytest.mark.asyncio
+    async def test_revision_phase_enforces_protocol_parallelism_bound(self):
+        """Revision semaphore should respect protocol.max_parallel_revisions."""
+        protocol = MockProtocol(rounds=1)
+        protocol.max_parallel_revisions = 1
+
+        concurrent = 0
+        max_seen = 0
+
+        async def generate_fn(agent, prompt, messages):
+            nonlocal concurrent, max_seen
+            concurrent += 1
+            max_seen = max(max_seen, concurrent)
+            try:
+                await asyncio.sleep(0.01)
+                return f"revised-{agent.name}"
+            finally:
+                concurrent -= 1
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            generate_with_agent=generate_fn,
+            build_revision_prompt=MagicMock(return_value="revision-prompt"),
+        )
+
+        proposers = [MockAgent(name=f"agent-{i}", role="proposer") for i in range(3)]
+        critiques = [
+            MockCritique(agent="critic-a", target_agent="agent-0"),
+            MockCritique(agent="critic-b", target_agent="agent-1"),
+            MockCritique(agent="critic-c", target_agent="agent-2"),
+        ]
+        ctx = MockDebateContext(
+            proposals={a.name: f"proposal-{a.name}" for a in proposers},
+            result=MockResult(critiques=critiques),
+            proposers=proposers,
+            context_messages=[],
+        )
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+            patch("aragora.debate.phases.debate_rounds.AGENT_TIMEOUT_SECONDS", 30.0),
+        ):
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._revision_phase(ctx, critics=[], round_num=1)
+
+        assert max_seen == 1
+
+    @pytest.mark.asyncio
+    async def test_fast_first_limits_critics_per_proposal(self):
+        """Low-contention fast-first mode should cap critics per proposal."""
+        protocol = MockProtocol(rounds=1)
+        protocol.fast_first_routing = True
+        protocol.fast_first_min_round = 1
+        protocol.fast_first_low_contention_agent_threshold = 3
+        protocol.fast_first_max_critics_per_proposal = 1
+
+        call_count = 0
+
+        async def critique_fn(critic, proposal, task, context, target_agent=None):
+            nonlocal call_count
+            call_count += 1
+            return MockCritique(agent=critic.name, target_agent=target_agent or "unknown")
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=critique_fn,
+            select_critics_for_proposal=lambda _proposal_agent, critics: list(critics),
+        )
+        critics = [MockAgent(name=f"critic-{i}", role="critic", timeout=10.0 + i) for i in range(3)]
+        ctx = MockDebateContext(
+            proposals={"agent-1": "proposal-1", "agent-2": "proposal-2"},
+            result=MockResult(),
+        )
+
+        with patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov:
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+            await phase._critique_phase(ctx, critics=critics, round_num=1)
+
+        assert call_count == 2  # 2 proposals * 1 critic per proposal
+
+    @pytest.mark.asyncio
+    async def test_fast_first_early_exit_skips_revision_when_low_contention(self):
+        """Fast-first should early-exit before revision when convergence probe is strong."""
+        protocol = MockProtocol(rounds=3)
+        protocol.fast_first_routing = True
+        protocol.fast_first_early_exit = True
+        protocol.fast_first_min_round = 1
+        protocol.fast_first_low_contention_agent_threshold = 2
+        protocol.fast_first_max_total_issues = 0
+        protocol.fast_first_max_critique_severity = 0.0
+        protocol.fast_first_convergence_threshold = 0.8
+
+        async def critique_fn(critic, proposal, task, context, target_agent=None):
+            return MockCritique(
+                agent=critic.name,
+                target_agent=target_agent or "unknown",
+                issues=[],
+                severity=0.0,
+            )
+
+        generate_fn = AsyncMock(return_value="revised proposal")
+
+        convergence_tracker = MagicMock()
+        convergence_tracker.check_convergence.return_value = MockConvergenceResult(
+            converged=False,
+            blocked_by_trickster=False,
+            similarity=0.95,
+        )
+        convergence_tracker.track_novelty = MagicMock()
+        convergence_tracker.check_rlm_ready_quorum.return_value = False
+
+        agent1 = MockAgent(name="agent-1", role="proposer")
+        agent2 = MockAgent(name="agent-2", role="proposer")
+        ctx = MockDebateContext(
+            agents=[agent1, agent2],
+            proposers=[agent1, agent2],
+            proposals={"agent-1": "proposal-1", "agent-2": "proposal-2"},
+            result=MockResult(critiques=[]),
+        )
+
+        phase = DebateRoundsPhase(
+            protocol=protocol,
+            critique_with_agent=critique_fn,
+            generate_with_agent=generate_fn,
+            build_revision_prompt=MagicMock(return_value="prompt"),
+        )
+        phase._convergence_tracker = convergence_tracker
+
+        with (
+            patch("aragora.debate.phases.debate_rounds.get_debate_monitor") as mock_mon,
+            patch("aragora.debate.phases.debate_rounds.get_complexity_governor") as mock_gov,
+        ):
+            mock_perf = MagicMock()
+            mock_perf.track_round = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.track_phase = MagicMock(side_effect=lambda *a, **kw: _noop_cm())
+            mock_perf.slow_round_threshold = 60.0
+            mock_mon.return_value = mock_perf
+            mock_gov.return_value.get_scaled_timeout.return_value = 30.0
+
+            await phase.execute(ctx)
+
+        assert ctx.result.rounds_used == 1
+        assert generate_fn.await_count == 0
+        assert isinstance(ctx.result.metadata, dict)
+        assert "fast_first_early_exit" in ctx.result.metadata

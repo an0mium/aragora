@@ -174,7 +174,8 @@ class TestExtractClientIP:
         from aragora.server.middleware.auth import extract_client_ip
 
         ip = extract_client_ip(mock_handler_with_xff)
-        assert ip == "192.168.1.100"
+        # XFF ignored without TRUSTED_PROXY_CIDRS (security hardening)
+        assert ip == "127.0.0.1"
 
     def test_extract_none_handler(self):
         """Should return None for None handler."""
@@ -383,7 +384,8 @@ class TestOptionalAuth:
             return auth_context
 
         result = public_func(handler=mock_handler_with_xff)
-        assert result.client_ip == "192.168.1.100"
+        # XFF ignored without TRUSTED_PROXY_CIDRS (security hardening)
+        assert result.client_ip == "127.0.0.1"
 
 
 # ===========================================================================
@@ -499,7 +501,7 @@ class TestAuthEdgeCases:
         assert token == "  token-with-spaces  "
 
     def test_multiple_xff_ips(self):
-        """Should use first IP from X-Forwarded-For chain."""
+        """XFF is ignored without TRUSTED_PROXY_CIDRS (security hardening)."""
         from aragora.server.middleware.auth import extract_client_ip
 
         handler = MockHandler(
@@ -507,4 +509,4 @@ class TestAuthEdgeCases:
             client_address=("127.0.0.1", 12345),
         )
         ip = extract_client_ip(handler)
-        assert ip == "10.0.0.1"
+        assert ip == "127.0.0.1"

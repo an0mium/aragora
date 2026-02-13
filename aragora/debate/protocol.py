@@ -12,9 +12,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
-from aragora.config import AGENT_TIMEOUT_SECONDS, DEBATE_TIMEOUT_SECONDS, DEFAULT_ROUNDS
+from aragora.config import (
+    AGENT_TIMEOUT_SECONDS,
+    DEBATE_TIMEOUT_SECONDS,
+    DEFAULT_ROUNDS,
+    MAX_CONCURRENT_CRITIQUES,
+    MAX_CONCURRENT_REVISIONS,
+)
 from aragora.debate.role_matcher import RoleMatchingConfig
 from aragora.debate.roles import RoleRotationConfig
 from aragora.resilience import CircuitBreaker  # Re-export for backwards compatibility
@@ -327,6 +333,25 @@ class DebateProtocol:
     # Round timeout should exceed agent timeout (AGENT_TIMEOUT_SECONDS)
     # to allow all parallel agents to complete. Minimum 90s per round for thorough analysis.
     round_timeout_seconds: int = int(max(90, AGENT_TIMEOUT_SECONDS + 60))  # Per-round timeout
+
+    # Orchestration speed policy: fast-first routing with bounded parallelism.
+    # Disabled by default for conservative backwards compatibility.
+    fast_first_routing: bool = False
+    # Low-contention means small debates where we can prioritize speed.
+    fast_first_low_contention_agent_threshold: int = 3
+    # In fast-first mode, evaluate this many critics per proposal at most.
+    fast_first_max_critics_per_proposal: int = 2
+    # Earliest round to start fast-first heuristics.
+    fast_first_min_round: int = 2
+    # Require very low critique pressure before probing early consensus exit.
+    fast_first_max_total_issues: int = 2
+    fast_first_max_critique_severity: float = 0.2
+    # If convergence probe similarity exceeds this in low-contention mode, exit early.
+    fast_first_convergence_threshold: float = 0.9
+    fast_first_early_exit: bool = True
+    # Per-debate parallelism bounds (hard-capped by global config in execution layer).
+    max_parallel_critiques: int = MAX_CONCURRENT_CRITIQUES
+    max_parallel_revisions: int = MAX_CONCURRENT_REVISIONS
 
     # Debate rounds phase timeout - at least 6 minutes (360s) for all rounds
     debate_rounds_timeout_seconds: int = 420  # 7 minutes for debate_rounds phase
