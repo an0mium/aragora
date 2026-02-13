@@ -382,6 +382,10 @@ ALLOWED_WITHOUT_RBAC = {
     # Task routing and execution (RBAC checked at execution layer)
     "tasks/__init__",
     "tasks/execution",
+    # 501 stub (speech module removed)
+    "features/speech",
+    # Public demo endpoint (no auth by design)
+    "playground",
 }
 
 
