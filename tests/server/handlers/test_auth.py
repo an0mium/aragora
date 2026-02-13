@@ -518,19 +518,12 @@ class TestAuthHandlerLogin:
 
     @pytest.fixture(autouse=True)
     def _clear_auth_limiter(self):
-        """Clear auth rate limiter before each login test.
-
-        The conftest autouse fixture also clears limiters, but this provides
-        an extra safety net when many tests run in the same process and the
-        auth_login limiter (5 rpm) gets exhausted from accumulated calls.
-        """
+        """Clear auth rate limiter before each login test."""
         import sys
 
         rl_mod = sys.modules.get("aragora.server.handlers.utils.rate_limit")
         if rl_mod:
-            # Clear all limiter buckets
             rl_mod.clear_all_limiters()
-            # Also directly clear the auth_login limiter if it exists
             auth_limiter = rl_mod._limiters.get("auth_login")
             if auth_limiter:
                 auth_limiter._buckets.clear()
