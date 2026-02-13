@@ -63,6 +63,9 @@ from .persistence import (
     persist_circuit_breaker,
 )
 
+# Simple (sync-only) circuit breaker for feature handlers
+from .simple_circuit_breaker import SimpleCircuitBreaker
+
 # Decorator
 from .decorator import with_resilience
 
@@ -134,6 +137,8 @@ from .http_client import (
 )
 
 __all__ = [
+    # Simple (sync-only) circuit breaker
+    "SimpleCircuitBreaker",
     # Core v1
     "CircuitBreaker",
     "CircuitOpenError",
