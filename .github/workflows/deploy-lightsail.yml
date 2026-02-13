@@ -127,6 +127,26 @@ jobs:
 
             echo "=== Deploy complete ==="
 
+            # Diagnostic: check service environment configuration
+            echo "=== Diagnostics ==="
+            echo "--- Service unit file ---"
+            sudo cat /etc/systemd/system/aragora.service 2>/dev/null | grep -v 'SECRET\|KEY\|TOKEN\|PASSWORD' || echo "No service file"
+            echo "--- Environment file ---"
+            sudo ls -la /etc/default/aragora 2>/dev/null || echo "No /etc/default/aragora"
+            sudo ls -la /home/ubuntu/aragora/.env 2>/dev/null || echo "No .env file"
+            # Check which env vars are SET (not their values) for auth-related config
+            echo "--- Auth env vars (names only, from service env) ---"
+            sudo cat /etc/systemd/system/aragora.service 2>/dev/null | grep -oP 'Environment=\K[^=]+' || true
+            sudo grep -oP '^[^#][^=]+' /etc/default/aragora 2>/dev/null || true
+            # Check .env for var names only
+            if [ -f /home/ubuntu/aragora/.env ]; then
+              echo "--- .env var names ---"
+              grep -oP '^[^#][^=]+' /home/ubuntu/aragora/.env 2>/dev/null || true
+            fi
+            echo "--- Recent service logs (last 30 lines) ---"
+            sudo journalctl -u aragora --no-pager -n 30 2>/dev/null || true
+            echo "=== End Diagnostics ==="
+
       - name: Verify health
         run: |
           for i in $(seq 1 12); do
