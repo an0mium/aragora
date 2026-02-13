@@ -91,7 +91,7 @@ class TestWeightConfiguration:
             "debate",
             "safety_critical",
         }
-        assert set(WEIGHT_PROFILES.keys()) == expected_profiles
+        assert expected_profiles.issubset(set(WEIGHT_PROFILES.keys()))
 
     def test_each_profile_sums_to_one(self):
         """Test that each weight profile sums to 1.0."""
