@@ -21,6 +21,83 @@ def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str
     )
 
 
+def _write_valid_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+    compose = tmp_path / "docker-compose.production.yml"
+    compose.write_text(
+        """
+services:
+  aragora:
+    depends_on:
+      postgres: {}
+      sentinel-1: {}
+      sentinel-2: {}
+      sentinel-3: {}
+    environment:
+      - DATABASE_URL=postgresql://aragora:secret@postgres:5432/aragora
+      - ARAGORA_DB_BACKEND=postgres
+      - ARAGORA_REDIS_MODE=sentinel
+      - ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+      - ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+      - ARAGORA_JWT_SECRET=jwt
+      - ARAGORA_RATE_LIMIT_BACKEND=redis
+    healthcheck:
+      test: ["CMD", "true"]
+  postgres:
+    healthcheck:
+      test: ["CMD", "true"]
+  redis-master:
+    healthcheck:
+      test: ["CMD", "true"]
+  redis-replica-1:
+    healthcheck:
+      test: ["CMD", "true"]
+  redis-replica-2:
+    healthcheck:
+      test: ["CMD", "true"]
+  sentinel-1:
+    healthcheck:
+      test: ["CMD", "true"]
+  sentinel-2:
+    healthcheck:
+      test: ["CMD", "true"]
+  sentinel-3:
+    healthcheck:
+      test: ["CMD", "true"]
+""".strip()
+    )
+
+    env = tmp_path / ".env.production.example"
+    env.write_text(
+        "\n".join(
+            [
+                "DOMAIN=example.com",
+                "POSTGRES_PASSWORD=secret",
+                "ARAGORA_API_TOKEN=token",
+                "ARAGORA_JWT_SECRET=jwt",
+                "ARAGORA_RATE_LIMIT_BACKEND=redis",
+                "ARAGORA_REDIS_MODE=sentinel",
+                "ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379",
+                "ARAGORA_REDIS_SENTINEL_MASTER=mymaster",
+                "ARAGORA_STRICT_DEPLOYMENT=true",
+            ]
+        )
+    )
+
+    runbook = tmp_path / "SELF_HOSTING.md"
+    runbook.write_text(
+        "\n".join(
+            [
+                "# Self Hosting",
+                "## Startup and Readiness Verification",
+                "## Health Checks",
+                "## Failure Recovery Playbook",
+            ]
+        )
+    )
+
+    return compose, env, runbook
+
+
 def test_repo_compose_validation_passes():
     result = _run()
     assert result.returncode == 0
@@ -56,3 +133,25 @@ services:
     result = _run("--compose", str(compose), "--env-example", str(env))
     assert result.returncode == 1
     assert "missing required services" in result.stdout.lower()
+
+
+def test_fails_when_runbook_markers_missing(tmp_path: Path):
+    compose, env, runbook = _write_valid_fixture(tmp_path)
+    runbook.write_text("# Self Hosting\n## Health Checks\n")
+
+    result = _run("--compose", str(compose), "--env-example", str(env), "--runbook", str(runbook))
+    assert result.returncode == 1
+    assert "runbook missing required sections" in result.stdout.lower()
+
+
+def test_fails_when_aragora_missing_rate_limit_backend(tmp_path: Path):
+    compose, env, runbook = _write_valid_fixture(tmp_path)
+    compose.write_text(
+        compose.read_text().replace("      - ARAGORA_RATE_LIMIT_BACKEND=redis\n", ""),
+        encoding="utf-8",
+    )
+
+    result = _run("--compose", str(compose), "--env-example", str(env), "--runbook", str(runbook))
+    assert result.returncode == 1
+    assert "aragora service missing required env wiring" in result.stdout.lower()
+    assert "aragora_rate_limit_backend" in result.stdout.lower()

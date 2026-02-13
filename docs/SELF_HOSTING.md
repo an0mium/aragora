@@ -129,6 +129,70 @@ The server exposes these health endpoints:
 | `/health` | Alias for `/healthz` |
 | `/metrics` | Prometheus metrics (when `ARAGORA_METRICS_ENABLED=true`) |
 
+## Startup and Readiness Verification
+
+Use this checklist after first boot and after upgrades.
+
+```bash
+# 1) Validate compose/env/runbook wiring
+python scripts/check_self_host_compose.py
+
+# 2) Start the production stack
+docker compose -f docker-compose.production.yml --env-file .env.production up -d
+
+# 3) Verify service health
+docker compose -f docker-compose.production.yml --env-file .env.production ps
+curl -fsS http://localhost:8080/healthz
+curl -fsS http://localhost:8080/readyz
+
+# 4) Verify authenticated API access
+curl -fsS \
+  -H "Authorization: Bearer ${ARAGORA_API_TOKEN}" \
+  http://localhost:8080/api/v1/debates
+```
+
+For CI and clean-machine validation, run:
+
+```bash
+python scripts/check_self_host_runtime.py --env-file .env.production
+```
+
+## Failure Recovery Playbook
+
+Use these commands for the most common production incidents.
+
+```bash
+# Inspect container status + recent logs
+docker compose -f docker-compose.production.yml --env-file .env.production ps
+docker compose -f docker-compose.production.yml --env-file .env.production logs --tail=200 aragora postgres redis-master sentinel-1
+```
+
+```bash
+# Restart only the API layer (safe first action)
+docker compose -f docker-compose.production.yml --env-file .env.production restart aragora
+curl -fsS http://localhost:8080/readyz
+```
+
+```bash
+# Redis Sentinel incident recovery: restart sentinels and verify quorum
+docker compose -f docker-compose.production.yml --env-file .env.production restart sentinel-1 sentinel-2 sentinel-3
+docker compose -f docker-compose.production.yml --env-file .env.production logs --tail=120 sentinel-1 sentinel-2 sentinel-3
+```
+
+```bash
+# Database connection incident recovery
+docker compose -f docker-compose.production.yml --env-file .env.production restart postgres
+docker compose -f docker-compose.production.yml --env-file .env.production logs --tail=120 postgres
+curl -fsS http://localhost:8080/readyz
+```
+
+If recovery fails, capture diagnostics before teardown:
+
+```bash
+docker compose -f docker-compose.production.yml --env-file .env.production logs > aragora-self-host-debug.log
+docker compose -f docker-compose.production.yml --env-file .env.production down
+```
+
 ## Offline / Demo Mode
 
 Run without any API keys for evaluation:

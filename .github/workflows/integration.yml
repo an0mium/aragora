@@ -7,8 +7,10 @@ on:
       - 'aragora/**'
       - 'tests/**'
       - 'scripts/check_self_host_compose.py'
+      - 'scripts/check_self_host_runtime.py'
       - 'docker-compose.production.yml'
       - '.env.production.example'
+      - 'docs/SELF_HOSTING.md'
       - '.github/workflows/integration.yml'
       - 'pyproject.toml'
       - 'setup.py'
@@ -18,8 +20,10 @@ on:
       - 'aragora/**'
       - 'tests/**'
       - 'scripts/check_self_host_compose.py'
+      - 'scripts/check_self_host_runtime.py'
       - 'docker-compose.production.yml'
       - '.env.production.example'
+      - 'docs/SELF_HOSTING.md'
       - '.github/workflows/integration.yml'
       - 'pyproject.toml'
       - 'setup.py'
@@ -38,7 +42,7 @@ jobs:
   self-host-readiness:
     name: Self-Hosted Compose Readiness
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -57,6 +61,36 @@ jobs:
       - name: Validate production compose + env example
         run: |
           python scripts/check_self_host_compose.py
+
+      - name: Prepare CI production env file
+        run: |
+          cp .env.production.example .env.production.ci
+          cat >> .env.production.ci <<'EOF'
+          DOMAIN=localhost
+          ACME_EMAIL=ci@example.com
+          ANTHROPIC_API_KEY=ci-anthropic-key
+          OPENAI_API_KEY=ci-openai-key
+          POSTGRES_PASSWORD=aragora-ci-postgres-password-0123456789
+          ARAGORA_API_TOKEN=aragora-ci-api-token-0123456789abcdef
+          ARAGORA_JWT_SECRET=aragora-ci-jwt-secret-0123456789abcdef
+          GRAFANA_ADMIN_PASSWORD=aragora-ci-grafana-password
+          ARAGORA_ALLOWED_ORIGINS=http://localhost
+          ARAGORA_RATE_LIMIT_BACKEND=redis
+          ARAGORA_REDIS_MODE=sentinel
+          ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+          ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+          ARAGORA_STRICT_DEPLOYMENT=true
+          ARAGORA_REPLICAS=1
+          ARAGORA_MAX_CONCURRENT_DEBATES=2
+          TRAEFIK_DASHBOARD_USERS=admin:ci
+          EOF
+
+      - name: Runtime compose smoke validation
+        run: |
+          python scripts/check_self_host_runtime.py \
+            --env-file .env.production.ci \
+            --service-timeout 360 \
+            --api-timeout 240
 
   e2e-harness:
     name: E2E Harness Tests

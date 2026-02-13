@@ -150,7 +150,7 @@ def main() -> int:
     if isinstance(depends_on, dict):
         dependency_names = set(depends_on.keys())
     elif isinstance(depends_on, list):
-        dependency_names = set(str(item) for item in depends_on)
+        dependency_names = {str(item) for item in depends_on}
     else:
         dependency_names = set()
 
@@ -160,7 +160,6 @@ def main() -> int:
         errors.append(f"aragora service missing required dependencies: {missing_dependencies}")
 
     parsed_aragora_env = _parse_service_env(aragora_service)
-    env_lines = [f"{k}={v}" for k, v in parsed_aragora_env.items()]
 
     missing_aragora_env = sorted(
         key for key in REQUIRED_ARAGORA_ENV_PREFIXES if key not in parsed_aragora_env
