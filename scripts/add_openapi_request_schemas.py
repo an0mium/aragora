@@ -1783,6 +1783,9 @@ def add_request_schemas(
                     "application/json": {
                         "schema": {
                             "type": "object",
+                            # Empty properties keeps this schema explicit and
+                            # analyzable while still allowing arbitrary fields.
+                            "properties": {},
                             "additionalProperties": True,
                             "description": f"Request body for {method.upper()} {path}",
                         }
