@@ -46,6 +46,8 @@ except ImportError:
     AuthorizationContext: Any = None
     check_permission = None
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # Import durable storage from storage module
 from aragora.storage.webhook_config_store import (
     WEBHOOK_EVENTS,
@@ -217,6 +219,8 @@ class WebhookHandler(SecureHandler):
         Returns None if allowed, or an error response if denied.
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         rbac_ctx = self._get_auth_context(handler)

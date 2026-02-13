@@ -68,6 +68,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # Expose RBAC symbols for patching in tests
 AuthorizationContext = _AuthorizationContext  # type: ignore[misc]
 check_permission = _check_permission
@@ -165,6 +167,7 @@ class ComputerUseHandler(BaseHandler):
     def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
         """Build AuthorizationContext from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
+            # Fail closed in production - caller must handle None with rbac_fail_closed()
             return None
 
         user_store = self._get_user_store()
@@ -185,6 +188,8 @@ class ComputerUseHandler(BaseHandler):
     def _check_rbac_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check RBAC permission. Returns None if allowed, error response if denied."""
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         rbac_ctx = self._get_auth_context(handler)

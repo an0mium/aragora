@@ -103,6 +103,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # Rate limiter for analytics endpoints
 _analytics_limiter = RateLimiter(requests_per_minute=60)
 
@@ -160,7 +162,10 @@ class AnalyticsHandler(BaseHandler):
             return error_response("Authentication required", 401)
 
         # RBAC permission check
-        if RBAC_AVAILABLE and user:
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif user:
             try:
                 auth_ctx = RBACContext(
                     user_id=user_id or "anonymous",

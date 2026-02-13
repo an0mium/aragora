@@ -35,6 +35,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 logger = logging.getLogger(__name__)
 
 # Permission required for security admin access
@@ -78,7 +80,10 @@ class SecurityHandler(SecureHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC inline check via rbac.checker if available
-        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ADMIN_SECURITY_PERMISSION)
             if not decision.allowed:
                 logger.warning(f"RBAC denied admin security access: {decision.reason}")
@@ -108,7 +113,10 @@ class SecurityHandler(SecureHandler):
     def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""
         # RBAC inline check via rbac.checker if available
-        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ADMIN_SECURITY_PERMISSION)
             if not decision.allowed:
                 logger.warning(f"RBAC denied admin security POST access: {decision.reason}")

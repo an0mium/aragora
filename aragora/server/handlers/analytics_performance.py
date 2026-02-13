@@ -30,6 +30,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .analytics.cache import CACHE_CONFIGS, CacheConfig
@@ -138,7 +139,10 @@ class AnalyticsPerformanceHandler(BaseHandler):
             )
 
         # RBAC inline check via rbac.checker if available
-        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, PERM_ANALYTICS_PERFORMANCE)
             if not decision.allowed:
                 logger.warning(f"RBAC denied analytics performance access: {decision.reason}")

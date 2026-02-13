@@ -94,6 +94,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 logger = logging.getLogger(__name__)
 
 # Rate limiter for checkpoint endpoints (20 requests per minute)
@@ -173,6 +175,8 @@ class KMCheckpointHandler(BaseHandler):
             Error response if permission denied, None if allowed
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         try:

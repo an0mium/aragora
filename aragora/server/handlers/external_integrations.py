@@ -68,6 +68,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # Metrics imports (optional)
 try:
     from aragora.observability.metrics import record_rbac_check
@@ -171,6 +173,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
         """Extract authorization context from the request."""
         if not RBAC_AVAILABLE:
+            # Fail closed in production - caller must handle None with rbac_fail_closed()
             return None
 
         try:
@@ -214,6 +217,8 @@ class ExternalIntegrationsHandler(SecureHandler):
             None if allowed, error HandlerResult if denied
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             logger.debug(f"RBAC not available, allowing {permission_key}")
             return None
 

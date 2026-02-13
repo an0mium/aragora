@@ -38,6 +38,8 @@ except ImportError:
     AuthorizationContext = None
     check_permission = None
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 # JWT auth import for extracting user context
 extract_user_from_request: Any
 try:
@@ -113,8 +115,11 @@ class DeliberationsHandler(BaseHandler):
 
         Returns None if allowed, or an error response tuple if denied.
         If RBAC is not available, allows the request (development mode).
+        In production, denies access when RBAC is unavailable (fail-closed).
         """
         if not RBAC_AVAILABLE or check_permission is None:
+            if rbac_fail_closed():
+                return ({"error": "Service unavailable: access control module not loaded"}, 503)
             return None
 
         rbac_ctx = self._get_auth_context(request)

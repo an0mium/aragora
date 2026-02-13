@@ -66,6 +66,10 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
+
+if not RBAC_AVAILABLE:
     # Provide a no-op decorator fallback when RBAC is unavailable
     def require_permission(
         permission_key: str,
@@ -324,6 +328,8 @@ class AdminHandler(
             None if allowed, error response if denied
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             # Fallback to role-based check (already done in _require_admin)
             return None
 

@@ -44,6 +44,8 @@ except ImportError:
     AuthorizationContext = None
     check_permission = None
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .base import (
     HandlerResult,
     error_response,
@@ -441,6 +443,8 @@ class OrganizationsHandler(SecureHandler):
         Returns None if allowed, or an error response if denied.
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         auth_ctx = self._get_auth_context(handler, user)

@@ -44,6 +44,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 logger = logging.getLogger(__name__)
 
 # Environment variables - None defaults make misconfiguration explicit
@@ -219,6 +221,10 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             PermissionError: When RBAC is available and the check fails.
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                raise PermissionError(
+                    "Service unavailable: access control module not loaded"
+                )
             return
         auth_ctx = (context or {}).get("auth_context")
         if auth_ctx is None and user_id:

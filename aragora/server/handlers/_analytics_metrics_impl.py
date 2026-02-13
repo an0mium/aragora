@@ -39,6 +39,8 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
@@ -173,7 +175,10 @@ class AnalyticsMetricsHandler(
             return error_response(str(e), 403, code="PERMISSION_DENIED")
 
         # Additional RBAC check via rbac.checker if available
-        if RBAC_AVAILABLE and hasattr(handler, "auth_context"):
+        if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
+        elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ANALYTICS_METRICS_PERMISSION)
             if not decision.allowed:
                 logger.warning(f"RBAC denied analytics metrics access: {decision.reason}")

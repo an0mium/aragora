@@ -70,6 +70,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 from aragora.privacy import (
     AccessDeniedException,  # noqa: F401 - used by mixin modules via _mod()
     AuditAction,  # noqa: F401 - used by mixin modules via _mod()
@@ -382,6 +383,8 @@ class WorkspaceHandler(
         Returns None if allowed, or an error response if denied.
         """
         if not RBAC_AVAILABLE:
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         rbac_ctx = self._get_auth_context(handler, auth_ctx)
