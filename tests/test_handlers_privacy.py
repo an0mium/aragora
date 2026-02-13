@@ -151,15 +151,15 @@ class TestPrivacyRouting:
 
     def test_can_handle_v2_export(self, privacy_handler):
         """Handler can handle /api/v2/users/me/export."""
-        assert privacy_handler.can_handle("/api/v1/v2/users/me/export") is True
+        assert privacy_handler.can_handle("/api/v2/users/me/export") is True
 
     def test_can_handle_v2_data_inventory(self, privacy_handler):
         """Handler can handle /api/v2/users/me/data-inventory."""
-        assert privacy_handler.can_handle("/api/v1/v2/users/me/data-inventory") is True
+        assert privacy_handler.can_handle("/api/v2/users/me/data-inventory") is True
 
     def test_can_handle_v2_users_me(self, privacy_handler):
         """Handler can handle /api/v2/users/me."""
-        assert privacy_handler.can_handle("/api/v1/v2/users/me") is True
+        assert privacy_handler.can_handle("/api/v2/users/me") is True
 
     def test_cannot_handle_unrelated_routes(self, privacy_handler):
         """Handler doesn't handle unrelated routes."""
@@ -183,7 +183,7 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_unauth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/export", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/export", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -196,7 +196,7 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler_no_store.handle("/api/privacy/export", {}, mock_handler)
+            result = privacy_handler_no_store.handle("/api/v1/privacy/export", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -213,7 +213,7 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/export", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/export", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -230,7 +230,7 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/export", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/export", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -257,7 +257,7 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/export", {"format": "csv"}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/export", {"format": "csv"}, mock_handler)
 
         assert result is not None
         # CSV export returns a tuple (body, status, headers) instead of HandlerResult
@@ -269,8 +269,8 @@ class TestDataExport:
             csv_content = body.decode("utf-8")
         else:
             assert result.status_code == 200
-            assert result.headers["Content-Type"] == "text/csv; charset=utf-8"
-            assert "attachment" in result.headers["Content-Disposition"]
+            assert result.content_type == "text/csv; charset=utf-8"
+            assert "attachment" in result.headers.get("Content-Disposition", "")
             csv_content = result.body.decode("utf-8")
 
         # Check CSV content contains profile data
@@ -292,7 +292,7 @@ class TestDataInventory:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_unauth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/data-inventory", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -303,7 +303,7 @@ class TestDataInventory:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/data-inventory", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -350,7 +350,7 @@ class TestAccountDeletion:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_unauth_context,
         ):
-            result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/account", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -369,7 +369,7 @@ class TestAccountDeletion:
             ),
             patch.object(privacy_handler, "read_json_body", return_value={"password": "test123"}),
         ):
-            result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/account", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -395,7 +395,7 @@ class TestAccountDeletion:
                 return_value={"password": "wrong", "confirm": True},
             ),
         ):
-            result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/account", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -421,7 +421,7 @@ class TestAccountDeletion:
                 return_value={"password": "correct", "confirm": True, "reason": "leaving"},
             ),
         ):
-            result = privacy_handler.handle("/api/privacy/account", {}, mock_handler)
+            result = privacy_handler.handle("/api/v1/privacy/account", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -450,7 +450,7 @@ class TestPrivacyPreferences:
             return_value=mock_unauth_context,
         ):
             result = privacy_handler.handle(
-                "/api/privacy/preferences", {}, mock_handler, method="GET"
+                "/api/v1/privacy/preferences", {}, mock_handler, method="GET"
             )
 
         assert result is not None
@@ -472,7 +472,7 @@ class TestPrivacyPreferences:
             return_value=mock_auth_context,
         ):
             result = privacy_handler.handle(
-                "/api/privacy/preferences", {}, mock_handler, method="GET"
+                "/api/v1/privacy/preferences", {}, mock_handler, method="GET"
             )
 
         assert result is not None
@@ -503,7 +503,7 @@ class TestPrivacyPreferences:
             ),
         ):
             result = privacy_handler.handle(
-                "/api/privacy/preferences", {}, mock_handler, method="POST"
+                "/api/v1/privacy/preferences", {}, mock_handler, method="POST"
             )
 
         assert result is not None
@@ -532,7 +532,7 @@ class TestPrivacyPreferences:
             patch.object(privacy_handler, "read_json_body", return_value=None),
         ):
             result = privacy_handler.handle(
-                "/api/privacy/preferences", {}, mock_handler, method="POST"
+                "/api/v1/privacy/preferences", {}, mock_handler, method="POST"
             )
 
         assert result is not None
@@ -553,7 +553,7 @@ class TestMethodNotAllowed:
         """Returns 405 for POST to export endpoint."""
         mock_handler.command = "POST"
 
-        result = privacy_handler.handle("/api/privacy/export", {}, mock_handler)
+        result = privacy_handler.handle("/api/v1/privacy/export", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 405
@@ -562,7 +562,7 @@ class TestMethodNotAllowed:
         """Returns 405 for POST to data-inventory endpoint."""
         mock_handler.command = "POST"
 
-        result = privacy_handler.handle("/api/privacy/data-inventory", {}, mock_handler)
+        result = privacy_handler.handle("/api/v1/privacy/data-inventory", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 405
