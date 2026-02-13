@@ -716,8 +716,9 @@ class TestRetryLogic:
         with patch.object(
             email_integration, "_check_rate_limit", new_callable=AsyncMock, return_value=True
         ):
-            with patch("asyncio.get_event_loop") as mock_loop:
-                mock_loop.return_value.run_in_executor = AsyncMock(return_value=None)
+            with patch.object(
+                email_integration, "_send_via_smtp", new_callable=AsyncMock, return_value=True
+            ):
                 result = await email_integration._send_email(
                     sample_recipient, "Test", "<p>Test</p>"
                 )

@@ -521,12 +521,26 @@ class TestConsensusProofProperties:
         checksum2 = minimal_proof.checksum
         assert checksum1 == checksum2
 
-    def test_checksum_changes_with_content(self, minimal_proof):
-        """Checksum should change when content changes."""
-        checksum1 = minimal_proof.checksum
-        minimal_proof.final_claim = "Different claim"
-        checksum2 = minimal_proof.checksum
-        assert checksum1 != checksum2
+    def test_checksum_changes_with_content(self):
+        """Checksum should differ for proofs with different content."""
+        base_args = dict(
+            proof_id="proof-1",
+            debate_id="debate-1",
+            task="Test task",
+            confidence=0.85,
+            consensus_reached=True,
+            votes=[],
+            supporting_agents=["agent-1", "agent-2"],
+            dissenting_agents=[],
+            claims=[],
+            dissents=[],
+            unresolved_tensions=[],
+            evidence_chain=[],
+            reasoning_summary="Test reasoning",
+        )
+        proof1 = ConsensusProof(final_claim="Final answer", **base_args)
+        proof2 = ConsensusProof(final_claim="Different claim", **base_args)
+        assert proof1.checksum != proof2.checksum
 
     def test_agreement_ratio_all_agree(self):
         """Should return 1.0 when all agree."""

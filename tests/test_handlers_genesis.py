@@ -276,7 +276,9 @@ class TestGenesisEventsEndpoint:
     def test_events_filter_by_type(self, mock_event_type, mock_ledger_class, genesis_handler):
         """Should filter events by type."""
         mock_etype = Mock()
+        mock_etype.value = "agent_birth"
         mock_event_type.return_value = mock_etype
+        mock_event_type.__iter__ = Mock(return_value=iter([mock_etype]))
 
         mock_event = Mock()
         mock_event.to_dict.return_value = {"event_id": "evt-001", "event_type": "agent_birth"}
@@ -324,7 +326,10 @@ class TestGenesisLineageEndpoint:
     def test_lineage_returns_structure(self, mock_ledger_class, genesis_handler):
         """Should return lineage structure."""
         mock_ledger = Mock()
-        mock_ledger.get_lineage.return_value = ["ancestor-1", "ancestor-2"]
+        mock_ledger.get_lineage.return_value = [
+            {"genome_id": "ancestor-1", "name": "Agent A", "generation": 1},
+            {"genome_id": "ancestor-2", "name": "Agent B", "generation": 0},
+        ]
         mock_ledger_class.return_value = mock_ledger
 
         result = genesis_handler.handle("/api/genesis/lineage/genome-001", {}, None)

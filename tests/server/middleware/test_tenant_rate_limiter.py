@@ -300,10 +300,10 @@ class TestTenantRateLimiter:
 # ============================================================================
 
 
-@pytest.mark.xfail(reason="QuotaManager integration not yet implemented")
 class TestTenantRateLimiterQuotaIntegration:
     """Tests for TenantRateLimiter integration with QuotaManager."""
 
+    @pytest.mark.xfail(reason="QuotaManager limit delegation not yet implemented")
     def test_uses_quota_manager_limits(self):
         """Test that limits are fetched from QuotaManager."""
         mock_quota_manager = Mock()
@@ -337,6 +337,7 @@ class TestTenantRateLimiterQuotaIntegration:
         assert result.allowed is True
         assert result.limit == 50  # Default limit used
 
+    @pytest.mark.xfail(reason="QuotaManager limit delegation not yet implemented")
     def test_different_tenants_different_limits(self):
         """Test that different tenants can have different limits."""
         mock_quota_manager = Mock()
@@ -512,10 +513,9 @@ class TestTenantRateLimiterEdgeCases:
         limiter.allow(tenant_id="tenant-3")
         limiter.allow(tenant_id="tenant-4")
 
-        # First tenant should have been evicted (buckets keyed by action → tenant)
-        default_buckets = limiter._tenant_buckets.get("default", {})
-        assert "tenant-1" not in default_buckets
-        assert "tenant-4" in default_buckets
+        # First tenant should have been evicted (flat bucket structure)
+        assert "tenant-1" not in limiter._tenant_buckets
+        assert "tenant-4" in limiter._tenant_buckets
 
     def test_concurrent_tenant_creation(self):
         """Test concurrent creation of tenant buckets."""

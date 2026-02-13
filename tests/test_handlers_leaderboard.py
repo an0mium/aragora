@@ -111,24 +111,26 @@ class TestLeaderboardRouting:
 class TestLeaderboardView:
     """Test /api/leaderboard-view endpoint."""
 
-    def test_returns_200_success(self, handler):
+    @pytest.mark.asyncio
+    async def test_returns_200_success(self, handler):
         """Returns 200 for successful request."""
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = []
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {}, None)
+        result = await handler.handle("/api/leaderboard-view", {}, None)
 
         assert result.status_code == 200
         assert result.content_type == "application/json"
 
-    def test_returns_all_six_sections(self, handler):
+    @pytest.mark.asyncio
+    async def test_returns_all_six_sections(self, handler):
         """Returns all 6 data sections."""
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = []
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {}, None)
+        result = await handler.handle("/api/leaderboard-view", {}, None)
         data = json.loads(result.body)
 
         assert "data" in data
@@ -139,42 +141,46 @@ class TestLeaderboardView:
         assert "stats" in data["data"]
         assert "introspection" in data["data"]
 
-    def test_respects_limit_parameter(self, handler):
+    @pytest.mark.asyncio
+    async def test_respects_limit_parameter(self, handler):
         """Respects the limit query parameter."""
         agents = [{"name": f"agent{i}", "elo": 1500} for i in range(20)]
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = agents[:5]
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {"limit": ["5"]}, None)
+        result = await handler.handle("/api/leaderboard-view", {"limit": ["5"]}, None)
         data = json.loads(result.body)
 
         # Verify limit was passed (mock returns 5)
         assert data["data"]["rankings"]["count"] == 5
 
-    def test_caps_limit_at_50(self, handler):
+    @pytest.mark.asyncio
+    async def test_caps_limit_at_50(self, handler):
         """Caps limit at maximum of 50."""
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = []
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {"limit": ["100"]}, None)
+        result = await handler.handle("/api/leaderboard-view", {"limit": ["100"]}, None)
 
         # Should use capped limit of 50 - check the call was made with <= 50
         call_args = handler.ctx["elo_system"].get_cached_leaderboard.call_args
         assert call_args[1]["limit"] <= 50
 
-    def test_validates_domain_parameter(self, handler):
+    @pytest.mark.asyncio
+    async def test_validates_domain_parameter(self, handler):
         """Validates domain parameter for security."""
-        result = handler.handle("/api/leaderboard-view", {"domain": ["../../../etc/passwd"]}, None)
+        result = await handler.handle("/api/leaderboard-view", {"domain": ["../../../etc/passwd"]}, None)
 
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "error" in data
 
-    def test_validates_loop_id_parameter(self, handler):
+    @pytest.mark.asyncio
+    async def test_validates_loop_id_parameter(self, handler):
         """Validates loop_id parameter for security."""
-        result = handler.handle(
+        result = await handler.handle(
             "/api/leaderboard-view", {"loop_id": ["<script>alert(1)</script>"]}, None
         )
 
@@ -182,23 +188,25 @@ class TestLeaderboardView:
         data = json.loads(result.body)
         assert "error" in data
 
-    def test_accepts_valid_domain(self, handler):
+    @pytest.mark.asyncio
+    async def test_accepts_valid_domain(self, handler):
         """Accepts valid domain parameter."""
         handler.ctx["elo_system"].get_leaderboard.return_value = []
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {"domain": ["technology"]}, None)
+        result = await handler.handle("/api/leaderboard-view", {"domain": ["technology"]}, None)
 
         assert result.status_code == 200
 
-    def test_returns_errors_structure(self, handler):
+    @pytest.mark.asyncio
+    async def test_returns_errors_structure(self, handler):
         """Returns proper errors structure."""
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = []
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {}, None)
+        result = await handler.handle("/api/leaderboard-view", {}, None)
         data = json.loads(result.body)
 
         assert "errors" in data
@@ -210,13 +218,14 @@ class TestLeaderboardView:
 class TestPartialFailures:
     """Test graceful degradation when sections fail."""
 
-    def test_rankings_failure_doesnt_break_response(self, handler):
+    @pytest.mark.asyncio
+    async def test_rankings_failure_doesnt_break_response(self, handler):
         """Rankings failure still returns other sections."""
         handler.ctx["elo_system"].get_cached_leaderboard.side_effect = Exception("ELO error")
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = [{"id": "match1"}]
         handler.ctx["elo_system"].get_stats.return_value = {"total_agents": 5}
 
-        result = handler.handle("/api/leaderboard-view", {}, None)
+        result = await handler.handle("/api/leaderboard-view", {}, None)
         data = json.loads(result.body)
 
         assert result.status_code == 200
@@ -225,13 +234,14 @@ class TestPartialFailures:
         assert data["data"]["rankings"] == {"agents": [], "count": 0}
         assert data["data"]["matches"]["count"] == 1
 
-    def test_multiple_failures(self, handler):
+    @pytest.mark.asyncio
+    async def test_multiple_failures(self, handler):
         """Handles multiple section failures."""
         handler.ctx["elo_system"].get_cached_leaderboard.side_effect = Exception("Error 1")
         handler.ctx["elo_system"].get_cached_recent_matches.side_effect = Exception("Error 2")
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {}, None)
+        result = await handler.handle("/api/leaderboard-view", {}, None)
         data = json.loads(result.body)
 
         assert result.status_code == 200
@@ -240,9 +250,10 @@ class TestPartialFailures:
         assert "matches" in data["errors"]["failed_sections"]
         assert len(data["errors"]["failed_sections"]) >= 2
 
-    def test_all_sections_fail_gracefully(self, handler_no_elo):
+    @pytest.mark.asyncio
+    async def test_all_sections_fail_gracefully(self, handler_no_elo):
         """Returns valid response even when all sections fail."""
-        result = handler_no_elo.handle("/api/leaderboard-view", {}, None)
+        result = await handler_no_elo.handle("/api/leaderboard-view", {}, None)
         data = json.loads(result.body)
 
         assert result.status_code == 200
@@ -250,7 +261,8 @@ class TestPartialFailures:
         assert data["data"]["rankings"]["count"] == 0
         assert data["data"]["matches"]["count"] == 0
 
-    def test_error_messages_captured(self, handler):
+    @pytest.mark.asyncio
+    async def test_error_messages_captured(self, handler):
         """Captures error messages for failed sections."""
         handler.ctx["elo_system"].get_cached_leaderboard.side_effect = Exception(
             "Database connection failed"
@@ -258,7 +270,7 @@ class TestPartialFailures:
         handler.ctx["elo_system"].get_cached_recent_matches.return_value = []
         handler.ctx["elo_system"].get_stats.return_value = {}
 
-        result = handler.handle("/api/leaderboard-view", {}, None)
+        result = await handler.handle("/api/leaderboard-view", {}, None)
         data = json.loads(result.body)
 
         assert "rankings" in data["errors"]["messages"]

@@ -64,8 +64,8 @@ class TestTenantRateLimitConfig:
 
         config = TenantRateLimitConfig()
 
-        assert config.requests_per_minute == DEFAULT_RATE_LIMIT
-        assert config.burst_size is None
+        assert config.default_limit == DEFAULT_RATE_LIMIT
+        assert config.default_burst is None
         assert config.max_tenants == 10000
 
     def test_config_custom_values(self):
@@ -75,13 +75,13 @@ class TestTenantRateLimitConfig:
         )
 
         config = TenantRateLimitConfig(
-            requests_per_minute=100,
-            burst_size=200,
+            default_limit=100,
+            default_burst=200,
             max_tenants=5000,
         )
 
-        assert config.requests_per_minute == 100
-        assert config.burst_size == 200
+        assert config.default_limit == 100
+        assert config.default_burst == 200
         assert config.max_tenants == 5000
 
 
@@ -182,7 +182,7 @@ class TestPerTenantRateLimiting:
         result = fresh_tenant_limiter.allow("tenant-123", action="default")
 
         assert result.allowed is True
-        assert result.key == "tenant:tenant-123:default"
+        assert result.key == "tenant:tenant-123"
 
     def test_allows_requests_under_limit(self, fresh_tenant_limiter):
         """Requests under limit should be allowed."""
@@ -274,7 +274,8 @@ class TestQuotaExhaustion:
         """Should deny after quota exhausted."""
         from aragora.server.middleware.rate_limit.tenant_limiter import TenantRateLimiter
 
-        limiter = TenantRateLimiter(action_limits={"limited": 2})
+        # default_limit controls the bucket rate/burst (not action_limits)
+        limiter = TenantRateLimiter(default_limit=2)
 
         # Exhaust quota (burst = 2 * 2 = 4 with BURST_MULTIPLIER)
         for _ in range(20):
@@ -353,9 +354,8 @@ class TestLRUEviction:
         # Access tenant-0 again
         limiter.allow("tenant-0", action="test")
 
-        # tenant-0 should be at end now
-        buckets = limiter._tenant_buckets.get("test", {})
-        keys = list(buckets.keys())
+        # tenant-0 should be at end now (flat bucket structure)
+        keys = list(limiter._tenant_buckets.keys())
         assert keys[-1] == "tenant-0"
 
 
@@ -376,10 +376,10 @@ class TestCleanup:
         # Add a tenant
         limiter.allow("tenant-123", action="test")
 
-        # Get bucket and make it stale
-        bucket = limiter._tenant_buckets.get("test", {}).get("tenant-123")
-        if bucket:
-            bucket.last_refill = time.monotonic() - 700  # > 600 seconds
+        # Get bucket from flat structure and make it stale
+        bucket = limiter._tenant_buckets.get("tenant-123")
+        assert bucket is not None
+        bucket.last_refill = time.monotonic() - 700  # > 600 seconds
 
         removed = limiter.cleanup(max_age_seconds=600)
 
@@ -607,7 +607,9 @@ class TestCheckTenantRateLimit:
 
         result = check_tenant_rate_limit(handler, action="special_action")
 
-        assert "special_action" in result.key
+        # New key format is tenant:{tenant_id} without action suffix
+        assert result.key == "tenant:org-123"
+        assert result.allowed is True
 
     def test_check_without_tenant_uses_ip(self, clean_tenant_limiter):
         """Should use IP when no tenant context."""
@@ -808,7 +810,8 @@ class TestBurstMultiplier:
         from aragora.server.middleware.rate_limit.tenant_limiter import TenantRateLimiter
         from aragora.server.middleware.rate_limit.base import BURST_MULTIPLIER
 
-        limiter = TenantRateLimiter(action_limits={"burst_test": 10})
+        # default_limit controls the bucket rate/burst (not action_limits)
+        limiter = TenantRateLimiter(default_limit=10)
 
         # Make requests up to burst
         allowed = 0

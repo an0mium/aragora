@@ -125,6 +125,10 @@ class TenantRateLimiter:
         if tenant_id is None:
             tenant_id = self._resolve_tenant_from_context()
 
+        # Sanitize tenant_id to prevent key injection
+        if tenant_id:
+            tenant_id = sanitize_rate_limit_key_component(tenant_id)
+
         if not tenant_id:
             if not self.config.fallback_to_default:
                 return RateLimitResult(
