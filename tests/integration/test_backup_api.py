@@ -151,7 +151,11 @@ class TestBackupAPIEndpoints:
             with patch.object(
                 backup_handler,
                 "read_json_body",
-                return_value={"source_path": "/path/to/db", "type": "full", "description": "Manual backup"},
+                return_value={
+                    "source_path": "/path/to/db",
+                    "type": "full",
+                    "description": "Manual backup",
+                },
             ):
                 result = await backup_handler.handle(
                     path="/api/v2/backups",

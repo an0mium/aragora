@@ -312,9 +312,7 @@ class SharedMockPipeline:
         self._commands.append(("zadd", (key, mapping), {}))
         return self
 
-    def zremrangebyscore(
-        self, key: str, min_score: float, max_score: float
-    ) -> SharedMockPipeline:
+    def zremrangebyscore(self, key: str, min_score: float, max_score: float) -> SharedMockPipeline:
         self._commands.append(("zremrangebyscore", (key, min_score, max_score), {}))
         return self
 
@@ -466,6 +464,7 @@ class TestDistributedRateLimiting:
                     def _consume(n):
                         bucket_counts[k] = bucket_counts.get(k, 0) + n
                         return bucket_counts[k] <= limit
+
                     return _consume
 
                 bucket.consume.side_effect = make_consume(key)
