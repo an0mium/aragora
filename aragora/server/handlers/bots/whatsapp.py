@@ -24,6 +24,7 @@ import os
 from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -526,7 +527,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         except ImportError:
             logger.warning("httpx not available for WhatsApp messaging")
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Failed to send WhatsApp message: {e}")
 
     def _send_welcome(self, to_number: str) -> None:

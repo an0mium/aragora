@@ -38,6 +38,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 # Import RateLimitResult and RateLimitConfig for compatibility
 from aragora.server.middleware.rate_limit import (
     BURST_MULTIPLIER,
@@ -153,7 +155,7 @@ class RedisRateLimiter:
             logger.warning("redis package not installed. Install with: pip install redis")
             self._available = False
             return None
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Failed to connect to Redis: {e}")
             self._available = False
             return None
@@ -291,7 +293,7 @@ class RedisRateLimiter:
                     key=key,
                 )
 
-        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Redis rate limit error: {e}")
             # Fallback: allow request on error
             return RateLimitResult(allowed=True, limit=0)
@@ -342,7 +344,7 @@ class RedisRateLimiter:
             current_count = results[1]
             return max(0, config.requests_per_minute - current_count)
 
-        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Redis get_remaining error: {e}")
             return 0
 
@@ -373,7 +375,7 @@ class RedisRateLimiter:
                 return deleted
             return 0
 
-        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Redis reset error: {e}")
             return 0
 
@@ -405,7 +407,7 @@ class RedisRateLimiter:
                 "configured_endpoints": list(self._endpoint_configs.keys()),
             }
 
-        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Redis stats error: {e}")
             return {"available": False, "error": str(e)}
 
@@ -444,7 +446,7 @@ class RedisRateLimiter:
             try:
                 self._redis.close()
                 logger.info("Redis rate limiter connection closed")
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 logger.error(f"Error closing Redis connection: {e}")
             finally:
                 self._redis = None

@@ -36,6 +36,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional, Protocol
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 
@@ -218,7 +220,7 @@ class RedisRevocationStore:
                     f"token_revoked_redis hash={entry.token_hash[:8]}... "
                     f"ttl={ttl_seconds}s reason={entry.reason}"
                 )
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Redis revocation store error: {e}")
             raise
 
@@ -227,7 +229,7 @@ class RedisRevocationStore:
         try:
             client = self._get_client()
             return client.exists(self._key(token_hash)) > 0
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Redis revocation check error: {e}")
             return False
 
@@ -236,7 +238,7 @@ class RedisRevocationStore:
         try:
             client = self._get_client()
             return client.delete(self._key(token_hash)) > 0
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Redis revocation remove error: {e}")
             return False
 
@@ -257,7 +259,7 @@ class RedisRevocationStore:
                 if cursor == 0:
                     break
             return count
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Redis count error: {e}")
             return 0
 

@@ -17,6 +17,8 @@ import os
 import sys
 from pathlib import Path
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 
 def check_icon(ok: bool | None) -> str:
     """Return status icon."""
@@ -161,7 +163,7 @@ async def check_server() -> list[tuple[str, str, bool | None]]:
                     checks.append(
                         ("Server (localhost:8080)", f"unhealthy ({resp.status_code})", False)
                     )
-        except (OSError, ConnectionError, TimeoutError):
+        except REDIS_CONNECTION_ERRORS:
             checks.append(("Server (localhost:8080)", "not running", None))
     except ImportError:
         checks.append(("Server check", "http pool not available", None))

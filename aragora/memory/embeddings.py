@@ -34,7 +34,7 @@ from pathlib import Path
 import aiohttp
 
 from aragora.config import CACHE_TTL_EMBEDDINGS, get_api_key
-from aragora.exceptions import ExternalServiceError
+from aragora.exceptions import ExternalServiceError, REDIS_CONNECTION_ERRORS
 from aragora.memory.database import MemoryDatabase
 
 # Re-export utilities from unified service
@@ -361,7 +361,7 @@ class SemanticRetriever:
                     result = sock.connect_ex((host, port))
                     if result == 0:
                         return ollama
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 logger.debug(f"Failed to connect to Ollama: {e}")
             # Fall back to hash-based embeddings (always works, no API needed)
             return EmbeddingProvider(dimension=256)

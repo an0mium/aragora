@@ -13,6 +13,7 @@ from typing import Any, Optional, Protocol
 from collections.abc import Callable
 
 from aragora.observability import get_logger
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 from .types import (
     ControlPlanePolicy,
@@ -236,7 +237,7 @@ class ControlPlanePolicyManager:
                     limit=limit,
                     offset=offset,
                 )
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 logger.warning("policy_store_list_failed", error=str(e))
                 break
 
@@ -717,7 +718,7 @@ class ControlPlanePolicyManager:
         except ImportError:
             logger.debug("Control plane policy store not available")
             return 0
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 
@@ -750,7 +751,7 @@ class ControlPlanePolicyManager:
         except ImportError:
             logger.debug("Control plane policy store not available")
             return 0
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 
@@ -784,6 +785,6 @@ class ControlPlanePolicyManager:
         except ImportError:
             logger.debug("Control plane policy store not available")
             return 0
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Violation store sync failed: {e}")
             return 0

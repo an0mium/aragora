@@ -34,6 +34,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from collections.abc import Generator
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,7 +149,7 @@ def track_request_with_trace(
         status = "error"
         logger.warning("Request error on %s %s: %s", method, endpoint, e)
         raise
-    except (OSError, ConnectionError, TimeoutError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         status = "error"
         logger.warning("I/O error on %s %s: %s", method, endpoint, e)
         raise

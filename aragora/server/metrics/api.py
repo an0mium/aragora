@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from collections.abc import Generator
 
 from .types import Counter, Gauge, Histogram
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, N
         status = "error"
         logger.warning("Request error on %s %s: %s", method, endpoint, e)
         raise
-    except (OSError, ConnectionError, TimeoutError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         # I/O and network-related errors
         status = "error"
         logger.warning("I/O error on %s %s: %s", method, endpoint, e)

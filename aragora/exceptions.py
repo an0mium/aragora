@@ -542,6 +542,24 @@ class RedisUnavailableError(InfrastructureError):
         self.operation = operation
 
 
+# Exception tuple for catching Redis connection failures.
+# redis.exceptions.ConnectionError does NOT inherit from Python's builtin
+# ConnectionError (it inherits from RedisError -> Exception), so the naive
+# ``except (OSError, ConnectionError, TimeoutError)`` pattern misses it.
+# Import this constant instead to catch all Redis connectivity errors safely.
+try:
+    import redis.exceptions as _redis_exc
+
+    REDIS_CONNECTION_ERRORS: tuple[type[Exception], ...] = (
+        OSError,
+        ConnectionError,
+        TimeoutError,
+        _redis_exc.RedisError,
+    )
+except ImportError:
+    REDIS_CONNECTION_ERRORS = (OSError, ConnectionError, TimeoutError)
+
+
 class ExternalServiceError(InfrastructureError):
     """Raised when an external service call fails."""
 

@@ -12,6 +12,7 @@ from types import ModuleType
 from typing import Any
 
 from aragora.observability import get_logger
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 from .types import (
     EnforcementLevel,
@@ -109,7 +110,7 @@ class RedisPolicyCache:
             await self._redis.ping()
             logger.info("policy_cache_connected", redis_url=self._redis_url)
             return True
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning("policy_cache_connection_failed", error=str(e))
             self._redis = None
             return False
@@ -187,7 +188,7 @@ class RedisPolicyCache:
             self._stats["misses"] += 1
             return None
 
-        except (OSError, ConnectionError, TimeoutError, json.JSONDecodeError) as e:
+        except (*REDIS_CONNECTION_ERRORS, json.JSONDecodeError) as e:
             self._stats["errors"] += 1
             logger.debug("policy_cache_get_error", error=str(e))
             return None
@@ -225,7 +226,7 @@ class RedisPolicyCache:
             self._stats["sets"] += 1
             return True
 
-        except (OSError, ConnectionError, TimeoutError, TypeError) as e:
+        except (*REDIS_CONNECTION_ERRORS, TypeError) as e:
             self._stats["errors"] += 1
             logger.debug("policy_cache_set_error", error=str(e))
             return False
@@ -250,7 +251,7 @@ class RedisPolicyCache:
                 deleted += 1
             logger.info("policy_cache_invalidated", deleted=deleted)
             return deleted
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning("policy_cache_invalidate_error", error=str(e))
             return 0
 

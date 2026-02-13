@@ -26,9 +26,11 @@ from pathlib import Path
 from typing import Any
 
 from aragora.config import resolve_db_path
-from aragora.exceptions import RedisUnavailableError
+from aragora.exceptions import REDIS_CONNECTION_ERRORS, RedisUnavailableError
 
 logger = logging.getLogger(__name__)
+
+_REDIS_ERRORS = REDIS_CONNECTION_ERRORS
 
 # Configuration
 REDIS_URL = os.environ.get("REDIS_URL", "")
@@ -418,7 +420,7 @@ class RedisOAuthStateStore(OAuthStateStore):
                 logger.warning("OAuth state store: redis package not installed")
                 self._connection_error_logged = True
             return None
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except _REDIS_ERRORS as e:
             if not self._connection_error_logged:
                 logger.warning(f"OAuth state store: Redis connection failed: {e}")
                 self._connection_error_logged = True
@@ -512,7 +514,7 @@ class RedisOAuthStateStore(OAuthStateStore):
                 if cursor == 0:
                     break
             return count
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except _REDIS_ERRORS as e:
             # Log but don't fail - size() is for metrics only
             logger.debug(f"Redis size() query failed: {e}")
             return 0
@@ -724,7 +726,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 redis_client = self._redis_store._get_redis()
                 if redis_client:
                     return self._redis_store
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except _REDIS_ERRORS as e:
                 logger.debug(f"Redis connectivity check failed: {e}")
             self._redis_failed = True
             logger.warning("OAuth state store: Redis unavailable, using JWT backend.")
@@ -815,7 +817,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 f"prefix={state[:30]}..."
             )
             return state
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except _REDIS_ERRORS as e:
             if store is self._redis_store:
                 logger.warning(f"Redis generate failed, using SQLite fallback: {e}")
                 self._redis_failed = True
@@ -844,7 +846,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
             result = store.validate_and_consume(state)
             if result:
                 return result
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except _REDIS_ERRORS as e:
             if store is self._redis_store:
                 logger.warning(f"Redis validate failed: {e}")
                 self._redis_failed = True
@@ -912,7 +914,7 @@ class FallbackOAuthStateStore(OAuthStateStore):
                 self._redis_failed = False
                 logger.info("OAuth state store: Reconnected to Redis")
                 return True
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except _REDIS_ERRORS as e:
             logger.debug(f"Redis reconnection attempt failed: {e}")
         return False
 

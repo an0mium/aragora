@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from aragora.observability import get_logger
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 from .types import (
     ControlPlanePolicy,
@@ -110,7 +111,7 @@ class PolicyStoreSync:
         except ImportError:
             logger.debug("Compliance policy store not available for sync")
             return 0
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 

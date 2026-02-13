@@ -38,6 +38,7 @@ from typing import Any
 from collections.abc import Callable
 
 from aragora.config.env_helpers import env_int, env_bool
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 from aragora.control_plane.leader import (
     DistributedStateError,
     is_distributed_state_required,
@@ -216,7 +217,7 @@ class RBACDistributedCache:
             self._redis_checked = True
             logger.info("RBAC cache connected to Redis (distributed mode)")
             return self._redis
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             # Check if distributed state is required (multi-instance or production)
             if is_distributed_state_required():
                 raise DistributedStateError(
@@ -252,7 +253,7 @@ class RBACDistributedCache:
                 )
                 self._pubsub_thread.start()
                 logger.debug("RBAC cache pub/sub listener started")
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 logger.warning(f"Failed to start RBAC cache pub/sub: {e}")
 
     def stop(self) -> None:
@@ -288,7 +289,7 @@ class RBACDistributedCache:
                 if consecutive_errors > 0:
                     consecutive_errors = 0
                     backoff = 1.0
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 if self._running:
                     consecutive_errors += 1
                     logger.debug(f"RBAC pub/sub error (attempt {consecutive_errors}): {e}")
@@ -530,7 +531,7 @@ class RBACDistributedCache:
                 # Broadcast invalidation
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, f"user:{user_id}")
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis invalidate_user error: {e}")
 
@@ -556,7 +557,7 @@ class RBACDistributedCache:
 
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, f"role:{role_name}")
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis invalidate_role error: {e}")
 
@@ -579,7 +580,7 @@ class RBACDistributedCache:
 
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, "all")
-            except (OSError, ConnectionError, TimeoutError) as e:
+            except REDIS_CONNECTION_ERRORS as e:
                 self._stats.errors += 1
                 logger.debug(f"Redis invalidate_all error: {e}")
 

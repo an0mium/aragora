@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from collections.abc import Generator
 
 from .types import Counter, Histogram
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def track_vector_operation(operation: str, store: str = "weaviate") -> Generator
         status = "error"
         logger.warning("Vector %s error on %s: %s", operation, store, e)
         raise
-    except (OSError, ConnectionError, TimeoutError) as e:
+    except REDIS_CONNECTION_ERRORS as e:
         # I/O and network-related errors (common with vector stores)
         status = "error"
         logger.warning("Vector %s I/O error on %s: %s", operation, store, e)

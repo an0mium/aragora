@@ -41,6 +41,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
+
 logger = logging.getLogger(__name__)
 
 # Enable Redis persistence for quota usage via env var
@@ -225,7 +227,7 @@ class QuotaEnforcer:
             self._redis = get_redis_client()
             if self._redis:
                 logger.info("Quota enforcer using Redis persistence")
-        except (OSError, ConnectionError, TimeoutError) as e:
+        except REDIS_CONNECTION_ERRORS as e:
             logger.warning(f"Redis not available for quota persistence: {e}")
             self._redis = None
 
