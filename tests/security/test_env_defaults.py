@@ -352,8 +352,13 @@ class TestSubsystemSummaryLogging:
             handler.knowledge_mound = MagicMock()
             handler.decision_router = MagicMock()
             handler.continuum_memory = MagicMock()
+            handler.anomaly_detector = MagicMock()
 
-        msgs = _run_init_subsystems({"ARAGORA_ENV": "development"}, caplog, pre_hook=set_all)
+        msgs = _run_init_subsystems(
+            {"ARAGORA_ENV": "development", "ARAGORA_ANOMALY_DETECTION": "1"},
+            caplog,
+            pre_hook=set_all,
+        )
         assert any("All" in m and "core subsystems initialized successfully" in m for m in msgs), (
             f"Expected success summary in logs, got: {msgs}"
         )

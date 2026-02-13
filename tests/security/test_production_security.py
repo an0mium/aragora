@@ -269,8 +269,8 @@ class TestEnvironmentVariableSecurity:
         with patch.dict(os.environ, {"ARAGORA_ENV": "PRODUCTION"}):
             assert is_production_environment() is True
 
-    def test_default_environment_is_development(self):
-        """Default environment is development."""
+    def test_default_environment_is_production(self):
+        """Default environment is production (secure by default)."""
         from aragora.connectors.chat.webhook_security import (
             get_environment,
             is_production_environment,
@@ -282,8 +282,8 @@ class TestEnvironmentVariableSecurity:
             del os.environ["ARAGORA_ENV"]
 
         try:
-            assert get_environment() == "development"
-            assert is_production_environment() is False
+            assert get_environment() == "production"
+            assert is_production_environment() is True
         finally:
             if env_backup is not None:
                 os.environ["ARAGORA_ENV"] = env_backup

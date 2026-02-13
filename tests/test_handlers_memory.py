@@ -3,10 +3,24 @@
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, ANY
 from enum import Enum
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.memory import MemoryHandler, CONTINUUM_AVAILABLE
+
+# Shared test auth context with all memory permissions
+_TEST_AUTH_CONTEXT = AuthorizationContext(
+    user_id="test-user",
+    roles={"admin"},
+    permissions={"memory:read", "memory:write", "memory:manage", "memory:*"},
+)
+
+
+def _bypass_rbac(h):
+    """Bypass RBAC auth checks on a MemoryHandler for unit testing."""
+    h._auth_context = _TEST_AUTH_CONTEXT
+    return h
 
 
 class MockMemoryTier(Enum):
@@ -33,6 +47,20 @@ class MockMemory:
         self.updated_at = "2024-01-02T00:00:00"
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Reset the module-level rate limiters between tests."""
+    from aragora.server.handlers.memory.memory import (
+        _retrieve_limiter,
+        _stats_limiter,
+        _mutation_limiter,
+    )
+
+    _retrieve_limiter._buckets.clear()
+    _stats_limiter._buckets.clear()
+    _mutation_limiter._buckets.clear()
+
+
 @pytest.fixture
 def mock_ctx():
     """Create mock context for handler."""
@@ -44,8 +72,10 @@ def mock_ctx():
 
 @pytest.fixture
 def handler(mock_ctx):
-    """Create MemoryHandler with mock context."""
-    return MemoryHandler(mock_ctx)
+    """Create MemoryHandler with mock context and RBAC bypass."""
+    h = MemoryHandler(mock_ctx)
+    _bypass_rbac(h)
+    return h
 
 
 class TestMemoryHandlerRouting:
@@ -87,8 +117,9 @@ class TestRetrieveEndpoint:
 
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle("/api/memory/continuum/retrieve", {}, None)
 
         assert result is not None
@@ -103,8 +134,9 @@ class TestRetrieveEndpoint:
         mock_continuum.retrieve.return_value = []
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
                 "/api/memory/continuum/retrieve", {"query": ["test query"]}, None
             )
@@ -119,8 +151,9 @@ class TestRetrieveEndpoint:
         mock_continuum.retrieve.return_value = []
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
                 "/api/memory/continuum/retrieve",
                 {"limit": "5"},  # parse_query_params converts single-value lists to strings
@@ -137,8 +170,9 @@ class TestRetrieveEndpoint:
         mock_continuum.retrieve.return_value = []
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
                 "/api/memory/continuum/retrieve", {"min_importance": ["0.7"]}, None
             )
@@ -153,8 +187,9 @@ class TestRetrieveEndpoint:
         mock_continuum.retrieve.return_value = []
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle(
                 "/api/memory/continuum/retrieve", {"tiers": ["fast,slow"]}, None
             )
@@ -173,8 +208,9 @@ class TestRetrieveEndpoint:
         mock_continuum.retrieve.return_value = [mock_memory]
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle("/api/memory/continuum/retrieve", {}, None)
 
         body = json.loads(result.body)
@@ -202,6 +238,7 @@ class TestConsolidateEndpoint:
         """Returns 401 when not authenticated."""
         mock_ctx["user_store"] = None
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
         mock_handler = self._make_auth_handler(authenticated=False)
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
@@ -217,6 +254,7 @@ class TestConsolidateEndpoint:
         """Returns 503 when continuum memory not configured."""
         mock_ctx["user_store"] = Mock()
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
         mock_handler = self._make_auth_handler()
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
@@ -239,6 +277,7 @@ class TestConsolidateEndpoint:
         mock_ctx["continuum_memory"] = mock_continuum
         mock_ctx["user_store"] = Mock()
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
         mock_handler = self._make_auth_handler()
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
@@ -263,6 +302,7 @@ class TestConsolidateEndpoint:
         mock_ctx["continuum_memory"] = mock_continuum
         mock_ctx["user_store"] = Mock()
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
         mock_handler = self._make_auth_handler()
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
@@ -283,6 +323,7 @@ class TestMemoryNotConfigured:
         """Returns 503 when continuum system unavailable."""
         mock_ctx["continuum_memory"] = None
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/continuum/retrieve", {}, None)
         assert result.status_code == 503
@@ -292,6 +333,7 @@ class TestMemoryNotConfigured:
         mock_ctx["continuum_memory"] = None
         mock_ctx["user_store"] = Mock()
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
         mock_handler = Mock()
         mock_handler.headers = {"Authorization": "Bearer test"}
 
@@ -339,8 +381,9 @@ class TestErrorHandling:
         mock_continuum.retrieve.side_effect = Exception("Test error")
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
-        with patch("aragora.server.handlers.memory.MemoryTier", MockMemoryTier):
+        with patch("aragora.server.handlers.memory.memory.MemoryTier", MockMemoryTier):
             result = handler.handle("/api/memory/continuum/retrieve", {}, None)
 
         assert result.status_code == 500
@@ -352,6 +395,7 @@ class TestErrorHandling:
         mock_ctx["continuum_memory"] = mock_continuum
         mock_ctx["user_store"] = Mock()
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
         mock_handler = Mock()
         mock_handler.headers = {"Authorization": "Bearer test"}
 
@@ -375,6 +419,7 @@ class TestMemoryPressureEndpoint:
         """Returns 503 when continuum memory not configured."""
         mock_ctx["continuum_memory"] = None
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -393,6 +438,7 @@ class TestMemoryPressureEndpoint:
         }
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -409,6 +455,7 @@ class TestMemoryPressureEndpoint:
         mock_continuum.get_stats.return_value = {"by_tier": {}, "total_memories": 100}
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -422,6 +469,7 @@ class TestMemoryPressureEndpoint:
         mock_continuum.get_stats.return_value = {"by_tier": {}, "total_memories": 200}
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -435,6 +483,7 @@ class TestMemoryPressureEndpoint:
         mock_continuum.get_stats.return_value = {"by_tier": {}, "total_memories": 500}
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -459,6 +508,7 @@ class TestMemoryPressureEndpoint:
         }
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -475,6 +525,7 @@ class TestMemoryPressureEndpoint:
         mock_continuum.get_stats.return_value = {"by_tier": {}, "total_memories": 100}
         mock_ctx["continuum_memory"] = mock_continuum
         handler = MemoryHandler(mock_ctx)
+        _bypass_rbac(handler)
 
         result = handler.handle("/api/memory/pressure", {}, None)
 
@@ -545,7 +596,7 @@ class TestDeleteMemoryEndpoint:
         body = json.loads(result.body)
         assert body["success"] is True
         assert "mem123" in body["message"]
-        mock_continuum.delete.assert_called_once_with("mem123")
+        mock_continuum.delete.assert_called_once_with("mem123", tenant_id=ANY)
 
     def test_delete_not_found(self, mock_ctx):
         """Returns 404 when memory not found."""

@@ -66,7 +66,7 @@ class TestBrokenAccessControl:
         assert rbac_dir.exists(), "RBAC module not found"
 
         # Check for essential RBAC files
-        essential_files = ["models.py", "middleware.py", "defaults.py"]
+        essential_files = ["models.py", "middleware.py", "types.py"]
         for f in essential_files:
             assert (rbac_dir / f).exists(), f"RBAC file {f} not found"
 
@@ -203,9 +203,13 @@ class TestAuthenticationFailures:
     def test_rate_limiting_infrastructure_exists(self):
         """Verify rate limiting exists."""
         resilience_file = SRC_ROOT / "resilience.py"
-        assert resilience_file.exists(), "Resilience module not found"
+        resilience_pkg = SRC_ROOT / "resilience" / "__init__.py"
+        assert resilience_file.exists() or resilience_pkg.exists(), (
+            "Resilience module/package not found"
+        )
 
-        content = resilience_file.read_text()
+        content_path = resilience_file if resilience_file.exists() else resilience_pkg
+        content = content_path.read_text()
         assert "rate" in content.lower() or "limit" in content.lower(), (
             "Rate limiting not found in resilience module"
         )

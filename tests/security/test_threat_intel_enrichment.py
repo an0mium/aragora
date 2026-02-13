@@ -576,7 +576,7 @@ class TestEdgeCases:
     async def test_handles_cve_client_failure(self):
         """Should handle CVE client failures gracefully."""
         mock_cve_client = MagicMock()
-        mock_cve_client.get_cve = AsyncMock(side_effect=Exception("API Error"))
+        mock_cve_client.get_cve = AsyncMock(side_effect=OSError("API Error"))
 
         enrichment = ThreatIntelEnrichment(
             cve_client=mock_cve_client,
