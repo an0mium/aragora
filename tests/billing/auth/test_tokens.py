@@ -46,6 +46,22 @@ if TYPE_CHECKING:
     pass
 
 
+@pytest.fixture(autouse=True)
+def _clean_jwt_env(monkeypatch):
+    """Ensure ARAGORA_ENV is not production and JWT secret caches are reset.
+
+    Earlier tests can leak ARAGORA_ENV=production, which triggers strict secrets
+    mode and causes JWT secret lookups to fail with SecretNotFoundError.
+    """
+    monkeypatch.delenv("ARAGORA_ENV", raising=False)
+    monkeypatch.delenv("ARAGORA_SECRETS_STRICT", raising=False)
+    # Reset lazy-loaded secret caches so they pick up clean env
+    import aragora.billing.auth.config as _auth_config
+
+    monkeypatch.setattr(_auth_config, "_jwt_secret_cache", None)
+    monkeypatch.setattr(_auth_config, "_jwt_secret_previous_cache", None)
+
+
 # =============================================================================
 # Base64 URL Encoding/Decoding Tests
 # =============================================================================
