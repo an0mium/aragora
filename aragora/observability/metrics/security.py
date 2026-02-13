@@ -270,7 +270,7 @@ def init_security_metrics() -> bool:
         logger.debug("Security metrics initialized")
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
         _init_noop_metrics()
         _initialized = True
         return False

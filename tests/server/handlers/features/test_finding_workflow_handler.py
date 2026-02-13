@@ -53,6 +53,7 @@ class MockJWTContext:
         self.client_ip = "127.0.0.1"
 
 
+@pytest.mark.no_auto_auth
 class TestFindingWorkflowRBAC:
     """Test RBAC enforcement on finding workflow endpoints."""
 
@@ -222,6 +223,7 @@ class TestFindingWorkflowRBAC:
             assert ctx is None
 
 
+@pytest.mark.no_auto_auth
 class TestFindingWorkflowEndpointPermissions:
     """Test that each endpoint checks the correct permission."""
 

@@ -68,7 +68,7 @@ def init_consensus_metrics() -> None:
         _initialized = True
         logger.debug("Consensus ingestion metrics initialized")
 
-    except ImportError:
+    except (ImportError, ValueError):
         _init_noop_metrics()
         _initialized = True
 
@@ -118,7 +118,7 @@ def init_enhanced_consensus_metrics() -> None:
         _enhanced_initialized = True
         logger.debug("Enhanced consensus metrics initialized")
 
-    except ImportError:
+    except (ImportError, ValueError):
         _init_enhanced_noop_metrics()
         _enhanced_initialized = True
 

@@ -1034,7 +1034,16 @@ def _reset_rate_limiters():
     Rate limiters use module-level singletons that persist across tests.
     Without this fixture, earlier tests consume the rate limit budget,
     causing later tests to receive 429 responses.
+
+    Clears both before (setup) and after (teardown) to handle pollution
+    from tests in other conftest scopes that ran before this fixture.
     """
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+    except ImportError:
+        pass
     yield
     try:
         from aragora.server.handlers.utils.rate_limit import clear_all_limiters
@@ -1060,6 +1069,59 @@ def disable_rate_limiting():
         return decorator
 
     return patch("aragora.server.handlers.auth.handler.rate_limit", no_rate_limit)
+
+
+@pytest.fixture(autouse=True)
+def _reset_lockout_tracker():
+    """Reset the global lockout tracker between tests.
+
+    The lockout tracker accumulates failed login attempts in a module-level
+    singleton. Without reset, auth tests see 429 "account locked" responses
+    from attempts recorded by earlier tests.
+    """
+    try:
+        from aragora.auth.lockout import reset_lockout_tracker
+
+        reset_lockout_tracker()
+    except ImportError:
+        pass
+    yield
+    try:
+        from aragora.auth.lockout import reset_lockout_tracker
+
+        reset_lockout_tracker()
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _reset_sso_state():
+    """Reset SSO provider configs and auth sessions between tests.
+
+    SSO handlers store provider configs and auth sessions in module-level
+    dicts. Without reset, tests see stale provider configs and OAuth states
+    from previous tests.
+    """
+    try:
+        import aragora.server.handlers.auth.sso_handlers as sso_mod
+
+        sso_mod._sso_providers.clear()
+        sso_mod._auth_sessions.clear()
+        # Reset the LazyStore so it re-initializes on next access
+        if hasattr(sso_mod._sso_state_store, "reset"):
+            sso_mod._sso_state_store.reset()
+    except (ImportError, AttributeError):
+        pass
+    yield
+    try:
+        import aragora.server.handlers.auth.sso_handlers as sso_mod
+
+        sso_mod._sso_providers.clear()
+        sso_mod._auth_sessions.clear()
+        if hasattr(sso_mod._sso_state_store, "reset"):
+            sso_mod._sso_state_store.reset()
+    except (ImportError, AttributeError):
+        pass
 
 
 # ============================================================================

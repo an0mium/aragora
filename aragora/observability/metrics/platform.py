@@ -177,7 +177,7 @@ def _initialize_platform_metrics() -> None:
         _initialized = True
         logger.info("Platform metrics initialized")
 
-    except ImportError:
+    except (ImportError, ValueError):
         logger.warning("prometheus_client not installed, platform metrics disabled")
         _initialized = True
 

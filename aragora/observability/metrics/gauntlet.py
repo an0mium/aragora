@@ -150,7 +150,7 @@ def init_gauntlet_metrics() -> bool:
         logger.debug("Gauntlet metrics initialized")
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
         _init_noop_metrics()
         _initialized = True
         return False

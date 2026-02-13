@@ -186,7 +186,7 @@ def init_debate_slo_metrics() -> bool:
         logger.debug("Debate SLO metrics initialized")
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
         logger.warning("prometheus-client not installed, debate SLO metrics disabled")
         _init_noop_metrics()
         _initialized = True

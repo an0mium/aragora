@@ -79,7 +79,7 @@ def init_explainability_metrics() -> bool:
         _initialized = True
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
         logger.warning("prometheus_client not available, using no-op metrics")
         _init_noop_metrics()
         _initialized = True

@@ -169,7 +169,7 @@ def init_slo_metrics() -> bool:
         logger.info("SLO metrics initialized")
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
         logger.warning("prometheus-client not installed, SLO metrics disabled")
         SLO_CHECKS_TOTAL = NoOpMetric()
         SLO_VIOLATIONS_TOTAL = NoOpMetric()

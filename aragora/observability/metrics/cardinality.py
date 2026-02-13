@@ -395,7 +395,7 @@ def init_cardinality_metrics() -> None:
         _cardinality_initialized = True
         logger.debug("Cardinality metrics initialized")
 
-    except ImportError:
+    except (ImportError, ValueError):
         _init_noop_cardinality_metrics()
         _cardinality_initialized = True
 

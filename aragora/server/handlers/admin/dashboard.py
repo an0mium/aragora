@@ -25,7 +25,7 @@ from ..base import (
     ttl_cache,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
-from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, _get_limiter, get_client_ip
 
 # Import extracted utility functions
 from .dashboard_metrics import (
@@ -56,7 +56,8 @@ def _call_bypassing_decorators(func: Any, *args: Any, **kwargs: Any) -> Any:
 
 
 # Rate limiter for dashboard endpoints (60 requests per minute - frequently accessed)
-_dashboard_limiter = RateLimiter(requests_per_minute=60)
+# Use _get_limiter to register in the global registry (cleared by clear_all_limiters)
+_dashboard_limiter = _get_limiter("admin_dashboard", 60)
 
 # RBAC Permission constants for admin dashboard endpoints
 PERM_ADMIN_DASHBOARD_READ = "admin:dashboard:read"

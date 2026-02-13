@@ -135,7 +135,7 @@ def _init_metrics():
         logger.debug("Webhook Prometheus metrics initialized")
         return True
 
-    except ImportError:
+    except (ImportError, ValueError):
         logger.debug("prometheus_client not installed, webhook metrics disabled")
         return False
 
