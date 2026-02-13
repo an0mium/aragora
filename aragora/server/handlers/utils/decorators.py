@@ -600,6 +600,11 @@ def has_permission(role: str, permission: str) -> bool:
     return False
 
 
+# Test hook: when set to a user context object, _check_permission returns it
+# directly, bypassing handler lookup and auth checks. Only used by test fixtures.
+_test_user_context_override = None
+
+
 def require_permission(permission: str) -> Callable[[Callable], Callable]:
     """
     Decorator that requires a specific permission.
@@ -626,6 +631,9 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
                         break
 
             if handler is None:
+                # Test hook: when no handler is found, use override instead of 401
+                if _test_user_context_override is not None:
+                    return _test_user_context_override, None
                 logger.warning(f"require_permission({permission}): No handler provided")
                 return None, error_response("Authentication required", 401)
 

@@ -150,6 +150,16 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass  # UserAuthContext may not be available in all test contexts
 
+    # Patch the require_permission test hook to bypass handler-null auth guard.
+    # Without this, _check_permission returns 401 when functions decorated with
+    # @require_permission are called directly without an HTTP handler argument.
+    try:
+        from aragora.server.handlers.utils import decorators as handler_decorators
+
+        monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user_ctx)
+    except (ImportError, AttributeError):
+        pass
+
     yield mock_auth_ctx
 
 
