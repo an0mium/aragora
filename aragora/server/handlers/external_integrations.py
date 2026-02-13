@@ -179,9 +179,20 @@ class ExternalIntegrationsHandler(SecureHandler):
             if not user_info:
                 return None
 
+            roles = {user_info.role} if user_info.role else {"member"}
+            permissions: set[str] = set()
+            try:
+                from aragora.rbac.defaults import get_role_permissions
+
+                for role in roles:
+                    permissions |= get_role_permissions(role, include_inherited=True)
+            except (ImportError, Exception) as exc:
+                logger.debug(f"Could not resolve RBAC permissions: {exc}")
+
             return AuthorizationContext(
                 user_id=user_info.user_id or "anonymous",
-                roles={user_info.role} if user_info.role else set(),
+                roles=roles,
+                permissions=permissions,
                 org_id=user_info.org_id,
             )
         except Exception as e:

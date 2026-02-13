@@ -177,6 +177,9 @@ class ResourceType(str, Enum):
     RELATIONSHIPS = "relationships"  # Relationship data
     TOURNAMENTS = "tournaments"  # Tournament events
 
+    # Decision plans
+    PLANS = "plans"  # Decision plan lifecycle (create, approve, reject)
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

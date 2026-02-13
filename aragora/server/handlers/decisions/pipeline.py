@@ -1,9 +1,10 @@
 """Decision Pipeline HTTP handlers.
 
-Endpoints for the gold path: debate → plan → approve → execute → verify → learn.
+Endpoints for the gold path: debate -> plan -> approve -> execute -> verify -> learn.
 
-All endpoints require authentication. Write operations require
-'decision:manage' permission.
+All endpoints require authentication.
+Read operations require `decisions:read`.
+Write operations require `decisions:create` or `decisions:update`.
 
 Endpoints:
     POST   /api/v1/decisions/plans              - Create plan from debate result
@@ -96,14 +97,16 @@ def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any
 
 
 # RBAC permission keys
-DECISION_READ_PERMISSION = "decision:read"
-DECISION_MANAGE_PERMISSION = "decision:manage"
+DECISION_READ_PERMISSION = "decisions:read"
+DECISION_CREATE_PERMISSION = "decisions:create"
+DECISION_UPDATE_PERMISSION = "decisions:update"
 
 
 class DecisionPipelineHandler(SecureHandler):
     """HTTP handlers for the decision pipeline (gold path).
 
-    Requires authentication. Write operations require decision:manage permission.
+    Requires authentication. Read operations require decisions:read.
+    Write operations require decisions:create or decisions:update.
     """
 
     ROUTES: list[str] = [
@@ -274,13 +277,11 @@ class DecisionPipelineHandler(SecureHandler):
         if err:
             return err
 
-        # Check manage permission for write operations
-        _, perm_err = self.require_permission_or_error(handler, DECISION_MANAGE_PERMISSION)
-        if perm_err:
-            return perm_err
-
         # Route based on path
         if path == "/api/v1/decisions/plans":
+            _, perm_err = self.require_permission_or_error(handler, DECISION_CREATE_PERMISSION)
+            if perm_err:
+                return perm_err
             return self._handle_create_plan(handler, user)
 
         plan_id = self._extract_plan_id(path)
@@ -288,10 +289,19 @@ class DecisionPipelineHandler(SecureHandler):
             return error_response("Invalid plan path", 400)
 
         if path.endswith("/approve"):
+            _, perm_err = self.require_permission_or_error(handler, DECISION_UPDATE_PERMISSION)
+            if perm_err:
+                return perm_err
             return self._handle_approve_plan(plan_id, handler, user)
         if path.endswith("/reject"):
+            _, perm_err = self.require_permission_or_error(handler, DECISION_UPDATE_PERMISSION)
+            if perm_err:
+                return perm_err
             return self._handle_reject_plan(plan_id, handler, user)
         if path.endswith("/execute"):
+            _, perm_err = self.require_permission_or_error(handler, DECISION_UPDATE_PERMISSION)
+            if perm_err:
+                return perm_err
             return self._handle_execute_plan(plan_id, handler, user)
 
         return None
@@ -326,20 +336,36 @@ class DecisionPipelineHandler(SecureHandler):
         try:
             approval_mode = ApprovalMode(approval_mode_str)
         except ValueError:
-            approval_mode = ApprovalMode.RISK_BASED
+            allowed_values = ", ".join(m.value for m in ApprovalMode)
+            return error_response(
+                f"Invalid approval_mode: {approval_mode_str}. Allowed values: {allowed_values}",
+                400,
+            )
 
         max_auto_risk_str = body.get("max_auto_risk", "low")
         try:
             max_auto_risk = RiskLevel(max_auto_risk_str)
         except ValueError:
-            max_auto_risk = RiskLevel.LOW
+            allowed_values = ", ".join(r.value for r in RiskLevel)
+            return error_response(
+                f"Invalid max_auto_risk: {max_auto_risk_str}. Allowed values: {allowed_values}",
+                400,
+            )
 
         budget_limit = body.get("budget_limit_usd")
         if budget_limit is not None:
             try:
                 budget_limit = float(budget_limit)
             except (TypeError, ValueError):
-                budget_limit = None
+                return error_response("budget_limit_usd must be a valid number", 400)
+            if budget_limit < 0:
+                return error_response("budget_limit_usd must be >= 0", 400)
+
+        metadata = body.get("metadata")
+        if metadata is None:
+            metadata = {}
+        elif not isinstance(metadata, dict):
+            return error_response("metadata must be an object", 400)
 
         implementation_profile = _build_implementation_profile_payload(body)
 
@@ -349,7 +375,7 @@ class DecisionPipelineHandler(SecureHandler):
             budget_limit_usd=budget_limit,
             approval_mode=approval_mode,
             max_auto_risk=max_auto_risk,
-            metadata=body.get("metadata") or {},
+            metadata=metadata,
             implementation_profile=implementation_profile,
         )
 
@@ -527,13 +553,23 @@ class DecisionPipelineHandler(SecureHandler):
             return error_response("Plan not found", 404)
 
         # Build authorization context from user for defense-in-depth permission checks
-        # Note: handler-level permission check already passed (DECISION_MANAGE_PERMISSION)
+        # Note: handler-level permission check already passed (DECISION_UPDATE_PERMISSION)
+        role_values = set(getattr(user, "roles", []) or [])
+        single_role = getattr(user, "role", None)
+        if single_role:
+            role_values.add(single_role)
+
+        permissions = set(getattr(user, "permissions", []) or [])
+        # Executor still checks for decisions:execute. We add it after update
+        # permission verification for backwards compatibility.
+        permissions.add("decisions:execute")
+
         auth_context = AuthorizationContext(
             user_id=getattr(user, "user_id", None) or "unknown",
             user_email=getattr(user, "email", None),
             org_id=getattr(user, "org_id", None),
-            roles=set([getattr(user, "role", "member")]),
-            permissions=set([DECISION_MANAGE_PERMISSION, "decisions:execute"]),
+            roles=role_values or {"member"},
+            permissions=permissions,
         )
 
         executor = PlanExecutor()

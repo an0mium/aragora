@@ -233,6 +233,15 @@ class TestRouteIndex:
         prefixes = [p for p, _, _ in idx._prefix_routes]
         assert "/healthz" in prefixes or "/readyz" in prefixes or "/api/health" in prefixes
 
+    def test_decision_pipeline_prefix_pattern_registered(self) -> None:
+        """Decision pipeline handler should get v1 plan prefix for fast dispatch."""
+        idx = RouteIndex()
+        mixin = MagicMock()
+        mixin._decision_pipeline_handler = _MinimalHandler()
+        idx.build(mixin, [("_decision_pipeline_handler", _MinimalHandler)])
+        prefixes = [p for p, _, _ in idx._prefix_routes]
+        assert "/api/v1/decisions/plans" in prefixes
+
 
 class TestGetRouteIndex:
     """Tests for global route index singleton."""

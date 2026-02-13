@@ -314,6 +314,23 @@ PERM_BREAKPOINT_UPDATE = _permission(
     ResourceType.BREAKPOINT, Action.UPDATE, "Resolve Breakpoints", "Approve or reject breakpoint resolutions"
 )
 
+# ============================================================================
+# PLAN PERMISSIONS (Decision plan lifecycle)
+# ============================================================================
+
+PERM_PLAN_CREATE = _permission(
+    ResourceType.PLANS, Action.CREATE, "Create Plans", "Create decision plans from debate results"
+)
+PERM_PLAN_READ = _permission(
+    ResourceType.PLANS, Action.READ, "View Plans", "View decision plan details and status"
+)
+PERM_PLAN_APPROVE = _permission(
+    ResourceType.PLANS, Action.APPROVE, "Approve Plans", "Approve decision plans for execution"
+)
+PERM_PLAN_REJECT = _permission(
+    ResourceType.PLANS, Action.DENY, "Reject Plans", "Reject decision plans with reason"
+)
+
 # All debate-related permission exports
 __all__ = [
     # Debate
@@ -389,4 +406,9 @@ __all__ = [
     # Breakpoints
     "PERM_BREAKPOINT_READ",
     "PERM_BREAKPOINT_UPDATE",
+    # Plans
+    "PERM_PLAN_CREATE",
+    "PERM_PLAN_READ",
+    "PERM_PLAN_APPROVE",
+    "PERM_PLAN_REJECT",
 ]

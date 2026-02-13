@@ -570,7 +570,13 @@ class OAuthHandler(
             # Link OAuth provider
             await self._link_oauth_to_user(user_store, user.id, user_info)  # type: ignore[misc]
 
-            logger.info(f"Created OAuth user: {user_info.email} via {user_info.provider}")
+            # Log auto-provisioning with default role for audit trail
+            logger.info(
+                f"OAuth user auto-provisioned: email={user_info.email} "
+                f"provider={user_info.provider} user_id={user.id} "
+                f"role={getattr(user, 'role', 'member')} "
+                f"action=rbac_auto_provision"
+            )
             return user
 
         except ValueError as e:

@@ -149,6 +149,11 @@ from .permissions import (
     PERM_DECISION_CREATE,
     PERM_DECISION_READ,
     PERM_DECISION_UPDATE,
+    # Plans
+    PERM_PLAN_CREATE,
+    PERM_PLAN_READ,
+    PERM_PLAN_APPROVE,
+    PERM_PLAN_REJECT,
     # Control Plane
     PERM_DATA_CLASSIFICATION_READ,
     PERM_DATA_CLASSIFICATION_CLASSIFY,
@@ -419,6 +424,11 @@ ROLE_ADMIN = Role(
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
         PERM_DECISION_UPDATE.key,
+        # Plans (all - admins can approve/reject)
+        PERM_PLAN_CREATE.key,
+        PERM_PLAN_READ.key,
+        PERM_PLAN_APPROVE.key,
+        PERM_PLAN_REJECT.key,
         # Workspaces (all)
         PERM_WORKSPACE_CREATE.key,
         PERM_WORKSPACE_READ.key,
@@ -536,6 +546,9 @@ ROLE_DEBATE_CREATOR = Role(
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
         PERM_DECISION_UPDATE.key,
+        # Plans (editors can create/read, not approve)
+        PERM_PLAN_CREATE.key,
+        PERM_PLAN_READ.key,
         PERM_VERTICALS_READ.key,
         PERM_CANVAS_READ.key,
         PERM_CANVAS_CREATE.key,
@@ -658,6 +671,9 @@ ROLE_MEMBER = Role(
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
         PERM_DECISION_UPDATE.key,
+        # Plans (members can create/read, not approve)
+        PERM_PLAN_CREATE.key,
+        PERM_PLAN_READ.key,
         PERM_WORKSPACE_READ.key,
         PERM_WORKSPACE_SHARE.key,
         PERM_VERTICALS_READ.key,
@@ -770,6 +786,8 @@ ROLE_TEAM_LEAD = Role(
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
         PERM_DECISION_UPDATE.key,
+        PERM_PLAN_CREATE.key,
+        PERM_PLAN_READ.key,
     },
     parent_roles=["member"],
     priority=55,

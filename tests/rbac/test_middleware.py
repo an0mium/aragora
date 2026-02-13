@@ -668,6 +668,32 @@ class TestDefaultRoutePermissions:
         # All health rules should allow unauthenticated
         assert all(r.allow_unauthenticated for r in health_rules)
 
+    @pytest.mark.parametrize(
+        "path,method,expected_permission",
+        [
+            ("/api/v1/decisions/plans", "GET", "decisions.read"),
+            ("/api/v1/decisions/plans", "POST", "decisions.create"),
+            ("/api/v1/decisions/plans/plan-123", "GET", "decisions.read"),
+            ("/api/v1/decisions/plans/plan-123/outcome", "GET", "decisions.read"),
+            ("/api/v1/decisions/plans/plan-123/approve", "POST", "decisions.update"),
+            ("/api/v1/decisions/plans/plan-123/reject", "POST", "decisions.update"),
+            ("/api/v1/decisions/plans/plan-123/execute", "POST", "decisions.update"),
+            ("/api/decisions/plans", "GET", "decisions.read"),
+            ("/api/decisions/plans", "POST", "decisions.create"),
+        ],
+    )
+    def test_decision_plan_routes_have_explicit_permissions(
+        self,
+        path: str,
+        method: str,
+        expected_permission: str,
+    ):
+        """Decision plan routes should not fall through as auth-only endpoints."""
+        with patch("aragora.rbac.middleware.get_permission_checker") as mock_get:
+            mock_get.return_value = MagicMock()
+            middleware = RBACMiddleware(validate_permissions=False)
+            assert middleware.get_required_permission(path, method) == expected_permission
+
 
 # ============================================================================
 # Bypass Path Prefix Tests

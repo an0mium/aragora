@@ -26,6 +26,17 @@ HANDLER_ROUTE_PREFIXES: list[tuple[str, list[str]]] = [
     ("consensus_handler", ["/api/consensus/test-123"]),
     ("belief_handler", ["/api/belief-network/test-123", "/api/laboratory/test-123"]),
     ("decision_handler", ["/api/decisions", "/api/decisions/test-123"]),
+    (
+        "decision_pipeline_handler",
+        [
+            "/api/v1/decisions/plans",
+            "/api/v1/decisions/plans/test-plan-123",
+            "/api/v1/decisions/plans/test-plan-123/approve",
+            "/api/v1/decisions/plans/test-plan-123/reject",
+            "/api/v1/decisions/plans/test-plan-123/execute",
+            "/api/v1/decisions/plans/test-plan-123/outcome",
+        ],
+    ),
     ("genesis_handler", ["/api/genesis/start"]),
     ("replays_handler", ["/api/replays/test-123"]),
     ("tournament_handler", ["/api/tournaments/test-123"]),

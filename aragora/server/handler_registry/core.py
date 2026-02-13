@@ -139,6 +139,8 @@ class RouteIndex:
             "_analytics_metrics_handler": ["/api/v1/analytics/"],
             "_consensus_handler": ["/api/consensus/"],
             "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
+            "_decision_explain_handler": ["/api/v1/decisions/"],
+            "_decision_pipeline_handler": ["/api/v1/decisions/plans"],
             "_decision_handler": ["/api/decisions"],
             "_genesis_handler": ["/api/genesis/"],
             "_replays_handler": ["/api/replays/"],
@@ -641,7 +643,7 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
         "TypedHandler",
         "ResourceHandler",
         "VersionedAPIHandler",
-        "CompositeHandler",
+        # "CompositeHandler" - now registered (provides /debates/*/full-context, /agents/*/reliability, /debates/*/compression-analysis)
         "PermissionHandler",
         "ExampleAsyncHandler",
         "ExampleAuthenticatedHandler",

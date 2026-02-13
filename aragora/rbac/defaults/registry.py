@@ -455,6 +455,11 @@ from .permissions import (
     # Breakpoints
     PERM_BREAKPOINT_READ,
     PERM_BREAKPOINT_UPDATE,
+    # Plans
+    PERM_PLAN_CREATE,
+    PERM_PLAN_READ,
+    PERM_PLAN_APPROVE,
+    PERM_PLAN_REJECT,
     # Route permissions (middleware-referenced resources)
     PERM_AUDITING_READ,
     PERM_AUDITING_CREATE,
@@ -944,6 +949,11 @@ _ALL_PERMISSIONS = [
     # Breakpoints
     PERM_BREAKPOINT_READ,
     PERM_BREAKPOINT_UPDATE,
+    # Plans
+    PERM_PLAN_CREATE,
+    PERM_PLAN_READ,
+    PERM_PLAN_APPROVE,
+    PERM_PLAN_REJECT,
     # Route permissions (middleware-referenced resources)
     PERM_AUDITING_READ,
     PERM_AUDITING_CREATE,

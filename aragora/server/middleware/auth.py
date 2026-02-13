@@ -82,17 +82,35 @@ class AuthContext:
         """
         Convert to full AuthorizationContext for RBAC operations.
 
+        If permissions are not already set, resolves them from the user's
+        roles using the RBAC defaults. This ensures OAuth-authenticated users
+        who have roles but no explicit permissions get the correct default
+        permissions for their role.
+
         Returns:
             AuthorizationContext with this context's fields populated.
         """
         from aragora.rbac.models import AuthorizationContext
 
+        roles = self.roles or set()
+        permissions = self.permissions or set()
+
+        # Resolve permissions from roles if not already populated
+        if not permissions and roles:
+            try:
+                from aragora.rbac.defaults import get_role_permissions
+
+                for role in roles:
+                    permissions |= get_role_permissions(role, include_inherited=True)
+            except (ImportError, Exception) as e:
+                logger.debug(f"Could not resolve RBAC permissions from roles: {e}")
+
         return AuthorizationContext(
             user_id=self.user_id or "anonymous",
             org_id=self.org_id,
             workspace_id=self.workspace_id,
-            roles=self.roles or set(),
-            permissions=self.permissions or set(),
+            roles=roles,
+            permissions=permissions,
             ip_address=self.client_ip,
         )
 
@@ -236,6 +254,29 @@ def optional_auth(func: Callable) -> Callable:
             token=token if authenticated else None,
             client_ip=client_ip,
         )
+
+        # If authenticated, extract user info and resolve permissions
+        if authenticated and token:
+            try:
+                from aragora.billing.auth.tokens import validate_access_token
+
+                payload = validate_access_token(token)
+                if payload:
+                    auth_context.user_id = payload.user_id
+                    role = payload.role or "member"
+                    auth_context.roles = {role}
+                    # Resolve permissions from role
+                    try:
+                        from aragora.rbac.defaults import get_role_permissions
+
+                        permissions: set[str] = set()
+                        for r in auth_context.roles:
+                            permissions |= get_role_permissions(r, include_inherited=True)
+                        auth_context.permissions = permissions
+                    except (ImportError, Exception):
+                        pass
+            except (ImportError, Exception):
+                pass
 
         # Inject auth context
         kwargs["auth_context"] = auth_context

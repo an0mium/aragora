@@ -290,6 +290,22 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/explain$", "GET", "decisions.read", 1),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/cancel$", "POST", "decisions.update", 1),
     RoutePermission(r"^/api/v1/decisions?/([^/]+)/retry$", "POST", "decisions.update", 1),
+    # Decision plan gold path (debate -> plan -> approve/reject -> execute -> outcome)
+    RoutePermission(r"^/api/(?:v1/)?decisions/plans$", "POST", "decisions.create"),
+    RoutePermission(r"^/api/(?:v1/)?decisions/plans$", "GET", "decisions.read"),
+    RoutePermission(r"^/api/(?:v1/)?decisions/plans/([^/]+)$", "GET", "decisions.read", 1),
+    RoutePermission(
+        r"^/api/(?:v1/)?decisions/plans/([^/]+)/outcome$",
+        "GET",
+        "decisions.read",
+        1,
+    ),
+    RoutePermission(
+        r"^/api/(?:v1/)?decisions/plans/([^/]+)/(approve|reject|execute)$",
+        "POST",
+        "decisions.update",
+        1,
+    ),
     # Policies - governance management
     RoutePermission(r"^/api/v1/policies$", "GET", "policies.read"),
     RoutePermission(r"^/api/v1/policies$", "POST", "policies.create"),
