@@ -16,6 +16,8 @@ interface CostSummary {
   alerts: { id: string; type: string; message: string; severity: string }[];
 }
 
+const PERIOD_TO_RANGE = { day: '24h', week: '7d', month: '30d' } as const;
+
 function UsageChart({ data, label }: { data: { date: string; cost: number }[]; label: string }) {
   if (!data || data.length === 0) {
     return (
@@ -95,15 +97,13 @@ function BreakdownTable({ data, title }: { data: { name: string; cost: number; p
 
 export default function UsageDashboard() {
   const { config: backendConfig } = useBackend();
-  const { isAuthenticated, tokens } = useAuth();
+  const { tokens } = useAuth();
   const token = tokens?.access_token;
 
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
   const [data, setData] = useState<CostSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const periodToRange = { day: '24h', week: '7d', month: '30d' };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -115,7 +115,7 @@ export default function UsageDashboard() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const range = periodToRange[period];
+      const range = PERIOD_TO_RANGE[period];
       const res = await fetch(`${backendConfig.api}/api/v1/costs?range=${range}`, { headers });
 
       if (!res.ok) {

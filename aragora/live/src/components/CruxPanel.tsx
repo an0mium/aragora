@@ -59,7 +59,7 @@ interface CruxPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 export function CruxPanel({ debateId: initialDebateId, apiBase = DEFAULT_API_BASE }: CruxPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [debateId, setDebateId] = useState(initialDebateId || '');
   const [cruxes, setCruxes] = useState<Crux[]>([]);
   const [loadBearingClaims, setLoadBearingClaims] = useState<LoadBearingClaim[]>([]);

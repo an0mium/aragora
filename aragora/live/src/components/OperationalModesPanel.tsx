@@ -36,7 +36,7 @@ export function OperationalModesPanel({
   apiBase = DEFAULT_API_BASE,
   onModeSelect,
 }: OperationalModesPanelProps) {
-  const { isAuthenticated, isLoading: authLoading, tokens } = useAuth();
+  const { tokens } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [modes, setModes] = useState<OperationalMode[]>([]);
   const [loading, setLoading] = useState(true);

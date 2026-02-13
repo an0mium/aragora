@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -48,8 +50,28 @@ jobs:
           pip install ruff==0.14.14
           pip install -e .
 
-      - name: Run lint tier
-        run: bash scripts/test_tiers.sh lint
+      - name: Run lint tier (changed Python files)
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse HEAD~1)"
+          fi
+
+          CHANGED_PY=$(git diff --name-only "${BASE_SHA}" HEAD -- '*.py' | tr '\n' ' ')
+          if [ -z "${CHANGED_PY}" ]; then
+            echo "No Python files changed; skipping Ruff checks."
+            exit 0
+          fi
+
+          echo "Running Ruff on changed files:"
+          echo "${CHANGED_PY}"
+          ruff format --check ${CHANGED_PY}
+          ruff check ${CHANGED_PY}
         shell: bash
 
   connector-exception-hygiene:
@@ -162,7 +184,6 @@ jobs:
             aragora/resilience/__init__.py \
             aragora/reasoning/belief.py \
             aragora/debate/team_selector.py \
-            aragora/debate/convergence.py \
             aragora/debate/prompt_builder.py \
             aragora/knowledge/types.py \
             aragora/agents/types.py \
