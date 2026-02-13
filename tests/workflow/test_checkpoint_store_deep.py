@@ -665,7 +665,7 @@ class TestPostgresCheckpointStoreDeep:
         import logging
 
         with patch.object(
-            logging.getLogger("aragora.workflow.checkpoint_store"), "warning"
+            logging.getLogger("aragora.workflow.checkpoints.postgres"), "warning"
         ) as mock_warn:
             result = await store.load("cp-check")
 

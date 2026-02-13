@@ -89,8 +89,14 @@ class TestNavigateActionSSRF:
 
     @pytest.fixture(autouse=True)
     def _disable_ssrf_localhost_override(self, monkeypatch):
-        """Ensure SSRF localhost protection is active for these tests."""
-        monkeypatch.delenv("ARAGORA_SSRF_ALLOW_LOCALHOST", raising=False)
+        """Ensure SSRF localhost protection is active for these tests.
+
+        The global test_environment fixture sets ARAGORA_SSRF_ALLOW_LOCALHOST=true
+        (session-scoped), so we must explicitly set it to "false" to override.
+        Using monkeypatch.setenv to override (not delenv) ensures this takes
+        precedence regardless of session-scoped fixture state.
+        """
+        monkeypatch.setenv("ARAGORA_SSRF_ALLOW_LOCALHOST", "false")
 
     def test_valid_https_url_allowed(self):
         """A valid HTTPS URL should be accepted."""

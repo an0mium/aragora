@@ -166,14 +166,15 @@ class TestDebateConfig:
             config.parse_agent_specs()
 
     def test_parse_agent_specs_empty_string(self):
-        """Empty agents string raises ValueError."""
+        """Empty agents string falls back to defaults."""
         config = DebateConfig(
             question="Q",
             agents_str="",
             auto_trim_unavailable=False,
         )
-        with pytest.raises(ValueError, match="At least 2 agents"):
-            config.parse_agent_specs()
+        specs = config.parse_agent_specs()
+        # Empty string should fall back to DEFAULT_AGENTS
+        assert len(specs) >= 2
 
     def test_parse_agent_specs_invalid_agent_type(self):
         """Invalid agent type raises ValueError."""

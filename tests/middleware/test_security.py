@@ -108,9 +108,14 @@ class TestGetSecurityHeaders:
         headers = get_security_headers(production=True, enable_hsts=False)
         assert HSTS_HEADER not in headers
 
-    def test_csp_disabled_by_default(self):
-        """CSP should not be included by default."""
+    def test_csp_enabled_by_default(self):
+        """CSP should be included by default (enable_csp=True)."""
         headers = get_security_headers()
+        assert CSP_HEADER in headers
+
+    def test_csp_disabled(self):
+        """CSP can be explicitly disabled."""
+        headers = get_security_headers(enable_csp=False)
         assert CSP_HEADER not in headers
         assert CSP_REPORT_ONLY_HEADER not in headers
 

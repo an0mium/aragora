@@ -842,7 +842,7 @@ class TestAPIKeyValidator:
     async def test_validate_key_storage_error(self):
         """Should return None on storage error."""
         mock_storage = AsyncMock()
-        mock_storage.get_api_key_by_hash.side_effect = Exception("DB error")
+        mock_storage.get_api_key_by_hash.side_effect = ConnectionError("DB error")
 
         validator = APIKeyValidator(storage=mock_storage)
 

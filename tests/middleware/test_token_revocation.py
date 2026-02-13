@@ -438,7 +438,7 @@ class TestRedisRevocationStore:
     def test_contains_redis_error(self, redis_store):
         """Test contains returns False on Redis error."""
         mock_client = MagicMock()
-        mock_client.exists.side_effect = Exception("Redis connection error")
+        mock_client.exists.side_effect = ConnectionError("Redis connection error")
         redis_store._client = mock_client
 
         with patch.object(redis_store, "_get_client", return_value=mock_client):
@@ -472,7 +472,7 @@ class TestRedisRevocationStore:
     def test_remove_redis_error(self, redis_store):
         """Test remove returns False on Redis error."""
         mock_client = MagicMock()
-        mock_client.delete.side_effect = Exception("Redis error")
+        mock_client.delete.side_effect = ConnectionError("Redis error")
         redis_store._client = mock_client
 
         with patch.object(redis_store, "_get_client", return_value=mock_client):
@@ -505,7 +505,7 @@ class TestRedisRevocationStore:
     def test_count_redis_error(self, redis_store):
         """Test count returns 0 on Redis error."""
         mock_client = MagicMock()
-        mock_client.scan.side_effect = Exception("Redis error")
+        mock_client.scan.side_effect = ConnectionError("Redis error")
         redis_store._client = mock_client
 
         with patch.object(redis_store, "_get_client", return_value=mock_client):
