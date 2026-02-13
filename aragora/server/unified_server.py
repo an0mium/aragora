@@ -1157,6 +1157,12 @@ class UnifiedServer:
         if self.nomic_dir:
             logger.info(f"  Nomic dir:  {self.nomic_dir}")
 
+        # Log security posture
+        validation_mode = os.environ.get("ARAGORA_VALIDATION_MODE", "blocking")
+        ssrf_strict = os.environ.get("ARAGORA_SSRF_STRICT", "true").lower() in ("true", "1", "yes")
+        logger.info(f"  Validation: {validation_mode}")
+        logger.info(f"  SSRF:       {'strict' if ssrf_strict else 'permissive'}")
+
         # Set up signal handlers for graceful shutdown
         self._setup_signal_handlers()
 
