@@ -105,7 +105,12 @@ def mock_admin_user():
 
 @pytest.fixture
 def auth_bypass():
-    """Fixture to bypass authentication for testing protected endpoints."""
+    """Fixture to bypass authentication for testing protected endpoints.
+
+    Patches both JWT extraction and RBAC context resolution so that
+    decorated handler methods can be called directly in tests.
+    """
+    from aragora.rbac.models import AuthorizationContext
 
     @dataclass
     class MockUserContext:
@@ -117,11 +122,45 @@ def auth_bypass():
         def has_permission(self, perm: str) -> bool:
             return True
 
+    mock_auth_ctx = AuthorizationContext(
+        user_id="admin-user",
+        org_id="org-123",
+        roles={"admin"},
+    )
+
     def bypass_extractor(handler, user_store=None):
         return MockUserContext()
 
-    # Patch at the location where it's imported
-    return patch("aragora.billing.jwt_auth.extract_user_from_request", bypass_extractor)
+    def bypass_context_resolver(args, kwargs, context_param):
+        return mock_auth_ctx
+
+    from aragora.rbac.models import AuthorizationDecision
+
+    def always_allow(self, context, permission_key, resource_id=None):
+        return AuthorizationDecision(
+            allowed=True,
+            permission_key=permission_key,
+            reason="Test bypass",
+        )
+
+    # Patch JWT extraction, RBAC context resolution, and permission checking
+    jwt_patch = patch("aragora.billing.jwt_auth.extract_user_from_request", bypass_extractor)
+    rbac_patch = patch("aragora.rbac.decorators._get_context_from_args", bypass_context_resolver)
+    checker_patch = patch("aragora.rbac.checker.PermissionChecker.check_permission", always_allow)
+
+    class _CombinedBypass:
+        def __enter__(self):
+            jwt_patch.__enter__()
+            rbac_patch.__enter__()
+            checker_patch.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            checker_patch.__exit__(*args)
+            rbac_patch.__exit__(*args)
+            jwt_patch.__exit__(*args)
+
+    return _CombinedBypass()
 
 
 @dataclass
@@ -639,7 +678,7 @@ class TestAuditingHandler:
         """Test handle routes to capability probe."""
         with patch.object(auditing_handler, "_run_capability_probe") as mock_method:
             mock_method.return_value = json_response({"success": True})
-            result = auditing_handler.handle("/api/debates/capability-probe", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
 
         mock_method.assert_called_once_with(mock_handler)
 
@@ -647,7 +686,7 @@ class TestAuditingHandler:
         """Test handle routes to deep audit."""
         with patch.object(auditing_handler, "_run_deep_audit") as mock_method:
             mock_method.return_value = json_response({"success": True})
-            result = auditing_handler.handle("/api/debates/deep-audit", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/debates/deep-audit", {}, mock_handler)
 
         mock_method.assert_called_once_with(mock_handler)
 
@@ -655,7 +694,7 @@ class TestAuditingHandler:
         """Test handle routes to attack types."""
         with patch.object(auditing_handler, "_get_attack_types") as mock_method:
             mock_method.return_value = json_response({"attack_types": []})
-            result = auditing_handler.handle("/api/redteam/attack-types", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/redteam/attack-types", {}, mock_handler)
 
         mock_method.assert_called_once()
 
@@ -663,13 +702,13 @@ class TestAuditingHandler:
         """Test handle routes to red team analysis."""
         with patch.object(auditing_handler, "_run_red_team_analysis") as mock_method:
             mock_method.return_value = json_response({"success": True})
-            result = auditing_handler.handle("/api/debates/debate123/red-team", {}, mock_handler)
+            result = auditing_handler.handle("/api/v1/debates/debate123/red-team", {}, mock_handler)
 
         mock_method.assert_called_once_with("debate123", mock_handler)
 
     def test_handle_invalid_debate_id_red_team(self, auditing_handler, mock_handler):
         """Test handle rejects invalid debate ID for red team."""
-        result = auditing_handler.handle("/api/debates/../etc/passwd/red-team", {}, mock_handler)
+        result = auditing_handler.handle("/api/v1/debates/../etc/passwd/red-team", {}, mock_handler)
         assert result.status_code == 400
 
     def test_handle_unhandled_path(self, auditing_handler, mock_handler):
@@ -998,7 +1037,7 @@ class TestAuditingHandlerIntegration:
         with auth_bypass:
             with patch("aragora.server.handlers.auditing.REDTEAM_AVAILABLE", True):
                 with patch.dict("sys.modules", {"aragora.modes.redteam": mock_redteam_module}):
-                    result = handler.handle("/api/debates/test-debate/red-team", {}, mock_http)
+                    result = handler.handle("/api/v1/debates/test-debate/red-team", {}, mock_http)
 
         assert result.status_code == 200
         parsed = json.loads(result.body)

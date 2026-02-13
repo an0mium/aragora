@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from aragora.config import DEFAULT_ROUNDS
 from aragora.server.state import DebateState, StateManager, get_state_manager, reset_state_manager
 
 
@@ -30,7 +31,7 @@ class TestDebateState:
         assert state.task == "Test task"
         assert state.status == "running"
         assert state.current_round == 0
-        assert state.total_rounds == 3
+        assert state.total_rounds == DEFAULT_ROUNDS
 
     def test_debate_state_to_dict(self):
         """Test DebateState.to_dict() conversion."""
@@ -304,7 +305,7 @@ class TestStateManagerCleanup:
         state.start_time = time.time() - 4000  # ~1 hour old
 
         # Cleanup should remove stale debates (returns count of removed)
-        removed_count = self.manager._cleanup_stale_debates(max_age_seconds=3600)
+        removed_count = self.manager.cleanup_stale_debates(max_age_seconds=3600)
         assert removed_count == 1
         assert self.manager.get_debate("stale-1") is None
 
@@ -312,7 +313,7 @@ class TestStateManagerCleanup:
         """Test cleanup keeps recent debates."""
         self.manager.register_debate("recent", "Task", ["a"])
 
-        removed_count = self.manager._cleanup_stale_debates(max_age_seconds=3600)
+        removed_count = self.manager.cleanup_stale_debates(max_age_seconds=3600)
         assert removed_count == 0
         assert self.manager.get_debate("recent") is not None
 
