@@ -84,6 +84,11 @@ from .sanitization import (
     sanitize_payment_response,
     sanitize_output,
 )
+from .rbac_guard import (
+    rbac_available,
+    rbac_fail_closed,
+    is_production_env,
+)
 from .file_validation import (
     validate_file_upload,
     validate_file_size,
@@ -199,4 +204,8 @@ __all__ = [
     "ALLOWED_EXTENSIONS",
     "MAX_FILE_SIZE",
     "MAX_FILENAME_LENGTH",
+    # RBAC import guard (fail-closed in production)
+    "rbac_available",
+    "rbac_fail_closed",
+    "is_production_env",
 ]

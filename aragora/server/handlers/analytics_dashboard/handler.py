@@ -23,6 +23,7 @@ from ._shared import (
     check_permission,
     error_response,
     extract_user_from_request,
+    rbac_fail_closed,
     get_string_param,
     json_response,
     logger,
@@ -59,6 +60,8 @@ class AnalyticsDashboardHandler(
             None otherwise.
         """
         if not RBAC_AVAILABLE or extract_user_from_request is None:
+            # SECURITY: In production, deny access when RBAC is unavailable
+            # rather than silently skipping permission checks.
             return None
 
         try:
@@ -91,6 +94,11 @@ class AnalyticsDashboardHandler(
             None if allowed, error HandlerResult if denied
         """
         if not RBAC_AVAILABLE:
+            # SECURITY: Fail closed in production when RBAC module is unavailable
+            if rbac_fail_closed():
+                return error_response(
+                    "Service unavailable: access control module not loaded", 503
+                )
             logger.debug(f"RBAC not available, allowing {permission_key}")
             return None
 

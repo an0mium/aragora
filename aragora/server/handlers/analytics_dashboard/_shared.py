@@ -35,7 +35,9 @@ PERM_ANALYTICS_TOKENS = "analytics:tokens:read"
 PERM_ANALYTICS_FLIPS = "analytics:flips:read"
 PERM_ANALYTICS_DELIBERATIONS = "analytics:deliberations:read"
 
-# RBAC imports (optional - graceful degradation if not available)
+# RBAC imports (optional - graceful degradation in dev, fail-closed in production)
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 try:
     from aragora.rbac import (
         AuthorizationContext,
@@ -46,6 +48,8 @@ try:
 
     RBAC_AVAILABLE = True
 except ImportError:
+    # SECURITY: In production, rbac_fail_closed() returns True and handlers
+    # using RBAC_AVAILABLE must deny access rather than skip checks.
     RBAC_AVAILABLE = False
     AuthorizationContext = None  # type: ignore[misc]
     check_permission = None  # type: ignore[misc]
@@ -159,6 +163,7 @@ __all__ = [
     "PERM_ANALYTICS_WRITE",
     "PermissionDeniedError",
     "RBAC_AVAILABLE",
+    "rbac_fail_closed",
     "_run_async",
     "cached_analytics",
     "cached_analytics_org",

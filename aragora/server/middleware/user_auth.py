@@ -29,6 +29,7 @@ Usage:
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -256,10 +257,21 @@ class SupabaseAuthValidator:
             )
 
         # Cache for validated tokens (short TTL)
-        # Stores: (user, cached_at, token_exp)
+        # Stores: (user, cached_at, token_exp) keyed by SHA-256 hash of token.
+        # SECURITY: Raw tokens are NOT stored as dictionary keys to prevent
+        # extraction from memory dumps. Only the hash is used as the key.
         self._cache: dict[str, tuple[User, float, float]] = {}
         self._cache_ttl = 30  # 30 seconds (reduced from 60s for revocation safety)
         self._cache_max_size = 10_000  # Prevent unbounded growth
+
+    @staticmethod
+    def _hash_token(token: str) -> str:
+        """Hash a token for use as a cache key.
+
+        SECURITY: We never store raw tokens as dict keys. Using SHA-256
+        means a memory dump will not reveal the original token values.
+        """
+        return hashlib.sha256(token.encode()).hexdigest()
 
     def validate_jwt(self, token: str) -> User | None:
         """
@@ -274,16 +286,17 @@ class SupabaseAuthValidator:
         if not token:
             return None
 
-        # Check cache first
-        if token in self._cache:
-            user, cached_at, token_exp = self._cache[token]
+        # Check cache first (using hashed token as key)
+        cache_key = self._hash_token(token)
+        if cache_key in self._cache:
+            user, cached_at, token_exp = self._cache[cache_key]
             now = time.time()
             # Must pass BOTH cache freshness AND token expiration
             if now - cached_at < self._cache_ttl and now < token_exp:
                 return user
             else:
                 # Cache stale or token expired - remove it
-                del self._cache[token]
+                del self._cache[cache_key]
                 if now >= token_exp:
                     logger.debug("Cached token expired, re-validating")
                     return None  # Don't re-validate expired tokens
@@ -359,7 +372,7 @@ class SupabaseAuthValidator:
             # Extract user info
             user = self._payload_to_user(payload)
 
-            # Cache the result with token expiration time
+            # Cache the result with token expiration time (keyed by hash, not raw token)
             # Default to cache_ttl from now if no exp claim (shouldn't happen with valid JWTs)
             token_exp = payload.get("exp", time.time() + self._cache_ttl)
 
@@ -367,7 +380,7 @@ class SupabaseAuthValidator:
             if len(self._cache) >= self._cache_max_size:
                 self._evict_stale_cache_entries()
 
-            self._cache[token] = (user, time.time(), token_exp)
+            self._cache[cache_key] = (user, time.time(), token_exp)
 
             return user
 
@@ -495,8 +508,14 @@ class APIKeyValidator:
 
     def __init__(self, storage: Any | None = None):
         self._storage = storage
+        # SECURITY: Cache keyed by SHA-256 hash of API key, not the raw key.
         self._cache: dict[str, tuple[User, float]] = {}
         self._cache_ttl = 300  # 5 minutes
+
+    @staticmethod
+    def _hash_key(key: str) -> str:
+        """Hash an API key for use as a cache key."""
+        return hashlib.sha256(key.encode()).hexdigest()
 
     async def validate_key(self, key: str) -> User | None:
         """
@@ -511,18 +530,17 @@ class APIKeyValidator:
         if not key or not key.startswith("ara_"):
             return None
 
-        # Check cache
-        if key in self._cache:
-            user, cached_at = self._cache[key]
+        # Check cache (using hashed key, not raw API key)
+        cache_key = self._hash_key(key)
+        if cache_key in self._cache:
+            user, cached_at = self._cache[cache_key]
             if time.time() - cached_at < self._cache_ttl:
                 return user
             else:
-                del self._cache[key]
+                del self._cache[cache_key]
 
         # Look up key in storage
         try:
-            import hashlib
-
             key_hash = hashlib.sha256(key.encode()).hexdigest()
 
             # Query storage for key
@@ -533,7 +551,7 @@ class APIKeyValidator:
                     if user:
                         # Update last_used
                         await self._storage.update_api_key_usage(api_key_record["id"])
-                        self._cache[key] = (user, time.time())
+                        self._cache[cache_key] = (user, time.time())
                         return user
 
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:

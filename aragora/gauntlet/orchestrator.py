@@ -259,7 +259,18 @@ class GauntletResult:
     @property
     def checksum(self) -> str:
         """Generate integrity checksum for the result."""
-        content = f"{self.gauntlet_id}:{self.verdict.value}:{self.confidence}:{self.total_findings}"
+        import json as _json
+
+        content = _json.dumps(
+            {
+                "gauntlet_id": self.gauntlet_id,
+                "verdict": self.verdict.value,
+                "confidence": self.confidence,
+                "total_findings": self.total_findings,
+            },
+            sort_keys=True,
+            default=str,
+        )
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
     def to_dict(self) -> dict:

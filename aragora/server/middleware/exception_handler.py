@@ -41,9 +41,24 @@ from dataclasses import dataclass, field
 from typing import Any, TypeVar, cast
 from collections.abc import AsyncGenerator, Callable
 
+import os
+
 from aragora.server.errors import safe_error_message
 
 logger = logging.getLogger(__name__)
+
+
+def _default_include_traceback() -> bool:
+    """Return whether tracebacks should be included by default.
+
+    In production environments, tracebacks are suppressed to avoid leaking
+    internal implementation details. In dev/test, they are included for
+    easier debugging.
+    """
+    env = os.getenv("ARAGORA_ENV", "").lower()
+    if env in ("production", "prod", "staging", "live"):
+        return False
+    return True
 
 # =============================================================================
 # Exception to HTTP Status Code Mapping
@@ -273,12 +288,14 @@ class ExceptionHandler:
         context: str,
         default_status: int = 500,
         log_level: str = "error",
-        include_traceback: bool = True,
+        include_traceback: bool | None = None,
     ):
         self.context = context
         self.default_status = default_status
         self.log_level = log_level
-        self.include_traceback = include_traceback
+        self.include_traceback = (
+            include_traceback if include_traceback is not None else _default_include_traceback()
+        )
         self.trace_id = generate_trace_id()
         self.error: ErrorResponse | None = None
         self.exception: Exception | None = None
@@ -344,7 +361,7 @@ async def async_exception_handler(
     context: str,
     default_status: int = 500,
     log_level: str = "error",
-    include_traceback: bool = True,
+    include_traceback: bool | None = None,
 ) -> AsyncGenerator[ExceptionHandler, None]:
     """
     Async context manager for exception handling.
@@ -354,7 +371,10 @@ async def async_exception_handler(
             result = await agent.generate(prompt)
             ctx.success(result)
     """
-    ctx = ExceptionHandler(context, default_status, log_level, include_traceback)
+    resolved_traceback = (
+        include_traceback if include_traceback is not None else _default_include_traceback()
+    )
+    ctx = ExceptionHandler(context, default_status, log_level, resolved_traceback)
     ctx.start_time = time.time()
 
     try:
@@ -371,7 +391,7 @@ async def async_exception_handler(
         )
 
         if log_level == "error":
-            logger.error(log_msg, exc_info=include_traceback)
+            logger.error(log_msg, exc_info=resolved_traceback)
         elif log_level == "warning":
             logger.warning(log_msg)
         else:
@@ -389,7 +409,7 @@ def handle_exceptions(
     context: str,
     default_status: int = 500,
     log_level: str = "error",
-    include_traceback: bool = True,
+    include_traceback: bool | None = None,
     reraise: bool = False,
 ) -> Callable[[F], F]:
     """
@@ -417,6 +437,10 @@ def handle_exceptions(
             ...
     """
 
+    resolved_traceback = (
+        include_traceback if include_traceback is not None else _default_include_traceback()
+    )
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -435,7 +459,7 @@ def handle_exceptions(
                 )
 
                 if log_level == "error":
-                    logger.error(log_msg, exc_info=include_traceback)
+                    logger.error(log_msg, exc_info=resolved_traceback)
                 elif log_level == "warning":
                     logger.warning(log_msg)
                 else:
@@ -456,7 +480,7 @@ def async_handle_exceptions(
     context: str,
     default_status: int = 500,
     log_level: str = "error",
-    include_traceback: bool = True,
+    include_traceback: bool | None = None,
     reraise: bool = False,
 ) -> Callable[[F], F]:
     """
@@ -469,6 +493,9 @@ def async_handle_exceptions(
         async def generate_response(self, prompt):
             ...
     """
+    resolved_traceback = (
+        include_traceback if include_traceback is not None else _default_include_traceback()
+    )
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
@@ -488,7 +515,7 @@ def async_handle_exceptions(
                 )
 
                 if log_level == "error":
-                    logger.error(log_msg, exc_info=include_traceback)
+                    logger.error(log_msg, exc_info=resolved_traceback)
                 elif log_level == "warning":
                     logger.warning(log_msg)
                 else:

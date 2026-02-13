@@ -192,18 +192,27 @@ class BreakGlassAccess:
     - Automatic security team notification
     - Post-incident review workflow
     - IP and user-agent tracking
+    - Configurable max duration via ARAGORA_BREAK_GLASS_MAX_MINUTES env var
 
     Security:
     - MFA should be verified before activation (not enforced here)
     - All actions during emergency are logged with break-glass flag
     - Automatic expiration prevents forgotten elevated access
     - Security team can revoke access at any time
+    - Maximum activation count per user is rate-limited
     """
 
     # Access duration limits (minutes)
-    DEFAULT_DURATION_MINUTES = 60  # 1 hour
-    MAX_DURATION_MINUTES = 24 * 60  # 24 hours
+    DEFAULT_DURATION_MINUTES = int(
+        os.environ.get("ARAGORA_BREAK_GLASS_DEFAULT_MINUTES", "60")
+    )
+    MAX_DURATION_MINUTES = int(
+        os.environ.get("ARAGORA_BREAK_GLASS_MAX_MINUTES", str(24 * 60))
+    )
     MIN_DURATION_MINUTES = 15  # 15 minutes
+
+    # Maximum concurrent active sessions per user
+    MAX_ACTIVE_PER_USER = 1
 
     # Permissions granted during emergency
     EMERGENCY_PERMISSIONS = [

@@ -878,6 +878,28 @@ class RBACMiddleware:
 
                 _emergency = get_break_glass_access()
                 if _emergency and _emergency._active_records:
+                    # First, expire stale records synchronously
+                    import datetime as _dt
+
+                    _now = _dt.datetime.now(_dt.timezone.utc)
+                    _expired_ids = [
+                        rid
+                        for rid, rec in _emergency._active_records.items()
+                        if rec.expires_at < _now
+                    ]
+                    for _eid in _expired_ids:
+                        _erec = _emergency._active_records.pop(_eid, None)
+                        if _erec:
+                            from .emergency import EmergencyAccessStatus
+
+                            _erec.status = EmergencyAccessStatus.EXPIRED
+                            _erec.deactivated_at = _now
+                            logger.info(
+                                "BREAK-GLASS AUTO-EXPIRED: id=%s user=%s",
+                                _eid,
+                                _erec.user_id,
+                            )
+
                     # Quick synchronous check: iterate active records for this user
                     user_id = getattr(context, "user_id", None)
                     if user_id:
@@ -886,11 +908,27 @@ class RBACMiddleware:
                             record = _emergency._active_records.get(rid)
                             if record and record.is_active:
                                 logger.warning(
-                                    "Emergency break-glass access: user=%s bypassing RBAC "
-                                    "for permission=%s path=%s",
+                                    "SECURITY AUDIT: Emergency break-glass bypass: "
+                                    "user=%s permission=%s path=%s method=%s "
+                                    "session_id=%s expires_at=%s",
                                     user_id,
                                     rule.permission_key,
                                     path,
+                                    method,
+                                    record.id,
+                                    record.expires_at.isoformat(),
+                                )
+                                # Record the action for post-incident review
+                                record.actions_taken.append(
+                                    {
+                                        "timestamp": _now.isoformat(),
+                                        "action": "rbac_bypass",
+                                        "resource_type": "http_request",
+                                        "resource_id": f"{method} {path}",
+                                        "details": {
+                                            "permission": rule.permission_key,
+                                        },
+                                    }
                                 )
                                 return True, "Emergency break-glass access", rule.permission_key
             except ImportError:

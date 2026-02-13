@@ -44,7 +44,9 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
 
-# RBAC imports
+# RBAC imports (fail-closed in production)
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 AuthorizationContext: Any = None
 try:
     from aragora.rbac import AuthorizationContext, check_permission
@@ -186,6 +188,11 @@ class GatewayHandler(BaseHandler):
     def _check_rbac_permission(self, handler, permission_key: str) -> HandlerResult | None:
         """Check RBAC permission. Returns None if allowed, error response if denied."""
         if not RBAC_AVAILABLE:
+            # SECURITY: Fail closed in production when RBAC module is unavailable
+            if rbac_fail_closed():
+                return error_response(
+                    "Service unavailable: access control module not loaded", 503
+                )
             return None
 
         rbac_ctx = self._get_auth_context(handler)
