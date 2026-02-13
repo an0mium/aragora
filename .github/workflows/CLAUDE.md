@@ -7,6 +7,7 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
+| #7071 | 5:19 PM | 🔴 | Fixed Python SDK Package Name in GitHub Release Workflow | ~370 |
 | #5208 | 3:25 PM | 🔵 | Docker.yml File Content Shows No continue-on-error Present | ~318 |
 | #5192 | 3:24 PM | 🔴 | Increased Smoke Tests Timeout from 5 to 10 Minutes | ~348 |
 | #5188 | " | 🔵 | Complete Smoke Tests Workflow - Three Jobs with Different Scopes | ~429 |

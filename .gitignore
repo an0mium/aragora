@@ -207,3 +207,4 @@ data/
 consolidated/
 docs/openapi_generated.json
 .testfixer/
+.tmp/

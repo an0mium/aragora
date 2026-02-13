@@ -163,16 +163,29 @@ class MockKnowledgeMound:
         query: str,
         limit: int = 10,
         workspace_id: str = "default",
-    ) -> list[dict[str, Any]]:
+    ) -> Any:
         # Return pre-configured results or search items
         if self._query_results:
-            return self._query_results[:limit]
+            items = self._query_results[:limit]
+        else:
+            items = []
+            for item in self._items.values():
+                if query.lower() in item.get("content", "").lower():
+                    items.append(item)
+            items = items[:limit]
 
-        results = []
-        for item in self._items.values():
-            if query.lower() in item.get("content", "").lower():
-                results.append(item)
-        return results[:limit]
+        # Wrap dicts as objects with attributes to match KnowledgeMound interface
+        class KnowledgeItem:
+            def __init__(self, data: dict) -> None:
+                self.id = data.get("id", "")
+                self.content = data.get("content", "")
+                self.metadata = data.get("metadata", {})
+                self.confidence = data.get("confidence", 0.8)
+
+        class QueryResult:
+            def __init__(self, result_items: list) -> None:
+                self.items = [KnowledgeItem(i) if isinstance(i, dict) else i for i in result_items]
+        return QueryResult(items)
 
     def set_query_results(self, results: list[dict[str, Any]]) -> None:
         """Pre-configure query results for testing."""

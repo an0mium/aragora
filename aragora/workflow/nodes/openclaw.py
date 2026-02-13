@@ -125,6 +125,10 @@ class OpenClawActionStep(BaseStep):
             logger.error("Browser action requires 'url' config")
             return False
 
+        if cfg.action_type == "screenshot" and not cfg.url:
+            logger.error("Screenshot action requires 'url' config")
+            return False
+
         if cfg.action_type == "keyboard":
             has_text = bool(cfg.text or cfg.content or cfg.params.get("text"))
             if not has_text:

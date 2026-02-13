@@ -17,12 +17,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hmac
 import json
 import logging
 import os
 import signal
 import sys
 from typing import Any
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +60,21 @@ class StandaloneGatewayServer:
         policy_file: str | None = None,
         default_policy: str = DEFAULT_POLICY,
         cors_origins: list[str] | None = None,
+        api_key: str | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.policy_file = policy_file
         self.default_policy = default_policy
-        self.cors_origins = cors_origins or ["*"]
+        # F05: Default to localhost only, not wildcard
+        self.cors_origins = cors_origins or ["http://localhost:3000"]
+        # F01: API key auth — from parameter or environment
+        self._api_key = api_key or os.environ.get("ARAGORA_OPENCLAW_API_KEY")
+        if not self._api_key:
+            logger.warning(
+                "No API key configured. Set ARAGORA_OPENCLAW_API_KEY or pass "
+                "--api-key to enable authentication. The gateway is UNPROTECTED."
+            )
         self._handler: Any = None
         self._running = False
 
@@ -179,6 +190,16 @@ class StandaloneGatewayServer:
                     "version": self._get_version(),
                 })
                 return
+
+            # F01: API key authentication for all API routes
+            if self._api_key:
+                auth_header = headers.get("authorization", "")
+                provided_key = ""
+                if auth_header.startswith("Bearer "):
+                    provided_key = auth_header[7:]
+                if not provided_key or not hmac.compare_digest(provided_key, self._api_key):
+                    await self._send_response(writer, 401, {"error": "Unauthorized"})
+                    return
 
             # Route to handler
             if not path.startswith("/api/gateway/openclaw/"):

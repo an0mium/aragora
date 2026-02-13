@@ -14,12 +14,11 @@ from aragora.cli.commands.quickstart import (
     _detect_agents,
     _get_question,
     _load_dotenv,
-    _receipt_to_html,
-    _receipt_to_markdown,
     _save_receipt,
     add_quickstart_parser,
     cmd_quickstart,
 )
+from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
 
 # =============================================================================
@@ -147,14 +146,20 @@ class TestGetQuestion:
         args = argparse.Namespace(question="Test Q")
         assert _get_question(args) == "Test Q"
 
+    def test_demo_uses_default_question(self):
+        args = argparse.Namespace(question=None, demo=True)
+        result = _get_question(args)
+        assert result is not None
+        assert "microservices" in result.lower() or "monolith" in result.lower()
+
     def test_interactive_prompt(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "Interactive Q")
-        args = argparse.Namespace(question=None)
+        args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) == "Interactive Q"
 
     def test_empty_input_returns_none(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "")
-        args = argparse.Namespace(question=None)
+        args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) is None
 
 
@@ -175,14 +180,14 @@ class TestReceiptFormatting:
     }
 
     def test_markdown(self):
-        md = _receipt_to_markdown(self.SAMPLE)
+        md = receipt_to_markdown(self.SAMPLE)
         assert "# Decision Receipt" in md
         assert "Migrate to K8s?" in md
         assert "85%" in md
         assert "Timeline risk" in md
 
     def test_html(self):
-        html = _receipt_to_html(self.SAMPLE)
+        html = receipt_to_html(self.SAMPLE)
         assert "<!DOCTYPE html>" in html
         assert "Migrate to K8s?" in html
         assert "85%" in html
@@ -220,6 +225,7 @@ class TestCmdQuickstart:
             output=None,
             format="json",
             rounds=2,
+            no_browser=True,
         )
         # Mock the aragora_debate imports
         with patch(
@@ -245,10 +251,11 @@ class TestCmdQuickstart:
         """Test that missing question causes exit."""
         args = argparse.Namespace(
             question=None,
-            demo=True,
+            demo=False,
             output=None,
             format="json",
             rounds=2,
+            no_browser=True,
         )
         with patch("builtins.input", side_effect=EOFError):
             with pytest.raises(SystemExit):
@@ -263,6 +270,7 @@ class TestCmdQuickstart:
             output=output_path,
             format="json",
             rounds=2,
+            no_browser=True,
         )
         with patch(
             "aragora.cli.commands.quickstart._run_demo_debate",

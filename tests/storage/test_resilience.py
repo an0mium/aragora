@@ -110,7 +110,7 @@ class TestResilientConnectionInit:
         db_path = str(tmp_path / "test.db")
         conn = ResilientConnection(db_path)
 
-        assert conn.db_path == db_path
+        assert conn.db_path == Path(db_path)
         assert conn.max_retries == 3
         assert conn.base_delay == 0.1
         assert conn.max_delay == 2.0
