@@ -14,6 +14,7 @@ split-brain scenarios. Set ARAGORA_SINGLE_INSTANCE=true for single-node deployme
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -25,6 +26,15 @@ from collections.abc import Callable
 from aragora.observability import get_logger
 
 logger = get_logger(__name__)
+
+
+def _redis_ttl_seconds(ttl_seconds: float) -> int:
+    """Convert TTL to Redis integer seconds.
+
+    Redis EX/EXPIRE only accept integer seconds. We round up and clamp to 1 so
+    sub-second TTL configs do not become 0 and expire immediately.
+    """
+    return max(1, int(math.ceil(ttl_seconds)))
 
 
 def is_distributed_state_required() -> bool:
@@ -333,7 +343,7 @@ class LeaderElection:
                 lock_key,
                 lock_value,
                 nx=True,
-                ex=int(self._config.lock_ttl_seconds),
+                ex=_redis_ttl_seconds(self._config.lock_ttl_seconds),
             )
 
             if result:
@@ -371,7 +381,7 @@ class LeaderElection:
                 return False
 
             # Refresh TTL
-            await self._redis.expire(lock_key, int(self._config.lock_ttl_seconds))
+            await self._redis.expire(lock_key, _redis_ttl_seconds(self._config.lock_ttl_seconds))
 
             # Update heartbeat
             info_key = f"{self._config.key_prefix}info"
@@ -819,7 +829,7 @@ class RegionalLeaderElection(LeaderElection):
                 global_key,
                 self._config.node_id,
                 nx=True,
-                ex=int(self._regional_config.lock_ttl_seconds * 2),  # Longer TTL for global
+                ex=_redis_ttl_seconds(self._regional_config.lock_ttl_seconds * 2),
             )
 
             if result:

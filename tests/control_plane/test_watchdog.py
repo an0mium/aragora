@@ -192,8 +192,11 @@ class TestWatchdogIssue:
             message="Test",
         )
         assert issue.id.startswith("issue-")
-        # ID should be "issue-" followed by digits
-        assert issue.id[6:].isdigit()
+        # ID format is "issue-<millis>-<counter>".
+        suffix = issue.id.removeprefix("issue-")
+        millis, counter = suffix.split("-", 1)
+        assert millis.isdigit()
+        assert counter.isdigit()
 
     def test_to_dict(self, issue: WatchdogIssue):
         """Test serialization to dict."""
