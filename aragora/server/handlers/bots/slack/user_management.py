@@ -14,6 +14,8 @@ from typing import Any
 from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import HandlerResult, error_response
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .constants import (
     PERM_SLACK_ADMIN,
     RBAC_AVAILABLE,
@@ -174,6 +176,8 @@ def check_user_permission(
         Error response if permission denied, None if allowed
     """
     if not RBAC_AVAILABLE or check_permission is None:
+        if rbac_fail_closed():
+            return error_response("Service unavailable: access control module not loaded", 503)
         # RBAC not available - allow access (rely on signature verification)
         return None
 
@@ -242,6 +246,8 @@ def check_user_permission_or_admin(
         Error response if permission denied, None if allowed
     """
     if not RBAC_AVAILABLE or check_permission is None:
+        if rbac_fail_closed():
+            return error_response("Service unavailable: access control module not loaded", 503)
         return None
 
     context = build_auth_context_from_slack(team_id, user_id, channel_id)

@@ -22,6 +22,8 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.openapi_decorator import api_endpoint
 
+from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
+
 from .core import (
     logger,
     _run_async,
@@ -386,6 +388,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         If RBAC is not available, allows the request (development mode).
         """
         if not self._rbac_enabled():
+            if rbac_fail_closed():
+                return error_response("Service unavailable: access control module not loaded", 503)
             logger.debug("RBAC not available, allowing %s", permission_key)
             return None
 
