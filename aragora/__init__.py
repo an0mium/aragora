@@ -420,9 +420,6 @@ _EXPORT_MAP = {
     "OnboardingWizard": ("aragora.onboarding", "OnboardingWizard"),
     "OnboardingSession": ("aragora.onboarding", "OnboardingSession"),
     "OnboardingStep": ("aragora.onboarding", "OnboardingStep"),
-    # Voice (wake word detection)
-    "WakeWordDetector": ("aragora.voice", "WakeWordDetector"),
-    "VoiceConfig": ("aragora.voice", "VoiceConfig"),
     "can_use_tool": ("aragora.modes", "can_use_tool"),
     "cluster_suggestions": ("aragora.audience", "cluster_suggestions"),
     "compute_claim_reliability": ("aragora.reasoning", "compute_claim_reliability"),
@@ -846,9 +843,6 @@ __all__ = [
     "OnboardingWizard",
     "OnboardingSession",
     "OnboardingStep",
-    # Voice (wake word detection)
-    "WakeWordDetector",
-    "VoiceConfig",
     # Canonical shared types (aragora.core.types)
     "HealthLevel",
     "ValidationResult",
