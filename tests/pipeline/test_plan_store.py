@@ -1,0 +1,205 @@
+"""Tests for PlanStore - SQLite-backed DecisionPlan persistence."""
+
+from __future__ import annotations
+
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+from aragora.pipeline.decision_plan.core import (
+    ApprovalMode,
+    BudgetAllocation,
+    DecisionPlan,
+    PlanStatus,
+)
+from aragora.pipeline.plan_store import PlanStore
+
+
+@pytest.fixture
+def store(tmp_path: Path) -> PlanStore:
+    """Create a PlanStore with a temp database."""
+    db_path = str(tmp_path / "test_plans.db")
+    return PlanStore(db_path=db_path)
+
+
+@pytest.fixture
+def sample_plan() -> DecisionPlan:
+    """Create a sample DecisionPlan for testing."""
+    return DecisionPlan(
+        id="dp-test-001",
+        debate_id="debate-abc",
+        task="Implement rate limiting for API endpoints",
+        status=PlanStatus.AWAITING_APPROVAL,
+        approval_mode=ApprovalMode.RISK_BASED,
+        budget=BudgetAllocation(limit_usd=10.0, estimated_usd=5.0, spent_usd=1.0),
+        metadata={"priority": "high", "action_items": [{"description": "Add rate limiter"}]},
+    )
+
+
+class TestPlanStoreCreate:
+    """Tests for plan creation."""
+
+    def test_create_and_get(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
+        store.create(sample_plan)
+        retrieved = store.get(sample_plan.id)
+
+        assert retrieved is not None
+        assert retrieved.id == sample_plan.id
+        assert retrieved.debate_id == "debate-abc"
+        assert retrieved.task == "Implement rate limiting for API endpoints"
+        assert retrieved.status == PlanStatus.AWAITING_APPROVAL
+        assert retrieved.approval_mode == ApprovalMode.RISK_BASED
+
+    def test_create_preserves_budget(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
+        store.create(sample_plan)
+        retrieved = store.get(sample_plan.id)
+
+        assert retrieved is not None
+        assert retrieved.budget.limit_usd == 10.0
+        assert retrieved.budget.estimated_usd == 5.0
+        assert retrieved.budget.spent_usd == 1.0
+
+    def test_create_preserves_metadata(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
+        store.create(sample_plan)
+        retrieved = store.get(sample_plan.id)
+
+        assert retrieved is not None
+        assert retrieved.metadata["priority"] == "high"
+        assert len(retrieved.metadata["action_items"]) == 1
+
+    def test_get_nonexistent_returns_none(self, store: PlanStore) -> None:
+        assert store.get("does-not-exist") is None
+
+
+class TestPlanStoreList:
+    """Tests for listing plans."""
+
+    def test_list_all(self, store: PlanStore) -> None:
+        for i in range(5):
+            plan = DecisionPlan(
+                id=f"dp-list-{i}",
+                debate_id=f"debate-{i}",
+                task=f"Task {i}",
+                status=PlanStatus.AWAITING_APPROVAL,
+            )
+            store.create(plan)
+
+        plans = store.list()
+        assert len(plans) == 5
+
+    def test_list_filter_by_status(self, store: PlanStore) -> None:
+        store.create(DecisionPlan(
+            id="dp-approved", debate_id="d1", task="T1", status=PlanStatus.APPROVED,
+        ))
+        store.create(DecisionPlan(
+            id="dp-pending", debate_id="d2", task="T2", status=PlanStatus.AWAITING_APPROVAL,
+        ))
+
+        approved = store.list(status=PlanStatus.APPROVED)
+        assert len(approved) == 1
+        assert approved[0].id == "dp-approved"
+
+        pending = store.list(status=PlanStatus.AWAITING_APPROVAL)
+        assert len(pending) == 1
+        assert pending[0].id == "dp-pending"
+
+    def test_list_filter_by_debate_id(self, store: PlanStore) -> None:
+        store.create(DecisionPlan(id="dp-a", debate_id="debate-x", task="T1"))
+        store.create(DecisionPlan(id="dp-b", debate_id="debate-x", task="T2"))
+        store.create(DecisionPlan(id="dp-c", debate_id="debate-y", task="T3"))
+
+        plans = store.list(debate_id="debate-x")
+        assert len(plans) == 2
+        assert all(p.debate_id == "debate-x" for p in plans)
+
+    def test_list_with_limit_and_offset(self, store: PlanStore) -> None:
+        for i in range(10):
+            store.create(DecisionPlan(id=f"dp-page-{i}", debate_id="d", task=f"T{i}"))
+
+        page1 = store.list(limit=3, offset=0)
+        assert len(page1) == 3
+
+        page2 = store.list(limit=3, offset=3)
+        assert len(page2) == 3
+
+        # IDs should not overlap
+        ids1 = {p.id for p in page1}
+        ids2 = {p.id for p in page2}
+        assert ids1.isdisjoint(ids2)
+
+    def test_count(self, store: PlanStore) -> None:
+        store.create(DecisionPlan(id="dp-c1", debate_id="d1", task="T1", status=PlanStatus.APPROVED))
+        store.create(DecisionPlan(id="dp-c2", debate_id="d1", task="T2", status=PlanStatus.APPROVED))
+        store.create(DecisionPlan(id="dp-c3", debate_id="d2", task="T3", status=PlanStatus.REJECTED))
+
+        assert store.count() == 3
+        assert store.count(status=PlanStatus.APPROVED) == 2
+        assert store.count(debate_id="d1") == 2
+        assert store.count(debate_id="d1", status=PlanStatus.APPROVED) == 2
+        assert store.count(debate_id="d2", status=PlanStatus.APPROVED) == 0
+
+
+class TestPlanStoreUpdate:
+    """Tests for plan status updates."""
+
+    def test_update_status_approve(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
+        store.create(sample_plan)
+        result = store.update_status(
+            sample_plan.id, PlanStatus.APPROVED, approved_by="user-42"
+        )
+
+        assert result is True
+        plan = store.get(sample_plan.id)
+        assert plan is not None
+        assert plan.status == PlanStatus.APPROVED
+        assert plan.approval_record is not None
+        assert plan.approval_record.approved is True
+        assert plan.approval_record.approver_id == "user-42"
+
+    def test_update_status_reject(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
+        store.create(sample_plan)
+        result = store.update_status(
+            sample_plan.id,
+            PlanStatus.REJECTED,
+            approved_by="user-99",
+            rejection_reason="Too risky",
+        )
+
+        assert result is True
+        plan = store.get(sample_plan.id)
+        assert plan is not None
+        assert plan.status == PlanStatus.REJECTED
+        assert plan.approval_record is not None
+        assert plan.approval_record.approved is False
+        assert plan.approval_record.reason == "Too risky"
+
+    def test_update_nonexistent_returns_false(self, store: PlanStore) -> None:
+        result = store.update_status("ghost", PlanStatus.APPROVED)
+        assert result is False
+
+
+class TestPlanStoreDelete:
+    """Tests for plan deletion."""
+
+    def test_delete_existing(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
+        store.create(sample_plan)
+        assert store.delete(sample_plan.id) is True
+        assert store.get(sample_plan.id) is None
+
+    def test_delete_nonexistent(self, store: PlanStore) -> None:
+        assert store.delete("ghost") is False
+
+
+class TestPlanStoreCombinedFilters:
+    """Tests combining multiple filters."""
+
+    def test_filter_by_status_and_debate(self, store: PlanStore) -> None:
+        store.create(DecisionPlan(id="dp-1", debate_id="dA", task="T", status=PlanStatus.APPROVED))
+        store.create(DecisionPlan(id="dp-2", debate_id="dA", task="T", status=PlanStatus.REJECTED))
+        store.create(DecisionPlan(id="dp-3", debate_id="dB", task="T", status=PlanStatus.APPROVED))
+
+        result = store.list(debate_id="dA", status=PlanStatus.APPROVED)
+        assert len(result) == 1
+        assert result[0].id == "dp-1"
