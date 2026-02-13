@@ -24,7 +24,7 @@ class TestConfigValueRetrieval:
 
     def test_get_config_from_environment(self):
         """Test getting config value from environment variable."""
-        from aragora.server.startup import _get_config_value
+        from aragora.server.startup.validation import _get_config_value
 
         with patch.dict(os.environ, {"TEST_CONFIG_VALUE": "test_value"}):
             result = _get_config_value("TEST_CONFIG_VALUE")
@@ -32,7 +32,7 @@ class TestConfigValueRetrieval:
 
     def test_get_config_from_environment_missing(self):
         """Test getting missing config value returns None."""
-        from aragora.server.startup import _get_config_value
+        from aragora.server.startup.validation import _get_config_value
 
         with patch.dict(os.environ, {}, clear=True):
             result = _get_config_value("NONEXISTENT_CONFIG")
@@ -40,7 +40,7 @@ class TestConfigValueRetrieval:
 
     def test_get_config_prefers_environment(self):
         """Test that environment takes precedence over secrets manager."""
-        from aragora.server.startup import _get_config_value
+        from aragora.server.startup.validation import _get_config_value
 
         with patch.dict(os.environ, {"MY_CONFIG": "env_value"}):
             result = _get_config_value("MY_CONFIG")

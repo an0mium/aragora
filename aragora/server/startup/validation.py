@@ -28,7 +28,8 @@ def _get_config_value(name: str) -> str | None:
         return get_secret(name)
     except ImportError:
         return None
-    except (ValueError, KeyError, TypeError, OSError, RuntimeError):
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError, Exception):
+        # Catches SecretNotFoundError and other secrets manager errors
         return None
 
 
@@ -368,6 +369,12 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
         return False, f"Redis connection timed out after {timeout_seconds}s"
     except (ConnectionError, OSError, ValueError, RuntimeError) as e:
         return False, f"Redis connection failed: {e}"
+    except Exception as e:
+        # Catch redis.exceptions.ConnectionError and other client-specific errors
+        # (redis.exceptions.ConnectionError is NOT a subclass of builtin ConnectionError)
+        if "ConnectionError" in type(e).__name__ or "redis" in type(e).__module__:
+            return False, f"Redis connection failed: {e}"
+        raise
 
 
 async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[bool, str]:
