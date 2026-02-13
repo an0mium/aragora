@@ -14,10 +14,13 @@ on:
       - 'scripts/check_capability_matrix_sync.py'
       - 'scripts/check_legacy_entrypoints.py'
       - 'scripts/capability_matrix_delta.py'
+      - 'scripts/generate_cli_reference.py'
       - 'aragora/capabilities.yaml'
       - 'aragora/capability_surfaces.yaml'
       - 'docs/CAPABILITY_MATRIX.md'
+      - 'docs/reference/CLI_REFERENCE.md'
       - 'docs-site/docs/contributing/capability-matrix.md'
+      - 'docs-site/docs/api/cli.md'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main]
@@ -32,10 +35,13 @@ on:
       - 'scripts/check_capability_matrix_sync.py'
       - 'scripts/check_legacy_entrypoints.py'
       - 'scripts/capability_matrix_delta.py'
+      - 'scripts/generate_cli_reference.py'
       - 'aragora/capabilities.yaml'
       - 'aragora/capability_surfaces.yaml'
       - 'docs/CAPABILITY_MATRIX.md'
+      - 'docs/reference/CLI_REFERENCE.md'
       - 'docs-site/docs/contributing/capability-matrix.md'
+      - 'docs-site/docs/api/cli.md'
       - '.github/workflows/test.yml'
   workflow_dispatch:
   schedule:
@@ -111,6 +117,9 @@ jobs:
 
       - name: Check command guidance drift
         run: python scripts/check_legacy_entrypoints.py
+
+      - name: Check CLI reference is up to date
+        run: python scripts/generate_cli_reference.py --check
 
       - name: Fetch PR base branch for capability summary
         if: github.event_name == 'pull_request'

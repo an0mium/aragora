@@ -44,14 +44,25 @@ def _count_openapi(openapi_path: Path) -> tuple[int, int]:
 
 
 def _count_cli_commands(repo_root: Path) -> int:
-    """Count top-level CLI commands from parser declarations.
+    """Count top-level CLI command invocations from the live parser.
 
-    This uses static source scanning to keep generation deterministic and fast
-    in CI (avoids heavy runtime imports).
+    We prefer runtime parser introspection because many top-level commands are
+    registered via helper modules rather than direct `subparsers.add_parser(...)`
+    calls in `aragora/cli/parser.py`.
     """
-    parser_path = repo_root / "aragora" / "cli" / "parser.py"
-    text = parser_path.read_text(encoding="utf-8")
-    return len(re.findall(r"\bsubparsers\.add_parser\(", text))
+    try:
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        for action in parser._actions:  # noqa: SLF001 - argparse internals
+            if getattr(action, "choices", None):
+                return len(action.choices)
+    except Exception:
+        # Fallback to static scan to avoid hard failure if parser imports change.
+        parser_path = repo_root / "aragora" / "cli" / "parser.py"
+        text = parser_path.read_text(encoding="utf-8")
+        return len(re.findall(r"\bsubparsers\.add_parser\(", text))
+    return 0
 
 
 def _count_python_sdk_namespaces(repo_root: Path) -> int:
