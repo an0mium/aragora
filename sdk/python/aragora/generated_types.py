@@ -16,7 +16,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import AnyUrl, BaseModel, Extra, Field
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field
 
 
 class Code(StrEnum):
@@ -2182,8 +2182,7 @@ class AnalyticsOutcomeConfidenceBucket(BaseModel):
 
 
 class Outcomes(BaseModel):
-    class Config:
-        extra = Extra.forbid
+    model_config = ConfigDict(extra="forbid")
 
     consensus: int | None = None
     majority: int | None = None
