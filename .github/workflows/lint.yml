@@ -118,10 +118,15 @@ jobs:
       - name: Check AGENTS registry sync
         run: python scripts/check_agent_registry_sync.py
 
+      - name: Check doc agent-count drift
+        run: python scripts/check_agent_registry_drift.py
+
       - name: Agent registry repro hint
         if: failure()
         run: |
-          echo "Reproduce locally: python scripts/check_agent_registry_sync.py"
+          echo "Reproduce locally:"
+          echo "  python scripts/check_agent_registry_sync.py"
+          echo "  python scripts/check_agent_registry_drift.py"
 
   typecheck:
     runs-on: ubuntu-latest

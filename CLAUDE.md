@@ -79,7 +79,7 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 ## Project Overview
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 30+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
+Aragora is the **Decision Integrity Platform** -- orchestrating 42 agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel. It implements self-improvement through the **Nomic Loop** -- an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
