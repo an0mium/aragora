@@ -31,7 +31,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from aragora.sandbox.executor import ExecutionStatus
 from aragora.sandbox.policies import (

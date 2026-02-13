@@ -15,7 +15,7 @@ Provides REST API endpoints for interacting with ERC-8004 registries:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Awaitable
 
 from aragora.server.handlers.base import (

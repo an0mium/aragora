@@ -30,7 +30,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.storage.generic_store import (
     GenericInMemoryStore,

@@ -228,7 +228,6 @@ def _cmd_eu_ai_act_generate(args: argparse.Namespace) -> None:
     """Generate EU AI Act compliance artifact bundle."""
     from aragora.compliance.eu_ai_act import (
         ComplianceArtifactGenerator,
-        RiskClassifier,
     )
 
     # Load or create receipt

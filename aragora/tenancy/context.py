@@ -22,7 +22,6 @@ from functools import wraps
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     ParamSpec,
     TypeVar,
     cast,

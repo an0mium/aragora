@@ -11,7 +11,7 @@ import hashlib
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.storage.token_blacklist_store import BlacklistBackend

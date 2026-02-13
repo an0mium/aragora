@@ -16,7 +16,7 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from re import Pattern
 
 from .models import SecretFinding, SecretsScanResult, SecretType, VulnerabilitySeverity

@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 from uuid import uuid4
 
 

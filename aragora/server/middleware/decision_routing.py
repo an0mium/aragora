@@ -37,7 +37,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Literal, Optional, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)

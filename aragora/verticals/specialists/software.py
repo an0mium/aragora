@@ -8,7 +8,7 @@ code review, security analysis, architecture design, and best practices.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.verticals.base import VerticalSpecialistAgent
 from aragora.verticals.config import (

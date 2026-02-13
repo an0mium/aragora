@@ -16,7 +16,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 from urllib.parse import urlencode
 

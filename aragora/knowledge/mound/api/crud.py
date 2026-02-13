@@ -23,7 +23,7 @@ import logging
 import uuid
 from collections.abc import Generator
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 # Distributed tracing support
 from contextlib import contextmanager

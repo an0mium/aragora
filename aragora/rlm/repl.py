@@ -20,7 +20,7 @@ import re
 import threading
 from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from .types import AbstractionLevel, RLMConfig, RLMContext, RLMResult

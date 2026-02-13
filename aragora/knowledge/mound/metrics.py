@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Generator
 
 from aragora.resilience.health import HealthStatus

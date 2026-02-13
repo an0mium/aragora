@@ -23,7 +23,6 @@ from pathlib import Path
 
 from .checkpoint import (
     SAFE_CHECKPOINT_ID,
-    CheckpointStatus,
     CheckpointStore,
     DebateCheckpoint,
 )

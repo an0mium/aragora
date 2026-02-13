@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext

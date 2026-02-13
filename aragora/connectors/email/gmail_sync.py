@@ -77,7 +77,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.server.http_client_pool import get_http_pool

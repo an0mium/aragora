@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     cast,
 )
 from collections.abc import Callable

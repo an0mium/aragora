@@ -25,7 +25,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from collections.abc import Callable
 
 if TYPE_CHECKING:

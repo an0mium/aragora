@@ -15,7 +15,7 @@ orchestrator_domains.py, and orchestrator_output.py. Consolidated for maintainab
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.debate.checkpoint_ops import CheckpointOperations
 from aragora.debate.event_emission import EventEmitter

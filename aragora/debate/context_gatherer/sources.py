@@ -13,7 +13,7 @@ Contains methods for gathering context from various sources:
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from .constants import (

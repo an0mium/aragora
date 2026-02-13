@@ -21,7 +21,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Union, TYPE_CHECKING
+from typing import Any, Union, TYPE_CHECKING
 
 from aragora.config import resolve_db_path
 

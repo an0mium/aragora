@@ -31,7 +31,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.observability import get_logger
 from aragora.control_plane.scheduler import Task, RegionRoutingMode

@@ -15,7 +15,7 @@ import json
 import logging
 from datetime import datetime, timezone
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import AsyncIterator
 
 if TYPE_CHECKING:

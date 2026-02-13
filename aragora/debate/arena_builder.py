@@ -63,7 +63,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.core import Agent, Environment
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol

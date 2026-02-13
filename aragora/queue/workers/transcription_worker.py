@@ -21,7 +21,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 from collections.abc import Callable
 
 from aragora.storage.job_queue_store import (

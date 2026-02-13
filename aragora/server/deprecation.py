@@ -24,7 +24,7 @@ import logging
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)

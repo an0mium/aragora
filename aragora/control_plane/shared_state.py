@@ -39,7 +39,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.control_plane.leader import (
     is_distributed_state_required,

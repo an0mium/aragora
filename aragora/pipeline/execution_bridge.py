@@ -18,12 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 import uuid
 
-from aragora.pipeline.decision_plan import DecisionPlan, PlanOutcome, PlanStatus
+from aragora.pipeline.decision_plan import PlanOutcome, PlanStatus
 
 if TYPE_CHECKING:
     from aragora.pipeline.executor import ExecutionMode, PlanExecutor

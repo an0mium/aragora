@@ -25,7 +25,7 @@ import time
 from abc import abstractmethod
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.storage.generic_store import (
     GenericInMemoryStore,

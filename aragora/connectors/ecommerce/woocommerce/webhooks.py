@@ -8,7 +8,7 @@ WooCommerce webhook payloads (HMAC-SHA256, base64-encoded).
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.connectors.exceptions import (
     ConnectorAPIError,

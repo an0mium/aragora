@@ -50,7 +50,7 @@ import time
 from abc import ABC
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncGenerator, Callable
 
 # asyncio.timeout is available in Python 3.11+

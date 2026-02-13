@@ -7,7 +7,7 @@ Provides helper functions for creating Slack-formatted responses.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import HandlerResult
 

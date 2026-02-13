@@ -18,7 +18,6 @@ import time
 from abc import ABC, abstractmethod
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any
 
 from aragora.exceptions import SlackNotificationError, WebhookDeliveryError
 

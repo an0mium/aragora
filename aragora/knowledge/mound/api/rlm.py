@@ -22,7 +22,7 @@ to provide type-safe access to these attributes.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, MoundConfig

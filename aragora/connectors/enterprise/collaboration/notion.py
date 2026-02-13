@@ -17,7 +17,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops

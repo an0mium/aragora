@@ -40,7 +40,7 @@ import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.knowledge.mound.adapters._types import ValidationSyncResult
 

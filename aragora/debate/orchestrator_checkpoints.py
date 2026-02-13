@@ -9,7 +9,7 @@ agents, protocol, etc.) as explicit parameters rather than reading
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.core import Critique, DebateResult, Message, Vote
 from aragora.debate.context import DebateContext

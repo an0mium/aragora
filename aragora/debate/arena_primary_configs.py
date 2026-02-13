@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.debate.protocol import CircuitBreaker

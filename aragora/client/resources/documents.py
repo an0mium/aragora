@@ -9,7 +9,7 @@ import builtins
 import base64
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..models import (
     AuditFinding,

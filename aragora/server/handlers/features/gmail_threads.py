@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from aragora.server.validation.query_params import safe_query_int
 from aragora.storage.gmail_token_store import GmailUserState

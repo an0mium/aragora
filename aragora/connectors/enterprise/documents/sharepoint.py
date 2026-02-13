@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 
 import httpx

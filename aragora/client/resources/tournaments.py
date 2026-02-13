@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import builtins
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient

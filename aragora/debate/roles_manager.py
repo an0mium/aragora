@@ -8,7 +8,7 @@ for agents participating in debates. Extracted from orchestrator.py.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker

@@ -17,7 +17,6 @@ from typing import Any, cast
 from .resolvers import (
     ResolverContext,
     ResolverResult,
-    _normalize_health_status,
     _normalize_priority,
     _normalize_task_status,
     _to_iso_datetime,

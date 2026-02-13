@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool

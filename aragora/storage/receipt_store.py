@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 import builtins
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import resolve_db_path
 

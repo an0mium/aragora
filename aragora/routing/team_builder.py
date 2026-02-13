@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import random
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile, TaskRequirements, TeamComposition

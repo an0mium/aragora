@@ -11,8 +11,8 @@ import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from typing import Any, Optional, TYPE_CHECKING, cast
+from datetime import datetime
+from typing import Any, TYPE_CHECKING, cast
 from collections.abc import Callable
 
 from .cdc_models import (

@@ -15,7 +15,7 @@ Factual lookups -> RAG, Complex reasoning -> RLM, Connected concepts -> Graph.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Any
 from enum import Enum
 import logging
 import re

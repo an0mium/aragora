@@ -38,7 +38,7 @@ import logging
 import threading
 import time
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     BaseHandler,

@@ -18,7 +18,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 from collections.abc import Coroutine
 
 from aragora.audit.unified import audit_data

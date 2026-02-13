@@ -36,7 +36,7 @@ import os
 import random
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncGenerator
 
 logger = logging.getLogger(__name__)

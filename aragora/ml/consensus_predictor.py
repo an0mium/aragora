@@ -24,7 +24,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from types import ModuleType
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Sequence
 from collections import defaultdict
 

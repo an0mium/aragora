@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 
 import httpx

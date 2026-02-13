@@ -35,7 +35,7 @@ import asyncio
 import os
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 from collections.abc import Callable
 
 from aragora.agents.base import AgentType

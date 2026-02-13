@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from aragora.audit import get_document_auditor
 from aragora.audit.evidence_adapter import EvidenceConfig, FindingEvidenceCollector

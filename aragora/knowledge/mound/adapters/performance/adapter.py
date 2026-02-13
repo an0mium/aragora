@@ -33,7 +33,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter

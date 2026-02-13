@@ -34,7 +34,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
 

@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     Protocol,
     TypedDict,
     runtime_checkable,

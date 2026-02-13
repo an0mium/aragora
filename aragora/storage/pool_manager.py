@@ -24,7 +24,7 @@ import asyncio
 import logging
 import os
 import threading
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from asyncpg import Pool

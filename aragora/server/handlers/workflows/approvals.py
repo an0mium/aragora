@@ -6,7 +6,7 @@ Provides operations for managing human-in-the-loop approval checkpoints.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 
 async def list_pending_approvals(

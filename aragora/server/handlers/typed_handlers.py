@@ -31,7 +31,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 from collections.abc import Awaitable, Callable
 
 from aragora.billing.auth.context import UserAuthContext

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, BinaryIO, Optional, Protocol
+from typing import TYPE_CHECKING, Any, BinaryIO, Protocol
 
 if TYPE_CHECKING:
     from aragora.server.middleware.rate_limit import RateLimitResult

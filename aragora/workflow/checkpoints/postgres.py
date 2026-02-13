@@ -9,7 +9,7 @@ import hashlib
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Optional
+from typing import Any
 
 from aragora.workflow.checkpoints._compat import (
     DEFAULT_CONNECTION_TIMEOUT,

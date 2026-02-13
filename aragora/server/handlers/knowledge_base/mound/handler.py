@@ -108,7 +108,7 @@ Phase A2 - Confidence Decay endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async

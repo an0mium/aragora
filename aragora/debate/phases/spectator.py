@@ -11,7 +11,7 @@ Provides a mixin class that handles:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter

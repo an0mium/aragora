@@ -29,7 +29,7 @@ import logging
 import threading
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional, ParamSpec, TypeVar, cast
+from typing import Any, ParamSpec, TypeVar, cast
 from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)

@@ -80,7 +80,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 # Generic type for adapter-specific items
 T = TypeVar("T")

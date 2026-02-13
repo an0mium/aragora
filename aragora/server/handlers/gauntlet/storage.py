@@ -18,7 +18,7 @@ import threading
 import time
 from collections import OrderedDict
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 if TYPE_CHECKING:

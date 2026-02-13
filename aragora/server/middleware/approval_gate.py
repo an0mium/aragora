@@ -44,7 +44,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional, TypeVar, ParamSpec
+from typing import Any, TypeVar, ParamSpec
 from collections.abc import Awaitable, Callable, Coroutine
 
 from aragora.rbac.models import AuthorizationContext

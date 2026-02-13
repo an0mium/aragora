@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aragora.workflow.checkpoints._compat import (
     MAX_CHECKPOINT_CACHE_SIZE,

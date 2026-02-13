@@ -43,7 +43,7 @@ from datetime import datetime, timezone
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.control_plane.leader import (

@@ -9,7 +9,7 @@ public API surface.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.core import Agent, Critique, DebateResult, Message, Vote
 from aragora.debate.config.defaults import DEBATE_DEFAULTS

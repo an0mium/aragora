@@ -30,7 +30,7 @@ from __future__ import annotations
 import warnings
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 from collections.abc import Sequence
 
 if TYPE_CHECKING:

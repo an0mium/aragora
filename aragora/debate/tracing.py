@@ -25,7 +25,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from contextlib import AbstractContextManager
 from collections.abc import Callable, Generator
 

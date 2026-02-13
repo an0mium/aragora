@@ -44,7 +44,6 @@ from enum import Enum, IntEnum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     Protocol,
 )
 from collections.abc import Callable, Coroutine

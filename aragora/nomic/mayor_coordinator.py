@@ -32,7 +32,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from aragora.nomic.agent_roles import AgentHierarchy, AgentRole

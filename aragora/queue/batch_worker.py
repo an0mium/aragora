@@ -14,7 +14,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable, Coroutine
 
 from aragora.queue.base import Job, JobQueue, JobStatus

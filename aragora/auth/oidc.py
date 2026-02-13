@@ -34,7 +34,7 @@ import secrets
 import time
 from dataclasses import dataclass, field
 from types import ModuleType
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlencode, urljoin
 
 from .sso import (

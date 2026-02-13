@@ -8,7 +8,7 @@ Provides DebateContextAdapter for formatting debate history for RLM processing.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .bridge import AragoraRLM

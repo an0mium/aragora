@@ -12,7 +12,6 @@ The "lazy person's GTM engine." Runs all the tedious tasks you don't want to do:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import shutil
@@ -20,7 +19,6 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

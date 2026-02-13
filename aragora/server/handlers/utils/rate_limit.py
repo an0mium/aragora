@@ -42,7 +42,7 @@ import threading
 import time
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 from collections.abc import Callable
 
 from aragora.server.middleware.rate_limit import (

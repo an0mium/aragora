@@ -12,7 +12,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 
 from aragora.connectors.base import Evidence

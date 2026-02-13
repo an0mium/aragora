@@ -10,17 +10,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, TYPE_CHECKING, Optional
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from aragora.agents.calibration import CalibrationTracker
-    from aragora.agents.flip_detector import FlipDetector
-    from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
     from aragora.evidence.collector import EvidencePack
-    from aragora.knowledge.mound.adapters import SupermemoryAdapter, ContextInjectionResult
+    from aragora.knowledge.mound.adapters import SupermemoryAdapter
     from aragora.pulse.types import TrendingTopic
-    from aragora.ranking.elo import EloSystem
     from aragora.rlm.types import RLMContext
 
 # Check for RLM availability

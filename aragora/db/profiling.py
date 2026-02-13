@@ -27,7 +27,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Optional, cast
+from typing import Any, cast
 from collections.abc import Callable, Iterable
 
 logger = logging.getLogger(__name__)

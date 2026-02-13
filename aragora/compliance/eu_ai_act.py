@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

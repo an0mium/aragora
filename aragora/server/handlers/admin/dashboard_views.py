@@ -24,7 +24,7 @@ from ..base import (
 from ..openapi_decorator import api_endpoint
 
 if TYPE_CHECKING:
-    from aragora.ranking.elo import EloSystem
+    pass
 
 logger = logging.getLogger(__name__)
 

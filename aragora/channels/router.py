@@ -19,7 +19,7 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from aragora.channels.dock import ChannelCapability, MessageType, SendResult
 from aragora.channels.normalized import NormalizedMessage, MessageFormat

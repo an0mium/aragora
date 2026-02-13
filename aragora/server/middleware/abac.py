@@ -27,7 +27,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)

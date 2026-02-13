@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 

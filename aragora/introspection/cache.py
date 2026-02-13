@@ -9,7 +9,7 @@ initialization and reused throughout the debate.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from .types import IntrospectionSnapshot
 

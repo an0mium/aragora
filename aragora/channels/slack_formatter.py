@@ -6,7 +6,7 @@ Formats receipts using Slack's Block Kit for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .formatter import ReceiptFormatter, register_formatter
 

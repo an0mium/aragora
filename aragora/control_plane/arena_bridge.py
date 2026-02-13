@@ -25,7 +25,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from collections.abc import Callable
 
 from aragora.control_plane.deliberation_events import DeliberationEventType

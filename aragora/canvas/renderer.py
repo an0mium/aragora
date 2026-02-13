@@ -6,7 +6,7 @@ Provides visual rendering of canvas state for various output formats.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .models import Canvas

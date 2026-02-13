@@ -11,7 +11,7 @@ when further debate rounds are unlikely to change the outcome.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Any
 from collections.abc import Iterable
 import logging
 

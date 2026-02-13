@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings

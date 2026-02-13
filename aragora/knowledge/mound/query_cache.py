@@ -36,7 +36,7 @@ import os
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from collections.abc import Callable, Generator
 
 logger = logging.getLogger(__name__)

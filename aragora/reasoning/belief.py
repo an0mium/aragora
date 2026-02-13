@@ -21,7 +21,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, TYPE_CHECKING, Protocol
+from typing import Any, TYPE_CHECKING, Protocol
 
 from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim

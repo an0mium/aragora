@@ -8,7 +8,7 @@ agent responses, and starting messages.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from .config import SLACK_BOT_TOKEN
 from .messaging import MessagingMixin

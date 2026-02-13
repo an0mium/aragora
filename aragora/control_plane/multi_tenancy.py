@@ -43,7 +43,7 @@ import logging
 import time
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from typing import Any, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)

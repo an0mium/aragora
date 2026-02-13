@@ -17,7 +17,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.billing.recommendations import (
     BatchingOpportunity,

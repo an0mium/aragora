@@ -13,7 +13,7 @@ import os
 import sqlite3
 import sys
 import time
-from typing import Any, Optional
+from typing import Any
 
 from .models import DebateOrigin
 from .stores import (

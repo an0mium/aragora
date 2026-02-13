@@ -27,7 +27,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from collections.abc import Iterator
 
 from .messages import ProtocolMessage, ProtocolMessageType

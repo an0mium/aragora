@@ -22,7 +22,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional, Protocol, cast
+from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,

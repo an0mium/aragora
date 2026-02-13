@@ -14,7 +14,7 @@ Key features:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Any, Protocol
+from typing import Any, Protocol
 from collections.abc import Callable
 from enum import Enum
 import asyncio

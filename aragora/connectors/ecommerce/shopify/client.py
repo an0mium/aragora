@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState

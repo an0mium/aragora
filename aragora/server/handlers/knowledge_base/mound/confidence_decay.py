@@ -13,7 +13,7 @@ Phase A2 - Knowledge Quality Assurance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from aragora.rbac.decorators import require_permission
 

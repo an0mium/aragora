@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from collections.abc import AsyncGenerator
-from typing import Any, Optional
+from typing import Any
 
 from aragora.connectors.enterprise.healthcare.ehr.base import (
     EHRAdapter,

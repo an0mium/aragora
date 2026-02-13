@@ -11,7 +11,7 @@ import hashlib
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.connectors.base import Connector, Evidence
 from aragora.connectors.documents.parser import (

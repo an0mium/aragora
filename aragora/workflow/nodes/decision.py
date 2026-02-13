@@ -11,7 +11,7 @@ Provides flexible decision-making logic:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval, safe_eval_bool
 from aragora.workflow.step import BaseStep, WorkflowContext

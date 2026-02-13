@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable, Coroutine
 
 from aragora.config import DEFAULT_ROUNDS

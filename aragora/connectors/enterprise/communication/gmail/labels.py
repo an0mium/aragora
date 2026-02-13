@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Protocol, TYPE_CHECKING
 from collections.abc import AsyncIterator
 
 from ..models import GmailLabel

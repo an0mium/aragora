@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from typing import (
     Any,
     Generic,
-    Optional,
     ParamSpec,
     TypeVar,
     cast,

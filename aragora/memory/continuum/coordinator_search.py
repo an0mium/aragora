@@ -14,7 +14,7 @@ import json
 import logging
 import sqlite3
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.memory.tier_manager import MemoryTier
 from aragora.resilience.retry import PROVIDER_RETRY_POLICIES, with_retry
@@ -27,7 +27,7 @@ from aragora.memory.continuum.base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
+    pass
 
 logger = logging.getLogger(__name__)
 

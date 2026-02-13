@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from aragora.agents.base import AgentType
 from aragora.core import Agent, DebateResult, Environment

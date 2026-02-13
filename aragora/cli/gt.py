@@ -30,7 +30,7 @@ import sys
 from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 

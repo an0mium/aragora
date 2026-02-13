@@ -25,7 +25,7 @@ import asyncio
 import json
 import logging
 from dataclasses import field
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)

@@ -17,16 +17,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import math
 import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.memory.tier_manager import (
     MemoryTier,
-    TierConfig,
     TierManager,
     get_tier_manager,
 )
@@ -39,11 +37,8 @@ from aragora.utils.json_helpers import safe_json_loads
 # Import base types and tier mixins
 from aragora.memory.continuum.base import (
     CONTINUUM_SCHEMA_VERSION,
-    TIER_CONFIGS,
-    AwaitableList,
     ContinuumHyperparams,
     ContinuumMemoryEntry,
-    _km_similarity_cache,
     get_default_hyperparams,
 )
 from aragora.memory.continuum.fast_tier import FastTierMixin
@@ -52,8 +47,6 @@ from aragora.memory.continuum.slow_tier import SlowTierMixin
 from aragora.memory.continuum.glacial_tier import GlacialTierMixin
 
 # Import existing extracted modules for delegation
-from aragora.memory import continuum_consolidation as _consolidation
-from aragora.memory import continuum_stats as _stats
 from aragora.memory.continuum_glacial import ContinuumGlacialMixin
 from aragora.memory.continuum_snapshot import ContinuumSnapshotMixin
 

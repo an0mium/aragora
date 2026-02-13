@@ -20,7 +20,6 @@ __all__ = [
 import logging
 import os
 from enum import Enum, auto
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

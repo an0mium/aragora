@@ -32,7 +32,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable, Generator
 
 from aragora.observability.config import get_metrics_config

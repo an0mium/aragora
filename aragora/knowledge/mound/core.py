@@ -20,7 +20,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import AsyncIterator
 
 from aragora.config import DB_KNOWLEDGE_PATH

@@ -619,7 +619,6 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
     def decorator(func: Callable) -> Callable:
         def _check_permission(*args: Any, **kwargs: Any) -> tuple[Any, HandlerResult | None]:
             """Common permission checking logic, returns (user_ctx, error_response) tuple."""
-            import os
 
             from aragora.billing.jwt_auth import extract_user_from_request
 

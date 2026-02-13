@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict, deque
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler

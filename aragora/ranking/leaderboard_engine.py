@@ -14,7 +14,7 @@ rating mutation operations.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.config import ELO_INITIAL_RATING

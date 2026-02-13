@@ -11,7 +11,7 @@ import logging
 import os
 from abc import abstractmethod
 from datetime import datetime, timezone
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from jinja2 import Template
 

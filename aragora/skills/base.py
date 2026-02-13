@@ -43,7 +43,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional, TypeVar, Generic
+from typing import Any, TypeVar, Generic
 import uuid
 
 logger = logging.getLogger(__name__)

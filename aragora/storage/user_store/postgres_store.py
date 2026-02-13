@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from asyncpg import Pool
 
-from aragora.billing.models import Organization, OrganizationInvitation, SubscriptionTier, User
 
 # Re-export from submodules for backward compatibility
 from .postgres_store_users import UserOperationsMixin  # noqa: F401

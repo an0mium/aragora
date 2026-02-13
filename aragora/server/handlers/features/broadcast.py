@@ -10,7 +10,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from collections.abc import Coroutine
 
 T = TypeVar("T")

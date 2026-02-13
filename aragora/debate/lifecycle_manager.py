@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from types import TracebackType
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aragora.server.metrics import track_circuit_breaker_state
 

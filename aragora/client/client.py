@@ -40,7 +40,7 @@ import time as time_module
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import TYPE_CHECKING, Any, NoReturn, Optional
+from typing import TYPE_CHECKING, Any, NoReturn
 from urllib.parse import urljoin
 
 from aragora.config import DEFAULT_ROUNDS

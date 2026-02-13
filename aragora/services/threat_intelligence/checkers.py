@@ -11,11 +11,10 @@ import base64
 import logging
 import re
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 from .enums import (
-    MALICIOUS_URL_PATTERNS,
     SUSPICIOUS_TLDS,
     ThreatSeverity,
     ThreatSource,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from .core import (

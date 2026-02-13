@@ -57,7 +57,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aragora.analysis.codebase.sast.models import (
     OWASPCategory,

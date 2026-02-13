@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.memory.debate_store import get_debate_store

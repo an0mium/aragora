@@ -25,7 +25,6 @@ from .cdc_models import (
 )
 from .cdc_handlers import (
     ChangeEventHandler,
-    CompositeHandler,
 )
 
 logger = logging.getLogger(__name__)

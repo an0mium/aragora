@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.middleware.rate_limit import rate_limit

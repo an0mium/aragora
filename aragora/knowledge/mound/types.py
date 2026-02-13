@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 # Re-export from unified types for compatibility
 from aragora.knowledge.unified.types import (

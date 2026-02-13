@@ -11,7 +11,7 @@ Provides REST API endpoints for chat-knowledge integration:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (

@@ -45,7 +45,6 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Optional,
     TypeVar,
 )
 from collections.abc import Awaitable, Callable

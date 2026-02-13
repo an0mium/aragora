@@ -28,7 +28,7 @@ Usage:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 # Adaptive Card schema version
 SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json"

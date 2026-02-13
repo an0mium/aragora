@@ -16,7 +16,7 @@ __all__ = [
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.versioning.compat import strip_version_prefix
 

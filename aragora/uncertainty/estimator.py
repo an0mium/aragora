@@ -13,7 +13,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,7 @@ Wraps the GauntletRunner to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 

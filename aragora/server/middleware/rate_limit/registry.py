@@ -8,7 +8,6 @@ with automatic Redis detection and configuration.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from .base import DEFAULT_RATE_LIMIT
 from .limiter import RateLimiter

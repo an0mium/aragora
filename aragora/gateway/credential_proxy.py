@@ -15,7 +15,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:

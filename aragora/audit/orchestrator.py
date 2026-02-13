@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional, cast
+from typing import Any, cast
 from collections.abc import Sequence
 
 from aragora.audit.base_auditor import (

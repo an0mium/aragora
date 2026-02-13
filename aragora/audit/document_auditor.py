@@ -28,7 +28,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 from uuid import uuid4
 

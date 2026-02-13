@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.insights.extractor import DebateInsights, Insight, InsightType
 from aragora.storage.postgres_store import PostgresStore

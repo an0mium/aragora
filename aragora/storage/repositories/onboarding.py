@@ -12,7 +12,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from contextlib import AbstractContextManager
 from collections.abc import Callable
 

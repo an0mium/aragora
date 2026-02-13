@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 from .enums import ThreatSeverity, ThreatSource, ThreatType
 from .models import SourceResult, ThreatAssessment, ThreatResult

@@ -7,7 +7,7 @@ and flushing telemetry events to a backend.
 
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 import asyncio
 import logging
 

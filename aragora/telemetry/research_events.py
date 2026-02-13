@@ -6,7 +6,7 @@ and effectiveness of research integration features.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Any
 from datetime import datetime
 from enum import Enum
 

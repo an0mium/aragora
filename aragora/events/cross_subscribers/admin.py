@@ -9,7 +9,7 @@ sampling, filtering, retry configuration, and performance reporting.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from aragora.events.subscribers.config import RetryConfig, SubscriberStats

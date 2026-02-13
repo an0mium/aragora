@@ -19,7 +19,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from aragora.storage.job_queue_store import (

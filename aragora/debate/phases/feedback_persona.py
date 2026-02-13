@@ -8,7 +8,7 @@ Handles persona performance updates and trait emergence detection.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext

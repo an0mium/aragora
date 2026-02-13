@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ...base import HandlerResult, json_response
+from ...base import HandlerResult
 from ...secure import SecureHandler
 from .kubernetes import liveness_probe
 

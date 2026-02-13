@@ -39,7 +39,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from aragora.knowledge.mound.types import RelationshipType
 from aragora.storage.base_store import SQLiteStore

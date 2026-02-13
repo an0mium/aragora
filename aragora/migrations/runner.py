@@ -28,7 +28,6 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 from collections.abc import Callable
 
 from aragora.config import resolve_db_path

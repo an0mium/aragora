@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
 )
 from collections.abc import Callable
 

@@ -6,7 +6,7 @@ Formats receipts using Teams' Adaptive Cards for rich message display.
 
 from __future__ import annotations
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from .formatter import ReceiptFormatter, register_formatter
 

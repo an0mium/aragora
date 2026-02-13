@@ -29,7 +29,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (

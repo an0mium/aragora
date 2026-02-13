@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import web
 

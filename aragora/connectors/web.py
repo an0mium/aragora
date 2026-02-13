@@ -23,7 +23,6 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 from aragora.config import DB_TIMEOUT_SECONDS

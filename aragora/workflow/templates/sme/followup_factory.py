@@ -7,7 +7,6 @@ hiring decisions, performance reviews, and HR policy workflows.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from aragora.workflow.types import (
     StepDefinition,

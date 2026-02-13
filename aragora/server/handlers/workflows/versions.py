@@ -6,7 +6,7 @@ Provides operations for retrieving version history and restoring previous versio
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .core import _get_store
 from .crud import update_workflow

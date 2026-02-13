@@ -8,7 +8,6 @@ These helpers are used across multiple config modules to avoid duplication.
 """
 
 import os
-from typing import Optional
 
 
 def env_str(key: str, default: str = "") -> str:

@@ -7,7 +7,6 @@ used by both `aragora quickstart` and `aragora receipt` commands.
 
 from __future__ import annotations
 
-import json
 from html import escape
 from typing import Any
 

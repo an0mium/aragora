@@ -11,7 +11,7 @@ Extracted from Arena to reduce orchestrator size. Handles:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from aragora.agents.personas import PersonaManager

@@ -9,9 +9,9 @@ multi-agent inference without a full consensus merge step.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from aragora.workflow.types import WorkflowDefinition, Position, NodeCategory, WorkflowCategory
+from aragora.workflow.types import WorkflowDefinition, Position, WorkflowCategory
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
 

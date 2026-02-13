@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.knowledge.mound.adapters.performance.models import (
     EloAdjustmentRecommendation,

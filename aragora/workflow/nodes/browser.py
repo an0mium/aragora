@@ -38,7 +38,7 @@ from __future__ import annotations
 import base64
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 

@@ -33,7 +33,7 @@ import logging
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation import SAFE_ID_PATTERN, validate_path_segment

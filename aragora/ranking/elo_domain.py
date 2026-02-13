@@ -11,7 +11,7 @@ Knowledge Mound bidirectional sync operations. Provides:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.performance_adapter import EloAdapter

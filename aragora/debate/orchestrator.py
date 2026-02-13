@@ -9,12 +9,11 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 import warnings  # noqa: F401 - used for deprecation warnings in __init__
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
 from aragora.debate.arena_config import (
-    ArenaConfig,
     AgentConfig,
     DebateConfig,
     MemoryConfig,

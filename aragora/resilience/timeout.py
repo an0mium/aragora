@@ -25,7 +25,7 @@ import threading
 import sys
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 
 logger = logging.getLogger(__name__)

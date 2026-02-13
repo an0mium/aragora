@@ -34,7 +34,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from aragora.control_plane.leader import (
     is_distributed_state_required,

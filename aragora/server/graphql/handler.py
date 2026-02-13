@@ -20,7 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from aragora.server.handlers.base import (
     BaseHandler,

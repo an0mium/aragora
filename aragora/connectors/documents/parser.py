@@ -29,7 +29,7 @@ import mimetypes
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import IO, Any, Optional, cast
+from typing import IO, Any, cast
 
 logger = logging.getLogger(__name__)
 

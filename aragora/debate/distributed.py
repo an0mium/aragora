@@ -38,7 +38,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from aragora.debate.config.defaults import DEBATE_DEFAULTS

@@ -30,7 +30,6 @@ import hashlib
 import hmac
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 # Default tolerance for timestamp validation (5 minutes)
 DEFAULT_TIMESTAMP_TOLERANCE_SECONDS = 300

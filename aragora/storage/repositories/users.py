@@ -12,7 +12,7 @@ import json
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from contextlib import AbstractContextManager
 from collections.abc import Callable
 

@@ -11,7 +11,7 @@ import json
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable, Iterator
 
 from .schema import ReplayEvent, ReplayMeta

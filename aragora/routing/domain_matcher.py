@@ -15,7 +15,7 @@ import logging
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import anthropic

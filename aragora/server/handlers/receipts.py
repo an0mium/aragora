@@ -37,7 +37,7 @@ import logging
 import secrets
 import zipfile
 from datetime import datetime, timezone
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass

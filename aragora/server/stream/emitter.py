@@ -12,7 +12,7 @@ import queue
 import threading
 import time
 from collections import deque
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from aragora.config import MAX_EVENT_QUEUE_SIZE

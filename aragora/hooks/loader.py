@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 import logging
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from collections.abc import Callable
 
 import yaml

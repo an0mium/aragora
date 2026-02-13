@@ -34,7 +34,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter, EventCallback
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin

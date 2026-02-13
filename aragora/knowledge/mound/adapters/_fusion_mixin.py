@@ -44,7 +44,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict
 
 from aragora.knowledge.mound.ops.fusion import (
     FusionStrategy,

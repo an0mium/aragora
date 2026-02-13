@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.utils.responses import error_dict
 from aragora.server.handlers.utils.file_validation import (

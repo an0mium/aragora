@@ -12,7 +12,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.knowledge.types import Fact, ValidationStatus
 

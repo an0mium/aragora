@@ -7,7 +7,7 @@ Defines the contract for channel-specific receipt formatters.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.receipts import DecisionReceipt

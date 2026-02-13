@@ -17,7 +17,7 @@ import logging
 import re
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Optional, cast
+from typing import Any, cast
 from re import Pattern
 from collections.abc import Callable
 

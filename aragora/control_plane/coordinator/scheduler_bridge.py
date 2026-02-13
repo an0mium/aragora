@@ -12,7 +12,6 @@ import time
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
 )
 
 from aragora.control_plane.scheduler import Task, TaskPriority, TaskScheduler, TaskStatus

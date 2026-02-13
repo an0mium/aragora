@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.queue.base import Job

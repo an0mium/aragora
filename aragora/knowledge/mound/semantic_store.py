@@ -35,7 +35,6 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from aragora.knowledge.mound.types import KnowledgeSource
 from aragora.memory.embeddings import (

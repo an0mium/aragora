@@ -35,7 +35,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Optional, Protocol, TYPE_CHECKING, cast
+from typing import Any, Protocol, TYPE_CHECKING, cast
 from collections.abc import Callable
 
 if TYPE_CHECKING:

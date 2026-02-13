@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.storage.unified_inbox._serializers import _json_loads, _utc_now
 from aragora.storage.unified_inbox.base import UnifiedInboxStoreBackend

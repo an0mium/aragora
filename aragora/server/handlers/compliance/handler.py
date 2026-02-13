@@ -54,7 +54,7 @@ These endpoints support enterprise compliance requirements.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from aragora.events.handler_events import emit_handler_event, QUERIED
 from aragora.server.handlers.base import BaseHandler, HandlerResult, error_response

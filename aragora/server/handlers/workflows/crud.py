@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from .core import (
     logger,

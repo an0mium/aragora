@@ -24,7 +24,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable, Coroutine
 
 from aragora.nomic.sica_settings import load_sica_settings

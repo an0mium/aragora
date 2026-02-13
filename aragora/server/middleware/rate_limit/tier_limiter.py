@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import OrderedDict
-from typing import Any, Optional
+from typing import Any
 
 from .base import (
     _extract_client_ip,

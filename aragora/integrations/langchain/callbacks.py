@@ -8,7 +8,7 @@ and integrating with LangChain's callback system.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 logger = logging.getLogger(__name__)

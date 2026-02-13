@@ -18,7 +18,7 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .receipt_models import DecisionReceipt, ProvenanceRecord
+    from .receipt_models import DecisionReceipt
 
 
 def receipt_to_markdown(

@@ -14,7 +14,6 @@ from aragora.observability.metrics.base import (
     ensure_metrics_initialized,
     get_metrics_enabled,
 )
-from aragora.observability.metrics.core import init_core_metrics
 
 logger = logging.getLogger(__name__)
 

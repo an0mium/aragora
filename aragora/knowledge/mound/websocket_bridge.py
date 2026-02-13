@@ -26,7 +26,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.knowledge.mound.event_batcher import EventBatcher, AdapterEventBatcher
 

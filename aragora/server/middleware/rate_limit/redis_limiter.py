@@ -19,7 +19,7 @@ import os
 import threading
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .base import (
     DEFAULT_RATE_LIMIT,

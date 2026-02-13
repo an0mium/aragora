@@ -8,7 +8,7 @@ import logging
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import resolve_db_path
 from aragora.storage.unified_inbox._serializers import (

@@ -13,10 +13,9 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.storage.base_store import SQLiteStore
-from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 

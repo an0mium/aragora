@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 # Re-export from domain_matcher for backwards compatibility
 from aragora.routing.domain_matcher import DOMAIN_KEYWORDS, DomainDetector

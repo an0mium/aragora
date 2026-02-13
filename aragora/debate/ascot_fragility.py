@@ -14,7 +14,7 @@ This module provides fragility analysis to:
 """
 
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Any
 import logging
 
 import numpy as np

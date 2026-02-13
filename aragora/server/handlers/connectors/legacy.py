@@ -8,7 +8,7 @@ sync operations, and scheduler configuration.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.audit.unified import audit_admin, audit_data
 from aragora.server.handlers.utils.responses import error_dict

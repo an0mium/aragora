@@ -24,13 +24,11 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING
 
-from aragora.config import DEFAULT_ROUNDS
 
 if TYPE_CHECKING:
     from aragora.server.graphql.dataloaders import DataLoaderContext
@@ -196,21 +194,17 @@ from .resolvers_debates import (  # noqa: E402
     DebateMutationResolvers,
     DebateQueryResolvers,
     DebateSubscriptionResolvers,
-    _transform_debate,
-    _transform_debate_async,
 )
 
 from .resolvers_agents import (  # noqa: E402
     AgentMutationResolvers,
     AgentQueryResolvers,
-    _transform_agent,
 )
 
 from .resolvers_tasks import (  # noqa: E402
     TaskMutationResolvers,
     TaskQueryResolvers,
     TaskSubscriptionResolvers,
-    _transform_task,
 )
 
 

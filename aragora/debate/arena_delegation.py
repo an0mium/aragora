@@ -8,7 +8,7 @@ the Arena class's role as the central coordination point.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.core import Agent
 

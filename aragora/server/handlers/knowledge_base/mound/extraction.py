@@ -12,7 +12,7 @@ Phase A2 - Knowledge Extraction & Integration
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.rbac.decorators import require_permission
 

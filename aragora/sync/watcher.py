@@ -13,7 +13,6 @@ import mimetypes
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 from collections.abc import AsyncIterator, Callable
 
 from watchfiles import Change, awatch

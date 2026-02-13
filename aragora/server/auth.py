@@ -12,7 +12,7 @@ import os
 import secrets
 import threading
 import time
-from typing import Any, Optional
+from typing import Any
 
 from aragora.config import (
     DEFAULT_RATE_LIMIT,

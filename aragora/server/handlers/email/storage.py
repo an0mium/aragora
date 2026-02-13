@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 

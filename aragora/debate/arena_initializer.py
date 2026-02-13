@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast
 from collections.abc import Callable
 
 from aragora.debate.agent_pool import AgentPool, AgentPoolConfig

@@ -14,7 +14,7 @@ information that may not have high vector similarity.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Any, Protocol
+from typing import Any, Protocol
 from enum import Enum
 import logging
 import time

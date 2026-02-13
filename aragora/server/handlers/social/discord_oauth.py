@@ -25,7 +25,7 @@ import logging
 import os
 import secrets
 import time
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)

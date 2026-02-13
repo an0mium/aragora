@@ -17,7 +17,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 

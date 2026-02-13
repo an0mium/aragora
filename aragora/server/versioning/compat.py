@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
 
 from aragora.server.versioning.router import APIVersion
 

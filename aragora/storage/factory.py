@@ -32,7 +32,6 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from aragora.persistence.db_config import get_nomic_dir
 from aragora.storage.connection_factory import (

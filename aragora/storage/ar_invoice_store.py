@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from aragora.config import resolve_db_path
 from aragora.storage.invoice_common import (

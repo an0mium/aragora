@@ -22,7 +22,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .emitter import AudienceInbox, SyncEventEmitter, TokenBucket
 from .state_manager import LoopInstance

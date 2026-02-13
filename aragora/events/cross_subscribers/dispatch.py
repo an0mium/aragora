@@ -12,7 +12,6 @@ import logging
 import random
 import time
 from datetime import datetime
-from typing import Any
 from collections.abc import Callable
 
 from aragora.events.subscribers.config import (

@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (

@@ -45,7 +45,7 @@ from dataclasses import fields, is_dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, ClassVar, Optional, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 logger = logging.getLogger(__name__)
 

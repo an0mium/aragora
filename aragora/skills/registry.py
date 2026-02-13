@@ -35,7 +35,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from collections.abc import Callable
 
 from .base import (

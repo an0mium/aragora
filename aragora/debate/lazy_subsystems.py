@@ -9,7 +9,7 @@ and memory usage when subsystems aren't actually used.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 from collections.abc import Callable
 
 if TYPE_CHECKING:

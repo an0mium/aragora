@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 from collections.abc import Awaitable, Callable
 
 T = TypeVar("T")

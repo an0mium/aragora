@@ -42,7 +42,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from aragora.persistence.db_config import get_nomic_dir
 

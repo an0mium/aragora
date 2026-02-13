@@ -25,7 +25,7 @@ from ..base import (
     ttl_cache,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
-from ..utils.rate_limit import RateLimiter, _get_limiter, get_client_ip
+from ..utils.rate_limit import _get_limiter, get_client_ip
 
 # Import extracted utility functions
 from .dashboard_metrics import (

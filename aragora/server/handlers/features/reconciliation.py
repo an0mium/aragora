@@ -39,7 +39,7 @@ import logging
 import threading
 import time
 from datetime import date, datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from ..base import (
     HandlerResult,
