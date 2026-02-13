@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -11,7 +12,20 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.connectors.registry import build_registry
+
+def _load_build_registry():
+    """Load connector registry builder without importing aragora.connectors package."""
+    registry_path = REPO_ROOT / "aragora" / "connectors" / "registry.py"
+    spec = importlib.util.spec_from_file_location("connector_registry_module", registry_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Failed to load connector registry module from {registry_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module.build_registry
+
+
+build_registry = _load_build_registry()
 
 
 def render_catalog(registry) -> str:
