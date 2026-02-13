@@ -78,7 +78,7 @@ class TestTTSIntegrationFlow:
         mock_voice_handler = MagicMock()
         mock_voice_handler.is_tts_available = True
         mock_voice_handler.has_voice_session.return_value = True
-        mock_voice_handler.synthesize_agent_message = MagicMock(return_value=1)
+        mock_voice_handler.synthesize_agent_message = AsyncMock(return_value=1)
 
         integration = TTSIntegration(mock_voice_handler)
         integration.enable()

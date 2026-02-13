@@ -616,11 +616,13 @@ class TestWebSocketBroadcaster:
 
     @pytest.mark.asyncio
     async def test_broadcast(self, broadcaster):
-        """broadcast sends event to all clients."""
+        """broadcast sends event to all subscribed clients."""
         ws1 = MagicMock()
         ws1.send = AsyncMock()
+        ws1._bound_loop_id = "test"
         ws2 = MagicMock()
         ws2.send = AsyncMock()
+        ws2._bound_loop_id = "test"
 
         broadcaster.client_manager.add_client(ws1)
         broadcaster.client_manager.add_client(ws2)
@@ -641,8 +643,10 @@ class TestWebSocketBroadcaster:
         """broadcast removes clients that fail to send."""
         ws1 = MagicMock()
         ws1.send = AsyncMock()
+        ws1._bound_loop_id = "test"
         ws2 = MagicMock()
         ws2.send = AsyncMock(side_effect=ConnectionError("Disconnected"))
+        ws2._bound_loop_id = "test"
 
         broadcaster.client_manager.add_client(ws1)
         broadcaster.client_manager.add_client(ws2)
@@ -676,6 +680,7 @@ class TestWebSocketBroadcaster:
         """broadcast_batch sends multiple events as JSON array."""
         ws = MagicMock()
         ws.send = AsyncMock()
+        ws._bound_loop_id = "test"
         broadcaster.client_manager.add_client(ws)
 
         events = [
@@ -864,6 +869,7 @@ class TestBroadcasterIntegration:
         # Add a client
         ws = MagicMock()
         ws.send = AsyncMock()
+        ws._bound_loop_id = "debate-1"
         broadcaster.client_manager.add_client(ws)
 
         # Start debate
@@ -915,8 +921,10 @@ class TestBroadcasterIntegration:
         # Add multiple clients
         good_ws = MagicMock()
         good_ws.send = AsyncMock()
+        good_ws._bound_loop_id = "test"
         bad_ws = MagicMock()
         bad_ws.send = AsyncMock(side_effect=ConnectionResetError())
+        bad_ws._bound_loop_id = "test"
 
         broadcaster.client_manager.add_client(good_ws)
         broadcaster.client_manager.add_client(bad_ws)

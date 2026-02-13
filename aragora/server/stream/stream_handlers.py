@@ -116,7 +116,7 @@ class StreamAPIHandlersMixin:
             return web.json_response(
                 {"agents": agent_data, "count": len(agent_data)}, headers=self._cors_headers(origin)
             )
-        except (AttributeError, TypeError, ValueError) as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.error(f"Leaderboard error: {e}")
             return web.json_response(
                 {"error": "Failed to fetch leaderboard"},
