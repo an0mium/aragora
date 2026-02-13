@@ -1,0 +1,62 @@
+# Aragora DevOps Agent - Docker Compose
+#
+# Autonomous agent that reviews PRs, triages issues, and manages releases
+# through policy-controlled execution with full audit logging.
+#
+# Usage:
+#   # Dry run (preview actions)
+#   GITHUB_REPO=an0mium/aragora docker compose -f docker-compose.devops.yml up
+#
+#   # Live mode with PR reviews
+#   GITHUB_REPO=an0mium/aragora \
+#   ANTHROPIC_API_KEY=sk-ant-... \
+#   OPENAI_API_KEY=sk-... \
+#   docker compose -f docker-compose.devops.yml --profile live up
+#
+#   # Watch mode (continuous polling)
+#   GITHUB_REPO=an0mium/aragora \
+#   AGENT_MODE=watch \
+#   docker compose -f docker-compose.devops.yml --profile live up
+
+services:
+  devops-agent:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: aragora-devops-agent
+    command: >
+      python scripts/run_devops_agent.py
+        --repo ${GITHUB_REPO:-an0mium/aragora}
+        --task ${AGENT_TASK:-health-check}
+        --mode ${AGENT_MODE:-once}
+        --poll-interval ${POLL_INTERVAL:-300}
+        ${AGENT_DRY_RUN:+--dry-run}
+        --audit-log /var/lib/aragora/audit.json
+        --json
+        -v
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GH_TOKEN=${GITHUB_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - ARAGORA_DEVOPS_DRY_RUN=${AGENT_DRY_RUN:-true}
+    volumes:
+      - agent-data:/var/lib/aragora
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    profiles:
+      - default
+      - live
+
+volumes:
+  agent-data:
+    driver: local
