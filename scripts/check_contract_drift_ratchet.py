@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -174,7 +175,11 @@ def main() -> int:
         print("PASS" if result["passing"] else "FAIL")
 
     if args.strict and not result["passing"]:
-        print("\nFAIL: Contract drift is above ratchet target.")
+        message = "\nFAIL: Contract drift is above ratchet target."
+        if args.json:
+            print(message, file=sys.stderr)
+        else:
+            print(message)
         return 1
 
     return 0
