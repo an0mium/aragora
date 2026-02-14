@@ -570,7 +570,7 @@ class TestGatherClaudeWebSearch:
 
         with patch.dict("sys.modules", {"aragora.server.research_phase": mock_module}):
             with patch(
-                "aragora.debate.context_gatherer.asyncio.wait_for",
+                "aragora.debate.context_gatherer.sources.asyncio.wait_for",
                 new_callable=AsyncMock,
                 return_value=None,
             ):
