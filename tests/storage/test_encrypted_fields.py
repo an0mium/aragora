@@ -12,6 +12,13 @@ from unittest.mock import patch, MagicMock
 os.environ["ARAGORA_ENCRYPTION_KEY"] = "a" * 64  # 32-byte hex key
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _cleanup_encryption_key_env():
+    """Clean up ARAGORA_ENCRYPTION_KEY env var after module tests complete."""
+    yield
+    os.environ.pop("ARAGORA_ENCRYPTION_KEY", None)
+
+
 class TestEncryptSensitive:
     """Test encrypt_sensitive function."""
 

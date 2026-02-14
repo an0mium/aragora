@@ -904,21 +904,25 @@ class TestNomicLoopCycleStore:
         import os
 
         # Set data dir to tmp_path
+        old_data_dir = os.environ.get("ARAGORA_DATA_DIR")
         os.environ["ARAGORA_DATA_DIR"] = str(tmp_path)
 
-        loop = NomicLoop(
-            aragora_path=mock_aragora_path,
-            log_fn=mock_log_fn,
-        )
-        loop._cycle_store = None  # Reset
+        try:
+            loop = NomicLoop(
+                aragora_path=mock_aragora_path,
+                log_fn=mock_log_fn,
+            )
+            loop._cycle_store = None  # Reset
 
-        store = loop._get_cycle_store()
+            store = loop._get_cycle_store()
 
-        assert store is not None
-        assert loop._cycle_store is store
-
-        # Clean up
-        del os.environ["ARAGORA_DATA_DIR"]
+            assert store is not None
+            assert loop._cycle_store is store
+        finally:
+            if old_data_dir is not None:
+                os.environ["ARAGORA_DATA_DIR"] = old_data_dir
+            else:
+                os.environ.pop("ARAGORA_DATA_DIR", None)
 
     def test_get_cross_cycle_context_returns_empty_when_disabled(
         self, mock_aragora_path, mock_log_fn

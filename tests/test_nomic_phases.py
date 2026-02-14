@@ -16,6 +16,13 @@ from unittest.mock import Mock, MagicMock, AsyncMock
 os.environ["USE_EXTRACTED_PHASES"] = "1"
 
 
+@pytest.fixture(autouse=True, scope="module")
+def _cleanup_extracted_phases_env():
+    """Clean up USE_EXTRACTED_PHASES env var after module tests complete."""
+    yield
+    os.environ.pop("USE_EXTRACTED_PHASES", None)
+
+
 @pytest.fixture
 def mock_agents():
     """Create mock agents for testing."""

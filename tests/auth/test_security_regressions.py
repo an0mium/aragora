@@ -175,6 +175,17 @@ class TestOIDCTokenValidationSecurity:
 class TestAuditSigningKeySecurity:
     """Tests for audit signing key security requirements."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_audit_signing_key(self):
+        """Reset audit signing key singleton before/after each test."""
+        from aragora.rbac import audit
+
+        with audit._signing_key_lock:
+            audit._AUDIT_SIGNING_KEY = None
+        yield
+        with audit._signing_key_lock:
+            audit._AUDIT_SIGNING_KEY = None
+
     def test_audit_requires_signing_key_in_production(self):
         """SECURITY: Audit signing key must be required in production."""
         from aragora.rbac import audit

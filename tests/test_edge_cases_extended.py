@@ -759,11 +759,18 @@ class TestNoMicLoopValidation:
         loop._stream_emit = lambda *args, **kwargs: None
 
         # Test with key set
-        os.environ["OPENROUTER_API_KEY"] = "test-key"
-        result = loop._validate_openrouter_fallback()
-        assert isinstance(result, bool)
+        old_value = os.environ.get("OPENROUTER_API_KEY")
+        try:
+            os.environ["OPENROUTER_API_KEY"] = "test-key"
+            result = loop._validate_openrouter_fallback()
+            assert isinstance(result, bool)
 
-        # Test without key
-        del os.environ["OPENROUTER_API_KEY"]
-        result = loop._validate_openrouter_fallback()
-        assert result is False
+            # Test without key
+            os.environ.pop("OPENROUTER_API_KEY", None)
+            result = loop._validate_openrouter_fallback()
+            assert result is False
+        finally:
+            if old_value is not None:
+                os.environ["OPENROUTER_API_KEY"] = old_value
+            else:
+                os.environ.pop("OPENROUTER_API_KEY", None)
