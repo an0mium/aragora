@@ -45,7 +45,7 @@ class TestBatchOperations:
     @pytest.fixture
     def debates_handler(self):
         """Create a mock DebatesHandler with batch operations."""
-        from aragora.server.handlers.debates_batch import BatchOperationsMixin
+        from aragora.server.handlers.debates.batch import BatchOperationsMixin
 
         class MockDebatesHandler(BatchOperationsMixin):
             def __init__(self):
@@ -125,7 +125,7 @@ class TestBatchRateLimiting:
 
     def test_batch_submit_rate_limited(self):
         """Test that batch submit is rate limited."""
-        from aragora.server.handlers.debates_batch import BatchOperationsMixin
+        from aragora.server.handlers.debates.batch import BatchOperationsMixin
 
         # Check that the decorator is applied
         assert hasattr(BatchOperationsMixin._submit_batch, "__wrapped__")
@@ -146,7 +146,7 @@ class TestBatchExceptionHandling:
     @pytest.fixture
     def debates_handler(self):
         """Create a mock DebatesHandler with batch operations."""
-        from aragora.server.handlers.debates_batch import BatchOperationsMixin
+        from aragora.server.handlers.debates.batch import BatchOperationsMixin
 
         class MockDebatesHandler(BatchOperationsMixin):
             def __init__(self):
@@ -198,7 +198,7 @@ class TestBatchExceptionHandling:
         result = debates_handler._submit_batch(mock_handler)
         body, status = parse_result(result)
         assert status == 400
-        assert "must be an object" in body["error"]
+        assert "must be" in body["error"]  # "must be of type dict" or "must be an object"
 
     def test_batch_multiple_errors_truncated(self, debates_handler, mock_handler):
         """Test that multiple validation errors are truncated after 5."""
