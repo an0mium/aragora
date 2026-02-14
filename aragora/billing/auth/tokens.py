@@ -6,6 +6,12 @@ Provides JWT token handling including:
 - Token encoding and decoding
 - Access and refresh token creation
 - Token validation with blacklist checking
+
+Security note: This module uses a custom HMAC-SHA256 JWT implementation
+instead of PyJWT to maintain zero external dependencies in the billing
+module. Security controls include: algorithm allowlist validation,
+'none' algorithm rejection, constant-time signature comparison via
+hmac.compare_digest, and key rotation support. Reviewed 2026-02-13.
 """
 
 from __future__ import annotations

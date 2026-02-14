@@ -590,13 +590,22 @@ class PRReviewRunner:
             if result.returncode != 0:
                 return None, result.stderr.strip() or "aragora review failed"
 
-            # Parse JSON from output (may have non-JSON lines)
-            for line in result.stdout.strip().split("\n"):
-                line = line.strip()
-                if line.startswith("{"):
-                    return json.loads(line), None
+            # Parse JSON from output (may be multi-line pretty-printed)
+            stdout = result.stdout.strip()
+            try:
+                return json.loads(stdout), None
+            except json.JSONDecodeError:
+                pass
 
-            return {"raw_output": result.stdout}, None
+            # Try to find a JSON object in the output
+            brace_start = stdout.find("{")
+            if brace_start >= 0:
+                try:
+                    return json.loads(stdout[brace_start:]), None
+                except json.JSONDecodeError:
+                    pass
+
+            return {"raw_output": stdout}, None
         except FileNotFoundError:
             return None, "aragora CLI not found"
         except subprocess.TimeoutExpired:

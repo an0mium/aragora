@@ -726,7 +726,6 @@ class TestTimeoutContextSync:
         restored_handler = signal.getsignal(signal.SIGALRM)
         assert restored_handler == original_handler
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_restores_signal_handler_on_timeout(self):
         """Signal handler should be restored even after timeout in sync context."""
         original_handler = signal.getsignal(signal.SIGALRM)
@@ -850,7 +849,6 @@ class TestTimeoutIntegration:
             value = 42
         assert value == 42
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_sync_function_exception_propagates(self):
         """If sync function raises before timeout, that exception should propagate."""
 
@@ -861,7 +859,6 @@ class TestTimeoutIntegration:
         with pytest.raises(KeyError, match="missing key"):
             raises_error()
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_sync_context_exception_propagates(self):
         """If code in sync context raises before timeout, that exception should propagate."""
         with pytest.raises(IOError, match="disk error"):

@@ -178,11 +178,13 @@ async def demo_code_review(sample_code: str | None = None) -> None:
 
     # Sample code to review
     if sample_code is None:
+        # INSECURE -- DEMO ONLY: sample code with intentional vulnerabilities
+        # for testing code intelligence detection capabilities
         sample_code = '''
 import os
 import subprocess
 
-API_KEY = "EXAMPLE_HARDCODED_SECRET"  # Hardcoded secret (demo)
+API_KEY = "EXAMPLE_HARDCODED_SECRET"  # INSECURE -- DEMO ONLY
 
 def execute_command(user_input):
     """Execute a shell command."""

@@ -224,16 +224,18 @@ async def benchmark_code_review(iterations: int) -> BenchmarkResult:
         result.errors = iterations
         return result
 
+    # INSECURE -- DEMO ONLY: sample code with intentional vulnerabilities
+    # for benchmarking code intelligence detection capabilities
     sample_code = """
 import os
 import subprocess
 
 def execute_command(user_input):
-    result = subprocess.run(user_input, shell=True, capture_output=True)
+    result = subprocess.run(user_input, shell=True, capture_output=True)  # INSECURE -- DEMO ONLY
     return result.stdout
 
 def get_user_data(user_id):
-    query = f"SELECT * FROM users WHERE id = {user_id}"
+    query = f"SELECT * FROM users WHERE id = {user_id}"  # INSECURE -- DEMO ONLY
     return execute_query(query)
 """
 
