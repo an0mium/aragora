@@ -134,6 +134,7 @@ class AnalyticsDashboardHandler(
         "/api/analytics/tokens",
         "/api/analytics/tokens/trends",
         "/api/analytics/tokens/providers",
+        "/api/analytics/cost/breakdown",
         "/api/analytics/flips/summary",
         "/api/analytics/flips/recent",
         "/api/analytics/flips/consistency",
@@ -183,6 +184,10 @@ class AnalyticsDashboardHandler(
             if error := self._check_permission(handler, PERM_ANALYTICS_COST):
                 return error
             return self._get_cost_metrics(query_params, handler)
+        elif normalized == "/api/analytics/cost/breakdown":
+            if error := self._check_permission(handler, PERM_ANALYTICS_COST):
+                return error
+            return self._get_cost_breakdown(query_params, handler)
 
         # Compliance analytics - require analytics:compliance:read
         elif normalized == "/api/analytics/compliance":
