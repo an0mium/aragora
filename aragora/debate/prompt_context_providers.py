@@ -81,6 +81,7 @@ class PromptContextMixin:
     _evict_cache_if_needed: Any
     claims_kernel: Any
     include_prior_claims: bool
+    _pulse_topics: list
 
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
@@ -772,3 +773,62 @@ The system will provide relevant details from the full history."""
         lines.append("")
         lines.append("Consider how current events may relate to the debate topic.")
         return "\n".join(lines)
+
+    def format_pulse_context(self, max_topics: int = 5) -> str:
+        """Format Pulse trending topics with source, velocity, and recency.
+
+        Unlike format_trending_for_prompt which uses TrendingTopic objects,
+        this method works with enriched pulse data dicts that include
+        recency (hours_ago) information from the ScheduledDebateStore.
+
+        Args:
+            max_topics: Maximum number of pulse topics to include
+
+        Returns:
+            Formatted string with pulse context, or empty string
+        """
+        if not self._pulse_topics:
+            return ""
+
+        topics = self._pulse_topics[:max_topics]
+        if not topics:
+            return ""
+
+        lines = ["## PULSE: TRENDING CONTEXT"]
+        lines.append("Real-time signals from monitored sources:\n")
+
+        for topic in topics:
+            name = topic.get("topic", "")
+            platform = topic.get("platform", "unknown")
+            volume = topic.get("volume", 0)
+            category = topic.get("category", "")
+            hours_ago = topic.get("hours_ago", 0.0)
+
+            velocity_label = ""
+            if volume >= 10000:
+                velocity_label = " [HIGH VELOCITY]"
+            elif volume >= 1000:
+                velocity_label = " [RISING]"
+
+            recency = f"{hours_ago:.1f}h ago" if hours_ago else "recent"
+
+            lines.append(f"- **{name}**{velocity_label}")
+            detail_parts = [f"Source: {platform}"]
+            if volume:
+                detail_parts.append(f"Engagement: {volume:,}")
+            if category:
+                detail_parts.append(f"Category: {category}")
+            detail_parts.append(f"Age: {recency}")
+            lines.append(f"  {' | '.join(detail_parts)}")
+
+        lines.append("")
+        lines.append("Factor in these signals if relevant to the decision at hand.")
+        return "\n".join(lines)
+
+    def set_pulse_topics(self, topics: list[dict]) -> None:
+        """Set pulse topics for context injection.
+
+        Args:
+            topics: List of dicts with topic, platform, volume, category, hours_ago
+        """
+        self._pulse_topics = topics

@@ -43,6 +43,7 @@ class PromptAssemblyMixin:
     get_continuum_context: Any
     get_supermemory_context: Any
     get_prior_claims_context: Any
+    format_pulse_context: Any
     get_language_constraint: Any
     format_successful_patterns: Any
     format_evidence_for_prompt: Any
@@ -174,6 +175,11 @@ class PromptAssemblyMixin:
         if prior_claims_context:
             prior_claims_section = f"{prior_claims_context}"
 
+        pulse_section = ""
+        pulse_context = self.format_pulse_context(max_topics=3)
+        if pulse_context:
+            pulse_section = f"{pulse_context}"
+
         if audience_section:
             audience_section = f"{audience_section}"
 
@@ -189,6 +195,7 @@ class PromptAssemblyMixin:
             ContextSection("evidence", evidence_section.strip()),
             ContextSection("trending", trending_section.strip()),
             ContextSection("prior_claims", prior_claims_section.strip()),
+            ContextSection("pulse", pulse_section.strip()),
             ContextSection("audience", audience_section.strip()),
         ]
 

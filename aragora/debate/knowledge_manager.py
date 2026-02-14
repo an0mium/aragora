@@ -68,6 +68,9 @@ class ArenaKnowledgeManager:
         revalidation_staleness_threshold: float = 0.7,
         revalidation_check_interval_seconds: int = 3600,
         notify_callback: Callable[[str, dict[str, Any]], None] | None = None,
+        # Pulse trending topics integration
+        pulse_store: Any | None = None,
+        enable_pulse_context: bool = False,
     ):
         """Initialize the knowledge manager.
 
@@ -99,6 +102,10 @@ class ArenaKnowledgeManager:
         self.revalidation_staleness_threshold = revalidation_staleness_threshold
         self.revalidation_check_interval_seconds = revalidation_check_interval_seconds
         self._notify_callback = notify_callback
+
+        # Pulse trending topics integration
+        self.pulse_store = pulse_store
+        self.enable_pulse_context = enable_pulse_context
 
         # Components initialized during initialize()
         self._knowledge_ops: KnowledgeMoundOperations | None = None
@@ -440,6 +447,63 @@ class ArenaKnowledgeManager:
         return await self._knowledge_ops.fetch_knowledge_context(
             task, limit, auth_context=auth_context
         )
+
+    def fetch_pulse_topics(self, task: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Fetch relevant trending topics from the Pulse store.
+
+        Queries the Pulse store for recent topics that may be relevant
+        to the current debate task.
+
+        Args:
+            task: The debate task/question
+            limit: Maximum number of topics to return
+
+        Returns:
+            List of dicts with topic, platform, volume, category, hours_ago
+        """
+        if not self.enable_pulse_context or not self.pulse_store:
+            return []
+
+        try:
+            recent = self.pulse_store.get_recent_topics(hours=24)
+            if not recent:
+                return []
+
+            # Extract keywords from task for relevance matching
+            task_words = {
+                w.lower()
+                for w in task.split()
+                if len(w) >= 3
+            }
+
+            scored: list[tuple[Any, int]] = []
+            for record in recent:
+                topic_text = getattr(record, "topic_text", "")
+                topic_words = {
+                    w.lower()
+                    for w in topic_text.split()
+                    if len(w) >= 3
+                }
+                overlap = len(task_words & topic_words)
+                scored.append((record, overlap))
+
+            # Sort by relevance (overlap), then volume
+            scored.sort(key=lambda x: (x[1], getattr(x[0], "volume", 0)), reverse=True)
+
+            results = []
+            for record, _score in scored[:limit]:
+                results.append({
+                    "topic": getattr(record, "topic_text", ""),
+                    "platform": getattr(record, "platform", "unknown"),
+                    "volume": getattr(record, "volume", 0),
+                    "category": getattr(record, "category", ""),
+                    "hours_ago": getattr(record, "hours_ago", 0.0),
+                })
+
+            return results
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"Pulse context fetch error: {e}")
+            return []
 
     async def ingest_outcome(self, result: DebateResult, env: Environment) -> None:
         """Store debate outcome in Knowledge Mound for future retrieval.

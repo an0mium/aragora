@@ -332,6 +332,9 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         # Trending topics for pulse injection (set externally via set_trending_topics)
         self.trending_topics: list[TrendingTopic] = []
 
+        # Pulse topics for enhanced context (set via set_pulse_topics)
+        self._pulse_topics: list[dict] = []
+
         # Current state (set externally by Arena)
         self.current_role_assignments: dict[str, RoleAssignment] = {}
         self._historical_context_cache: str = ""
