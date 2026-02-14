@@ -157,7 +157,7 @@ class TestLangGraphTimeoutHandling:
 
         # Mock session that simulates a timeout
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.langgraph_agent.create_client_session"
         ) as mock_session_factory:
             mock_session = MagicMock()
 

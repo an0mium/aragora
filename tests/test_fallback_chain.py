@@ -624,20 +624,21 @@ class TestGetLocalFallbackProviders:
         ]
 
         # Patch the module-level AgentRegistry reference in fallback module
-        with patch.object(fallback_module, "AgentRegistry", mock_registry):
+        with patch.object(fallback_module, "_AgentRegistry", mock_registry):
             result = fallback_module.get_local_fallback_providers()
             assert result == ["ollama", "local-ai"]
 
     def test_returns_empty_on_error(self):
         """Should return empty list on error."""
-        from aragora.agents.fallback import get_local_fallback_providers
-        from unittest.mock import patch
+        import aragora.agents.fallback as fallback_module
+        from unittest.mock import patch, MagicMock
 
-        # The function catches exceptions and returns []
-        # Force an import error to trigger the exception path
-        with patch.dict("sys.modules", {"aragora.agents.registry": None}):
-            # This will cause an import error which is caught
-            result = get_local_fallback_providers()
+        # Patch _AgentRegistry to raise an error on detect_local_agents
+        mock_registry = MagicMock()
+        mock_registry.detect_local_agents.side_effect = OSError("test error")
+
+        with patch.object(fallback_module, "_AgentRegistry", mock_registry):
+            result = fallback_module.get_local_fallback_providers()
             assert result == []
 
 
@@ -653,7 +654,7 @@ class TestIsLocalLLMAvailable:
         mock_registry.get_local_status.return_value = {"any_available": True}
 
         # Patch the module-level AgentRegistry reference in fallback module
-        with patch.object(fallback_module, "AgentRegistry", mock_registry):
+        with patch.object(fallback_module, "_AgentRegistry", mock_registry):
             assert fallback_module.is_local_llm_available() is True
 
     def test_returns_false_when_unavailable(self):
@@ -664,19 +665,21 @@ class TestIsLocalLLMAvailable:
         mock_registry = MagicMock()
         mock_registry.get_local_status.return_value = {"any_available": False}
 
-        # Patch the module-level AgentRegistry reference in fallback module
-        with patch.object(fallback_module, "AgentRegistry", mock_registry):
+        # Patch the module-level _AgentRegistry reference in fallback module
+        with patch.object(fallback_module, "_AgentRegistry", mock_registry):
             assert fallback_module.is_local_llm_available() is False
 
     def test_returns_false_on_error(self):
         """Should return False on any error."""
-        from aragora.agents.fallback import is_local_llm_available
-        from unittest.mock import patch
+        import aragora.agents.fallback as fallback_module
+        from unittest.mock import patch, MagicMock
 
-        # The function catches all exceptions and returns False
-        # Force an import error
-        with patch.dict("sys.modules", {"aragora.agents.registry": None}):
-            result = is_local_llm_available()
+        # Patch _AgentRegistry to raise an error on get_local_status
+        mock_registry = MagicMock()
+        mock_registry.get_local_status.side_effect = OSError("test error")
+
+        with patch.object(fallback_module, "_AgentRegistry", mock_registry):
+            result = fallback_module.is_local_llm_available()
             assert result is False
 
 

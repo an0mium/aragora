@@ -17,11 +17,31 @@ from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
 from aragora.server.handlers import audit_export
+from aragora.server.handlers.utils import decorators as handler_decorators
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+@pytest.fixture
+def mock_user():
+    """Create a mock authenticated user context for RBAC bypass."""
+    user = MagicMock()
+    user.user_id = "test-user"
+    user.role = "admin"
+    user.permissions = ["audit:read", "audit:export", "audit:verify"]
+    user.is_admin = True
+    user.is_authenticated = True
+    return user
+
+
+@pytest.fixture(autouse=True)
+def bypass_auth(mock_user, monkeypatch):
+    """Bypass @require_permission decorator for all tests in this module."""
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user)
+    monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
 
 
 @pytest.fixture
@@ -752,10 +772,10 @@ class TestRegisterHandlers:
         # Get all registered routes
         routes = {(r.method, r.resource.canonical) for r in app.router.routes()}
 
-        assert ("GET", "/api/audit/events") in routes
-        assert ("GET", "/api/audit/stats") in routes
-        assert ("POST", "/api/audit/export") in routes
-        assert ("POST", "/api/audit/verify") in routes
+        assert ("GET", "/api/v1/audit/events") in routes
+        assert ("GET", "/api/v1/audit/stats") in routes
+        assert ("POST", "/api/v1/audit/export") in routes
+        assert ("POST", "/api/v1/audit/verify") in routes
 
     def test_routes_point_to_correct_handlers(self):
         """Routes point to the correct handler functions."""
@@ -765,13 +785,13 @@ class TestRegisterHandlers:
 
         # Find routes by path
         for route in app.router.routes():
-            if route.resource.canonical == "/api/audit/events":
+            if route.resource.canonical == "/api/v1/audit/events":
                 assert route.handler == audit_export.handle_audit_events
-            elif route.resource.canonical == "/api/audit/stats":
+            elif route.resource.canonical == "/api/v1/audit/stats":
                 assert route.handler == audit_export.handle_audit_stats
-            elif route.resource.canonical == "/api/audit/export":
+            elif route.resource.canonical == "/api/v1/audit/export":
                 assert route.handler == audit_export.handle_audit_export
-            elif route.resource.canonical == "/api/audit/verify":
+            elif route.resource.canonical == "/api/v1/audit/verify":
                 assert route.handler == audit_export.handle_audit_verify
 
 

@@ -13,6 +13,7 @@ Uses mocking for external dependencies while testing actual server logic.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import signal
@@ -672,17 +673,23 @@ class TestServerStartup:
         with patch.object(server.stream_server, "start", new_callable=AsyncMock):
             with patch.object(server.control_plane_stream, "start", new_callable=AsyncMock):
                 with patch.object(server.nomic_loop_stream, "start", new_callable=AsyncMock):
-                    with patch.object(server, "_run_http_server"):
-                        with patch(
-                            "aragora.server.startup.parallel_init", new_callable=AsyncMock
-                        ) as mock_init:
-                            mock_init.return_value = {"watchdog_task": None}
-                            with patch("threading.Thread"):
-                                # Start should not raise
-                                try:
-                                    await asyncio.wait_for(server.start(), timeout=2.0)
-                                except asyncio.TimeoutError:
-                                    pass  # Expected - servers run forever
+                    canvas_ctx = (
+                        patch.object(server.canvas_stream, "start", new_callable=AsyncMock)
+                        if server.canvas_stream
+                        else contextlib.nullcontext()
+                    )
+                    with canvas_ctx:
+                        with patch.object(server, "_run_http_server"):
+                            with patch(
+                                "aragora.server.startup.parallel_init", new_callable=AsyncMock
+                            ) as mock_init:
+                                mock_init.return_value = {"watchdog_task": None}
+                                with patch("threading.Thread"):
+                                    # Start should not raise
+                                    try:
+                                        await asyncio.wait_for(server.start(), timeout=2.0)
+                                    except asyncio.TimeoutError:
+                                        pass  # Expected - servers run forever
 
     def test_handlers_initialized_lazily(self):
         """Test that handlers are initialized lazily on first request."""

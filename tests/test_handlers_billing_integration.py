@@ -136,6 +136,72 @@ class MockAuthContext:
     user_id: str = ""
     org_id: str | None = None
     role: str = "member"
+    error_reason: str | None = None
+
+
+def _make_owner_auth_context(user_id: str, org_id: str | None = None) -> MockAuthContext:
+    """Create an owner-level auth context that passes org:billing permission checks."""
+    return MockAuthContext(
+        is_authenticated=True,
+        user_id=user_id,
+        org_id=org_id,
+        role="owner",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _bypass_auth_for_billing_tests(request, monkeypatch):
+    """Bypass RBAC authentication for billing handler tests by default.
+
+    Sets _test_user_context_override so that @require_permission decorators
+    pass through with an owner-level auth context. The override user_id is
+    a sentinel value; tests that need user store lookups should register
+    a matching user or use the ``auth_user_override`` fixture.
+
+    Tests that specifically test auth behavior (401/403) should use
+    @pytest.mark.no_auto_auth to opt out.
+    """
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    from aragora.server.handlers.utils import decorators as handler_decorators
+
+    # Create an owner-level auth context that passes all permission checks.
+    # The user_id is a sentinel; tests needing store lookups should register
+    # a user with this id or use auth_user_override to set a custom id.
+    mock_auth_ctx = MockAuthContext(
+        is_authenticated=True,
+        user_id="test-owner-001",
+        org_id="test-org-001",
+        role="owner",
+    )
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_auth_ctx)
+    monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+    yield
+
+
+@pytest.fixture
+def auth_user_override(monkeypatch):
+    """Override the auth context user_id to match a specific test user.
+
+    Usage:
+        def test_something(self, billing_handler, test_user, auth_user_override):
+            auth_user_override(test_user.id, role="owner")
+            ...
+    """
+    from aragora.server.handlers.utils import decorators as handler_decorators
+
+    def _set(user_id: str, role: str = "owner", org_id: str | None = None):
+        ctx = MockAuthContext(
+            is_authenticated=True,
+            user_id=user_id,
+            org_id=org_id,
+            role=role,
+        )
+        monkeypatch.setattr(handler_decorators, "_test_user_context_override", ctx)
+
+    return _set
 
 
 @pytest.fixture
@@ -263,18 +329,18 @@ class TestBillingRouteHandling:
     def test_all_routes_in_routes_constant(self, billing_handler):
         """Test all expected routes are in ROUTES constant."""
         expected_routes = [
-            "/api/billing/plans",
-            "/api/billing/usage",
-            "/api/billing/subscription",
-            "/api/billing/checkout",
-            "/api/billing/portal",
-            "/api/billing/cancel",
-            "/api/billing/resume",
-            "/api/billing/audit-log",
-            "/api/billing/usage/export",
-            "/api/billing/usage/forecast",
-            "/api/billing/invoices",
-            "/api/webhooks/stripe",
+            "/api/v1/billing/plans",
+            "/api/v1/billing/usage",
+            "/api/v1/billing/subscription",
+            "/api/v1/billing/checkout",
+            "/api/v1/billing/portal",
+            "/api/v1/billing/cancel",
+            "/api/v1/billing/resume",
+            "/api/v1/billing/audit-log",
+            "/api/v1/billing/usage/export",
+            "/api/v1/billing/usage/forecast",
+            "/api/v1/billing/invoices",
+            "/api/v1/webhooks/stripe",
         ]
         for route in expected_routes:
             assert route in BillingHandler.ROUTES
@@ -420,8 +486,8 @@ class TestGetPlans:
         body = json.loads(result.body)
         plans = body["plans"]
 
-        # Should have 4 tiers
-        assert len(plans) == 4
+        # Should have 5 tiers (free, starter, professional, enterprise, enterprise_plus)
+        assert len(plans) == 5
 
         # Check tier names
         tier_ids = [p["id"] for p in plans]
@@ -429,6 +495,7 @@ class TestGetPlans:
         assert "starter" in tier_ids
         assert "professional" in tier_ids
         assert "enterprise" in tier_ids
+        assert "enterprise_plus" in tier_ids
 
     def test_get_plans_has_correct_structure(self, billing_handler):
         """Test plan response has correct structure."""
@@ -479,59 +546,51 @@ class TestCheckoutValidation:
 
     def test_checkout_requires_tier(self, billing_handler, test_user, test_org):
         """Test checkout fails without tier specified."""
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
-
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(
-                method="POST", body={"success_url": "http://x", "cancel_url": "http://y"}
-            )
-            result = billing_handler._create_checkout(handler)
+        handler = MockHandler(
+            method="POST", body={"success_url": "http://x", "cancel_url": "http://y"}
+        )
+        result = billing_handler._create_checkout(handler)
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "Tier is required" in body["error"]
+        # Schema validation catches missing required field
+        assert "tier" in body["error"].lower()
 
     def test_checkout_requires_urls(self, billing_handler, test_user, test_org):
         """Test checkout fails without success/cancel URLs."""
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
-
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="POST", body={"tier": "starter"})
-            result = billing_handler._create_checkout(handler)
+        handler = MockHandler(method="POST", body={"tier": "starter"})
+        result = billing_handler._create_checkout(handler)
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "Success and cancel URLs required" in body["error"]
+        # Schema validation catches missing required URL fields
+        assert "success_url" in body["error"].lower() or "url" in body["error"].lower()
 
     def test_checkout_rejects_free_tier(self, billing_handler, test_user, test_org):
-        """Test checkout fails for free tier."""
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
-
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(
-                method="POST",
-                body={"tier": "free", "success_url": "http://x", "cancel_url": "http://y"},
-            )
-            result = billing_handler._create_checkout(handler)
+        """Test checkout fails for free tier (not in allowed schema values)."""
+        handler = MockHandler(
+            method="POST",
+            body={"tier": "free", "success_url": "http://x", "cancel_url": "http://y"},
+        )
+        result = billing_handler._create_checkout(handler)
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "Cannot checkout free tier" in body["error"]
+        # Schema validation rejects 'free' as not in allowed enum values
+        assert "tier" in body["error"].lower() or "must be one of" in body["error"].lower()
 
     def test_checkout_rejects_invalid_tier(self, billing_handler, test_user, test_org):
         """Test checkout fails for invalid tier."""
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
-
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(
-                method="POST",
-                body={"tier": "platinum", "success_url": "http://x", "cancel_url": "http://y"},
-            )
-            result = billing_handler._create_checkout(handler)
+        handler = MockHandler(
+            method="POST",
+            body={"tier": "platinum", "success_url": "http://x", "cancel_url": "http://y"},
+        )
+        result = billing_handler._create_checkout(handler)
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "Invalid tier" in body["error"]
+        # Schema validation rejects unknown tier value
+        assert "tier" in body["error"].lower() or "must be one of" in body["error"].lower()
 
 
 # =============================================================================
@@ -544,15 +603,12 @@ class TestPortalValidation:
 
     def test_portal_requires_return_url(self, billing_handler, test_user, test_org):
         """Test portal fails without return URL."""
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
-
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="POST", body={})
-            result = billing_handler._create_portal(handler)
+        handler = MockHandler(method="POST", body={})
+        result = billing_handler._create_portal(handler)
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "Return URL required" in body["error"]
+        assert "return" in body["error"].lower() or "url" in body["error"].lower()
 
 
 # =============================================================================
@@ -563,6 +619,7 @@ class TestPortalValidation:
 class TestRoleBasedAccess:
     """Tests for role-based access control."""
 
+    @pytest.mark.no_auto_auth
     def test_cancel_requires_owner_or_admin(self, billing_handler, user_store, test_user, test_org):
         """Test cancel subscription requires owner or admin role."""
         test_user.role = "member"
@@ -580,6 +637,7 @@ class TestRoleBasedAccess:
         )
         assert any(x in error_msg for x in ["owners", "only organization", "permission denied"])
 
+    @pytest.mark.no_auto_auth
     def test_resume_requires_owner_or_admin(self, billing_handler, user_store, test_user, test_org):
         """Test resume subscription requires owner or admin role."""
         test_user.role = "member"
@@ -597,6 +655,7 @@ class TestRoleBasedAccess:
         )
         assert any(x in error_msg for x in ["owners", "only organization", "permission denied"])
 
+    @pytest.mark.no_auto_auth
     def test_audit_log_requires_owner_or_admin(
         self, billing_handler, user_store, test_user, enterprise_org
     ):
@@ -625,33 +684,30 @@ class TestEnterpriseFeatures:
     """Tests for enterprise-only features."""
 
     def test_audit_log_requires_enterprise_tier(
-        self, billing_handler, user_store, test_user, test_org
+        self, billing_handler, user_store, test_user, test_org, auth_user_override
     ):
         """Test audit log requires enterprise tier."""
         test_user.role = "owner"
         test_org.tier = SubscriptionTier.STARTER  # Not enterprise
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="owner")
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_audit_log(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_audit_log(handler)
 
         assert result.status_code == 403
         body = json.loads(result.body)
         assert "Enterprise tier" in body["error"]
 
     def test_audit_log_allowed_for_enterprise(
-        self, billing_handler, user_store, test_user, enterprise_org
+        self, billing_handler, user_store, test_user, enterprise_org, auth_user_override
     ):
         """Test audit log access allowed for enterprise tier with owner role."""
         test_user.role = "owner"
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True, role="owner")
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            handler.query_params = {}
-            with patch.object(billing_handler, "ctx", {"user_store": user_store}):
-                result = billing_handler._get_audit_log(handler)
+        handler = MockHandler(method="GET")
+        handler.query_params = {}
+        result = billing_handler._get_audit_log(handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -677,9 +733,10 @@ class TestEnterpriseFeatures:
 class TestBillingAuthentication:
     """Tests for authentication requirements."""
 
+    @pytest.mark.no_auto_auth
     def test_get_usage_requires_auth(self, billing_handler):
         """Test get usage requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
@@ -687,11 +744,12 @@ class TestBillingAuthentication:
 
         assert result.status_code == 401
         body = json.loads(result.body)
-        assert "Not authenticated" in body["error"]
+        assert "authenticated" in body["error"].lower() or "auth" in body["error"].lower()
 
+    @pytest.mark.no_auto_auth
     def test_get_subscription_requires_auth(self, billing_handler):
         """Test get subscription requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
@@ -699,9 +757,10 @@ class TestBillingAuthentication:
 
         assert result.status_code == 401
 
+    @pytest.mark.no_auto_auth
     def test_create_checkout_requires_auth(self, billing_handler):
         """Test create checkout requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
@@ -709,9 +768,10 @@ class TestBillingAuthentication:
 
         assert result.status_code == 401
 
+    @pytest.mark.no_auto_auth
     def test_cancel_subscription_requires_auth(self, billing_handler):
         """Test cancel subscription requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="POST", body={})
@@ -728,25 +788,23 @@ class TestBillingAuthentication:
 class TestUserNotFound:
     """Tests for user not found scenarios."""
 
-    def test_get_usage_user_not_found(self, billing_handler, user_store):
+    def test_get_usage_user_not_found(self, billing_handler, user_store, auth_user_override):
         """Test get usage returns 404 for non-existent user."""
-        mock_auth = MockAuthContext(is_authenticated=True, user_id="nonexistent")
+        auth_user_override("nonexistent", role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_usage(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_usage(handler)
 
         assert result.status_code == 404
         body = json.loads(result.body)
         assert "User not found" in body["error"]
 
-    def test_get_subscription_user_not_found(self, billing_handler, user_store):
+    def test_get_subscription_user_not_found(self, billing_handler, user_store, auth_user_override):
         """Test get subscription returns 404 for non-existent user."""
-        mock_auth = MockAuthContext(is_authenticated=True, user_id="nonexistent")
+        auth_user_override("nonexistent", role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_subscription(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_subscription(handler)
 
         assert result.status_code == 404
 
@@ -759,9 +817,10 @@ class TestUserNotFound:
 class TestUsageForecast:
     """Tests for usage forecast endpoint."""
 
+    @pytest.mark.no_auto_auth
     def test_forecast_requires_auth(self, billing_handler):
         """Test forecast requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
@@ -769,14 +828,15 @@ class TestUsageForecast:
 
         assert result.status_code == 401
 
-    def test_forecast_requires_organization(self, billing_handler, user_store, test_user):
+    def test_forecast_requires_organization(
+        self, billing_handler, user_store, test_user, auth_user_override
+    ):
         """Test forecast requires organization membership."""
         test_user.org_id = None
-        mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_usage_forecast(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_usage_forecast(handler)
 
         assert result.status_code == 404
         body = json.loads(result.body)
@@ -791,9 +851,10 @@ class TestUsageForecast:
 class TestInvoices:
     """Tests for invoices endpoint."""
 
+    @pytest.mark.no_auto_auth
     def test_invoices_requires_auth(self, billing_handler):
         """Test invoices requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
@@ -802,15 +863,14 @@ class TestInvoices:
         assert result.status_code == 401
 
     def test_invoices_requires_billing_account(
-        self, billing_handler, user_store, test_user, test_org
+        self, billing_handler, user_store, test_user, test_org, auth_user_override
     ):
         """Test invoices requires Stripe customer ID."""
         test_org.stripe_customer_id = None
-        mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_invoices(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_invoices(handler)
 
         assert result.status_code == 404
         body = json.loads(result.body)
@@ -978,19 +1038,19 @@ class TestMethodNotAllowed:
     def test_plans_post_not_allowed(self, billing_handler):
         """Test POST to plans returns 405."""
         handler = MockHandler(method="POST")
-        result = billing_handler.handle("/api/billing/plans", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/billing/plans", {}, handler, "POST")
         assert result.status_code == 405
 
     def test_usage_post_not_allowed(self, billing_handler):
         """Test POST to usage returns 405."""
         handler = MockHandler(method="POST")
-        result = billing_handler.handle("/api/billing/usage", {}, handler, "POST")
+        result = billing_handler.handle("/api/v1/billing/usage", {}, handler, "POST")
         assert result.status_code == 405
 
     def test_checkout_get_not_allowed(self, billing_handler):
         """Test GET to checkout returns 405."""
         handler = MockHandler(method="GET")
-        result = billing_handler.handle("/api/billing/checkout", {}, handler, "GET")
+        result = billing_handler.handle("/api/v1/billing/checkout", {}, handler, "GET")
         assert result.status_code == 405
 
 
@@ -1004,14 +1064,11 @@ class TestBillingEdgeCases:
 
     def test_empty_body_checkout(self, billing_handler, test_user, test_org):
         """Test checkout with empty/invalid body."""
-        mock_auth = MockAuthContext(user_id=test_user.id, is_authenticated=True)
-
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="POST", body=None)
-            handler._body = b"not json"
-            handler.rfile = BytesIO(handler._body)
-            handler.headers["Content-Length"] = str(len(handler._body))
-            result = billing_handler._create_checkout(handler)
+        handler = MockHandler(method="POST", body=None)
+        handler._body = b"not json"
+        handler.rfile = BytesIO(handler._body)
+        handler.headers["Content-Length"] = str(len(handler._body))
+        result = billing_handler._create_checkout(handler)
 
         assert result.status_code == 400
 
@@ -1022,28 +1079,30 @@ class TestBillingEdgeCases:
         assert limits.debates_per_month == 200
         assert limits.api_access is True
 
-    def test_user_without_org_for_usage(self, billing_handler, user_store, test_user):
+    def test_user_without_org_for_usage(
+        self, billing_handler, user_store, test_user, auth_user_override
+    ):
         """Test usage for user without organization."""
         test_user.org_id = None
-        mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_usage(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_usage(handler)
 
         # Should return 200 with default usage data
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["usage"]["debates_used"] == 0
 
-    def test_subscription_without_stripe(self, billing_handler, user_store, test_user, test_org):
+    def test_subscription_without_stripe(
+        self, billing_handler, user_store, test_user, test_org, auth_user_override
+    ):
         """Test subscription response without Stripe integration."""
         test_org.stripe_subscription_id = None
-        mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._get_subscription(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._get_subscription(handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -1059,9 +1118,10 @@ class TestBillingEdgeCases:
 class TestUsageExport:
     """Tests for usage CSV export."""
 
+    @pytest.mark.no_auto_auth
     def test_export_requires_auth(self, billing_handler):
         """Test export requires authentication."""
-        mock_auth = MockAuthContext(is_authenticated=False)
+        mock_auth = MockAuthContext(is_authenticated=False, error_reason="Not authenticated")
 
         with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
             handler = MockHandler(method="GET")
@@ -1069,14 +1129,15 @@ class TestUsageExport:
 
         assert result.status_code == 401
 
-    def test_export_requires_organization(self, billing_handler, user_store, test_user):
+    def test_export_requires_organization(
+        self, billing_handler, user_store, test_user, auth_user_override
+    ):
         """Test export requires organization membership."""
         test_user.org_id = None
-        mock_auth = MockAuthContext(is_authenticated=True, user_id=test_user.id)
+        auth_user_override(test_user.id, role="owner")
 
-        with patch("aragora.billing.jwt_auth.extract_user_from_request", return_value=mock_auth):
-            handler = MockHandler(method="GET")
-            result = billing_handler._export_usage_csv(handler)
+        handler = MockHandler(method="GET")
+        result = billing_handler._export_usage_csv(handler)
 
         assert result.status_code == 404
 

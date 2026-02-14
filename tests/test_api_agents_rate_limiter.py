@@ -50,17 +50,39 @@ def reset_global_limiter():
     """Reset global limiter state between tests.
 
     Also clears OPENROUTER_TIER env var to ensure default tier is used.
+    Clears both the legacy module-level variable and the ServiceRegistry
+    singleton (which is the actual backing store for get_openrouter_limiter).
     """
     import aragora.agents.api_agents.rate_limiter as module
 
     # Clear environment variable to ensure default tier
     old_tier = os.environ.pop("OPENROUTER_TIER", None)
 
+    # Clear legacy module-level variable
     with module._openrouter_limiter_lock:
         module._openrouter_limiter = None
+
+    # Clear ServiceRegistry entry (the actual backing store)
+    try:
+        from aragora.services import ServiceRegistry
+        registry = ServiceRegistry.get()
+        if registry.has(module.OpenRouterRateLimiter):
+            registry.unregister(module.OpenRouterRateLimiter)
+    except Exception:
+        pass
+
     yield
+
     with module._openrouter_limiter_lock:
         module._openrouter_limiter = None
+
+    try:
+        from aragora.services import ServiceRegistry
+        registry = ServiceRegistry.get()
+        if registry.has(module.OpenRouterRateLimiter):
+            registry.unregister(module.OpenRouterRateLimiter)
+    except Exception:
+        pass
 
     # Restore original env var if it existed
     if old_tier is not None:
@@ -227,7 +249,9 @@ class TestTokenBucketAlgorithm:
         """Should decrement token count on acquire."""
         initial = limiter._tokens
         await limiter.acquire(timeout=0.1)
-        assert limiter._tokens == initial - 1
+        # Pin _last_refill to now so the property getter's _refill() adds zero tokens
+        limiter._last_refill = time.monotonic()
+        assert limiter._tokens == pytest.approx(initial - 1, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_multiple_acquires_work(self, limiter):
@@ -358,10 +382,13 @@ class TestErrorRecovery:
         """Should add a token back on error."""
         initial = limiter._tokens
         await limiter.acquire(timeout=0.1)
-        assert limiter._tokens == initial - 1
+        # Pin _last_refill to prevent tiny refills between operations
+        limiter._last_refill = time.monotonic()
+        assert limiter._tokens == pytest.approx(initial - 1, abs=0.01)
 
         limiter.release_on_error()
-        assert limiter._tokens == initial
+        limiter._last_refill = time.monotonic()
+        assert limiter._tokens == pytest.approx(initial, abs=0.01)
 
     def test_release_caps_at_burst_size(self, limiter):
         """Should not exceed burst size when releasing."""
@@ -576,14 +603,17 @@ class TestRateLimiterIntegration:
         """Test acquiring, error, release, and retry."""
         # Acquire
         await limiter.acquire(timeout=0.1)
+        # Pin _last_refill to prevent refill drift between reads
+        limiter._last_refill = time.monotonic()
         tokens_after_acquire = limiter._tokens
 
         # Simulate error and release
         limiter.release_on_error()
+        limiter._last_refill = time.monotonic()
         tokens_after_release = limiter._tokens
 
         # Should have one more token
-        assert tokens_after_release == tokens_after_acquire + 1
+        assert tokens_after_release == pytest.approx(tokens_after_acquire + 1, abs=0.01)
 
         # Retry should succeed
         result = await limiter.acquire(timeout=0.1)
@@ -837,18 +867,23 @@ class TestProviderRateLimiter:
         limiter = ProviderRateLimiter(provider="test", rpm=60, burst=10)
         initial_tokens = limiter._tokens
 
-        # Consume one token manually
-        with limiter._sync_lock:
-            limiter._tokens -= 1
+        # Consume one token manually via the bucket's sync lock
+        with limiter._bucket._sync_lock:
+            limiter._bucket._tokens -= 1
 
+        # Pin _last_refill to prevent refill drift
+        limiter._last_refill = time.monotonic()
         tokens_after_consume = limiter._tokens
-        assert tokens_after_consume == initial_tokens - 1
+        assert tokens_after_consume == pytest.approx(initial_tokens - 1, abs=0.01)
 
         # Release on error
         limiter.release_on_error()
 
         # Token should be returned (capped at burst)
-        assert limiter._tokens == min(tokens_after_consume + 1, limiter.burst_size)
+        limiter._last_refill = time.monotonic()
+        assert limiter._tokens == pytest.approx(
+            min(tokens_after_consume + 1, limiter.burst_size), abs=0.01
+        )
 
     def test_update_from_headers(self):
         """Should parse rate limit headers."""
@@ -1082,11 +1117,13 @@ class TestGlobalProviderFunctions:
         registry = get_provider_registry()
         assert len(registry.providers()) == 2
 
-        # Reset
+        # Reset (replaces global registry with None)
         reset_provider_limiters()
 
-        # Registry should be cleared
-        assert len(registry.providers()) == 0
+        # Get fresh registry reference -- reset_provider_limiters() replaces the
+        # global singleton so the old reference is stale
+        new_registry = get_provider_registry()
+        assert len(new_registry.providers()) == 0
 
 
 # =============================================================================

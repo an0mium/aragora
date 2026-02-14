@@ -132,7 +132,7 @@ class TestGenesisArenaIntegration:
 
     def test_arena_config_accepts_population_manager(self):
         """ArenaConfig should accept population_manager parameter."""
-        from aragora.debate.orchestrator import ArenaConfig
+        from aragora.debate.arena_config import ArenaConfig
 
         mock_manager = Mock()
         config = ArenaConfig(

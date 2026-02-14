@@ -708,6 +708,33 @@ def mock_sentence_transformers(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def mock_semantic_store_embeddings(request, monkeypatch):
+    """Force SemanticStore to use hash-based EmbeddingProvider instead of API-based.
+
+    Without this, SemanticStore._auto_detect_provider() picks OpenAI/Gemini when
+    API keys are set, causing real HTTP calls via aiohttp. Under load (thousands of
+    tests), these hit rate limits and the exponential backoff retries cause hangs
+    that can't be interrupted by pytest-timeout (stuck in C-level asyncio selector).
+    """
+    markers = [m.name for m in request.node.iter_markers()]
+    if "network" in markers or "integration" in markers or "slow" in markers:
+        yield
+        return
+
+    try:
+        from aragora.memory.embeddings import EmbeddingProvider
+
+        monkeypatch.setattr(
+            "aragora.knowledge.mound.semantic_store.SemanticStore._auto_detect_provider",
+            lambda self: EmbeddingProvider(dimension=256),
+        )
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+
+@pytest.fixture(autouse=True)
 def mock_external_apis(request, monkeypatch):
     """Mock external API clients to prevent network calls during tests.
 

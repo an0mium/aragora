@@ -531,18 +531,23 @@ class TestHuggingFaceSpecialistLoaderLoadModel:
 class TestHuggingFaceSpecialistLoaderAdapters:
     """Test adapter loading."""
 
-    @patch("aragora.verticals.models.huggingface_loader.PeftModel")
-    def test_load_adapter_success(self, mock_peft):
+    def test_load_adapter_success(self):
         """Test successful adapter loading."""
+        import sys
+
+        mock_peft_module = MagicMock()
+        mock_peft_model = MagicMock()
+        mock_peft_module.PeftModel = mock_peft_model
+        mock_peft_model.from_pretrained.return_value = MagicMock()
+
         loader = HuggingFaceSpecialistLoader()
         mock_base_model = MagicMock()
-        mock_peft_model = MagicMock()
-        mock_peft.from_pretrained.return_value = mock_peft_model
 
-        result = loader._load_adapter(mock_base_model, "adapter-path")
+        with patch.dict(sys.modules, {"peft": mock_peft_module}):
+            result = loader._load_adapter(mock_base_model, "adapter-path")
 
-        assert result == mock_peft_model
-        mock_peft.from_pretrained.assert_called_once()
+        assert result == mock_peft_model.from_pretrained.return_value
+        mock_peft_model.from_pretrained.assert_called_once()
 
     def test_load_adapter_import_error(self):
         """Test adapter loading handles import error."""
