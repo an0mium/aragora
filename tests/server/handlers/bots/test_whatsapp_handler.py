@@ -11,18 +11,116 @@ Comprehensive test coverage for WhatsApp Cloud API webhook handling:
 import hashlib
 import hmac
 import json
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.server.handlers.bots.whatsapp as _wa_mod
 from aragora.server.handlers.bots.whatsapp import (
     WhatsAppHandler,
     _verify_whatsapp_signature,
 )
 
-
 # Test secrets for webhook signature verification
 TEST_WHATSAPP_SECRET = "test_whatsapp_secret_12345"
+
+# Keep a reference to the original module object so we can detect when
+# another test (e.g. test_rate_limit_enforcement) replaces it in
+# sys.modules via reload.  All ``patch()`` calls must target the same
+# module object that the WhatsAppHandler class methods read globals from.
+_ORIGINAL_WA_MODULE = _wa_mod
+
+
+@pytest.fixture(autouse=True)
+def _ensure_module_consistency():
+    """Ensure the whatsapp module in sys.modules is the one we imported.
+
+    The rate_limit_enforcement test may remove the whatsapp module from
+    sys.modules and reload it, creating a new module object.  Since our
+    WhatsAppHandler class was defined in the *original* module, its
+    method globals (``_send_message.__globals__``, etc.) point to the
+    original module's ``__dict__``.  ``patch()`` targets the module in
+    sys.modules, so after a reload, patches no longer affect the globals
+    that the methods actually read.
+
+    This fixture restores the original module in sys.modules before each
+    test and again in teardown.
+    """
+    sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+    yield
+    sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter_state():
+    """Reset distributed and local rate limiter state between tests.
+
+    The ``@rate_limit`` decorator on WhatsApp handler methods uses the
+    distributed rate limiter singleton, whose internal memory-backed state
+    is NOT cleared by ``clear_all_limiters()`` (which only clears the local
+    ``_limiters`` dict).  Without an explicit reset, rate-limit budget
+    consumed by earlier tests (especially under random ordering) can cause
+    these tests to receive 429 responses instead of the expected result.
+    """
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
+
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+    except ImportError:
+        pass
+
+    yield
+
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
+
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _reset_whatsapp_module_globals():
+    """Reset WhatsApp module-level globals to their import-time values.
+
+    Other handler tests (e.g. rate_limit_enforcement) may reload the
+    whatsapp module or patch its globals without full cleanup.  This
+    fixture captures the current values before each test and restores
+    them afterwards, preventing cross-test pollution when run as part
+    of the full handler suite.
+    """
+    wa_mod = _ORIGINAL_WA_MODULE
+
+    orig = {
+        "WHATSAPP_VERIFY_TOKEN": wa_mod.WHATSAPP_VERIFY_TOKEN,
+        "WHATSAPP_ACCESS_TOKEN": wa_mod.WHATSAPP_ACCESS_TOKEN,
+        "WHATSAPP_PHONE_NUMBER_ID": wa_mod.WHATSAPP_PHONE_NUMBER_ID,
+        "WHATSAPP_APP_SECRET": wa_mod.WHATSAPP_APP_SECRET,
+    }
+
+    yield
+
+    for attr, value in orig.items():
+        setattr(wa_mod, attr, value)
 
 
 @pytest.fixture
@@ -1110,6 +1208,7 @@ class TestWhatsAppContactResolution:
             "Content-Length": str(len(json.dumps(payload))),
             "X-Hub-Signature-256": "",
         }
+        mock_request.client_address = ("127.0.0.1", 12345)
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
         with patch(
@@ -1159,6 +1258,7 @@ class TestWhatsAppContactResolution:
             "Content-Length": str(len(json.dumps(payload))),
             "X-Hub-Signature-256": "",
         }
+        mock_request.client_address = ("127.0.0.1", 12345)
         mock_request.rfile.read.return_value = json.dumps(payload).encode()
 
         with patch(

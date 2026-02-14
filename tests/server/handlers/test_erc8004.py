@@ -163,6 +163,76 @@ class MockHandler:
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_erc8004_module_state():
+    """Reset erc8004 module-level singletons and related rate limiter state.
+
+    The erc8004 module uses lazy-loaded globals (_provider, _connector,
+    _adapter, _blockchain_circuit_breaker) that persist across tests.
+    If a prior test populates these globals (e.g., by calling a handler
+    function without mocking the global getter, or by directly assigning
+    to the module attribute), subsequent tests may see stale objects.
+
+    Additionally, the ``@rate_limit`` decorator on handler functions
+    captures a reference to the distributed rate limiter singleton at
+    decoration time.  The conftest ``_reset_rate_limiters`` fixture only
+    clears the **local** ``_limiters`` dict; it does NOT reset the
+    distributed limiter, which can accumulate request counts across tests
+    and eventually return 429 instead of the expected 200.
+    """
+    # Save originals
+    saved = {
+        "_provider": erc8004._provider,
+        "_connector": erc8004._connector,
+        "_adapter": erc8004._adapter,
+        "_blockchain_circuit_breaker": erc8004._blockchain_circuit_breaker,
+    }
+
+    # Pre-test: ensure clean state
+    erc8004._provider = None
+    erc8004._connector = None
+    erc8004._adapter = None
+    erc8004._blockchain_circuit_breaker = None
+
+    # Also reset the distributed rate limiter so request counts from
+    # prior tests don't cause 429 responses.
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
+
+    # Reset any circuit breakers created under the erc8004 namespace
+    try:
+        from aragora.resilience import reset_all_circuit_breakers
+
+        reset_all_circuit_breakers()
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+    # Teardown: restore module globals to pre-test values so other tests
+    # that rely on the same module object aren't surprised by None.
+    erc8004._provider = saved["_provider"]
+    erc8004._connector = saved["_connector"]
+    erc8004._adapter = saved["_adapter"]
+    erc8004._blockchain_circuit_breaker = saved["_blockchain_circuit_breaker"]
+
+    # Post-test cleanup of distributed limiter
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
+
+
 @pytest.fixture
 def mock_provider():
     """Create mock provider."""

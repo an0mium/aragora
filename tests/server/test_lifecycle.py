@@ -284,7 +284,8 @@ class TestPrometheusMetrics:
         """Gauge tracks registered thread count."""
         from aragora.server.lifecycle import REGISTERED_THREADS_GAUGE
 
-        assert REGISTERED_THREADS_GAUGE is not None
+        if REGISTERED_THREADS_GAUGE is None:
+            pytest.skip("prometheus_client not installed")
 
         registry = ThreadRegistry()
         t, s = _make_stoppable_thread()

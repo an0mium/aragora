@@ -68,7 +68,7 @@ def mock_adapter_spec():
     spec.name = "openhands"
     spec.description = "OpenHands AI agent"
     spec.config_class = MockConfig
-    spec.adapter_class = MagicMock
+    spec.adapter_class = MagicMock()
     return spec
 
 

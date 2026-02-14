@@ -1051,8 +1051,18 @@ class TestAddRelation:
 
     def test_add_relation_target_not_found(self, handler, mock_store, sample_fact):
         """Should return 404 when target fact not found."""
-        # First call returns source fact, second call returns None for target
-        mock_store.get_fact.side_effect = [sample_fact, None]
+        # Use a callable side_effect instead of a list to avoid the
+        # 'list object is not an iterator' TypeError that occurs when the
+        # MagicMock.side_effect property descriptor is corrupted by a
+        # prior test (e.g. setting side_effect on a MagicMock CLASS rather
+        # than an instance).  A callable side_effect bypasses the
+        # list-to-iterator conversion entirely.
+        def _get_fact_side_effect(fact_id):
+            if fact_id == "fact-001":
+                return sample_fact
+            return None
+
+        mock_store.get_fact.side_effect = _get_fact_side_effect
 
         http_handler = create_mock_http_handler(
             method="POST",

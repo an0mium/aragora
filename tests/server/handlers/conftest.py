@@ -1306,6 +1306,14 @@ def _reset_handler_global_state():
     except (ImportError, AttributeError):
         pass
 
+    # Reset legal handler connector cache
+    try:
+        from aragora.server.handlers.features.legal import _connector_instances
+
+        _connector_instances.clear()
+    except (ImportError, AttributeError):
+        pass
+
     # Reset plugins state
     try:
         from aragora.server.handlers.features import plugins
@@ -1372,6 +1380,25 @@ def _reset_handler_global_state():
 # ============================================================================
 
 
+# Capture the real side_effect property descriptor from NonCallableMock.
+# If a test accidentally sets MagicMock.side_effect = <value> on the CLASS
+# (e.g. by assigning `spec.adapter_class = MagicMock` then setting
+# `.adapter_class.side_effect = ...`), the property descriptor is destroyed
+# and all future MagicMock instances lose side_effect list-to-iterator
+# conversion, causing `TypeError: 'list' object is not an iterator`.
+from unittest.mock import NonCallableMock as _NCMock
+
+_real_side_effect_descriptor = type.__dict__["__dict__"].__get__(  # noqa: B009
+    _NCMock
+).get("side_effect", None)
+if _real_side_effect_descriptor is None:
+    # Fallback: walk MRO
+    for _cls in _NCMock.__mro__:
+        if "side_effect" in _cls.__dict__:
+            _real_side_effect_descriptor = _cls.__dict__["side_effect"]
+            break
+
+
 # Capture the real run_async function at import time, before any test can
 # replace it with a mock.  This reference is immutable for the session.
 try:
@@ -1406,8 +1433,18 @@ def _restore_module_level_functions():
     This fixture runs **before** every test and verifies that the critical
     module attributes still point to the real functions.  If they have been
     replaced by *anything* other than the real function, it restores them.
+
+    Also repairs the ``NonCallableMock.side_effect`` property descriptor if
+    a test accidentally set ``MagicMock.side_effect`` on the CLASS (e.g.
+    via ``spec.adapter_class = MagicMock; spec.adapter_class.side_effect = ...``).
     """
     import sys
+
+    # Guard: repair MagicMock.side_effect property if destroyed
+    if _real_side_effect_descriptor is not None:
+        current_descriptor = _NCMock.__dict__.get("side_effect")
+        if current_descriptor is not _real_side_effect_descriptor:
+            _NCMock.side_effect = _real_side_effect_descriptor
 
     if _real_run_async is not None:
         # Modules that import ``run_async`` at module level and are known
@@ -1472,6 +1509,14 @@ def _restore_module_level_functions():
     yield
 
     # Teardown: repeat the same cleanup in case the test itself polluted
+
+    # Repair MagicMock.side_effect descriptor in teardown too, so the
+    # next test's setup guard is not the only line of defence.
+    if _real_side_effect_descriptor is not None:
+        current_descriptor = _NCMock.__dict__.get("side_effect")
+        if current_descriptor is not _real_side_effect_descriptor:
+            _NCMock.side_effect = _real_side_effect_descriptor
+
     if _real_run_async is not None:
         _run_async_modules = [
             "aragora.server.handlers.debates.implementation",

@@ -62,10 +62,36 @@ from aragora.server.handlers.features.legal import (
 
 @pytest.fixture(autouse=True)
 def clear_connector_cache():
-    """Clear cached connector instances before and after each test."""
+    """Clear cached connector instances and sys.modules state before and after each test.
+
+    The ``_connector_instances`` dict is a module-level cache inside the legal
+    handler.  If a previous test populated it (e.g. ``test_connector_cached``
+    stores a mock under ``tenant1``), later tests that call
+    ``get_docusign_connector`` may skip the import branch entirely and return
+    a stale mock.
+
+    Additionally, ``sys.modules`` may contain a real or mock entry for
+    ``aragora.connectors.legal.docusign`` left by a prior test (including tests
+    from *other* test files in the handler suite).  Removing the entry here
+    forces the ``from … import DocuSignConnector`` inside
+    ``get_docusign_connector`` to re-resolve through ``sys.modules`` on every
+    test, preventing stale references from leaking across test boundaries.
+    """
     _connector_instances.clear()
+
+    # Capture and remove stale sys.modules entry so each test controls its own
+    # import context via ``patch.dict``.
+    _saved_docusign_mod = sys.modules.pop("aragora.connectors.legal.docusign", None)
+
     yield
+
     _connector_instances.clear()
+
+    # Restore original sys.modules state (or remove if it was not present)
+    if _saved_docusign_mod is not None:
+        sys.modules["aragora.connectors.legal.docusign"] = _saved_docusign_mod
+    else:
+        sys.modules.pop("aragora.connectors.legal.docusign", None)
 
 
 @pytest.fixture

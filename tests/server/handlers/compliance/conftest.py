@@ -22,7 +22,11 @@ def reset_prometheus_registry():
     This fixture clears the registry before each test and resets
     the metrics module initialization state.
     """
-    from prometheus_client import REGISTRY
+    try:
+        from prometheus_client import REGISTRY
+    except ImportError:
+        yield
+        return
 
     # Collect metric names to unregister
     collectors_to_remove = []
