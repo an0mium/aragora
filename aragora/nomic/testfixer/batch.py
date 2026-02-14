@@ -537,7 +537,7 @@ class BatchOrchestrator:
                 from aragora.ranking.elo import get_elo_store
 
                 elo_system = get_elo_store()
-            except Exception:
+            except (ImportError, AttributeError, RuntimeError):
                 pass
 
             fallback = getattr(self._config, "elo_fallback_agents", None)

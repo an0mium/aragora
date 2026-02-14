@@ -93,7 +93,7 @@ class ContextDelegator:
                 self._auth_context,
                 source="debate.context.continuum",
             )
-        except Exception:
+        except (ImportError, AttributeError):
             context_envelope = {}
         context, retrieved_ids, retrieved_tiers = self.context_gatherer.get_continuum_context(
             continuum_memory=self.continuum_memory,

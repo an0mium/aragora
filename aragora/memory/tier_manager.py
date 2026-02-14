@@ -452,7 +452,7 @@ class GlacialPromotionScheduler:
                 cms = get_continuum_memory()
                 result = await self.run_once(cms)
                 logger.info("GlacialPromotionScheduler cycle complete: %s", result)
-            except Exception:
+            except (ImportError, OSError, RuntimeError):
                 logger.exception("GlacialPromotionScheduler cycle failed")
 
     async def run_once(self, cms: Any) -> dict[str, int]:
@@ -490,7 +490,7 @@ class GlacialPromotionScheduler:
         try:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
-        except Exception:
+        except OSError:
             logger.exception("Failed to query slow-tier candidates")
             return {"candidates": 0, "promoted": 0}
 
@@ -506,7 +506,7 @@ class GlacialPromotionScheduler:
         try:
             await cms._demote_batch(MemoryTier.SLOW, MemoryTier.GLACIAL, candidate_ids)
             num_promoted = num_candidates
-        except Exception:
+        except (OSError, RuntimeError):
             logger.exception("Failed to demote batch to glacial tier")
             num_promoted = 0
 

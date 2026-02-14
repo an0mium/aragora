@@ -87,7 +87,7 @@ def instrumented_handler(handler_name: str, method_name: str = "handle") -> Call
                 else:
                     status_code = 200
                 return result
-            except Exception:
+            except Exception:  # noqa: BLE001 - Intentional: set status_code for metrics before re-raising
                 status_code = 500
                 raise
             finally:
@@ -101,7 +101,7 @@ def instrumented_handler(handler_name: str, method_name: str = "handle") -> Call
                             status_code,
                             duration,
                         )
-                    except Exception:
+                    except (TypeError, AttributeError, RuntimeError):
                         logger.debug("Failed to record request metrics", exc_info=True)
                 if safe_start_span is not None:
                     try:
@@ -119,7 +119,7 @@ def instrumented_handler(handler_name: str, method_name: str = "handle") -> Call
                             span.__enter__()
                         if hasattr(span, "__exit__"):
                             span.__exit__(None, None, None)
-                    except Exception:
+                    except (TypeError, AttributeError, RuntimeError):
                         logger.debug("Failed to record span", exc_info=True)
 
         return wrapper

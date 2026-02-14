@@ -526,7 +526,7 @@ class DecisionPlanFactory:
 
         except ImportError:
             return []
-        except Exception:
+        except (KeyError, ValueError, OSError, RuntimeError):
             return []
 
     @staticmethod

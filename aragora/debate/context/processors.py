@@ -505,7 +505,7 @@ class ContentProcessor:
                     filter_entries,
                     has_memory_read_access,
                 )
-            except Exception:
+            except (ImportError, AttributeError):
                 emit_denial_telemetry = None  # type: ignore[assignment]
                 filter_entries = None  # type: ignore[assignment]
                 has_memory_read_access = None  # type: ignore[assignment]

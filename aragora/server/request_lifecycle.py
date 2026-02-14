@@ -147,7 +147,7 @@ class RequestLifecycleManager:
         if hasattr(self.handler, "headers"):
             try:
                 request_headers = {k: v for k, v in self.handler.headers.items()}
-            except Exception:
+            except (AttributeError, TypeError):
                 logger.debug("Failed to extract request headers", exc_info=True)
                 request_headers = {}
 
@@ -163,7 +163,7 @@ class RequestLifecycleManager:
                 or request_headers.get(REQUEST_ID_HEADER.lower())
                 or generate_request_id()
             )
-        except Exception:
+        except (ImportError, AttributeError):
             logger.debug("Request ID generation unavailable", exc_info=True)
             request_id = None
 
@@ -183,14 +183,14 @@ class RequestLifecycleManager:
                     span_id=span.span_id,
                     parent_span_id=span.parent_span_id,
                 )
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("Correlation context init failed with tracing span", exc_info=True)
                 try:
                     from aragora.server.middleware.request_logging import set_current_request_id
 
                     if request_id:
                         set_current_request_id(request_id)
-                except Exception:
+                except (ImportError, AttributeError):
                     logger.debug("Fallback request ID binding also failed", exc_info=True)
         else:
             # Even without tracing, establish correlation context for logs/headers
@@ -198,14 +198,14 @@ class RequestLifecycleManager:
                 from aragora.server.middleware.correlation import init_correlation
 
                 init_correlation(request_headers, request_id=request_id)
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("Correlation context init failed (no tracing)", exc_info=True)
                 try:
                     from aragora.server.middleware.request_logging import set_current_request_id
 
                     if request_id:
                         set_current_request_id(request_id)
-                except Exception:
+                except (ImportError, AttributeError):
                     logger.debug("Fallback request ID binding also failed", exc_info=True)
 
         # Determine timeout for this request

@@ -235,7 +235,7 @@ def _effective_max_similarity_caches() -> int:
                 and patched != DEFAULT_MAX_SIMILARITY_CACHES
             ):
                 return patched
-    except Exception:
+    except (AttributeError, TypeError):
         pass
     return module_value
 

@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from aragora.storage.receipt_store import get_receipt_store as _receipt_store_get
-except Exception:
+except (ImportError, AttributeError):
     _receipt_store_get = None
 
 
@@ -422,7 +422,7 @@ class ImplementationOperationsMixin:
 
                 evidence_store = EvidenceStore()
                 self.ctx["evidence_store"] = evidence_store
-            except Exception:
+            except (ImportError, AttributeError):
                 evidence_store = None
 
         auth_context = getattr(handler, "_auth_context", None) if handler is not None else None
@@ -435,7 +435,7 @@ class ImplementationOperationsMixin:
                     auth_context,
                     source="debates.decision_integrity",
                 )
-            except Exception:
+            except (ImportError, AttributeError):
                 context_envelope = None
 
         package = run_async(
@@ -712,8 +712,8 @@ class ImplementationOperationsMixin:
                 decision = checker.check_permission(user, "autonomous:approve")  # type: ignore[arg-type]
                 if not decision.allowed:
                     return error_response(f"Permission denied: {decision.reason}", 403)
-            except Exception:
-                pass  # Legacy compatibility
+            except (ImportError, AttributeError):
+                pass  # Legacy compatibility: permission checker may not be available
 
         changes = self._build_changes_list(package.plan)
         requested_by = getattr(user, "user_id", None) if user else "system"
@@ -918,7 +918,7 @@ class ImplementationOperationsMixin:
                     from aragora.pipeline.decision_plan import ImplementationProfile
 
                     profile = ImplementationProfile.from_dict(rc.implementation_profile)
-                except Exception:
+                except (ImportError, ValueError, KeyError):
                     profile = None
 
             async with AgentFabric() as fabric:

@@ -193,7 +193,7 @@ async def record_plan_outcome(
                         success=outcome.success,
                         agent_prediction_error=1.0 - outcome.completion_rate,
                     )
-                except Exception:
+                except (KeyError, ValueError, OSError):
                     logger.debug("Failed to update debate memory outcome", exc_info=True)
 
         except Exception as e:
@@ -264,7 +264,7 @@ async def record_plan_outcome(
                                 },
                             )
                             stored_count += 1
-                        except Exception:
+                        except (KeyError, ValueError, OSError, RuntimeError):
                             logger.debug("Failed to store pattern in knowledge mound", exc_info=True)
 
                     if stored_count > 0:

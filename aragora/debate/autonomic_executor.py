@@ -317,7 +317,7 @@ class AutonomicExecutor:
                 from aragora.reasoning.sampling.power_sampling import DefaultScorer
 
                 scorer = DefaultScorer()
-            except Exception:
+            except (ImportError, AttributeError):
                 scorer = None
 
         async def generator(p: str) -> str:

@@ -798,7 +798,7 @@ class DecisionRouter:
                 if encoding in {"base64", "b64"}:
                     try:
                         payload = base64.b64decode(data, validate=False)
-                    except Exception:
+                    except (ValueError, UnicodeError):
                         payload = data.encode("utf-8", errors="ignore")
                 else:
                     payload = data.encode("utf-8", errors="ignore")

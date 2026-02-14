@@ -248,7 +248,7 @@ class DrainCoordinator:
                     "Shutdown callback timed out after %.1fs",
                     self._shutdown_timeout,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - Intentional: shutdown must not be blocked by callback errors
                 logger.exception("Shutdown callback failed")
 
         # --- STOPPED ---
@@ -306,7 +306,7 @@ class DrainCoordinator:
         for cb in self._state_callbacks:
             try:
                 cb(new_state)
-            except Exception:
+            except (TypeError, ValueError, RuntimeError):
                 logger.debug("State change callback failed", exc_info=True)
 
     def _record_transition(self, state: ServerState) -> None:

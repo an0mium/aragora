@@ -81,7 +81,7 @@ class MemoryProgressiveMixin:
                 resolve_tenant_id,
                 tenant_enforcement_enabled,
             )
-        except Exception:
+        except (ImportError, AttributeError):
             logger.warning(
                 "Memory access module unavailable, RBAC/tenant filtering disabled for search index",
                 exc_info=True,
@@ -217,7 +217,7 @@ class MemoryProgressiveMixin:
 
         try:
             from aragora.memory.access import resolve_tenant_id, tenant_enforcement_enabled
-        except Exception:
+        except (ImportError, AttributeError):
             logger.warning(
                 "Memory access module unavailable, RBAC/tenant filtering disabled for timeline",
                 exc_info=True,
@@ -254,7 +254,7 @@ class MemoryProgressiveMixin:
 
         try:
             from aragora.memory.access import filter_entries
-        except Exception:
+        except (ImportError, AttributeError):
             logger.warning(
                 "Memory access module unavailable, RBAC entry filtering disabled for timeline",
                 exc_info=True,
@@ -319,7 +319,7 @@ class MemoryProgressiveMixin:
                 resolve_tenant_id,
                 tenant_enforcement_enabled,
             )
-        except Exception:
+        except (ImportError, AttributeError):
             logger.warning(
                 "Memory access module unavailable, RBAC/tenant filtering disabled for bulk retrieval",
                 exc_info=True,
@@ -398,7 +398,7 @@ class MemoryProgressiveMixin:
                 resolve_tenant_id,
                 tenant_enforcement_enabled,
             )
-        except Exception:
+        except (ImportError, AttributeError):
             logger.warning(
                 "Memory access module unavailable, RBAC/tenant filtering disabled for search",
                 exc_info=True,

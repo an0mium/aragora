@@ -571,7 +571,7 @@ def rate_limit(
                 safe_isinstance = type(builtins.isinstance) is types.BuiltinFunctionType
                 if safe_isinstance:
                     test_name = os.environ.get("PYTEST_CURRENT_TEST")
-            except Exception:
+            except (ImportError, AttributeError, TypeError):
                 logger.debug("Builtins introspection failed in rate limit key extraction", exc_info=True)
                 safe_isinstance = False
                 test_name = None
@@ -672,7 +672,7 @@ def rate_limit(
 
                 if type(builtins.isinstance) is not types.BuiltinFunctionType:
                     return None
-            except Exception:
+            except (ImportError, AttributeError, TypeError):
                 logger.debug("Builtins introspection failed in rate limit check", exc_info=True)
                 return None
 
@@ -732,7 +732,7 @@ def rate_limit(
 
                     if type(builtins.isinstance) is not types.BuiltinFunctionType:
                         return await func(*args, **kwargs)
-                except Exception:
+                except (ImportError, AttributeError, TypeError):
                     logger.debug("Builtins introspection failed in async rate limit wrapper", exc_info=True)
                 self_obj = args[0] if args else None
                 key = _get_key_from_args(args, kwargs, self_obj=self_obj)
@@ -762,7 +762,7 @@ def rate_limit(
 
                     if type(builtins.isinstance) is not types.BuiltinFunctionType:
                         return func(*args, **kwargs)
-                except Exception:
+                except (ImportError, AttributeError, TypeError):
                     logger.debug("Builtins introspection failed in sync rate limit wrapper", exc_info=True)
                 self_obj = args[0] if args else None
                 key = _get_key_from_args(args, kwargs, self_obj=self_obj)

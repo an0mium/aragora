@@ -567,7 +567,7 @@ class ConsensusEstimator:
                     from aragora.observability.metrics.debate import record_debate_stability
 
                     record_debate_stability(self._last_stability.stability)
-                except Exception:
+                except (ImportError, AttributeError):
                     logger.debug("Failed to record debate stability metric", exc_info=True)
 
         estimate = self.estimate_consensus(
@@ -581,7 +581,7 @@ class ConsensusEstimator:
                 from aragora.observability.metrics.debate import record_early_termination
 
                 record_early_termination("ml")
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("Failed to record early termination metric", exc_info=True)
             return True
 
@@ -596,7 +596,7 @@ class ConsensusEstimator:
                 from aragora.observability.metrics.debate import record_early_termination
 
                 record_early_termination("stability")
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("Failed to record early termination metric", exc_info=True)
             return True
 

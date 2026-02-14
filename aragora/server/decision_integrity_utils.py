@@ -171,7 +171,7 @@ async def build_decision_integrity_payload(
     if hasattr(result, "to_dict"):
         try:
             debate_payload = result.to_dict()
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             debate_payload = {}
     if not debate_payload:
         debate_payload = {
@@ -199,7 +199,7 @@ async def build_decision_integrity_payload(
                 auth_context,
                 source="server.decision_integrity_utils",
             )
-        except Exception:
+        except (ImportError, AttributeError):
             context_envelope = None
 
     try:
@@ -367,7 +367,7 @@ async def build_decision_integrity_payload(
                         from aragora.pipeline.executor import store_plan
 
                         store_plan(plan)
-                except Exception:
+                except (ImportError, OSError, RuntimeError):
                     logger.debug("Failed to store approved plan", exc_info=True)
             except Exception as exc:
                 logger.debug("Approval request failed: %s", exc)

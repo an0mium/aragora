@@ -148,7 +148,7 @@ async def capture_context_snapshot(
             resolve_tenant_id,
             tenant_enforcement_enabled,
         )
-    except Exception:
+    except (ImportError, AttributeError):
         pass
 
     if context_envelope is not None:
@@ -341,7 +341,7 @@ async def build_decision_integrity_package(
         if plan_strategy == "gemini":
             try:
                 plan = await generate_implement_plan(design=design, repo_path=repo_root)
-            except Exception:
+            except (OSError, ValueError, RuntimeError):
                 plan = create_single_task_plan(design=design, repo_path=repo_root)
         else:
             plan = create_single_task_plan(design=design, repo_path=repo_root)

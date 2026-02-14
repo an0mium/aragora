@@ -89,7 +89,7 @@ async def _run_sica_cycle(
     for raw in raw_types:
         try:
             improvement_types.append(ImprovementType(raw))
-        except Exception:
+        except (ValueError, KeyError):
             log_fn(f"[sica] Unknown improvement type '{raw}', skipping")
 
     agent = _select_sica_agent(agents, settings.generator_model)

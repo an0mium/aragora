@@ -150,7 +150,7 @@ class PostFixBugChecker:
         finally:
             try:
                 Path(tmp.name).unlink(missing_ok=True)
-            except Exception:
+            except OSError:
                 pass
 
     @staticmethod

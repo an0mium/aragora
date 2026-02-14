@@ -33,7 +33,7 @@ def get_receipt_store():  # type: ignore[override]
         from aragora.server.handlers import compliance_handler as compat
 
         return compat.get_receipt_store()
-    except Exception:
+    except (ImportError, AttributeError):
         logger.debug(
             "compliance_handler.get_receipt_store unavailable, using base receipt store",
             exc_info=True,
@@ -101,7 +101,7 @@ class AuditVerifyMixin:
                 from aragora.storage.receipt_store import get_receipt_store as _store_get
 
                 store = _store_get()
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.warning(
                     "Direct receipt_store import failed, using compat fallback for batch verify",
                     exc_info=True,
@@ -255,7 +255,7 @@ class AuditVerifyMixin:
                 from aragora.server.handlers import compliance_handler as compat
 
                 store = compat.get_audit_store()
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug(
                     "compliance_handler.get_audit_store unavailable for date range verify",
                     exc_info=True,
@@ -264,7 +264,7 @@ class AuditVerifyMixin:
                     from aragora.storage.audit_store import get_audit_store as _audit_get
 
                     store = _audit_get()
-                except Exception:
+                except (ImportError, AttributeError):
                     logger.warning(
                         "Direct audit_store import also failed, using module-level fallback",
                         exc_info=True,
@@ -335,7 +335,7 @@ class AuditVerifyMixin:
                 from aragora.server.handlers import compliance_handler as compat
 
                 store = compat.get_audit_store()
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug(
                     "compliance_handler.get_audit_store unavailable for event fetch",
                     exc_info=True,

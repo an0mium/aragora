@@ -121,7 +121,7 @@ class ResponseHelpersMixin:
             from aragora.server.middleware.correlation import get_correlation
 
             ctx = get_correlation()
-        except Exception:
+        except (ImportError, AttributeError):
             ctx = None
 
         if ctx is not None:
@@ -129,7 +129,7 @@ class ResponseHelpersMixin:
                 from aragora.server.middleware.request_logging import REQUEST_ID_HEADER
 
                 self.send_header(REQUEST_ID_HEADER, ctx.request_id)
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("Failed to send request ID header", exc_info=True)
             from aragora.server.middleware.tracing import (
                 PARENT_SPAN_HEADER,
@@ -153,7 +153,7 @@ class ResponseHelpersMixin:
             request_id = get_current_request_id()
             if request_id:
                 self.send_header(REQUEST_ID_HEADER, request_id)
-        except Exception:
+        except (ImportError, AttributeError):
             logger.debug("Failed to send legacy request ID header", exc_info=True)
 
         from aragora.server.middleware.tracing import (
