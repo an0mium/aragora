@@ -109,6 +109,8 @@ jobs:
           pytest ${{ matrix.test-group }} -v --timeout=30 --maxfail=5 --tb=short -n auto
         env:
           PYTHONPATH: .
+          ARAGORA_OFFLINE: "true"
+          ARAGORA_DEMO_MODE: "true"
 
   build:
     needs: [validate, test, docs-sync]
