@@ -64,13 +64,13 @@ class TestDefaultConfig:
         assert "server" in config
         assert "http_port" in config["server"]
 
-    def test_contains_data_section(self):
-        """Config contains data section."""
+    def test_contains_debate_section(self):
+        """Config contains debate section."""
         import yaml
 
         config = yaml.safe_load(DEFAULT_CONFIG)
-        assert "data" in config
-        assert "db_dir" in config["data"]
+        assert "debate" in config
+        assert "rounds" in config["debate"]
 
 
 class TestGitignoreContent:
@@ -245,8 +245,13 @@ class TestCmdInit:
         captured = capsys.readouterr()
         assert "Aragora project initialized" in captured.out
 
-    def test_prints_next_steps(self, clean_dir, capsys):
-        """Print next steps."""
+    def test_prints_next_steps(self, clean_dir, capsys, monkeypatch):
+        """Print next steps including API key prompt when no keys set."""
+        # Clear API keys so the 'no keys detected' path runs
+        for key in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
+                     "XAI_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY"):
+            monkeypatch.delenv(key, raising=False)
+
         args = MagicMock()
         args.directory = str(clean_dir)
         args.force = False
@@ -256,7 +261,7 @@ class TestCmdInit:
 
         captured = capsys.readouterr()
         assert "Next steps" in captured.out
-        assert "Set API keys" in captured.out
+        assert "No API keys detected" in captured.out
         assert "aragora ask" in captured.out
 
     def test_handles_missing_directory_attr(self, clean_dir, capsys, monkeypatch):

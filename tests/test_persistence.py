@@ -72,8 +72,8 @@ class TestNomicCycleModel:
 
         d = cycle.to_dict()
 
-        assert d["started_at"] == "2026-01-01T12:00:00"
-        assert d["completed_at"] == "2026-01-01T13:00:00"
+        assert d["started_at"] == "2026-01-01T12:00:00+00:00"
+        assert d["completed_at"] == "2026-01-01T13:00:00+00:00"
 
     def test_to_dict_handles_none_completed_at(self):
         """Should handle None completed_at in to_dict."""
@@ -141,7 +141,7 @@ class TestDebateArtifactModel:
 
     def test_created_at_defaults_to_now(self):
         """Should default created_at to current time."""
-        before = datetime.now(timezone.utc)
+        before = datetime.utcnow()
 
         artifact = DebateArtifact(
             loop_id="test",
@@ -154,7 +154,7 @@ class TestDebateArtifactModel:
             confidence=1.0,
         )
 
-        after = datetime.now(timezone.utc)
+        after = datetime.utcnow()
 
         assert before <= artifact.created_at <= after
 
