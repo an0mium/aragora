@@ -222,9 +222,9 @@ ml = [
 rlm = [
     # Official RLM library from arXiv:2512.24601 (MIT license)
     # Enables recursive language models for infinite context processing
-    # Source: https://github.com/alexzhang13/rlm
+    # Install manually: pip install git+https://github.com/alexzhang13/rlm.git@v1.0.0
     # The aragora.rlm module also works without this package (graceful fallback via HierarchicalCompressor).
-    "rlm>=0.1.0",
+    # Note: rlm is not on PyPI, so this extra is a no-op. Install from git if needed.
 ]
 control-plane = [
     "redis>=5.0.0,<8.0",
