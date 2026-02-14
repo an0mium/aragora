@@ -599,16 +599,9 @@ class TestAuditReportGeneration:
 
     def test_report_captures_all_categories(self, audit_report):
         """Verify report captures multiple categories."""
-        # This test runs last and validates report completeness
-        expected_categories = {
-            "query_filtering",
-            "access_prevention",
-            "sql_injection",
-            "encryption",
-            "context_isolation",
-            "namespace_isolation",
-            "isolation_level",
-        }
+        # Skip when running in random order before other tests populate the report
+        if audit_report.total_tests == 0:
+            pytest.skip("Report not yet populated (test ran before populating tests)")
 
         # Check that we have results from multiple categories
         assert len(audit_report.categories_tested) >= 3, (
@@ -617,6 +610,9 @@ class TestAuditReportGeneration:
 
     def test_report_has_passing_tests(self, audit_report):
         """Verify report has high pass rate."""
+        # Skip when running in random order before other tests populate the report
+        if audit_report.total_tests == 0:
+            pytest.skip("Report not yet populated (test ran before populating tests)")
         assert audit_report.pass_rate >= 90.0, (
             f"Pass rate should be >= 90%, got: {audit_report.pass_rate:.2f}%"
         )
