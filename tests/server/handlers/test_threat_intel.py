@@ -102,6 +102,13 @@ class MockRequest:
         return self._body
 
 
+def _unwrap(fn):
+    """Fully unwrap a decorated function to reach the innermost implementation."""
+    while hasattr(fn, "__wrapped__"):
+        fn = fn.__wrapped__
+    return fn
+
+
 # ===========================================================================
 # Fixtures
 # ===========================================================================
@@ -185,7 +192,7 @@ class TestCheckUrl:
             new_callable=AsyncMock,
             return_value=({"url": "https://example.com"}, None),
         ):
-            result = await handler.check_url.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.check_url)(handler, MockRequest())
             # check_url calls self.success_response
             mock_service.check_url.assert_awaited_once()
 
@@ -196,7 +203,7 @@ class TestCheckUrl:
             new_callable=AsyncMock,
             return_value=({"url": "example.com"}, None),
         ):
-            await handler.check_url.__wrapped__(handler, MockRequest())
+            await _unwrap(handler.check_url)(handler, MockRequest())
             call_kwargs = mock_service.check_url.call_args
             assert call_kwargs.kwargs.get("url", call_kwargs[1].get("url", "")).startswith("https://")
 
@@ -207,7 +214,7 @@ class TestCheckUrl:
             new_callable=AsyncMock,
             return_value=({"url": ""}, None),
         ):
-            result = await handler.check_url.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.check_url)(handler, MockRequest())
             # Should return error for empty URL
             assert result is not None
 
@@ -227,7 +234,7 @@ class TestCheckUrlsBatch:
             new_callable=AsyncMock,
             return_value=({"urls": ["https://a.com", "https://b.com"]}, None),
         ):
-            await handler.check_urls_batch.__wrapped__(handler, MockRequest())
+            await _unwrap(handler.check_urls_batch)(handler, MockRequest())
             mock_service.check_urls_batch.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -237,7 +244,7 @@ class TestCheckUrlsBatch:
             new_callable=AsyncMock,
             return_value=({"urls": []}, None),
         ):
-            result = await handler.check_urls_batch.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.check_urls_batch)(handler, MockRequest())
             assert result is not None
 
     @pytest.mark.asyncio
@@ -248,7 +255,7 @@ class TestCheckUrlsBatch:
             new_callable=AsyncMock,
             return_value=({"urls": urls}, None),
         ):
-            result = await handler.check_urls_batch.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.check_urls_batch)(handler, MockRequest())
             assert result is not None
 
 
@@ -263,13 +270,13 @@ class TestCheckIp:
     @pytest.mark.asyncio
     async def test_check_ip_success(self, handler, mock_service):
         request = MockRequest(match_info={"ip_address": "1.2.3.4"})
-        await handler.check_ip.__wrapped__(handler, request)
+        await _unwrap(handler.check_ip)(handler, request)
         mock_service.check_ip.assert_awaited_once_with("1.2.3.4")
 
     @pytest.mark.asyncio
     async def test_check_ip_empty(self, handler, mock_service):
         request = MockRequest(match_info={"ip_address": ""})
-        result = await handler.check_ip.__wrapped__(handler, request)
+        result = await _unwrap(handler.check_ip)(handler, request)
         assert result is not None
 
 
@@ -288,7 +295,7 @@ class TestCheckIpsBatch:
             new_callable=AsyncMock,
             return_value=({"ips": ["1.2.3.4", "5.6.7.8"]}, None),
         ):
-            await handler.check_ips_batch.__wrapped__(handler, MockRequest())
+            await _unwrap(handler.check_ips_batch)(handler, MockRequest())
             assert mock_service.check_ip.await_count == 2
 
     @pytest.mark.asyncio
@@ -299,7 +306,7 @@ class TestCheckIpsBatch:
             new_callable=AsyncMock,
             return_value=({"ips": ips}, None),
         ):
-            result = await handler.check_ips_batch.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.check_ips_batch)(handler, MockRequest())
             assert result is not None
 
 
@@ -314,13 +321,13 @@ class TestCheckHash:
     @pytest.mark.asyncio
     async def test_check_hash_success(self, handler, mock_service):
         request = MockRequest(match_info={"hash_value": "abc123def456"})
-        await handler.check_hash.__wrapped__(handler, request)
+        await _unwrap(handler.check_hash)(handler, request)
         mock_service.check_file_hash.assert_awaited_once_with("abc123def456")
 
     @pytest.mark.asyncio
     async def test_check_hash_empty(self, handler, mock_service):
         request = MockRequest(match_info={"hash_value": ""})
-        result = await handler.check_hash.__wrapped__(handler, request)
+        result = await _unwrap(handler.check_hash)(handler, request)
         assert result is not None
 
 
@@ -339,7 +346,7 @@ class TestCheckHashesBatch:
             new_callable=AsyncMock,
             return_value=({"hashes": ["abc123", "def456"]}, None),
         ):
-            await handler.check_hashes_batch.__wrapped__(handler, MockRequest())
+            await _unwrap(handler.check_hashes_batch)(handler, MockRequest())
             assert mock_service.check_file_hash.await_count == 2
 
     @pytest.mark.asyncio
@@ -350,7 +357,7 @@ class TestCheckHashesBatch:
             new_callable=AsyncMock,
             return_value=({"hashes": hashes}, None),
         ):
-            result = await handler.check_hashes_batch.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.check_hashes_batch)(handler, MockRequest())
             assert result is not None
 
 
@@ -369,7 +376,7 @@ class TestScanEmail:
             new_callable=AsyncMock,
             return_value=({"body": "Hello, check https://example.com"}, None),
         ):
-            await handler.scan_email_content.__wrapped__(handler, MockRequest())
+            await _unwrap(handler.scan_email_content)(handler, MockRequest())
             mock_service.check_email_content.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -379,7 +386,7 @@ class TestScanEmail:
             new_callable=AsyncMock,
             return_value=({"body": ""}, None),
         ):
-            result = await handler.scan_email_content.__wrapped__(handler, MockRequest())
+            result = await _unwrap(handler.scan_email_content)(handler, MockRequest())
             assert result is not None
 
 
@@ -393,7 +400,7 @@ class TestGetStatus:
 
     @pytest.mark.asyncio
     async def test_get_status_success(self, handler, mock_service):
-        result = await handler.get_status.__wrapped__(handler, MockRequest())
+        result = await _unwrap(handler.get_status)(handler, MockRequest())
         # Should call success_response with config data
         assert result is not None
 
