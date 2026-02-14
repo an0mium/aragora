@@ -11,6 +11,31 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 
+from aragora.server.handlers.utils import decorators as handler_decorators
+
+
+@pytest.fixture(autouse=True)
+def _bypass_verification_auth(monkeypatch):
+    """Bypass auth checks for all formal verification handler tests."""
+    mock_user = MagicMock()
+    mock_user.user_id = "test-user"
+    mock_user.role = "admin"
+    mock_user.permissions = ["verify:read", "verify:write"]
+    mock_user.is_admin = True
+    mock_user.is_authenticated = True
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_user)
+    monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+
+    # Also patch _check_permission on the handler class itself since it
+    # calls require_auth_or_error which tries to iterate the mock handler
+    from aragora.server.handlers.verification.formal_verification import (
+        FormalVerificationHandler,
+    )
+
+    monkeypatch.setattr(
+        FormalVerificationHandler, "_check_permission", lambda self, handler, perm: None
+    )
+
 
 class TestFormalVerificationHandlerRouting:
     """Test route matching for FormalVerificationHandler."""

@@ -516,7 +516,7 @@ class TestValidateAgainstSchema:
 
     def test_probe_run_invalid_agent_pattern(self):
         """Test probe run with invalid agent name fails."""
-        data = {"agent": "invalid agent name!@#"}
+        data = {"agent_name": "invalid agent name!@#"}
         result = validate_against_schema(data, PROBE_RUN_SCHEMA)
 
         assert result.is_valid is False

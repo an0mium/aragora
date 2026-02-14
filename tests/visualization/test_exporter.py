@@ -9,6 +9,7 @@ from unittest.mock import patch
 from aragora.visualization.exporter import (
     _get_graph_hash,
     _get_cached_export,
+    _get_cache_backend,
     _cache_export,
     clear_export_cache,
     cleanup_expired_exports,
@@ -329,10 +330,11 @@ class TestExportCacheCleanup:
 
         # Mock time to future where old entries are expired
         future_time = time.time() + _EXPORT_CACHE_TTL + 100
+        backend = _get_cache_backend()
         with patch("aragora.visualization.exporter.time.time") as mock_time:
             mock_time.return_value = future_time
             # Prevent _maybe_cleanup from running when we add the new entry
-            exp._last_cleanup_time = future_time
+            backend._last_cleanup = future_time
             # Add fresh entry while time is mocked (will have future timestamp)
             _cache_export("new", "json", "hash3", "content3")
             # Now run cleanup - should only remove old entries

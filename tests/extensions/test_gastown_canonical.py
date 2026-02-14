@@ -68,8 +68,9 @@ class TestSharedNomicBackend:
         import aragora.extensions.gastown.convoy as gas_mod
         import aragora.workspace.convoy as ws_mod
 
-        # Both import NomicConvoyManager from aragora.nomic.stores
-        assert gas_mod.NomicConvoyManager is ws_mod.NomicConvoyManager
+        # Both import ConvoyManager from aragora.nomic.stores
+        # gastown aliases it as NomicConvoyManager, workspace keeps it as ConvoyManager
+        assert gas_mod.NomicConvoyManager is ws_mod.ConvoyManager
 
     def test_nomic_bead_store_is_same_class(self):
         """Both trackers reference the same NomicBeadStore class."""

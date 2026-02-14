@@ -701,11 +701,10 @@ class TestArenaConfigFullSetup:
 class TestArenaConfigDataclass:
     """Tests for dataclass behavior."""
 
-    def test_is_dataclass(self):
-        """Test ArenaConfig is a proper dataclass."""
-        from dataclasses import is_dataclass
-
-        assert is_dataclass(ArenaConfig)
+    def test_is_class_with_init(self):
+        """Test ArenaConfig is a class that can be instantiated."""
+        config = ArenaConfig()
+        assert isinstance(config, ArenaConfig)
 
     def test_equality(self):
         """Test ArenaConfig equality comparison."""

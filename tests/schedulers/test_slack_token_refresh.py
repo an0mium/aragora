@@ -37,7 +37,7 @@ class MockWorkspaceStore:
         """Return workspaces with expiring tokens."""
         return self.workspaces
 
-    def refresh_workspace_token(
+    async def refresh_workspace_token(
         self, workspace_id: str, client_id: str, client_secret: str
     ) -> MockWorkspace | None:
         """Mock token refresh."""

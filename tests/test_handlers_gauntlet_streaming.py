@@ -16,39 +16,42 @@ class TestSetGauntletBroadcastFn:
 
     def test_set_broadcast_fn_stores_function(self):
         """set_gauntlet_broadcast_fn stores the provided function."""
-        from aragora.server.handlers import gauntlet
+        from aragora.server.handlers.gauntlet import storage as gauntlet_storage
+        from aragora.server.handlers.gauntlet import set_gauntlet_broadcast_fn
 
         mock_fn = Mock()
-        gauntlet.set_gauntlet_broadcast_fn(mock_fn)
+        set_gauntlet_broadcast_fn(mock_fn)
 
-        assert gauntlet._gauntlet_broadcast_fn is mock_fn
+        assert gauntlet_storage._gauntlet_broadcast_fn is mock_fn
 
         # Cleanup
-        gauntlet._gauntlet_broadcast_fn = None
+        gauntlet_storage._gauntlet_broadcast_fn = None
 
     def test_set_broadcast_fn_replaces_existing(self):
         """set_gauntlet_broadcast_fn replaces any existing function."""
-        from aragora.server.handlers import gauntlet
+        from aragora.server.handlers.gauntlet import storage as gauntlet_storage
+        from aragora.server.handlers.gauntlet import set_gauntlet_broadcast_fn
 
         mock_fn1 = Mock()
         mock_fn2 = Mock()
 
-        gauntlet.set_gauntlet_broadcast_fn(mock_fn1)
-        gauntlet.set_gauntlet_broadcast_fn(mock_fn2)
+        set_gauntlet_broadcast_fn(mock_fn1)
+        set_gauntlet_broadcast_fn(mock_fn2)
 
-        assert gauntlet._gauntlet_broadcast_fn is mock_fn2
+        assert gauntlet_storage._gauntlet_broadcast_fn is mock_fn2
 
         # Cleanup
-        gauntlet._gauntlet_broadcast_fn = None
+        gauntlet_storage._gauntlet_broadcast_fn = None
 
     def test_set_broadcast_fn_accepts_none(self):
         """set_gauntlet_broadcast_fn can accept None to disable streaming."""
-        from aragora.server.handlers import gauntlet
+        from aragora.server.handlers.gauntlet import storage as gauntlet_storage
+        from aragora.server.handlers.gauntlet import set_gauntlet_broadcast_fn
 
-        gauntlet.set_gauntlet_broadcast_fn(Mock())
-        gauntlet.set_gauntlet_broadcast_fn(None)
+        set_gauntlet_broadcast_fn(Mock())
+        set_gauntlet_broadcast_fn(None)
 
-        assert gauntlet._gauntlet_broadcast_fn is None
+        assert gauntlet_storage._gauntlet_broadcast_fn is None
 
 
 class TestGauntletHandlerInit:
@@ -57,38 +60,38 @@ class TestGauntletHandlerInit:
     def test_handler_sets_broadcast_from_emitter(self):
         """Handler sets broadcast function from stream_emitter in context."""
         from aragora.server.handlers.gauntlet import GauntletHandler
-        from aragora.server.handlers import gauntlet
+        from aragora.server.handlers.gauntlet import storage as gauntlet_storage
 
         mock_emitter = Mock()
         mock_emitter.emit = Mock()
 
         handler = GauntletHandler({"stream_emitter": mock_emitter})
 
-        assert gauntlet._gauntlet_broadcast_fn is mock_emitter.emit
+        assert gauntlet_storage._gauntlet_broadcast_fn is mock_emitter.emit
 
         # Cleanup
-        gauntlet._gauntlet_broadcast_fn = None
+        gauntlet_storage._gauntlet_broadcast_fn = None
 
     def test_handler_ignores_missing_emitter(self):
         """Handler works without stream_emitter in context."""
         from aragora.server.handlers.gauntlet import GauntletHandler
-        from aragora.server.handlers import gauntlet
+        from aragora.server.handlers.gauntlet import storage as gauntlet_storage
 
         # Ensure clean state
-        gauntlet._gauntlet_broadcast_fn = None
+        gauntlet_storage._gauntlet_broadcast_fn = None
 
         handler = GauntletHandler({})
 
         # Should remain None
-        assert gauntlet._gauntlet_broadcast_fn is None
+        assert gauntlet_storage._gauntlet_broadcast_fn is None
 
     def test_handler_ignores_emitter_without_emit(self):
         """Handler ignores emitter without emit attribute."""
         from aragora.server.handlers.gauntlet import GauntletHandler
-        from aragora.server.handlers import gauntlet
+        from aragora.server.handlers.gauntlet import storage as gauntlet_storage
 
         # Ensure clean state
-        gauntlet._gauntlet_broadcast_fn = None
+        gauntlet_storage._gauntlet_broadcast_fn = None
 
         # Object without emit method
         mock_emitter = Mock(spec=[])
@@ -96,7 +99,7 @@ class TestGauntletHandlerInit:
         handler = GauntletHandler({"stream_emitter": mock_emitter})
 
         # Should remain None since emitter has no emit
-        assert gauntlet._gauntlet_broadcast_fn is None
+        assert gauntlet_storage._gauntlet_broadcast_fn is None
 
 
 class TestGauntletStreamEmitter:

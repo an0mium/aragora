@@ -25,12 +25,45 @@ import pytest_asyncio
 from aragora.server.handlers.compliance.handler import ComplianceHandler
 from aragora.server.handlers.base import ServerContext
 
+from aragora.rbac import decorators as rbac_decorators
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.utils import decorators as handler_decorators
+
 pytestmark = [pytest.mark.e2e, pytest.mark.compliance]
 
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _bypass_compliance_auth(monkeypatch):
+    """Bypass auth checks for all compliance handler tests."""
+    mock_auth_ctx = AuthorizationContext(
+        user_id="test-user",
+        user_email="test@example.com",
+        org_id="test-org",
+        roles={"admin", "owner"},
+        permissions={"*"},
+    )
+
+    # Patch _get_context_from_args in aragora.rbac.decorators so that
+    # @require_permission finds a valid AuthorizationContext even when
+    # tests don't pass one explicitly.
+    original_get_context = rbac_decorators._get_context_from_args
+
+    def patched_get_context_from_args(args, kwargs, context_param):
+        result = original_get_context(args, kwargs, context_param)
+        if result is None:
+            return mock_auth_ctx
+        return result
+
+    monkeypatch.setattr(rbac_decorators, "_get_context_from_args", patched_get_context_from_args)
+
+    # Also bypass the handler_decorators auth layer
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_auth_ctx)
+    monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
 
 
 @pytest.fixture
@@ -44,8 +77,38 @@ def mock_server_context():
 
 @pytest.fixture
 def compliance_handler(mock_server_context):
-    """Create a ComplianceHandler instance."""
-    return ComplianceHandler(mock_server_context)
+    """Create a ComplianceHandler instance.
+
+    Wraps ``handle()`` so tests can call it with the simplified
+    ``(method=, path=, query_params=, body=)`` keyword interface instead
+    of the production ``(path, query_params, handler)`` positional interface.
+    """
+    import io
+    import json as _json
+    import functools
+
+    handler_obj = ComplianceHandler(mock_server_context)
+    original_handle = handler_obj.handle
+
+    @functools.wraps(original_handle)
+    async def _wrapped_handle(
+        *,
+        method: str = "GET",
+        path: str,
+        query_params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+    ):
+        # Build a lightweight mock HTTP handler that ComplianceHandler.handle
+        # can introspect for method/body/headers.
+        mock_http = MagicMock()
+        mock_http.command = method
+        body_bytes = _json.dumps(body or {}).encode()
+        mock_http.headers = {"Content-Length": str(len(body_bytes))}
+        mock_http.rfile = io.BytesIO(body_bytes)
+        return await original_handle(path, query_params or {}, mock_http)
+
+    handler_obj.handle = _wrapped_handle
+    return handler_obj
 
 
 @pytest.fixture

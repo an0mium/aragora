@@ -685,7 +685,7 @@ class TestHuggingFaceSpecialistLoaderManagement:
 class TestHuggingFaceSpecialistLoaderInfo:
     """Test model info retrieval."""
 
-    @patch("aragora.verticals.models.huggingface_loader.model_info")
+    @patch("huggingface_hub.model_info")
     def test_get_model_info_success(self, mock_info_fn):
         """Test successful model info retrieval."""
         loader = HuggingFaceSpecialistLoader()
