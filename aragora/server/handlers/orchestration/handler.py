@@ -346,12 +346,47 @@ class OrchestrationHandler(SecureHandler):
         GET /api/v1/orchestration/templates
 
         Returns list of available vetted decisionmaking templates.
+
+        Query params:
+            category: Filter by category (e.g. "business", "code", "legal")
+            search: Text search in name and description
+            tags: Comma-separated tag filter (OR matching)
+            limit: Max results (default 50)
+            offset: Pagination offset (default 0)
         """
-        templates = [t.to_dict() for t in TEMPLATES.values()]
+        from aragora.server.handlers.orchestration.templates import _list_templates
+
+        category = query_params.get("category")
+        search = query_params.get("search")
+        tags_raw = query_params.get("tags")
+        tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
+
+        try:
+            limit = int(query_params.get("limit", 50))
+        except (ValueError, TypeError):
+            limit = 50
+        try:
+            offset = int(query_params.get("offset", 0))
+        except (ValueError, TypeError):
+            offset = 0
+
+        if _list_templates is not None:
+            templates = _list_templates(
+                category=category,
+                search=search,
+                tags=tags,
+                limit=limit,
+                offset=offset,
+            )
+            template_dicts = [t.to_dict() for t in templates]
+        else:
+            # Fallback: unfiltered from TEMPLATES dict
+            template_dicts = [t.to_dict() for t in TEMPLATES.values()]
+
         return json_response(
             {
-                "templates": templates,
-                "count": len(templates),
+                "templates": template_dicts,
+                "count": len(template_dicts),
             }
         )
 

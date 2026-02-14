@@ -2,6 +2,7 @@
 
 Endpoints handled:
 - GET /api/analytics/cost              - Cost analysis (cached: 300s)
+- GET /api/analytics/cost/breakdown    - Per-agent cost breakdown + budget utilization
 - GET /api/analytics/tokens            - Token usage summary (cached: 300s)
 - GET /api/analytics/tokens/trends     - Token usage trends
 - GET /api/analytics/tokens/providers  - Provider/model breakdown
@@ -330,4 +331,67 @@ class UsageAnalyticsMixin:
             logger.exception(f"Unexpected error getting provider breakdown: {e}")
             return error_response(
                 safe_error_message(e, "provider breakdown"), 500, code="INTERNAL_ERROR"
+            )
+
+    @require_user_auth
+    @handle_errors("get cost breakdown")
+    def _get_cost_breakdown(
+        self, query_params: dict[str, Any], handler: Any | None = None, user: Any | None = None
+    ) -> HandlerResult:
+        """
+        Get cost breakdown with per-agent costs and budget utilization.
+
+        Query params:
+        - workspace_id: Workspace/org ID (required)
+
+        Returns total spend, per-agent cost breakdown, and budget utilization.
+        """
+        workspace_id = query_params.get("workspace_id")
+        if not workspace_id:
+            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
+
+        try:
+            from aragora.billing.cost_tracker import get_cost_tracker
+
+            cost_tracker = get_cost_tracker()
+            workspace_stats = cost_tracker.get_workspace_stats(workspace_id)
+
+            total_spend = workspace_stats.get("total_cost_usd", "0")
+            agent_costs = workspace_stats.get("cost_by_agent", {})
+
+            # Get budget utilization
+            budget_info: dict[str, Any] = {}
+            try:
+                budget = cost_tracker.get_budget(
+                    workspace_id=workspace_id, org_id=workspace_id
+                )
+                if budget and budget.monthly_limit_usd:
+                    monthly_limit = float(budget.monthly_limit_usd)
+                    current_spend = float(budget.current_monthly_spend)
+                    budget_info = {
+                        "monthly_limit_usd": monthly_limit,
+                        "current_spend_usd": current_spend,
+                        "remaining_usd": max(0, monthly_limit - current_spend),
+                        "utilization_percent": round(
+                            current_spend / monthly_limit * 100, 1
+                        )
+                        if monthly_limit > 0
+                        else 0,
+                    }
+            except (AttributeError, TypeError, ValueError) as e:
+                logger.debug(f"Budget info unavailable: {e}")
+
+            return json_response(
+                {
+                    "workspace_id": workspace_id,
+                    "total_spend_usd": total_spend,
+                    "agent_costs": agent_costs,
+                    "budget": budget_info,
+                }
+            )
+
+        except (ImportError, RuntimeError, OSError) as e:
+            logger.exception(f"Unexpected error getting cost breakdown: {e}")
+            return error_response(
+                safe_error_message(e, "cost breakdown"), 500, code="INTERNAL_ERROR"
             )

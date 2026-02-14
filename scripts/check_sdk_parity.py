@@ -191,7 +191,10 @@ def extract_sdk_paths_typescript() -> dict[str, set[str]]:
 
     # Match patterns like: request("GET", "/api/v1/...") or request('GET', '/api/v1/...')
     # Also match template literals: `...`
-    path_pattern = re.compile(r'request(?:<[^>]*>)?\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']')
+    # The generic type parameter can contain nested angle brackets, e.g.
+    # request<Record<string, unknown>>(...) -- so we use (?:<[^(]*>)? to match
+    # everything between the first < and the last > before the opening paren.
+    path_pattern = re.compile(r'request(?:<[^(]*>)?\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']')
 
     namespace_paths: dict[str, set[str]] = {}
 

@@ -358,20 +358,14 @@ class PostgreSQLConnector(EnterpriseConnector):
                         # Update cursor
                         state.cursor = f"{table}:{pk_value}"
 
-            except (
-                ConnectionError,
-                TimeoutError,
-                OSError,
-                ValueError,
-                TypeError,
-                KeyError,
-                AttributeError,
-                RuntimeError,
-                UnicodeError,
-            ) as e:
-                # Narrowed catch: connection errors, query failures, data conversion issues
-                # Ensures sync continues with remaining tables
-                logger.warning(f"Failed to sync table {table}: {e}")
+            except Exception as e:
+                # Intentionally broad: DB driver (asyncpg) raises its own exception
+                # hierarchy that we cannot enumerate without a hard dependency.
+                # Ensures sync continues with remaining tables on connection errors,
+                # query failures, and data conversion issues.
+                logger.warning(
+                    f"Failed to sync table {table} ({type(e).__name__}): {e}"
+                )
                 state.errors.append(f"{table}: {str(e)}")
                 continue
 

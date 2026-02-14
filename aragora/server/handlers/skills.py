@@ -64,6 +64,7 @@ class SkillsHandler(BaseHandler):
     ROUTES: list[str] = [
         "/api/skills",
         "/api/skills/invoke",
+        "/api/skills/*/invoke",
         "/api/skills/*/metrics",
         "/api/skills/*",  # Must be last due to wildcard
     ]
@@ -142,9 +143,17 @@ class SkillsHandler(BaseHandler):
                 code="RATE_LIMITED",
             )
 
-        # POST /api/skills/invoke
+        # POST /api/skills/invoke (skill name in body)
         if path == "/api/skills/invoke":
             return await self._invoke_skill(request)
+
+        # POST /api/skills/:name/invoke (skill name in URL)
+        if path.endswith("/invoke"):
+            parts = path.split("/")
+            # Expected: ['', 'api', 'skills', '<name>', 'invoke']
+            if len(parts) >= 5:
+                skill_name = parts[3]
+                return await self._invoke_skill(request, skill_name_override=skill_name)
 
         return error_response(f"Unknown skills endpoint: {path}", 404)
 
@@ -276,8 +285,17 @@ class SkillsHandler(BaseHandler):
         )
 
     @require_permission("skills:invoke")
-    async def _invoke_skill(self, request: Any) -> HandlerResult:
-        """Invoke a skill by name."""
+    async def _invoke_skill(
+        self, request: Any, skill_name_override: str | None = None
+    ) -> HandlerResult:
+        """Invoke a skill by name.
+
+        Args:
+            request: The HTTP request object.
+            skill_name_override: If provided, use this as the skill name
+                instead of reading from the request body. Supports the
+                POST /api/skills/:name/invoke URL pattern.
+        """
         registry = self._get_registry()
         if not registry:
             return error_response(
@@ -295,7 +313,7 @@ class SkillsHandler(BaseHandler):
         else:
             body = request.get("body", {})
 
-        skill_name = body.get("skill")
+        skill_name = skill_name_override or body.get("skill")
         if not skill_name:
             return error_response("Missing required field: skill", 400)
 
