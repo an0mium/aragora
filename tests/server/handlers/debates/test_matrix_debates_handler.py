@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.server.handlers.debates.matrix_debates as _matrix_module
+
 from aragora.server.handlers.debates.matrix_debates import (
     MatrixDebatesHandler,
     _matrix_limiter,
@@ -51,10 +53,12 @@ def mock_auth_context():
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    """Reset rate limiter before each test."""
-    _matrix_limiter._buckets.clear()
-    # Ensure rate limiting is enabled for tests
-    with patch("aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False):
+    """Reset and bypass rate limiter to prevent xdist cross-test interference."""
+    _matrix_module._matrix_limiter._buckets.clear()
+    with patch(
+        "aragora.server.handlers.debates.matrix_debates._matrix_limiter.is_allowed",
+        return_value=True,
+    ):
         yield
 
 
@@ -377,8 +381,16 @@ class TestHandlePost:
 # =============================================================================
 
 
+@pytest.mark.rate_limit_test
 class TestRateLimiting:
     """Tests for rate limiting."""
+
+    @pytest.fixture(autouse=True)
+    def reset_rate_limiter(self):
+        """Re-enable real rate limiter for rate limit tests."""
+        limiter = _matrix_module._matrix_limiter
+        limiter._buckets.clear()
+        yield
 
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, handler, mock_http_handler, mock_auth_context):

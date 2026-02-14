@@ -227,10 +227,13 @@ class MockCartographer:
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    """Reset the rate limiter before each test."""
+    """Reset and bypass rate limiter to prevent xdist cross-test interference."""
     if hasattr(_belief_limiter, "_buckets"):
         _belief_limiter._buckets.clear()
-    with patch("aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False):
+    with patch(
+        "aragora.server.handlers.belief._belief_limiter.is_allowed",
+        return_value=True,
+    ):
         yield
 
 

@@ -20,10 +20,13 @@ from aragora.server.handlers.consensus import ConsensusHandler, _consensus_limit
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    """Reset the rate limiter before each test."""
+    """Reset and bypass rate limiter to prevent xdist cross-test interference."""
     if hasattr(_consensus_limiter, "_buckets"):
         _consensus_limiter._buckets.clear()
-    with patch("aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False):
+    with patch(
+        "aragora.server.handlers.consensus._consensus_limiter.is_allowed",
+        return_value=True,
+    ):
         yield
 
 
