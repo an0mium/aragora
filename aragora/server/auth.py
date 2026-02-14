@@ -710,8 +710,11 @@ def check_auth(
                         "Check JWT_DEBUG logs for details."
                     )
                     return False, -1
-            except (ValueError, RuntimeError, TypeError, ImportError) as e:
-                # Log the exception and reject - JWT tokens shouldn't fall through to HMAC
+            except Exception as e:
+                # Log the exception and reject - JWT tokens shouldn't fall through to HMAC.
+                # Must catch broadly: ConfigurationError, SecretNotFoundError, and other
+                # failures from the billing/secrets stack can occur in production
+                # environments where secrets are managed via AWS Secrets Manager.
                 _logger.warning(
                     f"[JWT_AUTH] Token validation raised exception: {type(e).__name__}: {e}"
                 )

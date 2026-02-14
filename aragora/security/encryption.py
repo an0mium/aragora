@@ -105,9 +105,11 @@ def is_encryption_required() -> bool:
     - Staging environment (ARAGORA_ENV=staging)
     - When explicitly set (ARAGORA_ENCRYPTION_REQUIRED=true)
     """
-    # SECURITY: Auto-require encryption in production and staging modes
-    env = os.environ.get("ARAGORA_ENV", "").lower()
-    if ENCRYPTION_REQUIRED or env in ("production", "prod", "staging", "stage"):
+    # Read env var live to avoid stale module-level state after reload
+    explicitly_required = os.environ.get(
+        "ARAGORA_ENCRYPTION_REQUIRED", ""
+    ).lower() in ("true", "1", "yes")
+    if explicitly_required or _is_production_mode():
         return True
     return False
 

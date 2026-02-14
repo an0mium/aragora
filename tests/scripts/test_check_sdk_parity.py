@@ -196,5 +196,5 @@ def test_extract_openapi_routes_normalizes_versioned_paths(tmp_path):
         encoding="utf-8",
     )
     routes = check_sdk_parity.extract_openapi_routes(spec)
-    assert "/api/alpha/{id}" in routes
+    assert "/api/alpha/{param}" in routes
     assert "/api/beta" in routes

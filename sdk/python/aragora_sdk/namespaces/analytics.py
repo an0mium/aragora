@@ -106,24 +106,6 @@ class AnalyticsAPI:
             params["period"] = period
         return self._client.request("GET", "/api/v1/analytics/consensus-quality", params=params)
 
-    def ranking_stats(self) -> dict[str, Any]:
-        """
-        Get ranking statistics for agents.
-
-        Returns:
-            Ranking statistics data
-        """
-        return self._client.request("GET", "/api/v1/analytics/ranking")
-
-    def memory_stats(self) -> dict[str, Any]:
-        """
-        Get memory system statistics.
-
-        Returns:
-            Memory statistics by tier
-        """
-        return self._client.request("GET", "/api/v1/analytics/memory")
-
     # ===========================================================================
     # Dashboard Overview
     # ===========================================================================
@@ -292,28 +274,6 @@ class AnalyticsAPI:
             params["domain"] = domain
         return self._client.request("GET", "/api/analytics/agents/leaderboard", params=params)
 
-    def agent_performance(
-        self,
-        agent_id: str,
-        time_range: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get individual agent performance statistics.
-
-        Args:
-            agent_id: Agent ID
-            time_range: Time range
-
-        Returns:
-            Agent performance data
-        """
-        params = {}
-        if time_range:
-            params["time_range"] = time_range
-        return self._client.request(
-            "GET", f"/api/analytics/agents/{agent_id}/performance", params=params
-        )
-
     def compare_agents(self, agents: list[str]) -> dict[str, Any]:
         """
         Get multi-agent comparison.
@@ -379,30 +339,6 @@ class AnalyticsAPI:
         if org_id:
             params["org_id"] = org_id
         return self._client.request("GET", "/api/v1/analytics/debates/summary", params=params)
-
-    def workspace_usage(
-        self,
-        workspace_id: str,
-        time_range: str = "30d",
-    ) -> dict[str, Any]:
-        """
-        Get workspace-level usage metrics.
-
-        Args:
-            workspace_id: Workspace ID
-            time_range: Time range (e.g., '7d', '30d', '90d')
-
-        Returns:
-            Workspace usage data including:
-            - Total debates
-            - Total tokens used
-            - Active users count
-            - Cost estimates
-        """
-        params: dict[str, Any] = {"time_range": time_range}
-        return self._client.request(
-            "GET", f"/api/v1/analytics/workspace/{workspace_id}/usage", params=params
-        )
 
     def calibration_stats(self, agent: str | None = None) -> dict[str, Any]:
         """
@@ -656,14 +592,6 @@ class AsyncAnalyticsAPI:
             "GET", "/api/v1/analytics/consensus-quality", params=params
         )
 
-    async def ranking_stats(self) -> dict[str, Any]:
-        """Get ranking statistics."""
-        return await self._client.request("GET", "/api/v1/analytics/ranking")
-
-    async def memory_stats(self) -> dict[str, Any]:
-        """Get memory system statistics."""
-        return await self._client.request("GET", "/api/v1/analytics/memory")
-
     # ===========================================================================
     # Dashboard Overview
     # ===========================================================================
@@ -741,19 +669,6 @@ class AsyncAnalyticsAPI:
             params["domain"] = domain
         return await self._client.request("GET", "/api/analytics/agents/leaderboard", params=params)
 
-    async def agent_performance(
-        self,
-        agent_id: str,
-        time_range: str | None = None,
-    ) -> dict[str, Any]:
-        """Get individual agent performance statistics."""
-        params = {}
-        if time_range:
-            params["time_range"] = time_range
-        return await self._client.request(
-            "GET", f"/api/analytics/agents/{agent_id}/performance", params=params
-        )
-
     async def compare_agents(self, agents: list[str]) -> dict[str, Any]:
         """Get multi-agent comparison."""
         return await self._client.request(
@@ -786,17 +701,6 @@ class AsyncAnalyticsAPI:
         if org_id:
             params["org_id"] = org_id
         return await self._client.request("GET", "/api/v1/analytics/debates/summary", params=params)
-
-    async def workspace_usage(
-        self,
-        workspace_id: str,
-        time_range: str = "30d",
-    ) -> dict[str, Any]:
-        """Get workspace-level usage metrics."""
-        params: dict[str, Any] = {"time_range": time_range}
-        return await self._client.request(
-            "GET", f"/api/v1/analytics/workspace/{workspace_id}/usage", params=params
-        )
 
     # ===========================================================================
     # Usage & Costs

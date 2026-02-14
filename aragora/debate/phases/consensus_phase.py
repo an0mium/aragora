@@ -1154,7 +1154,9 @@ class ConsensusPhase:
         """Compute minimum required votes to proceed with consensus."""
         min_ratio = getattr(self.protocol, "min_participation_ratio", 0.5)
         min_count = getattr(self.protocol, "min_participation_count", 2)
-        return max(min_count, math.ceil(total_agents * min_ratio))
+        required = max(min_count, math.ceil(total_agents * min_ratio))
+        # Never require more votes than agents available
+        return min(required, max(total_agents, 1))
 
     def _ensure_quorum(self, ctx: "DebateContext", vote_count: int) -> bool:
         """Ensure enough agents participated to make consensus meaningful."""

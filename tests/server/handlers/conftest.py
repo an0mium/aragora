@@ -1270,6 +1270,26 @@ def _reset_handler_global_state():
     except (ImportError, AttributeError):
         pass
 
+    # Reset payment connector singletons
+    try:
+        import aragora.server.handlers.payments.handler as payments_handler
+
+        payments_handler._stripe_connector = None
+        payments_handler._authnet_connector = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset email VIP / user config state
+    try:
+        import aragora.server.handlers.email.storage as email_storage_mod
+
+        email_storage_mod._user_configs.clear()
+        email_storage_mod._gmail_connector = None
+        email_storage_mod._prioritizer = None
+        email_storage_mod._context_service = None
+    except (ImportError, AttributeError):
+        pass
+
 
 # ============================================================================
 # Async Handler Support

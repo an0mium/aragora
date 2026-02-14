@@ -910,6 +910,7 @@ class AuthHandler(SecureHandler):
         """Disable MFA for the user."""
         return handle_mfa_disable(self, handler)
 
+    @rate_limit(requests_per_minute=5, limiter_name="mfa_verify")
     def _handle_mfa_verify(self, handler: Any) -> HandlerResult:
         """Verify MFA code during login."""
         return handle_mfa_verify(self, handler)

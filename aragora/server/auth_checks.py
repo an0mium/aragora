@@ -216,26 +216,26 @@ class AuthChecksMixin:
         Sends appropriate error response if blocked.
 
         This method checks:
-        1. If auth is enabled
-        2. If path is exempt from auth
+        1. If path is exempt from auth
+        2. If auth is enabled
         3. If authentication is valid
         4. If rate limit is exceeded
 
         Returns:
             True if request is allowed, False if blocked
         """
-        from aragora.server.auth import auth_config, check_auth
-
-        if not auth_config.enabled:
-            return True
-
-        # Skip auth for health endpoints (needed for load balancers, monitoring)
-        # and OAuth flow (login/callback need to work before user is authenticated)
+        # Check exemptions BEFORE imports so exempt paths work even if
+        # auth modules have import issues in production
         parsed = urlparse(self.path)
         if self._is_path_exempt(parsed.path):
             return True
         # For GET-only exempt paths, check method
         if self.command == "GET" and self._is_path_exempt_for_get(parsed.path):
+            return True
+
+        from aragora.server.auth import auth_config, check_auth
+
+        if not auth_config.enabled:
             return True
 
         # Convert headers to dict

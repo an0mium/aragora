@@ -384,13 +384,20 @@ class TestTavilyProvider:
         )
         mock_response.raise_for_status = MagicMock()
 
-        with patch.dict("os.environ", {"TAVILY_API_KEY": "test_key"}):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_client.return_value.__aenter__ = AsyncMock(
-                    return_value=MagicMock(post=AsyncMock(return_value=mock_response))
-                )
-                mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
 
+        mock_pool = MagicMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_pool.get_session = MagicMock(return_value=mock_session_cm)
+
+        with patch.dict("os.environ", {"TAVILY_API_KEY": "test_key"}):
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 results = await skill._search_tavily("test", 10)
 
         assert len(results) == 1
@@ -463,6 +470,15 @@ class TestGoogleProvider:
         )
         mock_response.raise_for_status = MagicMock()
 
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        mock_pool = MagicMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_pool.get_session = MagicMock(return_value=mock_session_cm)
+
         with patch.dict(
             "os.environ",
             {
@@ -470,12 +486,10 @@ class TestGoogleProvider:
                 "GOOGLE_SEARCH_CX": "test_cx",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_client.return_value.__aenter__ = AsyncMock(
-                    return_value=MagicMock(get=AsyncMock(return_value=mock_response))
-                )
-                mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 results = await skill._search_google("test", 10)
 
         assert len(results) == 1
@@ -490,6 +504,16 @@ class TestGoogleProvider:
         mock_response.json = MagicMock(return_value={"items": []})
         mock_response.raise_for_status = MagicMock()
 
+        mock_get = AsyncMock(return_value=mock_response)
+        mock_client = MagicMock()
+        mock_client.get = mock_get
+
+        mock_pool = MagicMock()
+        mock_session_cm = AsyncMock()
+        mock_session_cm.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_pool.get_session = MagicMock(return_value=mock_session_cm)
+
         with patch.dict(
             "os.environ",
             {
@@ -497,13 +521,10 @@ class TestGoogleProvider:
                 "GOOGLE_SEARCH_CX": "test_cx",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_get = AsyncMock(return_value=mock_response)
-                mock_client.return_value.__aenter__ = AsyncMock(
-                    return_value=MagicMock(get=mock_get)
-                )
-                mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 await skill._search_google("test", 20)
 
                 # Check that num param is capped at 10

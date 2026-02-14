@@ -98,6 +98,7 @@ drafts/
 exports/
 artifacts/
 smoke_output/
+replays/*.mp3
 
 # Claude-mem context files
 aragora/**/CLAUDE.md
@@ -138,27 +139,8 @@ aragora/live/playwright/.cache/
 .benchmarks/
 
 # Nomic loop state (runtime artifacts, not needed in git)
-# All .nomic state should be excluded - keep only schema/config templates
-.nomic/audit_logs/
-.nomic/backups/
-.nomic/checkpoints/
-.nomic/eval/
-.nomic/replays/
-.nomic/sessions/
-.nomic/sync_state/
-.nomic/visualizations/
-.nomic/*.db
-.nomic/*.db-journal
-.nomic/*.db-wal
-.nomic/*.db-shm
-.nomic/*.json
-.nomic/*.jsonl
-.nomic/*.md
-.nomic/*.pid
-.nomic/*_transcript*
-.nomic/context/*.tsv
-.nomic/rlm/*.txt
-.nomic/rlm/*.json
+# The entire .nomic/ directory is runtime state -- databases, logs, checkpoints, etc.
+.nomic/
 
 # Web cache
 .web_cache/
@@ -166,11 +148,6 @@ aragora/live/playwright/.cache/
 # Local backups
 backups/
 :memory:
-
-# Runtime artifacts (nomic loop state directories)
-.nomic/epic_strategic_debate/
-.nomic/strategic_debate/
-.nomic/eval/
 
 # Convoy runtime state
 .convoys/

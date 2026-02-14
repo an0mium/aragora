@@ -43,11 +43,26 @@ from .lockout import (
     get_lockout_tracker,
     reset_lockout_tracker,
 )
-from .oidc import (
-    OIDCConfig,
-    OIDCError,
-    OIDCProvider,
-)
+# Pre-declare OIDC names for optional import fallback
+OIDCConfig: Any
+OIDCError: Any
+OIDCProvider: Any
+
+# OIDC requires PyJWT (import jwt) at module level
+try:
+    from .oidc import (
+        OIDCConfig,
+        OIDCError,
+        OIDCProvider,
+    )
+
+    HAS_OIDC = True
+except ImportError:
+    # OIDC unavailable (PyJWT not installed) - pre-declared above
+    OIDCConfig = None
+    OIDCError = None
+    OIDCProvider = None
+    HAS_OIDC = False
 
 # SCIM 2.0 provisioning
 try:
@@ -108,18 +123,19 @@ __all__ = [
     "SSOConfigurationError",
     "get_sso_provider",
     "reset_sso_provider",
-    # OIDC
-    "OIDCProvider",
-    "OIDCConfig",
-    "OIDCError",
     # Lockout
     "LockoutTracker",
     "LockoutEntry",
     "get_lockout_tracker",
     "reset_lockout_tracker",
-    # SAML availability flag
+    # Availability flags
+    "HAS_OIDC",
     "HAS_SAML",
 ]
+
+# Add OIDC exports only if available
+if HAS_OIDC:
+    __all__.extend(["OIDCProvider", "OIDCConfig", "OIDCError"])
 
 # Add SAML exports only if available
 if HAS_SAML:

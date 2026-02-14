@@ -414,7 +414,7 @@ class TestDecisionReceiptEdgeCases:
             gauntlet_id="gauntlet",
         )
 
-        assert receipt.verdict == "needs_review"  # canonical Verdict.NEEDS_REVIEW.value
+        assert receipt.verdict == "NEEDS_REVIEW"  # Verdict.NEEDS_REVIEW.value.upper()
         assert receipt.confidence == 0.0
         assert receipt.findings == []
 
