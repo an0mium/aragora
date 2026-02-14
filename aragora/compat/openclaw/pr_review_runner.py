@@ -1,8 +1,8 @@
 """
 OpenClaw PR Review Runner.
 
-Orchestrates autonomous PR code review using Aragora's multi-agent debate
-engine with OpenClaw policy enforcement.
+Orchestrates autonomous multi-agent PR code review using Aragora's debate
+engine with OpenClaw policy enforcement and SARIF export.
 
 This is the "point it at your repo and it does the work" component:
   1. Discover open PRs (or accept a specific PR)
