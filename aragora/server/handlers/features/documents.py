@@ -126,8 +126,8 @@ class DocumentHandler(BaseHandler):
             return self._get_supported_formats()
 
         if path.startswith("/api/v1/documents/") and not path.endswith("/upload"):
-            # Extract doc_id from /api/documents/{doc_id}
-            doc_id, err = self.extract_path_param(path, 3, "document_id")
+            # Extract doc_id from /api/v1/documents/{doc_id}
+            doc_id, err = self.extract_path_param(path, 4, "document_id")
             if err:
                 return err
             return self._get_document(doc_id)
@@ -162,8 +162,8 @@ class DocumentHandler(BaseHandler):
     ) -> HandlerResult | None:
         """Route DELETE document requests to appropriate methods."""
         if path.startswith("/api/v1/documents/") and not path.endswith("/upload"):
-            # Extract doc_id from /api/documents/{doc_id}
-            doc_id, err = self.extract_path_param(path, 3, "document_id")
+            # Extract doc_id from /api/v1/documents/{doc_id}
+            doc_id, err = self.extract_path_param(path, 4, "document_id")
             if err:
                 return err
             return self._delete_document(doc_id)

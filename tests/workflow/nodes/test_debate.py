@@ -130,17 +130,15 @@ class TestDebateStepInit:
         assert step.config["arena_config"]["enable_knowledge_retrieval"] is True
         assert step.config["arena_config"]["org_id"] == "org-123"
 
-    @pytest.mark.xfail(
-        reason="isinstance check breaks when module reload changes class identity",
-        strict=False,
-    )
     def test_is_base_step_subclass(self):
         """Test that DebateStep is a BaseStep subclass."""
         from aragora.workflow.nodes.debate import DebateStep
         from aragora.workflow.step import BaseStep
 
         step = DebateStep(name="Test")
-        assert isinstance(step, BaseStep)
+        # Check by name to avoid class identity pollution across test runs
+        base_names = [c.__name__ for c in type(step).__mro__]
+        assert "BaseStep" in base_names or isinstance(step, BaseStep)
 
 
 # ============================================================================

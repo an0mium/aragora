@@ -116,8 +116,8 @@ class ReplaysHandler(BaseHandler):
         if normalized.startswith("/api/replays/"):
             if err := self._apply_rate_limit(handler):
                 return err
-            # Path: /api/replays/{id} -> stripped parts are ["api", "replays", "{id}"]
-            replay_id, err = self.extract_path_param(normalized, 2, "replay_id")
+            # Path: /api/replays/{id} -> split: ["", "api", "replays", "{id}"]
+            replay_id, err = self.extract_path_param(normalized, 3, "replay_id")
             if err:
                 return err
             # Support pagination for large replay files

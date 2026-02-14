@@ -367,8 +367,8 @@ class ExternalIntegrationsHandler(SecureHandler):
         # Zapier app deletion
         if path.startswith("/api/v1/integrations/zapier/apps/"):
             # Path: /api/v1/integrations/zapier/apps/{app_id}
-            # Segments after strip/split: ["api", "v1", "integrations", "zapier", "apps", "{app_id}"]
-            app_id, err = self.extract_path_param(path, 5, "app_id", SAFE_ID_PATTERN)
+            # Split: ["", "api", "v1", "integrations", "zapier", "apps", "{app_id}"]
+            app_id, err = self.extract_path_param(path, 6, "app_id", SAFE_ID_PATTERN)
             if err or app_id is None:
                 return err
             return self._handle_delete_zapier_app(app_id, handler)
@@ -386,8 +386,8 @@ class ExternalIntegrationsHandler(SecureHandler):
         # Make connection deletion
         if path.startswith("/api/v1/integrations/make/connections/"):
             # Path: /api/v1/integrations/make/connections/{conn_id}
-            # Segments after strip/split: ["api", "v1", "integrations", "make", "connections", "{conn_id}"]
-            conn_id, err = self.extract_path_param(path, 5, "conn_id", SAFE_ID_PATTERN)
+            # Split: ["", "api", "v1", "integrations", "make", "connections", "{conn_id}"]
+            conn_id, err = self.extract_path_param(path, 6, "conn_id", SAFE_ID_PATTERN)
             if err or conn_id is None:
                 return err
             return self._handle_delete_make_connection(conn_id, handler)
@@ -405,8 +405,8 @@ class ExternalIntegrationsHandler(SecureHandler):
         # n8n credential deletion
         if path.startswith("/api/v1/integrations/n8n/credentials/"):
             # Path: /api/v1/integrations/n8n/credentials/{cred_id}
-            # Segments after strip/split: ["api", "v1", "integrations", "n8n", "credentials", "{cred_id}"]
-            cred_id, err = self.extract_path_param(path, 5, "cred_id", SAFE_ID_PATTERN)
+            # Split: ["", "api", "v1", "integrations", "n8n", "credentials", "{cred_id}"]
+            cred_id, err = self.extract_path_param(path, 6, "cred_id", SAFE_ID_PATTERN)
             if err or cred_id is None:
                 return err
             return self._handle_delete_n8n_credential(cred_id, handler)

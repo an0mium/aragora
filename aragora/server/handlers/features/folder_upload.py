@@ -208,9 +208,9 @@ class FolderUploadHandler(BaseHandler):
             folder_id = path.split("/")[-2]
             return self._get_upload_status(folder_id)
 
-        # GET /api/documents/folders/{folder_id}
+        # GET /api/v1/documents/folders/{folder_id}
         if path.startswith("/api/v1/documents/folders/"):
-            folder_id, err = self.extract_path_param(path, 3, "folder_id")
+            folder_id, err = self.extract_path_param(path, 5, "folder_id")
             if err:
                 return err
             return self._get_folder(folder_id)
@@ -233,7 +233,7 @@ class FolderUploadHandler(BaseHandler):
     def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE folder requests."""
         if path.startswith("/api/v1/documents/folders/"):
-            folder_id, err = self.extract_path_param(path, 3, "folder_id")
+            folder_id, err = self.extract_path_param(path, 5, "folder_id")
             if err:
                 return err
             return self._delete_folder(folder_id)

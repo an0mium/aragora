@@ -235,13 +235,13 @@ class RelationshipHandler(BaseHandler):
         if path == "/api/v1/relationships/stats":
             return self._get_stats(nomic_dir)
 
-        # Handle /api/relationship/{agent_a}/{agent_b}
+        # Handle /api/v1/relationship/{agent_a}/{agent_b}
         if path.startswith("/api/v1/relationship/"):
             params, err = self.extract_path_params(
                 path,
                 [
-                    (2, "agent_a", SAFE_AGENT_PATTERN),
-                    (3, "agent_b", SAFE_AGENT_PATTERN),
+                    (4, "agent_a", SAFE_AGENT_PATTERN),
+                    (5, "agent_b", SAFE_AGENT_PATTERN),
                 ],
             )
             if err:
