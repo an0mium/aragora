@@ -179,7 +179,22 @@ aragora serve
 
 See [docs/guides/GETTING_STARTED.md](docs/guides/GETTING_STARTED.md) for the complete 5-minute setup.
 
-### 3. Develop with the SDK
+### 3. Deploy with Docker
+
+```bash
+# Clone and deploy
+git clone https://github.com/an0mium/aragora && cd aragora
+
+# Production deployment (secrets from AWS Secrets Manager)
+cd deploy/liftmode && ./setup.sh
+
+# Or run directly with Docker Compose
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full deployment options (Docker, Kubernetes, offline mode).
+
+### 4. Develop with the SDK
 
 | Package | Install | Purpose | PyPI |
 |---|---|---|---|
