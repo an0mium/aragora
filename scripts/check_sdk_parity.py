@@ -266,8 +266,24 @@ def build_parity_report(
     missing_from_both = missing_from_py_sdk & missing_from_ts_sdk
 
     # SDK paths not in handlers (potential stale SDK methods)
-    stale_py = all_py_paths - all_handler_paths
-    stale_ts = all_ts_paths - all_handler_paths
+    # Build wildcard prefixes from handler routes ending with {param}
+    # to match SDK sub-paths like /api/integrations/stats against /api/integrations/{param}
+    wildcard_prefixes = set()
+    for p in all_handler_paths:
+        if p.endswith("/{param}"):
+            wildcard_prefixes.add(p[: -len("/{param}")])
+
+    def _covered_by_handler(sdk_path: str) -> bool:
+        if sdk_path in all_handler_paths:
+            return True
+        # Check if any wildcard handler covers this path
+        for prefix in wildcard_prefixes:
+            if sdk_path.startswith(prefix + "/"):
+                return True
+        return False
+
+    stale_py = {p for p in all_py_paths if not _covered_by_handler(p)}
+    stale_ts = {p for p in all_ts_paths if not _covered_by_handler(p)}
 
     # Per-handler coverage
     handler_coverage: list[dict[str, Any]] = []
