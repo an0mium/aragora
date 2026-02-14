@@ -31,6 +31,36 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
+import aragora.server.handlers.bots.whatsapp as _wa_mod
+
+_ORIGINAL_WA_MODULE = _wa_mod
+
+
+@pytest.fixture(autouse=True)
+def _reset_whatsapp_module_for_verification():
+    """Ensure whatsapp module consistency and reset globals between tests.
+
+    Other test files (e.g. test_rate_limit_enforcement) may reload the whatsapp
+    module, creating a new module object.  This fixture restores the original
+    module and resets key globals to prevent cross-test pollution.
+    """
+    import sys
+
+    sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+
+    orig = {
+        "WHATSAPP_VERIFY_TOKEN": _wa_mod.WHATSAPP_VERIFY_TOKEN,
+        "WHATSAPP_ACCESS_TOKEN": _wa_mod.WHATSAPP_ACCESS_TOKEN,
+        "WHATSAPP_PHONE_NUMBER_ID": _wa_mod.WHATSAPP_PHONE_NUMBER_ID,
+        "WHATSAPP_APP_SECRET": _wa_mod.WHATSAPP_APP_SECRET,
+    }
+
+    yield
+
+    sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+    for attr, value in orig.items():
+        setattr(_wa_mod, attr, value)
+
 
 # =============================================================================
 # Test Fixtures
