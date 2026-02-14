@@ -134,6 +134,9 @@ aragora/live/playwright-report-production/
 aragora/live/test-results/
 aragora/live/playwright/.cache/
 
+# Test results (Playwright, pytest, etc.)
+test-results/
+
 # Test caches
 .test_cache/
 .benchmarks/
@@ -188,6 +191,9 @@ docs/investor/
 # Local data directories (runtime artifacts)
 data/
 consolidated/
+.data/
+.aragora/
+knowledge/
 docs/openapi_generated.json
 .testfixer/
 .tmp/
