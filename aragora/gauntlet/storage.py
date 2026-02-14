@@ -955,7 +955,7 @@ class GauntletStorage:
         rows = self._backend.fetch_all(query, tuple(params))
         results = []
 
-        now = datetime.now()
+        now = utc_now()
         for row in rows:
             inflight = self._row_to_inflight(row)
             age = (now - inflight.created_at).total_seconds()

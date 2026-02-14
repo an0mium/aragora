@@ -329,7 +329,7 @@ class TestGetSessionStore:
         # The import of is_redis_available happens inside get_session_store
         # Patch at the source module
         with patch("aragora.server.redis_config.is_redis_available") as mock_check:
-            mock_check.side_effect = Exception("Redis connection failed")
+            mock_check.side_effect = RuntimeError("Redis connection failed")
 
             store = get_session_store()
             assert store.is_distributed is False
