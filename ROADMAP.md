@@ -1,7 +1,7 @@
 # Aragora Product Roadmap
 
 **Last Updated:** January 2026
-**Current Version:** 2.6.3
+\12.7.0\3
 
 ---
 

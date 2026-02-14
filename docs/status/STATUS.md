@@ -203,7 +203,7 @@ Independent verification of production readiness found the project is **98% GA-r
 
 ## Current Release
 
-Current released version is **v2.6.3**.
+\12.7.0\3
 
 ### v2.5.0 - Type Safety & SDK Expansion (January 2026)
 

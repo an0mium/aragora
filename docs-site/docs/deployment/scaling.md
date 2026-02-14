@@ -334,8 +334,7 @@ GET /api/health
 
 Response:
 {
-  "status": "healthy",
-  "version": "2.6.3",
+  "status": "healthy",\12.7.0\3
   "uptime_seconds": 3600,
   "active_debates": 5,
   "websocket_connections": 150,
