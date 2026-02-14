@@ -311,17 +311,6 @@ class LearningAPI:
             data["config"] = config
         return self._client.request("POST", "/api/v1/learning/sessions", json=data)
 
-    def stop_session(self, session_id: str) -> dict[str, Any]:
-        """
-        Stop a running training session.
-
-        Args:
-            session_id: The session ID to stop
-
-        Returns:
-            Dict with stopped session record and confirmation message
-        """
-        return self._client.request("POST", f"/api/v1/learning/sessions/{session_id}/stop")
 
 class AsyncLearningAPI:
     """
@@ -382,10 +371,6 @@ class AsyncLearningAPI:
     async def get_pattern(self, pattern_id: str) -> dict[str, Any]:
         """Get a specific pattern by ID."""
         return await self._client.request("GET", f"/api/v1/learning/patterns/{pattern_id}")
-
-    async def validate_pattern(self, pattern_id: str) -> dict[str, Any]:
-        """Validate a detected pattern."""
-        return await self._client.request("POST", f"/api/v1/learning/patterns/{pattern_id}/validate")
 
     async def get_metrics(
         self,
@@ -450,23 +435,6 @@ class AsyncLearningAPI:
         """Get a specific knowledge item by ID."""
         return await self._client.request("GET", f"/api/v1/learning/knowledge/{knowledge_id}")
 
-    async def extract_knowledge(
-        self,
-        debate_ids: list[str],
-        title: str | None = None,
-        content: str | None = None,
-        topics: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Trigger knowledge extraction from debates."""
-        data: dict[str, Any] = {"debate_ids": debate_ids}
-        if title:
-            data["title"] = title
-        if content:
-            data["content"] = content
-        if topics:
-            data["topics"] = topics
-        return await self._client.request("POST", "/api/v1/learning/knowledge/extract", json=data)
-
     async def get_recommendations(
         self,
         limit: int | None = None,
@@ -511,7 +479,5 @@ class AsyncLearningAPI:
             data["config"] = config
         return await self._client.request("POST", "/api/v1/learning/sessions", json=data)
 
-    async def stop_session(self, session_id: str) -> dict[str, Any]:
-        """Stop a running training session."""
-        return await self._client.request("POST", f"/api/v1/learning/sessions/{session_id}/stop")
+
 

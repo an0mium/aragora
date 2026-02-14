@@ -10,13 +10,11 @@ Learning endpoints (AutonomousLearningHandler):
 - GET  /api/v2/learning/sessions         - List training sessions
 - POST /api/v2/learning/sessions         - Start new training session
 - GET  /api/v2/learning/sessions/:id     - Get session details
-- POST /api/v2/learning/sessions/:id/stop - Stop training session
 - GET  /api/v2/learning/metrics          - Get learning metrics
 - GET  /api/v2/learning/metrics/:type    - Get specific metric
 - POST /api/v2/learning/feedback         - Submit learning feedback
 - GET  /api/v2/learning/patterns         - List detected patterns
 - GET  /api/v2/learning/knowledge        - Get extracted knowledge
-- POST /api/v2/learning/knowledge/extract - Trigger knowledge extraction
 - GET  /api/v2/learning/recommendations  - Get learning recommendations
 - GET  /api/v2/learning/performance      - Get model performance stats
 - POST /api/v2/learning/calibrate        - Trigger calibration
@@ -119,20 +117,6 @@ class AutonomousAPI:
             Session details including status, metrics, and progress
         """
         return self._client.request("GET", f"/api/v2/learning/sessions/{session_id}")
-
-    def stop_session(self, session_id: str) -> dict[str, Any]:
-        """
-        Stop a running training session.
-
-        POST /api/v2/learning/sessions/:session_id/stop
-
-        Args:
-            session_id: Session identifier
-
-        Returns:
-            Updated session with cancelled status
-        """
-        return self._client.request("POST", f"/api/v2/learning/sessions/{session_id}/stop")
 
     # =========================================================================
     # Learning - Metrics
@@ -280,33 +264,6 @@ class AutonomousAPI:
         if source_type:
             params["source_type"] = source_type
         return self._client.request("GET", "/api/v2/learning/knowledge", params=params)
-
-    def extract_knowledge(
-        self,
-        debate_ids: _List[str],
-        *,
-        title: str | None = None,
-        topics: _List[str] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Trigger knowledge extraction from debates.
-
-        POST /api/v2/learning/knowledge/extract
-
-        Args:
-            debate_ids: List of debate IDs to extract from
-            title: Optional title for extracted knowledge
-            topics: Optional topic tags
-
-        Returns:
-            Dict with extracted knowledge item
-        """
-        data: dict[str, Any] = {"debate_ids": debate_ids}
-        if title:
-            data["title"] = title
-        if topics:
-            data["topics"] = topics
-        return self._client.request("POST", "/api/v2/learning/knowledge/extract", json=data)
 
     # =========================================================================
     # Learning - Recommendations & Performance
@@ -524,12 +481,6 @@ class AsyncAutonomousAPI:
         """Get training session details. GET /api/v2/learning/sessions/:session_id"""
         return await self._client.request("GET", f"/api/v2/learning/sessions/{session_id}")
 
-    async def stop_session(self, session_id: str) -> dict[str, Any]:
-        """Stop a running training session. POST /api/v2/learning/sessions/:session_id/stop"""
-        return await self._client.request(
-            "POST", f"/api/v2/learning/sessions/{session_id}/stop"
-        )
-
     # =========================================================================
     # Learning - Metrics
     # =========================================================================
@@ -615,23 +566,6 @@ class AsyncAutonomousAPI:
         if source_type:
             params["source_type"] = source_type
         return await self._client.request("GET", "/api/v2/learning/knowledge", params=params)
-
-    async def extract_knowledge(
-        self,
-        debate_ids: _List[str],
-        *,
-        title: str | None = None,
-        topics: _List[str] | None = None,
-    ) -> dict[str, Any]:
-        """Trigger knowledge extraction. POST /api/v2/learning/knowledge/extract"""
-        data: dict[str, Any] = {"debate_ids": debate_ids}
-        if title:
-            data["title"] = title
-        if topics:
-            data["topics"] = topics
-        return await self._client.request(
-            "POST", "/api/v2/learning/knowledge/extract", json=data
-        )
 
     # =========================================================================
     # Learning - Recommendations & Performance

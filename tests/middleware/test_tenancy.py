@@ -573,13 +573,17 @@ class TestWorkspaceLimits:
 class TestGlobalWorkspaceManager:
     """Tests for global workspace manager singleton."""
 
-    def test_get_workspace_manager_returns_singleton(self):
-        """get_workspace_manager returns same instance on multiple calls."""
+    @pytest.fixture(autouse=True)
+    def _reset_workspace_manager_singleton(self):
+        """Reset workspace manager singleton before/after each test."""
         import aragora.server.middleware.tenancy as tenancy_module
 
-        # Reset global
+        tenancy_module._workspace_manager = None
+        yield
         tenancy_module._workspace_manager = None
 
+    def test_get_workspace_manager_returns_singleton(self):
+        """get_workspace_manager returns same instance on multiple calls."""
         manager1 = get_workspace_manager()
         manager2 = get_workspace_manager()
 
@@ -588,10 +592,6 @@ class TestGlobalWorkspaceManager:
 
     def test_get_workspace_manager_creates_instance(self):
         """get_workspace_manager creates new instance if none exists."""
-        import aragora.server.middleware.tenancy as tenancy_module
-
-        tenancy_module._workspace_manager = None
-
         manager = get_workspace_manager()
 
         assert manager is not None

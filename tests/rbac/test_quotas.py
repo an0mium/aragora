@@ -646,13 +646,17 @@ class TestRequireQuotaDecorator:
 class TestSingleton:
     """Tests for singleton behavior."""
 
-    def test_get_quota_enforcer(self):
-        """Test singleton returns same instance."""
-        # Reset global
+    @pytest.fixture(autouse=True)
+    def _reset_quota_enforcer_singleton(self):
+        """Reset quota enforcer singleton before/after each test."""
         import aragora.rbac.quotas as quotas_module
 
         quotas_module._enforcer = None
+        yield
+        quotas_module._enforcer = None
 
+    def test_get_quota_enforcer(self):
+        """Test singleton returns same instance."""
         enforcer1 = get_quota_enforcer()
         enforcer2 = get_quota_enforcer()
 
