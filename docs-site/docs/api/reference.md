@@ -5,7 +5,7 @@ description: Aragora API Reference
 
 # Aragora API Reference
 
-> **Last Updated:** 2026-02-03 (v2.6.3 alignment with repo versions)
+> **Last Updated:** 2026-02-14 (v2.7.2 alignment with repo versions)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent vetted decisionmaking across organizational knowledge and channels.
@@ -14,8 +14,8 @@ for multi-agent vetted decisionmaking across organizational knowledge and channe
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
-| TypeScript (`@aragora/sdk`) | 2.6.3 | 380 async | Full API (79 namespaces) |
-| Python (`aragora`) | 2.6.3 | 220 async + 420 sync | Full API |
+| TypeScript (`@aragora/sdk`) | 2.7.2 | 380 async | Full API (79 namespaces) |
+| Python (`aragora`) | 2.7.2 | 220 async + 420 sync | Full API |
 
 Versions reflect the current repo tags (see `pyproject.toml` and
 `aragora/__version__.py`). If versions drift, run
