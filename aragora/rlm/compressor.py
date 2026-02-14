@@ -467,6 +467,9 @@ Conclusion:""",
             AbstractionLevel.METADATA: len(source_nodes),  # All at once
         }.get(target_level, 5)
 
+        if not source_nodes or group_size < 1:
+            return [], 0
+
         groups = [source_nodes[i : i + group_size] for i in range(0, len(source_nodes), group_size)]
 
         new_nodes = []
