@@ -16,10 +16,11 @@ from unittest.mock import Mock, MagicMock, patch
 from aragora.server.handlers import DebatesHandler, HandlerResult
 from aragora.server.handlers.base import clear_cache
 
-# Import rate limiting module for clearing between tests
+# Import rate limiting modules for clearing between tests
 import importlib
 
 _rate_limit_mod = importlib.import_module("aragora.server.handlers.utils.rate_limit")
+_user_limiter_mod = importlib.import_module("aragora.server.middleware.rate_limit.user_limiter")
 
 
 # ============================================================================
@@ -205,11 +206,13 @@ def clear_caches():
     with _rate_limit_mod._limiters_lock:
         for limiter in _rate_limit_mod._limiters.values():
             limiter.clear()
+    _user_limiter_mod._user_limiter = None
     yield
     clear_cache()
     with _rate_limit_mod._limiters_lock:
         for limiter in _rate_limit_mod._limiters.values():
             limiter.clear()
+    _user_limiter_mod._user_limiter = None
 
 
 # ============================================================================
