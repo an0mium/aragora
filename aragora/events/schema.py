@@ -292,6 +292,62 @@ class AgentFallbackTriggeredPayload(EventPayload):
 
 
 # ---------------------------------------------------------------------------
+# Workflow Event Payloads
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class WorkflowStartPayload(EventPayload):
+    """Payload for WORKFLOW_START events."""
+
+    workflow_id: str
+    definition_id: str
+    step_count: int = 0
+    workflow_name: str = ""
+    tenant_id: str | None = None
+    org_id: str | None = None
+    user_id: str | None = None
+
+
+@dataclass
+class WorkflowStepCompletedPayload(EventPayload):
+    """Payload for WORKFLOW_STEP_COMPLETE events."""
+
+    workflow_id: str
+    definition_id: str
+    step_id: str
+    step_name: str = ""
+    step_type: str = ""
+    status: str = "completed"
+    duration_ms: float = 0.0
+    retry_count: int = 0
+
+
+@dataclass
+class WorkflowCompletedPayload(EventPayload):
+    """Payload for WORKFLOW_COMPLETE events."""
+
+    workflow_id: str
+    definition_id: str
+    success: bool = True
+    duration_ms: float = 0.0
+    steps_executed: int = 0
+    error: str | None = None
+
+
+@dataclass
+class WorkflowFailedPayload(EventPayload):
+    """Payload for WORKFLOW_FAILED events."""
+
+    workflow_id: str
+    definition_id: str
+    success: bool = False
+    duration_ms: float = 0.0
+    steps_executed: int = 0
+    error: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # Schema Registry
 # ---------------------------------------------------------------------------
 
@@ -314,6 +370,10 @@ EVENT_SCHEMAS: dict[StreamEventType, type[EventPayload]] = {
     StreamEventType.ERROR: ErrorPayload,
     StreamEventType.AGENT_ELO_UPDATED: AgentEloUpdatedPayload,
     StreamEventType.AGENT_FALLBACK_TRIGGERED: AgentFallbackTriggeredPayload,
+    StreamEventType.WORKFLOW_START: WorkflowStartPayload,
+    StreamEventType.WORKFLOW_STEP_COMPLETE: WorkflowStepCompletedPayload,
+    StreamEventType.WORKFLOW_COMPLETE: WorkflowCompletedPayload,
+    StreamEventType.WORKFLOW_FAILED: WorkflowFailedPayload,
 }
 
 # Required fields for each payload type
@@ -334,6 +394,10 @@ REQUIRED_FIELDS: dict[type[EventPayload], list[str]] = {
     ErrorPayload: ["error_type", "message"],
     AgentEloUpdatedPayload: ["agent", "old_elo", "new_elo", "change"],
     AgentFallbackTriggeredPayload: ["agent", "fallback_to", "reason"],
+    WorkflowStartPayload: ["workflow_id", "definition_id"],
+    WorkflowStepCompletedPayload: ["workflow_id", "definition_id", "step_id"],
+    WorkflowCompletedPayload: ["workflow_id", "definition_id"],
+    WorkflowFailedPayload: ["workflow_id", "definition_id"],
 }
 
 
@@ -590,6 +654,10 @@ __all__ = [
     "TokenStartPayload",
     "ValidationError",
     "VotePayload",
+    "WorkflowCompletedPayload",
+    "WorkflowFailedPayload",
+    "WorkflowStartPayload",
+    "WorkflowStepCompletedPayload",
     # Functions
     "get_schema_registry",
     "reset_schema_registry",

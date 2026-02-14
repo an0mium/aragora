@@ -47,11 +47,11 @@ def _make_workspace_stats(
         "total_api_calls": api_calls,
         "total_tokens_in": 50000,
         "total_tokens_out": 25000,
-        "cost_by_agent": agent_costs or {
+        "cost_by_agent": {
             "claude": "5.00",
             "gpt-4": "3.00",
             "gemini": "2.00",
-        },
+        } if agent_costs is None else agent_costs,
         "cost_by_model": {},
     }
 
@@ -73,12 +73,16 @@ def _parse_body(result) -> dict:
 
 @pytest.fixture(autouse=True)
 def _patch_auth():
-    """Patch auth to always succeed for cost breakdown tests."""
+    """Patch auth to always succeed and reset cost tracker singleton."""
+    import aragora.billing.cost_tracker as ct_mod
+
+    ct_mod._cost_tracker = None
     with patch(
         "aragora.billing.jwt_auth.extract_user_from_request",
         return_value=FakeUserCtx(),
     ):
         yield
+    ct_mod._cost_tracker = None
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +109,10 @@ class TestCostBreakdownEndpoint:
         result = handler._get_cost_breakdown({}, handler=MagicMock())
         assert result.status_code == 400
         body = _parse_body(result)
-        assert "workspace_id" in body.get("error", "")
+        error = body.get("error", {})
+        # error may be a string or a dict with "message" key
+        error_text = error if isinstance(error, str) else error.get("message", "")
+        assert "workspace_id" in error_text
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
     def test_total_spend_returned(self, mock_get_tracker):
