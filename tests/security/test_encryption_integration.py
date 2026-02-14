@@ -71,10 +71,12 @@ class TestEncryptionServiceLifecycle:
     def test_service_generates_ephemeral_key_without_env(self):
         """Service should generate ephemeral key when no env key set."""
         import aragora.security.encryption as enc_module
+        from aragora.config.secrets import reset_secret_manager
 
         # Remove env key so the service creates an ephemeral one
         os.environ.pop("ARAGORA_ENCRYPTION_KEY", None)
         enc_module._encryption_service = None
+        reset_secret_manager()  # Clear cached key from SecretManager
 
         from aragora.security.encryption import get_encryption_service
 
