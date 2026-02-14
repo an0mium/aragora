@@ -229,10 +229,11 @@ class OrchestratorResult:
     errors: list[str]
     started_at: datetime
     completed_at: datetime
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             "session_id": self.session_id,
             "profile": self.profile,
             "verticals_run": self.verticals_run,
@@ -245,6 +246,9 @@ class OrchestratorResult:
             "started_at": self.started_at.isoformat(),
             "completed_at": self.completed_at.isoformat(),
         }
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
 
 
 class AuditOrchestrator:
@@ -363,6 +367,13 @@ class AuditOrchestrator:
             # By severity
             findings_by_severity[finding.severity.value] += 1
 
+        # Cross-pollination: enrich with compliance status
+        compliance_context = self._fetch_compliance_context()
+
+        result_metadata: dict[str, Any] = {}
+        if compliance_context:
+            result_metadata["compliance_status"] = compliance_context
+
         return OrchestratorResult(
             session_id=session.id,
             profile=self._profile.name,
@@ -375,7 +386,49 @@ class AuditOrchestrator:
             errors=self._errors,
             started_at=started_at,
             completed_at=completed_at,
+            metadata=result_metadata,
         )
+
+    def _fetch_compliance_context(self) -> dict[str, Any] | None:
+        """Fetch current compliance status to enrich audit results.
+
+        Cross-pollination: queries the compliance monitor for the current
+        status of monitored frameworks, providing audit results with
+        compliance context (e.g., which frameworks are degraded).
+
+        Returns:
+            Summary dict of compliance status, or None if unavailable
+        """
+        try:
+            from aragora.compliance.monitor import get_compliance_monitor
+
+            monitor = get_compliance_monitor()
+            if not monitor:
+                return None
+
+            status = monitor._last_status
+            if not status:
+                return None
+
+            return {
+                "overall_health": status.overall_health.value,
+                "overall_score": status.overall_score,
+                "open_violations": status.open_violations,
+                "trend": status.trend.value,
+                "frameworks": {
+                    name: {
+                        "health": fs.health.value,
+                        "score": fs.score,
+                        "critical": fs.critical_violations,
+                        "major": fs.major_violations,
+                    }
+                    for name, fs in status.frameworks.items()
+                },
+                "source": "compliance_monitor",
+            }
+        except (ImportError, AttributeError, TypeError) as e:
+            logger.debug(f"Compliance cross-pollination skipped: {e}")
+            return None
 
     async def _run_parallel(
         self,

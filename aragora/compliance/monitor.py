@@ -101,6 +101,7 @@ class ComplianceStatus:
     mttr_hours: float | None = None  # Mean time to resolution
     audit_trail_verified: bool = True
     last_full_scan: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -231,6 +232,12 @@ class ComplianceMonitor:
         # Check for trend
         status.trend = self._calculate_trend()
 
+        # Cross-pollination: enrich with recent audit findings
+        audit_context = self._fetch_audit_context(status)
+        if audit_context:
+            status.metadata = getattr(status, "metadata", {}) or {}
+            status.metadata["audit_findings_summary"] = audit_context
+
         # Store status
         self._last_status = status
         self._status_history.append(status)
@@ -284,6 +291,72 @@ class ComplianceMonitor:
 
         except Exception as e:
             logger.warning(f"Error updating from policy store: {e}")
+
+    def _fetch_audit_context(self, status: ComplianceStatus) -> dict[str, Any] | None:
+        """Fetch recent audit findings relevant to compliance scope.
+
+        Cross-pollination: queries the audit system for findings that
+        overlap with current compliance frameworks, enriching the
+        compliance status with audit intelligence.
+
+        Args:
+            status: Current compliance status being built
+
+        Returns:
+            Summary dict of relevant audit findings, or None
+        """
+        try:
+            from aragora.audit.document_auditor import FindingSeverity
+
+            # Try to get the audit store for recent findings
+            try:
+                from aragora.audit.log import get_audit_store
+            except ImportError:
+                return None
+
+            store = get_audit_store()
+            if not store:
+                return None
+
+            # Query recent audit entries that overlap with compliance scope
+            frameworks = list(status.frameworks.keys()) if status.frameworks else []
+            if not frameworks:
+                return None
+
+            recent_entries = store.query(
+                limit=20,
+                event_type="audit_finding",
+            )
+            if not recent_entries:
+                return None
+
+            # Count findings by severity that relate to compliance frameworks
+            severity_counts: dict[str, int] = {}
+            relevant_count = 0
+            for entry in recent_entries:
+                entry_data = entry if isinstance(entry, dict) else getattr(entry, "data", {})
+                category = entry_data.get("category", "")
+                # Check if any framework name appears in the category
+                for fw in frameworks:
+                    if fw.lower() in category.lower():
+                        severity = entry_data.get("severity", "info")
+                        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+                        relevant_count += 1
+                        break
+
+            if relevant_count == 0:
+                return None
+
+            return {
+                "relevant_findings": relevant_count,
+                "severity_breakdown": severity_counts,
+                "frameworks_with_findings": frameworks,
+                "source": "audit_orchestrator",
+            }
+
+        except (ImportError, AttributeError, TypeError) as e:
+            logger.debug(f"Audit cross-pollination skipped: {e}")
+            return None
 
     async def _run_full_scan(self) -> None:
         """Run a full compliance scan across all resources."""
