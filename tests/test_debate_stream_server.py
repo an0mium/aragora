@@ -668,6 +668,10 @@ class TestDebateStreamServerBroadcast:
         mock_client2 = AsyncMock()
         server.clients = {mock_client1, mock_client2}
 
+        # Set up client subscriptions to the loop_id used in event
+        server._client_subscriptions[id(mock_client1)] = "test"
+        server._client_subscriptions[id(mock_client2)] = "test"
+
         event = StreamEvent(
             type=StreamEventType.AGENT_MESSAGE,
             data={"content": "test"},
@@ -689,6 +693,10 @@ class TestDebateStreamServerBroadcast:
         mock_bad.send.side_effect = Exception("Connection closed")
         server.clients = {mock_good, mock_bad}
 
+        # Set up client subscriptions to the loop_id used in event
+        server._client_subscriptions[id(mock_good)] = "test"
+        server._client_subscriptions[id(mock_bad)] = "test"
+
         event = StreamEvent(
             type=StreamEventType.AGENT_MESSAGE,
             data={"content": "test"},
@@ -707,6 +715,10 @@ class TestDebateStreamServerBroadcast:
 
         mock_client = AsyncMock()
         server.clients = {mock_client}
+
+        # Set up client subscription to the loop_id used in events
+        # This is required for the client to receive debate-scoped events
+        server._client_subscriptions[id(mock_client)] = "test"
 
         events = [
             StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={"content": "1"}, loop_id="test"),
