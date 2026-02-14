@@ -1157,6 +1157,22 @@ Examples:
         help="Maximum budget for plan execution in USD",
     )
     decide_parser.add_argument(
+        "--template",
+        help="Workflow template to apply (e.g., sme_decision, code/security-audit)",
+    )
+    decide_parser.add_argument(
+        "--list-templates",
+        action="store_true",
+        help="List available workflow templates and exit",
+    )
+    decide_parser.add_argument(
+        "--mode",
+        "-m",
+        choices=["standard", "redteam", "deep_audit", "prober", "architect", "coder", "reviewer"],
+        default="standard",
+        help="Operational mode for the debate (default: standard)",
+    )
+    decide_parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print detailed progress",

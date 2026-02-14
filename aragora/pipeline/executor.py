@@ -162,6 +162,29 @@ class PlanExecutor:
         self._repo_path = repo_path or Path.cwd()
 
     @staticmethod
+    def _emit_plan_event(event_type: str, data: dict[str, Any]) -> None:
+        """Emit a pipeline lifecycle event (best-effort)."""
+        try:
+            from aragora.events.types import StreamEvent, StreamEventType
+
+            event = StreamEvent(
+                type=StreamEventType[event_type],
+                data=data,
+            )
+            # Try to dispatch via the server event emitter if available
+            try:
+                from aragora.server.stream.emitter import get_global_emitter
+
+                emitter = get_global_emitter()
+                if emitter is not None:
+                    emitter.emit(event)
+            except (ImportError, AttributeError):
+                pass
+            logger.info("Pipeline event: %s plan_id=%s", event_type, data.get("plan_id", ""))
+        except Exception as exc:
+            logger.debug("Failed to emit pipeline event %s: %s", event_type, exc)
+
+    @staticmethod
     def _requires_workflow(plan: DecisionPlan) -> bool:
         """Return True if plan tasks require workflow-only steps."""
         if not plan.implement_plan:
@@ -247,6 +270,15 @@ class PlanExecutor:
         plan.execution_started_at = datetime.now()
         store_plan(plan)
 
+        # Emit PLAN_EXECUTING event
+        self._emit_plan_event("PLAN_EXECUTING", {
+            "plan_id": plan.id,
+            "debate_id": plan.debate_id,
+            "workspace_id": (plan.metadata or {}).get("workspace_id", ""),
+            "execution_mode": mode if isinstance(mode, str) else str(mode),
+            "task": plan.task[:200],
+        })
+
         start_time = time.time()
         outcome: PlanOutcome
 
@@ -279,7 +311,7 @@ class PlanExecutor:
             plan.metadata["requested_execution_mode"] = execution_mode
 
         notifier = None
-        if on_task_complete is None and mode in {"hybrid", "fabric"}:
+        if on_task_complete is None:
             meta = plan.metadata if isinstance(plan.metadata, dict) else {}
             channel_targets = None
             thread_id = None
@@ -363,6 +395,24 @@ class PlanExecutor:
 
         # Record outcome
         _plan_outcomes[plan.id] = outcome
+
+        # Emit completion/failure event
+        event_type = "PLAN_COMPLETED" if outcome.success else "PLAN_FAILED"
+        event_data: dict[str, Any] = {
+            "plan_id": plan.id,
+            "debate_id": plan.debate_id,
+            "workspace_id": (plan.metadata or {}).get("workspace_id", ""),
+            "execution_mode": mode if isinstance(mode, str) else str(mode),
+            "success": outcome.success,
+            "duration_seconds": outcome.duration_seconds,
+            "tasks_completed": outcome.tasks_completed,
+            "tasks_total": outcome.tasks_total,
+        }
+        if outcome.error:
+            event_data["error"] = outcome.error[:500]
+        if outcome.lessons:
+            event_data["lessons"] = outcome.lessons[:5]
+        self._emit_plan_event(event_type, event_data)
 
         if notifier is not None:
             try:

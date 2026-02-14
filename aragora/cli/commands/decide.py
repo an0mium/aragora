@@ -36,6 +36,8 @@ async def run_decide(
     supermemory_context_container_tag: str | None = None,
     supermemory_max_context_items: int | None = None,
     enable_belief_guidance: bool | None = None,
+    template: str | None = None,
+    mode: str = "standard",
     verbose: bool = False,
 ) -> dict[str, Any]:
     """Run the full decision pipeline: debate → plan → execute.
@@ -61,6 +63,51 @@ async def run_decide(
     from aragora.pipeline.executor import PlanExecutor, store_plan
 
     result: dict[str, Any] = {}
+
+    # Apply template overrides if specified
+    template_config: dict[str, Any] = {}
+    if template:
+        try:
+            from aragora.workflow.templates import get_template as get_wf_template, WORKFLOW_TEMPLATES
+
+            tmpl = get_wf_template(template)
+            if tmpl is None:
+                # Try prefix matching (e.g., "sme_decision" → factory templates)
+                for key in WORKFLOW_TEMPLATES:
+                    if template in key or key.endswith(template):
+                        tmpl = WORKFLOW_TEMPLATES[key]
+                        break
+            if tmpl:
+                template_config = tmpl
+                # Override debate params from template
+                if tmpl.get("agents"):
+                    agents_str = ",".join(tmpl["agents"]) if isinstance(tmpl["agents"], list) else tmpl["agents"]
+                if tmpl.get("rounds"):
+                    rounds = tmpl["rounds"]
+                if verbose:
+                    print(f"[decide] Using template: {template}")
+            else:
+                if verbose:
+                    print(f"[decide] Template '{template}' not found, using defaults")
+        except ImportError:
+            if verbose:
+                print("[decide] Template system not available")
+
+    # Apply mode overrides
+    mode_config: dict[str, Any] = {}
+    if mode and mode != "standard":
+        try:
+            from aragora.modes.base import ModeRegistry
+
+            registry = ModeRegistry()
+            mode_def = registry.get(mode)
+            if mode_def:
+                mode_config = {"mode": mode, "mode_definition": mode_def}
+                if verbose:
+                    print(f"[decide] Using mode: {mode}")
+        except ImportError:
+            if verbose:
+                print(f"[decide] Mode system not available, ignoring --mode {mode}")
 
     # Step 1: Run the debate
     if verbose:
@@ -155,6 +202,11 @@ async def run_decide(
 
 def cmd_decide(args: argparse.Namespace) -> None:
     """Handle 'decide' command - full gold path."""
+    # Handle --list-templates
+    if getattr(args, "list_templates", False):
+        _print_available_templates()
+        return
+
     from aragora.cli.commands.debate import (
         _append_context_file,
         _parse_auto_select_config,
@@ -281,6 +333,8 @@ def cmd_decide(args: argparse.Namespace) -> None:
             supermemory_context_container_tag=supermemory_container,
             supermemory_max_context_items=supermemory_max_items,
             enable_belief_guidance=True if enable_belief_guidance else None,
+            template=getattr(args, "template", None),
+            mode=getattr(args, "mode", "standard") or "standard",
             verbose=getattr(args, "verbose", False),
         )
     )
@@ -483,6 +537,38 @@ def cmd_plans_execute(args: argparse.Namespace) -> None:
     except ValueError as e:
         print(f"Execution failed: {e}")
         sys.exit(1)
+
+
+def _print_available_templates() -> None:
+    """Print available workflow templates grouped by category."""
+    try:
+        from aragora.workflow.templates import WORKFLOW_TEMPLATES
+    except ImportError:
+        print("Workflow templates not available.")
+        return
+
+    if not WORKFLOW_TEMPLATES:
+        print("No templates found.")
+        return
+
+    # Group by category
+    categories: dict[str, list[tuple[str, str]]] = {}
+    for template_id, template in WORKFLOW_TEMPLATES.items():
+        cat = template_id.split("/")[0] if "/" in template_id else "other"
+        name = template.get("name", template_id)
+        desc = template.get("description", "")[:60]
+        categories.setdefault(cat, []).append((template_id, f"{name} - {desc}"))
+
+    print("Available workflow templates:")
+    print()
+    for cat in sorted(categories):
+        print(f"  {cat.upper()}:")
+        for tid, desc in sorted(categories[cat]):
+            print(f"    {tid:<40} {desc}")
+        print()
+
+    print(f"Total: {len(WORKFLOW_TEMPLATES)} templates")
+    print("\nUsage: aragora decide --template <template-id> \"your question\"")
 
 
 __all__ = [
