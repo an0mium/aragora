@@ -45,6 +45,7 @@ class TemplateCategory(Enum):
     HEALTHCARE = "healthcare"
     COMPLIANCE = "compliance"
     ACADEMIC = "academic"
+    BUSINESS = "business"
     GENERAL = "general"
 
 

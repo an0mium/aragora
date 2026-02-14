@@ -8,6 +8,7 @@ These templates cover common use cases across different verticals:
 - Healthcare: HIPAA compliance, clinical guidelines
 - Compliance: SOC 2, GDPR, regulatory assessments
 - Academic: Citation verification, peer review
+- Business: Hiring, vendor evaluation, budget allocation, strategy
 - General: Research, quick decisions
 """
 
@@ -339,6 +340,89 @@ MEETING_PREP = DeliberationTemplate(
 
 
 # =============================================================================
+# Business Templates
+# =============================================================================
+
+HIRING_DECISION = DeliberationTemplate(
+    name="hiring_decision",
+    description="Evaluate a hiring decision with multiple agent perspectives",
+    category=TemplateCategory.BUSINESS,
+    default_agents=["anthropic-api", "openai-api", "gemini"],
+    team_strategy=TeamStrategy.DIVERSE,
+    output_format=OutputFormat.DECISION_RECEIPT,
+    consensus_threshold=0.7,
+    max_rounds=4,
+    personas=["talent", "culture-fit", "skills", "compensation"],
+    tags=["business", "hiring", "hr", "talent", "recruitment"],
+)
+
+VENDOR_EVALUATION = DeliberationTemplate(
+    name="vendor_evaluation",
+    description="Compare vendors for a business need",
+    category=TemplateCategory.BUSINESS,
+    default_agents=["anthropic-api", "openai-api"],
+    team_strategy=TeamStrategy.BEST_FOR_DOMAIN,
+    output_format=OutputFormat.DECISION_RECEIPT,
+    consensus_threshold=0.7,
+    max_rounds=4,
+    personas=["cost", "quality", "reliability", "support"],
+    tags=["business", "vendor", "procurement", "evaluation", "comparison"],
+)
+
+BUDGET_ALLOCATION = DeliberationTemplate(
+    name="budget_allocation",
+    description="Debate budget allocation across departments or projects",
+    category=TemplateCategory.BUSINESS,
+    default_agents=["anthropic-api", "openai-api", "gemini"],
+    team_strategy=TeamStrategy.DIVERSE,
+    output_format=OutputFormat.DECISION_RECEIPT,
+    consensus_threshold=0.7,
+    max_rounds=5,
+    personas=["finance", "growth", "operations", "risk"],
+    tags=["business", "budget", "allocation", "finance", "planning"],
+)
+
+TOOL_SELECTION = DeliberationTemplate(
+    name="tool_selection",
+    description="Evaluate and select the best tool for a business need",
+    category=TemplateCategory.BUSINESS,
+    default_agents=["anthropic-api", "openai-api"],
+    team_strategy=TeamStrategy.BEST_FOR_DOMAIN,
+    output_format=OutputFormat.SUMMARY,
+    consensus_threshold=0.6,
+    max_rounds=3,
+    personas=["technical", "usability", "cost", "integration"],
+    tags=["business", "tools", "selection", "evaluation", "software"],
+)
+
+PERFORMANCE_REVIEW = DeliberationTemplate(
+    name="performance_review",
+    description="Structure performance review with multiple perspectives",
+    category=TemplateCategory.BUSINESS,
+    default_agents=["anthropic-api", "openai-api"],
+    team_strategy=TeamStrategy.DIVERSE,
+    output_format=OutputFormat.DECISION_RECEIPT,
+    consensus_threshold=0.7,
+    max_rounds=3,
+    personas=["management", "peer", "self-assessment", "goals"],
+    tags=["business", "performance", "review", "hr", "assessment"],
+)
+
+STRATEGIC_PLANNING = DeliberationTemplate(
+    name="strategic_planning",
+    description="Evaluate strategic options for business direction",
+    category=TemplateCategory.BUSINESS,
+    default_agents=["anthropic-api", "openai-api", "gemini", "mistral"],
+    team_strategy=TeamStrategy.DIVERSE,
+    output_format=OutputFormat.DECISION_RECEIPT,
+    consensus_threshold=0.65,
+    max_rounds=5,
+    personas=["strategy", "market", "operations", "finance", "innovation"],
+    tags=["business", "strategy", "planning", "direction", "growth"],
+)
+
+
+# =============================================================================
 # Built-in Templates Dictionary
 # =============================================================================
 
@@ -371,4 +455,11 @@ BUILTIN_TEMPLATES = {
     "email_prioritization": EMAIL_PRIORITIZATION,
     "inbox_triage": INBOX_TRIAGE,
     "meeting_prep": MEETING_PREP,
+    # Business
+    "hiring_decision": HIRING_DECISION,
+    "vendor_evaluation": VENDOR_EVALUATION,
+    "budget_allocation": BUDGET_ALLOCATION,
+    "tool_selection": TOOL_SELECTION,
+    "performance_review": PERFORMANCE_REVIEW,
+    "strategic_planning": STRATEGIC_PLANNING,
 }
