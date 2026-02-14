@@ -420,6 +420,22 @@ class AnalyticsAPI:
             params["time_range"] = time_range
         return self._client.request("GET", "/api/analytics/usage/costs", params=params)
 
+    def cost_breakdown_dashboard(
+        self,
+        workspace_id: str | None = None,
+        time_range: str | None = None,
+    ) -> dict[str, Any]:
+        """Get per-agent cost breakdown with budget utilization.
+
+        @route GET /api/analytics/cost/breakdown
+        """
+        params: dict[str, str] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if time_range:
+            params["time_range"] = time_range
+        return self._client.request("GET", "/api/analytics/cost/breakdown", params=params or None)
+
     def active_users(
         self,
         org_id: str | None = None,
@@ -751,6 +767,22 @@ class AsyncAnalyticsAPI:
         if time_range:
             params["time_range"] = time_range
         return await self._client.request("GET", "/api/analytics/usage/costs", params=params)
+
+    async def cost_breakdown_dashboard(
+        self,
+        workspace_id: str | None = None,
+        time_range: str | None = None,
+    ) -> dict[str, Any]:
+        """Get per-agent cost breakdown with budget utilization.
+
+        @route GET /api/analytics/cost/breakdown
+        """
+        params: dict[str, str] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if time_range:
+            params["time_range"] = time_range
+        return await self._client.request("GET", "/api/analytics/cost/breakdown", params=params or None)
 
     # ===========================================================================
     # Flip Detection

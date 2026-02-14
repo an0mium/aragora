@@ -157,6 +157,34 @@ class SkillsAPI:
             data["timeout"] = timeout
         return self._client.request("POST", "/api/skills/invoke", json=data)
 
+    def invoke_by_name(
+        self,
+        name: str,
+        input: dict[str, Any] | None = None,
+        user_id: str | None = None,
+        permissions: _List[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        timeout: int | None = None,
+    ) -> dict[str, Any]:
+        """Invoke a skill by name via URL path.
+
+        Like invoke() but uses the URL-based route /api/skills/:name/invoke.
+
+        @route POST /api/skills/{name}/invoke
+        """
+        data: dict[str, Any] = {}
+        if input:
+            data["input"] = input
+        if user_id:
+            data["user_id"] = user_id
+        if permissions:
+            data["permissions"] = permissions
+        if metadata:
+            data["metadata"] = metadata
+        if timeout:
+            data["timeout"] = timeout
+        return self._client.request("POST", f"/api/skills/{name}/invoke", json=data)
+
 
 class AsyncSkillsAPI:
     """
@@ -205,3 +233,31 @@ class AsyncSkillsAPI:
         if timeout:
             data["timeout"] = timeout
         return await self._client.request("POST", "/api/skills/invoke", json=data)
+
+    async def invoke_by_name(
+        self,
+        name: str,
+        input: dict[str, Any] | None = None,
+        user_id: str | None = None,
+        permissions: _List[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        timeout: int | None = None,
+    ) -> dict[str, Any]:
+        """Invoke a skill by name via URL path.
+
+        Like invoke() but uses the URL-based route /api/skills/:name/invoke.
+
+        @route POST /api/skills/{name}/invoke
+        """
+        data: dict[str, Any] = {}
+        if input:
+            data["input"] = input
+        if user_id:
+            data["user_id"] = user_id
+        if permissions:
+            data["permissions"] = permissions
+        if metadata:
+            data["metadata"] = metadata
+        if timeout:
+            data["timeout"] = timeout
+        return await self._client.request("POST", f"/api/skills/{name}/invoke", json=data)

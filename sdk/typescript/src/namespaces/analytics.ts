@@ -338,6 +338,14 @@ export class AnalyticsAPI {
     return this.client.request('GET', '/api/analytics/cost', { params: options });
   }
 
+  /**
+   * Get per-agent cost breakdown with budget utilization.
+   * @route GET /api/analytics/cost/breakdown
+   */
+  async getCostBreakdownDashboard(options?: { workspace_id?: string; time_range?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/analytics/cost/breakdown', { params: options });
+  }
+
   // =========================================================================
   // Flip Detection
   // =========================================================================

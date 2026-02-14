@@ -177,4 +177,23 @@ export class SkillsAPI {
       json: request as unknown as Record<string, unknown>,
     });
   }
+
+  /**
+   * Invoke a skill by name via URL path.
+   * @route POST /api/skills/{name}/invoke
+   */
+  async invokeByName(
+    name: string,
+    options?: {
+      input?: Record<string, unknown>;
+      user_id?: string;
+      permissions?: string[];
+      metadata?: Record<string, unknown>;
+      timeout?: number;
+    }
+  ): Promise<InvokeSkillResult> {
+    return this.client.request('POST', `/api/skills/${encodeURIComponent(name)}/invoke`, {
+      json: (options ?? {}) as unknown as Record<string, unknown>,
+    });
+  }
 }

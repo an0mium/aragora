@@ -45,6 +45,15 @@ INTERNAL_ROUTES = {
     "/api/v1/docs",
     "/api/v1/docs/openapi.json",
     "/api/v1/status",
+    # Legacy OpenClaw gateway aliases -- canonical /api/v1/openclaw/ paths
+    # are covered by both SDKs; these unversioned gateway aliases share the
+    # same handler via _normalize_path() and don't need separate SDK surface.
+    "/api/gateway/openclaw/sessions",
+    "/api/gateway/openclaw/actions",
+    "/api/gateway/openclaw/credentials",
+    "/api/gateway/openclaw/health",
+    "/api/gateway/openclaw/metrics",
+    "/api/gateway/openclaw/audit",
 }
 
 
