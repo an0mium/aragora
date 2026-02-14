@@ -229,4 +229,11 @@ export class MonitoringAPI {
   async getBaseline(metricName: string): Promise<GetBaselineResponse> {
     return this.client.request<GetBaselineResponse>('GET', `/api/v1/autonomous/monitoring/baseline/${encodeURIComponent(metricName)}`);
   }
+
+  /**
+   * Get monitoring circuit breaker status.
+   */
+  async getCircuitBreaker(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/autonomous/monitoring/circuit-breaker', { params }) as Promise<Record<string, unknown>>;
+  }
 }

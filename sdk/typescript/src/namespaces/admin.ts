@@ -234,4 +234,11 @@ export class AdminAPI {
 // Re-export types for convenience
 export type {
   PaginationParams,
+
+  /**
+   * Get handler diagnostics.
+   */
+  async getHandlerDiagnostics(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/diagnostics/handlers', { params }) as Promise<Record<string, unknown>>;
+  }
 };

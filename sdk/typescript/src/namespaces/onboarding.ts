@@ -258,4 +258,11 @@ export class OnboardingAPI {
   }): Promise<OnboardingAnalytics> {
     return this.client.request('GET', '/api/v1/onboarding/analytics', { params: options });
   }
+
+  /**
+   * Start a quick debate.
+   */
+  async quickDebate(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/onboarding/quick-debate', { json: data }) as Promise<Record<string, unknown>>;
+  }
 }

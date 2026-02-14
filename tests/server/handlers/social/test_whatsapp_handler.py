@@ -17,15 +17,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 from io import BytesIO
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-# Set test environment to bypass production security checks
-os.environ.setdefault("ARAGORA_ENV", "test")
 
 from aragora.server.handlers.social.whatsapp import (
     WHATSAPP_VERIFY_TOKEN,
@@ -37,6 +33,17 @@ from aragora.server.handlers.social.whatsapp import (
 # ===========================================================================
 # Test Fixtures
 # ===========================================================================
+
+
+@pytest.fixture(autouse=True)
+def _set_test_env(monkeypatch):
+    """Set ARAGORA_ENV=test for each test so signature verification
+    uses development-mode fail-open when WHATSAPP_APP_SECRET is empty.
+
+    Uses monkeypatch to ensure the env var is cleaned up after each test,
+    preventing pollution into other test modules.
+    """
+    monkeypatch.setenv("ARAGORA_ENV", "test")
 
 
 class MockHandler:

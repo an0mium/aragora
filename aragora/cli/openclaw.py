@@ -543,6 +543,77 @@ def cmd_review(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def cmd_next_steps(args: argparse.Namespace) -> int:
+    """Scan a repo and identify prioritized next actions."""
+    import asyncio
+    import json as json_mod
+
+    from aragora.compat.openclaw.next_steps_runner import (
+        NextStepsRunner,
+        format_steps_table,
+        steps_to_json,
+    )
+
+    repo_path = getattr(args, "path", None) or "."
+    repo_url = getattr(args, "repo", None)
+
+    # Resolve path
+    path = Path(repo_path).resolve() if not repo_url else None
+    if path and not path.is_dir():
+        print(f"Error: Not a directory: {path}")
+        return 1
+
+    runner = NextStepsRunner(
+        repo_path=path,
+        repo_url=repo_url,
+        scan_code=not args.no_code,
+        scan_issues=not args.no_issues,
+        scan_prs=not args.no_prs,
+        scan_tests=args.tests,
+        scan_deps=args.deps,
+        scan_docs=not args.no_docs,
+        limit=args.limit,
+    )
+
+    result = asyncio.run(runner.scan())
+
+    if result.error:
+        print(f"Error: {result.error}")
+        return 1
+
+    # Output
+    if args.json:
+        output = steps_to_json(result.steps, result.receipt)
+        if args.output:
+            Path(args.output).write_text(json_mod.dumps(output, indent=2))
+            print(f"Results written to {args.output}")
+        else:
+            print(json_mod.dumps(output, indent=2))
+    else:
+        print(f"\nNext Steps for {result.repo}")
+        print("=" * 60)
+        if result.receipt:
+            print(f"Scanned {result.receipt.files_scanned} files | "
+                  f"Found {result.receipt.steps_count} actions")
+            signals = ", ".join(
+                f"{k}: {v}" for k, v in result.receipt.signals_by_source.items() if v > 0
+            )
+            if signals:
+                print(f"Sources: {signals}")
+        print()
+        print(format_steps_table(result.steps, max_rows=args.limit))
+        if result.receipt:
+            print(f"\nReceipt: {result.receipt.scan_id} "
+                  f"(checksum: {result.receipt.checksum[:12]}...)")
+
+        if args.output:
+            output = steps_to_json(result.steps, result.receipt)
+            Path(args.output).write_text(json_mod.dumps(output, indent=2))
+            print(f"\nJSON written to {args.output}")
+
+    return 0
+
+
 def _cmd_serve_gateway(args: argparse.Namespace) -> int:
     """Launch the standalone OpenClaw governance gateway."""
     from aragora.compat.openclaw.standalone import cmd_openclaw_serve
@@ -753,3 +824,69 @@ Examples:
         "--sarif", help="Write SARIF 2.1.0 results to file (for GitHub Security tab)",
     )
     review_parser.set_defaults(func=cmd_review)
+
+    # Next-steps command -- scan repo for prioritized actions
+    ns_parser = openclaw_subparsers.add_parser(
+        "next-steps",
+        help="Scan a repo and identify prioritized next actions",
+        description="""
+Scan a repository for actionable next steps.
+
+Collects signals from multiple sources:
+  - Source code markers (TODO, FIXME, HACK, XXX)
+  - Open GitHub issues and PRs
+  - Documentation gaps
+  - (optional) Test failures, dependency health
+
+Examples:
+    aragora openclaw next-steps
+    aragora openclaw next-steps --path /path/to/repo
+    aragora openclaw next-steps --repo https://github.com/owner/repo
+    aragora openclaw next-steps --tests --deps --json
+    aragora openclaw next-steps --limit 20 -o next-steps.json
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ns_parser.add_argument(
+        "--path", default=".",
+        help="Local repository path to scan (default: current directory)",
+    )
+    ns_parser.add_argument(
+        "--repo", help="GitHub repo URL (enables issue/PR scanning for remote repos)",
+    )
+    ns_parser.add_argument(
+        "--limit", type=int, default=30,
+        help="Max results to show (default: 30)",
+    )
+    ns_parser.add_argument(
+        "--json", action="store_true",
+        help="Output as JSON",
+    )
+    ns_parser.add_argument(
+        "--output", "-o", help="Write results to file",
+    )
+    ns_parser.add_argument(
+        "--tests", action="store_true",
+        help="Also scan for test failures (slower)",
+    )
+    ns_parser.add_argument(
+        "--deps", action="store_true",
+        help="Also check dependency health (slower)",
+    )
+    ns_parser.add_argument(
+        "--no-code", action="store_true",
+        help="Skip source code marker scanning",
+    )
+    ns_parser.add_argument(
+        "--no-issues", action="store_true",
+        help="Skip GitHub issue scanning",
+    )
+    ns_parser.add_argument(
+        "--no-prs", action="store_true",
+        help="Skip GitHub PR scanning",
+    )
+    ns_parser.add_argument(
+        "--no-docs", action="store_true",
+        help="Skip documentation gap scanning",
+    )
+    ns_parser.set_defaults(func=cmd_next_steps)

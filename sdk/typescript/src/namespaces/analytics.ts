@@ -504,4 +504,11 @@ export class AnalyticsAPI {
   async getRetention(platform: string, options?: { cohort?: string; period?: string }): Promise<unknown> {
     return this.client.request('GET', `/api/v1/analytics/${platform}/retention`, { params: options });
   }
+
+  /**
+   * Get analytics trends.
+   */
+  async getTrends(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/analytics/trends', { params }) as Promise<Record<string, unknown>>;
+  }
 }

@@ -110,4 +110,11 @@ export class ReconciliationNamespace {
       { body: resolution }
     );
   }
+
+  /**
+   * Get reconciliation status.
+   */
+  async getStatus(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/reconciliation/status', { params }) as Promise<Record<string, unknown>>;
+  }
 }

@@ -2902,4 +2902,11 @@ export class DebatesAPI {
       body: { agent, weight },
     });
   }
+
+  /**
+   * List debates.
+   */
+  async listDebates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/debate', { params }) as Promise<Record<string, unknown>>;
+  }
 }

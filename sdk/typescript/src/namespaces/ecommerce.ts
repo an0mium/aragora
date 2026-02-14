@@ -115,4 +115,11 @@ export class EcommerceNamespace {
       { params: options }
     );
   }
+
+  /**
+   * Get ecommerce circuit breaker status.
+   */
+  async getCircuitBreaker(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/ecommerce/circuit-breaker', { params }) as Promise<Record<string, unknown>>;
+  }
 }

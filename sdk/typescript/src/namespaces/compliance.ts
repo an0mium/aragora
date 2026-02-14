@@ -383,4 +383,11 @@ export class ComplianceAPI {
 
     return this.client.request('GET', '/api/v2/compliance/audit-events', { params });
   }
+
+  /**
+   * Get compliance violation details.
+   */
+  async getViolation(violationId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/compliance/violations/${violationId}`) as Promise<Record<string, unknown>>;
+  }
 }

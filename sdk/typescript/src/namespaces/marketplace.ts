@@ -391,4 +391,18 @@ export class MarketplaceAPI {
     }
     return this.client.reviewTemplate(templateId, body);
   }
+
+  /**
+   * Get marketplace status.
+   */
+  async getMarketplaceStatus(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/marketplace/status', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get marketplace circuit breaker status.
+   */
+  async getCircuitBreaker(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/marketplace/circuit-breaker', { params }) as Promise<Record<string, unknown>>;
+  }
 }

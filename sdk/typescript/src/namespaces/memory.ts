@@ -1343,4 +1343,32 @@ export class MemoryAPI {
     if (options?.metadata) body.metadata = options.metadata;
     return this.client.request('POST', '/api/v1/memory/critiques', { body });
   }
+
+  /**
+   * List memory entries.
+   */
+  async listEntries(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/memory/entries', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get memory search index.
+   */
+  async searchIndex(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/memory/search-index', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Search memory timeline.
+   */
+  async searchTimeline(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/memory/search-timeline', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get memory viewer.
+   */
+  async getViewer(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/memory/viewer', { params }) as Promise<Record<string, unknown>>;
+  }
 }

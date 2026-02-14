@@ -188,6 +188,36 @@ def clear_rate_limiters():
         yield
 
 
+@pytest.fixture(autouse=True)
+def fix_rbac_role_resolution():
+    """Ensure mock auth contexts include a valid role for RBAC checks.
+
+    MFA tests verify business logic, not authorization. The _check_permission
+    method requires auth_ctx.role to be a valid role string (not a Mock).
+    Patch get_role_permissions to treat any unrecognized role as 'member'.
+    """
+    original = None
+    try:
+        from aragora.rbac.defaults import helpers as rbac_helpers
+        original = rbac_helpers.get_role_permissions
+
+        def _patched_get_role_permissions(role_name, include_inherited=True):
+            if not isinstance(role_name, str):
+                role_name = "member"
+            return original(role_name, include_inherited=include_inherited)
+
+        rbac_helpers.get_role_permissions = _patched_get_role_permissions
+        # Also patch in the handler module where it's imported
+        with patch(
+            "aragora.server.handlers.auth.handler.get_role_permissions",
+            side_effect=_patched_get_role_permissions,
+        ):
+            yield
+        rbac_helpers.get_role_permissions = original
+    except ImportError:
+        yield
+
+
 @pytest.fixture
 def mock_auth_context_factory():
     """Factory for creating mock auth contexts."""

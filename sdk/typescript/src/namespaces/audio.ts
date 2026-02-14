@@ -60,4 +60,11 @@ export class AudioAPI {
   getFeedUrl(): string {
     return `${this.client.getBaseUrl()}/api/v1/podcast/feed.xml`;
   }
+
+  /**
+   * Serve audio file.
+   */
+  async serveAudio(audioPath: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/audio/${audioPath}`) as Promise<Record<string, unknown>>;
+  }
 }

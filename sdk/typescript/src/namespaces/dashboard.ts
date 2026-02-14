@@ -560,6 +560,13 @@ export class DashboardAPI {
       body: { format, ...options },
     });
   }
+
+  /**
+   * Get dashboard data.
+   */
+  async getDashboard(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/dashboard', { params }) as Promise<Record<string, unknown>>;
+  }
 }
 
 export default DashboardAPI;

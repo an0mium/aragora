@@ -94,4 +94,32 @@ export class WorkflowTemplatesAPI {
       body: params,
     });
   }
+
+  /**
+   * List workflow executions.
+   */
+  async listExecutions(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/workflows/executions', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get workflow execution.
+   */
+  async getExecution(executionId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/workflows/executions/${executionId}`) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List workflow templates.
+   */
+  async listTemplates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/workflows/templates', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get workflow template.
+   */
+  async getTemplate(templateId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/workflows/templates/${templateId}`) as Promise<Record<string, unknown>>;
+  }
 }

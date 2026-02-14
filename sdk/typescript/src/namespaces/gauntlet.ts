@@ -82,4 +82,18 @@ export class GauntletAPI {
   async compare(gauntletId1: string, gauntletId2: string): Promise<GauntletComparison> {
     return this.client.compareGauntlets(gauntletId1, gauntletId2);
   }
+
+  /**
+   * Get gauntlet details.
+   */
+  async getGauntlet(gauntletId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/gauntlet/${gauntletId}`) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Compare gauntlets.
+   */
+  async compareGauntlets(gauntletId: string, otherGauntletId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/gauntlet/${gauntletId}1/compare/${otherGauntletId}`) as Promise<Record<string, unknown>>;
+  }
 }

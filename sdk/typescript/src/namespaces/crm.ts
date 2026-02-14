@@ -129,4 +129,11 @@ export class CRMNamespace {
       { body: activity }
     );
   }
+
+  /**
+   * Get CRM status.
+   */
+  async getStatus(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/crm/status', { params }) as Promise<Record<string, unknown>>;
+  }
 }
