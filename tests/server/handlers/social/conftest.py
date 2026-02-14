@@ -480,6 +480,63 @@ def reset_notifications_globals():
     yield
 
 
+@pytest.fixture(autouse=True)
+def reset_whatsapp_globals():
+    """Reset WhatsApp social handler global state before each test.
+
+    The WhatsApp handler has:
+    1. A module-level singleton (_whatsapp_handler) in handler.py
+    2. Module-level constants in config.py captured from os.environ at import time
+
+    Without reset, tests that patch these values (or the singleton factory) leak
+    state into subsequent tests, causing intermittent failures when run in the
+    full handler suite.
+    """
+    # Save originals for config module
+    config_orig = {}
+    try:
+        from aragora.server.handlers.social.whatsapp import config as wa_config
+
+        config_orig = {
+            "WHATSAPP_ACCESS_TOKEN": wa_config.WHATSAPP_ACCESS_TOKEN,
+            "WHATSAPP_PHONE_NUMBER_ID": wa_config.WHATSAPP_PHONE_NUMBER_ID,
+            "WHATSAPP_VERIFY_TOKEN": wa_config.WHATSAPP_VERIFY_TOKEN,
+            "WHATSAPP_APP_SECRET": wa_config.WHATSAPP_APP_SECRET,
+        }
+    except (ImportError, AttributeError):
+        pass
+
+    # Save originals for handler singleton
+    handler_orig = None
+    try:
+        from aragora.server.handlers.social.whatsapp import handler as wa_handler
+
+        handler_orig = wa_handler._whatsapp_handler
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+    # Restore config constants
+    if config_orig:
+        try:
+            from aragora.server.handlers.social.whatsapp import config as wa_config
+
+            for attr, value in config_orig.items():
+                setattr(wa_config, attr, value)
+        except (ImportError, AttributeError):
+            pass
+
+    # Restore handler singleton
+    if handler_orig is not None or config_orig:
+        try:
+            from aragora.server.handlers.social.whatsapp import handler as wa_handler
+
+            wa_handler._whatsapp_handler = handler_orig
+        except (ImportError, AttributeError):
+            pass
+
+
 # ===========================================================================
 # Rate Limiter Fixtures
 # ===========================================================================

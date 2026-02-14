@@ -181,15 +181,20 @@ def mock_handler():
     handler = Mock()
     handler.headers = {"Host": "localhost:8080"}
     handler.rfile = BytesIO(b"{}")
+    handler.command = "GET"
     return handler
 
 
 @pytest.fixture(autouse=True)
 def clear_caches():
-    """Clear caches before and after each test."""
+    """Clear caches and rate limiters before and after each test."""
     clear_cache()
+    # Reset audio rate limiter to prevent cross-test pollution
+    from aragora.server.handlers.features.audio import _audio_limiter
+    _audio_limiter.clear()
     yield
     clear_cache()
+    _audio_limiter.clear()
 
 
 # ============================================================================
@@ -1011,6 +1016,7 @@ class TestHostHeaderValidation:
         # Create handler with untrusted host
         evil_handler = Mock()
         evil_handler.headers = {"Host": "evil.com"}
+        evil_handler.command = "GET"
 
         result = social_handler.handle("/api/v1/youtube/auth", {}, evil_handler)
 
@@ -1028,6 +1034,7 @@ class TestHostHeaderValidation:
 
         trusted_handler = Mock()
         trusted_handler.headers = {"Host": "localhost:8080"}
+        trusted_handler.command = "GET"
 
         result = social_handler.handle("/api/v1/youtube/auth", {}, trusted_handler)
 
@@ -1045,6 +1052,7 @@ class TestHostHeaderValidation:
 
         trusted_handler = Mock()
         trusted_handler.headers = {"Host": "127.0.0.1:8080"}
+        trusted_handler.command = "GET"
 
         result = social_handler.handle("/api/v1/youtube/auth", {}, trusted_handler)
 
@@ -1062,6 +1070,7 @@ class TestHostHeaderValidation:
         # Try callback with untrusted host
         evil_handler = Mock()
         evil_handler.headers = {"Host": "attacker.com"}
+        evil_handler.command = "GET"
 
         result = social_handler.handle(
             "/api/v1/youtube/callback", {"code": "auth-code", "state": valid_state}, evil_handler
@@ -1088,6 +1097,7 @@ class TestHostHeaderValidation:
         for evil_host in bypass_attempts:
             evil_handler = Mock()
             evil_handler.headers = {"Host": evil_host}
+            evil_handler.command = "GET"
 
             result = social_handler.handle("/api/v1/youtube/auth", {}, evil_handler)
 

@@ -17,6 +17,18 @@ import pytest
 from aragora.server.handlers import deliberations
 
 
+def _unpack(result) -> tuple[dict[str, Any], int]:
+    """Unpack a handler result into (body_dict, status_code).
+
+    Handles both raw tuples (legacy) and HandlerResult dataclass.
+    """
+    if isinstance(result, tuple):
+        return result[0], result[1]
+    # HandlerResult dataclass
+    body = json.loads(result.body) if result.body else {}
+    return body, result.status_code
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -39,6 +51,38 @@ def reset_deliberations_state():
     yield
     deliberations._active_deliberations.clear()
     deliberations._stream_clients.clear()
+
+
+@pytest.fixture(autouse=True)
+def _bypass_rbac():
+    """Bypass RBAC and @require_permission auth checks for deliberations handler tests.
+
+    Two layers of auth must be bypassed:
+    1. The @require_permission("debates:read") decorator on handle_request() which
+       calls extract_user_from_request and checks has_permission before the method
+       body runs.
+    2. The _check_rbac_permission() calls inside the method body for per-route RBAC.
+    """
+    from aragora.billing.auth.context import UserAuthContext
+
+    fake_user = UserAuthContext(
+        authenticated=True,
+        user_id="test-user",
+        email="test@example.com",
+        role="member",
+    )
+    with (
+        patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=fake_user,
+        ),
+        patch.object(
+            deliberations.DeliberationsHandler,
+            "_check_rbac_permission",
+            return_value=None,
+        ),
+    ):
+        yield
 
 
 @pytest.fixture
@@ -87,7 +131,7 @@ class TestDeliberationsRouting:
         request.path = "/api/v1/deliberations/active"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert "deliberations" in result
@@ -100,7 +144,7 @@ class TestDeliberationsRouting:
         request.path = "/api/v1/deliberations/stats"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert "active_count" in result
@@ -116,7 +160,7 @@ class TestDeliberationsRouting:
         request.path = "/api/v1/deliberations/delib-123"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert result["id"] == "delib-123"
@@ -128,7 +172,7 @@ class TestDeliberationsRouting:
         request.path = "/api/v1/deliberations/stream"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert result["type"] == "websocket"
@@ -141,7 +185,7 @@ class TestDeliberationsRouting:
         request.path = "/api/v1/deliberations/unknown/path"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 404
         assert "error" in result
@@ -162,7 +206,7 @@ class TestActiveDeliberations:
         request.path = "/api/v1/deliberations/active"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert result["deliberations"] == []
@@ -179,7 +223,7 @@ class TestActiveDeliberations:
         request.path = "/api/v1/deliberations/active"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert result["count"] >= 2
@@ -235,7 +279,7 @@ class TestDeliberationStats:
         request.path = "/api/v1/deliberations/stats"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert "active_count" in result
@@ -260,7 +304,7 @@ class TestDeliberationStats:
         request.path = "/api/v1/deliberations/stats"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         # Only active and consensus_forming should be counted
@@ -284,7 +328,7 @@ class TestSingleDeliberation:
         request.path = "/api/v1/deliberations/delib-123"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 200
         assert result["id"] == "delib-123"
@@ -296,7 +340,7 @@ class TestSingleDeliberation:
         request.path = "/api/v1/deliberations/nonexistent"
         request.method = "GET"
 
-        result, status = await deliberations_handler.handle_request(request)
+        result, status = _unpack(await deliberations_handler.handle_request(request))
 
         assert status == 404
         assert "error" in result

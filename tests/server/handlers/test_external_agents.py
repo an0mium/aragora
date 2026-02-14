@@ -872,11 +872,13 @@ class TestExternalAgentsErrorHandling:
         self, external_agents_handler, mock_handler, mock_adapter_spec
     ):
         """Should handle adapter health check failures gracefully."""
+        mock_user = MagicMock(id="user-1")
         with (
             patch.object(external_agents_handler, "require_auth_or_error") as mock_auth,
+            patch.object(external_agents_handler, "require_permission_or_error", return_value=(mock_user, None)),
             patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
         ):
-            mock_auth.return_value = (MagicMock(id="user-1"), None)
+            mock_auth.return_value = (mock_user, None)
             mock_registry.list_specs.return_value = [mock_adapter_spec]
             # Mock adapter creation to raise an exception
             mock_adapter_spec.adapter_class.side_effect = Exception("Connection failed")
@@ -1038,6 +1040,7 @@ class TestExternalAgentsEdgeCases:
 
         with (
             patch.object(external_agents_handler, "require_auth_or_error") as mock_auth,
+            patch.object(external_agents_handler, "require_permission_or_error", return_value=(dict_user, None)),
             patch.object(external_agents_handler, "set_request_context"),
             patch.object(external_agents_handler, "read_json_body_validated") as mock_read_body,
             patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,

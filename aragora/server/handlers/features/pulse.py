@@ -478,13 +478,7 @@ class PulseHandler(BaseHandler):
         if any(ch in topic for ch in ("\x00", "\n", "\r")):
             return error_response("topic contains invalid characters", 400)
 
-        try:
-            from aragora import Arena, DebateProtocol, Environment
-            from aragora.agents import get_agents_by_names
-        except ImportError:
-            return feature_unavailable_response("debate")
-
-        # Get parameters
+        # Validate parameters before checking feature availability
         agent_names = data.get("agents", ["anthropic-api", "openai-api"])
         if isinstance(agent_names, str):
             agent_names = [a.strip() for a in agent_names.split(",") if a.strip()]
@@ -493,7 +487,6 @@ class PulseHandler(BaseHandler):
         rounds = data.get("rounds", DEFAULT_ROUNDS)
         consensus = data.get("consensus", DEFAULT_CONSENSUS)
 
-        # Validate parameters
         try:
             rounds = min(max(int(rounds), 1), 10)  # Clamp 1-10
         except (TypeError, ValueError):
@@ -501,6 +494,12 @@ class PulseHandler(BaseHandler):
         consensus = str(consensus).strip()
         if consensus not in {"majority", "unanimous", "judge", "none"}:
             return error_response("consensus must be one of: majority, unanimous, judge, none", 400)
+
+        try:
+            from aragora import Arena, DebateProtocol, Environment
+            from aragora.agents import get_agents_by_names
+        except ImportError:
+            return feature_unavailable_response("debate")
 
         try:
             # Create environment

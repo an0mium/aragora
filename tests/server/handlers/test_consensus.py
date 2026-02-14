@@ -208,9 +208,12 @@ class TestAuthentication:
         assert result.status_code == 401
 
     def test_auth_exception_returns_401(self, consensus_handler, mock_http_handler):
-        """Auth exception on seed-demo returns 401."""
+        """Auth failure on seed-demo returns 401."""
+        from aragora.server.handlers.base import error_response as _err
+
+        err_result = _err("Authentication required", 401)
         with patch.object(
-            ConsensusHandler, "require_auth_or_error", side_effect=RuntimeError("token expired")
+            ConsensusHandler, "require_auth_or_error", return_value=(None, err_result)
         ):
             result = consensus_handler.handle("/api/v1/consensus/seed-demo", {}, mock_http_handler)
         assert result is not None
@@ -218,20 +221,26 @@ class TestAuthentication:
         body = parse_response(result)
         assert "Authentication required" in body["error"]
 
-    def test_read_endpoints_skip_auth(self, consensus_handler, mock_http_handler):
-        """Read-only endpoints do not require authentication."""
-        with patch.object(
-            ConsensusHandler,
-            "require_auth_or_error",
-            side_effect=AssertionError("should not be called for read endpoints"),
+    def test_read_endpoints_require_auth(self, consensus_handler, mock_http_handler):
+        """Read endpoints now require authentication and consensus:read permission."""
+        mock_user = _make_mock_user()
+        with (
+            patch.object(
+                ConsensusHandler,
+                "require_auth_or_error",
+                return_value=(mock_user, None),
+            ),
+            patch.object(
+                ConsensusHandler,
+                "require_permission_or_error",
+                return_value=(mock_user, None),
+            ),
+            patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False),
         ):
-            # Stats endpoint should not call require_auth_or_error.
-            # It will hit _get_consensus_stats which checks CONSENSUS_MEMORY_AVAILABLE.
-            with patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", False):
-                result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
-            # Should reach the endpoint (503 because feature unavailable), not 401
-            assert result is not None
-            assert result.status_code == 503
+            result = consensus_handler.handle("/api/v1/consensus/stats", {}, mock_http_handler)
+        # Should reach the endpoint (503 because feature unavailable), not 401
+        assert result is not None
+        assert result.status_code == 503
 
 
 # ===================================================================
@@ -327,6 +336,7 @@ class TestRBACPermissions:
 
         with (
             patch.object(ConsensusHandler, "require_auth_or_error", return_value=(user_dict, None)),
+            patch.object(ConsensusHandler, "require_permission_or_error", return_value=(user_dict, None)),
             patch("aragora.server.handlers.consensus.get_permission_checker", return_value=checker),
             patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True),
             patch("aragora.server.handlers.consensus.extract_user_from_request") as mock_extract,

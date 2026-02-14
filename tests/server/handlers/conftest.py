@@ -1158,6 +1158,39 @@ def _reset_handler_global_state():
     except (ImportError, AttributeError):
         pass
 
+    # Save WhatsApp module-level constants before yield so they can be
+    # restored in teardown.  Both bots.whatsapp and social.whatsapp.config
+    # capture os.environ values at import time; patching them in tests leaks
+    # across modules when running the full handler suite.
+    _bots_wa_orig: dict = {}
+    try:
+        import aragora.server.handlers.bots.whatsapp as _bots_wa
+
+        _bots_wa_orig = {
+            "WHATSAPP_VERIFY_TOKEN": _bots_wa.WHATSAPP_VERIFY_TOKEN,
+            "WHATSAPP_ACCESS_TOKEN": _bots_wa.WHATSAPP_ACCESS_TOKEN,
+            "WHATSAPP_PHONE_NUMBER_ID": _bots_wa.WHATSAPP_PHONE_NUMBER_ID,
+            "WHATSAPP_APP_SECRET": _bots_wa.WHATSAPP_APP_SECRET,
+        }
+    except (ImportError, AttributeError):
+        pass
+
+    _social_wa_orig: dict = {}
+    _social_wa_singleton_orig = None
+    try:
+        from aragora.server.handlers.social.whatsapp import config as _social_wa_config
+        from aragora.server.handlers.social.whatsapp import handler as _social_wa_handler
+
+        _social_wa_orig = {
+            "WHATSAPP_ACCESS_TOKEN": _social_wa_config.WHATSAPP_ACCESS_TOKEN,
+            "WHATSAPP_PHONE_NUMBER_ID": _social_wa_config.WHATSAPP_PHONE_NUMBER_ID,
+            "WHATSAPP_VERIFY_TOKEN": _social_wa_config.WHATSAPP_VERIFY_TOKEN,
+            "WHATSAPP_APP_SECRET": _social_wa_config.WHATSAPP_APP_SECRET,
+        }
+        _social_wa_singleton_orig = _social_wa_handler._whatsapp_handler
+    except (ImportError, AttributeError):
+        pass
+
     yield
 
     # Reset signup state
@@ -1168,6 +1201,30 @@ def _reset_handler_global_state():
         su_mod._pending_invites.clear()
         if hasattr(su_mod, "_onboarding_status"):
             su_mod._onboarding_status.clear()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset WhatsApp bot handler state (bots.whatsapp)
+    try:
+        import aragora.server.handlers.bots.whatsapp as _bots_wa
+
+        _bots_wa.WHATSAPP_VERIFY_TOKEN = _bots_wa_orig.get("WHATSAPP_VERIFY_TOKEN")
+        _bots_wa.WHATSAPP_ACCESS_TOKEN = _bots_wa_orig.get("WHATSAPP_ACCESS_TOKEN")
+        _bots_wa.WHATSAPP_PHONE_NUMBER_ID = _bots_wa_orig.get("WHATSAPP_PHONE_NUMBER_ID")
+        _bots_wa.WHATSAPP_APP_SECRET = _bots_wa_orig.get("WHATSAPP_APP_SECRET")
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset WhatsApp social handler state (social.whatsapp)
+    try:
+        from aragora.server.handlers.social.whatsapp import config as _social_wa_config
+        from aragora.server.handlers.social.whatsapp import handler as _social_wa_handler
+
+        _social_wa_config.WHATSAPP_ACCESS_TOKEN = _social_wa_orig.get("WHATSAPP_ACCESS_TOKEN")
+        _social_wa_config.WHATSAPP_PHONE_NUMBER_ID = _social_wa_orig.get("WHATSAPP_PHONE_NUMBER_ID")
+        _social_wa_config.WHATSAPP_VERIFY_TOKEN = _social_wa_orig.get("WHATSAPP_VERIFY_TOKEN")
+        _social_wa_config.WHATSAPP_APP_SECRET = _social_wa_orig.get("WHATSAPP_APP_SECRET")
+        _social_wa_handler._whatsapp_handler = _social_wa_singleton_orig
     except (ImportError, AttributeError):
         pass
 
@@ -1308,6 +1365,162 @@ def _reset_handler_global_state():
         email_storage_mod._context_service = None
     except (ImportError, AttributeError):
         pass
+
+
+# ============================================================================
+# Module-Level Function Restoration
+# ============================================================================
+
+
+# Capture the real run_async function at import time, before any test can
+# replace it with a mock.  This reference is immutable for the session.
+try:
+    from aragora.utils.async_utils import run_async as _real_run_async
+except ImportError:
+    _real_run_async = None
+
+
+@pytest.fixture(autouse=True)
+def _restore_module_level_functions():
+    """Restore module-level functions that may be replaced by mocks.
+
+    Several handler modules import ``run_async`` at the top level from
+    ``aragora.server.http_utils``.  If a test patches one of these attributes
+    with a ``MagicMock(side_effect=[...])`` and the mock leaks (e.g. because
+    an exception prevented the patch context manager from cleaning up, or
+    because the module was reloaded while a patch was active), subsequent
+    tests see the stale mock and fail with
+    ``TypeError: 'list' object is not an iterator``.
+
+    This fixture runs **before** every test and verifies that the critical
+    module attributes still point to the real functions.  If they have been
+    replaced by mocks it restores them.
+    """
+    import sys
+    from unittest.mock import MagicMock
+
+    if _real_run_async is not None:
+        # Modules that import ``run_async`` at module level and are known
+        # to be patched by tests with side_effect lists.
+        _run_async_modules = [
+            "aragora.server.handlers.debates.implementation",
+            "aragora.server.handlers.consensus",
+            "aragora.server.handlers.evolution.handler",
+            "aragora.server.handlers.knowledge_base.facts",
+            "aragora.server.handlers.auditing",
+            "aragora.server.handlers.debates.create",
+            "aragora.server.handlers.debates.handler",
+            "aragora.server.handlers.debates.batch",
+            "aragora.server.http_utils",
+        ]
+        for mod_name in _run_async_modules:
+            mod = sys.modules.get(mod_name)
+            if mod is not None:
+                current = getattr(mod, "run_async", None)
+                if current is not None and isinstance(current, MagicMock):
+                    setattr(mod, "run_async", _real_run_async)
+
+        # Also check _run_async alias used by control_plane and http_utils
+        for mod_name in [
+            "aragora.server.handlers.control_plane",
+            "aragora.server.handlers.control_plane.__init__",
+            "aragora.server.http_utils",
+        ]:
+            mod = sys.modules.get(mod_name)
+            if mod is not None:
+                current = getattr(mod, "_run_async", None)
+                if current is not None and isinstance(current, MagicMock):
+                    setattr(mod, "_run_async", _real_run_async)
+
+    # Reset the cached has_permission in control_plane.health
+    # This global caches whatever callable it finds on the control_plane
+    # module, and that cached value can be a stale mock from a prior test.
+    try:
+        import aragora.server.handlers.control_plane.health as _cp_health
+
+        _cp_health._cached_has_permission = None
+        _cp_health._cache_timestamp = 0
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset ControlPlaneHandler.coordinator class-level attribute
+    # The control_plane_handler fixture sets this on the class, but never
+    # resets it.  If a prior test left a mock coordinator, it leaks.
+    try:
+        from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+        if hasattr(ControlPlaneHandler, "coordinator") and isinstance(
+            getattr(ControlPlaneHandler, "coordinator", None), MagicMock
+        ):
+            ControlPlaneHandler.coordinator = None
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+    # Teardown: repeat the same cleanup in case the test itself polluted
+    if _real_run_async is not None:
+        _run_async_modules = [
+            "aragora.server.handlers.debates.implementation",
+            "aragora.server.handlers.consensus",
+            "aragora.server.handlers.evolution.handler",
+            "aragora.server.handlers.knowledge_base.facts",
+            "aragora.server.handlers.auditing",
+            "aragora.server.handlers.debates.create",
+            "aragora.server.handlers.debates.handler",
+            "aragora.server.handlers.debates.batch",
+            "aragora.server.http_utils",
+        ]
+        for mod_name in _run_async_modules:
+            mod = sys.modules.get(mod_name)
+            if mod is not None:
+                current = getattr(mod, "run_async", None)
+                if current is not None and isinstance(current, MagicMock):
+                    setattr(mod, "run_async", _real_run_async)
+
+    try:
+        import aragora.server.handlers.control_plane.health as _cp_health
+
+        _cp_health._cached_has_permission = None
+        _cp_health._cache_timestamp = 0
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _restore_base_handler_methods():
+    """Restore BaseHandler class methods that may be replaced by mocks.
+
+    Some tests set ``handler.extract_path_param = MagicMock(...)`` on
+    instances, which is fine.  However, if ``patch.object(Handler, 'method')``
+    is used at the class level and leaks, all new instances see the mock.
+    This fixture saves and restores the real class-level methods.
+    """
+    from unittest.mock import MagicMock
+
+    saved = {}
+    try:
+        from aragora.server.handlers.base import BaseHandler
+
+        for attr_name in ("extract_path_param", "extract_path_params"):
+            val = getattr(BaseHandler, attr_name, None)
+            if val is not None:
+                saved[(BaseHandler, attr_name)] = val
+                if isinstance(val, MagicMock):
+                    # Already polluted from a prior test; can't save the mock
+                    # as the "real" value.  We'll restore from the class dict
+                    # or just skip.
+                    saved.pop((BaseHandler, attr_name), None)
+    except ImportError:
+        pass
+
+    yield
+
+    # Restore any methods that were replaced
+    for (cls, attr_name), real_val in saved.items():
+        current = getattr(cls, attr_name, None)
+        if current is not real_val:
+            setattr(cls, attr_name, real_val)
 
 
 # ============================================================================
