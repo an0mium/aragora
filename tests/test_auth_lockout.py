@@ -400,7 +400,7 @@ class TestAuthHandlerLockout:
         handler = AuthHandler(ctx)
 
         # Call login handler (skip rate limit decorator)
-        result = handler._handle_login.__wrapped__(handler, mock_handler)
+        result = handler._handle_login(mock_handler)
 
         assert result.status_code == 429
         assert b"Too many failed attempts" in result.body
@@ -427,7 +427,7 @@ class TestAuthHandlerLockout:
         handler = AuthHandler(ctx)
 
         # Call login handler
-        result = handler._handle_login.__wrapped__(handler, mock_handler)
+        result = handler._handle_login(mock_handler)
 
         # Should record failure
         info = tracker.get_info(email=mock_user.email)
@@ -467,7 +467,7 @@ class TestAuthHandlerLockout:
             }
             mock_create_tokens.return_value = mock_tokens
 
-            result = handler._handle_login.__wrapped__(handler, mock_handler)
+            result = handler._handle_login(mock_handler)
 
         # Should be successful
         assert result.status_code == 200
