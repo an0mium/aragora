@@ -1195,6 +1195,22 @@ def _reset_handler_global_state():
     except (ImportError, AttributeError):
         pass
 
+    # Clear notification preferences/history state (module-level dicts and
+    # standalone rate limiters not registered in _limiters).
+    try:
+        import aragora.server.handlers.notifications.preferences as _notif_prefs
+
+        _notif_prefs._user_preferences.clear()
+        _notif_prefs._preferences_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+    try:
+        import aragora.server.handlers.notifications.history as _notif_hist
+
+        _notif_hist._notification_history_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+
     # Save WhatsApp module-level constants before yield so they can be
     # restored in teardown.  Both bots.whatsapp and social.whatsapp.config
     # capture os.environ values at import time; patching them in tests leaks
@@ -1229,6 +1245,21 @@ def _reset_handler_global_state():
         pass
 
     yield
+
+    # Reset notification preferences/history state
+    try:
+        import aragora.server.handlers.notifications.preferences as _notif_prefs
+
+        _notif_prefs._user_preferences.clear()
+        _notif_prefs._preferences_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
+    try:
+        import aragora.server.handlers.notifications.history as _notif_hist
+
+        _notif_hist._notification_history_limiter.clear()
+    except (ImportError, AttributeError):
+        pass
 
     # Reset signup state
     try:
