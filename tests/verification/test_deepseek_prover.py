@@ -1,5 +1,8 @@
 """Tests for DeepSeek-Prover integration."""
 
+import asyncio
+from contextlib import asynccontextmanager
+
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from datetime import datetime
@@ -9,6 +12,38 @@ from aragora.verification.deepseek_prover import (
     DeepSeekProverTranslator,
     translate_to_lean,
 )
+
+
+def _mock_pool_response(status_code=200, json_data=None, text="", post_side_effect=None):
+    """Create a patched get_http_pool that returns a mock response from post().
+
+    The actual code uses ``get_http_pool().get_session(provider)`` which yields
+    an httpx-style async client.  The response exposes ``.status_code`` (int),
+    ``.json()`` (sync), and ``.text`` (str property).
+    """
+    mock_resp = MagicMock()
+    mock_resp.status_code = status_code
+    mock_resp.json = MagicMock(return_value=json_data or {})
+    mock_resp.text = text
+
+    mock_client = AsyncMock()
+    if post_side_effect is not None:
+        mock_client.post = AsyncMock(side_effect=post_side_effect)
+    else:
+        mock_client.post = AsyncMock(return_value=mock_resp)
+
+    mock_pool = MagicMock()
+
+    @asynccontextmanager
+    async def _get_session(provider):
+        yield mock_client
+
+    mock_pool.get_session = _get_session
+
+    return patch(
+        "aragora.verification.deepseek_prover.get_http_pool",
+        return_value=mock_pool,
+    )
 
 
 class TestTranslationResult:
@@ -253,21 +288,7 @@ theorem test : True := trivial
             ]
         }
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = MagicMock()
-            mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(
-                return_value=MagicMock(
-                    status=200,
-                    json=AsyncMock(return_value=mock_response),
-                )
-            )
-            mock_post.__aexit__ = AsyncMock()
-            mock_context.post = MagicMock(return_value=mock_post)
-            mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-            mock_context.__aexit__ = AsyncMock()
-            mock_session.return_value = mock_context
-
+        with _mock_pool_response(status_code=200, json_data=mock_response):
             result = await translator.translate("True is true")
 
             assert result.success is True
@@ -278,21 +299,7 @@ theorem test : True := trivial
         """Test translation with API error."""
         translator = DeepSeekProverTranslator(api_key="test_key")
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = MagicMock()
-            mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(
-                return_value=MagicMock(
-                    status=500,
-                    text=AsyncMock(return_value="Internal Server Error"),
-                )
-            )
-            mock_post.__aexit__ = AsyncMock()
-            mock_context.post = MagicMock(return_value=mock_post)
-            mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-            mock_context.__aexit__ = AsyncMock()
-            mock_session.return_value = mock_context
-
+        with _mock_pool_response(status_code=500, text="Internal Server Error"):
             result = await translator.translate("test claim", use_fallback=False)
 
             assert result.success is False
@@ -301,28 +308,12 @@ theorem test : True := trivial
     @pytest.mark.asyncio
     async def test_translate_timeout(self):
         """Test translation with timeout."""
-        import asyncio
-
         translator = DeepSeekProverTranslator(api_key="test_key", timeout=0.1)
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = MagicMock()
-            mock_post = MagicMock()
-
-            async def slow_response(*args, **kwargs):
-                await asyncio.sleep(1)
-
-            mock_post.__aenter__ = slow_response
-            mock_post.__aexit__ = AsyncMock()
-            mock_context.post = MagicMock(return_value=mock_post)
-            mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-            mock_context.__aexit__ = AsyncMock()
-            mock_session.return_value = mock_context
-
-            # This might timeout or handle differently
+        with _mock_pool_response(post_side_effect=asyncio.TimeoutError()):
             result = await translator.translate("test claim", use_fallback=False)
-            # Should fail somehow
             assert isinstance(result, TranslationResult)
+            assert result.success is False
 
     @pytest.mark.asyncio
     async def test_translate_untranslatable_response(self):
@@ -339,21 +330,7 @@ theorem test : True := trivial
             ]
         }
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = MagicMock()
-            mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(
-                return_value=MagicMock(
-                    status=200,
-                    json=AsyncMock(return_value=mock_response),
-                )
-            )
-            mock_post.__aexit__ = AsyncMock()
-            mock_context.post = MagicMock(return_value=mock_post)
-            mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-            mock_context.__aexit__ = AsyncMock()
-            mock_session.return_value = mock_context
-
+        with _mock_pool_response(status_code=200, json_data=mock_response):
             result = await translator.translate("Some vague claim", use_fallback=False)
 
             assert result.success is False
@@ -381,23 +358,9 @@ theorem test : True := trivial
         """Test batch translation."""
         translator = DeepSeekProverTranslator(api_key="test_key")
 
-        mock_response = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
+        mock_response_data = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = MagicMock()
-            mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(
-                return_value=MagicMock(
-                    status=200,
-                    json=AsyncMock(return_value=mock_response),
-                )
-            )
-            mock_post.__aexit__ = AsyncMock()
-            mock_context.post = MagicMock(return_value=mock_post)
-            mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-            mock_context.__aexit__ = AsyncMock()
-            mock_session.return_value = mock_context
-
+        with _mock_pool_response(status_code=200, json_data=mock_response_data):
             claims = ["claim 1", "claim 2"]
             results = await translator.translate_batch(claims, max_concurrent=2)
 
@@ -418,23 +381,9 @@ class TestTranslateToLean:
     @pytest.mark.asyncio
     async def test_translate_to_lean_with_key(self):
         """Test convenience function with API key."""
-        mock_response = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
+        mock_response_data = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_context = MagicMock()
-            mock_post = MagicMock()
-            mock_post.__aenter__ = AsyncMock(
-                return_value=MagicMock(
-                    status=200,
-                    json=AsyncMock(return_value=mock_response),
-                )
-            )
-            mock_post.__aexit__ = AsyncMock()
-            mock_context.post = MagicMock(return_value=mock_post)
-            mock_context.__aenter__ = AsyncMock(return_value=mock_context)
-            mock_context.__aexit__ = AsyncMock()
-            mock_session.return_value = mock_context
-
+        with _mock_pool_response(status_code=200, json_data=mock_response_data):
             result = await translate_to_lean(
                 "True is true",
                 api_key="test_key",

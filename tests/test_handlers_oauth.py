@@ -172,6 +172,9 @@ class MockAuthContext:
 
     is_authenticated: bool = False
     user_id: str | None = None
+    role: str = "member"
+    org_id: str | None = None
+    client_ip: str = "127.0.0.1"
 
 
 @dataclass
@@ -608,7 +611,12 @@ class TestAccountLinking:
                 with patch.object(
                     oauth_handler, "read_json_body", return_value={"provider": "google"}
                 ):
-                    result = oauth_handler._handle_link_account(mock_handler)
+                    # Ensure the GOOGLE_CLIENT_ID constant is set on the impl module
+                    with patch(
+                        "aragora.server.handlers._oauth_impl.GOOGLE_CLIENT_ID",
+                        "test-client-id",
+                    ):
+                        result = oauth_handler._handle_link_account(mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -886,8 +894,17 @@ class TestOAuthIntegration:
         state = query["state"][0]
 
         # Verify state contains user_id for linking
-        state_data = oauth_module._OAUTH_STATES.get(state)
+        # Use validate_oauth_state to decode JWT-based state tokens
+        from aragora.server.oauth_state_store import validate_oauth_state, get_oauth_state_store
+        state_data = validate_oauth_state(state)
+        assert state_data is not None, "State token should be valid"
         assert state_data["user_id"] == existing_user.id
+        # Clear the JWT nonce so the callback can re-use this state token
+        store = get_oauth_state_store()
+        if hasattr(store, "_jwt_store") and store._jwt_store is not None:
+            store._jwt_store._used_nonces.discard(state_data.get("nonce", ""))
+            # JWT nonces are embedded in the token, clear all to allow re-validation
+            store._jwt_store._used_nonces.clear()
 
         # Step 2: Callback links OAuth to existing user
         callback_params = {"state": [state], "code": ["auth_code"]}
@@ -931,15 +948,13 @@ class TestEdgeCases:
         """Test handling when Google OAuth is not configured."""
         mock_handler = MockHandler()
 
-        # Temporarily clear client ID
-        original = oauth_module.GOOGLE_CLIENT_ID
-        oauth_module.GOOGLE_CLIENT_ID = ""
-
-        try:
+        # Patch the function the handler actually calls via _impl()
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_google_client_id",
+            return_value="",
+        ):
             with patch.object(oauth_handler, "_get_user_store", return_value=None):
                 result = oauth_handler._handle_google_auth_start(mock_handler, {})
-        finally:
-            oauth_module.GOOGLE_CLIENT_ID = original
 
         assert result.status_code == 503
 

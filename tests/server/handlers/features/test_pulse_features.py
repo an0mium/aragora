@@ -590,18 +590,12 @@ class TestStartDebateOnTopic:
             content_length=len(body_data),
         )
 
-        # Mock to get past module imports
-        with (
-            patch("aragora.Arena"),
-            patch("aragora.DebateProtocol"),
-            patch("aragora.Environment"),
-            patch("aragora.agents.get_agents_by_names"),
-        ):
-            result = pulse_handler._start_debate_on_topic(http_handler)
-            body, status = _parse_result(result)
+        # Validation now happens before feature import check
+        result = pulse_handler._start_debate_on_topic(http_handler)
+        body, status = _parse_result(result)
 
-            assert status == 400
-            assert "consensus" in body["error"].lower()
+        assert status == 400
+        assert "consensus" in body["error"].lower()
 
 
 # ---------------------------------------------------------------------------

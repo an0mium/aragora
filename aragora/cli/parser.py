@@ -10,55 +10,27 @@ import os
 
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
-from aragora.cli.commands.debate import cmd_ask
-from aragora.cli.commands.stats import (
-    cmd_stats,
-    cmd_patterns,
-    cmd_elo,
-    cmd_cross_pollination,
-)
-from aragora.cli.commands.status import (
-    cmd_status,
-    cmd_validate_env,
-    cmd_doctor,
-    cmd_validate,
-)
-from aragora.cli.commands.server import cmd_serve
-from aragora.cli.commands.tools import (
-    cmd_modes,
-    cmd_templates,
-    cmd_improve,
-    cmd_context,
-)
-from aragora.cli.commands.delegated import (
-    cmd_agents,
-    cmd_demo,
-    cmd_export,
-    cmd_init,
-    cmd_setup,
-    cmd_repl,
-    cmd_config,
-    cmd_replay,
-    cmd_bench,
-    cmd_badge,
-    cmd_mcp_server,
-    cmd_marketplace,
-    cmd_control_plane,
-)
-from aragora.cli.commands.decide import (
-    cmd_decide,
-    cmd_plans,
-    cmd_plans_show,
-    cmd_plans_approve,
-    cmd_plans_reject,
-    cmd_plans_execute,
-)
-from aragora.cli.commands.testfixer import build_parser as build_testfixer_parser
-from aragora.cli.commands.quickstart import add_quickstart_parser
-
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 DEFAULT_API_KEY = os.environ.get("ARAGORA_API_KEY")
+
+
+def _lazy(module_path: str, func_name: str):
+    """Create a lazy wrapper that defers command module import to invocation time.
+
+    Instead of importing all command handlers at module load time (which pulls in
+    heavy dependencies like Arena, agents, etc.), this defers the import until the
+    specific subcommand is actually executed by the user.
+    """
+
+    def wrapper(args):
+        from importlib import import_module
+
+        return getattr(import_module(module_path), func_name)(args)
+
+    wrapper.__name__ = func_name
+    wrapper.__qualname__ = func_name
+    return wrapper
 
 
 def get_version() -> str:
@@ -117,6 +89,7 @@ Examples:
     _add_config_parser(subparsers)
     _add_replay_parser(subparsers)
     _add_bench_parser(subparsers)
+    _add_review_parser(subparsers)
     _add_external_parsers(subparsers)
     _add_badge_parser(subparsers)
     _add_verticals_parser(subparsers)
@@ -132,7 +105,7 @@ Examples:
     _add_control_plane_parser(subparsers)
     _add_decide_parser(subparsers)
     _add_plans_parser(subparsers)
-    build_testfixer_parser(subparsers)
+    _add_testfixer_parser(subparsers)
     _add_computer_use_parser(subparsers)
     _add_connectors_parser(subparsers)
     _add_rbac_parser(subparsers)
@@ -140,7 +113,7 @@ Examples:
     _add_costs_parser(subparsers)
     _add_verify_parser(subparsers)
     _add_healthcare_parser(subparsers)
-    add_quickstart_parser(subparsers)
+    _add_quickstart_parser(subparsers)
     _add_receipt_parser(subparsers)
     _add_compliance_parser(subparsers)
     _add_publish_parser(subparsers)
@@ -338,13 +311,13 @@ def _add_ask_parser(subparsers) -> None:
         default=True,
         help="Disable trending topic injection from Pulse",
     )
-    ask_parser.set_defaults(func=cmd_ask)
+    ask_parser.set_defaults(func=_lazy("aragora.cli.commands.debate", "cmd_ask"))
 
 
 def _add_stats_parser(subparsers) -> None:
     """Add the 'stats' subcommand parser."""
     stats_parser = subparsers.add_parser("stats", help="Show memory statistics")
-    stats_parser.set_defaults(func=cmd_stats)
+    stats_parser.set_defaults(func=_lazy("aragora.cli.commands.stats", "cmd_stats"))
 
 
 def _add_status_parser(subparsers) -> None:
@@ -358,7 +331,7 @@ def _add_status_parser(subparsers) -> None:
         default=DEFAULT_API_URL,
         help=f"Server URL to check (default: {DEFAULT_API_URL})",
     )
-    status_parser.set_defaults(func=cmd_status)
+    status_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_status"))
 
 
 def _add_agents_parser(subparsers) -> None:
@@ -371,7 +344,7 @@ def _add_agents_parser(subparsers) -> None:
     agents_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed descriptions"
     )
-    agents_parser.set_defaults(func=cmd_agents)
+    agents_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_agents"))
 
 
 def _add_modes_parser(subparsers) -> None:
@@ -384,7 +357,7 @@ def _add_modes_parser(subparsers) -> None:
     modes_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show full system prompts"
     )
-    modes_parser.set_defaults(func=cmd_modes)
+    modes_parser.set_defaults(func=_lazy("aragora.cli.commands.tools", "cmd_modes"))
 
 
 def _add_patterns_parser(subparsers) -> None:
@@ -393,7 +366,7 @@ def _add_patterns_parser(subparsers) -> None:
     patterns_parser.add_argument("--type", "-t", help="Filter by issue type")
     patterns_parser.add_argument("--min-success", type=int, default=1, help="Minimum success count")
     patterns_parser.add_argument("--limit", "-l", type=int, default=10, help="Max patterns to show")
-    patterns_parser.set_defaults(func=cmd_patterns)
+    patterns_parser.set_defaults(func=_lazy("aragora.cli.commands.stats", "cmd_patterns"))
 
 
 def _add_demo_parser(subparsers) -> None:
@@ -433,13 +406,13 @@ Examples:
         action="store_true",
         help="Start the server in offline demo mode and show web UI instructions",
     )
-    demo_parser.set_defaults(func=cmd_demo)
+    demo_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_demo"))
 
 
 def _add_templates_parser(subparsers) -> None:
     """Add the 'templates' subcommand parser."""
     templates_parser = subparsers.add_parser("templates", help="List available debate templates")
-    templates_parser.set_defaults(func=cmd_templates)
+    templates_parser.set_defaults(func=_lazy("aragora.cli.commands.tools", "cmd_templates"))
 
 
 def _add_export_parser(subparsers) -> None:
@@ -464,7 +437,7 @@ def _add_export_parser(subparsers) -> None:
         action="store_true",
         help="Generate a demo export",
     )
-    export_parser.set_defaults(func=cmd_export)
+    export_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_export"))
 
 
 def _add_doctor_parser(subparsers) -> None:
@@ -473,7 +446,7 @@ def _add_doctor_parser(subparsers) -> None:
     doctor_parser.add_argument(
         "--validate", "-v", action="store_true", help="Validate API keys by making test calls"
     )
-    doctor_parser.set_defaults(func=cmd_doctor)
+    doctor_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_doctor"))
 
 
 def _add_validate_parser(subparsers) -> None:
@@ -481,7 +454,7 @@ def _add_validate_parser(subparsers) -> None:
     validate_parser = subparsers.add_parser(
         "validate", help="Validate API keys by making test calls"
     )
-    validate_parser.set_defaults(func=cmd_validate)
+    validate_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate"))
 
 
 def _add_validate_env_parser(subparsers) -> None:
@@ -504,7 +477,9 @@ def _add_validate_env_parser(subparsers) -> None:
     validate_env_parser.add_argument(
         "--strict", "-s", action="store_true", help="Fail on warnings (for CI/CD enforcement)"
     )
-    validate_env_parser.set_defaults(func=cmd_validate_env)
+    validate_env_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.status", "cmd_validate_env")
+    )
 
 
 def _add_improve_parser(subparsers) -> None:
@@ -576,7 +551,7 @@ Examples:
         action="store_true",
         help="Show detailed progress and checkpoint information",
     )
-    improve_parser.set_defaults(func=cmd_improve)
+    improve_parser.set_defaults(func=_lazy("aragora.cli.commands.tools", "cmd_improve"))
 
 
 def _add_context_parser(subparsers) -> None:
@@ -625,7 +600,7 @@ def _add_context_parser(subparsers) -> None:
         action="store_true",
         help="Print a short preview of the context summary",
     )
-    context_parser.set_defaults(func=cmd_context)
+    context_parser.set_defaults(func=_lazy("aragora.cli.commands.tools", "cmd_context"))
 
 
 def _add_serve_parser(subparsers) -> None:
@@ -651,7 +626,7 @@ Production deployment:
         default=1,
         help="Number of worker processes (default: 1). For production, use 2-4x CPU cores.",
     )
-    serve_parser.set_defaults(func=cmd_serve)
+    serve_parser.set_defaults(func=_lazy("aragora.cli.commands.server", "cmd_serve"))
 
 
 def _add_init_parser(subparsers) -> None:
@@ -672,7 +647,7 @@ def _add_init_parser(subparsers) -> None:
         default=None,
         help="Configuration preset (review = optimized for code review)",
     )
-    init_parser.set_defaults(func=cmd_init)
+    init_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_init"))
 
 
 def _add_setup_parser(subparsers) -> None:
@@ -695,7 +670,7 @@ def _add_setup_parser(subparsers) -> None:
     setup_parser.add_argument(
         "-y", "--yes", action="store_true", help="Non-interactive mode (use defaults)"
     )
-    setup_parser.set_defaults(func=cmd_setup)
+    setup_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_setup"))
 
 
 def _add_backup_parser(subparsers) -> None:
@@ -717,7 +692,7 @@ def _add_repl_parser(subparsers) -> None:
     repl_parser.add_argument(
         "--rounds", "-r", type=int, default=8, help="Debate rounds (default: 8)"
     )
-    repl_parser.set_defaults(func=cmd_repl)
+    repl_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_repl"))
 
 
 def _add_config_parser(subparsers) -> None:
@@ -732,7 +707,7 @@ def _add_config_parser(subparsers) -> None:
     )
     config_parser.add_argument("key", nargs="?", help="Config key (for get/set)")
     config_parser.add_argument("value", nargs="?", help="Config value (for set)")
-    config_parser.set_defaults(func=cmd_config)
+    config_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_config"))
 
 
 def _add_replay_parser(subparsers) -> None:
@@ -745,7 +720,7 @@ def _add_replay_parser(subparsers) -> None:
     replay_parser.add_argument("--directory", "-d", help="Replays directory")
     replay_parser.add_argument("--limit", "-n", type=int, default=10, help="Max replays to list")
     replay_parser.add_argument("--speed", "-s", type=float, default=1.0, help="Playback speed")
-    replay_parser.set_defaults(func=cmd_replay)
+    replay_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_replay"))
 
 
 def _add_bench_parser(subparsers) -> None:
@@ -760,15 +735,63 @@ def _add_bench_parser(subparsers) -> None:
     bench_parser.add_argument("--iterations", "-n", type=int, default=3, help="Iterations per task")
     bench_parser.add_argument("--task", "-t", help="Custom benchmark task")
     bench_parser.add_argument("--quick", "-q", action="store_true", help="Quick mode (1 iteration)")
-    bench_parser.set_defaults(func=cmd_bench)
+    bench_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_bench"))
+
+
+def _add_review_parser(subparsers) -> None:
+    """Add the 'review' subcommand parser (inlined to avoid heavy module import)."""
+    parser = subparsers.add_parser(
+        "review",
+        help="Run AI code review on a diff or PR",
+        description="Multi-agent AI code review for pull requests",
+    )
+    parser.add_argument(
+        "pr_url", nargs="?",
+        help="GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)",
+    )
+    parser.add_argument("--diff-file", help="Path to diff file (alternative to PR URL or stdin)")
+    parser.add_argument(
+        "--agents", default=DEFAULT_AGENTS,
+        help=f"Comma-separated list of agents (default: {DEFAULT_AGENTS})",
+    )
+    parser.add_argument(
+        "--rounds", type=int, default=DEFAULT_ROUNDS,
+        help=f"Number of debate rounds (default: {DEFAULT_ROUNDS})",
+    )
+    parser.add_argument(
+        "--focus", default="security,performance,quality",
+        help="Focus areas: security,performance,quality (default: all)",
+    )
+    parser.add_argument(
+        "--output-format", choices=["github", "json", "html"], default="github",
+        help="Output format (default: github)",
+    )
+    parser.add_argument("--output-dir", help="Directory to save output artifacts")
+    parser.add_argument(
+        "--sarif", nargs="?", const="review-results.sarif", default=None, metavar="PATH",
+        help="Export findings as SARIF 2.1.0 (default: review-results.sarif).",
+    )
+    parser.add_argument(
+        "--gauntlet", action="store_true", default=False,
+        help="Run adversarial gauntlet stress-test after review debate.",
+    )
+    parser.add_argument(
+        "--ci", action="store_true", default=False,
+        help="CI mode: exit with non-zero code based on findings severity.",
+    )
+    parser.add_argument(
+        "--demo", action="store_true",
+        help="Run in demo mode (no API keys required, shows sample output)",
+    )
+    parser.add_argument(
+        "--share", action="store_true",
+        help="Generate a shareable link for this review",
+    )
+    parser.set_defaults(func=_lazy("aragora.cli.review", "cmd_review"))
 
 
 def _add_external_parsers(subparsers) -> None:
     """Add subcommand parsers that are defined in external modules."""
-    # Review command (AI red team code review)
-    from aragora.cli.review import create_review_parser
-
-    create_review_parser(subparsers)
 
     # Gauntlet command (adversarial stress-testing)
     from aragora.cli.gauntlet import create_gauntlet_parser
@@ -857,7 +880,14 @@ def _add_badge_parser(subparsers) -> None:
         "-r",
         help="Link to specific repo (default: aragora repo)",
     )
-    badge_parser.set_defaults(func=cmd_badge)
+    badge_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_badge"))
+
+
+def _add_verticals_parser(subparsers) -> None:
+    """Add the 'verticals' subcommand parser for vertical specialists."""
+    from aragora.cli.commands.verticals import add_verticals_parser
+
+    add_verticals_parser(subparsers)
 
 
 def _add_memory_parser(subparsers) -> None:
@@ -885,7 +915,7 @@ def _add_elo_parser(subparsers) -> None:
     elo_parser.add_argument("--domain", "-d", help="Filter by domain (for leaderboard)")
     elo_parser.add_argument("--limit", "-n", type=int, default=10, help="Max entries to show")
     elo_parser.add_argument("--db", help="Database path (default: from config)")
-    elo_parser.set_defaults(func=cmd_elo)
+    elo_parser.set_defaults(func=_lazy("aragora.cli.commands.stats", "cmd_elo"))
 
 
 def _add_cross_pollination_parser(subparsers) -> None:
@@ -909,7 +939,9 @@ def _add_cross_pollination_parser(subparsers) -> None:
         action="store_true",
         help="Output in JSON format",
     )
-    xpoll_parser.set_defaults(func=cmd_cross_pollination)
+    xpoll_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.stats", "cmd_cross_pollination")
+    )
 
 
 def _add_mcp_parser(subparsers) -> None:
@@ -938,7 +970,7 @@ Configure in claude_desktop_config.json:
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    mcp_parser.set_defaults(func=cmd_mcp_server)
+    mcp_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_mcp_server"))
 
 
 def _add_marketplace_parser(subparsers) -> None:
@@ -958,7 +990,9 @@ def _add_marketplace_parser(subparsers) -> None:
         nargs=argparse.REMAINDER,
         help="Subcommand arguments",
     )
-    marketplace_parser.set_defaults(func=cmd_marketplace)
+    marketplace_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.delegated", "cmd_marketplace")
+    )
 
 
 def _add_skills_parser(subparsers) -> None:
@@ -966,13 +1000,6 @@ def _add_skills_parser(subparsers) -> None:
     from aragora.cli.commands.skills import add_skills_parser
 
     add_skills_parser(subparsers)
-
-
-def _add_verticals_parser(subparsers) -> None:
-    """Add the 'verticals' subcommand parser for vertical specialists."""
-    from aragora.cli.commands.verticals import add_verticals_parser
-
-    add_verticals_parser(subparsers)
 
 
 def _add_nomic_parser(subparsers) -> None:
@@ -1025,7 +1052,9 @@ Subcommands:
         default=DEFAULT_API_URL,
         help=f"API server URL (default: {DEFAULT_API_URL})",
     )
-    cp_parser.set_defaults(func=cmd_control_plane)
+    cp_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.delegated", "cmd_control_plane")
+    )
 
 
 def _add_decide_parser(subparsers) -> None:
@@ -1132,7 +1161,7 @@ Examples:
         action="store_true",
         help="Print detailed progress",
     )
-    decide_parser.set_defaults(func=cmd_decide)
+    decide_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_decide"))
 
 
 def _add_plans_parser(subparsers) -> None:
@@ -1185,12 +1214,12 @@ Examples:
         default=20,
         help="Maximum plans to show (default: 20)",
     )
-    list_parser.set_defaults(func=cmd_plans)
+    list_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans"))
 
     # plans show
     show_parser = plans_subparsers.add_parser("show", help="Show plan details")
     show_parser.add_argument("plan_id", help="Plan ID (full or prefix)")
-    show_parser.set_defaults(func=cmd_plans_show)
+    show_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans_show"))
 
     # plans approve
     approve_parser = plans_subparsers.add_parser("approve", help="Approve a plan")
@@ -1200,7 +1229,9 @@ Examples:
         "-r",
         help="Reason for approval",
     )
-    approve_parser.set_defaults(func=cmd_plans_approve)
+    approve_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.decide", "cmd_plans_approve")
+    )
 
     # plans reject
     reject_parser = plans_subparsers.add_parser("reject", help="Reject a plan")
@@ -1210,7 +1241,9 @@ Examples:
         "-r",
         help="Reason for rejection",
     )
-    reject_parser.set_defaults(func=cmd_plans_reject)
+    reject_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.decide", "cmd_plans_reject")
+    )
 
     # plans execute
     execute_parser = plans_subparsers.add_parser("execute", help="Execute a plan")
@@ -1236,10 +1269,19 @@ Examples:
         action="store_true",
         help="Use browser-based computer use executor",
     )
-    execute_parser.set_defaults(func=cmd_plans_execute)
+    execute_parser.set_defaults(
+        func=_lazy("aragora.cli.commands.decide", "cmd_plans_execute")
+    )
 
     # Default behavior when just 'aragora plans' is called
-    plans_parser.set_defaults(func=cmd_plans)
+    plans_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans"))
+
+
+def _add_testfixer_parser(subparsers) -> None:
+    """Add the 'testfixer' subcommand parser."""
+    from aragora.cli.commands.testfixer import build_parser as _build_testfixer_parser
+
+    _build_testfixer_parser(subparsers)
 
 
 def _add_computer_use_parser(subparsers) -> None:
@@ -1289,6 +1331,13 @@ def _add_healthcare_parser(subparsers) -> None:
     from aragora.cli.commands.healthcare import add_healthcare_parser
 
     add_healthcare_parser(subparsers)
+
+
+def _add_quickstart_parser(subparsers) -> None:
+    """Add the 'quickstart' subcommand parser."""
+    from aragora.cli.commands.quickstart import add_quickstart_parser
+
+    add_quickstart_parser(subparsers)
 
 
 def _add_receipt_parser(subparsers) -> None:
