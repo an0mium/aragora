@@ -87,6 +87,12 @@ __all__ = [
     # Internal helpers (used by tests)
     "_severity_to_priority",
     "_record_notification_metric",
+    # Extended notification functions
+    "notify_budget_alert",
+    "notify_cost_anomaly",
+    "notify_compliance_finding",
+    "notify_debate_completed",
+    "notify_workflow_progress",
 ]
 
 
@@ -864,3 +870,324 @@ def init_notification_service(
         )
 
     return _notification_service
+
+
+# =============================================================================
+# Extended notification convenience functions
+# =============================================================================
+
+
+async def notify_budget_alert(
+    budget_id: str,
+    current_spend: float,
+    limit: float,
+    threshold_pct: float = 80.0,
+    workspace_id: str | None = None,
+    budget_name: str | None = None,
+) -> list[NotificationResult]:
+    """Send a budget alert notification when spending exceeds threshold.
+
+    Args:
+        budget_id: Budget identifier.
+        current_spend: Current spending amount.
+        limit: Total budget limit.
+        threshold_pct: What percentage triggered this alert.
+        workspace_id: Optional workspace ID.
+        budget_name: Optional human-readable budget name.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+        remaining = limit - current_spend
+
+        if threshold_pct >= 100:
+            severity = "critical"
+            title_prefix = "Exceeded"
+        elif threshold_pct >= 90:
+            severity = "critical"
+            title_prefix = f"{threshold_pct:.0f}%"
+        elif threshold_pct >= 75:
+            severity = "warning"
+            title_prefix = f"{threshold_pct:.0f}%"
+        else:
+            severity = "info"
+            title_prefix = f"{threshold_pct:.0f}%"
+
+        name_part = f" {budget_name}" if budget_name else ""
+        title = f"Budget Alert: {title_prefix}{name_part}"
+        body = (
+            f"Current spend: ${current_spend:.2f} / ${limit:.2f} "
+            f"(Remaining: ${remaining:.2f})"
+        )
+
+        notification = Notification(
+            title=title,
+            message=body,
+            severity=severity,
+            priority=_severity_to_priority(severity),
+            resource_type="budget",
+            resource_id=budget_id,
+            workspace_id=workspace_id,
+            metadata={
+                "budget_id": budget_id,
+                "current_spend": current_spend,
+                "limit": limit,
+                "threshold_pct": threshold_pct,
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "budget.alert")
+        return results
+    except Exception:
+        logger.debug("Failed to send budget alert notification", exc_info=True)
+        return []
+
+
+async def notify_cost_anomaly(
+    anomaly_type: str,
+    severity: str = "warning",
+    amount: float = 0.0,
+    expected: float = 0.0,
+    workspace_id: str | None = None,
+    agent_id: str | None = None,
+    details: str | None = None,
+) -> list[NotificationResult]:
+    """Send a cost anomaly notification when costs deviate significantly.
+
+    Args:
+        anomaly_type: Type of anomaly (spike, unusual_agent, model_drift).
+        severity: Severity level (info, warning, critical).
+        amount: Actual cost observed.
+        expected: Expected cost.
+        workspace_id: Optional workspace ID.
+        agent_id: Optional agent identifier.
+        details: Optional additional details.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        deviation_pct = (
+            ((amount - expected) / expected * 100) if expected > 0 else 0
+        )
+
+        title = f"Cost Anomaly: {anomaly_type}"
+        body = (
+            f"Actual: ${amount:.4f}, Expected: ${expected:.4f} "
+            f"(+{deviation_pct:.1f}% deviation)"
+        )
+        if agent_id:
+            body += f"\nAgent: {agent_id}"
+        if details:
+            body += f"\n{details}"
+
+        notification = Notification(
+            title=title,
+            message=body,
+            severity=severity,
+            priority=_severity_to_priority(severity),
+            resource_type="cost_anomaly",
+            resource_id=anomaly_type,
+            workspace_id=workspace_id,
+            metadata={
+                "anomaly_type": anomaly_type,
+                "amount": amount,
+                "expected": expected,
+                "deviation_pct": deviation_pct,
+                **({"agent_id": agent_id} if agent_id else {}),
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "cost.anomaly")
+        return results
+    except Exception:
+        logger.debug("Failed to send cost anomaly notification", exc_info=True)
+        return []
+
+
+async def notify_compliance_finding(
+    finding_id: str,
+    severity: str = "info",
+    description: str = "",
+    framework: str = "",
+    workspace_id: str | None = None,
+    control_id: str | None = None,
+    remediation: str | None = None,
+) -> list[NotificationResult]:
+    """Send a compliance finding notification for audit and regulatory events.
+
+    Args:
+        finding_id: Unique finding identifier.
+        severity: Severity level (info, warning, critical).
+        description: Description of the finding.
+        framework: Compliance framework (e.g., SOC2, GDPR, HIPAA).
+        workspace_id: Optional workspace ID.
+        control_id: Optional control identifier.
+        remediation: Optional suggested remediation steps.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        title = f"[{framework}] {description[:60]}"
+        body = f"Framework: {framework}\nFinding: {description}"
+        if control_id:
+            body += f"\nControl: {control_id}"
+        if remediation:
+            body += f"\nRemediation: {remediation}"
+
+        notification = Notification(
+            title=title,
+            message=body,
+            severity=severity,
+            priority=_severity_to_priority(severity),
+            resource_type="compliance_finding",
+            resource_id=finding_id,
+            workspace_id=workspace_id,
+            metadata={
+                "finding_id": finding_id,
+                "framework": framework,
+                **({"control_id": control_id} if control_id else {}),
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "compliance.finding")
+        return results
+    except Exception:
+        logger.debug(
+            "Failed to send compliance finding notification", exc_info=True
+        )
+        return []
+
+
+async def notify_debate_completed(
+    debate_id: str,
+    task: str,
+    verdict: str,
+    confidence: float,
+    agents_used: list[str] | None = None,
+    workspace_id: str | None = None,
+) -> list[NotificationResult]:
+    """Send notification when a debate completes.
+
+    Args:
+        debate_id: Unique debate identifier.
+        task: The debate task/question.
+        verdict: Final verdict (pass/fail/conditional).
+        confidence: Consensus confidence score (0-1).
+        agents_used: List of agent names that participated.
+        workspace_id: Optional workspace ID.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    service = get_notification_service()
+
+    agent_summary = ""
+    if agents_used:
+        agent_summary = f"\nAgents: {', '.join(agents_used[:5])}"
+        if len(agents_used) > 5:
+            agent_summary += f" (+{len(agents_used) - 5} more)"
+
+    task_preview = task[:120] + "..." if len(task) > 120 else task
+
+    notification = Notification(
+        title=f"Debate Complete: {verdict.upper()} ({confidence:.0%})",
+        message=(
+            f"Task: {task_preview}\n"
+            f"Verdict: {verdict}\n"
+            f"Confidence: {confidence:.1%}"
+            f"{agent_summary}"
+        ),
+        severity="info" if verdict == "pass" else "warning",
+        priority=NotificationPriority.NORMAL,
+        resource_type="debate",
+        resource_id=debate_id,
+        workspace_id=workspace_id,
+        metadata={
+            "debate_id": debate_id,
+            "verdict": verdict,
+            "confidence": confidence,
+            "agents_used": agents_used or [],
+        },
+    )
+
+    results = await service.notify(notification)
+    await service.notify_all_webhooks(notification, "debate.completed")
+    return results
+
+
+async def notify_workflow_progress(
+    workflow_id: str,
+    step_name: str,
+    status: str = "started",
+    progress_pct: float = 0.0,
+    workspace_id: str | None = None,
+    details: str | None = None,
+) -> list[NotificationResult]:
+    """Send a workflow progress notification for tracking automation status.
+
+    Args:
+        workflow_id: Unique workflow identifier.
+        step_name: Current step name.
+        status: Current status (started, completed, failed).
+        progress_pct: Completion percentage (0-100).
+        workspace_id: Optional workspace ID.
+        details: Optional additional details.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        if status == "failed":
+            severity = "error"
+            priority = NotificationPriority.HIGH
+            title = f"Workflow Failed at {step_name} ({progress_pct:.0f}%)"
+        elif progress_pct >= 100 or status == "completed":
+            severity = "info"
+            priority = NotificationPriority.NORMAL
+            title = f"Workflow Complete ({progress_pct:.0f}%)"
+        else:
+            severity = "info"
+            priority = NotificationPriority.LOW
+            title = f"Workflow Progress: {progress_pct:.0f}% - {step_name}"
+
+        body = f"Step: {step_name}\nStatus: {status}\nProgress: {progress_pct:.0f}%"
+        if details:
+            body += f"\n{details}"
+
+        notification = Notification(
+            title=title,
+            message=body,
+            severity=severity,
+            priority=priority,
+            resource_type="workflow",
+            resource_id=workflow_id,
+            workspace_id=workspace_id,
+            metadata={
+                "workflow_id": workflow_id,
+                "step_name": step_name,
+                "status": status,
+                "progress_pct": progress_pct,
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "workflow.progress")
+        return results
+    except Exception:
+        logger.debug(
+            "Failed to send workflow progress notification", exc_info=True
+        )
+        return []

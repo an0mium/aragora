@@ -529,6 +529,9 @@ class DebateProtocol:
     plan_approval_mode: str = "risk_based"  # "always", "never", "risk_based"
     plan_budget_limit_usd: float | None = None  # Budget limit for plan execution
 
+    # Deliberation template: inject domain-specific template context into prompts
+    deliberation_template: str | None = None  # Template name from deliberation registry
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 

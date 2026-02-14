@@ -183,6 +183,11 @@ class PromptAssemblyMixin:
         if audience_section:
             audience_section = f"{audience_section}"
 
+        template_section = ""
+        template_context = self.get_deliberation_template_context()
+        if template_context:
+            template_section = template_context
+
         sections = [
             ContextSection("historical", historical_section.strip()),
             ContextSection("continuum", continuum_section.strip()),
@@ -197,6 +202,7 @@ class PromptAssemblyMixin:
             ContextSection("prior_claims", prior_claims_section.strip()),
             ContextSection("pulse", pulse_section.strip()),
             ContextSection("audience", audience_section.strip()),
+            ContextSection("template", template_section.strip()),
         ]
 
         context_block, context_str = self._apply_context_budget(
@@ -282,6 +288,11 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if trending_context:
             trending_section = trending_context
 
+        template_section = ""
+        template_context = self.get_deliberation_template_context()
+        if template_context:
+            template_section = template_context
+
         sections = [
             ContextSection("patterns", patterns_section.strip()),
             ContextSection("belief", belief_section.strip()),
@@ -290,6 +301,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             ContextSection("evidence", evidence_section.strip()),
             ContextSection("trending", trending_section.strip()),
             ContextSection("audience", audience_section.strip()),
+            ContextSection("template", template_section.strip()),
         ]
         context_block, _ = self._apply_context_budget(env_context="", sections=sections)
 

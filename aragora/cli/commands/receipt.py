@@ -81,6 +81,20 @@ Examples:
     inspect_parser.add_argument("receipt", help="Path to receipt JSON file")
     inspect_parser.set_defaults(func=cmd_receipt_inspect)
 
+    # --- list ---
+    list_p = receipt_sub.add_parser("list", help="List recent decision receipts from the database")
+    list_p.add_argument("--limit", "-n", type=int, default=20, help="Maximum results (default: 20)")
+    list_p.add_argument("--verdict", choices=["pass", "fail", "conditional"], help="Filter by verdict")
+    list_p.add_argument("--org-id", help="Filter by organization ID")
+    list_p.set_defaults(func=cmd_receipt_list)
+
+    # --- show ---
+    show_p = receipt_sub.add_parser("show", help="Show a specific receipt by ID")
+    show_p.add_argument("id", help="Gauntlet/receipt ID to look up")
+    show_p.add_argument("--format", "-f", choices=["json", "md", "html"], default=None, help="Output format (default: terminal inspect view)")
+    show_p.add_argument("--org-id", help="Organization ID for ownership check")
+    show_p.set_defaults(func=cmd_receipt_show)
+
     # --- export ---
     export_parser = receipt_sub.add_parser(
         "export",
@@ -153,12 +167,16 @@ def cmd_receipt(args: argparse.Namespace) -> None:
         cmd_receipt_inspect(args)
     elif subcommand == "export":
         cmd_receipt_export(args)
+    elif subcommand == "list":
+        cmd_receipt_list(args)
+    elif subcommand == "show":
+        cmd_receipt_show(args)
     else:
         parser = getattr(args, "_parser", None)
         if parser:
             parser.print_help()
         else:
-            print("Usage: aragora receipt {view,verify,inspect,export} <file>")
+            print("Usage: aragora receipt {list,show,view,verify,inspect,export} ...")
             print("Run 'aragora receipt --help' for details.")
 
 
@@ -455,12 +473,107 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
             print(content)
 
 
+def cmd_receipt_list(args: argparse.Namespace) -> None:
+    """List recent decision receipts from the database."""
+    limit = getattr(args, "limit", 20)
+    verdict = getattr(args, "verdict", None)
+    org_id = getattr(args, "org_id", None)
+    try:
+        from aragora.gauntlet.storage import get_storage
+        storage = get_storage()
+        results = storage.list_recent(
+            limit=limit,
+            verdict=verdict.upper() if verdict else None,
+            org_id=org_id,
+        )
+    except ImportError:
+        print("Error: Gauntlet storage module not available", file=sys.stderr)
+        sys.exit(1)
+    except (OSError, RuntimeError) as e:
+        print(f"Error: Could not access receipt database: {e}", file=sys.stderr)
+        sys.exit(1)
+    if not results:
+        print("No receipts found.")
+        return
+    print(f"{'ID':<14} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
+    print("-" * 64)
+    for meta in results:
+        short_id = meta.gauntlet_id[:12] + ".." if len(meta.gauntlet_id) > 14 else meta.gauntlet_id
+        created = meta.created_at.strftime("%Y-%m-%d %H:%M") if meta.created_at else "N/A"
+        print(
+            f"{short_id:<14} {meta.verdict:<12} {meta.confidence:>5.0%} "
+            f"{meta.total_findings:>8} {created:<20}"
+        )
+    print(f"\n{len(results)} receipt(s) shown.")
+
+
+def cmd_receipt_show(args: argparse.Namespace) -> None:
+    """Show a specific receipt by ID."""
+    receipt_id = getattr(args, "id", None)
+    output_format = getattr(args, "format", None)
+    org_id = getattr(args, "org_id", None)
+    if not receipt_id:
+        print("Error: Receipt ID required", file=sys.stderr)
+        sys.exit(1)
+    try:
+        from aragora.gauntlet.storage import get_storage
+        storage = get_storage()
+        data = storage.get(receipt_id, org_id=org_id)
+    except ImportError:
+        print("Error: Gauntlet storage module not available", file=sys.stderr)
+        sys.exit(1)
+    except (OSError, RuntimeError) as e:
+        print(f"Error: Could not access receipt database: {e}", file=sys.stderr)
+        sys.exit(1)
+    if data is None:
+        print(f"Error: Receipt not found: {receipt_id}", file=sys.stderr)
+        sys.exit(1)
+    if output_format == "json":
+        print(json.dumps(data, indent=2, default=str))
+    elif output_format == "md":
+        try:
+            from aragora.gauntlet.receipt_models import DecisionReceipt
+            receipt = DecisionReceipt.from_dict(data)
+            print(receipt.to_markdown())
+        except (ImportError, AttributeError, KeyError, ValueError, TypeError):
+            print(json.dumps(data, indent=2, default=str))
+    elif output_format == "html":
+        try:
+            from aragora.gauntlet.receipt_models import DecisionReceipt
+            receipt = DecisionReceipt.from_dict(data)
+            print(receipt.to_html())
+        except (ImportError, AttributeError, KeyError, ValueError, TypeError):
+            from aragora.cli.receipt_formatter import receipt_to_html
+            print(receipt_to_html(data))
+    else:
+        _inspect_receipt_data(data)
+
+
+def _inspect_receipt_data(data: dict[str, Any]) -> None:
+    """Display receipt data in terminal."""
+    print("\nDecision Receipt")
+    print("=" * 60)
+    print(f"\nReceipt ID:    {data.get('receipt_id', 'N/A')}")
+    print(f"Gauntlet ID:   {data.get('gauntlet_id', 'N/A')}")
+    print(f"Verdict:       {data.get('verdict', 'UNKNOWN')}")
+    confidence = data.get("confidence", 0)
+    print(f"Confidence:    {confidence:.1%}")
+    risk_summary = data.get("risk_summary", {})
+    if risk_summary:
+        print(f"Findings:      {risk_summary.get('total', 0)} "
+              f"(critical: {risk_summary.get('critical', 0)}, "
+              f"high: {risk_summary.get('high', 0)})")
+    print("=" * 60)
+
+
 # Keep backward-compatible aliases
 setup_receipt_parser = add_receipt_parser
 
 __all__ = [
     "add_receipt_parser",
     "cmd_receipt",
+    "cmd_receipt_list",
+    "cmd_receipt_show",
     "cmd_receipt_verify",
     "cmd_receipt_inspect",
     "cmd_receipt_export",

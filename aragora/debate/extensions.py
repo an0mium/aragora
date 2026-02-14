@@ -79,6 +79,11 @@ class ArenaExtensions:
     auto_notify: bool = False  # Auto-emit notifications on debate completion
     notify_min_confidence: float = 0.0  # Minimum confidence to notify (0 = always)
 
+    # Explainability (auto-generate decision explanations)
+    auto_explain: bool = False  # Auto-generate explanation after debate
+    explanation_builder: Any = None  # Pre-configured ExplanationBuilder
+    _last_explanation: Any = field(default=None, repr=False)
+
     # Internal state
     _initialized: bool = field(default=False, repr=False)
     _last_evaluation: Any = field(default=None, repr=False)  # Store last evaluation result
@@ -223,6 +228,9 @@ class ArenaExtensions:
 
         # Emit debate completion notifications (omnichannel delivery)
         self._emit_debate_notifications(ctx, result)
+
+        # Auto-generate decision explanation
+        self._auto_generate_explanation(ctx, result)
 
         # Clean up per-debate budget tracking
         self.cleanup_debate_budget(ctx.debate_id)
@@ -711,6 +719,42 @@ class ArenaExtensions:
         except Exception as e:
             # Don't fail the debate if notification fails
             logger.warning("notification_emission_failed error=%s", e)
+
+    def _auto_generate_explanation(
+        self,
+        ctx: DebateContext,
+        result: DebateResult,
+    ) -> None:
+        """Auto-generate decision explanation using ExplanationBuilder.
+
+        When auto_explain is enabled, builds a Decision entity containing
+        evidence chains, vote pivots, and confidence attribution.  The
+        Decision is attached to result.explanation for downstream use.
+
+        Args:
+            ctx: The debate context
+            result: The final debate result
+        """
+        if not self.auto_explain:
+            return
+
+        try:
+            from aragora.explainability.builder import ExplanationBuilder
+
+            builder = self.explanation_builder or ExplanationBuilder()
+            decision = builder.build(result, ctx)
+            self._last_explanation = decision
+            # Attach to result so callers can access it
+            if hasattr(result, "__dict__"):
+                result.explanation = decision  # type: ignore[attr-defined]
+            logger.info(
+                "explanation_generated debate_id=%s",
+                ctx.debate_id,
+            )
+        except ImportError:
+            logger.debug("explanation_skipped: explainability module not available")
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.debug("explanation_failed: %s", e)
 
     def _export_training_data(
         self,

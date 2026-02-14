@@ -282,6 +282,14 @@ class StreamEventType(Enum):
     EXPLAINABILITY_NARRATIVE = "explainability_narrative"  # Narrative explanation ready
     EXPLAINABILITY_COMPLETE = "explainability_complete"  # Full explanation ready
 
+    # Compliance Artifact Events
+    COMPLIANCE_ARTIFACT_GENERATED = "compliance_artifact_generated"  # EU AI Act artifact bundle generated
+
+    # Notification-driven Events
+    BUDGET_ALERT = "budget_alert"  # Budget threshold exceeded
+    COST_ANOMALY = "cost_anomaly"  # Cost deviation detected
+    COMPLIANCE_FINDING = "compliance_finding"  # Compliance finding reported
+
     # Workflow Template Events (template execution updates)
     TEMPLATE_EXECUTION_STARTED = "template_execution_started"  # Template execution began
     TEMPLATE_EXECUTION_PROGRESS = "template_execution_progress"  # Execution progress update

@@ -346,6 +346,20 @@ class CrossSubscriberManager(
             self._handle_km_validation_feedback,
         )
 
+        # Explainability: Debate End → Explanation auto-trigger
+        self.register(
+            "debate_end_to_explainability",
+            StreamEventType.DEBATE_END,
+            self._handle_debate_end_to_explainability,
+        )
+
+        # Knowledge: Debate End → Outcome persistence
+        self.register(
+            "debate_outcome_to_knowledge",
+            StreamEventType.DEBATE_END,
+            self._handle_debate_outcome_to_knowledge,
+        )
+
         # Register webhook delivery for all cross-pollination events
         webhook_event_types = [
             StreamEventType.MEMORY_STORED,

@@ -123,6 +123,9 @@ class TeamSelectionConfig:
     cv_reliability_threshold: float = 0.7  # Min reliability for agent inclusion
     cv_filter_unreliable: bool = False  # Filter out unreliable agents entirely
     cv_cache_ttl: int = 60  # CV cache TTL in seconds (1 minute)
+    # ELO win rate scoring (domain-specific win rates from ELO system)
+    enable_elo_win_rate: bool = True  # Enable domain win rate scoring
+    elo_win_rate_weight: float = 0.2  # Weight for domain win rate contribution
     # Budget-aware selection
     enable_budget_filtering: bool = True  # Enable budget-aware agent filtering
     budget_cheap_agent_patterns: list[str] = field(
@@ -163,6 +166,7 @@ class TeamSelector:
         budget_manager: BudgetManager | None = None,
         org_id: str | None = None,
         config: TeamSelectionConfig | None = None,
+        performance_adapter: Any | None = None,
     ):
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
@@ -177,6 +181,7 @@ class TeamSelector:
         self.budget_manager = budget_manager
         self.org_id = org_id
         self.config = config or TeamSelectionConfig()
+        self.performance_adapter = performance_adapter
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
@@ -887,6 +892,108 @@ class TeamSelector:
 
         return 0.0
 
+    def _compute_performance_adapter_score(
+        self,
+        agent: Agent,
+        domain: str,
+    ) -> float:
+        """Compute score from KM PerformanceAdapter domain expertise.
+
+        Queries the PerformanceAdapter for the agent's domain-specific ELO
+        and expertise confidence, producing a composite score that reflects
+        both historical win rate and domain familiarity.
+
+        Args:
+            agent: Agent to score
+            domain: Domain to query
+
+        Returns:
+            Score bonus (0.0 to 1.0) based on combined ELO + confidence
+        """
+        if not self.performance_adapter:
+            return 0.0
+
+        try:
+            experts = self.performance_adapter.get_domain_experts(
+                domain=domain,
+                limit=20,
+                min_confidence=0.1,
+                use_cache=True,
+            )
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"Performance adapter domain query failed: {e}")
+            return 0.0
+
+        if not experts:
+            return 0.0
+
+        agent_name_lower = agent.name.lower()
+        for idx, expert in enumerate(experts):
+            expert_name = getattr(expert, "agent_name", "").lower()
+            if expert_name and (
+                expert_name in agent_name_lower or agent_name_lower in expert_name
+            ):
+                max_entries = min(len(experts), 10)
+                position_score = 1.0 - (idx / max_entries)
+                confidence = getattr(expert, "confidence", 0.5)
+                weighted = position_score * (0.4 + confidence * 0.6)
+                logger.debug(
+                    f"performance_adapter_score agent={agent.name} domain={domain} "
+                    f"rank={idx + 1} confidence={confidence:.2f} score={weighted:.3f}"
+                )
+                return max(0.0, min(1.0, weighted))
+
+        return 0.0
+
+    def _compute_elo_win_rate_score(
+        self,
+        agent: Agent,
+        domain: str,
+    ) -> float:
+        """Compute score bonus based on domain-specific win rates from the ELO system.
+
+        Queries get_top_agents_for_domain() and uses the agent's win_rate
+        property to boost high-performers and penalize low-performers.
+
+        Args:
+            agent: Agent to score
+            domain: Domain to check win rates for
+
+        Returns:
+            Score adjustment (-0.5 to 1.0) based on domain win rate
+        """
+        if not self.elo_system or not self.config.enable_elo_win_rate:
+            return 0.0
+
+        try:
+            if not hasattr(self.elo_system, "get_top_agents_for_domain"):
+                return 0.0
+
+            top_agents = self.elo_system.get_top_agents_for_domain(domain, limit=20)
+            if not top_agents:
+                return 0.0
+
+            agent_name_lower = agent.name.lower()
+            for rating in top_agents:
+                rating_name = getattr(rating, "agent_name", "").lower()
+                if rating_name and (
+                    rating_name in agent_name_lower or agent_name_lower in rating_name
+                ):
+                    win_rate = getattr(rating, "win_rate", 0.0)
+                    # Center around 0.5: above 50% gets bonus, below gets penalty
+                    score = (win_rate - 0.5) * 2.0  # Maps 0.0-1.0 to -1.0..1.0
+                    clamped = max(-0.5, min(1.0, score))
+                    logger.debug(
+                        f"elo_win_rate_score agent={agent.name} domain={domain} "
+                        f"win_rate={win_rate:.3f} score={clamped:.3f}"
+                    )
+                    return clamped
+
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"ELO win rate lookup failed for {agent.name}: {e}")
+
+        return 0.0
+
     def _compute_pattern_score(
         self,
         agent: Agent,
@@ -1178,6 +1285,16 @@ class TeamSelector:
         if self.ranking_adapter and self.config.enable_km_expertise and domain:
             km_expertise_score = self._compute_km_expertise_score(agent, domain)
             score += km_expertise_score * self.config.km_expertise_weight
+
+        # PerformanceAdapter contribution (combined ELO + expertise from KM)
+        if self.performance_adapter and self.config.enable_km_expertise and domain:
+            perf_score = self._compute_performance_adapter_score(agent, domain)
+            score += perf_score * self.config.km_expertise_weight
+
+        # ELO domain win rate contribution (win/loss record in specific domains)
+        if self.elo_system and self.config.enable_elo_win_rate and domain:
+            win_rate_score = self._compute_elo_win_rate_score(agent, domain)
+            score += win_rate_score * self.config.elo_win_rate_weight
 
         # Pattern-based contribution (historical success on task patterns)
         if self.pattern_matcher and self.config.enable_pattern_selection and task:

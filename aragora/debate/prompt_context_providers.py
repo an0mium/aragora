@@ -83,6 +83,41 @@ class PromptContextMixin:
     include_prior_claims: bool
     _pulse_topics: list
 
+    def get_deliberation_template_context(self) -> str:
+        """Get deliberation template context for prompt injection.
+
+        Returns formatted template context string, or empty string if no template
+        is configured or the template cannot be found.
+        """
+        template_name = getattr(self.protocol, "deliberation_template", None)
+        if not template_name:
+            return ""
+
+        try:
+            from aragora.deliberation.templates.registry import get_template
+
+            template = get_template(template_name)
+            if template is None:
+                return ""
+
+            lines = [f"## DELIBERATION TEMPLATE: {template.name}"]
+            lines.append(
+                f"Category: {template.category.value if hasattr(template.category, 'value') else template.category}"
+            )
+            lines.append(f"Description: {template.description}")
+
+            if template.system_prompt_additions:
+                lines.append(f"\nGuidance: {template.system_prompt_additions}")
+
+            if template.personas:
+                lines.append("\nAssigned Personas:")
+                for persona in template.personas:
+                    lines.append(f"- {persona}")
+
+            return "\n".join(lines)
+        except (ImportError, AttributeError, TypeError):
+            return ""
+
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
 

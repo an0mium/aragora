@@ -336,3 +336,64 @@ class BasicHandlersMixin:
                     memory.invalidate_reference(node_id)
             except (ImportError, AttributeError):
                 pass
+
+    def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
+        """Debate end → Explainability auto-trigger.
+
+        When a debate ends, log the event for downstream explainability
+        processing. The actual explanation generation happens in
+        ArenaExtensions._auto_generate_explanation.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        consensus = data.get("consensus_reached", False)
+        confidence = data.get("confidence", 0.0)
+
+        logger.debug(
+            f"Debate ended for explainability: {debate_id} "
+            f"consensus={consensus} confidence={confidence:.2f}"
+        )
+
+    def _handle_debate_outcome_to_knowledge(self, event: StreamEvent) -> None:
+        """Debate end → Knowledge Mound outcome persistence.
+
+        When a debate ends, persist the outcome (winning position,
+        key arguments, consensus strength) into the Knowledge Mound
+        for future debate context enrichment.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        consensus = data.get("consensus_reached", False)
+        confidence = data.get("confidence", 0.0)
+        task = data.get("task", "")
+
+        if not consensus or confidence < 0.6:
+            return  # Only persist high-confidence outcomes
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            mound = get_knowledge_mound()
+            if mound is None:
+                return
+
+            outcome_content = {
+                "debate_id": debate_id,
+                "task": task[:500] if task else "",
+                "consensus_reached": consensus,
+                "confidence": confidence,
+                "winning_position": data.get("winning_position", ""),
+                "key_arguments": data.get("key_arguments", [])[:10],
+            }
+
+            mound.ingest(
+                content=str(outcome_content),
+                source=f"debate:{debate_id}",
+                node_type="debate_outcome",
+                metadata=outcome_content,
+            )
+            logger.debug(f"Persisted debate outcome to KM: {debate_id}")
+        except ImportError:
+            pass  # Knowledge Mound not available
+        except Exception as e:
+            logger.debug(f"KM outcome persistence failed: {e}")

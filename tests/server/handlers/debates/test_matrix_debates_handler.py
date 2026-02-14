@@ -387,28 +387,42 @@ class TestRateLimiting:
 
     @pytest.fixture(autouse=True)
     def reset_rate_limiter(self):
-        """Re-enable real rate limiter for rate limit tests."""
-        limiter = _matrix_module._matrix_limiter
+        """Re-enable real rate limiter for rate limit tests.
+
+        Uses a fresh import of the module to get the LIVE limiter object,
+        not the one captured at test-file import time.  If rate_limit.py
+        was reloaded by another test, the RateLimiter class and its
+        RATE_LIMITING_DISABLED global may have been re-created.
+        """
+        import sys
+
+        live_mod = sys.modules.get(
+            "aragora.server.handlers.debates.matrix_debates", _matrix_module
+        )
+        limiter = live_mod._matrix_limiter
         limiter._buckets.clear()
-        # Ensure rate limiting is NOT globally disabled.  importlib.reload()
-        # of rate_limit.py in other tests can create a stale module whose
-        # RATE_LIMITING_DISABLED flag stays True.  The limiter's is_allowed
-        # method resolves that flag via its __globals__ (the defining module's
-        # __dict__), so we must patch *that* module's copy.
-        limiter_globals = type(limiter).is_allowed.__globals__
-        saved = limiter_globals.get("RATE_LIMITING_DISABLED", False)
-        limiter_globals["RATE_LIMITING_DISABLED"] = False
+        # Ensure rate limiting is NOT globally disabled.
+        rl_mod = sys.modules.get("aragora.server.handlers.utils.rate_limit")
+        if rl_mod:
+            saved = getattr(rl_mod, "RATE_LIMITING_DISABLED", False)
+            rl_mod.RATE_LIMITING_DISABLED = False
         yield
-        limiter_globals["RATE_LIMITING_DISABLED"] = saved
+        if rl_mod:
+            rl_mod.RATE_LIMITING_DISABLED = saved
 
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, handler, mock_http_handler, mock_auth_context):
         """Should return 429 when rate limit exceeded."""
+        # Use the handler's actual module-level limiter to avoid identity
+        # split when rate_limit.py has been reloaded by another test.
+        import aragora.server.handlers.debates.matrix_debates as _live_mod
+
+        live_limiter = _live_mod._matrix_limiter
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = mock_auth_context
             with patch.object(handler, "check_permission"):
                 # Pre-fill rate limiter bucket to exceed limit
-                _matrix_limiter._buckets["127.0.0.1"] = [time.time()] * _matrix_limiter.rpm
+                live_limiter._buckets["127.0.0.1"] = [time.time()] * live_limiter.rpm
 
                 result = await handler.handle_post(
                     mock_http_handler,

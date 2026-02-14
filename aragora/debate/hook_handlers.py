@@ -86,6 +86,7 @@ class HookHandlerRegistry:
         count += self._register_receipt_handlers()
         count += self._register_provenance_handlers()
         count += self._register_decision_plan_handlers()
+        count += self._register_compliance_handlers()
 
         self._registered = True
         logger.info("HookHandlerRegistry registered %s handlers", count)
@@ -1201,6 +1202,58 @@ class HookHandlerRegistry:
         ):
             count += 1
             logger.debug("Registered decision plan auto-creation handler")
+
+        return count
+
+    def _register_compliance_handlers(self) -> int:
+        """Wire hooks for automatic compliance artifact generation.
+
+        When ``enable_compliance_artifacts`` is set in the arena config's
+        audit trail section, registers a POST_DEBATE hook that generates
+        EU AI Act compliance artifact bundles for high-risk decisions.
+        """
+        arena_config = self.subsystems.get("arena_config")
+        if not arena_config:
+            return 0
+
+        # Check via AuditTrailConfig (may be nested)
+        audit_trail = getattr(arena_config, "audit_trail", arena_config)
+        enable = getattr(audit_trail, "enable_compliance_artifacts", False)
+        if not enable:
+            return 0
+
+        count = 0
+        from aragora.debate.hooks import HookType, HookPriority
+
+        try:
+            from aragora.debate.hooks.compliance_artifact_hook import (
+                create_compliance_artifact_hook,
+            )
+
+            frameworks = getattr(audit_trail, "compliance_frameworks", None)
+            hook = create_compliance_artifact_hook(frameworks=frameworks)
+
+            def handle_compliance_artifact(
+                ctx: Any = None,
+                result: Any = None,
+                **kwargs: Any,
+            ) -> None:
+                """Generate compliance artifacts after debate."""
+                try:
+                    hook.on_post_debate(ctx, result)
+                except Exception as e:
+                    logger.debug("Compliance artifact generation failed: %s", e)
+
+            if self._register(
+                HookType.POST_DEBATE.value,
+                handle_compliance_artifact,
+                "compliance_artifact_auto_generate",
+                HookPriority.LOW,
+            ):
+                count += 1
+                logger.debug("Registered compliance artifact generation handler")
+        except ImportError as e:
+            logger.debug("Compliance artifact hook unavailable: %s", e)
 
         return count
 

@@ -194,6 +194,31 @@ class ForecastReport:
 
 
 @dataclass
+class BudgetRunwayResult:
+    """Result of a budget runway check."""
+
+    workspace_id: str
+    days_remaining: int | None  # None if no budget set
+    alert_level: AlertSeverity
+    monthly_budget: Decimal | None
+    current_spend: Decimal
+    daily_burn_rate: Decimal
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "workspace_id": self.workspace_id,
+            "days_remaining": self.days_remaining,
+            "alert_level": self.alert_level.value,
+            "monthly_budget": str(self.monthly_budget) if self.monthly_budget else None,
+            "current_spend": str(self.current_spend),
+            "daily_burn_rate": str(self.daily_burn_rate),
+            "message": self.message,
+        }
+
+
+@dataclass
 class SimulationScenario:
     """A what-if simulation scenario."""
 
@@ -699,6 +724,133 @@ class CostForecaster:
             ],
         )
 
+    async def check_budget_runway(self, workspace_id: str) -> BudgetRunwayResult:
+        """Check how many days until budget is exhausted.
+
+        Returns a BudgetRunwayResult with days remaining and alert level.
+        """
+        if not self._cost_tracker:
+            return BudgetRunwayResult(
+                workspace_id=workspace_id,
+                days_remaining=None,
+                alert_level=AlertSeverity.INFO,
+                monthly_budget=None,
+                current_spend=Decimal("0"),
+                daily_burn_rate=Decimal("0"),
+                message="No cost tracker configured",
+            )
+
+        try:
+            budget = self._cost_tracker.get_budget()
+        except Exception:
+            budget = None
+
+        if not budget or not getattr(budget, "monthly_limit_usd", None):
+            return BudgetRunwayResult(
+                workspace_id=workspace_id,
+                days_remaining=None,
+                alert_level=AlertSeverity.INFO,
+                monthly_budget=None,
+                current_spend=Decimal("0"),
+                daily_burn_rate=Decimal("0"),
+                message="No budget configured",
+            )
+
+        monthly_limit = budget.monthly_limit_usd
+        current_spend = getattr(budget, "current_monthly_spend", Decimal("0"))
+        remaining = monthly_limit - current_spend
+
+        # Calculate daily burn rate from recent history
+        now = datetime.now(timezone.utc)
+        history_start = now - timedelta(days=7)
+        try:
+            daily_costs = await self._get_daily_costs(workspace_id, history_start, now)
+        except Exception:
+            daily_costs = []
+
+        if daily_costs and len(daily_costs) > 0:
+            daily_burn = mean([float(c) for c in daily_costs])
+        else:
+            # Estimate from current spend and days elapsed
+            days_elapsed = now.day or 1
+            daily_burn = float(current_spend) / days_elapsed
+
+        daily_burn_rate = Decimal(str(round(daily_burn, 2)))
+
+        if daily_burn <= 0:
+            days_remaining = None
+            alert_level = AlertSeverity.INFO
+            message = "No significant spending detected"
+        else:
+            days_remaining = int(float(remaining) / daily_burn)
+            if days_remaining <= 0:
+                alert_level = AlertSeverity.CRITICAL
+                message = f"Budget exhausted — spent ${current_spend} of ${monthly_limit}"
+            elif days_remaining <= 3:
+                alert_level = AlertSeverity.CRITICAL
+                message = f"Budget will be exhausted in {days_remaining} days"
+            elif days_remaining <= 7:
+                alert_level = AlertSeverity.WARNING
+                message = f"Budget runway is {days_remaining} days at current burn rate"
+            else:
+                alert_level = AlertSeverity.INFO
+                message = f"Budget healthy — {days_remaining} days remaining"
+
+        return BudgetRunwayResult(
+            workspace_id=workspace_id,
+            days_remaining=days_remaining,
+            alert_level=alert_level,
+            monthly_budget=monthly_limit,
+            current_spend=current_spend,
+            daily_burn_rate=daily_burn_rate,
+            message=message,
+        )
+
+
+async def run_budget_runway_check(
+    forecaster: CostForecaster | None = None,
+    workspace_ids: list[str] | None = None,
+) -> list[BudgetRunwayResult]:
+    """Run budget runway checks across workspaces and trigger notifications.
+
+    Args:
+        forecaster: CostForecaster instance (uses global if None)
+        workspace_ids: Workspaces to check (defaults to ["default"])
+
+    Returns:
+        List of BudgetRunwayResult for each workspace
+    """
+    if forecaster is None:
+        forecaster = get_cost_forecaster()
+
+    if workspace_ids is None:
+        workspace_ids = ["default"]
+
+    results: list[BudgetRunwayResult] = []
+    for ws_id in workspace_ids:
+        try:
+            result = await forecaster.check_budget_runway(ws_id)
+            results.append(result)
+
+            # Trigger notification for warning/critical
+            if result.alert_level in (AlertSeverity.WARNING, AlertSeverity.CRITICAL):
+                try:
+                    from aragora.notifications.service import get_notification_service
+
+                    svc = get_notification_service()
+                    await svc.send_notification(
+                        event_type="budget_runway_alert",
+                        title=f"Budget Alert: {result.alert_level.value.upper()}",
+                        message=result.message,
+                        metadata=result.to_dict(),
+                    )
+                except Exception as notify_err:
+                    logger.warning(f"Failed to send budget alert for {ws_id}: {notify_err}")
+        except Exception as e:
+            logger.error(f"Budget runway check failed for {ws_id}: {e}")
+
+    return results
+
 
 async def send_forecast_notifications(
     report: ForecastReport,
@@ -776,8 +928,10 @@ __all__ = [
     "TrendDirection",
     "SeasonalPattern",
     "AlertSeverity",
+    "BudgetRunwayResult",
     "SimulationScenario",
     "SimulationResult",
     "get_cost_forecaster",
     "send_forecast_notifications",
+    "run_budget_runway_check",
 ]

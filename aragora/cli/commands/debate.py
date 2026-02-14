@@ -799,7 +799,8 @@ async def run_debate(
             print("[audience] Connected to streaming server - audience participation enabled")
 
     # Run debate
-    arena_kwargs: dict[str, Any] = {}
+    auto_explain = kwargs.pop("auto_explain", False)
+    arena_kwargs: dict[str, Any] = dict(kwargs)
     if offline:
         arena_kwargs.update(
             {
@@ -827,6 +828,11 @@ async def run_debate(
         event_emitter=event_emitter,
         **arena_kwargs,
     )
+
+    # Enable auto-explanation if requested
+    if auto_explain and hasattr(arena, "extensions") and arena.extensions is not None:
+        arena.extensions.auto_explain = True
+
     result = await arena.run()
 
     # Store result
@@ -1031,6 +1037,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
 
+    explain = getattr(args, "explain", False)
+
     result = asyncio.run(
         run_debate(
             task=args.task,
@@ -1049,6 +1057,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
             auto_select=auto_select,
             auto_select_config=auto_select_config,
             offline=offline or force_local,
+            auto_explain=explain,
         )
     )
 
@@ -1056,6 +1065,20 @@ def cmd_ask(args: argparse.Namespace) -> None:
     print("FINAL ANSWER:")
     print("=" * 60)
     print(result.final_answer)
+
+    # Display explanation if --explain was requested
+    if explain:
+        explanation = getattr(result, "explanation", None)
+        if explanation:
+            try:
+                from aragora.explainability.builder import ExplanationBuilder
+
+                summary = ExplanationBuilder().generate_summary(explanation)
+                print("\nWHY THIS ANSWER:")
+                print("-" * 40)
+                print(summary)
+            except (ImportError, AttributeError, TypeError):
+                pass
 
     if result.dissenting_views and args.verbose:
         print("\n" + "-" * 60)

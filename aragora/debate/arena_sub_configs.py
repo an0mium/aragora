@@ -208,6 +208,10 @@ class AuditTrailConfig:
     bead_min_confidence: float = 0.5  # Min confidence to create a bead (0.0-1.0)
     bead_auto_commit: bool = False  # Auto-commit beads to git after creation
 
+    # Compliance Artifact Generation (EU AI Act)
+    enable_compliance_artifacts: bool = False  # Auto-generate compliance artifacts
+    compliance_frameworks: list[str] | None = None  # Frameworks to generate for
+
 
 @dataclass
 class MLIntegrationConfig:

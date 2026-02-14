@@ -119,6 +119,7 @@ Examples:
     _add_publish_parser(subparsers)
     _add_autopilot_parser(subparsers)
     _add_agent_parser(subparsers)
+    _add_analytics_parser(subparsers)
 
     return parser
 
@@ -310,6 +311,11 @@ def _add_ask_parser(subparsers) -> None:
         action="store_false",
         default=True,
         help="Disable trending topic injection from Pulse",
+    )
+    ask_parser.add_argument(
+        "--explain",
+        action="store_true",
+        help="Generate and display decision explanation (evidence chains, vote pivots)",
     )
     ask_parser.set_defaults(func=_lazy("aragora.cli.commands.debate", "cmd_ask"))
 
@@ -1177,6 +1183,11 @@ Examples:
         action="store_true",
         help="Print detailed progress",
     )
+    decide_parser.add_argument(
+        "--notify",
+        action="store_true",
+        help="Send notification on debate completion (Slack/Email/Webhook)",
+    )
     decide_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_decide"))
 
 
@@ -1530,3 +1541,10 @@ def cmd_agent_run(args):
             print(f"  Error: {err}")
 
     return 0 if result.success else 1
+
+
+def _add_analytics_parser(subparsers) -> None:
+    """Add the 'analytics' subcommand parser."""
+    from aragora.cli.commands.analytics import add_analytics_parser
+
+    add_analytics_parser(subparsers)

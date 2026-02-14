@@ -318,6 +318,7 @@ class ExplainabilityHandler(BaseHandler):
                 "/votes/pivots",
                 "/counterfactuals",
                 "/summary",
+                "/explainability/export",
             ]
         ):
             return True
@@ -390,6 +391,8 @@ class ExplainabilityHandler(BaseHandler):
                 return await self._handle_counterfactuals(debate_id, query_params, is_legacy)
             elif endpoint == "summary":
                 return await self._handle_summary(debate_id, query_params, is_legacy)
+            elif endpoint == "explainability/export":
+                return await self._handle_export(debate_id, query_params)
 
         return error_response("Invalid explainability endpoint", 400)
 
@@ -663,6 +666,59 @@ h3 {{ color: #666; }}
         except Exception as e:
             logger.error(f"Summary error for {debate_id}: {e}")
             return error_response(f"Failed to generate summary: {str(e)[:100]}", 500)
+
+    async def _handle_export(
+        self, debate_id: str, query_params: dict[str, Any]
+    ) -> HandlerResult:
+        """Handle export request for decision explanation in various formats."""
+        try:
+            decision = await self._get_or_build_decision(debate_id)
+
+            if not decision:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            format_type = get_string_param(query_params, "format", "markdown")
+
+            if format_type == "html":
+                from aragora.explainability.export import export_decision_html
+
+                html_content = export_decision_html(decision)
+                return HandlerResult(
+                    status_code=200,
+                    content_type="text/html",
+                    body=html_content.encode("utf-8"),
+                )
+            elif format_type == "pdf":
+                from aragora.explainability.export import export_decision_pdf, export_decision_html
+
+                pdf_bytes = export_decision_pdf(decision)
+                if pdf_bytes is not None:
+                    return HandlerResult(
+                        status_code=200,
+                        content_type="application/pdf",
+                        body=pdf_bytes,
+                    )
+                # Fallback to HTML if weasyprint not available
+                html_content = export_decision_html(decision)
+                return HandlerResult(
+                    status_code=200,
+                    content_type="text/html",
+                    body=html_content.encode("utf-8"),
+                    headers={"X-PDF-Fallback": "true"},
+                )
+            else:
+                # Default to markdown
+                from aragora.explainability.export import export_decision_markdown
+
+                md_content = export_decision_markdown(decision)
+                return HandlerResult(
+                    status_code=200,
+                    content_type="text/markdown",
+                    body=md_content.encode("utf-8"),
+                )
+        except Exception as e:
+            logger.error(f"Export error for {debate_id}: {e}")
+            return error_response(f"Failed to export: {str(e)[:100]}", 500)
 
     # ========================================================================
     # Batch Processing Methods

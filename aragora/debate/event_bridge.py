@@ -81,13 +81,22 @@ class EventEmitterBridge:
             **kwargs: Event data (agent, details, round_number, etc.)
         """
         # Emit to spectator (console/file) - only pass supported params
+        spectator_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k in ("agent", "details", "metric", "round_number")
+        }
         if self.spectator:
-            spectator_kwargs = {
-                k: v
-                for k, v in kwargs.items()
-                if k in ("agent", "details", "metric", "round_number")
-            }
             self.spectator.emit(event_type, **spectator_kwargs)
+
+        # Fan out to SSE spectator clients (if any are connected)
+        if self.loop_id:
+            try:
+                from aragora.server.handlers.debates.spectate import push_spectator_event
+
+                push_spectator_event(self.loop_id, event_type, **spectator_kwargs)
+            except ImportError:
+                pass  # Server handlers not available (CLI-only usage)
 
         # Emit to WebSocket clients
         if self.event_emitter:

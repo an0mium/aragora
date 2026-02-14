@@ -115,6 +115,7 @@ class OrchestrationRequest:
     timeout_seconds: float = 300.0
     template: str | None = None
     notify: bool = True  # Auto-notify on debate completion (server default)
+    dry_run: bool = False  # Return cost estimate only without executing
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Assigned by system
@@ -189,6 +190,7 @@ class OrchestrationRequest:
             timeout_seconds=data.get("timeout_seconds", 300.0),
             template=data.get("template"),
             notify=data.get("notify", True),
+            dry_run=data.get("dry_run", False),
             metadata=data.get("metadata", {}),
         )
 

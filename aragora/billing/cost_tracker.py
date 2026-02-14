@@ -1043,12 +1043,31 @@ class CostTracker:
                 current_calls=stats.get("api_calls", 0),
             )
 
-            # Store detected anomalies
+            # Store detected anomalies and send notifications
             stored = []
             for anomaly in anomalies:
                 anomaly_id = self._km_adapter.store_anomaly(anomaly)
                 if anomaly_id:
-                    stored.append(anomaly.to_dict())
+                    anomaly_dict = anomaly.to_dict()
+                    stored.append(anomaly_dict)
+
+                    # Send cost anomaly notification
+                    try:
+                        from aragora.notifications.service import notify_cost_anomaly
+
+                        await notify_cost_anomaly(
+                            anomaly_type=anomaly_dict.get("type", "unknown"),
+                            severity=anomaly_dict.get("severity", "warning"),
+                            amount=anomaly_dict.get("actual", 0.0),
+                            expected=anomaly_dict.get("expected", 0.0),
+                            workspace_id=workspace_id,
+                            details=anomaly_dict.get("description"),
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Failed to send cost anomaly notification",
+                            exc_info=True,
+                        )
 
             return stored
         except Exception as e:

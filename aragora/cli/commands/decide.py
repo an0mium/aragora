@@ -279,7 +279,7 @@ def cmd_decide(args: argparse.Namespace) -> None:
             implementation_profile = {}
         implementation_profile.setdefault("execution_mode", execution_mode)
 
-    auto_select = bool(getattr(args, "auto_select", False))
+    auto_select = bool(getattr(args, "auto_select", True))
     try:
         auto_select_config = _parse_auto_select_config(getattr(args, "auto_select_config", None))
     except ValueError as e:
@@ -336,6 +336,7 @@ def cmd_decide(args: argparse.Namespace) -> None:
             template=getattr(args, "template", None),
             mode=getattr(args, "mode", "standard") or "standard",
             verbose=getattr(args, "verbose", False),
+            auto_explain=True,
         )
     )
 
@@ -378,6 +379,41 @@ def cmd_decide(args: argparse.Namespace) -> None:
             print(f"Cost: ${outcome.total_cost_usd:.4f}")
         if outcome.error:
             print(f"Error: {outcome.error}")
+
+    # Display decision explanation if available
+    if debate_result:
+        explanation = getattr(debate_result, "explanation", None)
+        if explanation:
+            try:
+                from aragora.explainability.builder import ExplanationBuilder
+
+                summary = ExplanationBuilder().generate_summary(explanation)
+                print("\nWHY THIS DECISION:")
+                print("-" * 40)
+                print(summary)
+            except (ImportError, AttributeError, TypeError):
+                pass
+
+    # Send notification if --notify flag set
+    if getattr(args, "notify", False) and debate_result:
+        try:
+            from aragora.notifications.service import notify_debate_completed
+
+            asyncio.run(
+                notify_debate_completed(
+                    debate_id=getattr(debate_result, "debate_id", ""),
+                    task=getattr(debate_result, "task", "")[:200],
+                    verdict="pass" if getattr(debate_result, "consensus_reached", False) else "fail",
+                    confidence=getattr(debate_result, "confidence", 0.0),
+                    agents_used=[
+                        getattr(a, "name", str(a))
+                        for a in getattr(debate_result, "agents", [])[:10]
+                    ],
+                )
+            )
+            print("\nNotification sent.")
+        except (ImportError, OSError) as e:
+            print(f"\nNotification failed: {e}", file=sys.stderr)
 
     error = result.get("error")
     if error:

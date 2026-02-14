@@ -975,6 +975,130 @@ class TestKMExpertise:
 
 
 # ===========================================================================
+# Test: ELO Domain Win Rate Scoring
+# ===========================================================================
+
+
+class TestEloWinRateScoring:
+    """Tests for domain-specific win rate scoring from the ELO system."""
+
+    def _make_elo_with_win_rates(self, domain_agents):
+        """Create an ELO system mock with get_top_agents_for_domain support."""
+        elo = MockEloSystem(ratings={"claude-opus": 1800, "gpt-4": 1700})
+
+        def get_top(domain, limit=20):
+            agents = domain_agents.get(domain, [])[:limit]
+            results = []
+            for name, wr in agents:
+                r = MagicMock()
+                r.agent_name = name
+                r.win_rate = wr
+                results.append(r)
+            return results
+
+        elo.get_top_agents_for_domain = get_top
+        return elo
+
+    def test_high_win_rate_boosts_score(self, mock_agents):
+        """Agent with >50% win rate gets positive score."""
+        elo = self._make_elo_with_win_rates({
+            "security": [("claude-opus", 0.8), ("gpt-4", 0.6)],
+        })
+        config = TeamSelectionConfig(enable_elo_win_rate=True, elo_win_rate_weight=0.2)
+        selector = TeamSelector(elo_system=elo, config=config)
+
+        score = selector._compute_elo_win_rate_score(mock_agents[0], "security")
+
+        assert score == pytest.approx(0.6, abs=0.01)
+
+    def test_low_win_rate_penalizes_score(self, mock_agents):
+        """Agent with <50% win rate gets negative score."""
+        elo = self._make_elo_with_win_rates({
+            "security": [("claude-opus", 0.2)],
+        })
+        config = TeamSelectionConfig(enable_elo_win_rate=True)
+        selector = TeamSelector(elo_system=elo, config=config)
+
+        score = selector._compute_elo_win_rate_score(mock_agents[0], "security")
+
+        assert score == pytest.approx(-0.5, abs=0.01)
+
+    def test_fifty_percent_win_rate_is_neutral(self, mock_agents):
+        """Agent at exactly 50% win rate gets zero score."""
+        elo = self._make_elo_with_win_rates({
+            "code": [("claude-opus", 0.5)],
+        })
+        selector = TeamSelector(elo_system=elo)
+
+        score = selector._compute_elo_win_rate_score(mock_agents[0], "code")
+
+        assert score == pytest.approx(0.0, abs=0.01)
+
+    def test_disabled_returns_zero(self, mock_agents):
+        """Returns 0.0 when enable_elo_win_rate is False."""
+        elo = self._make_elo_with_win_rates({"code": [("claude-opus", 0.9)]})
+        config = TeamSelectionConfig(enable_elo_win_rate=False)
+        selector = TeamSelector(elo_system=elo, config=config)
+
+        assert selector._compute_elo_win_rate_score(mock_agents[0], "code") == 0.0
+
+    def test_no_elo_system_returns_zero(self, mock_agents):
+        """Returns 0.0 when no ELO system is provided."""
+        selector = TeamSelector()
+
+        assert selector._compute_elo_win_rate_score(mock_agents[0], "code") == 0.0
+
+    def test_agent_not_in_domain_returns_zero(self, mock_agents):
+        """Returns 0.0 when agent has no domain win rate data."""
+        elo = self._make_elo_with_win_rates({
+            "security": [("other-agent", 0.8)],
+        })
+        selector = TeamSelector(elo_system=elo)
+
+        score = selector._compute_elo_win_rate_score(mock_agents[0], "security")
+
+        assert score == 0.0
+
+    def test_empty_domain_returns_zero(self, mock_agents):
+        """Returns 0.0 when domain has no top agents."""
+        elo = self._make_elo_with_win_rates({})
+        selector = TeamSelector(elo_system=elo)
+
+        assert selector._compute_elo_win_rate_score(mock_agents[0], "unknown") == 0.0
+
+    def test_win_rate_contributes_to_composite_score(self, mock_agents):
+        """Win rate score is included in composite _compute_score."""
+        elo = self._make_elo_with_win_rates({
+            "security": [("claude-opus", 0.9), ("gpt-4", 0.4)],
+        })
+        config = TeamSelectionConfig(
+            elo_weight=0.0,
+            calibration_weight=0.0,
+            delegation_weight=0.0,
+            domain_capability_weight=0.0,
+            km_expertise_weight=0.0,
+            pattern_weight=0.0,
+            enable_cv_selection=False,
+            enable_culture_selection=False,
+            enable_elo_win_rate=True,
+            elo_win_rate_weight=0.2,
+        )
+        selector = TeamSelector(elo_system=elo, config=config)
+
+        score_claude = selector._compute_score(mock_agents[0], domain="security")
+        score_gpt = selector._compute_score(mock_agents[1], domain="security")
+
+        assert score_claude > score_gpt
+
+    def test_elo_without_method_returns_zero(self, mock_agents):
+        """Returns 0.0 when ELO system lacks get_top_agents_for_domain."""
+        elo = MockEloSystem(ratings={"claude-opus": 1800})
+        selector = TeamSelector(elo_system=elo)
+
+        assert selector._compute_elo_win_rate_score(mock_agents[0], "code") == 0.0
+
+
+# ===========================================================================
 # Test: CV-Based Selection
 # ===========================================================================
 
@@ -1480,3 +1604,140 @@ class TestAsyncCultureScore:
 
         # Should return 0.0 on error
         assert score == 0.0
+
+
+# ===========================================================================
+# Performance Adapter Score Tests
+# ===========================================================================
+
+
+class TestPerformanceAdapterScore:
+    """Tests for KM PerformanceAdapter-driven agent recommendation."""
+
+    @pytest.fixture
+    def mock_agents(self):
+        return [
+            MockAgent("claude-3", agent_type="anthropic"),
+            MockAgent("gpt-4", agent_type="openai"),
+            MockAgent("gemini-pro", agent_type="google"),
+            MockAgent("deepseek-r1", agent_type="deepseek"),
+        ]
+
+    @pytest.fixture
+    def mock_performance_adapter(self):
+        """Create a mock PerformanceAdapter with domain experts."""
+        adapter = MagicMock()
+        # Return experts sorted by ELO (highest first)
+        experts = [
+            MagicMock(agent_name="claude-3", elo=1800, confidence=0.9, domain="security"),
+            MagicMock(agent_name="gpt-4", elo=1650, confidence=0.7, domain="security"),
+            MagicMock(agent_name="deepseek-r1", elo=1500, confidence=0.4, domain="security"),
+        ]
+        adapter.get_domain_experts.return_value = experts
+        return adapter
+
+    def test_performance_adapter_boosts_top_expert(self, mock_agents, mock_performance_adapter):
+        """Top-ranked agent in performance adapter gets highest score."""
+        config = TeamSelectionConfig(enable_km_expertise=True)
+        selector = TeamSelector(
+            performance_adapter=mock_performance_adapter, config=config
+        )
+
+        claude_score = selector._compute_performance_adapter_score(mock_agents[0], "security")
+        gpt_score = selector._compute_performance_adapter_score(mock_agents[1], "security")
+
+        assert claude_score > gpt_score
+        assert claude_score > 0.0
+        assert gpt_score > 0.0
+
+    def test_performance_adapter_unknown_agent_returns_zero(
+        self, mock_agents, mock_performance_adapter
+    ):
+        """Agent not in expert list gets 0.0."""
+        config = TeamSelectionConfig(enable_km_expertise=True)
+        selector = TeamSelector(
+            performance_adapter=mock_performance_adapter, config=config
+        )
+
+        # gemini-pro is not in the experts list
+        score = selector._compute_performance_adapter_score(mock_agents[2], "security")
+        assert score == 0.0
+
+    def test_performance_adapter_none_returns_zero(self, mock_agents):
+        """No performance adapter returns 0.0."""
+        selector = TeamSelector()
+        score = selector._compute_performance_adapter_score(mock_agents[0], "security")
+        assert score == 0.0
+
+    def test_performance_adapter_empty_experts_returns_zero(self, mock_agents):
+        """Empty expert list returns 0.0."""
+        adapter = MagicMock()
+        adapter.get_domain_experts.return_value = []
+        selector = TeamSelector(performance_adapter=adapter)
+
+        score = selector._compute_performance_adapter_score(mock_agents[0], "security")
+        assert score == 0.0
+
+    def test_performance_adapter_error_handling(self, mock_agents):
+        """Handles adapter errors gracefully."""
+        adapter = MagicMock()
+        adapter.get_domain_experts.side_effect = TypeError("bad call")
+        selector = TeamSelector(performance_adapter=adapter)
+
+        score = selector._compute_performance_adapter_score(mock_agents[0], "security")
+        assert score == 0.0
+
+    def test_performance_adapter_confidence_affects_score(self, mock_agents):
+        """Higher confidence yields higher score at same rank."""
+        high_conf = MagicMock()
+        high_conf.get_domain_experts.return_value = [
+            MagicMock(agent_name="claude-3", confidence=0.95),
+        ]
+
+        low_conf = MagicMock()
+        low_conf.get_domain_experts.return_value = [
+            MagicMock(agent_name="claude-3", confidence=0.2),
+        ]
+
+        sel_high = TeamSelector(performance_adapter=high_conf)
+        sel_low = TeamSelector(performance_adapter=low_conf)
+
+        score_high = sel_high._compute_performance_adapter_score(mock_agents[0], "coding")
+        score_low = sel_low._compute_performance_adapter_score(mock_agents[0], "coding")
+
+        assert score_high > score_low
+
+    def test_performance_adapter_wired_in_compute_score(
+        self, mock_agents, mock_performance_adapter
+    ):
+        """Performance adapter score is included in _compute_score total."""
+        config = TeamSelectionConfig(enable_km_expertise=True)
+        selector_with = TeamSelector(
+            performance_adapter=mock_performance_adapter, config=config
+        )
+        selector_without = TeamSelector(config=config)
+
+        score_with = selector_with._compute_score(mock_agents[0], domain="security")
+        score_without = selector_without._compute_score(mock_agents[0], domain="security")
+
+        # The adapter should contribute a positive delta for top-ranked expert
+        assert score_with > score_without
+
+    def test_performance_adapter_select_reranks_agents(
+        self, mock_agents, mock_performance_adapter
+    ):
+        """Full select() flow: adapter influences agent ordering."""
+        config = TeamSelectionConfig(
+            enable_km_expertise=True,
+            enable_domain_filtering=False,
+            enable_cv_selection=False,
+            enable_pattern_selection=False,
+        )
+        selector = TeamSelector(
+            performance_adapter=mock_performance_adapter, config=config
+        )
+
+        selected = selector.select(mock_agents, domain="security")
+
+        # claude-3 should be ranked first (top expert with highest confidence)
+        assert selected[0].name == "claude-3"
