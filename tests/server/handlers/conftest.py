@@ -1394,10 +1394,9 @@ def _restore_module_level_functions():
 
     This fixture runs **before** every test and verifies that the critical
     module attributes still point to the real functions.  If they have been
-    replaced by mocks it restores them.
+    replaced by *anything* other than the real function, it restores them.
     """
     import sys
-    from unittest.mock import MagicMock
 
     if _real_run_async is not None:
         # Modules that import ``run_async`` at module level and are known
@@ -1417,7 +1416,7 @@ def _restore_module_level_functions():
             mod = sys.modules.get(mod_name)
             if mod is not None:
                 current = getattr(mod, "run_async", None)
-                if current is not None and isinstance(current, MagicMock):
+                if current is not _real_run_async:
                     setattr(mod, "run_async", _real_run_async)
 
         # Also check _run_async alias used by control_plane and http_utils
@@ -1429,7 +1428,7 @@ def _restore_module_level_functions():
             mod = sys.modules.get(mod_name)
             if mod is not None:
                 current = getattr(mod, "_run_async", None)
-                if current is not None and isinstance(current, MagicMock):
+                if current is not _real_run_async:
                     setattr(mod, "_run_async", _real_run_async)
 
     # Reset the cached has_permission in control_plane.health
@@ -1475,7 +1474,7 @@ def _restore_module_level_functions():
             mod = sys.modules.get(mod_name)
             if mod is not None:
                 current = getattr(mod, "run_async", None)
-                if current is not None and isinstance(current, MagicMock):
+                if current is not _real_run_async:
                     setattr(mod, "run_async", _real_run_async)
 
     try:

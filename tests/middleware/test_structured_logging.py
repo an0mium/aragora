@@ -783,20 +783,29 @@ class TestConfigureStructuredLogging:
     """Tests for configure_structured_logging function."""
 
     @pytest.fixture(autouse=True)
-    def _clean_root_logger(self):
-        """Ensure root logger is clean before each test.
+    def _isolate_root_logger(self):
+        """Save and restore root logger state around each test.
 
-        Other test modules may add handlers (e.g., pytest's caplog).
-        configure_structured_logging removes existing handlers, so this
-        fixture just ensures a clean teardown.
+        Other test modules (or pytest's caplog fixture) may add handlers
+        or change formatters on the root logger without cleanup.  By
+        snapshotting the full handler list *and* level before the test and
+        restoring them afterwards, the tests in this class are immune to
+        that cross-test pollution regardless of execution order.
         """
-        yield
-        # After test: reset root logger to avoid polluting other tests
         root = logging.getLogger()
+        original_handlers = root.handlers[:]
+        original_level = root.level
+        # Start each test with a clean root logger so
+        # configure_structured_logging is the only thing setting handlers.
         for h in root.handlers[:]:
             root.removeHandler(h)
-        root.addHandler(logging.StreamHandler())
-        root.setLevel(logging.WARNING)
+        yield
+        # Restore exact pre-test state so we don't pollute other tests.
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+        for h in original_handlers:
+            root.addHandler(h)
+        root.setLevel(original_level)
 
     def test_configure_default_settings(self):
         """Should configure with default settings."""
@@ -1352,6 +1361,21 @@ class TestRequestLoggingMiddleware:
 
 class TestSetupLogging:
     """Tests for setup_logging convenience function."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_root_logger(self):
+        """Save and restore root logger state for isolation."""
+        root = logging.getLogger()
+        original_handlers = root.handlers[:]
+        original_level = root.level
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+        yield
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+        for h in original_handlers:
+            root.addHandler(h)
+        root.setLevel(original_level)
 
     def test_setup_logging_defaults(self):
         """Should configure with defaults."""

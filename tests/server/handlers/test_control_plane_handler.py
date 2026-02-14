@@ -26,8 +26,18 @@ from tests.server.handlers.conftest import (
 
 
 # ============================================================================
-# Auto-use fixture to patch _run_async for control plane tests
+# Auto-use fixtures to isolate control plane state between tests
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _reset_control_plane_coordinator():
+    """Reset ControlPlaneHandler.coordinator class attribute between tests."""
+    from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+    old = getattr(ControlPlaneHandler, "coordinator", None)
+    yield
+    ControlPlaneHandler.coordinator = old
 
 
 @pytest.fixture(autouse=True)
@@ -309,10 +319,14 @@ def control_plane_handler(
 
     handler = ControlPlaneHandler(mock_server_context)
 
-    # Also set class-level coordinator
+    # Save and set class-level coordinator
+    old_coordinator = getattr(ControlPlaneHandler, "coordinator", None)
     ControlPlaneHandler.coordinator = mock_coordinator
 
-    return handler
+    yield handler
+
+    # Restore class-level coordinator to prevent pollution
+    ControlPlaneHandler.coordinator = old_coordinator
 
 
 # ============================================================================

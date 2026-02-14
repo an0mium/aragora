@@ -1,0 +1,90 @@
+name: Nightly Integration
+
+on:
+  schedule:
+    # Run at 3 AM UTC every day
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-integration
+  cancel-in-progress: true
+
+jobs:
+  live-debate:
+    name: Live Debate E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.repository == 'an0mium/aragora'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Run 1-round debate with real API
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::ANTHROPIC_API_KEY not set, skipping live debate"
+            exit 0
+          fi
+          aragora ask "What is 2+2? Answer in one sentence." \
+            --agents anthropic-api \
+            --rounds 1 \
+            --timeout 60
+
+      - name: Verify EU AI Act compliance demo
+        run: python examples/eu_ai_act_compliance.py --classify
+
+      - name: Verify offline golden path
+        env:
+          ARAGORA_OFFLINE: "1"
+        run: aragora ask "Nightly smoke" --demo --rounds 1
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Nightly Integration Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Live debate with real API key" >> $GITHUB_STEP_SUMMARY
+          echo "- EU AI Act classification demo" >> $GITHUB_STEP_SUMMARY
+          echo "- Offline golden path" >> $GITHUB_STEP_SUMMARY
+
+  pypi-check:
+    name: PyPI Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Verify package
+        run: twine check dist/*
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## PyPI Build Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          ls -lh dist/ >> $GITHUB_STEP_SUMMARY

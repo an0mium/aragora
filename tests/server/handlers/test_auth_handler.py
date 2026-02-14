@@ -722,7 +722,7 @@ class TestTokenGeneration:
         mock_tokens.return_value = MockTokenPair()
 
         handler = make_mock_handler(
-            {"email": "new@example.com", "password": "Secure1!pass12", "name": "New User"}
+            {"email": "new@example.com", "password": "SecurePass1!", "name": "New User"}
         )
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
@@ -1409,7 +1409,7 @@ class TestPasswordValidation:
 
     def test_register_invalid_email_returns_400(self, auth_handler):
         """Registration fails with invalid email format."""
-        handler = make_mock_handler({"email": "invalid", "password": "Secure1!pass12"})
+        handler = make_mock_handler({"email": "invalid", "password": "SecurePass1!"})
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
 
@@ -1613,7 +1613,7 @@ class TestErrorHandling:
 
         auth_handler = AuthHandler({})
 
-        handler = make_mock_handler({"email": "test@example.com", "password": "Secure1!pass12"})
+        handler = make_mock_handler({"email": "test@example.com", "password": "SecurePass1!"})
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
 
@@ -1631,7 +1631,7 @@ class TestErrorHandling:
 
         mock_hash.return_value = ("hashed", "salt")
 
-        handler = make_mock_handler({"email": "existing@example.com", "password": "Secure1!pass12"})
+        handler = make_mock_handler({"email": "existing@example.com", "password": "SecurePass1!"})
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
 
@@ -1721,7 +1721,7 @@ class TestRegistration:
         mock_tokens.return_value = MockTokenPair()
 
         handler = make_mock_handler(
-            {"email": "new@example.com", "password": "Secure1!pass12", "name": "New User"}
+            {"email": "new@example.com", "password": "SecurePass1!", "name": "New User"}
         )
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
@@ -1743,7 +1743,7 @@ class TestRegistration:
         handler = make_mock_handler(
             {
                 "email": "new@example.com",
-                "password": "Secure1!pass12",
+                "password": "SecurePass1!",
                 "name": "New User",
                 "organization": "My Org",
             }

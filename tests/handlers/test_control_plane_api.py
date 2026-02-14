@@ -19,6 +19,16 @@ from tests.handlers.conftest import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_control_plane_coordinator():
+    """Reset ControlPlaneHandler.coordinator class attribute between tests."""
+    from aragora.server.handlers.control_plane import ControlPlaneHandler
+
+    old = getattr(ControlPlaneHandler, "coordinator", None)
+    yield
+    ControlPlaneHandler.coordinator = old
+
+
 class TestControlPlaneHandlerRouting:
     """Test control plane handler request routing."""
 

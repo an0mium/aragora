@@ -32,11 +32,26 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _clear_rate_limiter():
-    """Reset the module-level rate limiter between tests."""
+    """Reset the module-level rate limiter and evolution globals between tests.
+
+    Saves and restores EVOLUTION_AVAILABLE and PromptEvolver so that
+    cross-test pollution (e.g. from a prior test that sets them to mocks
+    and fails before restoring) cannot affect subsequent tests.
+    """
     import aragora.server.handlers.evolution.handler as mod
 
     mod._evolution_limiter._buckets = defaultdict(list)
+
+    # Save original module-level globals
+    orig_avail = mod.EVOLUTION_AVAILABLE
+    orig_evolver = mod.PromptEvolver
+
     yield
+
+    # Restore module-level globals to prevent cross-test pollution
+    mod.EVOLUTION_AVAILABLE = orig_avail
+    mod.PromptEvolver = orig_evolver
+    mod._evolution_limiter._buckets = defaultdict(list)
 
 
 @pytest.fixture()

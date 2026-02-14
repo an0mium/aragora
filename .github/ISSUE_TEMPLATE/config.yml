@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/an0mium/aragora/tree/main/docs
+    about: Browse the full documentation
+  - name: Zero-Config Guide
+    url: https://github.com/an0mium/aragora/blob/main/docs/ZERO_CONFIG.md
+    about: Get started without any API keys

@@ -2,9 +2,21 @@
 
 Quick examples to demonstrate Aragora's core capabilities.
 
-## Prerequisites
+## Try Without API Keys
 
-Set at least one API key:
+Most examples support `--demo` mode with mock agents:
+
+```bash
+python examples/01_simple_debate.py --demo
+python examples/python-debate/main.py --demo
+```
+
+No API keys, no server, no configuration required.
+
+## Using Real Agents
+
+Set at least one API key for real LLM-powered debates:
+
 ```bash
 export ANTHROPIC_API_KEY="sk-..."
 export OPENAI_API_KEY="sk-..."

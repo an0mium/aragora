@@ -245,16 +245,16 @@ class TestValidationReturnTypes:
 
     def test_validate_password_returns_tuple(self):
         """validate_password returns a tuple."""
-        result = validate_password("password123")
+        result = validate_password("SecurePass1!")
         assert isinstance(result, tuple)
         assert len(result) == 2
 
     def test_validate_password_first_element_is_bool(self):
         """First element of validate_password result is bool."""
-        valid, _ = validate_password("password123")
+        valid, _ = validate_password("SecurePass1!")
         assert isinstance(valid, bool)
 
     def test_validate_password_second_element_is_str(self):
         """Second element of validate_password result is str."""
-        _, err = validate_password("password123")
+        _, err = validate_password("SecurePass1!")
         assert isinstance(err, str)
