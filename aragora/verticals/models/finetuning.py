@@ -498,6 +498,7 @@ class VerticalFineTuningPipeline:
             self.config.adapter_name,
         )
 
+        os.makedirs(save_path, exist_ok=True)
         self._model.save_pretrained(save_path)
 
         # Also save config
