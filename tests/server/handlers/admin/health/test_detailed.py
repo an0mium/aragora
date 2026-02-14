@@ -416,7 +416,6 @@ class TestDetailedHealthCheck:
         body = json.loads(result.body.decode("utf-8"))
         assert body["status"] == "degraded"
 
-
     def test_detailed_health_memory_stats(self, tmp_path):
         """Test detailed health includes memory stats when psutil available."""
         from aragora.server.handlers.admin.health.detailed import detailed_health_check
@@ -488,7 +487,6 @@ class TestDeepHealthCheck:
         assert "redis" in body["checks"]
         assert "ai_providers" in body["checks"]
 
-
     def test_deep_health_system_resources(self, tmp_path):
         """Test deep health checks system resources."""
         from aragora.server.handlers.admin.health.detailed import deep_health_check
@@ -537,7 +535,6 @@ class TestDeepHealthCheck:
         assert "cpu" in body["checks"]
         assert "disk" in body["checks"]
 
-
     def test_deep_health_high_memory_usage(self, tmp_path):
         """Test deep health warns on high memory usage."""
         from aragora.server.handlers.admin.health.detailed import deep_health_check
@@ -579,7 +576,6 @@ class TestDeepHealthCheck:
         body = json.loads(result.body.decode("utf-8"))
         assert body["checks"]["memory"]["healthy"] is False
         assert any("memory" in w.lower() for w in body.get("warnings", []))
-
 
     def test_deep_health_low_disk_space(self, tmp_path):
         """Test deep health warns on low disk space."""
