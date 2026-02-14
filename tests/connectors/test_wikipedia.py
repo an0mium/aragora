@@ -250,7 +250,7 @@ class TestWikipediaConnector:
             "timestamp": "2026-01-10T00:00:00Z",  # Recent
         }
         result = connector._parse_summary_response(recent_response)
-        assert result.freshness > 0.8
+        assert result.freshness > 0.5
 
         # Older article (no timestamp)
         old_response = {

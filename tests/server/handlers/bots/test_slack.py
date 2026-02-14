@@ -27,6 +27,7 @@ import types
 import pytest
 
 from aragora.server.handlers.bots import slack
+from aragora.server.handlers.bots.slack import state as _slack_state
 from aragora.server.handlers.bots.slack import (
     AGENT_DISPLAY_NAMES,
     SlackHandler,
@@ -48,6 +49,19 @@ from aragora.server.handlers.bots.slack import (
 # =============================================================================
 # Test Fixtures
 # =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _reset_slack_integration_state():
+    """Reset Slack integration singleton in both __init__ and state modules.
+
+    get_slack_integration() checks two sources: the __init__ module attribute
+    and the state module's global.  Both must be cleared to prevent cross-test
+    pollution from cached integrations.
+    """
+    yield
+    slack._slack_integration = None
+    _slack_state._slack_integration = None
 
 
 class MockHandler:

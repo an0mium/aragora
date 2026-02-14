@@ -57,6 +57,14 @@ class BlockchainAPI:
         """Get on-chain agent identity by token ID."""
         return self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}")
 
+    def get_agent_reputation(self, token_id: int) -> dict[str, Any]:
+        """Get on-chain reputation for an agent."""
+        return self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}/reputation")
+
+    def get_agent_validations(self, token_id: int) -> dict[str, Any]:
+        """Get validation history for an agent."""
+        return self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}/validations")
+
 class AsyncBlockchainAPI:
     """Asynchronous Blockchain API."""
 
@@ -106,4 +114,12 @@ class AsyncBlockchainAPI:
     async def get_agent(self, token_id: int) -> dict[str, Any]:
         """Get on-chain agent identity by token ID."""
         return await self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}")
+
+    async def get_agent_reputation(self, token_id: int) -> dict[str, Any]:
+        """Get on-chain reputation for an agent."""
+        return await self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}/reputation")
+
+    async def get_agent_validations(self, token_id: int) -> dict[str, Any]:
+        """Get validation history for an agent."""
+        return await self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}/validations")
 

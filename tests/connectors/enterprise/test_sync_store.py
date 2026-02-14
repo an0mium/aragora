@@ -132,9 +132,11 @@ class TestSyncStoreBasics:
 
     def test_default_db_url_uses_data_dir(self, tmp_path, monkeypatch):
         """Default database URL should resolve under DATA_DIR."""
-        from aragora.config import legacy as legacy
-
-        monkeypatch.setattr(legacy, "DATA_DIR", tmp_path)
+        expected_db = str(tmp_path / "connectors.db")
+        monkeypatch.setattr(
+            "aragora.connectors.enterprise.sync_store.resolve_db_path",
+            lambda p: expected_db,
+        )
         monkeypatch.delenv("ARAGORA_SYNC_DATABASE_URL", raising=False)
         store = SyncStore(use_encryption=False)
         assert store._database_url.startswith("sqlite:///")

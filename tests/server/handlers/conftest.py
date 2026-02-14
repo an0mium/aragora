@@ -1400,6 +1400,16 @@ def _reset_handler_global_state():
     except (ImportError, AttributeError):
         pass
 
+    # Reset Slack integration singleton (both package and state module)
+    try:
+        import aragora.server.handlers.bots.slack as _slack_pkg
+        import aragora.server.handlers.bots.slack.state as _slack_state
+
+        _slack_pkg._slack_integration = None
+        _slack_state._slack_integration = None
+    except (ImportError, AttributeError):
+        pass
+
 
 # ============================================================================
 # Module-Level Function Restoration

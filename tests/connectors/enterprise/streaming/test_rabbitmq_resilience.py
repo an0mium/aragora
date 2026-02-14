@@ -446,7 +446,7 @@ class TestRabbitMQPublishResilience:
         # Mock channel to raise error
         mock_channel = MagicMock()
         mock_channel.default_exchange = MagicMock()
-        mock_channel.default_exchange.publish = AsyncMock(side_effect=Exception("Publish failed"))
+        mock_channel.default_exchange.publish = AsyncMock(side_effect=ConnectionError("Publish failed"))
         connector._channel = mock_channel
 
         # Mock aio_pika at import time

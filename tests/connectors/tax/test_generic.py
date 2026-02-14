@@ -182,7 +182,7 @@ class TestGenericTaxConnector:
     async def test_search_api_error(self, connector):
         """Test search handles API errors gracefully."""
         mock_client = AsyncMock()
-        mock_client.get.side_effect = Exception("Network error")
+        mock_client.get.side_effect = OSError("Network error")
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
 
