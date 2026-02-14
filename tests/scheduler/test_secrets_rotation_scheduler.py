@@ -14,6 +14,7 @@ Tests cover:
 """
 
 import asyncio
+import contextvars
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -272,6 +273,9 @@ class TestSecretsRotationStorage:
     @pytest.fixture
     def storage(self):
         """Create in-memory storage for testing."""
+        SecretsRotationStorage._conn_var = contextvars.ContextVar(
+            "secrets_rotation_conn", default=None
+        )
         return SecretsRotationStorage()
 
     def test_init_creates_schema(self, storage):
@@ -476,6 +480,9 @@ class TestSecretsRotationScheduler:
     @pytest.fixture
     def scheduler(self):
         """Create scheduler with in-memory storage."""
+        SecretsRotationStorage._conn_var = contextvars.ContextVar(
+            "secrets_rotation_conn", default=None
+        )
         config = SecretsRotationConfig(storage_path=None)
         return SecretsRotationScheduler(config)
 
@@ -826,6 +833,9 @@ class TestSchedulerLifecycle:
     @pytest.fixture
     def scheduler(self):
         """Create scheduler with in-memory storage."""
+        SecretsRotationStorage._conn_var = contextvars.ContextVar(
+            "secrets_rotation_conn", default=None
+        )
         config = SecretsRotationConfig(storage_path=None)
         return SecretsRotationScheduler(config)
 
@@ -874,6 +884,9 @@ class TestDefaultIntervals:
     @pytest.fixture
     def scheduler(self):
         """Create scheduler with custom config."""
+        SecretsRotationStorage._conn_var = contextvars.ContextVar(
+            "secrets_rotation_conn", default=None
+        )
         config = SecretsRotationConfig(
             api_key_rotation_days=60,
             database_rotation_days=90,

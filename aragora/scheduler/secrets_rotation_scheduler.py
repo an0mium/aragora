@@ -776,7 +776,7 @@ class SecretsRotationScheduler:
                 rotation.verification_passed = True
                 rotation.status = RotationStatus.COMPLETED
 
-        except (OSError, RuntimeError, ValueError, KeyError) as e:
+        except Exception as e:
             rotation.status = RotationStatus.FAILED
             rotation.error_message = str(e)
             logger.error(f"Secret rotation failed: {e}")
