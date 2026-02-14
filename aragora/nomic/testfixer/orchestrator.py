@@ -27,6 +27,8 @@ from collections.abc import Callable, Awaitable
 if TYPE_CHECKING:
     from typing import TypeAlias
 
+    from aragora.nomic.testfixer.batch import BatchFixResult
+
     LLMAnalyzerConfig: TypeAlias = Any
     ArenaValidatorConfig: TypeAlias = Any
     RedTeamValidatorConfig: TypeAlias = Any
@@ -855,7 +857,7 @@ class TestFixerOrchestrator:
         Returns:
             BatchFixResult with complete batch history.
         """
-        from aragora.nomic.testfixer.batch import BatchOrchestrator, BatchFixResult
+        from aragora.nomic.testfixer.batch import BatchOrchestrator
 
         batch_orch = BatchOrchestrator(self, self.config)
         return await batch_orch.run(max_iterations)

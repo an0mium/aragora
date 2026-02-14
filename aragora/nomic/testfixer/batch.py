@@ -8,16 +8,14 @@ impact analysis on top of the existing TestFixerOrchestrator.
 
 from __future__ import annotations
 
-import inspect
 import logging
-import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from aragora.events.types import StreamEvent, StreamEventType
+from aragora.events.types import StreamEventType
 from aragora.nomic.testfixer.analyzer import FailureAnalysis, FailureCategory
 from aragora.nomic.testfixer.orchestrator import FixAttempt, FixLoopConfig, LoopStatus
 

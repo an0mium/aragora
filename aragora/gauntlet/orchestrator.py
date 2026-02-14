@@ -550,7 +550,7 @@ class GauntletOrchestrator:
         from aragora.gauntlet.types import GauntletPhase
 
         try:
-            from aragora.debate.risk_assessor import RiskAssessor, RiskLevel
+            from aragora.debate.risk_assessor import RiskAssessor
         except ImportError:
             return PhaseResult(
                 phase=GauntletPhase.RISK_ASSESSMENT,

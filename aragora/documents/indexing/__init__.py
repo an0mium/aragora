@@ -6,7 +6,7 @@ with BM25 + vector hybrid search.
 """
 
 # Weaviate store requires weaviate (optional dependency)
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 if TYPE_CHECKING:

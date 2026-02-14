@@ -22,8 +22,6 @@ Package Structure:
     - gatherer.py: Main ContextGatherer class
 """
 
-import asyncio
-
 from .gatherer import ContextGatherer
 from .constants import (
     # Timeouts
