@@ -201,22 +201,9 @@ class IntegrationsAPI:
         """
         return self._client.request("POST", f"/api/v1/integrations/{integration_type}/sync")
 
-    def list_providers(self) -> dict[str, Any]:
-        """
-        List available integration providers.
-
-        Returns:
-            List of available providers with capabilities
-        """
-        return self._client.request("GET", "/api/v2/integrations/wizard/providers")
-
     # =========================================================================
     # Bot Platform Status
     # =========================================================================
-
-    def get_slack_status(self) -> dict[str, Any]:
-        """Get Slack bot connection status."""
-        return self._client.request("GET", "/api/v1/bots/slack/status")
 
     def get_telegram_status(self) -> dict[str, Any]:
         """Get Telegram bot connection status."""
@@ -234,10 +221,6 @@ class IntegrationsAPI:
         """Get Google Chat bot connection status."""
         return self._client.request("GET", "/api/v1/bots/google-chat/status")
 
-    def get_email_status(self) -> dict[str, Any]:
-        """Get email integration status."""
-        return self._client.request("GET", "/api/v1/bots/email/status")
-
     # =========================================================================
     # Teams Integration
     # =========================================================================
@@ -245,22 +228,6 @@ class IntegrationsAPI:
     def get_teams_status(self) -> dict[str, Any]:
         """Get Microsoft Teams integration status."""
         return self._client.request("GET", "/api/v1/integrations/teams/status")
-
-    def install_teams(self, tenant_id: str) -> dict[str, Any]:
-        """Initiate Teams app installation."""
-        return self._client.request(
-            "POST", "/api/integrations/teams/install", json={"tenant_id": tenant_id}
-        )
-
-    def teams_callback(self, code: str, state: str) -> dict[str, Any]:
-        """Handle OAuth callback from Teams."""
-        return self._client.request(
-            "POST", "/api/integrations/teams/callback", json={"code": code, "state": state}
-        )
-
-    def refresh_teams_token(self) -> dict[str, Any]:
-        """Refresh expired Teams token."""
-        return self._client.request("POST", "/api/integrations/teams/refresh", json={})
 
     def notify_teams(
         self,
@@ -273,28 +240,6 @@ class IntegrationsAPI:
         if options:
             payload.update(options)
         return self._client.request("POST", "/api/v1/integrations/teams/notify", json=payload)
-
-    # =========================================================================
-    # Discord Integration
-    # =========================================================================
-
-    def install_discord(self, guild_id: str) -> dict[str, Any]:
-        """Initiate Discord bot installation."""
-        return self._client.request(
-            "POST", "/api/integrations/discord/install", json={"guild_id": guild_id}
-        )
-
-    def discord_callback(self, code: str, state: str) -> dict[str, Any]:
-        """Handle OAuth callback from Discord."""
-        return self._client.request(
-            "POST", "/api/integrations/discord/callback", json={"code": code, "state": state}
-        )
-
-    def uninstall_discord(self, guild_id: str) -> dict[str, Any]:
-        """Uninstall Discord bot from guild."""
-        return self._client.request(
-            "POST", "/api/integrations/discord/uninstall", json={"guild_id": guild_id}
-        )
 
     # =========================================================================
     # Zapier Integration
@@ -314,10 +259,6 @@ class IntegrationsAPI:
         return self._client.request(
             "POST", "/api/v1/integrations/zapier/apps", json={"workspace_id": workspace_id}
         )
-
-    def delete_zapier_app(self, app_id: str) -> dict[str, Any]:
-        """Delete Zapier app."""
-        return self._client.request("DELETE", f"/api/v1/integrations/zapier/apps/{app_id}")
 
     def list_zapier_trigger_types(self) -> dict[str, Any]:
         """Get available Zapier trigger and action types."""
@@ -346,14 +287,6 @@ class IntegrationsAPI:
             payload["min_confidence"] = min_confidence
         return self._client.request("POST", "/api/v1/integrations/zapier/triggers", json=payload)
 
-    def unsubscribe_zapier_trigger(self, trigger_id: str, app_id: str) -> dict[str, Any]:
-        """Unsubscribe from Zapier trigger."""
-        return self._client.request(
-            "DELETE",
-            f"/api/v1/integrations/zapier/triggers/{trigger_id}",
-            params={"app_id": app_id},
-        )
-
     # =========================================================================
     # Make (Integromat) Integration
     # =========================================================================
@@ -371,12 +304,6 @@ class IntegrationsAPI:
         """Create new Make connection (returns API key)."""
         return self._client.request(
             "POST", "/api/v1/integrations/make/connections", json={"workspace_id": workspace_id}
-        )
-
-    def delete_make_connection(self, connection_id: str) -> dict[str, Any]:
-        """Delete Make connection."""
-        return self._client.request(
-            "DELETE", f"/api/v1/integrations/make/connections/{connection_id}"
         )
 
     def list_make_modules(self) -> dict[str, Any]:

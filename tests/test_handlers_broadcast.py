@@ -587,7 +587,7 @@ class TestBroadcastGeneration:
 
         # Call the unwrapped method directly to bypass rate limiter
         unwrapped = handler._generate_broadcast.__wrapped__
-        with patch("aragora.server.handlers.broadcast.BROADCAST_AVAILABLE", False):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", False):
             result = unwrapped(handler, "test", mock_handler)
 
         assert result is not None
@@ -612,12 +612,12 @@ class TestBroadcastGeneration:
 
         # Call the unwrapped method directly to bypass rate limiter
         unwrapped = handler._generate_broadcast.__wrapped__
-        with patch("aragora.server.handlers.broadcast.BROADCAST_AVAILABLE", True):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
-                with patch("aragora.server.handlers.broadcast.broadcast_debate") as mock_broadcast:
+                with patch("aragora.server.handlers.features.broadcast.broadcast_debate") as mock_broadcast:
                     mock_broadcast.return_value = audio_path
                     with patch(
-                        "aragora.server.handlers.broadcast._run_async",
+                        "aragora.server.handlers.features.broadcast._run_async",
                         side_effect=lambda x: audio_path,
                     ):
                         result = unwrapped(handler, "test", mock_handler)
@@ -649,9 +649,9 @@ class TestBroadcastGeneration:
 
         # Call the unwrapped method directly to bypass rate limiter
         unwrapped = handler._generate_broadcast.__wrapped__
-        with patch("aragora.server.handlers.broadcast.BROADCAST_AVAILABLE", True):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
-                with patch("aragora.server.handlers.broadcast._run_async", return_value=None):
+                with patch("aragora.server.handlers.features.broadcast._run_async", return_value=None):
                     result = unwrapped(handler, "test", mock_handler)
 
         assert result is not None
@@ -683,12 +683,12 @@ class TestBroadcastGeneration:
 
         # Call the unwrapped method directly to bypass rate limiter
         unwrapped = handler._generate_broadcast.__wrapped__
-        with patch("aragora.server.handlers.broadcast.BROADCAST_AVAILABLE", True):
-            with patch("aragora.server.handlers.broadcast.MUTAGEN_AVAILABLE", True):
-                with patch("aragora.server.handlers.broadcast.MP3", return_value=mock_mp3):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
+            with patch("aragora.server.handlers.features.broadcast.MUTAGEN_AVAILABLE", True):
+                with patch("aragora.server.handlers.features.broadcast.MP3", return_value=mock_mp3):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         with patch(
-                            "aragora.server.handlers.broadcast._run_async", return_value=audio_path
+                            "aragora.server.handlers.features.broadcast._run_async", return_value=audio_path
                         ):
                             result = unwrapped(handler, "test", mock_handler)
 
@@ -723,9 +723,9 @@ class TestBroadcastGeneration:
 
         # Call the unwrapped method directly to bypass rate limiter
         unwrapped = handler._generate_broadcast.__wrapped__
-        with patch("aragora.server.handlers.broadcast.BROADCAST_AVAILABLE", True):
+        with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
-                with patch("aragora.server.handlers.broadcast._run_async", return_value=audio_path):
+                with patch("aragora.server.handlers.features.broadcast._run_async", return_value=audio_path):
                     result = unwrapped(handler, "test", mock_handler)
 
         assert result is not None

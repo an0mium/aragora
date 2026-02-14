@@ -892,19 +892,20 @@ class TestWebhookEvents:
 class TestGlobalWebhookStore:
     """Tests for global webhook store singleton."""
 
-    def test_get_webhook_store_singleton(self):
-        """Test that get_webhook_store returns the same instance."""
-        # Reset the global store for this test
+    @pytest.fixture(autouse=True)
+    def _reset_webhook_store_singleton(self):
+        """Reset webhook store singleton before/after each test."""
         import aragora.server.handlers.webhooks as webhooks_module
 
         webhooks_module._webhook_store = None
+        yield
+        webhooks_module._webhook_store = None
 
+    def test_get_webhook_store_singleton(self):
+        """Test that get_webhook_store returns the same instance."""
         store1 = get_webhook_store()
         store2 = get_webhook_store()
         assert store1 is store2
-
-        # Clean up
-        webhooks_module._webhook_store = None
 
 
 # ============================================================================

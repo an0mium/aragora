@@ -12,7 +12,6 @@ Endpoints:
     GET    /api/v1/computer-use/tasks            - List tasks
     GET    /api/v1/computer-use/tasks/{id}       - Get task status
     POST   /api/v1/computer-use/tasks/{id}/cancel - Cancel task
-    GET    /api/v1/computer-use/actions/stats    - Get action stats
     GET    /api/v1/computer-use/policies         - List policies
     POST   /api/v1/computer-use/policies         - Create policy
 """

@@ -852,20 +852,21 @@ class TestApprovalWorkflowExpiration:
 class TestApprovalWorkflowSingleton:
     """Tests for get_approval_workflow singleton."""
 
-    def test_get_approval_workflow(self):
-        """Singleton returns same instance."""
-        # Reset singleton for test
+    @pytest.fixture(autouse=True)
+    def _reset_approval_workflow_singleton(self):
+        """Reset approval workflow singleton before/after each test."""
         import aragora.rbac.approvals as approvals_module
 
         approvals_module._workflow = None
+        yield
+        approvals_module._workflow = None
 
+    def test_get_approval_workflow(self):
+        """Singleton returns same instance."""
         wf1 = get_approval_workflow()
         wf2 = get_approval_workflow()
 
         assert wf1 is wf2
-
-        # Cleanup
-        approvals_module._workflow = None
 
 
 class TestApprovalWorkflowDefaultApprovers:

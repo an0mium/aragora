@@ -436,6 +436,20 @@ class AuditAPI:
         """
         return self._client.request("GET", "/api/v1/audit/security/debate", params=kwargs or None)
 
+    def get_security_debate(self, debate_id: str) -> dict[str, Any]:
+        """
+        Get a specific security audit debate.
+
+        GET /api/v1/audit/security/debate/:id
+
+        Args:
+            debate_id: Security debate identifier
+
+        Returns:
+            Dict with security debate details
+        """
+        return self._client.request("GET", f"/api/v1/audit/security/debate/{debate_id}")
+
 
 
 class AsyncAuditAPI:
@@ -851,4 +865,8 @@ class AsyncAuditAPI:
     async def list_security_debates(self, **kwargs: Any) -> dict[str, Any]:
         """List security audit debates. GET /api/v1/audit/security/debate"""
         return await self._client.request("GET", "/api/v1/audit/security/debate", params=kwargs or None)
+
+    async def get_security_debate(self, debate_id: str) -> dict[str, Any]:
+        """Get a specific security audit debate. GET /api/v1/audit/security/debate/:id"""
+        return await self._client.request("GET", f"/api/v1/audit/security/debate/{debate_id}")
 
