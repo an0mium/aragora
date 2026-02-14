@@ -136,6 +136,71 @@ class IntegrationsAPI:
         """
         return self._client._request("POST", f"/api/v1/integrations/{integration_id}/test")
 
+    # =========================================================================
+    # v1 Integration Management
+    # =========================================================================
+
+    def get_status(self) -> dict[str, Any]:
+        """
+        Get integration status overview.
+
+        GET /api/v1/integrations/status
+
+        Returns:
+            Dict with status for all configured integrations
+        """
+        return self._client.request("GET", "/api/v1/integrations/status")
+
+    def list_available(self) -> dict[str, Any]:
+        """
+        List available integration types.
+
+        GET /api/v1/integrations/available
+
+        Returns:
+            Dict with available integration type names
+        """
+        return self._client.request("GET", "/api/v1/integrations/available")
+
+    def list_configs(self) -> dict[str, Any]:
+        """
+        List integration configurations.
+
+        GET /api/v1/integrations/config
+
+        Returns:
+            Dict with integration configuration entries
+        """
+        return self._client.request("GET", "/api/v1/integrations/config")
+
+    def get_config(self, integration_type: str) -> dict[str, Any]:
+        """
+        Get configuration for a specific integration type.
+
+        GET /api/v1/integrations/config/:integration_type
+
+        Args:
+            integration_type: Integration type (slack, teams, discord, email)
+
+        Returns:
+            Dict with integration configuration
+        """
+        return self._client.request("GET", f"/api/v1/integrations/config/{integration_type}")
+
+    def sync_integration(self, integration_type: str) -> dict[str, Any]:
+        """
+        Trigger synchronization for an integration.
+
+        POST /api/v1/integrations/:integration_type/sync
+
+        Args:
+            integration_type: Integration type to sync
+
+        Returns:
+            Dict with sync result
+        """
+        return self._client.request("POST", f"/api/v1/integrations/{integration_type}/sync")
+
     def list_providers(self) -> dict[str, Any]:
         """
         List available integration providers.
@@ -534,6 +599,34 @@ class AsyncIntegrationsAPI:
     async def test(self, integration_id: str) -> dict[str, Any]:
         """Test an integration connection."""
         return await self._client._request("POST", f"/api/v1/integrations/{integration_id}/test")
+
+    # =========================================================================
+    # v1 Integration Management
+    # =========================================================================
+
+    async def get_status(self) -> dict[str, Any]:
+        """Get integration status overview. GET /api/v1/integrations/status"""
+        return await self._client.request("GET", "/api/v1/integrations/status")
+
+    async def list_available(self) -> dict[str, Any]:
+        """List available integration types. GET /api/v1/integrations/available"""
+        return await self._client.request("GET", "/api/v1/integrations/available")
+
+    async def list_configs(self) -> dict[str, Any]:
+        """List integration configurations. GET /api/v1/integrations/config"""
+        return await self._client.request("GET", "/api/v1/integrations/config")
+
+    async def get_config(self, integration_type: str) -> dict[str, Any]:
+        """Get config for an integration type. GET /api/v1/integrations/config/:integration_type"""
+        return await self._client.request(
+            "GET", f"/api/v1/integrations/config/{integration_type}"
+        )
+
+    async def sync_integration(self, integration_type: str) -> dict[str, Any]:
+        """Trigger synchronization. POST /api/v1/integrations/:integration_type/sync"""
+        return await self._client.request(
+            "POST", f"/api/v1/integrations/{integration_type}/sync"
+        )
 
     async def list_providers(self) -> dict[str, Any]:
         """List available integration providers."""

@@ -539,3 +539,64 @@ class AsyncMemoryAPI:
             body["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/memory/critiques", json=body)
 
+    # ===========================================================================
+    # Progressive Retrieval & Viewer
+    # ===========================================================================
+
+    async def search_index(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        min_importance: float = 0.0,
+        tiers: list[MemoryTier] | None = None,
+        use_hybrid: bool = False,
+    ) -> dict[str, Any]:
+        """Progressive retrieval stage 1: compact index entries. GET /api/v1/memory/search-index"""
+        params: dict[str, Any] = {
+            "q": query,
+            "limit": limit,
+            "min_importance": min_importance,
+            "use_hybrid": str(use_hybrid).lower(),
+        }
+        if tiers:
+            params["tiers"] = ",".join(tiers)
+        return await self._client.request("GET", "/api/v1/memory/search-index", params=params)
+
+    async def search_timeline(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        min_importance: float = 0.0,
+        tiers: list[MemoryTier] | None = None,
+    ) -> dict[str, Any]:
+        """Progressive retrieval: timeline-ordered results. GET /api/v1/memory/search-timeline"""
+        params: dict[str, Any] = {
+            "q": query,
+            "limit": limit,
+            "min_importance": min_importance,
+        }
+        if tiers:
+            params["tiers"] = ",".join(tiers)
+        return await self._client.request(
+            "GET", "/api/v1/memory/search-timeline", params=params
+        )
+
+    async def list_entries(
+        self,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        tier: MemoryTier | None = None,
+    ) -> dict[str, Any]:
+        """List memory entries. GET /api/v1/memory/entries"""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if tier:
+            params["tier"] = tier
+        return await self._client.request("GET", "/api/v1/memory/entries", params=params)
+
+    async def get_viewer(self) -> dict[str, Any]:
+        """Get memory viewer HTML interface. GET /api/v1/memory/viewer"""
+        return await self._client.request("GET", "/api/v1/memory/viewer")
+

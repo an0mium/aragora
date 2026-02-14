@@ -152,4 +152,28 @@ export class HealthNamespace {
 
     return false;
   }
+
+  /**
+   * Get background worker health status.
+   * @route GET /api/v1/health/workers
+   */
+  async getWorkers(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/health/workers') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get job queue health status.
+   * @route GET /api/v1/health/job-queue
+   */
+  async getJobQueue(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/health/job-queue') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get combined workers and job queue health.
+   * @route GET /api/v1/health/workers/all
+   */
+  async getAllWorkers(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/health/workers/all') as Promise<Record<string, unknown>>;
+  }
 }

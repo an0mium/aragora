@@ -338,13 +338,15 @@ class TestValidatePassword:
         assert str(MAX_PASSWORD_LENGTH) in err
 
     def test_password_exact_min_length(self):
-        exact = "a" * MIN_PASSWORD_LENGTH
+        # Build a password of exactly MIN_PASSWORD_LENGTH that meets complexity
+        exact = "Aa1!" + "a" * (MIN_PASSWORD_LENGTH - 4)
         valid, err = validate_password(exact)
         assert valid is True
         assert err == ""
 
     def test_password_exact_max_length(self):
-        exact = "a" * MAX_PASSWORD_LENGTH
+        # Build a password of exactly MAX_PASSWORD_LENGTH that meets complexity
+        exact = "Aa1!" + "a" * (MAX_PASSWORD_LENGTH - 4)
         valid, err = validate_password(exact)
         assert valid is True
         assert err == ""

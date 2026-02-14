@@ -408,16 +408,34 @@ export class IntegrationsAPI {
 
   /**
    * List available integration types.
+   * @route GET /api/v1/integrations/available
    */
   async listAvailable(): Promise<{ integrations: AvailableIntegration[] }> {
-    return this.client.get('/api/integrations/available');
+    return this.client.request('GET', '/api/v1/integrations/available') as Promise<{ integrations: AvailableIntegration[] }>;
+  }
+
+  /**
+   * Get integration status summary.
+   * @route GET /api/v1/integrations/status
+   */
+  async getStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/status') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get global integration configuration.
+   * @route GET /api/v1/integrations/config
+   */
+  async getConfig(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/integrations/config') as Promise<Record<string, unknown>>;
   }
 
   /**
    * Get configuration schema for an integration type.
+   * @route GET /api/v1/integrations/config/{type}
    */
   async getConfigSchema(type: string): Promise<IntegrationConfigSchema> {
-    return this.client.get(`/api/integrations/config/${type}`);
+    return this.client.request('GET', `/api/v1/integrations/config/${type}`) as Promise<IntegrationConfigSchema>;
   }
 
   // ===========================================================================

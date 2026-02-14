@@ -134,10 +134,10 @@ export class ExternalAgentsAPI {
    * including their names, descriptions, and configuration classes.
    */
   async listAdapters(): Promise<AdapterListResponse> {
-    return this.client.request<AdapterListResponse>(
+    return this.client.request(
       'GET',
       '/api/v1/external-agents/adapters',
-    );
+    ) as Promise<AdapterListResponse>;
   }
 
   /**
@@ -153,11 +153,11 @@ export class ExternalAgentsAPI {
     if (adapterName !== undefined) {
       params.adapter = adapterName;
     }
-    return this.client.request<HealthResponse>(
+    return this.client.request(
       'GET',
       '/api/v1/external-agents/health',
       { params },
-    );
+    ) as Promise<HealthResponse>;
   }
 
   /**
@@ -177,7 +177,7 @@ export class ExternalAgentsAPI {
     prompt: string,
     options?: TaskSubmitOptions,
   ): Promise<TaskSubmitResponse> {
-    return this.client.request<TaskSubmitResponse>(
+    return this.client.request(
       'POST',
       '/api/v1/external-agents/tasks',
       {
@@ -202,10 +202,10 @@ export class ExternalAgentsAPI {
    * @param taskId - The ID of the task to retrieve.
    */
   async getTask(taskId: string): Promise<TaskInfo> {
-    return this.client.request<TaskInfo>(
+    return this.client.request(
       'GET',
       `/api/v1/external-agents/tasks/${taskId}`,
-    );
+    ) as Promise<TaskInfo>;
   }
 
   /**
@@ -217,9 +217,9 @@ export class ExternalAgentsAPI {
    * @param taskId - The ID of the task to cancel.
    */
   async cancelTask(taskId: string): Promise<CancelResponse> {
-    return this.client.request<CancelResponse>(
+    return this.client.request(
       'DELETE',
       `/api/v1/external-agents/tasks/${taskId}`,
-    );
+    ) as Promise<CancelResponse>;
   }
 }

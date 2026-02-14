@@ -227,9 +227,9 @@ class TestBatchItem:
         """Default values should be set correctly."""
         item = BatchItem(question="Test question?")
         assert item.question == "Test question?"
-        assert item.agents == DEFAULT_AGENTS
+        assert item.agents == "anthropic-api,openai-api,gemini"
         assert item.rounds == DEFAULT_ROUNDS
-        assert item.consensus == DEFAULT_CONSENSUS
+        assert item.consensus == "majority"
         assert item.priority == 0
         assert item.metadata == {}
         assert item.status == ItemStatus.QUEUED

@@ -1,11 +1,9 @@
 /**
  * Training Namespace API
  *
- * Provides model training data export and job management:
- * - SFT (Supervised Fine-Tuning) data export
- * - DPO (Direct Preference Optimization) data export
- * - Gauntlet adversarial data export
- * - Training job management and metrics
+ * Provides model training data export and job management.
+ * All methods were removed — no corresponding backend routes exist.
+ * The class and type definitions are preserved for future use.
  */
 
 /**
@@ -231,153 +229,9 @@ interface TrainingClientInterface {
 /**
  * Training API namespace.
  *
- * Provides methods for exporting training data and managing training jobs:
- * - Export SFT, DPO, and Gauntlet data for model training
- * - Manage training jobs lifecycle
- * - Retrieve training metrics and artifacts
- *
- * @example
- * ```typescript
- * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
- *
- * // Export SFT training data
- * const sftData = await client.training.exportSFT({
- *   min_confidence: 0.8,
- *   limit: 5000,
- *   format: 'jsonl',
- * });
- *
- * // Export DPO preference pairs
- * const dpoData = await client.training.exportDPO({
- *   min_confidence_diff: 0.2,
- * });
- *
- * // Manage training jobs
- * const jobs = await client.training.listJobs({ status: 'completed' });
- * ```
+ * All methods were removed — no corresponding backend routes exist.
+ * The class is preserved for future use.
  */
 export class TrainingAPI {
   constructor(private client: TrainingClientInterface) {}
-
-  // =========================================================================
-  // Data Export
-  // =========================================================================
-
-  /**
-   * Export SFT (Supervised Fine-Tuning) training data.
-   */
-  async exportSFT(params?: SFTExportParams): Promise<TrainingExportResult> {
-    return this.client.request('POST', '/api/v1/training/export/sft', {
-      params: params as Record<string, unknown>,
-    });
-  }
-
-  /**
-   * Export DPO (Direct Preference Optimization) training data.
-   */
-  async exportDPO(params?: DPOExportParams): Promise<TrainingExportResult> {
-    return this.client.request('POST', '/api/v1/training/export/dpo', {
-      params: params as Record<string, unknown>,
-    });
-  }
-
-  /**
-   * Export Gauntlet adversarial training data.
-   */
-  async exportGauntlet(params?: GauntletExportParams): Promise<TrainingExportResult> {
-    return this.client.request('POST', '/api/v1/training/export/gauntlet', {
-      params: params as Record<string, unknown>,
-    });
-  }
-
-  // =========================================================================
-  // Statistics and Formats
-  // =========================================================================
-
-  /**
-   * Get training data statistics.
-   */
-  async getStats(): Promise<{ stats: TrainingStats }> {
-    return this.client.request('GET', '/api/v1/training/stats');
-  }
-
-  /**
-   * Get supported training formats and schemas.
-   */
-  async getFormats(): Promise<{ formats: TrainingFormats }> {
-    return this.client.request('GET', '/api/v1/training/formats');
-  }
-
-  // =========================================================================
-  // Job Management
-  // =========================================================================
-
-  /**
-   * List training jobs.
-   */
-  async listJobs(
-    params?: ListJobsParams
-  ): Promise<{ jobs: TrainingJob[]; total: number; limit: number; offset: number }> {
-    return this.client.request('GET', '/api/v1/training/jobs', {
-      params: params as Record<string, unknown>,
-    });
-  }
-
-  /**
-   * Get training job details.
-   */
-  async getJob(jobId: string): Promise<TrainingJobDetails> {
-    return this.client.request('GET', `/api/v1/training/jobs/${jobId}`);
-  }
-
-  /**
-   * Cancel a training job.
-   */
-  async cancelJob(jobId: string): Promise<{ success: boolean; message: string }> {
-    return this.client.request('DELETE', `/api/v1/training/jobs/${jobId}`);
-  }
-
-  /**
-   * Export training job data.
-   */
-  async exportJobData(
-    jobId: string
-  ): Promise<{ success: boolean; examples_exported: number; export_path?: string }> {
-    return this.client.request('POST', `/api/v1/training/jobs/${jobId}/export`);
-  }
-
-  /**
-   * Start a training job.
-   */
-  async startJob(
-    jobId: string
-  ): Promise<{ success: boolean; training_job_id: string; message: string }> {
-    return this.client.request('POST', `/api/v1/training/jobs/${jobId}/start`);
-  }
-
-  /**
-   * Mark a training job as complete (typically called by webhook).
-   */
-  async completeJob(
-    jobId: string,
-    data?: CompleteJobData
-  ): Promise<{ success: boolean; message: string }> {
-    return this.client.request('POST', `/api/v1/training/jobs/${jobId}/complete`, {
-      json: data as unknown as Record<string, unknown>,
-    });
-  }
-
-  /**
-   * Get training job metrics.
-   */
-  async getJobMetrics(jobId: string): Promise<TrainingMetrics> {
-    return this.client.request('GET', `/api/v1/training/jobs/${jobId}/metrics`);
-  }
-
-  /**
-   * Get training job artifacts.
-   */
-  async getJobArtifacts(jobId: string): Promise<TrainingArtifacts> {
-    return this.client.request('GET', `/api/v1/training/jobs/${jobId}/artifacts`);
-  }
 }

@@ -170,5 +170,50 @@ export class BillingAPI {
   }
 }
 
+// =============================================================================
+// Route-annotated API for SDK parity detection
+// =============================================================================
+
+/**
+ * Interface for a raw HTTP request client.
+ */
+interface BillingRawClientInterface {
+  request(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<unknown>;
+}
+
+/**
+ * Billing routes namespace with direct request calls for SDK parity.
+ *
+ * Provides direct route coverage for billing handler endpoints that
+ * are not covered by the delegation-based BillingAPI class.
+ */
+export class BillingRoutesAPI {
+  constructor(private client: BillingRawClientInterface) {}
+
+  /**
+   * Get trial status for the organization.
+   * @route GET /api/v1/billing/trial
+   */
+  async getTrialStatus(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/trial');
+  }
+
+  /**
+   * Start a free trial for a new organization.
+   * @route POST /api/v1/billing/trial/start
+   */
+  async startTrial(): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/billing/trial/start');
+  }
+
+  /**
+   * Get consolidated cost dashboard summary.
+   * @route GET /api/v1/billing/dashboard
+   */
+  async getDashboard(params?: { workspace_id?: string; org_id?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/dashboard', { params });
+  }
+}
+
 // Re-export types for convenience
 export type { BillingPlan, BillingUsage, Subscription, UsageForecast };

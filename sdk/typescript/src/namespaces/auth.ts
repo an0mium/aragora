@@ -541,3 +541,192 @@ export class AuthAPI {
     return this.client.acceptInviteAlt(token);
   }
 }
+
+// =============================================================================
+// Route-annotated API for SDK parity detection
+// =============================================================================
+
+/**
+ * Interface for a raw HTTP request client.
+ */
+interface AuthRawClientInterface {
+  request(method: string, path: string, options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }): Promise<unknown>;
+}
+
+/**
+ * Auth routes namespace with direct request calls for SDK parity.
+ *
+ * These methods provide direct route coverage for all auth handler endpoints.
+ * They supplement the AuthAPI class which delegates to typed client methods.
+ */
+export class AuthRoutesAPI {
+  constructor(private client: AuthRawClientInterface) {}
+
+  /**
+   * Change user password.
+   * @route POST /api/auth/password/change
+   */
+  async changePassword(body: { current_password: string; new_password: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/password/change', { json: body });
+  }
+
+  /**
+   * Request a password reset email.
+   * @route POST /api/auth/password/forgot
+   */
+  async forgotPassword(body: { email: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/password/forgot', { json: body });
+  }
+
+  /**
+   * Reset password with token.
+   * @route POST /api/auth/password/reset
+   */
+  async resetPassword(body: { token: string; new_password: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/password/reset', { json: body });
+  }
+
+  /**
+   * Request a password reset via the forgot-password endpoint.
+   * @route POST /api/auth/forgot-password
+   */
+  async forgotPasswordAlt(body: { email: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/forgot-password', { json: body });
+  }
+
+  /**
+   * Reset password via the reset-password endpoint.
+   * @route POST /api/auth/reset-password
+   */
+  async resetPasswordAlt(body: { token: string; new_password: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/reset-password', { json: body });
+  }
+
+  /**
+   * Get the authenticated user's profile.
+   * @route GET /api/auth/profile
+   */
+  async getProfile(): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/profile');
+  }
+
+  /**
+   * List API keys for the current user.
+   * @route GET /api/auth/api-keys
+   */
+  async listApiKeys(): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/api-keys');
+  }
+
+  /**
+   * Revoke an API key by prefix.
+   * @route DELETE /api/auth/api-keys/{prefix}
+   */
+  async revokeApiKeyByPrefix(prefix: string): Promise<unknown> {
+    return this.client.request('DELETE', `/api/auth/api-keys/${prefix}`);
+  }
+
+  /**
+   * Combined MFA endpoint (setup, verify, enable, disable).
+   * @route POST /api/auth/mfa
+   */
+  async mfa(body: { action: string; code?: string; method?: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/mfa', { json: body });
+  }
+
+  /**
+   * Verify email address with token.
+   * @route POST /api/auth/verify-email
+   */
+  async verifyEmail(body: { token: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/verify-email', { json: body });
+  }
+
+  /**
+   * Resend email verification link.
+   * @route POST /api/auth/verify-email/resend
+   */
+  async resendVerification(): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/verify-email/resend');
+  }
+
+  /**
+   * Resend email verification via the resend-verification endpoint.
+   * @route POST /api/auth/resend-verification
+   */
+  async resendVerificationAlt(body?: { email?: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/resend-verification', { json: body });
+  }
+
+  /**
+   * Set up a new organization after registration.
+   * @route POST /api/auth/setup-organization
+   */
+  async setupOrganization(body: { name: string; slug?: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/setup-organization', { json: body });
+  }
+
+  /**
+   * Invite a team member to the organization.
+   * @route POST /api/auth/invite
+   */
+  async invite(body: { email: string; role?: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/invite', { json: body });
+  }
+
+  /**
+   * Check if an invite token is valid.
+   * @route GET /api/auth/check-invite
+   */
+  async checkInvite(token: string): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/check-invite', { params: { token } });
+  }
+
+  /**
+   * Accept a team invitation.
+   * @route POST /api/auth/accept-invite
+   */
+  async acceptInvite(body: { token: string }): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/accept-invite', { json: body });
+  }
+
+  /**
+   * Check authentication service health.
+   * @route GET /api/auth/health
+   */
+  async health(): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/health');
+  }
+
+  /**
+   * Get OAuth authorization URL.
+   * @route GET /api/auth/oauth/url
+   */
+  async getOAuthUrl(params: { provider: string; redirect_uri?: string; state?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/oauth/url', { params });
+  }
+
+  /**
+   * Get OAuth authorization URL via the authorize endpoint.
+   * @route GET /api/auth/oauth/authorize
+   */
+  async getOAuthAuthorizeUrl(params: { provider: string; redirect_uri?: string; state?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/oauth/authorize', { params });
+  }
+
+  /**
+   * Handle OAuth callback with authorization code.
+   * @route GET /api/auth/oauth/callback
+   */
+  async getOAuthCallback(params: { code: string; state?: string }): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/oauth/callback', { params });
+  }
+
+  /**
+   * Get OAuth configuration diagnostics.
+   * @route GET /api/auth/oauth/diagnostics
+   */
+  async getOAuthDiagnostics(): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/oauth/diagnostics');
+  }
+}
