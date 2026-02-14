@@ -5,7 +5,7 @@ Data models for directory synchronization.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -36,7 +36,7 @@ class FileChange:
     path: str  # Relative path from watched root
     absolute_path: str
     change_type: FileChangeType
-    detected_at: datetime = field(default_factory=datetime.utcnow)
+    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # File metadata (not available for deleted files)
     size_bytes: int | None = None
@@ -124,8 +124,8 @@ class SyncState:
     error_count: int = 0
     last_error: str | None = None
 
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -164,7 +164,7 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
 
     # Timing
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
     @property
