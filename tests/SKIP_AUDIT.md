@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-02-13
-**Total Skip Markers**: 393
+**Generated**: 2026-02-14
+**Total Skip Markers**: 178
 
 ---
 
@@ -9,34 +9,35 @@
 
 | Category | Count | Percentage |
 |----------|-------|------------|
-| optional_dependency | 178 | 45.3% |
-| missing_feature | 157 | 39.9% |
-| integration_dependency | 29 | 7.4% |
-| platform_specific | 14 | 3.6% |
-| known_bug | 12 | 3.1% |
-| performance | 3 | 0.8% |
+| missing_feature | 94 | 52.8% |
+| integration_dependency | 29 | 16.3% |
+| optional_dependency | 26 | 14.6% |
+| platform_specific | 14 | 7.9% |
+| known_bug | 11 | 6.2% |
+| performance | 3 | 1.7% |
+| uncategorized | 1 | 0.6% |
 
 ## Summary by Marker Type
 
 | Type | Count |
 |------|-------|
-| `skipif` | 233 |
-| `pytest.skip` | 160 |
+| `pytest.skip` | 133 |
+| `skipif` | 45 |
 
 ## High-Skip Files (Top 10)
 
 | File | Skip Count |
 |------|------------|
-| `tests/test_formal.py` | 24 |
-| `tests/test_broadcast_pipeline_e2e.py` | 20 |
-| `tests/test_formal_verification_backends.py` | 19 |
-| `tests/e2e/test_security_api_e2e.py` | 18 |
-| `tests/test_handlers_plugins.py` | 16 |
-| `tests/resilience/test_timeout.py` | 16 |
 | `tests/sdk/test_openclaw_parity.py` | 15 |
-| `tests/integration/test_handler_registration.py` | 12 |
-| `tests/gauntlet/test_signing.py` | 11 |
-| `tests/connectors/chat/test_jwt_verify.py` | 9 |
+| `tests/knowledge/mound/adapters/test_adapter_compliance.py` | 8 |
+| `tests/sdk/test_contract_parity.py` | 8 |
+| `tests/server/openapi/test_contract_matrix.py` | 7 |
+| `tests/test_plugin_sandbox.py` | 6 |
+| `tests/integration/test_knowledge_visibility_sharing.py` | 6 |
+| `tests/knowledge/test_mound_facade.py` | 6 |
+| `tests/test_handlers_probes.py` | 5 |
+| `tests/e2e/test_document_pipeline.py` | 5 |
+| `tests/migrations/test_versions.py` | 4 |
 
 ---
 
@@ -68,7 +69,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **393** skips
+Current baseline: **178** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.
