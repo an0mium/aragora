@@ -145,10 +145,9 @@ class TestRBACMiddleware:
         allowed, reason, _ = middleware.check_request("/api/debates/abc123", "GET", auth_ctx)
         assert allowed is True
 
-        # Should not match (no ID)
+        # Should not match (no ID) - falls through to default-deny
         allowed, _, _ = middleware.check_request("/api/debates/", "GET", auth_ctx)
-        # Falls through to no rule match
-        assert allowed is True  # default_authenticated=False
+        assert allowed is False  # default-deny: no matching rule = denied
 
     def test_default_route_permissions(self):
         """Default route permissions should be loaded."""
