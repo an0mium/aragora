@@ -114,4 +114,20 @@ export class SharedInboxNamespace {
       { body: { assigned_to: assignee } }
     );
   }
+
+  /**
+   * List shared inbox items.
+   * @route GET /api/v1/inbox/shared
+   */
+  async listShared(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/inbox/shared', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List inbox routing rules.
+   * @route GET /api/v1/inbox/routing/rules
+   */
+  async listRoutingRules(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/inbox/routing/rules') as Promise<Record<string, unknown>>;
+  }
 }

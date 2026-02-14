@@ -4,8 +4,7 @@
  * Provides methods for workspace management, data isolation, and privacy controls.
  *
  * Features:
- * - Workspace creation and management
- * - Member access control
+ * - Workspace creation and listing
  * - Retention policy management
  * - Content sensitivity classification
  * - Privacy audit logging
@@ -53,32 +52,6 @@ export interface WorkspaceSettings {
 }
 
 /**
- * Workspace member
- */
-export interface WorkspaceMember {
-  user_id: string;
-  workspace_id: string;
-  role: 'viewer' | 'member' | 'admin' | 'owner';
-  email: string;
-  name?: string;
-  avatar_url?: string;
-  joined_at: string;
-  last_active_at?: string;
-}
-
-/**
- * Workspace profile (permission set)
- */
-export interface WorkspaceProfile {
-  id: string;
-  workspace_id: string;
-  name: string;
-  description?: string;
-  permissions: string[];
-  is_default: boolean;
-}
-
-/**
  * Create workspace request
  */
 export interface CreateWorkspaceRequest {
@@ -87,31 +60,6 @@ export interface CreateWorkspaceRequest {
   tenant_id?: string;
   description?: string;
   settings?: Partial<WorkspaceSettings>;
-}
-
-/**
- * Update workspace request
- */
-export interface UpdateWorkspaceRequest {
-  name?: string;
-  description?: string;
-  settings?: Partial<WorkspaceSettings>;
-}
-
-/**
- * Add member request
- */
-export interface AddMemberRequest {
-  user_id?: string;
-  email?: string;
-  role: 'viewer' | 'member' | 'admin';
-}
-
-/**
- * Update member request
- */
-export interface UpdateMemberRequest {
-  role: 'viewer' | 'member' | 'admin';
 }
 
 // ===========================================================================
@@ -150,18 +98,6 @@ export interface CreateRetentionPolicyRequest {
 }
 
 /**
- * Update retention policy request
- */
-export interface UpdateRetentionPolicyRequest {
-  name?: string;
-  retention_days?: number;
-  data_types?: string[];
-  description?: string;
-  action?: 'archive' | 'delete' | 'anonymize';
-  enabled?: boolean;
-}
-
-/**
  * Expiring data item
  */
 export interface ExpiringItem {
@@ -172,20 +108,6 @@ export interface ExpiringItem {
   policy_id: string;
   workspace_id?: string;
   metadata?: Record<string, unknown>;
-}
-
-/**
- * Retention policy execution result
- */
-export interface RetentionExecutionResult {
-  policy_id: string;
-  executed_at: string;
-  items_processed: number;
-  items_archived: number;
-  items_deleted: number;
-  items_anonymized: number;
-  errors: string[];
-  success: boolean;
 }
 
 // ===========================================================================
@@ -206,19 +128,6 @@ export interface ClassificationResult {
   reasons?: string[];
   suggested_policies?: string[];
   metadata?: Record<string, unknown>;
-}
-
-/**
- * Classification policy details
- */
-export interface ClassificationPolicy {
-  level: SensitivityLevel;
-  description: string;
-  allowed_actions: string[];
-  required_permissions: string[];
-  retention_override?: number;
-  encryption_required: boolean;
-  audit_required: boolean;
 }
 
 // ===========================================================================
@@ -318,9 +227,7 @@ interface WorkspacesClientInterface {
  * Workspaces API namespace.
  *
  * Provides methods for managing workspaces:
- * - Create and configure workspaces
- * - Manage workspace members and roles
- * - Configure workspace settings and profiles
+ * - Create and list workspaces
  * - Manage retention policies
  * - Classify content sensitivity
  * - Query audit logs
@@ -333,17 +240,6 @@ interface WorkspacesClientInterface {
  * const workspace = await client.workspaces.create({
  *   name: 'Engineering Team',
  *   description: 'Technical discussions and decision-making',
- * });
- *
- * // Add members
- * await client.workspaces.addMember(workspace.id, { email: 'dev@company.com', role: 'member' });
- *
- * // List members
- * const { members } = await client.workspaces.listMembers(workspace.id);
- *
- * // Update settings
- * await client.workspaces.update(workspace.id, {
- *   settings: { allow_public_debates: false },
  * });
  *
  * // Create retention policy
@@ -404,22 +300,6 @@ export class WorkspacesAPI {
   }
 
   /**
-   * Get a specific workspace by ID.
-   *
-   * @param workspaceId - The workspace ID
-   * @returns Workspace details
-   *
-   * @example
-   * ```typescript
-   * const workspace = await client.workspaces.get('ws-123');
-   * console.log(`Workspace: ${workspace.name}`);
-   * ```
-   */
-  async get(workspaceId: string): Promise<Workspace> {
-    return this.client.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`);
-  }
-
-  /**
    * Create a new workspace.
    *
    * @param body - Workspace creation parameters
@@ -440,272 +320,6 @@ export class WorkspacesAPI {
    */
   async create(body: CreateWorkspaceRequest): Promise<Workspace> {
     return this.client.post('/api/v1/workspaces', body);
-  }
-
-  /**
-   * Update an existing workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @param body - Fields to update
-   * @returns Updated workspace
-   *
-   * @example
-   * ```typescript
-   * const workspace = await client.workspaces.update('ws-123', {
-   *   name: 'Engineering Team',
-   *   settings: { allow_public_debates: false },
-   * });
-   * ```
-   */
-  async update(workspaceId: string, body: UpdateWorkspaceRequest): Promise<Workspace> {
-    return this.client.put(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`, body);
-  }
-
-  /**
-   * Delete a workspace.
-   *
-   * @param workspaceId - The workspace ID to delete
-   * @returns Deletion confirmation
-   *
-   * @example
-   * ```typescript
-   * const result = await client.workspaces.delete('ws-123');
-   * if (result.success) {
-   *   console.log('Workspace deleted');
-   * }
-   * ```
-   */
-  async delete(workspaceId: string): Promise<{ success: boolean; deleted?: boolean }> {
-    return this.client.delete(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`);
-  }
-
-  // ===========================================================================
-  // Member Management
-  // ===========================================================================
-
-  /**
-   * List workspace members.
-   *
-   * @param workspaceId - The workspace ID
-   * @param options - Pagination options
-   * @returns List of members with total count
-   *
-   * @example
-   * ```typescript
-   * const { members, total } = await client.workspaces.listMembers('ws-123');
-   * for (const member of members) {
-   *   console.log(`${member.email}: ${member.role}`);
-   * }
-   * ```
-   */
-  async listMembers(
-    workspaceId: string,
-    options?: { limit?: number; offset?: number }
-  ): Promise<{ members: WorkspaceMember[]; total: number }> {
-    const params: Record<string, unknown> = {
-      limit: options?.limit ?? 50,
-      offset: options?.offset ?? 0,
-    };
-    return this.client.request('GET', `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members`, { params });
-  }
-
-  /**
-   * Add a member to the workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @param body - Member details (user_id or email, and role)
-   * @returns Added member details
-   *
-   * @example
-   * ```typescript
-   * // Add by user ID
-   * const member = await client.workspaces.addMember('ws-123', {
-   *   user_id: 'user-456',
-   *   role: 'member',
-   * });
-   *
-   * // Add by email (will invite if not a user)
-   * const member = await client.workspaces.addMember('ws-123', {
-   *   email: 'dev@company.com',
-   *   role: 'admin',
-   * });
-   * ```
-   */
-  async addMember(workspaceId: string, body: AddMemberRequest): Promise<WorkspaceMember> {
-    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members`, body);
-  }
-
-  /**
-   * Update a member's role.
-   *
-   * @param workspaceId - The workspace ID
-   * @param userId - The user ID to update
-   * @param body - New role assignment
-   * @returns Updated member details
-   *
-   * @example
-   * ```typescript
-   * const member = await client.workspaces.updateMember('ws-123', 'user-456', {
-   *   role: 'admin',
-   * });
-   * ```
-   */
-  async updateMember(
-    workspaceId: string,
-    userId: string,
-    body: UpdateMemberRequest
-  ): Promise<WorkspaceMember> {
-    return this.client.put(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
-      body
-    );
-  }
-
-  /**
-   * Remove a member from the workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @param userId - The user ID to remove
-   * @returns Removal confirmation
-   *
-   * @example
-   * ```typescript
-   * const result = await client.workspaces.removeMember('ws-123', 'user-456');
-   * if (result.success) {
-   *   console.log('Member removed');
-   * }
-   * ```
-   */
-  async removeMember(
-    workspaceId: string,
-    userId: string
-  ): Promise<{ success: boolean; removed?: boolean }> {
-    return this.client.delete(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`
-    );
-  }
-
-  /**
-   * Update a member's role in a workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @param userId - The user ID
-   * @param role - New role to assign
-   * @returns Updated member details
-   */
-  async updateMemberRole(
-    workspaceId: string,
-    userId: string,
-    role: 'viewer' | 'member' | 'admin'
-  ): Promise<WorkspaceMember> {
-    return this.client.put(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}/role`,
-      { role }
-    );
-  }
-
-  /**
-   * Get available roles for a workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @returns Available roles
-   */
-  async getWorkspaceRoles(workspaceId: string): Promise<{ roles: Array<{ name: string; description: string; permissions: string[] }> }> {
-    return this.client.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/roles`);
-  }
-
-  // ===========================================================================
-  // Invite Management
-  // ===========================================================================
-
-  /**
-   * Create an invite to join a workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @param body - Invite details
-   * @returns Created invite with token
-   */
-  async createInvite(
-    workspaceId: string,
-    body: { email: string; role?: 'viewer' | 'member' | 'admin' }
-  ): Promise<{ invite_id: string; token: string; email: string; expires_at: string }> {
-    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`, body);
-  }
-
-  /**
-   * List pending invites for a workspace.
-   *
-   * @param workspaceId - The workspace ID
-   * @returns List of pending invites
-   */
-  async listInvites(
-    workspaceId: string
-  ): Promise<{ invites: Array<{ invite_id: string; email: string; role: string; created_at: string; expires_at: string }> }> {
-    return this.client.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites`);
-  }
-
-  /**
-   * Cancel a pending invite.
-   *
-   * @param workspaceId - The workspace ID
-   * @param inviteId - The invite ID to cancel
-   * @returns Cancellation confirmation
-   */
-  async cancelInvite(
-    workspaceId: string,
-    inviteId: string
-  ): Promise<{ success: boolean }> {
-    return this.client.delete(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}`);
-  }
-
-  /**
-   * Resend an invite email.
-   *
-   * @param workspaceId - The workspace ID
-   * @param inviteId - The invite ID
-   * @returns Resend confirmation
-   */
-  async resendInvite(
-    workspaceId: string,
-    inviteId: string
-  ): Promise<{ success: boolean }> {
-    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/resend`);
-  }
-
-  /**
-   * Accept a workspace invite.
-   *
-   * @param workspaceId - The workspace ID
-   * @param inviteId - The invite ID
-   * @returns Acceptance confirmation with workspace info
-   */
-  async acceptInvite(
-    workspaceId: string,
-    inviteId: string
-  ): Promise<{ success: boolean; workspace_id: string }> {
-    return this.client.post(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/invites/${encodeURIComponent(inviteId)}/accept`);
-  }
-
-  // ===========================================================================
-  // Profiles
-  // ===========================================================================
-
-  /**
-   * List workspace profiles (permission sets).
-   *
-   * @param workspaceId - The workspace ID
-   * @returns List of profiles
-   *
-   * @example
-   * ```typescript
-   * const { profiles } = await client.workspaces.listProfiles('ws-123');
-   * for (const profile of profiles) {
-   *   console.log(`${profile.name}: ${profile.permissions.length} permissions`);
-   * }
-   * ```
-   */
-  async listProfiles(workspaceId: string): Promise<{ profiles: WorkspaceProfile[] }> {
-    return this.client.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/profiles`);
   }
 
   // ===========================================================================
@@ -747,76 +361,6 @@ export class WorkspacesAPI {
    */
   async createRetentionPolicy(body: CreateRetentionPolicyRequest): Promise<RetentionPolicy> {
     return this.client.post('/api/v1/retention/policies', body);
-  }
-
-  /**
-   * Update a retention policy.
-   *
-   * @param policyId - The policy ID to update
-   * @param body - Fields to update
-   * @returns Updated policy
-   *
-   * @example
-   * ```typescript
-   * const policy = await client.workspaces.updateRetentionPolicy('policy-123', {
-   *   retention_days: 180,
-   *   data_types: ['debates', 'messages'],
-   * });
-   * ```
-   */
-  async updateRetentionPolicy(
-    policyId: string,
-    body: UpdateRetentionPolicyRequest
-  ): Promise<RetentionPolicy> {
-    return this.client.put(`/api/v1/retention/policies/${encodeURIComponent(policyId)}`, body);
-  }
-
-  /**
-   * Delete a retention policy.
-   *
-   * @param policyId - The policy ID to delete
-   * @returns Deletion confirmation
-   *
-   * @example
-   * ```typescript
-   * const result = await client.workspaces.deleteRetentionPolicy('policy-123');
-   * if (result.success) {
-   *   console.log('Policy deleted');
-   * }
-   * ```
-   */
-  async deleteRetentionPolicy(policyId: string): Promise<{ success: boolean }> {
-    return this.client.delete(`/api/v1/retention/policies/${encodeURIComponent(policyId)}`);
-  }
-
-  /**
-   * Execute a retention policy manually.
-   *
-   * This applies the retention policy immediately, archiving or deleting
-   * data according to the policy rules.
-   *
-   * @param policyId - The policy ID to execute
-   * @param options - Execution options
-   * @returns Execution results
-   *
-   * @example
-   * ```typescript
-   * // Execute policy
-   * const result = await client.workspaces.executeRetentionPolicy('policy-123');
-   * console.log(`Processed: ${result.items_processed}`);
-   * console.log(`Deleted: ${result.items_deleted}`);
-   *
-   * // Dry run to preview
-   * const preview = await client.workspaces.executeRetentionPolicy('policy-123', {
-   *   dry_run: true,
-   * });
-   * ```
-   */
-  async executeRetentionPolicy(
-    policyId: string,
-    options?: { dry_run?: boolean }
-  ): Promise<RetentionExecutionResult> {
-    return this.client.post(`/api/v1/retention/policies/${encodeURIComponent(policyId)}/execute`, options);
   }
 
   /**
@@ -882,23 +426,6 @@ export class WorkspacesAPI {
       content,
       content_type: contentType,
     });
-  }
-
-  /**
-   * Get classification policy for a sensitivity level.
-   *
-   * @param level - Sensitivity level (public, internal, confidential, restricted)
-   * @returns Policy details for the level
-   *
-   * @example
-   * ```typescript
-   * const policy = await client.workspaces.getClassificationPolicy('confidential');
-   * console.log(`Encryption required: ${policy.encryption_required}`);
-   * console.log(`Allowed actions: ${policy.allowed_actions.join(', ')}`);
-   * ```
-   */
-  async getClassificationPolicy(level: SensitivityLevel): Promise<ClassificationPolicy> {
-    return this.client.get(`/api/v1/classify/policy/${encodeURIComponent(level)}`);
   }
 
   // ===========================================================================

@@ -21,15 +21,57 @@ class GmailAPI:
 
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
-        >>> client.gmail.mark_read("message_id")
-        >>> client.gmail.add_labels("message_id", ["Important", "Work"])
+        >>> client.gmail.list_labels()
+        >>> client.gmail.list_threads()
     """
 
     def __init__(self, client: AragoraClient):
         self._client = client
 
     # ===========================================================================
-    # Message Operations
+    # Labels and Filters
+    # ===========================================================================
+
+    def list_labels(self) -> dict[str, Any]:
+        """
+        List Gmail labels.
+
+        Returns:
+            Dict with labels array
+        """
+        return self._client.request("GET", "/api/v1/gmail/labels")
+
+    def list_filters(self) -> dict[str, Any]:
+        """
+        List Gmail filters.
+
+        Returns:
+            Dict with filters array
+        """
+        return self._client.request("GET", "/api/v1/gmail/filters")
+
+    # ===========================================================================
+    # Threads and Drafts
+    # ===========================================================================
+
+    def list_threads(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        List Gmail threads.
+
+        Returns:
+            Dict with threads array
+        """
+        return self._client.request("GET", "/api/v1/gmail/threads", params=kwargs)
+
+    def list_drafts(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        List Gmail drafts.
+
+        Returns:
+            Dict with drafts array
+        """
+        return self._client.request("GET", "/api/v1/gmail/drafts", params=kwargs)
+
 
 class AsyncGmailAPI:
     """
@@ -37,10 +79,28 @@ class AsyncGmailAPI:
 
     Example:
         >>> async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-        ...     await client.gmail.mark_read("message_id")
+        ...     labels = await client.gmail.list_labels()
     """
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
 
-    # Message Operations
+    # Labels and Filters
+
+    async def list_labels(self) -> dict[str, Any]:
+        """List Gmail labels."""
+        return await self._client.request("GET", "/api/v1/gmail/labels")
+
+    async def list_filters(self) -> dict[str, Any]:
+        """List Gmail filters."""
+        return await self._client.request("GET", "/api/v1/gmail/filters")
+
+    # Threads and Drafts
+
+    async def list_threads(self, **kwargs: Any) -> dict[str, Any]:
+        """List Gmail threads."""
+        return await self._client.request("GET", "/api/v1/gmail/threads", params=kwargs)
+
+    async def list_drafts(self, **kwargs: Any) -> dict[str, Any]:
+        """List Gmail drafts."""
+        return await self._client.request("GET", "/api/v1/gmail/drafts", params=kwargs)

@@ -422,3 +422,139 @@ class AsyncLearningAPI:
             "GET", "/api/v1/learning/patterns", params=params if params else None
         )
 
+    async def get_pattern(self, pattern_id: str) -> dict[str, Any]:
+        """Get a specific pattern by ID."""
+        return await self._client.request("GET", f"/api/v1/learning/patterns/{pattern_id}")
+
+    async def validate_pattern(self, pattern_id: str) -> dict[str, Any]:
+        """Validate a detected pattern."""
+        return await self._client.request("POST", f"/api/v1/learning/patterns/{pattern_id}/validate")
+
+    async def get_metrics(
+        self,
+        session_id: str | None = None,
+        agent_id: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Get learning metrics with filtering."""
+        params: dict[str, Any] = {}
+        if session_id:
+            params["session_id"] = session_id
+        if agent_id:
+            params["agent_id"] = agent_id
+        if limit:
+            params["limit"] = limit
+        return await self._client.request(
+            "GET", "/api/v1/learning/metrics", params=params if params else None
+        )
+
+    async def get_metric_by_type(self, metric_type: str) -> dict[str, Any]:
+        """Get metrics of a specific type with aggregations."""
+        return await self._client.request("GET", f"/api/v1/learning/metrics/{metric_type}")
+
+    async def submit_feedback(
+        self,
+        feedback_type: str,
+        target_type: str,
+        target_id: str,
+        comment: str = "",
+        rating: int | None = None,
+    ) -> dict[str, Any]:
+        """Submit feedback on learning outcomes."""
+        data: dict[str, Any] = {
+            "feedback_type": feedback_type,
+            "target_type": target_type,
+            "target_id": target_id,
+            "comment": comment,
+        }
+        if rating is not None:
+            data["rating"] = rating
+        return await self._client.request("POST", "/api/v1/learning/feedback", json=data)
+
+    async def list_knowledge(
+        self,
+        verified: bool | None = None,
+        source_type: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """List extracted knowledge items."""
+        params: dict[str, Any] = {}
+        if verified is not None:
+            params["verified"] = str(verified).lower()
+        if source_type:
+            params["source_type"] = source_type
+        if limit:
+            params["limit"] = limit
+        return await self._client.request(
+            "GET", "/api/v1/learning/knowledge", params=params if params else None
+        )
+
+    async def get_knowledge_item(self, knowledge_id: str) -> dict[str, Any]:
+        """Get a specific knowledge item by ID."""
+        return await self._client.request("GET", f"/api/v1/learning/knowledge/{knowledge_id}")
+
+    async def extract_knowledge(
+        self,
+        debate_ids: list[str],
+        title: str | None = None,
+        content: str | None = None,
+        topics: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Trigger knowledge extraction from debates."""
+        data: dict[str, Any] = {"debate_ids": debate_ids}
+        if title:
+            data["title"] = title
+        if content:
+            data["content"] = content
+        if topics:
+            data["topics"] = topics
+        return await self._client.request("POST", "/api/v1/learning/knowledge/extract", json=data)
+
+    async def get_recommendations(
+        self,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Get learning recommendations."""
+        params: dict[str, Any] = {}
+        if limit:
+            params["limit"] = limit
+        return await self._client.request(
+            "GET", "/api/v1/learning/recommendations", params=params if params else None
+        )
+
+    async def get_performance(self) -> dict[str, Any]:
+        """Get model performance statistics."""
+        return await self._client.request("GET", "/api/v1/learning/performance")
+
+    async def calibrate(
+        self,
+        agent_ids: list[str] | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Trigger model calibration."""
+        data: dict[str, Any] = {"force": force}
+        if agent_ids:
+            data["agent_ids"] = agent_ids
+        return await self._client.request("POST", "/api/v1/learning/calibrate", json=data)
+
+    async def create_session(
+        self,
+        name: str,
+        mode: str = "supervised",
+        total_epochs: int = 100,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a new training session."""
+        data: dict[str, Any] = {
+            "name": name,
+            "mode": mode,
+            "total_epochs": total_epochs,
+        }
+        if config:
+            data["config"] = config
+        return await self._client.request("POST", "/api/v1/learning/sessions", json=data)
+
+    async def stop_session(self, session_id: str) -> dict[str, Any]:
+        """Stop a running training session."""
+        return await self._client.request("POST", f"/api/v1/learning/sessions/{session_id}/stop")
+

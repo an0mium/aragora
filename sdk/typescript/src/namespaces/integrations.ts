@@ -490,16 +490,18 @@ export class IntegrationsAPI {
 
   /**
    * Trigger a sync for an integration.
+   * @route POST /api/v1/integrations/{id}/sync
    */
   async sync(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.post(`/api/integrations/${id}/sync`);
+    return this.client.request('POST', `/api/v1/integrations/${id}/sync`) as Promise<IntegrationSyncStatus>;
   }
 
   /**
    * Get sync status for an integration.
+   * @route GET /api/v1/integrations/{id}/sync
    */
   async getSyncStatus(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.get(`/api/integrations/${id}/sync`);
+    return this.client.request('GET', `/api/v1/integrations/${id}/sync`) as Promise<IntegrationSyncStatus>;
   }
 
   // ===========================================================================

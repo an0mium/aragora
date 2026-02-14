@@ -272,4 +272,109 @@ export class ComputerUseAPI {
       json: data,
     });
   }
+
+  /**
+   * Get a specific policy by ID.
+   *
+   * @param policyId - Policy ID
+   * @returns Policy details
+   */
+  async getPolicy(policyId: string): Promise<ComputerUsePolicy> {
+    return this.client.request('GET', `/api/v1/computer-use/policies/${policyId}`);
+  }
+
+  // =========================================================================
+  // Actions (additional)
+  // =========================================================================
+
+  /**
+   * List available computer use actions.
+   *
+   * @returns Available action types
+   */
+  async listActions(): Promise<{
+    actions: Record<string, unknown>[];
+  }> {
+    return this.client.request('GET', '/api/v1/computer-use/actions');
+  }
+
+  /**
+   * Get details for a specific action.
+   *
+   * @param actionId - Action ID
+   * @returns Action details
+   */
+  async getAction(actionId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/computer-use/actions/${actionId}`);
+  }
+
+  // =========================================================================
+  // Approvals
+  // =========================================================================
+
+  /**
+   * List approval requests.
+   *
+   * @param options - Filtering options
+   * @returns List of approval requests
+   */
+  async listApprovals(options?: {
+    status?: string;
+    limit?: number;
+  }): Promise<{
+    approvals: Record<string, unknown>[];
+    count: number;
+  }> {
+    const params: Record<string, unknown> = {};
+    if (options?.limit !== undefined) params.limit = options.limit;
+    if (options?.status) params.status = options.status;
+
+    return this.client.request('GET', '/api/v1/computer-use/approvals', {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+  }
+
+  /**
+   * Get a specific approval request.
+   *
+   * @param requestId - Approval request ID
+   * @returns Approval request details
+   */
+  async getApproval(requestId: string): Promise<{
+    approval: Record<string, unknown>;
+  }> {
+    return this.client.request('GET', `/api/v1/computer-use/approvals/${requestId}`);
+  }
+
+  /**
+   * Approve a pending approval request.
+   *
+   * @param requestId - Approval request ID
+   * @param reason - Optional reason for approval
+   * @returns Approval confirmation
+   */
+  async approveApproval(requestId: string, reason?: string): Promise<{
+    approved: boolean;
+    request_id: string;
+  }> {
+    return this.client.request('POST', `/api/v1/computer-use/approvals/${requestId}/approve`, {
+      json: reason ? { reason } : undefined,
+    });
+  }
+
+  /**
+   * Deny a pending approval request.
+   *
+   * @param requestId - Approval request ID
+   * @param reason - Optional reason for denial
+   * @returns Denial confirmation
+   */
+  async denyApproval(requestId: string, reason?: string): Promise<{
+    denied: boolean;
+    request_id: string;
+  }> {
+    return this.client.request('POST', `/api/v1/computer-use/approvals/${requestId}/deny`, {
+      json: reason ? { reason } : undefined,
+    });
+  }
 }

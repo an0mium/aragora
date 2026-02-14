@@ -116,4 +116,190 @@ export class LearningAPI {
   async getEvolution(): Promise<LearningEvolutionResponse> {
     return this.client.request('GET', '/api/v1/learning/evolution');
   }
+
+  // ===========================================================================
+  // Training Sessions (v2 Autonomous Learning)
+  // ===========================================================================
+
+  /**
+   * List training sessions with optional filtering.
+   */
+  async listSessions(params?: {
+    status?: string;
+    mode?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ sessions: Record<string, unknown>[]; pagination: Record<string, unknown> }> {
+    return this.client.request('GET', '/api/v1/learning/sessions', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get a specific training session by ID.
+   */
+  async getSession(sessionId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/learning/sessions/${sessionId}`);
+  }
+
+  /**
+   * Create a new training session.
+   */
+  async createSession(body: {
+    name: string;
+    mode?: string;
+    total_epochs?: number;
+    config?: Record<string, unknown>;
+  }): Promise<{ session: Record<string, unknown>; message: string }> {
+    return this.client.request('POST', '/api/v1/learning/sessions', {
+      params: body as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Stop a running training session.
+   */
+  async stopSession(sessionId: string): Promise<{ session: Record<string, unknown>; message: string }> {
+    return this.client.request('POST', `/api/v1/learning/sessions/${sessionId}/stop`);
+  }
+
+  // ===========================================================================
+  // Metrics
+  // ===========================================================================
+
+  /**
+   * Get learning metrics with filtering.
+   */
+  async getMetrics(params?: {
+    session_id?: string;
+    agent_id?: string;
+    limit?: number;
+  }): Promise<{ metrics: Record<string, unknown>[]; count: number }> {
+    return this.client.request('GET', '/api/v1/learning/metrics', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get metrics of a specific type with aggregations.
+   */
+  async getMetricByType(metricType: string): Promise<{
+    metric_type: string;
+    count: number;
+    average: number;
+    min: number;
+    max: number;
+    recent: Record<string, unknown>[];
+  }> {
+    return this.client.request('GET', `/api/v1/learning/metrics/${metricType}`);
+  }
+
+  // ===========================================================================
+  // Feedback
+  // ===========================================================================
+
+  /**
+   * Submit feedback on learning outcomes.
+   */
+  async submitFeedback(body: {
+    feedback_type: string;
+    target_type: string;
+    target_id: string;
+    comment?: string;
+    rating?: number;
+  }): Promise<{ feedback: Record<string, unknown>; message: string }> {
+    return this.client.request('POST', '/api/v1/learning/feedback', {
+      params: body as Record<string, unknown>,
+    });
+  }
+
+  // ===========================================================================
+  // Pattern Details
+  // ===========================================================================
+
+  /**
+   * Get a specific pattern by ID.
+   */
+  async getPattern(patternId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/learning/patterns/${patternId}`);
+  }
+
+  /**
+   * Validate a detected pattern.
+   */
+  async validatePattern(patternId: string): Promise<{ pattern: Record<string, unknown>; message: string }> {
+    return this.client.request('POST', `/api/v1/learning/patterns/${patternId}/validate`);
+  }
+
+  // ===========================================================================
+  // Knowledge
+  // ===========================================================================
+
+  /**
+   * List extracted knowledge items.
+   */
+  async listKnowledge(params?: {
+    verified?: boolean;
+    source_type?: string;
+    limit?: number;
+  }): Promise<{ knowledge: Record<string, unknown>[]; count: number }> {
+    return this.client.request('GET', '/api/v1/learning/knowledge', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get a specific knowledge item by ID.
+   */
+  async getKnowledgeItem(knowledgeId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/learning/knowledge/${knowledgeId}`);
+  }
+
+  /**
+   * Trigger knowledge extraction from debates.
+   */
+  async extractKnowledge(body: {
+    debate_ids: string[];
+    title?: string;
+    content?: string;
+    topics?: string[];
+  }): Promise<{ knowledge: Record<string, unknown>; message: string }> {
+    return this.client.request('POST', '/api/v1/learning/knowledge/extract', {
+      params: body as Record<string, unknown>,
+    });
+  }
+
+  // ===========================================================================
+  // Recommendations and Performance
+  // ===========================================================================
+
+  /**
+   * Get learning recommendations.
+   */
+  async getRecommendations(params?: {
+    limit?: number;
+  }): Promise<{ recommendations: Record<string, unknown>[]; count: number }> {
+    return this.client.request('GET', '/api/v1/learning/recommendations', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get model performance statistics.
+   */
+  async getPerformance(): Promise<{ performance: Record<string, unknown> }> {
+    return this.client.request('GET', '/api/v1/learning/performance');
+  }
+
+  /**
+   * Trigger model calibration.
+   */
+  async calibrate(body?: {
+    agent_ids?: string[];
+    force?: boolean;
+  }): Promise<{ calibration_id: string; metric: Record<string, unknown>; message: string }> {
+    return this.client.request('POST', '/api/v1/learning/calibrate', {
+      params: body as Record<string, unknown>,
+    });
+  }
 }

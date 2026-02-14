@@ -342,4 +342,36 @@ export class GmailAPI {
   async getStats(): Promise<GmailStats> {
     return this.client.request('GET', '/api/v1/gmail/stats');
   }
+
+  /**
+   * List Gmail labels.
+   * @route GET /api/v1/gmail/labels
+   */
+  async listLabels(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gmail/labels');
+  }
+
+  /**
+   * List Gmail filters.
+   * @route GET /api/v1/gmail/filters
+   */
+  async listFilters(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gmail/filters');
+  }
+
+  /**
+   * List Gmail threads.
+   * @route GET /api/v1/gmail/threads
+   */
+  async listThreads(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gmail/threads', { params });
+  }
+
+  /**
+   * List Gmail drafts.
+   * @route GET /api/v1/gmail/drafts
+   */
+  async listDrafts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gmail/drafts', { params });
+  }
 }
