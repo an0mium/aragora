@@ -229,6 +229,7 @@ class GauntletReceiptsMixin:
         summary="Verify decision receipt",
         description="Verify the cryptographic signature and integrity of a signed decision receipt.",
         tags=["Gauntlet", "Receipts"],
+        operation_id="verify_gauntlet_receipt",
         parameters=[
             {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}}
         ],

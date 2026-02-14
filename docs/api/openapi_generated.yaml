@@ -54559,7 +54559,7 @@ paths:
       - Gauntlet
       - Receipts
       description: Verify the cryptographic signature and integrity of a signed decision receipt.
-      operationId: _verify_receipt
+      operationId: verify_gauntlet_receipt
       parameters:
       - name: gauntlet_id
         in: path
@@ -86814,7 +86814,7 @@ paths:
       - Receipts
       - Verification
       description: Verify both receipt integrity checksum and cryptographic signature.
-      operationId: _verify_receipt
+      operationId: verify_receipt_by_id
       parameters:
       - name: receipt_id
         in: path

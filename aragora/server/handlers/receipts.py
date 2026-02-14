@@ -718,6 +718,7 @@ class ReceiptsHandler(BaseHandler):
         summary="Verify receipt integrity and signature",
         description="Verify both receipt integrity checksum and cryptographic signature.",
         tags=["Receipts", "Verification"],
+        operation_id="verify_receipt_by_id",
         parameters=[
             {"name": "receipt_id", "in": "path", "required": True, "schema": {"type": "string"}}
         ],

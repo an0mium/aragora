@@ -101,7 +101,7 @@ This comparison is based on public documentation, source code analysis, and publ
 
 | Feature | Aragora | LangGraph | CrewAI | AutoGen | OpenAI Agents SDK |
 |---|---|---|---|---|---|
-| Knowledge adapters | 28+ (unified Knowledge Mound) | Via LangChain retrievers | Basic RAG | No built-in | No built-in |
+| Knowledge adapters | 33+ (unified Knowledge Mound) | Via LangChain retrievers | Basic RAG | No built-in | No built-in |
 | Cross-debate learning | Yes | No | No | No | No |
 | Contradiction detection | Yes | No | No | No | No |
 | Confidence decay | Yes | No | No | No | No |

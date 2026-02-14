@@ -212,7 +212,7 @@ class TestStreamEventModel:
         assert d["cycle"] == 2
         assert d["event_type"] == "task_complete"
         assert d["agent"] == "gemini"
-        assert d["timestamp"] == "2026-01-07T10:30:00"
+        assert d["timestamp"] == "2026-01-07T10:30:00+00:00"
 
 
 # =============================================================================
