@@ -1137,8 +1137,27 @@ def _reset_handler_global_state():
     """Reset module-level handler state between tests.
 
     Clears persistent data structures that accumulate across test runs,
-    preventing order-dependent failures. Runs after each test.
+    preventing order-dependent failures. Two-phase cleanup (before and
+    after yield) handles pollution from tests in other conftest scopes.
     """
+    # Setup phase: clear critical singletons polluted by other scopes
+    try:
+        import aragora.server.handlers.payments.handler as _ph
+
+        _ph._stripe_connector = None
+        _ph._authnet_connector = None
+    except (ImportError, AttributeError):
+        pass
+    try:
+        import aragora.server.handlers.email.storage as _es
+
+        _es._user_configs.clear()
+        _es._gmail_connector = None
+        _es._prioritizer = None
+        _es._context_service = None
+    except (ImportError, AttributeError):
+        pass
+
     yield
 
     # Reset signup state
