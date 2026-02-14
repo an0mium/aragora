@@ -281,10 +281,13 @@ class TestContextVariables:
     def test_get_or_create_creates_when_missing(self):
         """get_or_create_correlation creates a new context if none exists."""
         from aragora.server.middleware.correlation import (
+            _correlation,
             get_or_create_correlation,
         )
 
         def _check():
+            # Ensure no correlation exists in this context copy
+            _correlation.set(None)
             ctx = get_or_create_correlation()
             assert ctx is not None
             assert ctx.request_id.startswith("req-")
