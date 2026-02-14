@@ -109,6 +109,13 @@ ANALYTICS_STUB_RESPONSES = {
             "cost_trend": [],
         }
     },
+    "/api/analytics/cost/breakdown": {
+        "breakdown": {
+            "total_spend_usd": 0,
+            "agents": [],
+            "budget_utilization_pct": 0,
+        }
+    },
     "/api/analytics/compliance": {
         "compliance": {
             "overall_score": 0,
