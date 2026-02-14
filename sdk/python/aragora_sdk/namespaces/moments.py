@@ -132,6 +132,10 @@ class MomentsAPI:
             params=params if params else None,
         )
 
+    def list_by_type(self) -> dict[str, Any]:
+        """List moments by type."""
+        return self._client.request("GET", "/api/v1/moments/by-type")
+
 
 class AsyncMomentsAPI:
     """
@@ -188,3 +192,7 @@ class AsyncMomentsAPI:
             f"/api/v1/moments/by-type/{moment_type}",
             params=params if params else None,
         )
+
+    async def list_by_type(self) -> dict[str, Any]:
+        """List moments by type."""
+        return await self._client.request("GET", "/api/v1/moments/by-type")

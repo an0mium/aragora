@@ -355,6 +355,14 @@ class BudgetsAPI:
         params: dict[str, Any] = {"period": period, "limit": limit}
         return self._client._request("GET", "/api/v1/budgets/trends", params=params)
 
+    def add_single_override(self, budget_id: str) -> dict[str, Any]:
+        """Add a budget override."""
+        return self._client.request("POST", f"/api/v1/budgets/{budget_id}/override")
+
+    def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
+        """Remove a budget override."""
+        return self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
+
 
 class AsyncBudgetsAPI:
     """Asynchronous budgets API."""
@@ -554,3 +562,11 @@ class AsyncBudgetsAPI:
         """Get organization-wide spending trends across all budgets."""
         params: dict[str, Any] = {"period": period, "limit": limit}
         return await self._client._request("GET", "/api/v1/budgets/trends", params=params)
+
+    async def add_single_override(self, budget_id: str) -> dict[str, Any]:
+        """Add a budget override."""
+        return await self._client.request("POST", f"/api/v1/budgets/{budget_id}/override")
+
+    async def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
+        """Remove a budget override."""
+        return await self._client.request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")

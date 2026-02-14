@@ -423,6 +423,34 @@ class IntegrationsAPI:
         """Test specific platform integration (v1)."""
         return self._client.request("POST", f"/api/v1/integrations/{platform}/test", json={})
 
+    def uninstall_discord(self) -> dict[str, Any]:
+        """Uninstall Discord integration."""
+        return self._client.request("POST", "/api/v1/integrations/discord/uninstall")
+
+    def refresh_teams(self) -> dict[str, Any]:
+        """Refresh Teams integration."""
+        return self._client.request("POST", "/api/v1/integrations/teams/refresh")
+
+    def get_v2_stats(self) -> dict[str, Any]:
+        """Get integration stats (v2)."""
+        return self._client.request("GET", "/api/v2/integrations/stats")
+
+    def get_wizard_providers(self) -> dict[str, Any]:
+        """Get wizard providers."""
+        return self._client.request("GET", "/api/v2/integrations/wizard/providers")
+
+    def get_wizard_status(self) -> dict[str, Any]:
+        """Get wizard status."""
+        return self._client.request("GET", "/api/v2/integrations/wizard/status")
+
+    def validate_wizard(self) -> dict[str, Any]:
+        """Validate wizard configuration."""
+        return self._client.request("POST", "/api/v2/integrations/wizard/validate")
+
+    def get_integration_health(self, integration_id: str) -> dict[str, Any]:
+        """Get integration health."""
+        return self._client.request("GET", f"/api/v2/integrations/{integration_id}/health")
+
 
 class AsyncIntegrationsAPI:
     """Asynchronous integrations API."""
@@ -744,3 +772,31 @@ class AsyncIntegrationsAPI:
     async def test_platform(self, platform: str) -> dict[str, Any]:
         """Test specific platform integration (v1)."""
         return await self._client.request("POST", f"/api/v1/integrations/{platform}/test", json={})
+
+    async def uninstall_discord(self) -> dict[str, Any]:
+        """Uninstall Discord integration."""
+        return await self._client.request("POST", "/api/v1/integrations/discord/uninstall")
+
+    async def refresh_teams(self) -> dict[str, Any]:
+        """Refresh Teams integration."""
+        return await self._client.request("POST", "/api/v1/integrations/teams/refresh")
+
+    async def get_v2_stats(self) -> dict[str, Any]:
+        """Get integration stats (v2)."""
+        return await self._client.request("GET", "/api/v2/integrations/stats")
+
+    async def get_wizard_providers(self) -> dict[str, Any]:
+        """Get wizard providers."""
+        return await self._client.request("GET", "/api/v2/integrations/wizard/providers")
+
+    async def get_wizard_status(self) -> dict[str, Any]:
+        """Get wizard status."""
+        return await self._client.request("GET", "/api/v2/integrations/wizard/status")
+
+    async def validate_wizard(self) -> dict[str, Any]:
+        """Validate wizard configuration."""
+        return await self._client.request("POST", "/api/v2/integrations/wizard/validate")
+
+    async def get_integration_health(self, integration_id: str) -> dict[str, Any]:
+        """Get integration health."""
+        return await self._client.request("GET", f"/api/v2/integrations/{integration_id}/health")

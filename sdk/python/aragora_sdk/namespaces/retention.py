@@ -80,6 +80,11 @@ class RetentionAPI:
             "GET", "/api/v1/retention/expiring", params=params if params else None
         )
 
+    def execute_policy(self, policy_id: str) -> dict[str, Any]:
+        """Execute a retention policy."""
+        return self._client.request("POST", f"/api/v1/retention/policies/{policy_id}/execute")
+
+
 class AsyncRetentionAPI:
     """
     Asynchronous Retention API.
@@ -111,3 +116,7 @@ class AsyncRetentionAPI:
         return await self._client.request(
             "GET", "/api/v1/retention/expiring", params=params if params else None
         )
+
+    async def execute_policy(self, policy_id: str) -> dict[str, Any]:
+        """Execute a retention policy."""
+        return await self._client.request("POST", f"/api/v1/retention/policies/{policy_id}/execute")

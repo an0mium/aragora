@@ -558,6 +558,10 @@ class AnalyticsAPI:
             params["org_id"] = org_id
         return self._client.request("GET", "/api/analytics/deliberations/consensus", params=params)
 
+    def get_agent_performance(self, agent_id: str) -> dict[str, Any]:
+        """Get performance metrics for a specific agent."""
+        return self._client.request("GET", f"/api/v1/analytics/agents/{agent_id}/performance")
+
 
 class AsyncAnalyticsAPI:
     """
@@ -814,3 +818,7 @@ class AsyncAnalyticsAPI:
         if granularity:
             params["granularity"] = granularity
         return await self._client.request("GET", "/api/v1/analytics/trends", params=params)
+
+    async def get_agent_performance(self, agent_id: str) -> dict[str, Any]:
+        """Get performance metrics for a specific agent."""
+        return await self._client.request("GET", f"/api/v1/analytics/agents/{agent_id}/performance")

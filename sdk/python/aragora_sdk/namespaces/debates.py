@@ -450,6 +450,30 @@ class DebatesAPI:
         data: dict[str, Any] = {"task": task, **kwargs}
         return self._client.request("POST", "/api/debate", json=data)
 
+    def get(self, debate_id: str) -> dict[str, Any]:
+        """Get a debate by ID."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}")
+
+    def get_by_slug(self, slug: str) -> dict[str, Any]:
+        """Get a debate by slug."""
+        return self._client.request("GET", f"/api/v1/debates/slug/{slug}")
+
+    def export_format(self, debate_id: str, format: str) -> dict[str, Any]:
+        """Export a debate in a specific format."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/export/{format}")
+
+    def get_graph_stats(self, debate_id: str) -> dict[str, Any]:
+        """Get graph statistics for a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/graph/stats")
+
+    def get_meta_critique(self, debate_id: str) -> dict[str, Any]:
+        """Get meta-critique for a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/meta-critique")
+
+    def get_red_team(self, debate_id: str) -> dict[str, Any]:
+        """Get red team analysis for a debate."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
+
 
 class AsyncDebatesAPI:
     """
@@ -870,3 +894,27 @@ class AsyncDebatesAPI:
         """Create a debate via the non-versioned quick endpoint."""
         data: dict[str, Any] = {"task": task, **kwargs}
         return await self._client.request("POST", "/api/debate", json=data)
+
+    async def get(self, debate_id: str) -> dict[str, Any]:
+        """Get a debate by ID."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}")
+
+    async def get_by_slug(self, slug: str) -> dict[str, Any]:
+        """Get a debate by slug."""
+        return await self._client.request("GET", f"/api/v1/debates/slug/{slug}")
+
+    async def export_format(self, debate_id: str, format: str) -> dict[str, Any]:
+        """Export a debate in a specific format."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/export/{format}")
+
+    async def get_graph_stats(self, debate_id: str) -> dict[str, Any]:
+        """Get graph statistics for a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/graph/stats")
+
+    async def get_meta_critique(self, debate_id: str) -> dict[str, Any]:
+        """Get meta-critique for a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/meta-critique")
+
+    async def get_red_team(self, debate_id: str) -> dict[str, Any]:
+        """Get red team analysis for a debate."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")

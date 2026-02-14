@@ -136,6 +136,46 @@ class GauntletAPI:
             time.sleep(poll_interval)
         return self.get_result(gauntlet_id)
 
+    def list(self) -> dict[str, Any]:
+        """List gauntlet runs."""
+        return self._client.request("GET", "/api/v1/gauntlet")
+
+    def list_heatmaps(self) -> dict[str, Any]:
+        """List gauntlet heatmaps."""
+        return self._client.request("GET", "/api/v1/gauntlet/heatmaps")
+
+    def get_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Get a heatmap."""
+        return self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}")
+
+    def export_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Export a heatmap."""
+        return self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export")
+
+    def list_receipts(self) -> dict[str, Any]:
+        """List receipts."""
+        return self._client.request("GET", "/api/v1/gauntlet/receipts")
+
+    def export_receipt_bundle(self) -> dict[str, Any]:
+        """Export receipt bundle."""
+        return self._client.request("POST", "/api/v1/gauntlet/receipts/export/bundle")
+
+    def get_receipt_by_id(self, receipt_id: str) -> dict[str, Any]:
+        """Get a receipt by ID."""
+        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}")
+
+    def export_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Export a receipt."""
+        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export")
+
+    def stream_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Stream a receipt."""
+        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream")
+
+    def compare(self, gauntlet_id: str) -> dict[str, Any]:
+        """Compare gauntlet runs."""
+        return self._client.request("GET", f"/api/v1/gauntlet/{gauntlet_id}/compare")
+
 
 class AsyncGauntletAPI:
     """
@@ -219,3 +259,43 @@ class AsyncGauntletAPI:
                 return status
             await asyncio.sleep(poll_interval)
         return await self.get_result(gauntlet_id)
+
+    async def list(self) -> dict[str, Any]:
+        """List gauntlet runs."""
+        return await self._client.request("GET", "/api/v1/gauntlet")
+
+    async def list_heatmaps(self) -> dict[str, Any]:
+        """List gauntlet heatmaps."""
+        return await self._client.request("GET", "/api/v1/gauntlet/heatmaps")
+
+    async def get_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Get a heatmap."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}")
+
+    async def export_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Export a heatmap."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export")
+
+    async def list_receipts(self) -> dict[str, Any]:
+        """List receipts."""
+        return await self._client.request("GET", "/api/v1/gauntlet/receipts")
+
+    async def export_receipt_bundle(self) -> dict[str, Any]:
+        """Export receipt bundle."""
+        return await self._client.request("POST", "/api/v1/gauntlet/receipts/export/bundle")
+
+    async def get_receipt_by_id(self, receipt_id: str) -> dict[str, Any]:
+        """Get a receipt by ID."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}")
+
+    async def export_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Export a receipt."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export")
+
+    async def stream_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Stream a receipt."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream")
+
+    async def compare(self, gauntlet_id: str) -> dict[str, Any]:
+        """Compare gauntlet runs."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/{gauntlet_id}/compare")

@@ -52,6 +52,11 @@ class ExplainabilityAPI:
             params={"decision_1": decision_id_1, "decision_2": decision_id_2},
         )
 
+    def list_explanations(self) -> dict[str, Any]:
+        """List explanations."""
+        return self._client.request("GET", "/api/v1/explain")
+
+
 class AsyncExplainabilityAPI:
     """
     Asynchronous Explainability API.
@@ -79,3 +84,7 @@ class AsyncExplainabilityAPI:
             "/api/v1/explainability/compare",
             params={"decision_1": decision_id_1, "decision_2": decision_id_2},
         )
+
+    async def list_explanations(self) -> dict[str, Any]:
+        """List explanations."""
+        return await self._client.request("GET", "/api/v1/explain")

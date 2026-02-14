@@ -275,6 +275,23 @@ class WorkflowsAPI:
         """
         return self._client.request("GET", f"/api/v1/workflows/executions/{execution_id}")
 
+    def execute(self, workflow_id: str) -> dict[str, Any]:
+        """Execute a workflow."""
+        return self._client.request("POST", f"/api/v1/workflows/{workflow_id}/execute")
+
+    def get_versions(self, workflow_id: str) -> dict[str, Any]:
+        """Get workflow versions."""
+        return self._client.request("GET", f"/api/v1/workflows/{workflow_id}/versions")
+
+    def instantiate_pattern(self, pattern_id: str) -> dict[str, Any]:
+        """Instantiate a workflow pattern."""
+        return self._client.request("POST", f"/api/v1/workflow/patterns/{pattern_id}/instantiate")
+
+    def run_template(self, template_id: str) -> dict[str, Any]:
+        """Run a workflow template."""
+        return self._client.request("POST", f"/api/v1/workflow/templates/{template_id}/run")
+
+
 class AsyncWorkflowsAPI:
     """
     Asynchronous Workflows API.
@@ -433,3 +450,19 @@ class AsyncWorkflowsAPI:
         return await self._client.request(
             "GET", f"/api/v1/workflows/executions/{execution_id}"
         )
+
+    async def execute(self, workflow_id: str) -> dict[str, Any]:
+        """Execute a workflow."""
+        return await self._client.request("POST", f"/api/v1/workflows/{workflow_id}/execute")
+
+    async def get_versions(self, workflow_id: str) -> dict[str, Any]:
+        """Get workflow versions."""
+        return await self._client.request("GET", f"/api/v1/workflows/{workflow_id}/versions")
+
+    async def instantiate_pattern(self, pattern_id: str) -> dict[str, Any]:
+        """Instantiate a workflow pattern."""
+        return await self._client.request("POST", f"/api/v1/workflow/patterns/{pattern_id}/instantiate")
+
+    async def run_template(self, template_id: str) -> dict[str, Any]:
+        """Run a workflow template."""
+        return await self._client.request("POST", f"/api/v1/workflow/templates/{template_id}/run")

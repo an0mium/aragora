@@ -101,6 +101,11 @@ class WorkflowTemplatesAPI:
         """
         return self._client.request("GET", f"/api/v1/workflow/templates/{template_id}/package")
 
+    def get_by_id(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow template by ID."""
+        return self._client.request("GET", f"/api/v1/workflow-templates/{template_id}")
+
+
 class AsyncWorkflowTemplatesAPI:
     """
     Asynchronous Workflow Templates API.
@@ -189,3 +194,6 @@ class AsyncWorkflowTemplatesAPI:
             "GET", f"/api/v1/workflow/templates/{template_id}/package"
         )
 
+    async def get_by_id(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow template by ID."""
+        return await self._client.request("GET", f"/api/v1/workflow-templates/{template_id}")

@@ -214,6 +214,14 @@ class AgentsAPI:
             params["period"] = period
         return self._client.request("GET", "/api/v1/rankings", params=params)
 
+    def get_head_to_head_summary(self, name: str) -> dict[str, Any]:
+        """Get head-to-head summary for an agent."""
+        return self._client.request("GET", f"/api/v1/agent/{name}/head-to-head")
+
+    def get_opponent_briefing_summary(self, name: str) -> dict[str, Any]:
+        """Get opponent briefing summary for an agent."""
+        return self._client.request("GET", f"/api/v1/agent/{name}/opponent-briefing")
+
 
 class AsyncAgentsAPI:
     """
@@ -401,3 +409,11 @@ class AsyncAgentsAPI:
         if period:
             params["period"] = period
         return await self._client.request("GET", "/api/v1/rankings", params=params)
+
+    async def get_head_to_head_summary(self, name: str) -> dict[str, Any]:
+        """Get head-to-head summary for an agent."""
+        return await self._client.request("GET", f"/api/v1/agent/{name}/head-to-head")
+
+    async def get_opponent_briefing_summary(self, name: str) -> dict[str, Any]:
+        """Get opponent briefing summary for an agent."""
+        return await self._client.request("GET", f"/api/v1/agent/{name}/opponent-briefing")

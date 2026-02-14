@@ -96,6 +96,31 @@ class WebhooksAPI:
         """
         return self._client.request("GET", "/api/v1/webhooks/events")
 
+    def get(self, webhook_id: str) -> dict[str, Any]:
+        """Get a webhook by ID."""
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}")
+
+    def delete(self, webhook_id: str) -> dict[str, Any]:
+        """Delete a webhook."""
+        return self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}")
+
+    def update(self, webhook_id: str) -> dict[str, Any]:
+        """Update a webhook."""
+        return self._client.request("PATCH", f"/api/v1/webhooks/{webhook_id}")
+
+    def get_dead_letter(self, dead_letter_id: str) -> dict[str, Any]:
+        """Get dead letter entry."""
+        return self._client.request("GET", f"/api/v1/webhooks/dead-letter/{dead_letter_id}")
+
+    def test_slo(self) -> dict[str, Any]:
+        """Test webhook SLO."""
+        return self._client.request("POST", "/api/v1/webhooks/slo/test")
+
+    def test_webhook(self, webhook_id: str) -> dict[str, Any]:
+        """Test a webhook."""
+        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/test")
+
+
 class AsyncWebhooksAPI:
     """
     Asynchronous Webhooks API.
@@ -147,3 +172,27 @@ class AsyncWebhooksAPI:
     async def get_events(self) -> dict[str, Any]:
         """Get available webhook event types."""
         return await self._client.request("GET", "/api/v1/webhooks/events")
+
+    async def get(self, webhook_id: str) -> dict[str, Any]:
+        """Get a webhook by ID."""
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}")
+
+    async def delete(self, webhook_id: str) -> dict[str, Any]:
+        """Delete a webhook."""
+        return await self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}")
+
+    async def update(self, webhook_id: str) -> dict[str, Any]:
+        """Update a webhook."""
+        return await self._client.request("PATCH", f"/api/v1/webhooks/{webhook_id}")
+
+    async def get_dead_letter(self, dead_letter_id: str) -> dict[str, Any]:
+        """Get dead letter entry."""
+        return await self._client.request("GET", f"/api/v1/webhooks/dead-letter/{dead_letter_id}")
+
+    async def test_slo(self) -> dict[str, Any]:
+        """Test webhook SLO."""
+        return await self._client.request("POST", "/api/v1/webhooks/slo/test")
+
+    async def test_webhook(self, webhook_id: str) -> dict[str, Any]:
+        """Test a webhook."""
+        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/test")

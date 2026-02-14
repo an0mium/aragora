@@ -40,6 +40,11 @@ class ClassifyAPI:
             body["threshold"] = threshold
         return self._client.request("POST", "/api/v1/classify", json=body)
 
+    def get_policy(self, policy_id: str) -> dict[str, Any]:
+        """Get a classification policy."""
+        return self._client.request("GET", f"/api/v1/classify/policy/{policy_id}")
+
+
 class AsyncClassifyAPI:
     """Asynchronous Classify API for content classification."""
 
@@ -69,3 +74,6 @@ class AsyncClassifyAPI:
             body["threshold"] = threshold
         return await self._client.request("POST", "/api/v1/classify", json=body)
 
+    async def get_policy(self, policy_id: str) -> dict[str, Any]:
+        """Get a classification policy."""
+        return await self._client.request("GET", f"/api/v1/classify/policy/{policy_id}")

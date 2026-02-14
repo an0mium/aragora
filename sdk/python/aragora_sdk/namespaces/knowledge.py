@@ -304,6 +304,54 @@ class KnowledgeAPI:
         """Sync a knowledge mound entry to a target."""
         return self._client.request("POST", f"/api/v1/knowledge/mound/sync/{target_id}")
 
+    def create_relations(self) -> dict[str, Any]:
+        """Create fact relations."""
+        return self._client.request("POST", "/api/v1/knowledge/facts/relations")
+
+    def delete_fact(self, fact_id: str) -> dict[str, Any]:
+        """Delete a fact."""
+        return self._client.request("DELETE", f"/api/v1/knowledge/facts/{fact_id}")
+
+    def get_fact(self, fact_id: str) -> dict[str, Any]:
+        """Get a fact by ID."""
+        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}")
+
+    def update_fact(self, fact_id: str) -> dict[str, Any]:
+        """Update a fact."""
+        return self._client.request("PUT", f"/api/v1/knowledge/facts/{fact_id}")
+
+    def get_fact_contradictions(self, fact_id: str) -> dict[str, Any]:
+        """Get contradictions for a fact."""
+        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions")
+
+    def get_fact_relations(self, fact_id: str) -> dict[str, Any]:
+        """Get relations for a fact."""
+        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/relations")
+
+    def add_fact_relation(self, fact_id: str) -> dict[str, Any]:
+        """Add a relation to a fact."""
+        return self._client.request("POST", f"/api/v1/knowledge/facts/{fact_id}/relations")
+
+    def verify_fact(self, fact_id: str) -> dict[str, Any]:
+        """Verify a fact."""
+        return self._client.request("POST", f"/api/v1/knowledge/facts/{fact_id}/verify")
+
+    def get_governance_audit_user(self) -> dict[str, Any]:
+        """Get governance audit for user."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user")
+
+    def list_governance_permissions(self) -> dict[str, Any]:
+        """List governance permissions."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/governance/permissions")
+
+    def list_revalidation(self) -> dict[str, Any]:
+        """List entries pending revalidation."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/revalidate")
+
+    def list_sync(self) -> dict[str, Any]:
+        """List sync status."""
+        return self._client.request("GET", "/api/v1/knowledge/mound/sync")
+
 
 class AsyncKnowledgeAPI:
     """Asynchronous Knowledge Base API."""
@@ -933,3 +981,51 @@ class AsyncKnowledgeAPI:
             "/api/v1/knowledge/mound/curation/history",
             params={"limit": limit, "offset": offset},
         )
+
+    async def create_relations(self) -> dict[str, Any]:
+        """Create fact relations."""
+        return await self._client.request("POST", "/api/v1/knowledge/facts/relations")
+
+    async def delete_fact(self, fact_id: str) -> dict[str, Any]:
+        """Delete a fact."""
+        return await self._client.request("DELETE", f"/api/v1/knowledge/facts/{fact_id}")
+
+    async def get_fact(self, fact_id: str) -> dict[str, Any]:
+        """Get a fact by ID."""
+        return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}")
+
+    async def update_fact(self, fact_id: str) -> dict[str, Any]:
+        """Update a fact."""
+        return await self._client.request("PUT", f"/api/v1/knowledge/facts/{fact_id}")
+
+    async def get_fact_contradictions(self, fact_id: str) -> dict[str, Any]:
+        """Get contradictions for a fact."""
+        return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions")
+
+    async def get_fact_relations(self, fact_id: str) -> dict[str, Any]:
+        """Get relations for a fact."""
+        return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/relations")
+
+    async def add_fact_relation(self, fact_id: str) -> dict[str, Any]:
+        """Add a relation to a fact."""
+        return await self._client.request("POST", f"/api/v1/knowledge/facts/{fact_id}/relations")
+
+    async def verify_fact(self, fact_id: str) -> dict[str, Any]:
+        """Verify a fact."""
+        return await self._client.request("POST", f"/api/v1/knowledge/facts/{fact_id}/verify")
+
+    async def get_governance_audit_user(self) -> dict[str, Any]:
+        """Get governance audit for user."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user")
+
+    async def list_governance_permissions(self) -> dict[str, Any]:
+        """List governance permissions."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/governance/permissions")
+
+    async def list_revalidation(self) -> dict[str, Any]:
+        """List entries pending revalidation."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/revalidate")
+
+    async def list_sync(self) -> dict[str, Any]:
+        """List sync status."""
+        return await self._client.request("GET", "/api/v1/knowledge/mound/sync")
