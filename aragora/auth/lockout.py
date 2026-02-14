@@ -313,7 +313,14 @@ class LockoutTracker:
         if use_redis:
             self._redis_backend = RedisLockoutBackend(redis_url)
             if not self._redis_backend.is_available():
-                logger.info("Redis unavailable, using in-memory lockout storage")
+                _env = os.environ.get("ARAGORA_ENV", "development").lower()
+                if _env in ("production", "staging"):
+                    logger.warning(
+                        "Redis unavailable in %s, using in-memory lockout storage. "
+                        "Lockout state will NOT be shared across instances.", _env
+                    )
+                else:
+                    logger.info("Redis unavailable, using in-memory lockout storage")
                 self._redis_backend = None
 
     @property

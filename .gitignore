@@ -147,6 +147,7 @@ aragora/live/playwright/.cache/
 
 # Local backups
 backups/
+.env_backups/
 :memory:
 
 # Convoy runtime state

@@ -13,6 +13,7 @@ Handles password-related endpoints:
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import os
 from typing import TYPE_CHECKING
@@ -251,6 +252,9 @@ def send_password_reset_email(user, reset_link: str) -> None:
             async with EmailIntegration(config) as email_client:
                 recipient = EmailRecipient(email=user.email, name=user.name)
 
+                safe_name = html.escape(user.name) if user.name else "there"
+                safe_link = html.escape(reset_link)
+
                 subject = "Reset Your Password - Aragora"
                 html_body = f"""
 <!DOCTYPE html>
@@ -272,15 +276,15 @@ def send_password_reset_email(user, reset_link: str) -> None:
             <h1>Password Reset Request</h1>
         </div>
         <div class="content">
-            <p>Hi {user.name or "there"},</p>
+            <p>Hi {safe_name},</p>
             <p>We received a request to reset your password for your Aragora account.</p>
             <p>Click the button below to reset your password:</p>
             <div style="text-align: center;">
-                <a href="{reset_link}" class="button">Reset Password</a>
+                <a href="{safe_link}" class="button">Reset Password</a>
             </div>
             <p style="font-size: 13px; color: #666;">
                 Or copy and paste this link into your browser:<br>
-                <code style="word-break: break-all;">{reset_link}</code>
+                <code style="word-break: break-all;">{safe_link}</code>
             </p>
             <div class="warning">
                 <strong>Security Notice:</strong> This link will expire in 1 hour.

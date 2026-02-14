@@ -38,11 +38,15 @@ BCRYPT_ROUNDS = 12  # Cost factor for bcrypt
 # Security: Allow SHA-256 fallback only when explicitly enabled
 # Set ARAGORA_ALLOW_INSECURE_PASSWORDS=1 for testing (NOT for production)
 # Note: bcrypt is a required dependency, so fallback should never be needed
-ALLOW_INSECURE_PASSWORDS = os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", "").lower() in (
+_insecure_requested = os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", "").lower() in (
     "1",
     "true",
     "yes",
 )
+_is_production = os.environ.get("ARAGORA_ENV", "development").lower() in ("production", "staging")
+ALLOW_INSECURE_PASSWORDS = _insecure_requested and not _is_production
+if _insecure_requested and _is_production:
+    logger.warning("ARAGORA_ALLOW_INSECURE_PASSWORDS ignored in production/staging")
 
 
 class SubscriptionTier(Enum):

@@ -822,7 +822,7 @@ def clear_clipboard() -> None:
             except FileNotFoundError:
                 subprocess.run(["xsel", "--clipboard", "--input"], input=b"", check=False)
         elif system == "Windows":
-            subprocess.run(["clip"], input=b"", check=False, shell=True)
+            subprocess.run(["clip"], input=b"", check=False)
     except Exception:
         pass  # Best effort
 
