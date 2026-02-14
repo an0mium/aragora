@@ -3,6 +3,15 @@
 
 ## [Unreleased]
 
+### CI/CD Fixes
+- Security scanner: `# nosec` inline suppression for false positives, `calculate_summary()` excludes suppressed findings
+- Gauntlet workflow: `paths-ignore` skips docs-only PRs; 1 critical + 3 high routes to NEEDS_REVIEW instead of auto-REJECT
+- Redis Sentinel: created `deploy/redis/` config files (master, replica, sentinel); sentinel mounts now writable
+- Security scanner CI step fails directly instead of two-step continue-on-error pattern
+- Removed double failure masking (`continue-on-error` + `|| true`) in test analysis CI job
+- Fixed gauntlet orchestrator test failures (15 tests) by adding pipeline-mode phase methods
+- Fixed ruff E741 lint violations in `aragora/agents/devops/agent.py`
+
 ### aragora-debate v0.2.0
 - Evidence quality analysis (regex-based citation, data, reasoning detection)
 - Hollow consensus detection (detects agents agreeing without substantive evidence)
