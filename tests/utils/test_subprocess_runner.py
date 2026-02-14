@@ -762,19 +762,19 @@ class TestMockedSubprocess:
     @pytest.mark.asyncio
     async def test_async_uses_run_in_executor(self):
         """Async version should use run_in_executor."""
-        with patch("asyncio.get_event_loop") as mock_get_loop:
-            mock_loop = MagicMock()
-            mock_get_loop.return_value = mock_loop
+        # Implementation uses asyncio.get_running_loop(), not get_event_loop()
+        mock_loop = MagicMock()
 
-            # Create a completed future with a mock result
-            future = asyncio.Future()
-            mock_result = MagicMock(returncode=0, stdout="test", stderr="")
-            future.set_result(mock_result)
-            mock_loop.run_in_executor.return_value = future
+        # Create a completed future with a mock result
+        future = asyncio.Future()
+        mock_result = MagicMock(returncode=0, stdout="test", stderr="")
+        future.set_result(mock_result)
+        mock_loop.run_in_executor.return_value = future
 
+        with patch("asyncio.get_running_loop", return_value=mock_loop):
             result = await run_sandboxed(["python", "--version"])
 
-            mock_loop.run_in_executor.assert_called_once()
+        mock_loop.run_in_executor.assert_called_once()
 
     def test_timeout_expired_handled_sync(self):
         """subprocess.TimeoutExpired should be caught in sync version."""

@@ -306,12 +306,13 @@ class TestRedisCacheOperations:
         assert result is False
 
     def test_clear_clears_redis(self, cache_with_redis, mock_redis_client):
-        """Clear should delete all prefixed keys from Redis."""
-        mock_redis_client.keys.return_value = ["aragora:test:key1", "aragora:test:key2"]
+        """Clear should scan and delete all prefixed keys from Redis."""
+        # Implementation uses SCAN (not KEYS) for production safety
+        mock_redis_client.scan.return_value = (0, [b"aragora:test:key1", b"aragora:test:key2"])
         cache_with_redis._memory_cache["key1"] = (time.time(), "v1")
         cache_with_redis._memory_cache["key2"] = (time.time(), "v2")
         count = cache_with_redis.clear()
-        mock_redis_client.keys.assert_called_once_with("aragora:test:*")
+        mock_redis_client.scan.assert_called_once()
         mock_redis_client.delete.assert_called_once()
         assert count == 2
 
