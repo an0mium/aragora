@@ -62,6 +62,9 @@ Repository = "https://github.com/an0mium/aragora/tree/main/aragora-debate"
 Changelog = "https://github.com/an0mium/aragora/blob/main/aragora-debate/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/an0mium/aragora/issues"
 
+[tool.hatch.build.targets.sdist]
+exclude = ["CLAUDE.md", "**/CLAUDE.md", ".nomic/", ".benchmarks/"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/aragora_debate"]
 
