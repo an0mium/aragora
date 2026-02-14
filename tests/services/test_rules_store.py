@@ -406,4 +406,4 @@ class TestRulesStoreClose:
     def test_close(self, store):
         store.close()
         # After close, connection should be None
-        assert getattr(store._local, "connection", None) is None
+        assert store._conn_var.get() is None

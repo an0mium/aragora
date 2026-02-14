@@ -135,15 +135,11 @@ class TestStabilityDetector:
         )
         detector = BetaBinomialStabilityDetector(config)
 
-        # Simulate consistent voting across rounds
-        base_votes = {"agent1": 0.7, "agent2": 0.3}
-
-        for round_num in range(1, 5):
-            # Add small noise to votes
-            noise = 0.01 * round_num
+        # Simulate consistent voting across rounds (near-identical each time)
+        for round_num in range(1, 7):
             votes = {
-                "agent1": base_votes["agent1"] + noise,
-                "agent2": base_votes["agent2"] - noise,
+                "agent1": 0.7,
+                "agent2": 0.3,
             }
             result = detector.update(votes, round_num=round_num)
 

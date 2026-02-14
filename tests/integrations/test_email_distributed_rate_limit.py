@@ -50,8 +50,8 @@ def custom_limits():
         per_minute=10,
         per_hour=50,
         per_day=100,
-        burst_size=5,
-        refill_rate=1.0,
+        burst_size=15,  # Must exceed per_minute to avoid burst limiting in minute tests
+        refill_rate=10.0,
     )
 
 

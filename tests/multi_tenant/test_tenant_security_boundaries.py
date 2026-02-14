@@ -599,7 +599,7 @@ class TestIsolationLevels:
         """Test SOFT level allows shared resources."""
         config = TenantIsolationConfig(
             level=IsolationLevel.SOFT,
-            shared_resources=["system_config"],
+            shared_resources=frozenset(["system_config"]),
         )
         isolation = TenantDataIsolation(config)
 
