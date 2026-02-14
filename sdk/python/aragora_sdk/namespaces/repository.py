@@ -206,6 +206,30 @@ class RepositoryAPI:
             params["offset"] = offset
         return self._client.request("GET", f"/api/v1/repository/{index_id}/entities", params=params)
 
+    def get_repository(self, repo_id: str) -> dict[str, Any]:
+        """
+        Get repository information.
+
+        Args:
+            repo_id: Repository ID
+
+        Returns:
+            Dict with repository metadata, indexing status, and statistics
+        """
+        return self._client.request("GET", f"/api/v1/repository/{repo_id}")
+
+    def delete_repository(self, repo_id: str) -> dict[str, Any]:
+        """
+        Remove an indexed repository.
+
+        Args:
+            repo_id: Repository ID to remove
+
+        Returns:
+            Deletion confirmation
+        """
+        return self._client.request("DELETE", f"/api/v1/repository/{repo_id}")
+
     def get_graph(self, index_id: str) -> dict[str, Any]:
         """
         Get the relationship graph for an indexed repository.
@@ -482,6 +506,14 @@ class AsyncRepositoryAPI:
         return await self._client.request(
             "GET", f"/api/v1/repository/{index_id}/entities", params=params
         )
+
+    async def get_repository(self, repo_id: str) -> dict[str, Any]:
+        """Get repository information."""
+        return await self._client.request("GET", f"/api/v1/repository/{repo_id}")
+
+    async def delete_repository(self, repo_id: str) -> dict[str, Any]:
+        """Remove an indexed repository."""
+        return await self._client.request("DELETE", f"/api/v1/repository/{repo_id}")
 
     async def get_graph(self, index_id: str) -> dict[str, Any]:
         """

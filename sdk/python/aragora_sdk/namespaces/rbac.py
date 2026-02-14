@@ -203,6 +203,48 @@ class RBACAPI:
             params={"user_id": user_id, "role_id": role_id},
         )
 
+    def list_assignments(
+        self,
+        user_id: str | None = None,
+        role_id: str | None = None,
+        org_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List role assignments with optional filtering.
+
+        Args:
+            user_id: Filter by user ID
+            role_id: Filter by role ID
+            org_id: Filter by organization ID
+            limit: Maximum results
+            offset: Pagination offset
+
+        Returns:
+            List of role assignments
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if user_id:
+            params["user_id"] = user_id
+        if role_id:
+            params["role_id"] = role_id
+        if org_id:
+            params["org_id"] = org_id
+        return self._client.request("GET", "/api/v1/rbac/assignments", params=params)
+
+    def delete_assignment(self, assignment_id: str) -> dict[str, Any]:
+        """
+        Delete a role assignment by ID.
+
+        Args:
+            assignment_id: Assignment ID to delete
+
+        Returns:
+            Deletion confirmation
+        """
+        return self._client.request("DELETE", f"/api/v1/rbac/assignments/{assignment_id}")
+
     def check_permission(
         self,
         user_id: str,
@@ -433,6 +475,28 @@ class AsyncRBACAPI:
             "/api/v1/rbac/assignments",
             params={"user_id": user_id, "role_id": role_id},
         )
+
+    async def list_assignments(
+        self,
+        user_id: str | None = None,
+        role_id: str | None = None,
+        org_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List role assignments with optional filtering."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if user_id:
+            params["user_id"] = user_id
+        if role_id:
+            params["role_id"] = role_id
+        if org_id:
+            params["org_id"] = org_id
+        return await self._client.request("GET", "/api/v1/rbac/assignments", params=params)
+
+    async def delete_assignment(self, assignment_id: str) -> dict[str, Any]:
+        """Delete a role assignment by ID."""
+        return await self._client.request("DELETE", f"/api/v1/rbac/assignments/{assignment_id}")
 
     async def check_permission(
         self,
