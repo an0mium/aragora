@@ -1,0 +1,48 @@
+# LiftMode Connector Configuration
+# Phase 1: Gmail only. Other connectors enabled in later phases.
+
+connectors:
+  gmail:
+    enabled: true
+    scopes:
+      - "https://www.googleapis.com/auth/gmail.readonly"
+      - "https://www.googleapis.com/auth/gmail.modify"
+    sync_interval_minutes: 5
+    max_results_per_sync: 100
+    priority_inbox: true
+    auto_label: true
+    agent_config: "agents/email_triage.yaml"
+
+  # ── Phase 2 (future) ──────────────────────────────────────────────
+  shopify:
+    enabled: false
+    # store_url: "liftmode.myshopify.com"
+    # api_key: "${SHOPIFY_API_KEY}"
+    # sync: orders, products, inventory
+
+  zendesk:
+    enabled: false
+    # subdomain: "liftmode"
+    # sync: tickets, users, satisfaction
+
+  shipstation:
+    enabled: false
+    # sync: orders, shipments, labels
+
+  quickbooks:
+    enabled: false
+    # sync: invoices, transactions, reports
+
+  knack:
+    enabled: false
+    # app_id: "${KNACK_APP_ID}"
+    # sync: objects, records
+
+  notion:
+    enabled: false
+    # sync: pages, databases
+
+  slack:
+    enabled: false
+    # Used for briefing webhook only (not full connector)
+    # See SLACK_WEBHOOK_URL in .env

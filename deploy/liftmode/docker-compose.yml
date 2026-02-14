@@ -1,0 +1,97 @@
+# LiftMode Aragora Deployment — Mac Studio M3 Ultra (96GB)
+# Email triage MVP: backend + Redis + PostgreSQL
+#
+# Usage:
+#   cp .env.template .env   # fill in credentials
+#   docker compose up -d
+
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"   # REST API
+      - "8765:8765"   # WebSocket
+    environment:
+      # --- LLM providers ---
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in .env}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      # --- Auth ---
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:?Set ARAGORA_API_TOKEN in .env}
+      - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000
+      # --- Gmail OAuth ---
+      - GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID:?Set GMAIL_CLIENT_ID in .env}
+      - GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET:?Set GMAIL_CLIENT_SECRET in .env}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-${GMAIL_CLIENT_ID}}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-${GMAIL_CLIENT_SECRET}}
+      - GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/api/auth/oauth/google/callback
+      # --- Storage ---
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD:-aragora_prod}@postgres:5432/aragora
+      - ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD:-aragora_prod}@postgres:5432/aragora
+      - ARAGORA_DB_BACKEND=auto
+      - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_STORE_DIR=/app/data/.aragora_beads
+      # --- Environment ---
+      - ARAGORA_ENV=production
+      - ARAGORA_ENVIRONMENT=production
+    volumes:
+      - aragora-data:/app/data
+      - aragora-knowledge:/app/knowledge
+      - aragora-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=aragora
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-aragora_prod}
+      - POSTGRES_DB=aragora
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aragora"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  aragora-data:
+  aragora-knowledge:
+  aragora-logs:
+  redis-data:
+  postgres-data:
+
+networks:
+  default:
+    name: liftmode-aragora

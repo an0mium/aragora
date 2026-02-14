@@ -1,0 +1,100 @@
+# LiftMode Email Triage — Agent Configuration
+# Priority rules, auto-categorization, and escalation thresholds
+# for dietary supplement ecommerce operations.
+
+priority_rules:
+  high:
+    - label: "orders"
+      keywords: ["order", "purchase", "payment", "refund", "chargeback"]
+    - label: "shipping"
+      keywords: ["tracking", "delivery", "shipment", "lost package", "damaged"]
+    - label: "complaints"
+      keywords: ["complaint", "unhappy", "disappointed", "wrong item", "missing"]
+    - label: "regulatory"
+      keywords: ["FDA", "cGMP", "COA", "certificate of analysis", "recall", "compliance"]
+    - label: "returns"
+      keywords: ["return", "RMA", "exchange", "credit"]
+
+  medium:
+    - label: "vendors"
+      keywords: ["supplier", "vendor", "wholesale", "bulk order", "quote", "invoice"]
+    - label: "inventory"
+      keywords: ["stock", "restock", "out of stock", "backorder", "reorder"]
+    - label: "accounts"
+      keywords: ["QuickBooks", "billing", "accounts payable", "accounts receivable"]
+
+  low:
+    - label: "newsletters"
+      keywords: ["unsubscribe", "newsletter", "digest", "weekly update"]
+    - label: "marketing"
+      keywords: ["promotion", "campaign", "SEO", "social media", "ad spend"]
+    - label: "notifications"
+      keywords: ["notification", "alert", "automated", "noreply", "no-reply"]
+
+escalation:
+  # Always flag for human review
+  always_flag:
+    - "legal"
+    - "lawsuit"
+    - "FDA warning"
+    - "adverse event"
+    - "recall"
+    - "chargeback"
+  # Auto-handle if confidence > threshold
+  auto_handle_threshold: 0.85
+
+gmail_labels:
+  # Map categories to Gmail labels (created automatically)
+  high_priority: "LiftMode/Urgent"
+  orders: "LiftMode/Orders"
+  shipping: "LiftMode/Shipping"
+  vendors: "LiftMode/Vendors"
+  regulatory: "LiftMode/Regulatory"
+  low_priority: "LiftMode/Low Priority"
+
+draft_templates:
+  order_status: |
+    Hi {customer_name},
+
+    Thank you for reaching out about your order #{order_id}.
+
+    Your order is currently {status}. {tracking_info}
+
+    Please let us know if you have any other questions.
+
+    Best regards,
+    LiftMode Support
+
+  shipping_eta: |
+    Hi {customer_name},
+
+    Your order #{order_id} shipped via {carrier} on {ship_date}.
+    Tracking number: {tracking_number}
+    Estimated delivery: {eta}
+
+    You can track your package here: {tracking_url}
+
+    Best regards,
+    LiftMode Support
+
+  return_instructions: |
+    Hi {customer_name},
+
+    We're sorry to hear that. We'd be happy to help with your return.
+
+    Please ship the item back to:
+    LiftMode
+    {return_address}
+
+    RMA #: {rma_number}
+
+    Once we receive the item, we'll process your {refund_or_exchange} within 3-5 business days.
+
+    Best regards,
+    LiftMode Support
+
+sync:
+  interval_minutes: 5
+  max_results_per_sync: 100
+  include_spam: false
+  include_trash: false
