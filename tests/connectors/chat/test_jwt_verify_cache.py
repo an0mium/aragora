@@ -14,17 +14,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-try:
-    import jwt
-    from jwt.exceptions import InvalidSignatureError, PyJWTError
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.hazmat.backends import default_backend
-
-    HAS_CRYPTO = True
-except ImportError:
-    HAS_CRYPTO = False
-    jwt = None
+import jwt
+from jwt.exceptions import InvalidSignatureError, PyJWTError  # noqa: F401
+from cryptography.hazmat.primitives import serialization  # noqa: F401
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
 
 
 # ===========================================================================
@@ -35,8 +29,6 @@ except ImportError:
 @pytest.fixture
 def rsa_key_pair():
     """Generate an RSA key pair for testing JWT signatures."""
-    if not HAS_CRYPTO:
-        pytest.skip("Cryptography library not available")
 
     private_key = rsa.generate_private_key(
         public_exponent=65537,

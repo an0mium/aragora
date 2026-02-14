@@ -186,8 +186,7 @@ class TestZ3Backend:
     def test_can_verify_arithmetic(self):
         """Should be able to verify arithmetic claims."""
         backend = Z3Backend()
-        if not backend.is_available:
-            pytest.skip("Z3 not available")
+        assert backend.is_available, "Z3 must be installed"
 
         # can_verify checks if the claim is suitable
         result = backend.can_verify("x > 0 implies x >= 0")
