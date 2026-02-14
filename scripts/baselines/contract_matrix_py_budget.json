@@ -1,0 +1,27 @@
+{
+  "_comment": "Python SDK namespaces with known OpenAPI spec gaps. Remove entries as gaps are closed.",
+  "start_date": "2026-02-14",
+  "initial_total_missing": 20,
+  "namespaces_with_gaps": [
+    "ap_automation",
+    "ar_automation",
+    "audio",
+    "budgets",
+    "checkpoints",
+    "code_review",
+    "cost_management",
+    "decisions",
+    "documents",
+    "index",
+    "laboratory",
+    "marketplace",
+    "media",
+    "monitoring",
+    "persona",
+    "podcast",
+    "replays",
+    "security",
+    "teams",
+    "tenants"
+  ]
+}

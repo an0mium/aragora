@@ -140,6 +140,15 @@ def openapi_endpoints(openapi_spec: dict) -> set[tuple[str, str]]:
 
 # -- Budget loading --
 
+def _load_py_budget() -> set[str]:
+    """Load Python SDK namespaces with known OpenAPI gaps from the budget file."""
+    budget_path = _repo_root() / "scripts/baselines/contract_matrix_py_budget.json"
+    if not budget_path.exists():
+        return set()
+    data = json.loads(budget_path.read_text())
+    return set(data.get("namespaces_with_gaps", []))
+
+
 def _load_ts_budget() -> set[str]:
     """Load TS SDK namespaces with known OpenAPI gaps from the budget file."""
     budget_path = _repo_root() / "scripts/baselines/contract_matrix_ts_budget.json"
@@ -149,6 +158,7 @@ def _load_ts_budget() -> set[str]:
     return set(data.get("namespaces_with_gaps", []))
 
 
+_PY_BUDGET_NAMESPACES = _load_py_budget()
 _TS_BUDGET_NAMESPACES = _load_ts_budget()
 
 
@@ -160,7 +170,7 @@ def test_python_sdk_endpoints_in_openapi(
     namespace: str, openapi_endpoints: set[tuple[str, str]]
 ) -> None:
     """Every endpoint referenced by a Python SDK namespace must exist in OpenAPI."""
-    ns_file = _repo_root() / "sdk/python/aragora/namespaces" / f"{namespace}.py"
+    ns_file = _repo_root() / "sdk/python/aragora_sdk/namespaces" / f"{namespace}.py"
     if not ns_file.exists():
         pytest.skip(f"Namespace file not found: {namespace}.py")
     content = ns_file.read_text()
@@ -168,6 +178,10 @@ def test_python_sdk_endpoints_in_openapi(
     if not sdk_eps:
         pytest.skip(f"No endpoints extracted from {namespace}.py")
     missing = sorted(sdk_eps - openapi_endpoints)
+    if missing and namespace in _PY_BUDGET_NAMESPACES:
+        pytest.xfail(
+            f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec"
+        )
     assert not missing, (
         f"Python SDK namespace '{namespace}' references endpoints not in OpenAPI spec: {missing}"
     )
