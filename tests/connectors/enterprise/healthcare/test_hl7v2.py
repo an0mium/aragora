@@ -1343,5 +1343,5 @@ class TestEdgeCases:
                 async for item in connector.sync_items():
                     items.append(item)
 
-            asyncio.get_event_loop().run_until_complete(collect())
+            asyncio.run(collect())
             assert connector._parsing_errors >= 1

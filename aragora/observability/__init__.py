@@ -53,33 +53,20 @@ from aragora.observability.otlp_export import (
     shutdown_otlp,
 )
 
-# Use new logging module (aragora.logging_config) - the deprecated module
-# (aragora.observability.logging) is kept for backward compatibility but
-# emits deprecation warnings on import.
-from aragora.logging_config import (
-    LogContext,
-    LogContext as correlation_context,  # Backward compat alias
-    StructuredLogger,
-    configure_logging,
-    get_context as get_correlation_id,  # Backward compat alias
-    get_logger,
-    set_context as set_correlation_id,  # Backward compat alias (accepts **kwargs)
-)
-
-# LogConfig doesn't exist in new module - create minimal stub for backward compat
-from dataclasses import dataclass
-
-
-@dataclass
-class LogConfig:
-    """Minimal backward-compatible LogConfig stub.
-
-    Deprecated: Use configure_logging() directly instead.
-    """
-
-    level: str = "INFO"
-    format: str = "json"
-    file_path: str | None = None
+# Import logging APIs from observability.logging which has the canonical
+# implementations with stable signatures (LogConfig, correlation helpers, etc).
+import warnings as _warnings
+with _warnings.catch_warnings():
+    _warnings.simplefilter("ignore", DeprecationWarning)
+    from aragora.observability.logging import (  # noqa: E402
+        LogConfig,
+        StructuredLogger,
+        configure_logging,
+        correlation_context,
+        get_correlation_id,
+        get_logger,
+        set_correlation_id,
+    )
 
 
 from aragora.observability.metrics import (

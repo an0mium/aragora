@@ -194,7 +194,7 @@ class TestBaseConnectorTypingIndicator:
 
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(check())
+        asyncio.run(check())
 
 
 if __name__ == "__main__":
