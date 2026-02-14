@@ -416,6 +416,7 @@ class GauntletResult:
 
     # Timing
     total_duration_ms: int = 0
+    completed_at: str | None = None
 
     @property
     def severity_counts(self) -> dict:

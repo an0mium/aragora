@@ -274,7 +274,7 @@ class DevOpsAgent:
         for pr in prs:
             pr_num = pr.get("number")
             title = pr.get("title", "")
-            labels = [l.get("name", "") for l in pr.get("labels", [])]
+            labels = [label.get("name", "") for label in pr.get("labels", [])]
 
             # Skip PRs already reviewed by the agent
             if "aragora-reviewed" in labels:
@@ -402,7 +402,7 @@ class DevOpsAgent:
             issue_num = issue.get("number")
             title = issue.get("title", "")
             body = issue.get("body", "")
-            existing_labels = [l.get("name", "") for l in issue.get("labels", [])]
+            existing_labels = [label.get("name", "") for label in issue.get("labels", [])]
 
             # Skip already-triaged issues
             if "triaged" in existing_labels:

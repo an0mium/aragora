@@ -15,6 +15,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
@@ -23,6 +24,7 @@ from aragora.auth.lockout import get_lockout_tracker
 from aragora.audit.unified import audit_admin
 from aragora.events.handler_events import emit_handler_event, UPDATED
 from aragora.rbac.decorators import require_permission
+from aragora.server.middleware.mfa import _get_session_manager_from_handler
 
 from ..base import (
     SAFE_ID_PATTERN,
@@ -36,6 +38,9 @@ from ..base import (
 )
 from ..openapi_decorator import api_endpoint
 from ..utils.sanitization import sanitize_user_response
+
+# Maximum age (in seconds) of MFA verification for impersonation (5 minutes)
+MFA_IMPERSONATION_MAX_AGE_SECONDS = 300
 
 if TYPE_CHECKING:
     from aragora.auth.context import AuthorizationContext
@@ -266,6 +271,36 @@ class UserManagementMixin:
         perm_err = self._check_rbac_permission(auth_ctx, PERM_ADMIN_IMPERSONATE, target_user_id)
         if perm_err:
             return perm_err
+
+        # L-1 Security Fix: Require recent MFA verification for impersonation.
+        # Admin must have completed 2FA within the last 5 minutes.
+        mfa_fresh = False
+        try:
+            session_manager = _get_session_manager_from_handler(handler)
+            if session_manager:
+                # Derive token_jti from the Authorization header (same as token blacklist logic)
+                auth_header = ""
+                if hasattr(handler, "headers"):
+                    auth_header = handler.headers.get("Authorization", "")
+                if isinstance(auth_header, str) and auth_header.startswith("Bearer "):
+                    token = auth_header[7:]
+                    token_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
+                    mfa_fresh = session_manager.is_session_mfa_fresh(
+                        auth_ctx.user_id, token_jti, MFA_IMPERSONATION_MAX_AGE_SECONDS
+                    )
+        except Exception as e:
+            logger.warning(f"MFA freshness check failed for impersonation: {e}")
+            mfa_fresh = False
+
+        if not mfa_fresh:
+            logger.warning(
+                f"Admin {auth_ctx.user_id} attempted impersonation without recent MFA verification"
+            )
+            return error_response(
+                "MFA verification required for impersonation",
+                403,
+                code="MFA_STEP_UP_REQUIRED",
+            )
 
         user_store = self._get_user_store()
 

@@ -43,6 +43,19 @@ from aragora.control_plane.leader import (
 
 logger = logging.getLogger(__name__)
 
+
+def _clamp_ttl(value: int, lower: int, upper: int, name: str) -> int:
+    """Clamp a TTL value to [lower, upper] and warn if out of range."""
+    clamped = max(min(value, upper), lower)
+    if clamped != value:
+        logger.warning(
+            "Session TTL %s=%d is outside recommended range [%d, %d]; "
+            "clamped to %d",
+            name, value, lower, upper, clamped,
+        )
+    return clamped
+
+
 # Additional TTL settings for extended session types
 _SESSION_VOICE_TTL = int(os.getenv("ARAGORA_SESSION_VOICE_TTL", "86400"))  # 24 hours
 _SESSION_DEVICE_TTL = int(os.getenv("ARAGORA_SESSION_DEVICE_TTL", "2592000"))  # 30 days
@@ -50,10 +63,26 @@ _SESSION_MAX_VOICE_SESSIONS = int(os.getenv("ARAGORA_SESSION_MAX_VOICE", "1000")
 _SESSION_MAX_DEVICE_SESSIONS = int(os.getenv("ARAGORA_SESSION_MAX_DEVICES", "10000"))
 
 # Configurable session store limits via environment variables
-_SESSION_DEBATE_STATE_TTL = int(os.getenv("ARAGORA_SESSION_DEBATE_TTL", "3600"))
-_SESSION_ACTIVE_LOOP_TTL = int(os.getenv("ARAGORA_SESSION_LOOP_TTL", "86400"))
-_SESSION_AUTH_STATE_TTL = int(os.getenv("ARAGORA_SESSION_AUTH_TTL", "3600"))
-_SESSION_RATE_LIMITER_TTL = int(os.getenv("ARAGORA_SESSION_RATE_LIMIT_TTL", "300"))
+# TTL values are clamped to safe ranges to prevent security issues:
+#   - Auth TTL: [60, 86400] (1 min to 24 hours)
+#   - Debate TTL: [300, 86400] (5 min to 24 hours)
+#   - Rate limiter TTL: [60, 3600] (1 min to 1 hour)
+_SESSION_DEBATE_STATE_TTL = _clamp_ttl(
+    int(os.getenv("ARAGORA_SESSION_DEBATE_TTL", "3600")),
+    300, 86400, "ARAGORA_SESSION_DEBATE_TTL",
+)
+_SESSION_ACTIVE_LOOP_TTL = _clamp_ttl(
+    int(os.getenv("ARAGORA_SESSION_LOOP_TTL", "86400")),
+    300, 86400, "ARAGORA_SESSION_LOOP_TTL",
+)
+_SESSION_AUTH_STATE_TTL = _clamp_ttl(
+    int(os.getenv("ARAGORA_SESSION_AUTH_TTL", "3600")),
+    60, 86400, "ARAGORA_SESSION_AUTH_TTL",
+)
+_SESSION_RATE_LIMITER_TTL = _clamp_ttl(
+    int(os.getenv("ARAGORA_SESSION_RATE_LIMIT_TTL", "300")),
+    60, 3600, "ARAGORA_SESSION_RATE_LIMIT_TTL",
+)
 _SESSION_MAX_DEBATE_STATES = int(os.getenv("ARAGORA_SESSION_MAX_DEBATES", "500"))
 _SESSION_MAX_ACTIVE_LOOPS = int(os.getenv("ARAGORA_SESSION_MAX_LOOPS", "1000"))
 _SESSION_MAX_AUTH_STATES = int(os.getenv("ARAGORA_SESSION_MAX_AUTH", "10000"))

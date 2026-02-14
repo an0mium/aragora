@@ -64,8 +64,9 @@ except Exception as exc:  # noqa: BLE001
     # "library unavailable" and keep secure fallback behavior in SAMLProvider.
     HAS_SAML_LIB = False
     SAML_LIB_IMPORT_ERROR = exc
-    logger.warning(
-        "python3-saml unavailable - SAML authentication fallback only (%s: %s)",
+    logger.critical(
+        "SECURITY: python3-saml unavailable - SAML signature validation disabled (%s: %s). "
+        "Install python3-saml to enable secure SAML authentication.",
         type(exc).__name__,
         exc,
     )
@@ -196,10 +197,11 @@ class SAMLProvider(SSOProvider):
                     {"code": "MISSING_SAML_LIBRARY"},
                 )
             else:
-                logger.warning(
-                    "SECURITY WARNING: Using simplified SAML parser WITHOUT signature validation. "
+                logger.critical(
+                    "SECURITY: Using simplified SAML parser WITHOUT signature validation. "
+                    "Attackers can forge SAML assertions to impersonate any user. "
                     "This is ONLY safe for local testing with trusted IdPs. "
-                    "NEVER use in production!"
+                    "NEVER use in production! Install python3-saml: pip install python3-saml"
                 )
 
     @property
@@ -363,9 +365,11 @@ class SAMLProvider(SSOProvider):
                     "The simplified parser cannot validate XML signatures and is "
                     "unsafe for production. Install with: pip install python3-saml"
                 )
-            logger.warning(
+            logger.critical(
                 "SECURITY: Using simplified SAML parser WITHOUT signature validation. "
-                "This is only acceptable in development/testing environments."
+                "Attackers can forge SAML assertions to impersonate any user. "
+                "This is only acceptable in development/testing environments. "
+                "Install python3-saml: pip install python3-saml"
             )
             return await self._authenticate_simple(saml_response, relay_state)
 

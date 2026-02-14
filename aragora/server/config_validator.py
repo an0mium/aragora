@@ -307,34 +307,59 @@ class ConfigValidator:
         signature validation. Without it, SAML responses cannot be securely
         validated and attackers could forge user identities.
 
+        Pre-flight checks (H-1 security fix):
+        - Attempts to import python3-saml during server startup
+        - If import fails AND environment is production/staging, logs a WARNING
+        - If ARAGORA_ALLOW_UNSAFE_SAML is set in production/staging, logs CRITICAL
+
         Returns:
             (success, error_message) tuple. If success is False, error_message
             contains the error description.
         """
+        env = os.getenv("ARAGORA_ENV", "").lower()
+        is_prod_or_staging = env in ("production", "prod", "staging", "stage")
+
+        # SECURITY: Pre-flight check for unsafe SAML override in production/staging
+        allow_unsafe = os.getenv("ARAGORA_ALLOW_UNSAFE_SAML", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if is_prod_or_staging and allow_unsafe:
+            logger.critical(
+                "SECURITY: ARAGORA_ALLOW_UNSAFE_SAML is set in %s environment. "
+                "This disables SAML signature validation, allowing attackers to "
+                "forge authentication assertions. Remove this variable immediately.",
+                env,
+            )
+
+        # Pre-flight: attempt python3-saml import
+        saml_lib_available = False
+        try:
+            from onelogin.saml2.auth import OneLogin_Saml2_Auth  # noqa: F401
+
+            saml_lib_available = True
+        except Exception:  # noqa: BLE001
+            if is_prod_or_staging:
+                logger.warning(
+                    "SAML pre-flight: python3-saml library is not available in %s. "
+                    "SAML authentication will not have signature validation. "
+                    "Install with: pip install python3-saml",
+                    env,
+                )
+
         # Check if SAML appears to be configured
         saml_configured = any(os.getenv(var) for var in cls.SAML_CONFIG_VARS)
 
         if not saml_configured:
             return True, None  # SAML not configured, not an error
 
-        # SAML is configured - check for library in production
-        is_production = os.getenv("ARAGORA_ENV", "").lower() in (
-            "production",
-            "prod",
-            "staging",
-            "stage",
-        )
-
-        if is_production:
-            try:
-                from onelogin.saml2.auth import OneLogin_Saml2_Auth  # noqa: F401
-
-                return True, None
-            except ImportError:
-                return False, (
-                    "SAML is configured but python3-saml library is not installed. "
-                    "Install with: pip install python3-saml"
-                )
+        # SAML is configured - require library in production/staging
+        if is_prod_or_staging and not saml_lib_available:
+            return False, (
+                "SAML is configured but python3-saml library is not installed. "
+                "Install with: pip install python3-saml"
+            )
 
         # In development, allow without the library (will fail at runtime with clear error)
         return True, None

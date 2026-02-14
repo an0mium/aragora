@@ -509,11 +509,11 @@ class TestHTTPClientPoolRetry:
         )
 
         mock_client = AsyncMock()
-        mock_client.request = AsyncMock(side_effect=Exception("Connection error"))
+        mock_client.request = AsyncMock(side_effect=ConnectionError("Connection error"))
 
         start = time.time()
         with patch.object(pool, "_create_async_client", return_value=mock_client):
-            with pytest.raises(Exception, match="Connection error"):
+            with pytest.raises(ConnectionError, match="Connection error"):
                 await pool.request_with_retry(
                     "mistral",
                     "POST",
@@ -538,11 +538,11 @@ class TestHTTPClientPoolRetry:
         )
 
         mock_client = AsyncMock()
-        mock_client.request = AsyncMock(side_effect=Exception("Error"))
+        mock_client.request = AsyncMock(side_effect=ConnectionError("Error"))
 
         start = time.time()
         with patch.object(pool, "_create_async_client", return_value=mock_client):
-            with pytest.raises(Exception):
+            with pytest.raises(ConnectionError):
                 await pool.request_with_retry(
                     "xai",
                     "GET",

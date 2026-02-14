@@ -673,8 +673,66 @@ class TestGetSystemMetrics:
 class TestImpersonateUser:
     """Tests for _impersonate_user endpoint."""
 
+    def _mock_mfa_fresh(self, handler, is_fresh=True):
+        """Create a mock session manager that reports MFA as fresh or stale."""
+        mock_session_mgr = MagicMock()
+        mock_session_mgr.is_session_mfa_fresh.return_value = is_fresh
+        return patch(
+            "aragora.server.handlers.admin.users._get_session_manager_from_handler",
+            return_value=mock_session_mgr,
+        )
+
     def test_impersonate_user_success(self, admin_handler, mock_http_handler, mock_admin_user):
-        """Test impersonating a user as admin."""
+        """Test impersonating a user as admin with fresh MFA."""
+        # Impersonation requires a Bearer token header for MFA freshness check
+        mock_http_handler.headers["Authorization"] = "Bearer test-jwt-token"
+        with patch.object(admin_handler, "_require_admin") as mock_require:
+            mock_require.return_value = (
+                MockAuthContext(user_id=mock_admin_user.id),
+                None,
+            )
+            with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
+                mock_rbac.return_value = None
+                with self._mock_mfa_fresh(mock_http_handler, is_fresh=True):
+                    with patch(
+                        "aragora.server.handlers.admin.handler.create_access_token"
+                    ) as mock_token:
+                        mock_token.return_value = "impersonation-token-123"
+
+                        result = admin_handler._impersonate_user(mock_http_handler, "user-002")
+
+                        assert result.status_code == 200
+                        data = get_response_data(result)
+                        assert data["token"] == "impersonation-token-123"
+                        assert data["expires_in"] == 3600
+                        assert "warning" in data
+
+    def test_impersonate_user_rejected_without_fresh_mfa(
+        self, admin_handler, mock_http_handler, mock_admin_user
+    ):
+        """Test impersonation is rejected when MFA is not recently verified."""
+        mock_http_handler.headers["Authorization"] = "Bearer test-jwt-token"
+        with patch.object(admin_handler, "_require_admin") as mock_require:
+            mock_require.return_value = (
+                MockAuthContext(user_id=mock_admin_user.id),
+                None,
+            )
+            with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
+                mock_rbac.return_value = None
+                with self._mock_mfa_fresh(mock_http_handler, is_fresh=False):
+                    result = admin_handler._impersonate_user(mock_http_handler, "user-002")
+
+                    assert result.status_code == 403
+                    data = get_response_data(result)
+                    error = data.get("error", {})
+                    error_msg = error.get("message", "") if isinstance(error, dict) else error
+                    assert "MFA verification required" in error_msg
+
+    def test_impersonate_user_rejected_without_session_manager(
+        self, admin_handler, mock_http_handler, mock_admin_user
+    ):
+        """Test impersonation is rejected when session manager is unavailable."""
+        mock_http_handler.headers["Authorization"] = "Bearer test-jwt-token"
         with patch.object(admin_handler, "_require_admin") as mock_require:
             mock_require.return_value = (
                 MockAuthContext(user_id=mock_admin_user.id),
@@ -683,20 +741,20 @@ class TestImpersonateUser:
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
                 with patch(
-                    "aragora.server.handlers.admin.handler.create_access_token"
-                ) as mock_token:
-                    mock_token.return_value = "impersonation-token-123"
-
+                    "aragora.server.handlers.admin.users._get_session_manager_from_handler",
+                    side_effect=Exception("no session manager"),
+                ):
                     result = admin_handler._impersonate_user(mock_http_handler, "user-002")
 
-                    assert result.status_code == 200
+                    assert result.status_code == 403
                     data = get_response_data(result)
-                    assert data["token"] == "impersonation-token-123"
-                    assert data["expires_in"] == 3600
-                    assert "warning" in data
+                    error = data.get("error", {})
+                    error_msg = error.get("message", "") if isinstance(error, dict) else error
+                    assert "MFA verification required" in error_msg
 
     def test_impersonate_user_not_found(self, admin_handler, mock_http_handler, mock_admin_user):
         """Test impersonating a non-existent user."""
+        mock_http_handler.headers["Authorization"] = "Bearer test-jwt-token"
         with patch.object(admin_handler, "_require_admin") as mock_require:
             mock_require.return_value = (
                 MockAuthContext(user_id=mock_admin_user.id),
@@ -704,10 +762,10 @@ class TestImpersonateUser:
             )
             with patch.object(admin_handler, "_check_rbac_permission") as mock_rbac:
                 mock_rbac.return_value = None
+                with self._mock_mfa_fresh(mock_http_handler, is_fresh=True):
+                    result = admin_handler._impersonate_user(mock_http_handler, "non-existent")
 
-                result = admin_handler._impersonate_user(mock_http_handler, "non-existent")
-
-                assert result.status_code == 404
+                    assert result.status_code == 404
 
 
 # ===========================================================================

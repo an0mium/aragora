@@ -1,3 +1,6 @@
+# API proxy to backend (required because static export ignores next.config.js rewrites)
+/api/*  https://api.aragora.ai/api/:splat  200
+
 # SPA-style rewrites for dynamic routes
 /debate/:id  /debate/  200
 /debates/*  /debates/  200
