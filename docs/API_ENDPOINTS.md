@@ -11,6 +11,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Ap Automation](#ap-automation)
 - [UnifiedApprovals](#unifiedapprovals)
 - [Ar Automation](#ar-automation)
+- [Audience Suggestions](#audience-suggestions)
 - [Audit Export](#audit-export)
 - [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
@@ -27,9 +28,11 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Composite](#composite)
 - [ComputerUse](#computeruse)
 - [Consensus](#consensus)
+- [Context Budget](#context-budget)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
 - [Dashboard](#dashboard)
+- [Debate Stats](#debate-stats)
 - [Decision](#decision)
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
@@ -38,6 +41,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Dr Handler](#dr-handler)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
+- [EmailTriage](#emailtriage)
 - [EndpointAnalytics](#endpointanalytics)
 - [ERC8004](#erc8004)
 - [Evaluation](#evaluation)
@@ -45,6 +49,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Explainability](#explainability)
 - [External Agents](#external-agents)
 - [External Integrations](#external-integrations)
+- [Feature Flags](#feature-flags)
 - [Feedback](#feedback)
 - [Gallery](#gallery)
 - [Gastown Dashboard](#gastown-dashboard)
@@ -53,18 +58,21 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [GatewayCredentials](#gatewaycredentials)
 - [Gateway](#gateway)
 - [GatewayHealth](#gatewayhealth)
+- [Gdpr Deletion](#gdpr-deletion)
 - [Genesis](#genesis)
 - [HybridDebate](#hybriddebate)
 - [Inbox Command](#inbox-command)
 - [Integration Management](#integration-management)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
+- [KMAdapterStatus](#kmadapterstatus)
 - [KnowledgeChat](#knowledgechat)
 - [Laboratory](#laboratory)
 - [Marketplace](#marketplace)
 - [Metrics](#metrics)
 - [Metrics Endpoint](#metrics-endpoint)
 - [Ml](#ml)
+- [ModerationAnalytics](#moderationanalytics)
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth Wizard](#oauth-wizard)
@@ -378,6 +386,20 @@ Add customer
 ### `GET` `/api/v1/accounting/ar/customers/{id}/balance`
 
 Get customer balance
+
+---
+
+## Audience Suggestions
+
+Audience suggestion handler for debate audience input.
+
+### `GET` `/api/v1/audience/suggestions`
+
+List clustered suggestions for a debate
+
+### `POST` `/api/v1/audience/suggestions`
+
+Submit a new audience suggestion
 
 ---
 
@@ -913,6 +935,24 @@ Get domain-specific history
 
 ---
 
+## Context Budget
+
+Context budget handler for managing debate prompt token budgets.
+
+### `GET` `/api/v1/context/budget`
+
+Get current context budget configuration
+
+### `PUT` `/api/v1/context/budget`
+
+Update context budget settings
+
+### `POST` `/api/v1/context/budget/estimate`
+
+Estimate token usage for given sections
+
+---
+
 ## Critique
 
 Critique pattern and reputation endpoint handlers.
@@ -984,6 +1024,20 @@ Get available quick actions
 ### `POST` `/api/v1/dashboard/quick-actions/{action}`
 
 Execute quick action
+
+---
+
+## Debate Stats
+
+Debate statistics handler for aggregate debate metrics.
+
+### `GET` `/api/v1/debates/stats`
+
+Get aggregate debate statistics
+
+### `GET` `/api/v1/debates/stats/agents`
+
+Get per-agent statistics
 
 ---
 
@@ -1196,6 +1250,20 @@ List available categories
 ### `POST` `/api/v1/email/categories/learn`
 
 Submit category feedback
+
+---
+
+## EmailTriage
+
+Handler for email triage rules management.
+
+### `GET` `/api/v1/email/triage/rules`
+
+Return current triage rules
+
+### `GET` `/api/v1/email/triage/test`
+
+Test a message against current triage rules
 
 ---
 
@@ -1485,6 +1553,20 @@ Get node definitions
 
 ---
 
+## Feature Flags
+
+Feature flags handler for reading flag values.
+
+### `GET` `/api/v1/feature-flags`
+
+List all feature flags with current values
+
+### `GET` `/api/v1/feature-flags/:name`
+
+Get a specific flag value
+
+---
+
 ## Feedback
 
 User Feedback Collection Handler.
@@ -1638,6 +1720,24 @@ Handle GET /api/v1/gateway/agents/{name}/health
 ### `GET` `/api/v1/gateway/agents/*/health` 🔒
 
 Handle GET /api/v1/gateway/agents/{name}/health
+
+---
+
+## Gdpr Deletion
+
+GDPR Self-Service Deletion Handler.
+
+### `POST` `/api/v1/users/self/deletion`
+
+request  (schedule with grace period)
+
+### `GET` `/api/v1/users/self/deletion`
+
+request   (check status)
+
+### `DELETE` `/api/v1/users/self/deletion`
+
+request   (cancel during grace period)
 
 ---
 
@@ -1833,6 +1933,16 @@ Get scheduled payments
 
 ---
 
+## KMAdapterStatus
+
+Handler for KM adapter status endpoints.
+
+### `GET` `/api/v1/knowledge/adapters` 🔒
+
+List all KM adapters with status information
+
+---
+
 ## KnowledgeChat
 
 HTTP handler for Knowledge + Chat bridge endpoints.
@@ -2008,6 +2118,20 @@ List available ML models/capabilities
 ### `GET` `/api/ml/stats`
 
 Get ML module statistics
+
+---
+
+## ModerationAnalytics
+
+Handler for moderation analytics dashboard endpoints.
+
+### `GET` `/api/v1/moderation/stats`
+
+Return moderation statistics
+
+### `GET` `/api/v1/moderation/queue`
+
+Return pending review items
 
 ---
 
