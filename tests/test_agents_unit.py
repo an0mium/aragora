@@ -891,7 +891,7 @@ class TestKiloCodeAgentConfiguration:
         from aragora.agents.cli_agents import KiloCodeAgent
 
         agent = KiloCodeAgent(name="test")
-        assert agent.provider_id == "gemini-explorer"
+        assert agent.provider_id == "openrouter/google/gemini-3-pro-preview"
 
     def test_custom_provider_id(self):
         """Test custom provider ID."""
