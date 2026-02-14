@@ -1,0 +1,100 @@
+name: Publish aragora to PyPI
+
+# Publishes the main `aragora` package from the repo root.
+# Manual dispatch only to prevent accidental publishes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 2.7.0)'
+        required: true
+        type: string
+      confirm:
+        description: 'Type PUBLISH to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write  # Required for PyPI trusted publishing
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: Run smoke tests
+        run: make test-smoke
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'PUBLISH'
+    environment: pypi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Update version
+        run: |
+          sed -i 's/version = "[^"]*"/version = "${{ github.event.inputs.version }}"/' pyproject.toml
+          echo "Set version to ${{ github.event.inputs.version }}"
+          grep 'version' pyproject.toml | head -1
+
+      - name: Build package
+        run: python -m build
+
+      - name: Verify no contamination
+        run: |
+          python -c "
+          import zipfile, glob, sys
+          whl = sorted(glob.glob('dist/aragora-*.whl'))[-1]
+          z = zipfile.ZipFile(whl)
+          bad = [n for n in z.namelist() if 'aragora_debate' in n or 'aragora_py' in n or 'aragora_sdk' in n]
+          if bad:
+              print(f'CONTAMINATION DETECTED: {bad}')
+              sys.exit(1)
+          print(f'Clean: {len(z.namelist())} files, no contamination')
+          "
+
+      - name: Check with twine
+        run: twine check dist/*
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: aragora v${{ github.event.inputs.version }}
+          body: |
+            ## aragora v${{ github.event.inputs.version }}
+
+            The Decision Integrity Platform — orchestrate 30+ agent types to adversarially vet decisions.
+
+            ```bash
+            pip install aragora==${{ github.event.inputs.version }}
+            ```
+
+            See [documentation](https://docs.aragora.ai) for usage.
+          draft: false
+          prerelease: ${{ contains(github.event.inputs.version, 'beta') || contains(github.event.inputs.version, 'alpha') || contains(github.event.inputs.version, 'rc') }}

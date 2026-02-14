@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # Required for PyPI trusted publishing
 
 jobs:
   # -------------------------------------------------------------------
@@ -126,13 +127,10 @@ jobs:
           python -c "from aragora_debate import Arena, Debate, EvidencePoweredTrickster; print('All imports OK')"
           python -c "from aragora_debate import ConvergenceDetector, CrossProposalAnalyzer; print('Analysis imports OK')"
 
-      - name: Publish to PyPI
-        run: |
-          pip install twine
-          twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: aragora-debate/dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
