@@ -292,9 +292,13 @@ def user_store():
     store.orgs_by_subscription["sub_test123"] = "org-123"
     store.orgs_by_customer["cus_test123"] = "org-123"
 
-    # Also add test_user for the pytest bypass in require_permission decorator
+    # Also add test users for the pytest bypass in require_permission decorator
     test_user = MockUser(id="test_user", email="test@test.com")
     store.users["test_user"] = test_user
+
+    # Add user for the conftest autouse RBAC bypass (user_id="test-user-001")
+    conftest_user = MockUser(id="test-user-001", email="test@example.com")
+    store.users["test-user-001"] = conftest_user
 
     return store
 
