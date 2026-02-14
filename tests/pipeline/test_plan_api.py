@@ -32,6 +32,23 @@ def tmp_store(tmp_path: Path) -> PlanStore:
     return PlanStore(db_path=str(tmp_path / "plans_api.db"))
 
 
+@pytest.fixture(autouse=True)
+def _bypass_auth():
+    """Bypass auth checks since plan API tests focus on business logic."""
+    from aragora.server.handlers.base import BaseHandler
+
+    mock_user = MagicMock()
+    mock_user.user_id = "test-user"
+    mock_user.email = "test@example.com"
+    mock_user.is_authenticated = True
+    with patch.object(
+        BaseHandler, "require_auth_or_error", return_value=(mock_user, None)
+    ), patch.object(
+        BaseHandler, "require_permission_or_error", return_value=(mock_user, None)
+    ):
+        yield
+
+
 @pytest.fixture
 def handler(tmp_store: PlanStore) -> PlansHandler:
     """Create a PlansHandler with a temp store."""

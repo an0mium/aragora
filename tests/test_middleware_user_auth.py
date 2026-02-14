@@ -191,7 +191,10 @@ class TestSupabaseAuthValidator:
 
         validator = SupabaseAuthValidator()
 
-        with patch.dict("os.environ", {"ARAGORA_ENVIRONMENT": "development"}):
+        with patch.dict("os.environ", {
+            "ARAGORA_ENVIRONMENT": "development",
+            "ARAGORA_ALLOW_INSECURE_JWT": "1",
+        }):
             # First call
             user1 = validator.validate_jwt(token)
             assert user1 is not None
@@ -205,10 +208,11 @@ class TestSupabaseAuthValidator:
         """validate_jwt rejects expired tokens from cache."""
         validator = SupabaseAuthValidator(jwt_secret="secret")
 
-        # Manually add expired token to cache
+        # Manually add expired token to cache (using hashed key)
         expired_user = User(id="old", email="old@example.com")
         expired_time = time.time() - 3600  # 1 hour ago
-        validator._cache["old-token"] = (expired_user, time.time(), expired_time)
+        cache_key = validator._hash_token("old-token")
+        validator._cache[cache_key] = (expired_user, time.time(), expired_time)
 
         result = validator.validate_jwt("old-token")
         assert result is None
@@ -337,9 +341,10 @@ class TestAPIKeyValidator:
         """validate_key returns cached user on second call."""
         validator = APIKeyValidator()
 
-        # Add to cache
+        # Add to cache (using hashed key, matching validate_key's _hash_key)
         cached_user = User(id="cached", email="cached@example.com")
-        validator._cache["ara_testkey123"] = (cached_user, time.time())
+        cache_key = validator._hash_key("ara_testkey123")
+        validator._cache[cache_key] = (cached_user, time.time())
 
         result = await validator.validate_key("ara_testkey123")
 
@@ -351,9 +356,10 @@ class TestAPIKeyValidator:
         validator = APIKeyValidator()
         validator._cache_ttl = 300
 
-        # Add expired cache entry
+        # Add expired cache entry (using hashed key)
         old_user = User(id="old", email="old@example.com")
-        validator._cache["ara_testkey123"] = (old_user, time.time() - 600)
+        cache_key = validator._hash_key("ara_testkey123")
+        validator._cache[cache_key] = (old_user, time.time() - 600)
 
         result = await validator.validate_key("ara_testkey123")
 

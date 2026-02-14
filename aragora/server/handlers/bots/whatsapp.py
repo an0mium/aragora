@@ -71,6 +71,9 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
 
     Security: Fails closed when app secret is not configured (rejects all requests).
     """
+    # DEBUG: always log the current value
+    import traceback as _tb
+    logger.error(f"[DEBUG ENTRY] WHATSAPP_APP_SECRET={WHATSAPP_APP_SECRET!r}, caller={''.join(_tb.format_stack()[-3:-1])[:200]}")
     if not WHATSAPP_APP_SECRET:
         logger.error(
             "WHATSAPP_APP_SECRET not configured - rejecting webhook request. "
@@ -234,6 +237,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Verify signature if app secret is configured
             signature = handler.headers.get("X-Hub-Signature-256", "")
             body = self._read_request_body(handler)
+            # DEBUG
+            logger.error(f"[DEBUG _handle_webhook] WHATSAPP_APP_SECRET={WHATSAPP_APP_SECRET!r}, about to call _verify, fn={_verify_whatsapp_signature}")
 
             if not _verify_whatsapp_signature(signature, body):
                 logger.warning("WhatsApp signature verification failed")
