@@ -41,16 +41,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Try to import the handler module
-try:
-    from aragora.server.handlers.social.channel_health import ChannelHealthHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    ChannelHealthHandler = None
-
-pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="ChannelHealthHandler not available")
+from aragora.server.handlers.social.channel_health import ChannelHealthHandler
 
 
 # ===========================================================================
