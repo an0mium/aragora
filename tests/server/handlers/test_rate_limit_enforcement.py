@@ -380,6 +380,15 @@ class TestWhatsAppWebhookRateLimits:
         1. Clear the limiters registry
         2. Remove the WhatsApp module from sys.modules
         3. Reimport to get fresh decorator evaluation
+
+        IMPORTANT: We save and restore the original module references in
+        sys.modules during teardown.  Without this, subsequent tests that
+        import WhatsApp handlers at file scope (e.g. ``from ... import
+        WhatsAppHandler``) hold references to the OLD module objects while
+        ``sys.modules`` points to the NEW (reloaded) modules.  This causes
+        ``patch()`` to modify the new module while the handler code still
+        reads globals from the old module -- breaking autouse signature-
+        verification patches and causing intermittent 401 failures.
         """
         import sys
         import importlib
@@ -395,12 +404,22 @@ class TestWhatsAppWebhookRateLimits:
         with rate_limit_mod._limiters_lock:
             rate_limit_mod._limiters.clear()
 
+        # Save original module references so we can restore them in teardown
+        whatsapp_modules = {
+            k: v for k, v in sys.modules.items() if "whatsapp" in k.lower()
+        }
+
         # Remove WhatsApp module from cache to force reimport
-        whatsapp_modules = [k for k in sys.modules.keys() if "whatsapp" in k.lower()]
         for mod_name in whatsapp_modules:
             del sys.modules[mod_name]
 
         yield
+
+        # Restore original module objects in sys.modules so that existing
+        # imports (e.g. ``from bots.whatsapp import WhatsAppHandler``) and
+        # ``patch()`` targets all refer to the same module instance.
+        for mod_name, mod_obj in whatsapp_modules.items():
+            sys.modules[mod_name] = mod_obj
 
         # Restore saved limiters and clear all
         with rate_limit_mod._limiters_lock:

@@ -65,6 +65,25 @@ def _bypass_webhook_rbac(monkeypatch):
     monkeypatch.setattr(WebhookHandler, "_check_rbac_permission", lambda self, handler, perm: None)
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Reset webhook rate limiters before each test to prevent cross-test exhaustion."""
+    import aragora.server.handlers.webhooks as webhooks_pkg
+
+    webhooks_mod = getattr(webhooks_pkg, "_webhooks_module", None)
+    if webhooks_mod is not None:
+        for attr in ("_register_limiter", "_test_limiter", "_list_limiter"):
+            lim = getattr(webhooks_mod, attr, None)
+            if lim is not None:
+                lim.clear()
+    yield
+    if webhooks_mod is not None:
+        for attr in ("_register_limiter", "_test_limiter", "_list_limiter"):
+            lim = getattr(webhooks_mod, attr, None)
+            if lim is not None:
+                lim.clear()
+
+
 @pytest.fixture
 def mock_user():
     """Create a mock user object."""
