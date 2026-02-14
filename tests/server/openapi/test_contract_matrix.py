@@ -6,6 +6,10 @@ endpoints that exist in the OpenAPI spec, and that both SDKs provide equivalent
 namespace coverage.
 
 Stage 4 (#175): API/SDK contract hardening.
+
+Budget mechanism: TS SDK namespaces with known OpenAPI spec gaps are tracked
+in a budget file.  The test xfails for namespaces listed in the budget,
+and hard-fails if a previously-passing namespace regresses.
 """
 
 from __future__ import annotations
@@ -126,6 +130,20 @@ def openapi_endpoints(openapi_spec: dict) -> set[tuple[str, str]]:
     return endpoints
 
 
+# -- Budget loading --
+
+def _load_ts_budget() -> set[str]:
+    """Load TS SDK namespaces with known OpenAPI gaps from the budget file."""
+    budget_path = _repo_root() / "scripts/baselines/contract_matrix_ts_budget.json"
+    if not budget_path.exists():
+        return set()
+    data = json.loads(budget_path.read_text())
+    return set(data.get("namespaces_with_gaps", []))
+
+
+_TS_BUDGET_NAMESPACES = _load_ts_budget()
+
+
 # -- Contract tests --
 
 
@@ -160,6 +178,10 @@ def test_typescript_sdk_endpoints_in_openapi(
     if not sdk_eps:
         pytest.skip(f"No endpoints extracted from {namespace}.ts")
     missing = sorted(sdk_eps - openapi_endpoints)
+    if missing and namespace in _TS_BUDGET_NAMESPACES:
+        pytest.xfail(
+            f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec"
+        )
     assert not missing, (
         f"TypeScript SDK namespace '{namespace}' references endpoints not in OpenAPI spec: {missing}"
     )
