@@ -9375,7 +9375,7 @@ export interface paths {
          * Get control plane statistics
          * @description Get control plane statistics.
          */
-        get: operations["_handle_stats"];
+        get: operations["get_control_plane_stats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -49121,7 +49121,7 @@ export interface paths {
          * Verify decision receipt
          * @description Verify the cryptographic signature and integrity of a signed decision receipt.
          */
-        post: operations["_verify_receipt"];
+        post: operations["verify_gauntlet_receipt"];
         delete?: never;
         options?: never;
         head?: never;
@@ -72178,7 +72178,7 @@ export interface paths {
          * Get receipt statistics
          * @description Get aggregated statistics about receipts including counts by verdict and risk level.
          */
-        get: operations["_get_stats"];
+        get: operations["get_receipt_stats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -72258,7 +72258,7 @@ export interface paths {
          * Verify receipt integrity and signature
          * @description Verify both receipt integrity checksum and cryptographic signature.
          */
-        get: operations["_verify_receipt"];
+        get: operations["verify_receipt_by_id"];
         put?: never;
         /**
          * Verify receipt integrity
@@ -79372,7 +79372,7 @@ export interface operations {
             };
         };
     };
-    _handle_stats: {
+    get_control_plane_stats: {
         parameters: {
             query?: never;
             header?: never;
@@ -101033,7 +101033,7 @@ export interface operations {
             };
         };
     };
-    _verify_receipt: {
+    verify_gauntlet_receipt: {
         parameters: {
             query?: never;
             header?: never;
@@ -119366,7 +119366,7 @@ export interface operations {
             };
         };
     };
-    _get_stats: {
+    get_receipt_stats: {
         parameters: {
             query?: never;
             header?: never;
@@ -119493,7 +119493,7 @@ export interface operations {
             };
         };
     };
-    _verify_receipt: {
+    verify_receipt_by_id: {
         parameters: {
             query?: never;
             header?: never;

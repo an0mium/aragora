@@ -9375,7 +9375,7 @@ export interface paths {
          * Get control plane statistics
          * @description Get control plane statistics.
          */
-        get: operations["_handle_stats"];
+        get: operations["get_control_plane_stats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -72178,7 +72178,7 @@ export interface paths {
          * Get receipt statistics
          * @description Get aggregated statistics about receipts including counts by verdict and risk level.
          */
-        get: operations["_get_stats"];
+        get: operations["get_receipt_stats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -79372,7 +79372,7 @@ export interface operations {
             };
         };
     };
-    _handle_stats: {
+    get_control_plane_stats: {
         parameters: {
             query?: never;
             header?: never;
@@ -119366,7 +119366,7 @@ export interface operations {
             };
         };
     };
-    _get_stats: {
+    get_receipt_stats: {
         parameters: {
             query?: never;
             header?: never;

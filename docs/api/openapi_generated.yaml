@@ -7193,7 +7193,7 @@ paths:
       tags:
       - Control Plane
       description: Get control plane statistics.
-      operationId: _handle_stats
+      operationId: get_control_plane_stats
       responses:
         '200':
           description: Success
@@ -86710,7 +86710,7 @@ paths:
       - Receipts
       - Statistics
       description: Get aggregated statistics about receipts including counts by verdict and risk level.
-      operationId: _get_stats
+      operationId: get_receipt_stats
       responses:
         '200':
           description: Statistics returned

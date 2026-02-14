@@ -837,6 +837,7 @@ class ReceiptsHandler(BaseHandler):
         summary="Get receipt statistics",
         description="Get aggregated statistics about receipts including counts by verdict and risk level.",
         tags=["Receipts", "Statistics"],
+        operation_id="get_receipt_stats",
         responses={
             "200": {"description": "Statistics returned"},
             "401": {"description": "Unauthorized"},

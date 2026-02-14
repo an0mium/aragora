@@ -54,6 +54,7 @@ class MetricsDashboardMixin:
         path="/api/v1/admin/stats",
         summary="Get system-wide statistics",
         tags=["Admin"],
+        operation_id="get_admin_stats",
         responses={
             "200": {
                 "description": "System-wide statistics",

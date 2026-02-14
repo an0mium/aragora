@@ -289,6 +289,7 @@ class HealthHandlerMixin:
         path="/api/control-plane/stats",
         summary="Get control plane statistics",
         tags=["Control Plane"],
+        operation_id="get_control_plane_stats",
     )
     @require_permission("controlplane:read")
     def _handle_stats(self) -> HandlerResult:

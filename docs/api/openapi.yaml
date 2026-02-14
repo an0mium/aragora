@@ -7193,7 +7193,7 @@ paths:
       tags:
       - Control Plane
       description: Get control plane statistics.
-      operationId: _handle_stats
+      operationId: get_control_plane_stats
       responses:
         '200':
           description: Success
@@ -54559,7 +54559,7 @@ paths:
       - Gauntlet
       - Receipts
       description: Verify the cryptographic signature and integrity of a signed decision receipt.
-      operationId: _verify_receipt
+      operationId: verify_gauntlet_receipt
       parameters:
       - name: gauntlet_id
         in: path
@@ -86710,7 +86710,7 @@ paths:
       - Receipts
       - Statistics
       description: Get aggregated statistics about receipts including counts by verdict and risk level.
-      operationId: _get_stats
+      operationId: get_receipt_stats
       responses:
         '200':
           description: Statistics returned
@@ -86814,7 +86814,7 @@ paths:
       - Receipts
       - Verification
       description: Verify both receipt integrity checksum and cryptographic signature.
-      operationId: _verify_receipt
+      operationId: verify_receipt_by_id
       parameters:
       - name: receipt_id
         in: path

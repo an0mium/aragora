@@ -129,6 +129,7 @@ class SearchOperationsMixin:
         path="/api/v1/knowledge/stats",
         summary="Get knowledge base statistics",
         tags=["Knowledge Base"],
+        operation_id="get_knowledge_stats",
         parameters=[
             {
                 "name": "workspace_id",
