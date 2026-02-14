@@ -109,7 +109,7 @@ def fix_doc_version(path: Path, pattern: str, new_version: str) -> bool:
     if not path.exists():
         return False
     content = path.read_text()
-    new_content = re.sub(pattern, rf"\\1{new_version}\\3", content, flags=re.MULTILINE)
+    new_content = re.sub(pattern, rf"\g<1>{new_version}\g<3>", content, flags=re.MULTILINE)
     if new_content != content:
         path.write_text(new_content)
         return True
