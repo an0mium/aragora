@@ -34,7 +34,7 @@ try:
     import tiktoken
 
     TIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility
-except Exception:
+except (ImportError, AttributeError):
     tiktoken = None
     TIKTOKEN_AVAILABLE = False
 

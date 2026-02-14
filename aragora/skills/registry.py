@@ -75,7 +75,7 @@ def _ensure_audit_imports() -> bool:
         _audit_category_cls = _AuditCategory
         _audit_outcome_cls = _AuditOutcome
         return True
-    except Exception:
+    except (ImportError, AttributeError):
         return False
 
 
@@ -655,7 +655,7 @@ class SkillRegistry:
 
             audit_log = _audit_log_cls()
             audit_log.log(event)
-        except Exception:
+        except (ImportError, AttributeError, RuntimeError):
             logger.debug(
                 "Audit event emission failed for skill=%s (non-fatal)",
                 skill_name,
