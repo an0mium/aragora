@@ -6069,52 +6069,10 @@ export class AragoraClient {
   }
 
   /**
-   * Get a specific organization (admin only).
-   */
-  async getAdminOrganization(orgId: string): Promise<import('./namespaces/admin').Organization> {
-    return this.request<import('./namespaces/admin').Organization>('GET', `/api/v1/admin/organizations/${orgId}`);
-  }
-
-  /**
-   * Update an organization (admin only).
-   */
-  async updateAdminOrganization(
-    orgId: string,
-    data: import('./namespaces/admin').OrganizationUpdate
-  ): Promise<import('./namespaces/admin').Organization> {
-    return this.request<import('./namespaces/admin').Organization>('PATCH', `/api/v1/admin/organizations/${orgId}`, {
-      body: data,
-    });
-  }
-
-  /**
    * List all users (admin only).
    */
   async listAdminUsers(params?: PaginationParams): Promise<import('./namespaces/admin').AdminUserList> {
     return this.request<import('./namespaces/admin').AdminUserList>('GET', '/api/v1/admin/users', { params });
-  }
-
-  /**
-   * Get a specific user (admin only).
-   */
-  async getAdminUser(userId: string): Promise<import('./namespaces/admin').AdminUser> {
-    return this.request<import('./namespaces/admin').AdminUser>('GET', `/api/v1/admin/users/${userId}`);
-  }
-
-  /**
-   * Suspend a user account (admin only).
-   */
-  async suspendAdminUser(userId: string, reason?: string): Promise<import('./namespaces/admin').UserAction> {
-    return this.request<import('./namespaces/admin').UserAction>('POST', `/api/v1/admin/users/${userId}/suspend`, {
-      body: reason ? { reason } : undefined,
-    });
-  }
-
-  /**
-   * Activate a suspended user account (admin only).
-   */
-  async activateAdminUser(userId: string): Promise<import('./namespaces/admin').UserAction> {
-    return this.request<import('./namespaces/admin').UserAction>('POST', `/api/v1/admin/users/${userId}/activate`);
   }
 
   /**
@@ -6125,13 +6083,6 @@ export class AragoraClient {
   }
 
   /**
-   * Get admin system metrics (admin only).
-   */
-  async getAdminSystemMetrics(): Promise<import('./namespaces/admin').SystemMetrics> {
-    return this.request<import('./namespaces/admin').SystemMetrics>('GET', '/api/v1/admin/system/metrics');
-  }
-
-  /**
    * Get revenue analytics (admin only).
    */
   async getRevenue(): Promise<import('./namespaces/admin').RevenueData> {
@@ -6139,24 +6090,10 @@ export class AragoraClient {
   }
 
   /**
-   * Impersonate a user (admin only).
-   */
-  async impersonateUser(userId: string): Promise<import('./namespaces/admin').ImpersonationToken> {
-    return this.request<import('./namespaces/admin').ImpersonationToken>('POST', `/api/v1/admin/impersonate/${userId}`);
-  }
-
-  /**
    * Get Nomic loop status (admin only).
    */
   async getAdminNomicStatus(): Promise<import('./namespaces/admin').NomicStatus> {
     return this.request<import('./namespaces/admin').NomicStatus>('GET', '/api/v1/admin/nomic/status');
-  }
-
-  /**
-   * Get admin circuit breaker states (admin only).
-   */
-  async getAdminCircuitBreakers(): Promise<import('./namespaces/admin').CircuitBreakerList> {
-    return this.request<import('./namespaces/admin').CircuitBreakerList>('GET', '/api/v1/admin/nomic/circuit-breakers');
   }
 
   /**
@@ -6181,59 +6118,10 @@ export class AragoraClient {
   }
 
   /**
-   * Reset all circuit breakers (admin only).
-   */
-  async resetAdminCircuitBreakers(): Promise<{ success: boolean; reset_count: number }> {
-    return this.request<{ success: boolean; reset_count: number }>('POST', '/api/v1/admin/nomic/circuit-breakers/reset');
-  }
-
-  /**
-   * Issue credits to an organization (admin only).
-   */
-  async issueCredits(orgId: string, body: { amount: number; reason: string; expires_at?: string }): Promise<import('./namespaces/admin').CreditAccount> {
-    return this.request<import('./namespaces/admin').CreditAccount>('POST', `/api/v1/admin/credits/${orgId}/issue`, { body });
-  }
-
-  /**
-   * Get credit account details (admin only).
-   */
-  async getCreditAccount(orgId: string): Promise<import('./namespaces/admin').CreditAccount> {
-    return this.request<import('./namespaces/admin').CreditAccount>('GET', `/api/v1/admin/credits/${orgId}`);
-  }
-
-  /**
-   * List credit transactions (admin only).
-   */
-  async listCreditTransactions(orgId: string, params?: PaginationParams): Promise<import('./namespaces/admin').CreditTransactionList> {
-    return this.request<import('./namespaces/admin').CreditTransactionList>('GET', `/api/v1/admin/credits/${orgId}/transactions`, { params });
-  }
-
-  /**
-   * Adjust credit balance (admin only).
-   */
-  async adjustCreditBalance(orgId: string, body: { amount: number; reason: string }): Promise<import('./namespaces/admin').CreditAccount> {
-    return this.request<import('./namespaces/admin').CreditAccount>('POST', `/api/v1/admin/credits/${orgId}/adjust`, { body });
-  }
-
-  /**
-   * Get expiring credits (admin only).
-   */
-  async getExpiringCredits(orgId: string): Promise<{ credits: Array<{ amount: number; expires_at: string }> }> {
-    return this.request<{ credits: Array<{ amount: number; expires_at: string }> }>('GET', `/api/v1/admin/credits/${orgId}/expiring`);
-  }
-
-  /**
    * Get security status (admin only).
    */
   async getAdminSecurityStatus(): Promise<import('./namespaces/admin').SecurityStatus> {
     return this.request<import('./namespaces/admin').SecurityStatus>('GET', '/api/v1/admin/security/status');
-  }
-
-  /**
-   * Rotate a security key (admin only).
-   */
-  async rotateSecurityKey(keyType: string): Promise<{ success: boolean; new_key_id: string }> {
-    return this.request<{ success: boolean; new_key_id: string }>('POST', '/api/v1/admin/security/rotate-key', { body: { key_type: keyType } });
   }
 
   /**

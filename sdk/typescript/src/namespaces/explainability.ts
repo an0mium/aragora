@@ -54,6 +54,10 @@ export interface ComparisonResponse {
 }
 
 interface ExplainabilityClientInterface {
+  request<T = unknown>(method: string, path: string, options?: {
+    params?: Record<string, unknown>;
+    json?: Record<string, unknown>;
+  }): Promise<T>;
   getExplanation(debateId: string, options?: {
     include_factors?: boolean;
     include_counterfactuals?: boolean;
@@ -395,6 +399,32 @@ export class ExplainabilityAPI {
     compare_fields?: string[];
   }): Promise<ComparisonResponse> {
     return this.client.compareExplanations(body);
+  }
+
+  // ===========================================================================
+  // Direct Explanation Access
+  // ===========================================================================
+
+  /**
+   * Get a full explanation for a debate or decision by ID.
+   *
+   * Directly fetches the explanation via the explain endpoint.
+   *
+   * @param debateId - The debate or decision ID
+   * @returns Full explanation result
+   */
+  async getExplanationById(debateId: string): Promise<ExplainabilityResult> {
+    return this.client.getExplanation(debateId);
+  }
+
+  /**
+   * Get explanation via the /explain endpoint.
+   *
+   * @param decisionId - The decision or debate ID
+   * @returns Explanation details
+   */
+  async explain(decisionId: string): Promise<ExplainabilityResult> {
+    return this.client.request('GET', `/api/v1/explain/${decisionId}`);
   }
 
   // ===========================================================================
