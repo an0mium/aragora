@@ -400,7 +400,6 @@ class TestWithTimeoutSyncDecorator:
         result = fast_sync()
         assert result == "fast"
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_raises_timeout_error_on_timeout(self):
         """Sync function exceeding timeout should raise TimeoutError via SIGALRM."""
 
@@ -416,7 +415,6 @@ class TestWithTimeoutSyncDecorator:
         assert err.timeout_seconds == 0.1
         assert err.operation == "slow_sync"
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_on_timeout_callback_called(self):
         """on_timeout callback should be called on sync timeout."""
 
@@ -432,7 +430,6 @@ class TestWithTimeoutSyncDecorator:
 
         callback.assert_called_once_with("slow_sync")
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_custom_error_class_sync(self):
         """Sync decorator should raise the custom error_class from config."""
 
@@ -448,7 +445,6 @@ class TestWithTimeoutSyncDecorator:
         with pytest.raises(SyncTimeoutError):
             slow_sync()
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_custom_message_sync(self):
         """Sync decorator should use custom message from config."""
 
@@ -463,7 +459,6 @@ class TestWithTimeoutSyncDecorator:
 
         assert str(exc_info.value) == "Sync timed out!"
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_restores_previous_signal_handler(self):
         """After execution, the previous SIGALRM handler should be restored."""
 
@@ -478,7 +473,6 @@ class TestWithTimeoutSyncDecorator:
         restored_handler = signal.getsignal(signal.SIGALRM)
         assert restored_handler == original_handler
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_restores_signal_handler_on_timeout(self):
         """Signal handler should be restored even after timeout."""
 
@@ -515,7 +509,6 @@ class TestWithTimeoutSyncDecorator:
 
         assert multiply(6, 7) == 42
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_on_timeout_callback_error_suppressed_sync(self):
         """Errors in on_timeout callback should be suppressed in sync decorator."""
 
@@ -660,7 +653,6 @@ class TestTimeoutContextSync:
 
         assert result == "completed"
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_raises_timeout_error(self):
         """Code exceeding timeout should raise TimeoutError on Unix."""
         with pytest.raises(TimeoutError) as exc_info:
@@ -671,7 +663,6 @@ class TestTimeoutContextSync:
         assert err.timeout_seconds == 0.1
         assert err.operation == "slow_sync_ctx"
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_timeout_error_message(self):
         """Timeout error message should include context_name and seconds."""
         with pytest.raises(TimeoutError) as exc_info:
@@ -682,7 +673,6 @@ class TestTimeoutContextSync:
         assert "process" in msg
         assert "0.1" in msg
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_on_timeout_callback_called(self):
         """on_timeout callback should be called on sync context timeout."""
         callback = MagicMock()
@@ -702,7 +692,6 @@ class TestTimeoutContextSync:
 
         callback.assert_not_called()
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_on_timeout_callback_error_suppressed(self):
         """Errors in on_timeout callback should be suppressed in sync context."""
 
@@ -719,7 +708,6 @@ class TestTimeoutContextSync:
         with timeout_context_sync(2.0):
             pass
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_default_context_name_in_error(self):
         """Default context_name 'operation' should appear in error."""
         with pytest.raises(TimeoutError) as exc_info:
@@ -728,7 +716,6 @@ class TestTimeoutContextSync:
 
         assert exc_info.value.operation == "operation"
 
-    @pytest.mark.skipif(not HAS_SIGALRM, reason="SIGALRM not available on this platform")
     def test_restores_signal_handler(self):
         """Signal handler should be restored after sync context exits."""
         original_handler = signal.getsignal(signal.SIGALRM)

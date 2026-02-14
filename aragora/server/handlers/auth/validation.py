@@ -152,33 +152,22 @@ def validate_password(password: str) -> tuple[bool, str]:
     if len(password) > MAX_PASSWORD_LENGTH:
         return False, f"Password must be at most {MAX_PASSWORD_LENGTH} characters"
 
-    # Enforce complexity only when password already uses uppercase or special chars.
-    # This preserves legacy behavior for simpler passwords while supporting
-    # stricter validation for more complex inputs.
-    whitespace_only = password.strip() == ""
-    has_whitespace = any(c.isspace() for c in password)
-    has_unicode = any(ord(c) > 127 for c in password)
-    trigger_specials = set(SPECIAL_CHARACTERS) - {"_"}
-    if (has_whitespace or has_unicode) and not whitespace_only:
-        enforce_complexity = False
-    else:
-        enforce_complexity = (
-            whitespace_only
-            or any(c.isupper() for c in password)
-            or any(c in trigger_specials for c in password)
+    # Reject passwords that are entirely whitespace
+    if password.strip() == "":
+        return False, "Password must not be entirely whitespace"
+
+    # Always enforce complexity requirements
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return False, "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one digit"
+    if not any(c in SPECIAL_CHARACTERS for c in password):
+        return (
+            False,
+            f"Password must contain at least one special character ({SPECIAL_CHARACTERS})",
         )
-    if enforce_complexity:
-        if not any(c.isupper() for c in password):
-            return False, "Password must contain at least one uppercase letter"
-        if not any(c.islower() for c in password):
-            return False, "Password must contain at least one lowercase letter"
-        if not any(c.isdigit() for c in password):
-            return False, "Password must contain at least one digit"
-        if not any(c in SPECIAL_CHARACTERS for c in password):
-            return (
-                False,
-                f"Password must contain at least one special character ({SPECIAL_CHARACTERS})",
-            )
 
     # Check against common passwords (case-insensitive)
     if password.lower() in COMMON_PASSWORDS:
