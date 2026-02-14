@@ -49,17 +49,52 @@ class BudgetCoordinator:
         self.org_id = org_id
         self.user_id = user_id
 
-    def check_budget_before_debate(self, debate_id: str) -> None:
+    def estimate_debate_cost(
+        self,
+        num_agents: int = 3,
+        rounds: int = 3,
+    ) -> float:
+        """Estimate debate cost based on agent count and rounds.
+
+        Uses per-round cost scaled by agent count for a more accurate
+        estimate than the flat ESTIMATED_DEBATE_COST_USD constant.
+
+        Args:
+            num_agents: Number of agents participating
+            rounds: Number of debate rounds
+
+        Returns:
+            Estimated cost in USD
+        """
+        return max(
+            self.ESTIMATED_DEBATE_COST_USD,
+            num_agents * rounds * self.ESTIMATED_MESSAGE_COST_USD * 2,  # propose + critique
+        )
+
+    def check_budget_before_debate(
+        self,
+        debate_id: str,
+        num_agents: int = 0,
+        rounds: int = 0,
+    ) -> None:
         """Check if organization has sufficient budget before starting debate.
 
         Args:
             debate_id: Debate identifier for logging
+            num_agents: Number of participating agents (for cost estimation)
+            rounds: Number of debate rounds (for cost estimation)
 
         Raises:
             BudgetExceededError: If budget is exhausted and hard-stop is enforced.
         """
         if not self.org_id:
             return  # No org context - skip budget check
+
+        estimated_cost = (
+            self.estimate_debate_cost(num_agents, rounds)
+            if num_agents > 0 and rounds > 0
+            else self.ESTIMATED_DEBATE_COST_USD
+        )
 
         try:
             from aragora.billing.budget_manager import BudgetAction, get_budget_manager
@@ -68,7 +103,7 @@ class BudgetCoordinator:
 
             allowed, reason, action = manager.check_budget(
                 org_id=self.org_id,
-                estimated_cost_usd=self.ESTIMATED_DEBATE_COST_USD,
+                estimated_cost_usd=estimated_cost,
                 user_id=self.user_id or None,
             )
 

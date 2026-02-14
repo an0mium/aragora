@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from aragora.agents.cv import AgentCV, CVBuilder
+    from aragora.billing.budget_manager import BudgetManager
     from aragora.core import Agent
     from aragora.debate.context import DebateContext
     from aragora.debate.delegation import DelegationStrategy
@@ -24,6 +25,11 @@ if TYPE_CHECKING:
     from aragora.ranking.pattern_matcher import TaskPatternMatcher
 
 logger = logging.getLogger(__name__)
+
+
+class BudgetExceededError(Exception):
+    """Raised when a debate cannot proceed due to budget constraints."""
+
 
 # Domain-to-capability mapping for intelligent agent routing
 # Maps task domains to agent name patterns that excel in those areas
@@ -117,6 +123,13 @@ class TeamSelectionConfig:
     cv_reliability_threshold: float = 0.7  # Min reliability for agent inclusion
     cv_filter_unreliable: bool = False  # Filter out unreliable agents entirely
     cv_cache_ttl: int = 60  # CV cache TTL in seconds (1 minute)
+    # Budget-aware selection
+    enable_budget_filtering: bool = True  # Enable budget-aware agent filtering
+    budget_cheap_agent_patterns: list[str] = field(
+        default_factory=lambda: ["llama", "qwen", "yi", "deepseek", "mistral", "gemini"]
+    )
+    budget_warn_max_agents: int | None = None  # Max agents under WARN (None = no limit)
+    budget_soft_limit_max_agents: int = 3  # Max agents under SOFT_LIMIT
 
 
 class TeamSelector:
@@ -147,6 +160,8 @@ class TeamSelector:
         pattern_matcher: TaskPatternMatcher | None = None,
         cv_builder: CVBuilder | None = None,
         agent_hierarchy: AgentHierarchy | None = None,
+        budget_manager: BudgetManager | None = None,
+        org_id: str | None = None,
         config: TeamSelectionConfig | None = None,
     ):
         self.elo_system = elo_system
@@ -159,6 +174,8 @@ class TeamSelector:
         self.pattern_matcher = pattern_matcher
         self.cv_builder = cv_builder
         self.agent_hierarchy = agent_hierarchy
+        self.budget_manager = budget_manager
+        self.org_id = org_id
         self.config = config or TeamSelectionConfig()
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
@@ -202,6 +219,9 @@ class TeamSelector:
 
         # 1. Filter by domain capability first (before circuit breaker)
         domain_filtered = self._filter_by_domain_capability(hierarchy_filtered, domain)
+
+        # 1.5. Apply budget-aware filtering
+        domain_filtered = self._apply_budget_filter(domain_filtered)
 
         # 2. Filter unavailable agents via circuit breaker
         available_names = self._filter_available(domain_filtered)
@@ -351,6 +371,90 @@ class TeamSelector:
             f"from={[a.name for a in agents]}"
         )
         return matching_agents
+
+    def _apply_budget_filter(self, agents: list[Agent]) -> list[Agent]:
+        """Apply budget-aware filtering to the agent list.
+
+        Checks the organization's budget status and adjusts the agent pool:
+        - WARN: Prefer cheaper agents (filter to cheap patterns if available)
+        - SOFT_LIMIT: Reduce agent count to budget_soft_limit_max_agents
+        - HARD_LIMIT: Raise BudgetExceededError to block the debate
+
+        Args:
+            agents: List of candidate agents
+
+        Returns:
+            Filtered list of agents based on budget constraints
+
+        Raises:
+            BudgetExceededError: If budget is at HARD_LIMIT
+        """
+        if (
+            not self.budget_manager
+            or not self.org_id
+            or not self.config.enable_budget_filtering
+        ):
+            return agents
+
+        try:
+            from aragora.billing.budget_manager import BudgetAction
+
+            # Check budget with zero cost to get current action level
+            _allowed, _reason, action = self.budget_manager.check_budget(
+                self.org_id, estimated_cost_usd=0.0
+            )
+
+            if action is None:
+                return agents
+
+            if action == BudgetAction.HARD_LIMIT or action == BudgetAction.SUSPEND:
+                logger.warning(
+                    f"budget_hard_limit org={self.org_id} action={action.value} "
+                    f"agents_blocked={len(agents)}"
+                )
+                raise BudgetExceededError(
+                    f"Budget {action.value} reached for org {self.org_id}. "
+                    "Debate cannot proceed until budget is increased or reset."
+                )
+
+            if action == BudgetAction.SOFT_LIMIT:
+                max_agents = self.config.budget_soft_limit_max_agents
+                if len(agents) > max_agents:
+                    reduced = agents[:max_agents]
+                    logger.info(
+                        f"budget_soft_limit org={self.org_id} "
+                        f"reduced_agents={len(agents)}->{len(reduced)}"
+                    )
+                    return reduced
+                return agents
+
+            if action == BudgetAction.WARN:
+                # Prefer cheaper agents when budget is in warning zone
+                cheap_patterns = self.config.budget_cheap_agent_patterns
+                cheap_agents = [
+                    a for a in agents
+                    if self._agent_matches_capability(a, cheap_patterns)
+                ]
+                if cheap_agents:
+                    # Apply max_agents limit if configured
+                    max_agents = self.config.budget_warn_max_agents
+                    if max_agents and len(cheap_agents) > max_agents:
+                        cheap_agents = cheap_agents[:max_agents]
+                    logger.info(
+                        f"budget_warn_prefer_cheap org={self.org_id} "
+                        f"cheap_agents={[a.name for a in cheap_agents]} "
+                        f"from={[a.name for a in agents]}"
+                    )
+                    return cheap_agents
+                # No cheap agents available, return all
+                return agents
+
+        except BudgetExceededError:
+            raise
+        except (ImportError, AttributeError, TypeError) as e:
+            logger.debug(f"Budget filter skipped: {e}")
+
+        return agents
 
     def _filter_by_hierarchy_role(
         self,

@@ -359,7 +359,11 @@ async def setup_debate_infrastructure(
     arena._emit_agent_preview()
 
     # Check budget before starting debate (may raise BudgetExceededError)
-    arena._budget_coordinator.check_budget_before_debate(state.debate_id)
+    arena._budget_coordinator.check_budget_before_debate(
+        state.debate_id,
+        num_agents=len(arena.agents),
+        rounds=arena.protocol.rounds,
+    )
 
     # Initialize per-debate budget tracking in extensions
     arena.extensions.setup_debate_budget(state.debate_id)
