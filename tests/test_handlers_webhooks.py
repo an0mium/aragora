@@ -59,6 +59,12 @@ def get_response_body(result: HandlerResult) -> str:
 # ============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _bypass_webhook_rbac(monkeypatch):
+    """Bypass RBAC checks on WebhookHandler for all tests."""
+    monkeypatch.setattr(WebhookHandler, "_check_rbac_permission", lambda self, handler, perm: None)
+
+
 @pytest.fixture
 def mock_user():
     """Create a mock user object."""
