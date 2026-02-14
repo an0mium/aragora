@@ -254,6 +254,18 @@ class IterableTTLCache(Generic[T]):
             self._keys.discard(key)
         return self._cache.invalidate(key)
 
+    def __len__(self) -> int:
+        """Return number of tracked keys."""
+        with self._lock:
+            return len(self._keys)
+
+    def clear(self) -> None:
+        """Remove all entries from cache."""
+        with self._lock:
+            for key in list(self._keys):
+                self._cache.invalidate(key)
+            self._keys.clear()
+
     @property
     def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
