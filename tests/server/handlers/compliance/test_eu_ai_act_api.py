@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import pytest
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.server.handlers.compliance.handler import ComplianceHandler
@@ -121,9 +122,10 @@ class TestEUAIActClassify:
     async def test_classify_returns_applicable_articles(self, handler):
         """High-risk classification lists applicable articles."""
         result = await handler._eu_ai_act_classify(
-            {"description": "AI for employment screening"}
+            {"description": "AI system for employment screening and hiring decisions"}
         )
         body = json.loads(result.body)
+        assert body["classification"]["risk_level"] == "high"
         assert len(body["classification"]["applicable_articles"]) > 0
 
     @pytest.mark.asyncio
@@ -155,16 +157,16 @@ class TestEUAIActAudit:
         body = json.loads(result.body)
         report = body["conformity_report"]
         assert "overall_status" in report
-        assert "article_assessments" in report
+        assert "article_mappings" in report
 
     @pytest.mark.asyncio
     async def test_audit_report_has_articles(self, handler, sample_receipt):
-        """Conformity report includes article-by-article assessments."""
+        """Conformity report includes article-by-article mappings."""
         result = await handler._eu_ai_act_audit({"receipt": sample_receipt})
         body = json.loads(result.body)
         report = body["conformity_report"]
-        # Should have multiple article assessments
-        assert len(report.get("article_assessments", [])) >= 1
+        # Should have multiple article mappings (Articles 9-15)
+        assert len(report.get("article_mappings", [])) >= 1
 
     @pytest.mark.asyncio
     async def test_audit_minimal_receipt(self, handler, minimal_receipt):
@@ -332,25 +334,31 @@ class TestEUAIActGenerateBundle:
 class TestEUAIActRouting:
     """Tests for EU AI Act routes through ComplianceHandler.handle()."""
 
+    @staticmethod
+    def _make_mock_handler(body_dict: dict[str, Any], method: str = "POST"):
+        """Create a mock HTTP handler with proper body and headers."""
+        mock_handler = MagicMock()
+        mock_handler.command = method
+        body_bytes = json.dumps(body_dict).encode()
+        mock_handler.rfile = MagicMock()
+        mock_handler.rfile.read.return_value = body_bytes
+        headers = MagicMock()
+        headers.get = lambda k, d=None: (
+            str(len(body_bytes)) if k == "Content-Length" else d
+        )
+        # Make headers iterable for dict(handler.headers)
+        headers.__iter__ = lambda self: iter([])
+        mock_handler.headers = headers
+        return mock_handler
+
     @pytest.mark.asyncio
     async def test_classify_route(self, handler):
         """Classify route dispatches correctly."""
-        mock_handler = MagicMock()
-        mock_handler.command = "POST"
-        mock_handler.headers = {}
-        mock_handler.rfile = MagicMock()
-        body_bytes = json.dumps(
+        mock_handler = self._make_mock_handler(
             {"description": "AI for employment decisions"}
-        ).encode()
-        mock_handler.rfile.read.return_value = body_bytes
-        mock_handler.headers.get = lambda k, d=None: (
-            str(len(body_bytes)) if k == "Content-Length" else d
         )
-
         result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/classify",
-            {},
-            mock_handler,
+            "/api/v2/compliance/eu-ai-act/classify", {}, mock_handler
         )
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -359,20 +367,9 @@ class TestEUAIActRouting:
     @pytest.mark.asyncio
     async def test_audit_route(self, handler, sample_receipt):
         """Audit route dispatches correctly."""
-        mock_handler = MagicMock()
-        mock_handler.command = "POST"
-        mock_handler.headers = {}
-        body_bytes = json.dumps({"receipt": sample_receipt}).encode()
-        mock_handler.rfile = MagicMock()
-        mock_handler.rfile.read.return_value = body_bytes
-        mock_handler.headers.get = lambda k, d=None: (
-            str(len(body_bytes)) if k == "Content-Length" else d
-        )
-
+        mock_handler = self._make_mock_handler({"receipt": sample_receipt})
         result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/audit",
-            {},
-            mock_handler,
+            "/api/v2/compliance/eu-ai-act/audit", {}, mock_handler
         )
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -381,20 +378,9 @@ class TestEUAIActRouting:
     @pytest.mark.asyncio
     async def test_generate_bundle_route(self, handler, sample_receipt):
         """Generate bundle route dispatches correctly."""
-        mock_handler = MagicMock()
-        mock_handler.command = "POST"
-        mock_handler.headers = {}
-        body_bytes = json.dumps({"receipt": sample_receipt}).encode()
-        mock_handler.rfile = MagicMock()
-        mock_handler.rfile.read.return_value = body_bytes
-        mock_handler.headers.get = lambda k, d=None: (
-            str(len(body_bytes)) if k == "Content-Length" else d
-        )
-
+        mock_handler = self._make_mock_handler({"receipt": sample_receipt})
         result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/generate-bundle",
-            {},
-            mock_handler,
+            "/api/v2/compliance/eu-ai-act/generate-bundle", {}, mock_handler
         )
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -403,16 +389,8 @@ class TestEUAIActRouting:
     @pytest.mark.asyncio
     async def test_unknown_eu_ai_act_path_returns_404(self, handler):
         """Unknown sub-path returns 404."""
-        mock_handler = MagicMock()
-        mock_handler.command = "GET"
-        mock_handler.headers = {}
-        mock_handler.rfile = MagicMock()
-        mock_handler.rfile.read.return_value = b"{}"
-        mock_handler.headers.get = lambda k, d=None: "2" if k == "Content-Length" else d
-
+        mock_handler = self._make_mock_handler({}, method="GET")
         result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/unknown",
-            {},
-            mock_handler,
+            "/api/v2/compliance/eu-ai-act/unknown", {}, mock_handler
         )
         assert result.status_code == 404

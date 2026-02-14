@@ -36,6 +36,15 @@ from aragora.compliance.framework import (
     COMPLIANCE_FRAMEWORKS,
     check_compliance,
 )
+from aragora.compliance.eu_ai_act import (
+    RiskLevel,
+    RiskClassification,
+    RiskClassifier,
+    ConformityReport,
+    ConformityReportGenerator,
+    ComplianceArtifactBundle,
+    ComplianceArtifactGenerator,
+)
 from aragora.compliance.monitor import (
     ComplianceHealth,
     ViolationTrend,
@@ -61,6 +70,14 @@ __all__ = [
     "ComplianceFrameworkManager",
     "COMPLIANCE_FRAMEWORKS",
     "check_compliance",
+    # EU AI Act
+    "RiskLevel",
+    "RiskClassification",
+    "RiskClassifier",
+    "ConformityReport",
+    "ConformityReportGenerator",
+    "ComplianceArtifactBundle",
+    "ComplianceArtifactGenerator",
     # Continuous Monitoring
     "ComplianceHealth",
     "ViolationTrend",
