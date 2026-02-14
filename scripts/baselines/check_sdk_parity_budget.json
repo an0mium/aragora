@@ -1,7 +1,7 @@
 {
   "start_date": "2026-02-13",
-  "initial_missing_from_both_sdks": 121,
+  "initial_missing_from_both_sdks": 62,
   "weekly_reduction_missing_from_both_sdks": 1,
-  "initial_stale_python_sdk_paths": 548,
+  "initial_stale_python_sdk_paths": 457,
   "weekly_reduction_stale_python_sdk_paths": 5
 }

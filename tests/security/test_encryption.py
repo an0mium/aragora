@@ -1103,13 +1103,7 @@ class TestEncryptionRequiredFlag:
             os.environ.pop("ARAGORA_ENCRYPTION_REQUIRED", None)
             os.environ.pop("ARAGORA_ENV", None)
 
-            # Re-import to get fresh value
-            import importlib
-            import aragora.security.encryption as enc_module
-
-            importlib.reload(enc_module)
-
-            assert enc_module.is_encryption_required() is False
+            assert is_encryption_required() is False
 
     def test_required_when_env_production(self):
         """Encryption should be required in production."""
@@ -1123,12 +1117,8 @@ class TestEncryptionRequiredFlag:
 
     def test_required_when_explicitly_set(self):
         """Encryption should be required when flag is set."""
-        import importlib
-        import aragora.security.encryption as enc_module
-
         with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_REQUIRED": "true"}):
-            importlib.reload(enc_module)
-            assert enc_module.is_encryption_required() is True
+            assert is_encryption_required() is True
 
 
 # ============================================================================
