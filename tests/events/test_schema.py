@@ -364,7 +364,7 @@ class TestRegistryManagement:
         registry = EventSchemaRegistry()
         all_schemas = registry.get_all_schemas()
         assert StreamEventType.DEBATE_START in all_schemas
-        assert len(all_schemas) == 16
+        assert len(all_schemas) == 20
 
 
 # =============================================================================
