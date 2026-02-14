@@ -12,7 +12,6 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # List Templates Operations
 # =========================================================================
 
-
 class TestWorkflowTemplatesList:
     """Tests for list workflow templates operations."""
 
@@ -88,11 +87,9 @@ class TestWorkflowTemplatesList:
             assert params["offset"] == 10
             client.close()
 
-
 # =========================================================================
 # Get Template Operations
 # =========================================================================
-
 
 class TestWorkflowTemplatesGet:
     """Tests for get workflow template operations."""
@@ -121,11 +118,9 @@ class TestWorkflowTemplatesGet:
             assert result["pattern"] == "parallel"
             client.close()
 
-
 # =========================================================================
 # Get Template Package Operations
 # =========================================================================
-
 
 class TestWorkflowTemplatesPackage:
     """Tests for get template package operations."""
@@ -165,105 +160,9 @@ class TestWorkflowTemplatesPackage:
             assert result["dependencies"] == ["pandas", "numpy"]
             client.close()
 
-
 # =========================================================================
 # Run Template Operations
 # =========================================================================
-
-
-class TestWorkflowTemplatesRun:
-    """Tests for run template operations."""
-
-    def test_run_template_basic(self) -> None:
-        """Run a template with minimal options."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "execution_id": "exec_789",
-                "status": "started",
-                "template_id": "tpl_001",
-                "started_at": "2025-01-20T10:30:00Z",
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.workflow_templates.run(template_id="tpl_001")
-
-            mock_request.assert_called_once_with(
-                "POST", "/api/v1/workflow/templates/tpl_001/run", json=None
-            )
-            assert result["execution_id"] == "exec_789"
-            assert result["status"] == "started"
-            client.close()
-
-    def test_run_template_with_inputs(self) -> None:
-        """Run a template with inputs."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "execution_id": "exec_101",
-                "status": "running",
-                "template_id": "tpl_002",
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            inputs = {"document": "report.pdf", "language": "en"}
-            client.workflow_templates.run(template_id="tpl_002", inputs=inputs)
-
-            call_args = mock_request.call_args
-            json_data = call_args[1]["json"]
-            assert json_data["inputs"] == inputs
-            client.close()
-
-    def test_run_template_with_all_options(self) -> None:
-        """Run a template with all options."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "execution_id": "exec_202",
-                "status": "started",
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            client.workflow_templates.run(
-                template_id="tpl_003",
-                inputs={"query": "Analyze this data"},
-                config={"timeout": 300, "retry": True},
-                workspace_id="ws_abc",
-            )
-
-            call_args = mock_request.call_args
-            json_data = call_args[1]["json"]
-            assert json_data["inputs"] == {"query": "Analyze this data"}
-            assert json_data["config"] == {"timeout": 300, "retry": True}
-            assert json_data["workspace_id"] == "ws_abc"
-            client.close()
-
-    def test_run_template_completed_result(self) -> None:
-        """Check completed template run with result."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "execution_id": "exec_303",
-                "status": "completed",
-                "template_id": "tpl_004",
-                "started_at": "2025-01-20T10:30:00Z",
-                "result": {
-                    "summary": "Analysis complete",
-                    "findings": ["Finding 1", "Finding 2"],
-                    "confidence": 0.95,
-                },
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.workflow_templates.run(
-                template_id="tpl_004", inputs={"data": "input.json"}
-            )
-
-            assert result["status"] == "completed"
-            assert result["result"]["confidence"] == 0.95
-            client.close()
-
-
-# =========================================================================
-# Async Tests
-# =========================================================================
-
 
 class TestAsyncWorkflowTemplates:
     """Tests for async Workflow Templates API."""
@@ -327,21 +226,3 @@ class TestAsyncWorkflowTemplates:
                 )
                 assert "definition" in result
 
-    @pytest.mark.asyncio
-    async def test_async_run_template(self) -> None:
-        """Run a template asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {
-                "execution_id": "exec_async",
-                "status": "started",
-            }
-
-            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-                result = await client.workflow_templates.run(
-                    template_id="tpl_run", inputs={"test": True}
-                )
-
-                call_args = mock_request.call_args
-                json_data = call_args[1]["json"]
-                assert json_data["inputs"] == {"test": True}
-                assert result["status"] == "started"

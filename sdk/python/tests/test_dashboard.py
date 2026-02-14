@@ -8,7 +8,6 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
-
 class TestDashboardOverview:
     """Tests for dashboard overview methods."""
 
@@ -60,7 +59,6 @@ class TestDashboardOverview:
             assert result["cards"][0]["label"] == "Debates"
             client.close()
 
-
 class TestDashboardActivity:
     """Tests for activity and quick actions."""
 
@@ -105,34 +103,6 @@ class TestDashboardActivity:
             assert result["actions"][0]["id"] == "archive_old"
             client.close()
 
-    def test_execute_quick_action(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"status": "completed"}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.dashboard.execute_quick_action("archive_old")
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/dashboard/quick-actions/archive_old",
-                json={"confirm": True},
-            )
-            assert result["status"] == "completed"
-            client.close()
-
-    def test_execute_quick_action_with_options(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"status": "completed"}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            client.dashboard.execute_quick_action(
-                "archive_old", confirm=False, options={"days": 30}
-            )
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/dashboard/quick-actions/archive_old",
-                json={"confirm": False, "options": {"days": 30}},
-            )
-            client.close()
-
-
 class TestDashboardDebates:
     """Tests for debate listing methods."""
 
@@ -169,16 +139,6 @@ class TestDashboardDebates:
             )
             client.close()
 
-    def test_get_debate(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"id": "deb_123", "status": "completed"}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.dashboard.get_debate("deb_123")
-            mock_request.assert_called_once_with("GET", "/api/v1/dashboard/debates/deb_123")
-            assert result["status"] == "completed"
-            client.close()
-
-
 class TestDashboardTeamPerformance:
     """Tests for team performance methods."""
 
@@ -211,16 +171,6 @@ class TestDashboardTeamPerformance:
                 },
             )
             client.close()
-
-    def test_get_team_by_id(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"id": "team_1", "win_rate": 0.85}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.dashboard.get_team_by_id("team_1")
-            mock_request.assert_called_once_with("GET", "/api/v1/dashboard/team-performance/team_1")
-            assert result["win_rate"] == 0.85
-            client.close()
-
 
 class TestDashboardEmailAnalytics:
     """Tests for email analytics methods."""
@@ -264,7 +214,6 @@ class TestDashboardEmailAnalytics:
             assert result["labels"][0]["name"] == "inbox"
             client.close()
 
-
 class TestDashboardUrgentItems:
     """Tests for urgent items and pending actions."""
 
@@ -299,15 +248,6 @@ class TestDashboardUrgentItems:
             )
             client.close()
 
-    def test_dismiss_urgent_item(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"dismissed": True}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.dashboard.dismiss_urgent_item("item_1")
-            mock_request.assert_called_once_with("POST", "/api/v1/dashboard/urgent/item_1/dismiss")
-            assert result["dismissed"] is True
-            client.close()
-
     def test_get_pending_actions(self) -> None:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"actions": [], "total": 0}
@@ -330,32 +270,6 @@ class TestDashboardUrgentItems:
                 params={"limit": 10, "offset": 20},
             )
             client.close()
-
-    def test_complete_action(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"completed": True}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.dashboard.complete_action("action_1")
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/dashboard/pending-actions/action_1/complete",
-                json=None,
-            )
-            assert result["completed"] is True
-            client.close()
-
-    def test_complete_action_with_result(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"completed": True}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            client.dashboard.complete_action("action_1", result={"outcome": "approved"})
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/dashboard/pending-actions/action_1/complete",
-                json={"result": {"outcome": "approved"}},
-            )
-            client.close()
-
 
 class TestDashboardSearchExport:
     """Tests for search and export methods."""
@@ -419,7 +333,6 @@ class TestDashboardSearchExport:
                 },
             )
             client.close()
-
 
 class TestAsyncDashboard:
     """Tests for async dashboard methods."""

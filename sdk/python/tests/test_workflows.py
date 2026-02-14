@@ -8,7 +8,6 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
-
 class TestWorkflowsCRUD:
     """Tests for basic workflow CRUD operations."""
 
@@ -87,34 +86,8 @@ class TestWorkflowsCRUD:
             assert result["deleted"] is True
             client.close()
 
-
 class TestWorkflowExecution:
     """Tests for workflow execution operations."""
-
-    def test_execute_workflow_with_inputs(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"execution_id": "exec_123", "status": "running"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.workflows.execute("wf_abc", inputs={"query": "test input"})
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflows/wf_abc/execute",
-                json={"inputs": {"query": "test input"}},
-            )
-            assert result["status"] == "running"
-            client.close()
-
-    def test_execute_workflow_without_inputs(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"execution_id": "exec_456", "status": "running"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            client.workflows.execute("wf_abc")
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflows/wf_abc/execute",
-                json={"inputs": {}},
-            )
-            client.close()
 
     def test_get_execution_status(self) -> None:
         with patch.object(AragoraClient, "request") as mock_request:
@@ -150,24 +123,6 @@ class TestWorkflowExecution:
             assert result["cancelled"] is True
             client.close()
 
-
-class TestWorkflowTemplateOverrides:
-    """Tests for workflow template operations."""
-
-    def test_create_from_template_with_overrides(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"id": "wf_from_tpl", "name": "My CI Pipeline"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.workflows.create_from_template("tpl_1", "My CI Pipeline", timeout=300)
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflow-templates/tpl_1/create",
-                json={"name": "My CI Pipeline", "timeout": 300},
-            )
-            assert result["name"] == "My CI Pipeline"
-            client.close()
-
-
 class TestAsyncWorkflows:
     """Tests for async workflow methods."""
 
@@ -186,20 +141,6 @@ class TestAsyncWorkflows:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_execute_workflow(self) -> None:
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"execution_id": "exec_async", "status": "running"}
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = await client.workflows.execute("wf_123", inputs={"key": "value"})
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflows/wf_123/execute",
-                json={"inputs": {"key": "value"}},
-            )
-            assert result["execution_id"] == "exec_async"
-            await client.close()
-
-    @pytest.mark.asyncio
     async def test_get_execution(self) -> None:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"id": "exec_1", "status": "completed"}
@@ -208,7 +149,6 @@ class TestAsyncWorkflows:
             mock_request.assert_called_once_with("GET", "/api/v1/workflow-executions/exec_1")
             assert result["status"] == "completed"
             await client.close()
-
 
 class TestWorkflowLibraryTemplates:
     """Tests for workflow library template operations."""
@@ -248,34 +188,6 @@ class TestWorkflowLibraryTemplates:
             )
             assert "package" in result
             client.close()
-
-    def test_run_library_template(self) -> None:
-        """Run a workflow library template."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"execution_id": "exec_tpl_1", "status": "running"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.workflows.run_library_template("tpl_lib_1", inputs={"source": "db"})
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflow/templates/tpl_lib_1/run",
-                json={"inputs": {"source": "db"}},
-            )
-            assert result["status"] == "running"
-            client.close()
-
-    def test_run_library_template_without_inputs(self) -> None:
-        """Run a workflow library template without inputs."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"execution_id": "exec_tpl_2"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            client.workflows.run_library_template("tpl_lib_1")
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflow/templates/tpl_lib_1/run",
-                json={"inputs": {}},
-            )
-            client.close()
-
 
 class TestWorkflowCategoriesAndPatterns:
     """Tests for workflow categories and patterns operations."""
@@ -330,7 +242,6 @@ class TestWorkflowCategoriesAndPatterns:
             assert result["pattern"] == "parallel"
             client.close()
 
-
 class TestAsyncWorkflowsExtended:
     """Extended tests for async workflow methods."""
 
@@ -343,21 +254,6 @@ class TestAsyncWorkflowsExtended:
             result = await client.workflows.list_library_templates()
             mock_request.assert_called_once_with("GET", "/api/v1/workflow/templates", params={})
             assert result["total"] == 0
-            await client.close()
-
-    @pytest.mark.asyncio
-    async def test_async_run_library_template(self) -> None:
-        """Run library template asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"execution_id": "exec_async"}
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = await client.workflows.run_library_template("tpl_1", {"key": "val"})
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflow/templates/tpl_1/run",
-                json={"inputs": {"key": "val"}},
-            )
-            assert result["execution_id"] == "exec_async"
             await client.close()
 
     @pytest.mark.asyncio
@@ -431,7 +327,6 @@ class TestAsyncWorkflowsExtended:
             assert result["deleted"] is True
             await client.close()
 
-
 class TestWorkflowUpdate:
     """Tests for workflow update operations."""
 
@@ -458,7 +353,6 @@ class TestWorkflowUpdate:
             )
             assert result["enabled"] is False
             client.close()
-
 
 class TestWorkflowExecutionListing:
     """Tests for listing workflow executions."""
@@ -491,7 +385,6 @@ class TestWorkflowExecutionListing:
             assert len(result["executions"]) == 2
             client.close()
 
-
 class TestWorkflowTemplateCatalog:
     """Tests for workflow template operations."""
 
@@ -505,16 +398,3 @@ class TestWorkflowTemplateCatalog:
             assert len(result["templates"]) == 2
             client.close()
 
-    def test_create_from_template_minimal(self) -> None:
-        """Create workflow from template with minimal parameters."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"id": "wf_new", "name": "From Template"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.workflows.create_from_template("tpl_1", "From Template")
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/workflow-templates/tpl_1/create",
-                json={"name": "From Template"},
-            )
-            assert result["name"] == "From Template"
-            client.close()

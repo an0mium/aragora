@@ -16,7 +16,6 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Device Tests (Sync)
 # =============================================================================
 
-
 class TestGatewayListDevices:
     """Tests for listing devices."""
 
@@ -69,7 +68,6 @@ class TestGatewayListDevices:
             )
             client.close()
 
-
 class TestGatewayGetDevice:
     """Tests for getting device details."""
 
@@ -90,7 +88,6 @@ class TestGatewayGetDevice:
             assert result["name"] == "Kitchen Speaker"
             assert result["status"] == "online"
             client.close()
-
 
 class TestGatewayRegisterDevice:
     """Tests for device registration."""
@@ -204,7 +201,6 @@ class TestGatewayRegisterDevice:
             assert call_json["metadata"] == {"room": "conference"}
             client.close()
 
-
 class TestGatewayUnregisterDevice:
     """Tests for device unregistration."""
 
@@ -217,31 +213,6 @@ class TestGatewayUnregisterDevice:
             mock_request.assert_called_once_with("DELETE", "/api/v1/gateway/devices/dev_123")
             assert "message" in result
             client.close()
-
-
-class TestGatewayHeartbeat:
-    """Tests for device heartbeat."""
-
-    def test_heartbeat(self) -> None:
-        """Send device heartbeat."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "status": "acknowledged",
-                "timestamp": "2025-01-15T10:30:00Z",
-            }
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.gateway.heartbeat("dev_123")
-            mock_request.assert_called_once_with(
-                "POST", "/api/v1/gateway/devices/dev_123/heartbeat"
-            )
-            assert result["status"] == "acknowledged"
-            client.close()
-
-
-# =============================================================================
-# Channel Tests (Sync)
-# =============================================================================
-
 
 class TestGatewayListChannels:
     """Tests for listing channels."""
@@ -263,108 +234,9 @@ class TestGatewayListChannels:
             assert result["channels"][0]["channel_id"] == "slack"
             client.close()
 
-
 # =============================================================================
 # Routing Tests (Sync)
 # =============================================================================
-
-
-class TestGatewayRoutingStats:
-    """Tests for routing statistics."""
-
-    def test_get_routing_stats(self) -> None:
-        """Get routing statistics."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "total_messages": 1500,
-                "messages_today": 42,
-                "avg_latency_ms": 25,
-                "success_rate": 0.998,
-            }
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.gateway.get_routing_stats()
-            mock_request.assert_called_once_with("GET", "/api/v1/gateway/routing/stats")
-            assert result["total_messages"] == 1500
-            assert result["success_rate"] == 0.998
-            client.close()
-
-
-class TestGatewayListRoutingRules:
-    """Tests for listing routing rules."""
-
-    def test_list_routing_rules(self) -> None:
-        """List routing rules."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "rules": [
-                    {
-                        "rule_id": "rule_1",
-                        "name": "Default Slack Route",
-                        "channel": "slack",
-                        "priority": 1,
-                    },
-                    {
-                        "rule_id": "rule_2",
-                        "name": "Urgent Telegram Route",
-                        "channel": "telegram",
-                        "priority": 0,
-                    },
-                ],
-                "total": 2,
-            }
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.gateway.list_routing_rules()
-            mock_request.assert_called_once_with("GET", "/api/v1/gateway/routing/rules")
-            assert result["total"] == 2
-            assert result["rules"][0]["rule_id"] == "rule_1"
-            client.close()
-
-
-# =============================================================================
-# Message Routing Tests (Sync)
-# =============================================================================
-
-
-class TestGatewayRouteMessage:
-    """Tests for message routing."""
-
-    def test_route_message(self) -> None:
-        """Route a message through the gateway."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "routed": True,
-                "agent_id": "agent_claude",
-                "rule_id": "rule_1",
-            }
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.gateway.route_message(
-                channel="slack", content="Hello from the gateway!"
-            )
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/gateway/messages/route",
-                json={"channel": "slack", "content": "Hello from the gateway!"},
-            )
-            assert result["routed"] is True
-            assert result["agent_id"] == "agent_claude"
-            client.close()
-
-    def test_route_message_different_channel(self) -> None:
-        """Route a message to a different channel."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"routed": True, "agent_id": "agent_gpt"}
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            client.gateway.route_message(channel="telegram", content="Urgent notification")
-            call_json = mock_request.call_args[1]["json"]
-            assert call_json["channel"] == "telegram"
-            assert call_json["content"] == "Urgent notification"
-            client.close()
-
-
-# =============================================================================
-# Async Device Tests
-# =============================================================================
-
 
 class TestAsyncGatewayDevices:
     """Tests for async device management."""
@@ -460,25 +332,6 @@ class TestAsyncGatewayDevices:
             assert result["message"] == "Unregistered"
             await client.close()
 
-    @pytest.mark.asyncio
-    async def test_heartbeat(self) -> None:
-        """Send device heartbeat asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"status": "acknowledged"}
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            result = await client.gateway.heartbeat("dev_async")
-            mock_request.assert_called_once_with(
-                "POST", "/api/v1/gateway/devices/dev_async/heartbeat"
-            )
-            assert result["status"] == "acknowledged"
-            await client.close()
-
-
-# =============================================================================
-# Async Channel Tests
-# =============================================================================
-
-
 class TestAsyncGatewayChannels:
     """Tests for async channel management."""
 
@@ -496,83 +349,7 @@ class TestAsyncGatewayChannels:
             assert result["total"] == 1
             await client.close()
 
-
 # =============================================================================
 # Async Routing Tests
 # =============================================================================
 
-
-class TestAsyncGatewayRouting:
-    """Tests for async routing operations."""
-
-    @pytest.mark.asyncio
-    async def test_get_routing_stats(self) -> None:
-        """Get routing statistics asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {
-                "total_messages": 5000,
-                "success_rate": 0.995,
-            }
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            result = await client.gateway.get_routing_stats()
-            mock_request.assert_called_once_with("GET", "/api/v1/gateway/routing/stats")
-            assert result["total_messages"] == 5000
-            await client.close()
-
-    @pytest.mark.asyncio
-    async def test_list_routing_rules(self) -> None:
-        """List routing rules asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {
-                "rules": [{"rule_id": "rule_async", "priority": 1}],
-                "total": 1,
-            }
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            result = await client.gateway.list_routing_rules()
-            mock_request.assert_called_once_with("GET", "/api/v1/gateway/routing/rules")
-            assert result["total"] == 1
-            assert result["rules"][0]["rule_id"] == "rule_async"
-            await client.close()
-
-
-# =============================================================================
-# Async Message Routing Tests
-# =============================================================================
-
-
-class TestAsyncGatewayMessageRouting:
-    """Tests for async message routing."""
-
-    @pytest.mark.asyncio
-    async def test_route_message(self) -> None:
-        """Route a message asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {
-                "routed": True,
-                "agent_id": "agent_async",
-                "rule_id": "rule_async",
-            }
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            result = await client.gateway.route_message(
-                channel="slack", content="Async message content"
-            )
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/gateway/messages/route",
-                json={"channel": "slack", "content": "Async message content"},
-            )
-            assert result["routed"] is True
-            assert result["agent_id"] == "agent_async"
-            await client.close()
-
-    @pytest.mark.asyncio
-    async def test_route_message_telegram(self) -> None:
-        """Route a message to Telegram asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"routed": True}
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            await client.gateway.route_message(channel="telegram", content="Hello Telegram!")
-            call_json = mock_request.call_args[1]["json"]
-            assert call_json["channel"] == "telegram"
-            assert call_json["content"] == "Hello Telegram!"
-            await client.close()

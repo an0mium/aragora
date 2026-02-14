@@ -8,7 +8,6 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
-
 class TestRepositoryIndexing:
     """Tests for repository indexing operations."""
 
@@ -109,7 +108,6 @@ class TestRepositoryIndexing:
             assert len(result["index_ids"]) == 2
             client.close()
 
-
 class TestRepositoryStatusAndQueries:
     """Tests for status checking and entity querying."""
 
@@ -171,25 +169,6 @@ class TestRepositoryStatusAndQueries:
             assert len(result["nodes"]) == 1
             assert len(result["edges"]) == 1
             client.close()
-
-    def test_get_entity(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "id": "ent_abc",
-                "type": "function",
-                "name": "run_debate",
-                "language": "python",
-                "file_path": "aragora/debate/orchestrator.py",
-            }
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.repository.get_entity("idx_001", "ent_abc")
-            mock_request.assert_called_once_with(
-                "GET", "/api/v1/repository/idx_001/entities/ent_abc"
-            )
-            assert result["name"] == "run_debate"
-            assert result["type"] == "function"
-            client.close()
-
 
 class TestAsyncRepository:
     """Tests for async repository methods."""

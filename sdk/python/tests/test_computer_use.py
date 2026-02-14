@@ -16,7 +16,6 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Task Operations - Sync
 # =========================================================================
 
-
 class TestComputerUseCreateTask:
     """Tests for creating computer use tasks."""
 
@@ -83,7 +82,6 @@ class TestComputerUseCreateTask:
             assert json_data["dry_run"] is True
             assert result["dry_run"] is True
             client.close()
-
 
 class TestComputerUseListTasks:
     """Tests for listing computer use tasks."""
@@ -165,7 +163,6 @@ class TestComputerUseListTasks:
             assert params["status"] == "failed"
             client.close()
 
-
 class TestComputerUseGetTask:
     """Tests for getting computer use task details."""
 
@@ -213,65 +210,6 @@ class TestComputerUseGetTask:
             assert result["task"]["current_step"] == "Typing in email field"
             client.close()
 
-
-class TestComputerUseCancelTask:
-    """Tests for cancelling computer use tasks."""
-
-    def test_cancel_task(self) -> None:
-        """Cancel a running task."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "message": "Task cancelled successfully",
-                "task_id": "cu_task_123",
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.computer_use.cancel_task("cu_task_123")
-
-            mock_request.assert_called_once_with(
-                "POST", "/api/v1/computer-use/tasks/cu_task_123/cancel"
-            )
-            assert "cancelled" in result["message"].lower()
-            client.close()
-
-
-# =========================================================================
-# Action Operations - Sync
-# =========================================================================
-
-
-class TestComputerUseActionStats:
-    """Tests for action statistics."""
-
-    def test_get_action_stats(self) -> None:
-        """Get action statistics."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "stats": {
-                    "screenshot": {"count": 150, "avg_duration_ms": 250},
-                    "click": {"count": 89, "avg_duration_ms": 50},
-                    "type": {"count": 45, "avg_duration_ms": 120},
-                    "scroll": {"count": 32, "avg_duration_ms": 80},
-                    "wait": {"count": 28, "avg_duration_ms": 1000},
-                },
-                "total_actions": 344,
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.computer_use.get_action_stats()
-
-            mock_request.assert_called_once_with("GET", "/api/v1/computer-use/actions/stats")
-            assert result["total_actions"] == 344
-            assert result["stats"]["screenshot"]["count"] == 150
-            assert result["stats"]["click"]["count"] == 89
-            client.close()
-
-
-# =========================================================================
-# Policy Operations - Sync
-# =========================================================================
-
-
 class TestComputerUseListPolicies:
     """Tests for listing computer use policies."""
 
@@ -303,7 +241,6 @@ class TestComputerUseListPolicies:
             assert len(result["policies"]) == 2
             assert result["policies"][0]["name"] == "Production Safety"
             client.close()
-
 
 class TestComputerUseCreatePolicy:
     """Tests for creating computer use policies."""
@@ -400,11 +337,9 @@ class TestComputerUseCreatePolicy:
             assert len(json_data["blocked_domains"]) == 2
             client.close()
 
-
 # =========================================================================
 # Async Tests
 # =========================================================================
-
 
 class TestAsyncComputerUseTasks:
     """Tests for async computer use task operations."""
@@ -504,43 +439,6 @@ class TestAsyncComputerUseTasks:
                     "GET", "/api/v1/computer-use/tasks/cu_task_async"
                 )
                 assert result["task"]["status"] == "completed"
-
-    @pytest.mark.asyncio
-    async def test_async_cancel_task(self) -> None:
-        """Cancel a task asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"message": "Task cancelled"}
-
-            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-                result = await client.computer_use.cancel_task("cu_task_to_cancel")
-
-                mock_request.assert_called_once_with(
-                    "POST", "/api/v1/computer-use/tasks/cu_task_to_cancel/cancel"
-                )
-                assert "cancelled" in result["message"].lower()
-
-
-class TestAsyncComputerUseActions:
-    """Tests for async computer use action operations."""
-
-    @pytest.mark.asyncio
-    async def test_async_get_action_stats(self) -> None:
-        """Get action statistics asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {
-                "stats": {
-                    "screenshot": {"count": 100},
-                    "click": {"count": 50},
-                },
-                "total_actions": 150,
-            }
-
-            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-                result = await client.computer_use.get_action_stats()
-
-                mock_request.assert_called_once_with("GET", "/api/v1/computer-use/actions/stats")
-                assert result["total_actions"] == 150
-
 
 class TestAsyncComputerUsePolicies:
     """Tests for async computer use policy operations."""

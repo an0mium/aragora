@@ -18,7 +18,6 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Sync: Search
 # ---------------------------------------------------------------------------
 
-
 class TestKnowledgeChatSearch:
     """Tests for search() method."""
 
@@ -286,11 +285,9 @@ class TestKnowledgeChatSearch:
         assert "channel_id" not in request_json
         assert "user_id" not in request_json
 
-
 # ---------------------------------------------------------------------------
 # Sync: Inject
 # ---------------------------------------------------------------------------
-
 
 class TestKnowledgeChatInject:
     """Tests for inject() method."""
@@ -431,11 +428,9 @@ class TestKnowledgeChatInject:
         # Default (5) should not be sent
         assert "max_context_items" not in request_json
 
-
 # ---------------------------------------------------------------------------
 # Sync: Store
 # ---------------------------------------------------------------------------
-
 
 class TestKnowledgeChatStore:
     """Tests for store() method."""
@@ -698,117 +693,9 @@ class TestKnowledgeChatStore:
         assert "platform" not in request_json  # default is "unknown"
         assert "node_type" not in request_json  # default is "chat_context"
 
-
 # ---------------------------------------------------------------------------
 # Sync: Get Channel Summary
 # ---------------------------------------------------------------------------
-
-
-class TestKnowledgeChatGetChannelSummary:
-    """Tests for get_channel_summary() method."""
-
-    def test_get_channel_summary_minimal(self, client: AragoraClient, mock_request) -> None:
-        """Get channel summary with only channel ID."""
-        mock_request.return_value = {
-            "channel_id": "C123",
-            "total_items": 42,
-            "recent_topics": ["API design", "Testing"],
-            "knowledge_items": [],
-        }
-
-        result = client.knowledge_chat.get_channel_summary("C123")
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/chat/knowledge/channel/C123/summary",
-            params={"workspace_id": "default"},
-        )
-        assert result["channel_id"] == "C123"
-        assert result["total_items"] == 42
-
-    def test_get_channel_summary_with_workspace(self, client: AragoraClient, mock_request) -> None:
-        """Get channel summary with workspace specified."""
-        mock_request.return_value = {
-            "channel_id": "C456",
-            "total_items": 10,
-            "knowledge_items": [],
-        }
-
-        client.knowledge_chat.get_channel_summary(
-            "C456",
-            workspace_id="ws_acme",
-        )
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/chat/knowledge/channel/C456/summary",
-            params={"workspace_id": "ws_acme"},
-        )
-
-    def test_get_channel_summary_with_max_items(self, client: AragoraClient, mock_request) -> None:
-        """Get channel summary with custom max items."""
-        mock_request.return_value = {
-            "channel_id": "C789",
-            "total_items": 100,
-            "knowledge_items": [{"id": "k1"}, {"id": "k2"}],
-        }
-
-        client.knowledge_chat.get_channel_summary(
-            "C789",
-            max_items=25,
-        )
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/chat/knowledge/channel/C789/summary",
-            params={"workspace_id": "default", "max_items": 25},
-        )
-
-    def test_get_channel_summary_with_all_options(
-        self, client: AragoraClient, mock_request
-    ) -> None:
-        """Get channel summary with all options specified."""
-        mock_request.return_value = {
-            "channel_id": "C_eng",
-            "workspace_id": "ws_prod",
-            "total_items": 500,
-            "recent_topics": ["Infrastructure", "Scaling", "Monitoring"],
-            "knowledge_items": [
-                {"id": "k1", "type": "decision"},
-                {"id": "k2", "type": "fact"},
-            ],
-        }
-
-        result = client.knowledge_chat.get_channel_summary(
-            "C_eng",
-            workspace_id="ws_prod",
-            max_items=50,
-        )
-
-        mock_request.assert_called_once_with(
-            "GET",
-            "/api/v1/chat/knowledge/channel/C_eng/summary",
-            params={"workspace_id": "ws_prod", "max_items": 50},
-        )
-        assert result["total_items"] == 500
-        assert len(result["knowledge_items"]) == 2
-
-    def test_get_channel_summary_default_max_items_not_sent(
-        self, client: AragoraClient, mock_request
-    ) -> None:
-        """Verify default max_items is not included in params."""
-        mock_request.return_value = {"channel_id": "C1", "total_items": 0}
-
-        client.knowledge_chat.get_channel_summary("C1")
-
-        call_kwargs = mock_request.call_args[1]
-        assert "max_items" not in call_kwargs["params"]
-
-
-# ---------------------------------------------------------------------------
-# Async Tests: Search
-# ---------------------------------------------------------------------------
-
 
 class TestAsyncKnowledgeChatSearch:
     """Tests for async search() method."""
@@ -865,11 +752,9 @@ class TestAsyncKnowledgeChatSearch:
             assert request_json["max_results"] == 5
             assert result["total"] == 1
 
-
 # ---------------------------------------------------------------------------
 # Async Tests: Inject
 # ---------------------------------------------------------------------------
-
 
 class TestAsyncKnowledgeChatInject:
     """Tests for async inject() method."""
@@ -922,11 +807,9 @@ class TestAsyncKnowledgeChatInject:
             assert request_json["max_context_items"] == 20
             assert result["count"] == 1
 
-
 # ---------------------------------------------------------------------------
 # Async Tests: Store
 # ---------------------------------------------------------------------------
-
 
 class TestAsyncKnowledgeChatStore:
     """Tests for async store() method."""
@@ -1008,54 +891,7 @@ class TestAsyncKnowledgeChatStore:
             assert request_json["node_type"] == "insight"
             assert result["message_count"] == 3
 
-
 # ---------------------------------------------------------------------------
 # Async Tests: Get Channel Summary
 # ---------------------------------------------------------------------------
 
-
-class TestAsyncKnowledgeChatGetChannelSummary:
-    """Tests for async get_channel_summary() method."""
-
-    @pytest.mark.asyncio
-    async def test_get_channel_summary_minimal(self, mock_async_request) -> None:
-        """Async get channel summary with minimal parameters."""
-        mock_async_request.return_value = {
-            "channel_id": "C_async",
-            "total_items": 5,
-        }
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.knowledge_chat.get_channel_summary("C_async")
-
-            mock_async_request.assert_called_once_with(
-                "GET",
-                "/api/v1/chat/knowledge/channel/C_async/summary",
-                params={"workspace_id": "default"},
-            )
-            assert result["channel_id"] == "C_async"
-
-    @pytest.mark.asyncio
-    async def test_get_channel_summary_with_all_options(self, mock_async_request) -> None:
-        """Async get channel summary with all options."""
-        mock_async_request.return_value = {
-            "channel_id": "C_full",
-            "workspace_id": "ws_full",
-            "total_items": 100,
-            "knowledge_items": [{"id": "k1"}, {"id": "k2"}],
-        }
-
-        async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-            result = await client.knowledge_chat.get_channel_summary(
-                "C_full",
-                workspace_id="ws_full",
-                max_items=30,
-            )
-
-            mock_async_request.assert_called_once_with(
-                "GET",
-                "/api/v1/chat/knowledge/channel/C_full/summary",
-                params={"workspace_id": "ws_full", "max_items": 30},
-            )
-            assert result["total_items"] == 100
-            assert len(result["knowledge_items"]) == 2

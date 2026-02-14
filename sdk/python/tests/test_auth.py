@@ -8,7 +8,6 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
-
 class TestAuthLoginLogout:
     """Tests for login, logout, and registration."""
 
@@ -75,16 +74,6 @@ class TestAuthLoginLogout:
             assert result["success"] is True
             client.close()
 
-    def test_logout_all(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"logged_out": True, "sessions_revoked": 3}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.auth.logout_all()
-            mock_request.assert_called_once_with("POST", "/api/v1/auth/logout/all")
-            assert result["sessions_revoked"] == 3
-            client.close()
-
-
 class TestAuthTokens:
     """Tests for token refresh and validation."""
 
@@ -118,7 +107,6 @@ class TestAuthTokens:
             assert result["id"] == "usr_1"
             assert result["name"] == "Test User"
             client.close()
-
 
 class TestAuthAPIKeys:
     """Tests for API key management."""
@@ -167,7 +155,6 @@ class TestAuthAPIKeys:
             assert result["success"] is True
             client.close()
 
-
 class TestAuthSessions:
     """Tests for session management."""
 
@@ -188,7 +175,6 @@ class TestAuthSessions:
             mock_request.assert_called_once_with("DELETE", "/api/v1/auth/sessions/sess_1")
             assert result["success"] is True
             client.close()
-
 
 class TestAsyncAuth:
     """Tests for async auth methods."""

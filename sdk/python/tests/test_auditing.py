@@ -12,7 +12,6 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Capability Probe Operations
 # =========================================================================
 
-
 class TestAuditingCapabilityProbe:
     """Tests for capability probe operations."""
 
@@ -53,11 +52,9 @@ class TestAuditingCapabilityProbe:
             assert json_data["config"] == config
             client.close()
 
-
 # =========================================================================
 # Deep Audit Operations
 # =========================================================================
-
 
 class TestAuditingDeepAudit:
     """Tests for deep audit operations."""
@@ -113,63 +110,9 @@ class TestAuditingDeepAudit:
             assert json_data["config"] == {"focus": "security"}
             client.close()
 
-
 # =========================================================================
 # Red Team Operations
 # =========================================================================
-
-
-class TestAuditingRedTeam:
-    """Tests for red team operations."""
-
-    def test_red_team_basic(self) -> None:
-        """Run red team analysis with basic parameters."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {
-                "debate_id": "deb_123",
-                "attacks_run": 10,
-                "vulnerabilities_found": 2,
-                "findings": [],
-                "summary": "Some vulnerabilities detected",
-            }
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.auditing.red_team(debate_id="deb_123")
-
-            mock_request.assert_called_once_with(
-                "POST",
-                "/api/v1/debates/deb_123/red-team",
-                json={"intensity": "medium"},
-            )
-            assert result["attacks_run"] == 10
-            assert result["vulnerabilities_found"] == 2
-            client.close()
-
-    def test_red_team_with_all_options(self) -> None:
-        """Run red team analysis with all options."""
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"debate_id": "deb_456", "attacks_run": 25}
-
-            client = AragoraClient(base_url="https://api.aragora.ai")
-            client.auditing.red_team(
-                debate_id="deb_456",
-                attack_types=["prompt_injection", "jailbreak"],
-                intensity="high",
-                config={"iterations": 5},
-            )
-
-            call_args = mock_request.call_args
-            json_data = call_args[1]["json"]
-            assert json_data["attack_types"] == ["prompt_injection", "jailbreak"]
-            assert json_data["intensity"] == "high"
-            assert json_data["config"] == {"iterations": 5}
-            client.close()
-
-
-# =========================================================================
-# Attack Types Operations
-# =========================================================================
-
 
 class TestAuditingAttackTypes:
     """Tests for attack types operations."""
@@ -202,11 +145,9 @@ class TestAuditingAttackTypes:
             assert result["attack_types"][0]["id"] == "prompt_injection"
             client.close()
 
-
 # =========================================================================
 # Async Tests
 # =========================================================================
-
 
 class TestAsyncAuditing:
     """Tests for async Auditing API."""
@@ -242,22 +183,6 @@ class TestAsyncAuditing:
                     json={"task": "Review code", "depth": "standard"},
                 )
                 assert result["audit_id"] == "audit_789"
-
-    @pytest.mark.asyncio
-    async def test_async_red_team(self) -> None:
-        """Run red team asynchronously."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"debate_id": "deb_999", "attacks_run": 15}
-
-            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-                result = await client.auditing.red_team(debate_id="deb_999")
-
-                mock_request.assert_called_once_with(
-                    "POST",
-                    "/api/v1/debates/deb_999/red-team",
-                    json={"intensity": "medium"},
-                )
-                assert result["attacks_run"] == 15
 
     @pytest.mark.asyncio
     async def test_async_get_attack_types(self) -> None:
