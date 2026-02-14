@@ -1153,6 +1153,8 @@ class TestRegisterKMAdaptersDeep:
     def test_register_all_six_adapters(self):
         """Test _register_km_adapters registers all 6 adapter types when called manually."""
         mock_km_coord = Mock()
+        # adapter_count is used in a %d format string, must be a real number
+        mock_km_coord.adapter_count = 0
 
         # Disable all auto-inits to isolate the test from module-level state
         # that prior tests may have modified (SDPO imports, bridge factories, etc.)
@@ -1188,6 +1190,7 @@ class TestRegisterKMAdaptersDeep:
     def test_register_partial_adapters(self):
         """Test _register_km_adapters registers only available adapters."""
         mock_km_coord = Mock()
+        mock_km_coord.adapter_count = 0
 
         coord = SubsystemCoordinator(
             km_coordinator=mock_km_coord,

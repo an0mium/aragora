@@ -385,7 +385,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
         # Build request payload
         payload = {
             "task": task,
-            "crewai_process": self.crewai_config.process,
+            "process": self.crewai_config.process,
             "verbose": self.crewai_config.verbose,
             "memory": self.crewai_config.memory,
         }
@@ -440,7 +440,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
                         "output": self._sanitize_response(output),
                         "agent": self.name,
                         "tools_used": filtered_tools,
-                        "crewai_process": self.crewai_config.process,
+                        "process": self.crewai_config.process,
                         "execution_time": execution_time,
                     }
 
@@ -470,7 +470,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
                 "output": str(e),
                 "agent": self.name,
                 "tools_used": [],
-                "crewai_process": self.crewai_config.process,
+                "process": self.crewai_config.process,
                 "execution_time": execution_time,
             }
 
@@ -554,7 +554,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
             Dict describing current configuration settings.
         """
         return {
-            "crewai_process": self.crewai_config.process,
+            "process": self.crewai_config.process,
             "verbose": self.crewai_config.verbose,
             "memory_enabled": self.crewai_config.memory,
             "max_rpm": self.crewai_config.max_rpm,
