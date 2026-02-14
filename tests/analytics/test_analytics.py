@@ -981,23 +981,23 @@ class TestDebateAnalyticsDashboardSummary:
 
 
 class TestGetDebateAnalytics:
-    def test_returns_instance(self):
+    @pytest.fixture(autouse=True)
+    def _reset_analytics_singleton(self):
+        """Reset debate analytics singleton before/after each test."""
         import aragora.analytics.debate_analytics as mod
 
-        # Reset singleton
         mod._debate_analytics = None
+        yield
+        mod._debate_analytics = None
+
+    def test_returns_instance(self):
         instance = get_debate_analytics()
         assert isinstance(instance, DebateAnalytics)
 
     def test_singleton_returns_same_instance(self):
-        import aragora.analytics.debate_analytics as mod
-
-        mod._debate_analytics = None
         a = get_debate_analytics()
         b = get_debate_analytics()
         assert a is b
-        # Clean up
-        mod._debate_analytics = None
 
 
 # ===========================================================================

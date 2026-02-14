@@ -819,13 +819,19 @@ class TestBatchStatus:
 class TestGlobalQueueFunctions:
     """Tests for global queue singleton functions."""
 
-    @pytest.mark.asyncio
-    async def test_get_debate_queue(self):
-        """get_debate_queue should return a DebateQueue instance."""
-        # Reset global state
+    @pytest.fixture(autouse=True)
+    def _reset_queue_singleton(self):
+        """Reset debate queue singleton before/after each test."""
         import aragora.server.debate_queue as dq
 
         dq._queue = None
+        yield
+        dq._queue = None
+
+    @pytest.mark.asyncio
+    async def test_get_debate_queue(self):
+        """get_debate_queue should return a DebateQueue instance."""
+        import aragora.server.debate_queue as dq
 
         with patch("aragora.config.MAX_CONCURRENT_DEBATES", 5):
             queue = await dq.get_debate_queue()
@@ -835,14 +841,9 @@ class TestGlobalQueueFunctions:
             queue2 = await dq.get_debate_queue()
             assert queue is queue2
 
-        # Cleanup
-        dq._queue = None
-
     def test_get_debate_queue_sync_none(self):
         """get_debate_queue_sync should return None if not initialized."""
         import aragora.server.debate_queue as dq
-
-        dq._queue = None
 
         result = dq.get_debate_queue_sync()
         assert result is None
@@ -856,6 +857,3 @@ class TestGlobalQueueFunctions:
 
         result = dq.get_debate_queue_sync()
         assert result is test_queue
-
-        # Cleanup
-        dq._queue = None

@@ -338,13 +338,17 @@ class TestDockRegistry:
 class TestGetDockRegistry:
     """Tests for get_dock_registry singleton."""
 
-    def test_returns_singleton(self):
-        """Test that get_dock_registry returns same instance."""
-        # Reset the singleton
+    @pytest.fixture(autouse=True)
+    def _reset_dock_registry_singleton(self):
+        """Reset dock registry singleton before/after each test."""
         import aragora.channels.registry as registry_module
 
         registry_module._dock_registry = None
+        yield
+        registry_module._dock_registry = None
 
+    def test_returns_singleton(self):
+        """Test that get_dock_registry returns same instance."""
         registry1 = get_dock_registry()
         registry2 = get_dock_registry()
 
@@ -352,10 +356,6 @@ class TestGetDockRegistry:
 
     def test_registers_builtin_docks(self):
         """Test that builtin docks are registered."""
-        import aragora.channels.registry as registry_module
-
-        registry_module._dock_registry = None
-
         registry = get_dock_registry()
         platforms = registry.get_platforms()
 

@@ -152,7 +152,6 @@ class TestListPlugins:
         finally:
             mod.PLUGINS_AVAILABLE = original
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_list_plugins_success(self, plugins_handler, mock_registry):
         import aragora.server.handlers.features.plugins as mod
 
@@ -166,7 +165,6 @@ class TestListPlugins:
             assert data["count"] == 2
             assert len(data["plugins"]) == 2
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_list_plugins_empty(self, plugins_handler, mock_registry):
         import aragora.server.handlers.features.plugins as mod
 
@@ -202,7 +200,6 @@ class TestGetPluginDetails:
         finally:
             mod.PLUGINS_AVAILABLE = original
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_get_plugin_success(self, plugins_handler, mock_registry):
         import aragora.server.handlers.features.plugins as mod
 
@@ -216,7 +213,6 @@ class TestGetPluginDetails:
             assert data["requirements_satisfied"] is True
             assert data["missing_requirements"] == []
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_get_plugin_not_found(self, plugins_handler, mock_registry):
         import aragora.server.handlers.features.plugins as mod
 
@@ -233,7 +229,6 @@ class TestGetPluginDetails:
         assert result is not None
         assert result.status_code == 400
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_get_plugin_with_missing_requirements(
         self, plugins_handler, mock_registry, mock_plugin_runner
     ):
@@ -272,7 +267,6 @@ class TestPluginsSecurity:
         # Path may not match at all (None) or should be rejected (400)
         assert result is None or result.status_code == 400
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_valid_plugin_names_accepted(self, plugins_handler, mock_registry):
         import aragora.server.handlers.features.plugins as mod
 
@@ -296,7 +290,6 @@ class TestPluginsErrorHandling:
         result = plugins_handler.handle("/api/other/endpoint", {}, None)
         assert result is None
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_list_plugins_exception(self, plugins_handler):
         import aragora.server.handlers.features.plugins as mod
 
@@ -309,7 +302,6 @@ class TestPluginsErrorHandling:
             assert result is not None
             assert result.status_code == 500
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_get_plugin_exception(self, plugins_handler):
         import aragora.server.handlers.features.plugins as mod
 
@@ -343,7 +335,6 @@ class TestPluginsEdgeCases:
         # Should handle gracefully
         assert result is not None
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_plugin_without_runner(self, plugins_handler, mock_registry, mock_plugin_manifest):
         import aragora.server.handlers.features.plugins as mod
 
@@ -394,7 +385,6 @@ class TestPluginPathVariants:
         assert plugins_handler.can_handle("/api/plugins/test/install") is True
 
     @pytest.mark.parametrize("path_prefix", ["/api/plugins", "/api/v1/plugins"])
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_list_plugins_both_paths(self, plugins_handler, mock_registry, path_prefix):
         """Both path variants return identical plugin list."""
         import aragora.server.handlers.features.plugins as mod
@@ -409,7 +399,6 @@ class TestPluginPathVariants:
             assert data["count"] == 2
 
     @pytest.mark.parametrize("path_prefix", ["/api/plugins", "/api/v1/plugins"])
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_get_plugin_both_paths(self, plugins_handler, mock_registry, path_prefix):
         """Both path variants return identical plugin details."""
         import aragora.server.handlers.features.plugins as mod
@@ -435,7 +424,6 @@ class TestSunsetHeaders:
     Legacy /api/plugins/* paths should include these headers.
     """
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_legacy_path_has_sunset_header(self, plugins_handler, mock_registry):
         """Legacy paths should include Sunset header."""
         import aragora.server.handlers.features.plugins as mod
@@ -449,7 +437,6 @@ class TestSunsetHeaders:
             assert "Sunset" in result.headers
             assert "2026" in result.headers["Sunset"]
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_legacy_path_has_deprecation_header(self, plugins_handler, mock_registry):
         """Legacy paths should include Deprecation header."""
         import aragora.server.handlers.features.plugins as mod

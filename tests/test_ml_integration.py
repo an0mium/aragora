@@ -616,13 +616,24 @@ class TestDebateTrainingExporter:
 class TestSingletonGetters:
     """Tests for singleton getter functions."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_ml_singletons(self):
+        """Reset ML singletons before/after each test."""
+        import aragora.debate.ml_integration as ml_mod
+
+        ml_mod._ml_delegation = None
+        ml_mod._quality_gate = None
+        ml_mod._consensus_estimator = None
+        ml_mod._training_exporter = None
+        yield
+        ml_mod._ml_delegation = None
+        ml_mod._quality_gate = None
+        ml_mod._consensus_estimator = None
+        ml_mod._training_exporter = None
+
     def test_get_ml_delegation(self):
         """Should return singleton MLDelegationStrategy."""
         from aragora.debate.ml_integration import get_ml_delegation, MLDelegationStrategy
-        import aragora.debate.ml_integration as ml_mod
-
-        # Reset singleton
-        ml_mod._ml_delegation = None
 
         result1 = get_ml_delegation()
         result2 = get_ml_delegation()
@@ -633,10 +644,6 @@ class TestSingletonGetters:
     def test_get_quality_gate(self):
         """Should return singleton QualityGate."""
         from aragora.debate.ml_integration import get_quality_gate, QualityGate
-        import aragora.debate.ml_integration as ml_mod
-
-        # Reset singleton
-        ml_mod._quality_gate = None
 
         result1 = get_quality_gate(threshold=0.7)
         result2 = get_quality_gate()
@@ -647,10 +654,6 @@ class TestSingletonGetters:
     def test_get_consensus_estimator(self):
         """Should return singleton ConsensusEstimator."""
         from aragora.debate.ml_integration import get_consensus_estimator, ConsensusEstimator
-        import aragora.debate.ml_integration as ml_mod
-
-        # Reset singleton
-        ml_mod._consensus_estimator = None
 
         result1 = get_consensus_estimator()
         result2 = get_consensus_estimator()
@@ -661,10 +664,6 @@ class TestSingletonGetters:
     def test_get_training_exporter(self):
         """Should return singleton DebateTrainingExporter."""
         from aragora.debate.ml_integration import get_training_exporter, DebateTrainingExporter
-        import aragora.debate.ml_integration as ml_mod
-
-        # Reset singleton
-        ml_mod._training_exporter = None
 
         result1 = get_training_exporter()
         result2 = get_training_exporter()

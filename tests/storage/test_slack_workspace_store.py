@@ -464,20 +464,21 @@ class TestSlackWorkspaceStoreErrors:
 class TestSlackWorkspaceStoreSingleton:
     """Tests for singleton pattern."""
 
-    def test_get_slack_workspace_store_singleton(self, temp_db_path):
-        """Test get_slack_workspace_store returns singleton."""
-        # Reset the global singleton
+    @pytest.fixture(autouse=True)
+    def _reset_workspace_store_singleton(self):
+        """Reset workspace store singleton before/after each test."""
         import aragora.storage.slack_workspace_store as module
 
         module._workspace_store = None
+        yield
+        module._workspace_store = None
 
+    def test_get_slack_workspace_store_singleton(self, temp_db_path):
+        """Test get_slack_workspace_store returns singleton."""
         store1 = get_slack_workspace_store(temp_db_path)
         store2 = get_slack_workspace_store()
 
         assert store1 is store2
-
-        # Cleanup
-        module._workspace_store = None
 
 
 # ===========================================================================
