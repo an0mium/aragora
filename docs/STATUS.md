@@ -1,15 +1,41 @@
 # Aragora Project Status
 
-*Last updated: February 12, 2026*
+*Last updated: February 14, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Phase 9: SDK Parity & Test Isolation (February 13-14, 2026)
+
+### Summary
+Focused sprint on SDK completeness, test isolation hardening, and import hygiene. Test suite grew to **138,349 tests collected** (up from 136K+).
+
+### SDK Completeness - 100% Route Coverage
+- **SDK Parity**: 100% coverage with 0 missing routes (previously showed gaps in parity checker)
+- **OpenClaw SDK Namespace**: 22 methods implemented, both sync and async clients
+- **Voice SDK Namespace**: 4 methods implemented (`synthesize`, `list_voices`, `create_session`, `end_session`)
+- **OpenClaw Handler ROUTES**: Added explicit ROUTES constants for parity checker discovery (23 false-stale endpoints resolved to 0)
+
+### Test Isolation Fixes
+- **Gauntlet Signing**: Singleton state leaking between tests fixed
+- **Secrets Rotation**: ContextVar isolation for rotation state across async boundaries
+- **Audit Scheduler**: Exception handling hardened to prevent cascading test failures
+- **JWT Verification**: Test isolation for JWT verify connector tests
+
+### Bug Fixes
+- **Timeout Middleware**: `signal.alarm(0)` bug fixed (alarm not cleared on successful responses)
+- **Observability Imports**: `logging_config` references migrated to canonical `observability.logging` module
+- **SSO Handlers**: Auth handler fixes for SSO flow edge cases
+
+### Overall Health Score: 9.5/10 (up from 9.4/10)
+
+---
 
 ## Phase 8 Complete: GA Hardening (February 12, 2026)
 
 ### Technical Improvement Plan - ALL COMPLETE
 All 18 items from the 8-agent comprehensive assessment have been addressed (see [NEXT_STEPS.md](NEXT_STEPS.md) for detailed evidence):
 - **Type Safety**: 0 mypy errors, TypedHandler hierarchy (6 base classes), 770 ruff violations fixed
-- **Test Health**: 136K+ tests, flaky tests fixed, skips 583→100, randomized CI ordering
+- **Test Health**: 138K+ tests, flaky tests fixed, skips 583→100, randomized CI ordering
 - **Security**: MFA bypass audit logging, token validation hardened, SAML dual opt-in
 - **Architecture**: Orchestrator decomposed (2,520→1,131 lines), ArenaConfig strategy groups
 - **Observability**: Full OTLP integration (6 backends), load testing framework, SLO automation

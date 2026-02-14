@@ -198,6 +198,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_verification_handler": "optional",
     "_deliberations_handler": "optional",
     "_orchestration_handler": "optional",
+    "_voice_handler": "optional",
 }
 
 
@@ -578,6 +579,10 @@ class RouteIndex:
             ],
             "_autonomous_learning_handler": [
                 "/api/v2/learning/",
+            ],
+            "_voice_handler": [
+                "/api/v1/voice/",
+                "/api/voice/",
             ],
         }
 

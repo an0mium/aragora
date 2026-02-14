@@ -200,6 +200,7 @@ HANDLER_MODULES: dict[str, str] = {
     "UncertaintyHandler": "aragora.server.handlers.uncertainty",
     "UsageMeteringHandler": "aragora.server.handlers.usage_metering",
     "VerticalsHandler": "aragora.server.handlers.verticals",
+    "VoiceHandler": "aragora.server.handlers.voice.handler",
     "WebhookHandler": "aragora.server.handlers.webhooks",
     "WorkflowHandler": "aragora.server.handlers.workflows",
     "WorkspaceHandler": "aragora.server.handlers.workspace",
@@ -437,4 +438,5 @@ ALL_HANDLER_NAMES: list[str] = [
     "GmailLabelsHandler",
     "GmailThreadsHandler",
     "RBACHandler",
+    "VoiceHandler",
 ]

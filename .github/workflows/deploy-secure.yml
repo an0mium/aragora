@@ -229,26 +229,40 @@ jobs:
         id: health
         if: steps.deploy.outputs.deploy_success == 'true'
         run: |
-          # Get instance public IP
-          PUBLIC_IP=$(aws ec2 describe-instances \
+          # Health check via SSM (security groups block direct IP access from GitHub Actions)
+          echo "Checking health via SSM on instance..."
+
+          HEALTH_CMD_ID=$(aws ssm send-command \
             --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
-            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --document-name "AWS-RunShellScript" \
+            --comment "Health check from GitHub Actions run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "for i in $(seq 1 12); do if curl -sf http://localhost:8080/api/health; then echo; echo HEALTH_OK; exit 0; fi; echo \"Waiting for server... attempt $i/12\"; sleep 5; done; echo HEALTH_FAIL; exit 1"
+            ]' \
+            --timeout-seconds 90 \
+            --query 'Command.CommandId' \
             --output text)
 
-          echo "Checking health at $PUBLIC_IP:8080"
+          # Poll for health check completion
+          for i in {1..20}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$HEALTH_CMD_ID" \
+              --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
 
-          for i in {1..12}; do
-            if curl -sf "http://$PUBLIC_IP:8080/api/health" -o /dev/null 2>/dev/null; then
-              echo "Health check passed"
+            if [[ "$STATUS" == "Success" ]]; then
+              echo "Health check passed (via SSM localhost)"
               echo "health_ok=true" >> $GITHUB_OUTPUT
               exit 0
+            elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "TimedOut" ]]; then
+              break
             fi
-            echo "Waiting for server... attempt $i/12"
             sleep 5
           done
 
           echo "health_ok=false" >> $GITHUB_OUTPUT
-          echo "::warning::Health check failed"
+          echo "::warning::Health check failed (status: $STATUS)"
 
       - name: Verify external access via Cloudflare
         id: external_health

@@ -80,6 +80,26 @@ class VoiceHandler:
     - Device runtime integration for device-associated calls
     """
 
+    ROUTES = [
+        # v1 canonical Twilio webhook routes
+        "/api/v1/voice/inbound",
+        "/api/v1/voice/status",
+        "/api/v1/voice/gather",
+        "/api/v1/voice/gather/confirm",
+        "/api/v1/voice/device",
+        # v1 TTS / session routes (SDK surface)
+        "/api/v1/voice/synthesize",
+        "/api/v1/voice/voices",
+        "/api/v1/voice/sessions",
+        "/api/v1/voice/sessions/{session_id}",
+        "/api/v1/voice/config",
+        # legacy (unversioned) webhook routes
+        "/api/voice/inbound",
+        "/api/voice/status",
+        "/api/voice/gather",
+        "/api/voice/gather/confirm",
+    ]
+
     def __init__(
         self,
         voice_integration: TwilioVoiceIntegration | None = None,

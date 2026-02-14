@@ -2060,6 +2060,50 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset gauntlet signing singleton to prevent stale HMAC keys from one
+    # test file leaking into another (each ReceiptSigner generates an
+    # ephemeral key on creation, so a cached signer breaks verification).
+    try:
+        import aragora.gauntlet.signing as _signing
+
+        _signing._default_signer = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset encryption service singleton and SecretManager cache so tests
+    # that manipulate ARAGORA_ENCRYPTION_KEY or ARAGORA_ENV don't poison
+    # other test files (e.g. test_service_generates_ephemeral_key_without_env).
+    try:
+        import aragora.security.encryption as _enc
+
+        _enc._encryption_service = None
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.config.secrets import reset_secret_manager
+
+        reset_secret_manager()
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset embedding provider singleton so tests that configure custom
+    # providers don't leak into subsequent test files.
+    try:
+        import aragora.embeddings as _embed
+
+        _embed._default_provider = None
+    except (ImportError, AttributeError):
+        pass
+
+    # Reset connector registry singleton to prevent cross-test pollution.
+    try:
+        from aragora.connectors.runtime_registry import ConnectorRegistry
+
+        ConnectorRegistry.reset()
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():
@@ -2092,6 +2136,11 @@ def reset_lazy_globals():
     - aragora.audit.unified._unified_logger (UnifiedAuditLogger singleton)
     - aragora.server.middleware.approval_gate (_pending_approvals, _last_cleanup_time)
     - aragora.observability.metrics.stores (_initialized flag for Prometheus re-registration)
+    - aragora.gauntlet.signing._default_signer (ReceiptSigner singleton)
+    - aragora.security.encryption._encryption_service (EncryptionService singleton)
+    - aragora.config.secrets SecretManager (cached encryption keys)
+    - aragora.embeddings._default_provider (EmbeddingProvider singleton)
+    - aragora.connectors.runtime_registry.ConnectorRegistry._instance
     """
     _reset_lazy_globals_impl()  # Reset BEFORE test
     yield
