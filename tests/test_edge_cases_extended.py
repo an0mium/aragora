@@ -326,6 +326,23 @@ class TestEmptyCollectionGuards:
 class TestConsensusTopicValidation:
     """Test topic length validation boundary conditions."""
 
+    @pytest.fixture(autouse=True)
+    def _bypass_consensus_auth(self, monkeypatch):
+        """Bypass auth checks on ConsensusHandler for validation tests."""
+        from aragora.server.handlers.consensus import ConsensusHandler
+        from unittest.mock import MagicMock
+
+        mock_user = MagicMock()
+        mock_user.user_id = "test-user"
+        monkeypatch.setattr(
+            ConsensusHandler, "require_auth_or_error",
+            lambda self, handler: (mock_user, None),
+        )
+        monkeypatch.setattr(
+            ConsensusHandler, "require_permission_or_error",
+            lambda self, handler, perm: (mock_user, None),
+        )
+
     def test_topic_exactly_500_chars_accepted(self):
         """Test topic at exactly 500 chars is accepted."""
         from aragora.server.handlers.consensus import ConsensusHandler
@@ -500,7 +517,7 @@ class TestPhaseModuleEdgeCases:
         agent = MagicMock()
         agent.role = None
 
-        manager = RolesManager(protocol, [agent])
+        manager = RolesManager([agent], protocol)
         manager.assign_roles()
 
         # Single agent should be proposer
@@ -520,7 +537,7 @@ class TestPhaseModuleEdgeCases:
         agent2 = MagicMock()
         agent2.role = None
 
-        manager = RolesManager(protocol, [agent1, agent2])
+        manager = RolesManager([agent1, agent2], protocol)
         manager.assign_roles()
 
         # With 2 agents: 1 proposer, 1 synthesizer
