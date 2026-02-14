@@ -15,18 +15,7 @@ import pytest
 import time
 from unittest.mock import MagicMock, patch
 
-# Skip all tests in this module if the slack handler module doesn't exist
-try:
-    import aragora.server.handlers.slack  # noqa: F401
-
-    SLACK_MODULE_AVAILABLE = True
-except ImportError:
-    SLACK_MODULE_AVAILABLE = False
-
-pytestmark = pytest.mark.skipif(
-    not SLACK_MODULE_AVAILABLE,
-    reason="Slack handler module not implemented - aragora.server.handlers.slack does not exist",
-)
+import aragora.server.handlers.slack  # noqa: F401
 
 
 class MockHandler:
