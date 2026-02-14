@@ -23,9 +23,11 @@ def _isolate_encryption_state():
 
     This fixture guarantees full isolation so tests are not affected by
     global state left behind by other test modules (e.g. ARAGORA_ENV set
-    to 'production', or a stale _encryption_service singleton).
+    to 'production', a stale _encryption_service singleton, or a cached
+    SecretManager that remembers keys from earlier tests).
     """
     import aragora.security.encryption as enc_module
+    from aragora.config.secrets import reset_secret_manager
 
     # -- Save state --
     saved_env: dict[str, str | None] = {}
@@ -40,11 +42,14 @@ def _isolate_encryption_state():
     os.environ.pop("ARAGORA_ENCRYPTION_REQUIRED", None)
     os.environ.pop("ARAGORA_ENV", None)
     enc_module._encryption_service = None
+    # Reset the SecretManager so it re-reads env vars fresh
+    reset_secret_manager()
 
     yield
 
     # -- Restore state --
     enc_module._encryption_service = saved_singleton
+    reset_secret_manager()
     for key in _ENV_KEYS:
         if saved_env[key] is None:
             os.environ.pop(key, None)

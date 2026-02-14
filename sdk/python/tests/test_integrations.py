@@ -18,7 +18,7 @@ class TestIntegrationsBotStatus:
 
     def test_get_slack_status(self) -> None:
         """Get Slack bot status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connected": True, "bot_id": "B123"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -30,7 +30,7 @@ class TestIntegrationsBotStatus:
 
     def test_get_telegram_status(self) -> None:
         """Get Telegram bot status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connected": False}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -41,7 +41,7 @@ class TestIntegrationsBotStatus:
 
     def test_get_whatsapp_status(self) -> None:
         """Get WhatsApp bot status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connected": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -52,7 +52,7 @@ class TestIntegrationsBotStatus:
 
     def test_get_discord_status(self) -> None:
         """Get Discord bot status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connected": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -63,7 +63,7 @@ class TestIntegrationsBotStatus:
 
     def test_get_google_chat_status(self) -> None:
         """Get Google Chat bot status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connected": False}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -74,7 +74,7 @@ class TestIntegrationsBotStatus:
 
     def test_get_email_status(self) -> None:
         """Get email integration status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connected": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -94,7 +94,7 @@ class TestIntegrationsTeams:
 
     def test_get_teams_status(self) -> None:
         """Get Teams integration status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"status": "active"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -105,7 +105,7 @@ class TestIntegrationsTeams:
 
     def test_install_teams(self) -> None:
         """Install Teams app."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"install_url": "https://..."}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -120,7 +120,7 @@ class TestIntegrationsTeams:
 
     def test_teams_callback(self) -> None:
         """Handle Teams OAuth callback."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"success": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -135,7 +135,7 @@ class TestIntegrationsTeams:
 
     def test_refresh_teams_token(self) -> None:
         """Refresh Teams token."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"refreshed": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -146,7 +146,7 @@ class TestIntegrationsTeams:
 
     def test_notify_teams(self) -> None:
         """Send notification to Teams channel."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"sent": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -161,7 +161,7 @@ class TestIntegrationsTeams:
 
     def test_notify_teams_with_options(self) -> None:
         """Send notification to Teams with extra options."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"sent": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -185,7 +185,7 @@ class TestIntegrationsDiscord:
 
     def test_install_discord(self) -> None:
         """Install Discord bot."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"installed": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -200,7 +200,7 @@ class TestIntegrationsDiscord:
 
     def test_discord_callback(self) -> None:
         """Handle Discord OAuth callback."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"success": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -215,7 +215,7 @@ class TestIntegrationsDiscord:
 
     def test_uninstall_discord(self) -> None:
         """Uninstall Discord bot."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"uninstalled": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -239,7 +239,7 @@ class TestIntegrationsZapier:
 
     def test_list_zapier_apps(self) -> None:
         """List Zapier apps."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"apps": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -252,7 +252,7 @@ class TestIntegrationsZapier:
 
     def test_list_zapier_apps_with_workspace(self) -> None:
         """List Zapier apps filtered by workspace."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"apps": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -267,7 +267,7 @@ class TestIntegrationsZapier:
 
     def test_create_zapier_app(self) -> None:
         """Create Zapier app."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"app_id": "zap_1", "api_key": "ak_xxx"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -283,7 +283,7 @@ class TestIntegrationsZapier:
 
     def test_delete_zapier_app(self) -> None:
         """Delete Zapier app."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"deleted": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -294,7 +294,7 @@ class TestIntegrationsZapier:
 
     def test_list_zapier_trigger_types(self) -> None:
         """List Zapier trigger types."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"triggers": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -305,7 +305,7 @@ class TestIntegrationsZapier:
 
     def test_subscribe_zapier_trigger(self) -> None:
         """Subscribe to Zapier trigger."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"trigger_id": "t_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -326,7 +326,7 @@ class TestIntegrationsZapier:
 
     def test_subscribe_zapier_trigger_with_options(self) -> None:
         """Subscribe to Zapier trigger with filtering options."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"trigger_id": "t_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -347,7 +347,7 @@ class TestIntegrationsZapier:
 
     def test_unsubscribe_zapier_trigger(self) -> None:
         """Unsubscribe from Zapier trigger."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"unsubscribed": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -371,7 +371,7 @@ class TestIntegrationsMake:
 
     def test_list_make_connections(self) -> None:
         """List Make connections."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connections": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -384,7 +384,7 @@ class TestIntegrationsMake:
 
     def test_create_make_connection(self) -> None:
         """Create Make connection."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"connection_id": "mc_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -399,7 +399,7 @@ class TestIntegrationsMake:
 
     def test_delete_make_connection(self) -> None:
         """Delete Make connection."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"deleted": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -412,7 +412,7 @@ class TestIntegrationsMake:
 
     def test_list_make_modules(self) -> None:
         """List Make modules."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"modules": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -423,7 +423,7 @@ class TestIntegrationsMake:
 
     def test_register_make_webhook(self) -> None:
         """Register Make webhook."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"webhook_id": "wh_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -444,7 +444,7 @@ class TestIntegrationsMake:
 
     def test_unregister_make_webhook(self) -> None:
         """Unregister Make webhook."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"unregistered": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -468,7 +468,7 @@ class TestIntegrationsN8n:
 
     def test_list_n8n_credentials(self) -> None:
         """List n8n credentials."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"credentials": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -481,7 +481,7 @@ class TestIntegrationsN8n:
 
     def test_create_n8n_credential(self) -> None:
         """Create n8n credential."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"credential_id": "nc_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -496,7 +496,7 @@ class TestIntegrationsN8n:
 
     def test_create_n8n_credential_with_url(self) -> None:
         """Create n8n credential with custom API URL."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"credential_id": "nc_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -511,7 +511,7 @@ class TestIntegrationsN8n:
 
     def test_delete_n8n_credential(self) -> None:
         """Delete n8n credential."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"deleted": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -524,7 +524,7 @@ class TestIntegrationsN8n:
 
     def test_get_n8n_nodes(self) -> None:
         """Get n8n node definitions."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"nodes": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -535,7 +535,7 @@ class TestIntegrationsN8n:
 
     def test_register_n8n_webhook(self) -> None:
         """Register n8n webhook."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"webhook_id": "nwh_1"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -550,7 +550,7 @@ class TestIntegrationsN8n:
 
     def test_unregister_n8n_webhook(self) -> None:
         """Unregister n8n webhook."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"unregistered": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -574,7 +574,7 @@ class TestIntegrationsWizard:
 
     def test_start_wizard(self) -> None:
         """Start integration wizard."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"session_id": "wiz_1", "step": "auth"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -588,7 +588,7 @@ class TestIntegrationsWizard:
 
     def test_get_wizard_status(self) -> None:
         """Get wizard status."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"step": "configure", "progress": 50}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -603,7 +603,7 @@ class TestIntegrationsWizard:
 
     def test_validate_wizard_step(self) -> None:
         """Validate wizard step."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"valid": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -631,7 +631,7 @@ class TestIntegrationsV2Management:
 
     def test_list_v2_no_filters(self) -> None:
         """List v2 integrations without filters."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"integrations": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -642,7 +642,7 @@ class TestIntegrationsV2Management:
 
     def test_list_v2_with_filters(self) -> None:
         """List v2 integrations with filters."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"integrations": []}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -657,7 +657,7 @@ class TestIntegrationsV2Management:
 
     def test_get_by_type(self) -> None:
         """Get integration by type."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"type": "slack", "status": "active"}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -668,7 +668,7 @@ class TestIntegrationsV2Management:
 
     def test_get_health(self) -> None:
         """Get integration health."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"healthy": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -680,7 +680,7 @@ class TestIntegrationsV2Management:
 
     def test_test_by_type(self) -> None:
         """Test integration by type."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"success": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -691,7 +691,7 @@ class TestIntegrationsV2Management:
 
     def test_get_stats(self) -> None:
         """Get integration stats."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"total_syncs_24h": 150}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -703,7 +703,7 @@ class TestIntegrationsV2Management:
 
     def test_test_platform(self) -> None:
         """Test platform integration."""
-        with patch.object(AragoraClient, "_request") as mock_request:
+        with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"success": True}
 
             client = AragoraClient(base_url="https://api.aragora.ai")
@@ -724,7 +724,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_get_slack_status(self) -> None:
         """Get Slack status asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"connected": True}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -736,7 +736,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_install_teams(self) -> None:
         """Install Teams asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"install_url": "https://..."}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -751,7 +751,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_list_zapier_apps(self) -> None:
         """List Zapier apps asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"apps": []}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -766,7 +766,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_create_make_connection(self) -> None:
         """Create Make connection asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"connection_id": "mc_1"}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -782,7 +782,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_start_wizard(self) -> None:
         """Start wizard asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"session_id": "wiz_1"}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -796,7 +796,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_get_stats(self) -> None:
         """Get stats asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"total_syncs_24h": 100}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -808,7 +808,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_register_n8n_webhook(self) -> None:
         """Register n8n webhook asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"webhook_id": "nwh_1"}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
@@ -828,7 +828,7 @@ class TestAsyncIntegrations:
     @pytest.mark.asyncio
     async def test_async_get_health(self) -> None:
         """Get integration health asynchronously."""
-        with patch.object(AragoraAsyncClient, "_request") as mock_request:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"healthy": True}
 
             async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:

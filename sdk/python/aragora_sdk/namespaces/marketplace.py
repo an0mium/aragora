@@ -202,6 +202,28 @@ class MarketplaceAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return self._client._request("GET", "/api/v1/marketplace/my-deployments", params=params)
 
+    def get_marketplace_status(self) -> dict[str, Any]:
+        """
+        Get marketplace status.
+
+        GET /api/v1/marketplace/status
+
+        Returns:
+            Dict with marketplace status information
+        """
+        return self._client.request("GET", "/api/v1/marketplace/status")
+
+    def get_circuit_breaker(self) -> dict[str, Any]:
+        """
+        Get marketplace circuit breaker status.
+
+        GET /api/v1/marketplace/circuit-breaker
+
+        Returns:
+            Dict with circuit breaker status
+        """
+        return self._client.request("GET", "/api/v1/marketplace/circuit-breaker")
+
 
 class AsyncMarketplaceAPI:
     """Asynchronous marketplace API."""
@@ -313,3 +335,11 @@ class AsyncMarketplaceAPI:
         return await self._client._request(
             "GET", "/api/v1/marketplace/my-deployments", params=params
         )
+
+    async def get_marketplace_status(self) -> dict[str, Any]:
+        """Get marketplace status. GET /api/v1/marketplace/status"""
+        return await self._client.request("GET", "/api/v1/marketplace/status")
+
+    async def get_circuit_breaker(self) -> dict[str, Any]:
+        """Get marketplace circuit breaker status. GET /api/v1/marketplace/circuit-breaker"""
+        return await self._client.request("GET", "/api/v1/marketplace/circuit-breaker")

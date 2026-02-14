@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class EcommerceAPI:
     """Synchronous E-commerce API."""
 
@@ -40,6 +41,18 @@ class EcommerceAPI:
         if product_id:
             params["product_id"] = product_id
         return self._client.request("GET", "/api/v1/ecommerce/inventory", params=params)
+
+    def get_circuit_breaker(self) -> dict[str, Any]:
+        """
+        Get e-commerce circuit breaker status.
+
+        GET /api/v1/ecommerce/circuit-breaker
+
+        Returns:
+            Dict with circuit breaker status
+        """
+        return self._client.request("GET", "/api/v1/ecommerce/circuit-breaker")
+
 
 class AsyncEcommerceAPI:
     """Asynchronous E-commerce API."""
@@ -68,3 +81,6 @@ class AsyncEcommerceAPI:
             params["product_id"] = product_id
         return await self._client.request("GET", "/api/v1/ecommerce/inventory", params=params)
 
+    async def get_circuit_breaker(self) -> dict[str, Any]:
+        """Get e-commerce circuit breaker status. GET /api/v1/ecommerce/circuit-breaker"""
+        return await self._client.request("GET", "/api/v1/ecommerce/circuit-breaker")

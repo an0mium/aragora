@@ -501,7 +501,7 @@ class TestAuthHandler:
     def test_validate_password(self):
         from aragora.server.handlers.auth import validate_password
 
-        assert validate_password("securepass123")[0] is True
+        assert validate_password("Secure1!pass12")[0] is True
         assert validate_password("short")[0] is False
         assert validate_password("")[0] is False
         assert validate_password("a" * 200)[0] is False  # Too long

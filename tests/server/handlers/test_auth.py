@@ -316,7 +316,7 @@ class TestValidatePassword:
     """Tests for validate_password function."""
 
     def test_valid_password(self):
-        valid, err = validate_password("securepass123")
+        valid, err = validate_password("SecurePass123!")
         assert valid is True
         assert err == ""
 
@@ -451,7 +451,7 @@ class TestAuthHandlerRegistration:
         handler = make_mock_handler(
             {
                 "email": "new@example.com",
-                "password": "securepass123",
+                "password": "SecurePass123!",
                 "name": "New User",
             }
         )
@@ -469,7 +469,7 @@ class TestAuthHandlerRegistration:
         handler = make_mock_handler(
             {
                 "email": "invalid",
-                "password": "securepass123",
+                "password": "SecurePass123!",
             }
         )
 
@@ -900,7 +900,7 @@ class TestAuthHandlerPasswordChange:
         handler = make_mock_handler(
             {
                 "current_password": "correct_password",
-                "new_password": "new_secure_password",
+                "new_password": "NewSecure123!pwd",
             }
         )
 
@@ -922,7 +922,7 @@ class TestAuthHandlerPasswordChange:
         handler = make_mock_handler(
             {
                 "current_password": "wrong_password",
-                "new_password": "new_secure_password",
+                "new_password": "NewSecure123!pwd",
             }
         )
 
@@ -1266,7 +1266,7 @@ class TestAuthHandlerServiceUnavailable:
         handler = make_mock_handler(
             {
                 "email": "test@example.com",
-                "password": "securepass123",
+                "password": "SecurePass123!",
             }
         )
 

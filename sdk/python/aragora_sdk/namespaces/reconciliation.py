@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class ReconciliationAPI:
     """Synchronous Reconciliation API."""
 
@@ -29,6 +30,18 @@ class ReconciliationAPI:
         return self._client.request(
             "GET", f"/api/v1/reconciliation/{job_id}/report", params={"format": format}
         )
+
+    def get_status(self) -> dict[str, Any]:
+        """
+        Get reconciliation status overview.
+
+        GET /api/v1/reconciliation/status
+
+        Returns:
+            Dict with reconciliation status information
+        """
+        return self._client.request("GET", "/api/v1/reconciliation/status")
+
 
 class AsyncReconciliationAPI:
     """Asynchronous Reconciliation API."""
@@ -46,3 +59,6 @@ class AsyncReconciliationAPI:
             "GET", f"/api/v1/reconciliation/{job_id}/report", params={"format": format}
         )
 
+    async def get_status(self) -> dict[str, Any]:
+        """Get reconciliation status overview. GET /api/v1/reconciliation/status"""
+        return await self._client.request("GET", "/api/v1/reconciliation/status")
