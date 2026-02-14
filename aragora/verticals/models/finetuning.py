@@ -231,11 +231,11 @@ class VerticalFineTuningPipeline:
 
     def prepare_lora_model(self) -> None:
         """Configure LoRA adapters on the base model."""
+        if self._model is None:
+            raise ValueError("Base model not loaded")
+
         try:
             from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-
-            if self._model is None:
-                raise ValueError("Base model not loaded")
 
             logger.info("Configuring LoRA adapters")
 
@@ -376,11 +376,11 @@ class VerticalFineTuningPipeline:
         Returns:
             DatasetDict with train and eval splits
         """
+        if not self._training_examples:
+            raise ValueError("No training examples added")
+
         try:
             from datasets import Dataset
-
-            if not self._training_examples:
-                raise ValueError("No training examples added")
 
             # Convert to prompts
             texts = [ex.to_prompt(template) for ex in self._training_examples]
@@ -416,12 +416,12 @@ class VerticalFineTuningPipeline:
         Returns:
             Training metrics
         """
+        if self._model is None or self._tokenizer is None:
+            raise ValueError("Model not loaded")
+
         try:
             from transformers import TrainingArguments
             from trl import SFTTrainer
-
-            if self._model is None or self._tokenizer is None:
-                raise ValueError("Model not loaded")
 
             # Create output directory
             os.makedirs(self.config.output_dir, exist_ok=True)

@@ -512,6 +512,7 @@ class MockAgent(Agent):
 # Mock LLMJudge for --dry-run mode
 # ---------------------------------------------------------------------------
 
+
 class MockLLMJudge(LLMJudge):
     """LLMJudge that returns deterministic results without calling an API."""
 
@@ -570,6 +571,7 @@ class MockLLMJudge(LLMJudge):
 # Benchmark result types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PromptResult:
     """Result for a single prompt comparison."""
@@ -605,6 +607,7 @@ class BenchmarkSummary:
 # ---------------------------------------------------------------------------
 # Core benchmark logic
 # ---------------------------------------------------------------------------
+
 
 async def get_single_agent_response(
     prompt: str,
@@ -769,10 +772,7 @@ async def run_benchmark(
 
     dim_rates: dict[str, dict[str, float]] = {}
     for dim, counts in dim_totals.items():
-        dim_rates[dim] = {
-            k: round(v / total, 3) if total > 0 else 0.0
-            for k, v in counts.items()
-        }
+        dim_rates[dim] = {k: round(v / total, 3) if total > 0 else 0.0 for k, v in counts.items()}
 
     # Per-category breakdown
     cat_totals: dict[str, dict[str, int]] = {}
@@ -787,9 +787,7 @@ async def run_benchmark(
         single_wins=single_wins,
         ties=ties,
         debate_win_rate=round(debate_wins / total, 3) if total > 0 else 0.0,
-        avg_confidence=round(
-            sum(r.confidence for r in results) / total, 3
-        ) if total > 0 else 0.0,
+        avg_confidence=round(sum(r.confidence for r in results) / total, 3) if total > 0 else 0.0,
         dimension_win_rates=dim_rates,
         per_category=cat_totals,
         results=results,
@@ -801,6 +799,7 @@ async def run_benchmark(
 # ---------------------------------------------------------------------------
 # Output formatting
 # ---------------------------------------------------------------------------
+
 
 def print_summary_table(summary: BenchmarkSummary) -> None:
     """Print a formatted summary to stdout."""
@@ -824,9 +823,15 @@ def print_summary_table(summary: BenchmarkSummary) -> None:
 
     # Aggregate stats
     print("  AGGREGATE RESULTS")
-    print(f"    Debate wins:       {summary.debate_wins:>3}/{summary.total_prompts}  ({summary.debate_win_rate:.0%})")
-    print(f"    Single-agent wins: {summary.single_wins:>3}/{summary.total_prompts}  ({summary.single_wins / max(summary.total_prompts, 1):.0%})")
-    print(f"    Ties:              {summary.ties:>3}/{summary.total_prompts}  ({summary.ties / max(summary.total_prompts, 1):.0%})")
+    print(
+        f"    Debate wins:       {summary.debate_wins:>3}/{summary.total_prompts}  ({summary.debate_win_rate:.0%})"
+    )
+    print(
+        f"    Single-agent wins: {summary.single_wins:>3}/{summary.total_prompts}  ({summary.single_wins / max(summary.total_prompts, 1):.0%})"
+    )
+    print(
+        f"    Ties:              {summary.ties:>3}/{summary.total_prompts}  ({summary.ties / max(summary.total_prompts, 1):.0%})"
+    )
     print(f"    Avg confidence:    {summary.avg_confidence:.1%}")
     print()
 
@@ -834,7 +839,9 @@ def print_summary_table(summary: BenchmarkSummary) -> None:
     print("  PER-CATEGORY BREAKDOWN")
     for cat, counts in sorted(summary.per_category.items()):
         cat_total = sum(counts.values())
-        print(f"    {cat:<12}  debate={counts['debate']}  single={counts['single']}  tie={counts['tie']}  (n={cat_total})")
+        print(
+            f"    {cat:<12}  debate={counts['debate']}  single={counts['single']}  tie={counts['tie']}  (n={cat_total})"
+        )
     print()
 
     # Dimension analysis
@@ -905,6 +912,7 @@ def save_results(summary: BenchmarkSummary, output_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(

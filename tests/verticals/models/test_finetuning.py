@@ -618,9 +618,9 @@ class TestVerticalFineTuningPipelineStats:
 class TestVerticalFineTuningPipelineLoadModel:
     """Test model loading with mocks."""
 
-    @patch("aragora.verticals.models.finetuning.AutoModelForCausalLM")
-    @patch("aragora.verticals.models.finetuning.AutoTokenizer")
-    @patch("aragora.verticals.models.finetuning.BitsAndBytesConfig")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("transformers.BitsAndBytesConfig")
     def test_load_base_model_4bit(self, mock_bnb, mock_tokenizer, mock_model):
         """Test loading with 4bit quantization."""
         config = FinetuningConfig(
@@ -644,9 +644,9 @@ class TestVerticalFineTuningPipelineLoadModel:
         assert pipeline._model is not None
         assert pipeline._tokenizer is not None
 
-    @patch("aragora.verticals.models.finetuning.AutoModelForCausalLM")
-    @patch("aragora.verticals.models.finetuning.AutoTokenizer")
-    @patch("aragora.verticals.models.finetuning.BitsAndBytesConfig")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("transformers.BitsAndBytesConfig")
     def test_load_base_model_8bit(self, mock_bnb, mock_tokenizer, mock_model):
         """Test loading with 8bit quantization."""
         config = FinetuningConfig(
@@ -669,8 +669,8 @@ class TestVerticalFineTuningPipelineLoadModel:
         call_kwargs = mock_bnb.call_args[1]
         assert call_kwargs.get("load_in_8bit") is True
 
-    @patch("aragora.verticals.models.finetuning.AutoModelForCausalLM")
-    @patch("aragora.verticals.models.finetuning.AutoTokenizer")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
     def test_load_base_model_no_quantization(self, mock_tokenizer, mock_model):
         """Test loading without quantization."""
         config = FinetuningConfig(
@@ -695,11 +695,16 @@ class TestVerticalFineTuningPipelineLoadModel:
 class TestVerticalFineTuningPipelineLoRA:
     """Test LoRA preparation with mocks."""
 
-    @patch("aragora.verticals.models.finetuning.get_peft_model")
-    @patch("aragora.verticals.models.finetuning.prepare_model_for_kbit_training")
-    @patch("aragora.verticals.models.finetuning.LoraConfig")
-    def test_prepare_lora_model(self, mock_lora_config, mock_prepare, mock_get_peft):
+    def test_prepare_lora_model(self):
         """Test LoRA configuration."""
+        import sys
+
+        mock_peft = MagicMock()
+        mock_prepared = MagicMock()
+        mock_prepared.get_nb_trainable_parameters.return_value = (1000, 10000)
+        mock_peft.prepare_model_for_kbit_training.return_value = mock_prepared
+        mock_peft.get_peft_model.return_value = mock_prepared
+
         config = FinetuningConfig(
             base_model_id="test-model",
             vertical_id="software",
@@ -710,15 +715,11 @@ class TestVerticalFineTuningPipelineLoRA:
         pipeline = VerticalFineTuningPipeline(config)
         pipeline._model = MagicMock()
 
-        mock_prepared = MagicMock()
-        mock_prepared.get_nb_trainable_parameters.return_value = (1000, 10000)
-        mock_prepare.return_value = mock_prepared
-        mock_get_peft.return_value = mock_prepared
+        with patch.dict(sys.modules, {"peft": mock_peft}):
+            pipeline.prepare_lora_model()
 
-        pipeline.prepare_lora_model()
-
-        mock_lora_config.assert_called_once()
-        call_kwargs = mock_lora_config.call_args[1]
+        mock_peft.LoraConfig.assert_called_once()
+        call_kwargs = mock_peft.LoraConfig.call_args[1]
         assert call_kwargs["r"] == 16
         assert call_kwargs["lora_alpha"] == 32
 
@@ -738,9 +739,18 @@ class TestVerticalFineTuningPipelineLoRA:
 class TestVerticalFineTuningPipelineDataset:
     """Test dataset preparation with mocks."""
 
-    @patch("aragora.verticals.models.finetuning.Dataset")
-    def test_prepare_dataset(self, mock_dataset_cls):
+    def test_prepare_dataset(self):
         """Test dataset preparation."""
+        import sys
+
+        mock_datasets_mod = MagicMock()
+        mock_dataset = MagicMock()
+        mock_split = {"train": MagicMock(), "test": MagicMock()}
+        mock_split["train"].__len__ = MagicMock(return_value=9)
+        mock_split["test"].__len__ = MagicMock(return_value=1)
+        mock_dataset.train_test_split.return_value = mock_split
+        mock_datasets_mod.Dataset.from_dict.return_value = mock_dataset
+
         config = FinetuningConfig(
             base_model_id="test-model",
             vertical_id="software",
@@ -759,16 +769,10 @@ class TestVerticalFineTuningPipelineDataset:
                 )
             )
 
-        mock_dataset = MagicMock()
-        mock_split = {"train": MagicMock(), "test": MagicMock()}
-        mock_split["train"].__len__ = MagicMock(return_value=9)
-        mock_split["test"].__len__ = MagicMock(return_value=1)
-        mock_dataset.train_test_split.return_value = mock_split
-        mock_dataset_cls.from_dict.return_value = mock_dataset
+        with patch.dict(sys.modules, {"datasets": mock_datasets_mod}):
+            result = pipeline.prepare_dataset(template="alpaca", train_split=0.9)
 
-        result = pipeline.prepare_dataset(template="alpaca", train_split=0.9)
-
-        mock_dataset_cls.from_dict.assert_called_once()
+        mock_datasets_mod.Dataset.from_dict.assert_called_once()
         assert result == mock_split
 
     def test_prepare_dataset_no_examples_raises(self):

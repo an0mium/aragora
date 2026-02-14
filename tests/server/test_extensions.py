@@ -245,12 +245,15 @@ class TestExtensionHandlers:
         """Test status handler when not initialized."""
         import aragora.server.extensions as ext_module
 
+        saved = ext_module._extension_state
         ext_module._extension_state = None
+        try:
+            from aragora.server.handlers.extensions import handle_extensions_status
 
-        from aragora.server.handlers.extensions import handle_extensions_status
-
-        result = await handle_extensions_status(mock_ctx)
-        assert result["status"] == "unavailable"
+            result = await handle_extensions_status(mock_ctx)
+            assert result["status"] == "unavailable"
+        finally:
+            ext_module._extension_state = saved
 
     @pytest.mark.asyncio
     async def test_handle_extensions_status(self, mock_ctx, tmp_path: Path):
