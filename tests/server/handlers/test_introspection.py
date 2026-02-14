@@ -341,7 +341,7 @@ class TestGetAgentAvailability:
 
     def test_availability_success(self, handler):
         with patch(
-            "aragora.server.handlers.introspection.get_agent_credential_status",
+            "aragora.agents.credential_validator.get_agent_credential_status",
             return_value={
                 "claude": MockCredentialStatus(True),
                 "gemini": MockCredentialStatus(False),
@@ -356,7 +356,7 @@ class TestGetAgentAvailability:
 
     def test_availability_module_unavailable(self, handler):
         with patch(
-            "aragora.server.handlers.introspection.get_agent_credential_status",
+            "aragora.agents.credential_validator.get_agent_credential_status",
             side_effect=ImportError("not available"),
         ), patch.dict(
             "sys.modules",
@@ -421,7 +421,7 @@ class TestHandleRouting:
     def test_handle_agent_availability(self, handler):
         mock_handler = _make_mock_handler()
         with patch(
-            "aragora.server.handlers.introspection.get_agent_credential_status",
+            "aragora.agents.credential_validator.get_agent_credential_status",
             return_value={"claude": MockCredentialStatus(True)},
         ):
             result = handler.handle.__wrapped__(handler, "/api/introspection/agents/availability", {}, mock_handler)

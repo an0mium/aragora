@@ -189,9 +189,9 @@ class TestFeedbackStore:
 
     def test_save_and_retrieve_nps_summary(self, store):
         """Save NPS entries and get summary."""
-        for score in [9, 10, 8, 3, 9]:
+        for i, score in enumerate([9, 10, 8, 3, 9]):
             entry = FeedbackEntry(
-                id=f"fb-{score}",
+                id=f"fb-{i}-{score}",
                 user_id="user-001",
                 feedback_type=FeedbackType.NPS,
                 score=score,

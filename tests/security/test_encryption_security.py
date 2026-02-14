@@ -17,16 +17,7 @@ import logging
 from unittest.mock import patch, MagicMock
 import pytest
 
-# Check if cryptography is available
-try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-    CRYPTO_AVAILABLE = True
-except ImportError:
-    CRYPTO_AVAILABLE = False
-
-# Skip all tests if cryptography is not available
-pytestmark = pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
 
 
 # ===========================================================================

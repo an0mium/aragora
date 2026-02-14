@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -38,6 +39,11 @@ FAKE_TEMPLATES = [
 ]
 
 
+def _parse_body(result) -> dict[str, Any]:
+    """Parse JSON body from HandlerResult."""
+    return json.loads(result.body)
+
+
 @pytest.fixture
 def handler():
     return OrchestrationHandler({})
@@ -53,7 +59,7 @@ class TestTemplateFilteringNoParams:
         ):
             result = handler._get_templates({})
 
-        body = result["body"]
+        body = _parse_body(result)
         assert body["count"] == 5
         assert len(body["templates"]) == 5
 
@@ -64,7 +70,7 @@ class TestTemplateFilteringNoParams:
         ):
             result = handler._get_templates({})
 
-        body = result["body"]
+        body = _parse_body(result)
         assert body["templates"][0]["name"] == "hiring_decision"
 
 
@@ -267,7 +273,7 @@ class TestTemplateFallback:
         ):
             result = handler._get_templates({})
 
-        body = result["body"]
+        body = _parse_body(result)
         assert body["count"] == 1
         assert body["templates"][0]["name"] == "fallback_template"
 
@@ -282,7 +288,7 @@ class TestTemplateResponseFormat:
         ):
             result = handler._get_templates({})
 
-        body = result["body"]
+        body = _parse_body(result)
         assert "templates" in body
         assert "count" in body
 
@@ -293,5 +299,14 @@ class TestTemplateResponseFormat:
         ):
             result = handler._get_templates({})
 
-        body = result["body"]
+        body = _parse_body(result)
         assert body["count"] == len(body["templates"]) == 3
+
+    def test_status_code_200(self, handler):
+        with patch(
+            "aragora.server.handlers.orchestration.templates._list_templates",
+            return_value=[],
+        ):
+            result = handler._get_templates({})
+
+        assert result.status_code == 200

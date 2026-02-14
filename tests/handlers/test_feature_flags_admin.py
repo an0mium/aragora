@@ -35,10 +35,24 @@ def parse_body(result) -> dict:
 
 @pytest.fixture(autouse=True)
 def clean_registry():
-    """Reset flag registry before and after each test."""
+    """Reset flag registry and clean up env vars before and after each test."""
     reset_flag_registry()
+    # Snapshot env vars with ARAGORA_ prefix that are test-related
+    test_env_keys = {
+        "ARAGORA_TEST_FLAG_ALPHA",
+        "ARAGORA_TEST_FLAG_ACTIVE",
+        "ARAGORA_TEST_INT_FLAG",
+        "ARAGORA_TEST_DEPRECATED_FLAG",
+    }
+    old_values = {k: os.environ.get(k) for k in test_env_keys}
     yield
     reset_flag_registry()
+    # Restore env vars
+    for k, v in old_values.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 
 @pytest.fixture

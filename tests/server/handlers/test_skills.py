@@ -177,7 +177,11 @@ class TestListSkills:
     @pytest.mark.asyncio
     async def test_list_skills_success(self, handler):
         request = MockRequest()
-        with patch.object(handler, "get_query_param", return_value="50"):
+
+        def _query_param(_req, key, default=""):
+            return {"limit": "50", "offset": "0"}.get(key, default)
+
+        with patch.object(handler, "get_query_param", side_effect=_query_param):
             result = await handler._list_skills.__wrapped__(handler, request)
             assert result.status_code == 200
             data = _parse_body(result)

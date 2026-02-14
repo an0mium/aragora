@@ -390,7 +390,16 @@ class TestRateLimiting:
         """Re-enable real rate limiter for rate limit tests."""
         limiter = _matrix_module._matrix_limiter
         limiter._buckets.clear()
+        # Ensure rate limiting is NOT globally disabled.  importlib.reload()
+        # of rate_limit.py in other tests can create a stale module whose
+        # RATE_LIMITING_DISABLED flag stays True.  The limiter's is_allowed
+        # method resolves that flag via its __globals__ (the defining module's
+        # __dict__), so we must patch *that* module's copy.
+        limiter_globals = type(limiter).is_allowed.__globals__
+        saved = limiter_globals.get("RATE_LIMITING_DISABLED", False)
+        limiter_globals["RATE_LIMITING_DISABLED"] = False
         yield
+        limiter_globals["RATE_LIMITING_DISABLED"] = saved
 
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, handler, mock_http_handler, mock_auth_context):
