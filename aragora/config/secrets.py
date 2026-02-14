@@ -669,7 +669,7 @@ def hydrate_env_from_secrets(
             if value:
                 os.environ[name] = value
                 hydrated[name] = value
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         # Best-effort: don't block startup on secrets hydration.
         return hydrated
 
