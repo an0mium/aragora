@@ -309,6 +309,11 @@ class RLMResult:
     belief_context_used: bool = False  # Whether belief context was injected
     belief_confidence_adjustment: float = 0.0  # How much beliefs affected answer confidence
 
+    # Trajectory logging (deep RLM integration)
+    trajectory_log_path: str | None = None  # Path to JSONL trajectory log
+    rlm_iterations: int = 0  # Number of RLM iterations executed
+    code_blocks_executed: int = 0  # Number of code blocks executed in REPL
+
 
 # Type aliases for callbacks
 CompressionCallback = Callable[[str, AbstractionLevel], str]

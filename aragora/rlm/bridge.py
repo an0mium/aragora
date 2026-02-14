@@ -74,6 +74,58 @@ from .types import (
 )
 from .compressor import HierarchicalCompressor
 
+# Debate-optimized system prompt for TRUE RLM
+DEBATE_RLM_SYSTEM_PROMPT = """You are analyzing a multi-agent debate transcript using TRUE RLM.
+The debate context is stored as Python variables in your REPL environment.
+
+## Available Functions
+
+### Core RLM Functions
+- `llm_query(prompt)` - Recursively call yourself on a sub-problem
+- `llm_query_batched([prompt1, prompt2, ...])` - Batch multiple queries for efficiency
+- `FINAL(answer)` - Signal your final answer
+- `FINAL_VAR(variable)` - Signal a variable as the final answer
+
+### Debate Navigation
+- `load_debate_context(result)` - Load debate into indexed structure
+- `get_round(ctx, n)` - Get messages from round n
+- `get_proposals_by_agent(ctx, name)` - Get agent's messages
+- `search_debate(ctx, pattern)` - Grep debate content
+- `partition_debate(ctx, by)` - Partition by "round" or "agent"
+
+### Knowledge Navigation
+- `load_knowledge_context(mound, ws_id)` - Load knowledge mound
+- `get_facts(ctx, query)` - Query facts
+- `search_knowledge(ctx, pattern)` - Search knowledge items
+
+### Memory Navigation
+- `load_memory_context(continuum)` - Load memory tiers
+- `search_memory(ctx, pattern)` - Search across memory tiers
+- `filter_by_importance(entries, threshold)` - Filter by importance
+
+## Strategy Guidance
+
+For debate analysis, use batched queries to process rounds in parallel:
+```python
+rounds = partition_debate(debate, "round")
+summaries = llm_query_batched([
+    f"Summarize round {r}: {[m['content'][:200] for m in msgs]}"
+    for r, msgs in rounds.items()
+])
+FINAL("\\n".join(summaries))
+```
+
+For agent comparison:
+```python
+agents = debate.agent_names
+comparisons = llm_query_batched([
+    f"What was {agent}'s main argument? Messages: {[m['content'][:200] for m in debate.by_agent.get(agent, [])]}"
+    for agent in agents
+])
+FINAL("\\n".join(f"{a}: {c}" for a, c in zip(agents, comparisons)))
+```
+"""
+
 # Import extracted adapter classes for backwards compatibility
 from .debate_adapter import DebateContextAdapter
 from .knowledge_adapter import KnowledgeMoundAdapter
@@ -91,6 +143,10 @@ class RLMBackendConfig:
     fallback_backend: str | None = None
     fallback_model_name: str | None = None
 
+    # Multi-backend routing: cheaper sub-model for recursive sub-queries
+    sub_backend: str | None = None  # Backend for sub-LM calls
+    sub_backend_model: str | None = None  # Model for sub-LM calls
+
     # Environment configuration (REPL sandbox type)
     environment_type: str = "local"  # local, docker, modal
     environment_timeout: int = 120
@@ -100,6 +156,10 @@ class RLMBackendConfig:
     # Official RLM kwargs
     verbose: bool = False
     persistent: bool = False  # Keep environment alive between calls
+
+    # Deep integration
+    trajectory_log_dir: str | None = None  # Directory for trajectory JSONL logs
+    custom_system_prompt: str | None = None  # Custom system prompt for RLM
 
 
 class AragoraRLM(RLMStreamingMixin):
@@ -175,6 +235,9 @@ class AragoraRLM(RLMStreamingMixin):
         if self.enable_caching and self._hierarchy_cache is None:
             # Auto-create cache if knowledge_mound provided
             self._hierarchy_cache = RLMHierarchyCache(knowledge_mound=knowledge_mound)
+
+        # Trajectory logging directory
+        self._trajectory_log_dir: str | None = self.backend_config.trajectory_log_dir
 
         # Track which approach was used (for debugging/telemetry)
         self._last_query_used_true_rlm: bool = False
@@ -353,48 +416,96 @@ class AragoraRLM(RLMStreamingMixin):
         return path
 
     def _init_official_rlm(self) -> None:
-        """Initialize the official RLM library."""
+        """Initialize the official RLM library with deep integration features."""
         try:
             # Build environment kwargs if timeout specified
             env_kwargs = None
             if self.backend_config.environment_timeout != 120:
                 env_kwargs = {"timeout": self.backend_config.environment_timeout}
 
-            self._official_rlm = OfficialRLM(
-                backend=self.backend_config.backend,
-                backend_kwargs={
-                    "model_name": self.backend_config.model_name,
-                },
-                environment=self.backend_config.environment_type,
-                environment_kwargs=env_kwargs,
-                max_depth=self.backend_config.max_depth,
-                max_iterations=self.backend_config.max_iterations,
-                verbose=self.backend_config.verbose,
-                persistent=self.backend_config.persistent,
+            # Trajectory logging setup
+            rlm_logger = None
+            if self._trajectory_log_dir:
+                try:
+                    from rlm.logger import RLMLogger
+
+                    Path(self._trajectory_log_dir).mkdir(parents=True, exist_ok=True)
+                    rlm_logger = RLMLogger(log_dir=self._trajectory_log_dir)
+                    logger.info(
+                        "[AragoraRLM] Trajectory logging enabled: %s",
+                        self._trajectory_log_dir,
+                    )
+                except ImportError:
+                    logger.debug("RLMLogger not available, trajectory logging disabled")
+
+            # Multi-backend routing: sub-backend for recursive sub-queries
+            other_backends = None
+            other_backend_kwargs = None
+            sub_backend = self.backend_config.sub_backend
+            sub_model = (
+                self.backend_config.sub_backend_model
+                or os.environ.get("ARAGORA_RLM_SUB_MODEL")
+                or self.backend_config.sub_model_name
             )
+            if sub_backend:
+                other_backends = [sub_backend]
+                other_backend_kwargs = [{"model_name": sub_model}]
+
+            # Custom system prompt (config > env var > None)
+            system_prompt = (
+                self.backend_config.custom_system_prompt
+                or os.environ.get("ARAGORA_RLM_SYSTEM_PROMPT")
+                or None
+            )
+
+            # Build init kwargs
+            init_kwargs: dict[str, Any] = {
+                "backend": self.backend_config.backend,
+                "backend_kwargs": {"model_name": self.backend_config.model_name},
+                "environment": self.backend_config.environment_type,
+                "environment_kwargs": env_kwargs,
+                "max_depth": self.backend_config.max_depth,
+                "max_iterations": self.backend_config.max_iterations,
+                "verbose": self.backend_config.verbose,
+                "persistent": self.backend_config.persistent,
+            }
+            if rlm_logger is not None:
+                init_kwargs["logger"] = rlm_logger
+            if other_backends is not None:
+                init_kwargs["other_backends"] = other_backends
+                init_kwargs["other_backend_kwargs"] = other_backend_kwargs
+            if system_prompt is not None:
+                init_kwargs["system_prompt"] = system_prompt
+
+            self._official_rlm = OfficialRLM(**init_kwargs)
             logger.info(
-                f"[AragoraRLM] Initialized TRUE RLM with backend={self.backend_config.backend}, "
-                f"model={self.backend_config.model_name}, "
-                f"environment={self.backend_config.environment_type}"
+                "[AragoraRLM] Initialized TRUE RLM with backend=%s, "
+                "model=%s, environment=%s",
+                self.backend_config.backend,
+                self.backend_config.model_name,
+                self.backend_config.environment_type,
             )
             if self.backend_config.fallback_backend:
-                self._fallback_rlm = OfficialRLM(
-                    backend=self.backend_config.fallback_backend,
-                    backend_kwargs={
+                fallback_kwargs: dict[str, Any] = {
+                    "backend": self.backend_config.fallback_backend,
+                    "backend_kwargs": {
                         "model_name": self.backend_config.fallback_model_name
                         or self.backend_config.model_name,
                     },
-                    environment=self.backend_config.environment_type,
-                    environment_kwargs=env_kwargs,
-                    max_depth=self.backend_config.max_depth,
-                    max_iterations=self.backend_config.max_iterations,
-                    verbose=self.backend_config.verbose,
-                    persistent=self.backend_config.persistent,
-                )
+                    "environment": self.backend_config.environment_type,
+                    "environment_kwargs": env_kwargs,
+                    "max_depth": self.backend_config.max_depth,
+                    "max_iterations": self.backend_config.max_iterations,
+                    "verbose": self.backend_config.verbose,
+                    "persistent": self.backend_config.persistent,
+                }
+                if rlm_logger is not None:
+                    fallback_kwargs["logger"] = rlm_logger
+                self._fallback_rlm = OfficialRLM(**fallback_kwargs)
                 logger.info(
-                    f"[AragoraRLM] Initialized TRUE RLM fallback backend="
-                    f"{self.backend_config.fallback_backend}, "
-                    f"model={self.backend_config.fallback_model_name or self.backend_config.model_name}"
+                    "[AragoraRLM] Initialized TRUE RLM fallback backend=%s, model=%s",
+                    self.backend_config.fallback_backend,
+                    self.backend_config.fallback_model_name or self.backend_config.model_name,
                 )
         except Exception as e:
             logger.error(f"[AragoraRLM] Failed to initialize official RLM: {e}")
@@ -583,7 +694,7 @@ def grep_in_file(pattern, max_hits=50):
 ## Instructions
 1. Use Python code to programmatically examine the context
 2. Use chunked reads or line-by-line scans; avoid loading full content
-3. Use RLM_M(prompt) to recursively call yourself on subsets
+3. Use llm_query(prompt) to recursively call yourself on subsets
 4. Call FINAL(answer) when you have the answer
 
 ## Task
@@ -623,7 +734,7 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
 ## Instructions
 1. Use Python code to programmatically examine the context
 2. You can grep for patterns, filter sections, and partition data
-3. Use RLM_M(prompt) to recursively call yourself on subsets
+3. Use llm_query(prompt) to recursively call yourself on subsets
 4. Call FINAL(answer) when you have the answer
 
 ## Task
@@ -650,16 +761,31 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
                 f"in {completion.execution_time:.2f}s"
             )
 
+            # Extract trajectory data from RLM instance logger
+            trajectory_log_path = None
+            rlm_iterations = 0
+            code_blocks_executed = 0
+            if hasattr(self._official_rlm, "logger") and self._official_rlm.logger:
+                rlm_log = self._official_rlm.logger
+                trajectory_log_path = getattr(rlm_log, "log_path", None)
+                if hasattr(rlm_log, "get_stats"):
+                    stats = rlm_log.get_stats()
+                    rlm_iterations = stats.get("iterations", 0)
+                    code_blocks_executed = stats.get("code_blocks", 0)
+
             return RLMResult(
                 answer=completion.response,
-                nodes_examined=[],  # Would need trajectory parsing
+                nodes_examined=[],
                 levels_traversed=[],
                 citations=[],
                 tokens_processed=context.original_tokens,
-                sub_calls_made=0,  # Could parse from usage_summary
+                sub_calls_made=0,
                 time_seconds=completion.execution_time,
                 confidence=0.8,
                 uncertainty_sources=[],
+                trajectory_log_path=trajectory_log_path,
+                rlm_iterations=rlm_iterations,
+                code_blocks_executed=code_blocks_executed,
             )
 
         except Exception as e:
@@ -1028,11 +1154,124 @@ Please provide an improved answer based on the feedback."""
             )
 
         if result.sub_calls_made == 0:
-            feedback_parts.append("Consider using RLM_M() to delegate complex sub-queries.")
+            feedback_parts.append("Consider using llm_query() to delegate complex sub-queries.")
 
         feedback_parts.append(f"Focus on answering: {original_query[:200]}")
 
         return "\n".join(feedback_parts)
+
+    # --- Lifecycle methods ---
+
+    def close(self) -> None:
+        """Clean up persistent RLM sessions."""
+        if self._official_rlm and hasattr(self._official_rlm, "close"):
+            try:
+                self._official_rlm.close()
+            except Exception as e:
+                logger.debug("Error closing official RLM: %s", e)
+        if self._fallback_rlm and hasattr(self._fallback_rlm, "close"):
+            try:
+                self._fallback_rlm.close()
+            except Exception as e:
+                logger.debug("Error closing fallback RLM: %s", e)
+
+    def __enter__(self) -> "AragoraRLM":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+        self.close()
+        return False
+
+    def get_trajectory_log_path(self) -> str | None:
+        """Get the trajectory log directory path."""
+        return self._trajectory_log_dir
+
+    # --- Tier 2: Audit, Memory, Knowledge integration ---
+
+    def log_to_audit(
+        self,
+        result: RLMResult,
+        *,
+        query: str = "",
+        debate_id: str | None = None,
+    ) -> None:
+        """Log an RLM query result to the audit trail.
+
+        Args:
+            result: The RLM result to audit
+            query: The original query
+            debate_id: Optional debate ID for context
+        """
+        try:
+            from aragora.audit.log import AuditLog
+
+            audit = AuditLog.get_instance()
+            audit.log(
+                action="rlm_query",
+                category="rlm",
+                details={
+                    "query": query[:500],
+                    "answer_preview": result.answer[:200],
+                    "used_true_rlm": result.used_true_rlm,
+                    "confidence": result.confidence,
+                    "tokens_processed": result.tokens_processed,
+                    "trajectory_log_path": result.trajectory_log_path,
+                    "rlm_iterations": result.rlm_iterations,
+                    "code_blocks_executed": result.code_blocks_executed,
+                    "debate_id": debate_id,
+                },
+            )
+        except Exception as e:
+            logger.debug("Audit logging skipped: %s", e)
+
+    def inject_memory_helpers(
+        self,
+        continuum: Any,
+        *,
+        query: str | None = None,
+    ) -> dict[str, Any]:
+        """Inject ContinuumMemory helpers into RLM REPL context.
+
+        Args:
+            continuum: ContinuumMemory instance
+            query: Optional query to pre-filter memory
+
+        Returns:
+            Dictionary of injected helpers and loaded context
+        """
+        try:
+            from .memory_helpers import load_memory_context, get_memory_helpers
+
+            ctx = load_memory_context(continuum, query=query)
+            helpers = get_memory_helpers()
+            return {"context": ctx, "helpers": helpers}
+        except Exception as e:
+            logger.debug("Memory helper injection failed: %s", e)
+            return {"context": None, "helpers": {}}
+
+    def inject_knowledge_helpers(
+        self,
+        mound: Any,
+        workspace_id: str,
+    ) -> dict[str, Any]:
+        """Inject KnowledgeMound helpers into RLM REPL context.
+
+        Args:
+            mound: KnowledgeMound instance
+            workspace_id: Workspace to load knowledge from
+
+        Returns:
+            Dictionary of injected helpers and loaded context
+        """
+        try:
+            from .knowledge_helpers import load_knowledge_context, get_knowledge_helpers
+
+            ctx = load_knowledge_context(mound, workspace_id)
+            helpers = get_knowledge_helpers(mound)
+            return {"context": ctx, "helpers": helpers}
+        except Exception as e:
+            logger.debug("Knowledge helper injection failed: %s", e)
+            return {"context": None, "helpers": {}}
 
     # Streaming methods are provided by RLMStreamingMixin:
     # - query_stream()
@@ -1047,6 +1286,11 @@ def create_aragora_rlm(
     verbose: bool = False,
     knowledge_mound: Any | None = None,
     enable_caching: bool = True,
+    sub_backend: str | None = None,
+    sub_model: str | None = None,
+    trajectory_log_dir: str | None = None,
+    persistent: bool = False,
+    debate_mode: bool = False,
 ) -> AragoraRLM:
     """
     Create an AragoraRLM instance with sensible defaults.
@@ -1057,6 +1301,11 @@ def create_aragora_rlm(
         verbose: Enable verbose logging
         knowledge_mound: Optional KnowledgeMound for persistent hierarchy caching
         enable_caching: Whether to enable compression caching (default True)
+        sub_backend: Optional sub-backend for cheaper recursive calls
+        sub_model: Optional sub-model for recursive calls
+        trajectory_log_dir: Optional directory for trajectory JSONL logs
+        persistent: Keep RLM environment alive between calls
+        debate_mode: Use debate-optimized system prompt
 
     Returns:
         Configured AragoraRLM instance
@@ -1066,6 +1315,11 @@ def create_aragora_rlm(
             backend=backend,
             model_name=model,
             verbose=verbose,
+            sub_backend=sub_backend,
+            sub_backend_model=sub_model,
+            trajectory_log_dir=trajectory_log_dir,
+            persistent=persistent,
+            custom_system_prompt=DEBATE_RLM_SYSTEM_PROMPT if debate_mode else None,
         ),
         knowledge_mound=knowledge_mound,
         enable_caching=enable_caching,
@@ -1075,6 +1329,7 @@ def create_aragora_rlm(
 # Re-export extracted classes for backwards compatibility
 __all__ = [
     "AragoraRLM",
+    "DEBATE_RLM_SYSTEM_PROMPT",
     "RLMBackendConfig",
     "DebateContextAdapter",
     "KnowledgeMoundAdapter",

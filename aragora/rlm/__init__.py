@@ -75,11 +75,18 @@ from .strategies import (
 )
 from .bridge import (
     AragoraRLM,
+    DEBATE_RLM_SYSTEM_PROMPT,
     DebateContextAdapter,
     KnowledgeMoundAdapter,
     RLMBackendConfig,
     create_aragora_rlm,
     HAS_OFFICIAL_RLM,
+)
+from .memory_helpers import (
+    MemoryEntry,
+    MemoryREPLContext,
+    load_memory_context,
+    get_memory_helpers,
 )
 from .batch import (
     BatchConfig,
@@ -152,6 +159,17 @@ from .debate_integration import (
     create_training_hook,
 )
 from .hierarchy_cache import RLMHierarchyCache
+from .tier3_integration import (
+    PipelineRLMContext,
+    GauntletRLMFinding,
+    GauntletRLMAnalysis,
+    TrajectoryLearningData,
+    enrich_plan_context,
+    analyze_debate_for_gauntlet,
+    collect_trajectory_for_learning,
+    store_trajectory_learning,
+    load_trajectory_insights,
+)
 
 __all__ = [
     # Types
@@ -176,11 +194,17 @@ __all__ = [
     "get_strategy",
     # Bridge (official RLM integration)
     "AragoraRLM",
+    "DEBATE_RLM_SYSTEM_PROMPT",
     "DebateContextAdapter",
     "KnowledgeMoundAdapter",
     "RLMBackendConfig",
     "create_aragora_rlm",
     "HAS_OFFICIAL_RLM",
+    # Memory REPL helpers (TRUE RLM)
+    "MemoryEntry",
+    "MemoryREPLContext",
+    "load_memory_context",
+    "get_memory_helpers",
     # Batch parallelism
     "BatchConfig",
     "BatchItemStatus",
@@ -238,6 +262,16 @@ __all__ = [
     "create_training_hook",
     # Hierarchy cache (Phase 24 extraction)
     "RLMHierarchyCache",
+    # Tier 3 deep integration (pipeline, gauntlet, trajectory learning)
+    "PipelineRLMContext",
+    "GauntletRLMFinding",
+    "GauntletRLMAnalysis",
+    "TrajectoryLearningData",
+    "enrich_plan_context",
+    "analyze_debate_for_gauntlet",
+    "collect_trajectory_for_learning",
+    "store_trajectory_learning",
+    "load_trajectory_insights",
     # Exceptions (robust error handling)
     "RLMError",
     "RLMTimeoutError",
