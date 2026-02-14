@@ -375,7 +375,7 @@ class TestHTTPClientPoolAsync:
         with patch.object(pool, "_create_async_client", return_value=mock_client):
             try:
                 async with pool.get_session("openai"):
-                    raise Exception("Connection timeout")
+                    raise TimeoutError("Connection timeout")
             except Exception:
                 pass
 
