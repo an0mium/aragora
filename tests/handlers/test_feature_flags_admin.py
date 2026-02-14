@@ -203,7 +203,7 @@ class TestListFlags:
         """Filtering by a valid category with no flags returns empty."""
         result = handler.handle(
             "/api/v1/admin/feature-flags",
-            {"category": "billing"},
+            {"category": "debug"},
             mock_handler,
         )
         body = parse_body(result)

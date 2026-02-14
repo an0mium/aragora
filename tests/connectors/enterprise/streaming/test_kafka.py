@@ -500,8 +500,9 @@ class TestKafkaErrorHandling:
             KafkaConnector,
             KafkaConfig,
         )
+        from aragora.connectors.enterprise.streaming.resilience import StreamingResilienceConfig
 
-        config = KafkaConfig()
+        config = KafkaConfig(resilience=StreamingResilienceConfig(max_retries=0))
         connector = KafkaConnector(config)
 
         mock_consumer = AsyncMock()

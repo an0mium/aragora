@@ -8,15 +8,19 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-# Set encryption key before importing modules
-os.environ["ARAGORA_ENCRYPTION_KEY"] = "a" * 64  # 32-byte hex key
+_TEST_ENCRYPTION_KEY = "a" * 64  # 32-byte hex key
 
 
-@pytest.fixture(autouse=True, scope="module")
-def _cleanup_encryption_key_env():
-    """Clean up ARAGORA_ENCRYPTION_KEY env var after module tests complete."""
+@pytest.fixture(autouse=True)
+def _encryption_key_env():
+    """Set and clean up ARAGORA_ENCRYPTION_KEY env var around each test."""
+    old = os.environ.get("ARAGORA_ENCRYPTION_KEY")
+    os.environ["ARAGORA_ENCRYPTION_KEY"] = _TEST_ENCRYPTION_KEY
     yield
-    os.environ.pop("ARAGORA_ENCRYPTION_KEY", None)
+    if old is None:
+        os.environ.pop("ARAGORA_ENCRYPTION_KEY", None)
+    else:
+        os.environ["ARAGORA_ENCRYPTION_KEY"] = old
 
 
 class TestEncryptSensitive:
@@ -245,7 +249,7 @@ class TestEncryptionAvailability:
         """is_encryption_configured checks for environment variable."""
         from aragora.storage.encrypted_fields import is_encryption_configured
 
-        # We set ARAGORA_ENCRYPTION_KEY at module load
+        # ARAGORA_ENCRYPTION_KEY is set by the autouse fixture
         assert is_encryption_configured() is True
 
 
@@ -701,7 +705,7 @@ class TestEncryptionWithoutConfig:
         from aragora.storage.encrypted_fields import is_encryption_configured
 
         with patch.dict(os.environ, {}, clear=True):
-            # Remove the key we set at module load
+            # Remove the key set by the autouse fixture
             os.environ.pop("ARAGORA_ENCRYPTION_KEY", None)
             assert is_encryption_configured() is False
 

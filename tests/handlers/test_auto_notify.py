@@ -63,14 +63,13 @@ class TestDeliberatePassesAutoNotify:
         mock_manager.wait_for_outcome = AsyncMock(return_value=None)
 
         mock_coordinator = MagicMock()
-
         handler.ctx["control_plane_coordinator"] = mock_coordinator
 
         data = {"question": "Should we expand?"}
 
         with (
             patch(
-                "aragora.server.handlers.orchestration.handler.DeliberationManager",
+                "aragora.control_plane.deliberation.DeliberationManager",
                 return_value=mock_manager,
             ),
             patch.object(
@@ -100,7 +99,7 @@ class TestDeliberatePassesAutoNotify:
 
         with (
             patch(
-                "aragora.server.handlers.orchestration.handler.DeliberationManager",
+                "aragora.control_plane.deliberation.DeliberationManager",
                 return_value=mock_manager,
             ),
             patch.object(
@@ -129,7 +128,7 @@ class TestDeliberatePassesAutoNotify:
 
         with (
             patch(
-                "aragora.server.handlers.orchestration.handler.get_decision_router",
+                "aragora.core.decision.get_decision_router",
                 return_value=mock_router,
             ),
             patch.object(
