@@ -518,6 +518,10 @@ class ConfigValidator:
             return True, None  # Redis not installed, not an error
         except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             return False, f"Redis connectivity check failed: {e}"
+        except Exception as e:  # noqa: BLE001 - redis.exceptions.ConnectionError doesn't inherit builtins.ConnectionError
+            if "redis" in type(e).__module__:
+                return False, f"Redis connectivity check failed: {e}"
+            raise
 
     @classmethod
     def check_alembic_migrations(cls) -> tuple[bool, str | None]:

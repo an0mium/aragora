@@ -355,13 +355,14 @@ class TestValidateAll:
     def test_validate_all_development_mode(self):
         from aragora.server.config_validator import ConfigValidator
 
-        with patch.dict(
-            os.environ,
-            {
-                "ARAGORA_ENV": "development",
-                "ANTHROPIC_API_KEY": "test-key-12345678901234567890",
-            },
-        ):
+        env = {
+            "ARAGORA_ENV": "development",
+            "ANTHROPIC_API_KEY": "test-key-12345678901234567890",
+        }
+        # Remove env vars that could leak from the host and cause validation errors
+        for key in ("ARAGORA_API_TOKEN", "DATABASE_URL", "REDIS_URL"):
+            env.setdefault(key, "")
+        with patch.dict(os.environ, env):
             result = ConfigValidator.validate_all()
             # Should be valid in development with just an API key
             assert result.is_valid or len(result.errors) == 0
