@@ -74,24 +74,28 @@ def _parse_body(result) -> dict:
 # ---------------------------------------------------------------------------
 
 
+@patch(
+    "aragora.billing.jwt_auth.extract_user_from_request",
+    return_value=MagicMock(user_id="test_user", email="test@example.com"),
+)
 class TestCostBreakdownEndpoint:
     """Tests for _get_cost_breakdown method."""
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_returns_200(self, mock_get_tracker):
+    def test_returns_200(self, mock_get_tracker, _mock_auth):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"})
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
         assert result.status_code == 200
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_missing_workspace_id(self, mock_get_tracker):
+    def test_missing_workspace_id(self, mock_get_tracker, _mock_auth):
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({})
+        result = handler._get_cost_breakdown({}, handler=_mock_handler())
         assert result.status_code == 400
         body = _parse_body(result)
         assert "workspace_id" in body.get("error", "")

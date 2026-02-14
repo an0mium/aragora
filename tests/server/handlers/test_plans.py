@@ -63,6 +63,7 @@ class MockPlan:
         task: str = "Implement feature X",
         status: str = "awaiting_approval",
         approval_mode: str = "risk_based",
+        **kwargs,
     ):
         self.id = plan_id
         self.debate_id = debate_id
@@ -445,7 +446,7 @@ class TestExecutePlan:
         ), patch.object(
             handler, "get_json_body", return_value={}
         ), patch(
-            "aragora.server.handlers.plans.get_execution_bridge",
+            "aragora.pipeline.execution_bridge.get_execution_bridge",
             return_value=MagicMock(),
         ), patch(
             "aragora.server.handlers.plans._fire_plan_notification",
