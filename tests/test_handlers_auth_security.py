@@ -242,22 +242,22 @@ class TestPasswordValidation:
 
     def test_password_at_min_length(self):
         """Password at minimum length should pass."""
-        valid, err = validate_password("a" * MIN_PASSWORD_LENGTH)
+        valid, err = validate_password("Aa1!" + "a" * (MIN_PASSWORD_LENGTH - 4))
         assert valid is True
 
     def test_password_at_max_length(self):
         """Password at maximum length should pass."""
-        valid, err = validate_password("a" * MAX_PASSWORD_LENGTH)
+        valid, err = validate_password("Aa1!" + "a" * (MAX_PASSWORD_LENGTH - 4))
         assert valid is True
 
     def test_password_with_spaces(self):
-        """Password with spaces should pass."""
-        valid, err = validate_password("pass word with spaces")
+        """Password with spaces should pass if it meets complexity."""
+        valid, err = validate_password("Pass w0rd! spaces")
         assert valid is True
 
     def test_password_with_null_byte(self):
         """Password with null byte should pass (handled at hash level)."""
-        valid, err = validate_password("password\x00extra")
+        valid, err = validate_password("P@ssw0rd\x00extra!")
         assert valid is True  # Validation passes, hash handles it
 
 

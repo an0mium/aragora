@@ -270,6 +270,18 @@ class AgentSelectionAPI:
         return self._client.request("GET", "/api/v1/agent-selection/history", params=params)
 
 
+    def team_selection(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Get team selection overview.
+
+        GET /api/v1/team-selection
+
+        Returns:
+            Dict with team selection data
+        """
+        return self._client.request("GET", "/api/v1/team-selection", params=kwargs or None)
+
+
 class AsyncAgentSelectionAPI:
     """
     Asynchronous Agent Selection API.
@@ -424,3 +436,8 @@ class AsyncAgentSelectionAPI:
         if since is not None:
             params["since"] = since
         return await self._client.request("GET", "/api/v1/agent-selection/history", params=params)
+
+    async def team_selection(self, **kwargs: Any) -> dict[str, Any]:
+        """Get team selection overview. GET /api/v1/team-selection"""
+        return await self._client.request("GET", "/api/v1/team-selection", params=kwargs or None)
+

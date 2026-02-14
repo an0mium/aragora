@@ -183,6 +183,22 @@ class AdminAPI:
         return self._client.request("GET", "/api/v1/admin/security/keys")
 
 
+    # ===========================================================================
+    # Diagnostics
+    # ===========================================================================
+
+    def get_handler_diagnostics(self) -> dict[str, Any]:
+        """
+        Get handler diagnostics information.
+
+        GET /api/v1/diagnostics/handlers
+
+        Returns:
+            Dict with handler diagnostics
+        """
+        return self._client.request("GET", "/api/v1/diagnostics/handlers")
+
+
 class AsyncAdminAPI:
     """
     Asynchronous Admin API.
@@ -272,3 +288,12 @@ class AsyncAdminAPI:
     async def list_security_keys(self) -> dict[str, Any]:
         """List all security keys."""
         return await self._client.request("GET", "/api/v1/admin/security/keys")
+
+    # ===========================================================================
+    # Diagnostics
+    # ===========================================================================
+
+    async def get_handler_diagnostics(self) -> dict[str, Any]:
+        """Get handler diagnostics information. GET /api/v1/diagnostics/handlers"""
+        return await self._client.request("GET", "/api/v1/diagnostics/handlers")
+

@@ -114,6 +114,21 @@ class AudioAPI:
         return f"{base_url}/api/v1/podcast/feed.xml"
 
 
+    def serve_audio(self, audio_path: str) -> dict[str, Any]:
+        """
+        Serve audio file by path.
+
+        GET /audio/:path
+
+        Args:
+            audio_path: Audio file path
+
+        Returns:
+            Audio file data
+        """
+        return self._client.request("GET", f"/audio/{audio_path}")
+
+
 class AsyncAudioAPI:
     """
     Asynchronous Audio API.
@@ -170,3 +185,8 @@ class AsyncAudioAPI:
         """Get the podcast RSS feed URL."""
         base_url = getattr(self._client, "_base_url", "https://api.aragora.ai")
         return f"{base_url}/api/v1/podcast/feed.xml"
+
+    async def serve_audio(self, audio_path: str) -> dict[str, Any]:
+        """Serve audio file by path. GET /audio/:path"""
+        return await self._client.request("GET", f"/audio/{audio_path}")
+
