@@ -859,13 +859,19 @@ class TestAPIKeyValidator:
 class TestGlobalValidators:
     """Tests for global validator singletons."""
 
-    def test_get_jwt_validator_singleton(self):
-        """get_jwt_validator should return singleton instance."""
-        # Reset global state
+    @pytest.fixture(autouse=True)
+    def _reset_validator_singletons(self):
+        """Reset validator singletons before/after each test."""
         import aragora.server.middleware.user_auth as auth_module
 
         auth_module._jwt_validator = None
+        auth_module._api_key_validator = None
+        yield
+        auth_module._jwt_validator = None
+        auth_module._api_key_validator = None
 
+    def test_get_jwt_validator_singleton(self):
+        """get_jwt_validator should return singleton instance."""
         v1 = get_jwt_validator()
         v2 = get_jwt_validator()
 
@@ -874,11 +880,6 @@ class TestGlobalValidators:
 
     def test_get_api_key_validator_singleton(self):
         """get_api_key_validator should return singleton instance."""
-        # Reset global state
-        import aragora.server.middleware.user_auth as auth_module
-
-        auth_module._api_key_validator = None
-
         v1 = get_api_key_validator()
         v2 = get_api_key_validator()
 

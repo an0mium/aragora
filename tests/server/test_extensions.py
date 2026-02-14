@@ -97,13 +97,15 @@ class TestExtensionInitialization:
 
     def test_get_extension_stats_without_init(self):
         """Test get_extension_stats before initialization."""
-        # Clear global state
         import aragora.server.extensions as ext_module
 
+        saved = ext_module._extension_state
         ext_module._extension_state = None
-
-        stats = get_extension_stats()
-        assert "error" in stats
+        try:
+            stats = get_extension_stats()
+            assert "error" in stats
+        finally:
+            ext_module._extension_state = saved
 
 
 class TestExtensionLifecycle:
@@ -114,10 +116,13 @@ class TestExtensionLifecycle:
         """Test shutdown_extensions handles no initialization."""
         import aragora.server.extensions as ext_module
 
+        saved = ext_module._extension_state
         ext_module._extension_state = None
-
-        # Should not raise
-        await shutdown_extensions()
+        try:
+            # Should not raise
+            await shutdown_extensions()
+        finally:
+            ext_module._extension_state = saved
 
     @pytest.mark.asyncio
     async def test_shutdown_stops_gateway(self, tmp_path: Path):
@@ -160,49 +165,36 @@ class TestExtensionFeatureFlags:
 
     def test_fabric_disabled_by_env(self, tmp_path: Path, monkeypatch):
         """Test Agent Fabric can be disabled via env var."""
-        monkeypatch.setenv("ARAGORA_ENABLE_AGENT_FABRIC", "false")
-
-        # Re-import to pick up env var
-        import importlib
         import aragora.server.extensions as ext_module
 
-        importlib.reload(ext_module)
+        monkeypatch.setattr(ext_module, "ENABLE_AGENT_FABRIC", False)
 
         fabric, hooks = ext_module.init_agent_fabric(tmp_path)
         assert fabric is None
 
     def test_gastown_disabled_by_env(self, tmp_path: Path, monkeypatch):
         """Test Gastown can be disabled via env var."""
-        monkeypatch.setenv("ARAGORA_ENABLE_GASTOWN", "false")
-
-        import importlib
         import aragora.server.extensions as ext_module
 
-        importlib.reload(ext_module)
+        monkeypatch.setattr(ext_module, "ENABLE_GASTOWN", False)
 
         result = ext_module.init_gastown(tmp_path)
         assert all(r is None for r in result)
 
     def test_moltbot_disabled_by_env(self, tmp_path: Path, monkeypatch):
         """Test Moltbot can be disabled via env var."""
-        monkeypatch.setenv("ARAGORA_ENABLE_MOLTBOT", "false")
-
-        import importlib
         import aragora.server.extensions as ext_module
 
-        importlib.reload(ext_module)
+        monkeypatch.setattr(ext_module, "ENABLE_MOLTBOT", False)
 
         result = ext_module.init_moltbot(tmp_path)
         assert all(r is None for r in result)
 
     def test_computer_use_enabled_by_env(self, tmp_path: Path, monkeypatch):
         """Test Computer Use can be enabled via env var."""
-        monkeypatch.setenv("ARAGORA_ENABLE_COMPUTER_USE", "true")
-
-        import importlib
         import aragora.server.extensions as ext_module
 
-        importlib.reload(ext_module)
+        monkeypatch.setattr(ext_module, "ENABLE_COMPUTER_USE", True)
 
         # Will only be non-None if module is available
         result = ext_module.init_computer_use()

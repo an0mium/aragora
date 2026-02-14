@@ -190,12 +190,12 @@ class TestPasswordValidation:
 
     def test_password_at_min_length(self):
         """Test password at exactly minimum length."""
-        valid, _ = validate_password("a" * MIN_PASSWORD_LENGTH)
+        valid, _ = validate_password("Aa1!" + "a" * (MIN_PASSWORD_LENGTH - 4))
         assert valid
 
     def test_password_at_max_length(self):
         """Test password at exactly maximum length."""
-        valid, _ = validate_password("a" * MAX_PASSWORD_LENGTH)
+        valid, _ = validate_password("Aa1!" + "a" * (MAX_PASSWORD_LENGTH - 4))
         assert valid
 
 

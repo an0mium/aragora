@@ -245,20 +245,6 @@ class WorkspacesAPI:
         return self._client.request("GET", "/api/v1/audit/verify")
 
 
-    def accept_invite(self, token: str) -> dict[str, Any]:
-        """
-        Accept a workspace invite.
-
-        POST /api/v1/invites/:token/accept
-
-        Args:
-            token: Invite token
-
-        Returns:
-            Dict with acceptance confirmation
-        """
-        return self._client.request("POST", f"/api/v1/invites/{token}/accept")
-
 
 class AsyncWorkspacesAPI:
     """
@@ -397,7 +383,5 @@ class AsyncWorkspacesAPI:
         """Verify audit log integrity."""
         return await self._client.request("GET", "/api/v1/audit/verify")
 
-    async def accept_invite(self, token: str) -> dict[str, Any]:
-        """Accept a workspace invite. POST /api/v1/invites/:token/accept"""
-        return await self._client.request("POST", f"/api/v1/invites/{token}/accept")
+
 

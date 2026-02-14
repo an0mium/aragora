@@ -212,13 +212,13 @@ class TestPasswordValidation:
         assert err == ""
 
     def test_valid_password_with_unicode(self):
-        """Password with unicode should pass."""
-        valid, err = validate_password("пароль12345678")
+        """Password with unicode should pass if it meets complexity."""
+        valid, err = validate_password("Parol1!пароль12")
         assert valid is True
 
     def test_valid_password_with_emojis(self):
-        """Password with emojis should pass."""
-        valid, err = validate_password("passwordtest🔐🔑")
+        """Password with emojis should pass if it meets complexity."""
+        valid, err = validate_password("P@ssw0rd!test🔐")
         assert valid is True
 
     def test_empty_password(self):
@@ -486,16 +486,16 @@ class TestSecurityEdgeCases:
 
     def test_password_length_boundary(self):
         """Password validation at length boundaries."""
-        # Exactly at min length
-        valid, _ = validate_password("a" * MIN_PASSWORD_LENGTH)
+        # Exactly at min length (with complexity)
+        valid, _ = validate_password("Aa1!" + "a" * (MIN_PASSWORD_LENGTH - 4))
         assert valid is True
 
         # One below min length
         valid, _ = validate_password("a" * (MIN_PASSWORD_LENGTH - 1))
         assert valid is False
 
-        # Exactly at max length
-        valid, _ = validate_password("a" * MAX_PASSWORD_LENGTH)
+        # Exactly at max length (with complexity)
+        valid, _ = validate_password("Aa1!" + "a" * (MAX_PASSWORD_LENGTH - 4))
         assert valid is True
 
         # One above max length

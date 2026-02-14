@@ -179,17 +179,6 @@ class ComputerUseAPI:
         """
         return self._client.request("GET", "/api/v1/computer-use/actions")
 
-    def get_action_stats(self) -> dict[str, Any]:
-        """
-        Get action statistics.
-
-        GET /api/v1/computer-use/actions/stats
-
-        Returns:
-            Dict with aggregated action stats.
-        """
-        return self._client.request("GET", "/api/v1/computer-use/actions/stats")
-
     def get_action(self, action_id: str) -> dict[str, Any]:
         """
         Get a specific action's details.
@@ -245,37 +234,6 @@ class ComputerUseAPI:
         """
         return self._client.request("GET", f"/api/v1/computer-use/approvals/{request_id}")
 
-    def approve_approval(self, request_id: str) -> dict[str, Any]:
-        """
-        Approve an approval request.
-
-        POST /api/v1/computer-use/approvals/:request_id/approve
-
-        Args:
-            request_id: Approval request identifier.
-
-        Returns:
-            Dict with updated approval status.
-        """
-        return self._client.request(
-            "POST", f"/api/v1/computer-use/approvals/{request_id}/approve"
-        )
-
-    def deny_approval(self, request_id: str) -> dict[str, Any]:
-        """
-        Deny an approval request.
-
-        POST /api/v1/computer-use/approvals/:request_id/deny
-
-        Args:
-            request_id: Approval request identifier.
-
-        Returns:
-            Dict with updated approval status.
-        """
-        return self._client.request(
-            "POST", f"/api/v1/computer-use/approvals/{request_id}/deny"
-        )
 
 class AsyncComputerUseAPI:
     """Asynchronous Computer Use API."""
@@ -350,10 +308,6 @@ class AsyncComputerUseAPI:
         """List available computer use actions. GET /api/v1/computer-use/actions"""
         return await self._client.request("GET", "/api/v1/computer-use/actions")
 
-    async def get_action_stats(self) -> dict[str, Any]:
-        """Get action statistics. GET /api/v1/computer-use/actions/stats"""
-        return await self._client.request("GET", "/api/v1/computer-use/actions/stats")
-
     async def get_action(self, action_id: str) -> dict[str, Any]:
         """Get a specific action's details. GET /api/v1/computer-use/actions/:action_id"""
         return await self._client.request("GET", f"/api/v1/computer-use/actions/{action_id}")
@@ -382,14 +336,3 @@ class AsyncComputerUseAPI:
             "GET", f"/api/v1/computer-use/approvals/{request_id}"
         )
 
-    async def approve_approval(self, request_id: str) -> dict[str, Any]:
-        """Approve an approval request. POST /api/v1/computer-use/approvals/:request_id/approve"""
-        return await self._client.request(
-            "POST", f"/api/v1/computer-use/approvals/{request_id}/approve"
-        )
-
-    async def deny_approval(self, request_id: str) -> dict[str, Any]:
-        """Deny an approval request. POST /api/v1/computer-use/approvals/:request_id/deny"""
-        return await self._client.request(
-            "POST", f"/api/v1/computer-use/approvals/{request_id}/deny"
-        )

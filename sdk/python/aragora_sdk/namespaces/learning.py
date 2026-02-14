@@ -123,21 +123,6 @@ class LearningAPI:
         """
         return self._client.request("GET", f"/api/v1/learning/patterns/{pattern_id}")
 
-    def validate_pattern(
-        self,
-        pattern_id: str,
-    ) -> dict[str, Any]:
-        """
-        Validate a detected pattern.
-
-        Args:
-            pattern_id: The pattern ID to validate
-
-        Returns:
-            Dict with validated pattern and confirmation message
-        """
-        return self._client.request("POST", f"/api/v1/learning/patterns/{pattern_id}/validate")
-
     def get_metrics(
         self,
         session_id: str | None = None,
@@ -248,34 +233,6 @@ class LearningAPI:
             Dict with knowledge item details
         """
         return self._client.request("GET", f"/api/v1/learning/knowledge/{knowledge_id}")
-
-    def extract_knowledge(
-        self,
-        debate_ids: list[str],
-        title: str | None = None,
-        content: str | None = None,
-        topics: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Trigger knowledge extraction from debates.
-
-        Args:
-            debate_ids: List of debate IDs to extract knowledge from
-            title: Optional title for extracted knowledge
-            content: Optional content description
-            topics: Optional list of topics
-
-        Returns:
-            Dict with extracted knowledge record and confirmation message
-        """
-        data: dict[str, Any] = {"debate_ids": debate_ids}
-        if title:
-            data["title"] = title
-        if content:
-            data["content"] = content
-        if topics:
-            data["topics"] = topics
-        return self._client.request("POST", "/api/v1/learning/knowledge/extract", json=data)
 
     def get_recommendations(
         self,

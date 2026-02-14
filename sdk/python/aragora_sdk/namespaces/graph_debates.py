@@ -51,13 +51,6 @@ class GraphDebatesAPI:
             data["branch_policy"] = branch_policy
         return self._client.request("POST", "/api/v1/debates/graph", json=data)
 
-    def get_branches(self, debate_id: str) -> dict[str, Any]:
-        """Get all branches for a graph debate."""
-        return self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/branches")
-
-    def get_nodes(self, debate_id: str) -> dict[str, Any]:
-        """Get all nodes in a graph debate."""
-        return self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/nodes")
 
 
 class AsyncGraphDebatesAPI:
@@ -97,10 +90,3 @@ class AsyncGraphDebatesAPI:
             data["branch_policy"] = branch_policy
         return await self._client.request("POST", "/api/v1/debates/graph", json=data)
 
-    async def get_branches(self, debate_id: str) -> dict[str, Any]:
-        """Get all branches for a graph debate."""
-        return await self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/branches")
-
-    async def get_nodes(self, debate_id: str) -> dict[str, Any]:
-        """Get all nodes in a graph debate."""
-        return await self._client.request("GET", f"/api/v1/debates/graph/{debate_id}/nodes")
