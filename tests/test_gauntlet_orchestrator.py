@@ -154,7 +154,7 @@ class TestGauntletOrchestratorRun:
             with patch.object(orchestrator, "_run_scenario_analysis") as mock_scenario:
                 with patch.object(orchestrator, "_run_adversarial_probing") as mock_probe:
                     with patch.object(orchestrator, "_run_formal_verification") as mock_verify:
-                        with patch.object(orchestrator, "_run_deep_audit") as mock_audit:
+                        with patch.object(orchestrator, "_run_deep_audit_pipeline") as mock_audit:
                             # Setup mock returns
                             for mock_phase, phase in [
                                 (mock_risk, GauntletPhase.RISK_ASSESSMENT),

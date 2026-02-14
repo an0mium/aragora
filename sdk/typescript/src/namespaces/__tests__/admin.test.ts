@@ -432,11 +432,11 @@ describe('AdminAPI Namespace', () => {
         lifetime_issued: 1000,
         lifetime_used: 250,
       };
-      mockClient.request.mockResolvedValue(mockAccount);
+      mockClient.getCreditAccount.mockResolvedValue(mockAccount);
 
       const result = await api.getCreditAccount('org1');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/admin/organizations/org1/credits');
+      expect(mockClient.getCreditAccount).toHaveBeenCalledWith('org1');
       expect(result.balance).toBe(750);
     });
 
@@ -448,15 +448,11 @@ describe('AdminAPI Namespace', () => {
         ],
         total: 2,
       };
-      mockClient.request.mockResolvedValue(mockTransactions);
+      mockClient.listCreditTransactions.mockResolvedValue(mockTransactions);
 
       const result = await api.listCreditTransactions('org1');
 
-      expect(mockClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/admin/organizations/org1/credits/transactions',
-        { params: undefined }
-      );
+      expect(mockClient.listCreditTransactions).toHaveBeenCalledWith('org1', undefined);
       expect(result.transactions).toHaveLength(2);
     });
 
@@ -467,15 +463,13 @@ describe('AdminAPI Namespace', () => {
         lifetime_issued: 1000,
         lifetime_used: 500,
       };
-      mockClient.request.mockResolvedValue(mockAccount);
+      mockClient.adjustCreditBalance.mockResolvedValue(mockAccount);
 
       const result = await api.adjustCredits('org1', -250, 'Refund adjustment');
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/admin/organizations/org1/credits/adjust', {
-        json: {
-          amount: -250,
-          reason: 'Refund adjustment',
-        },
+      expect(mockClient.adjustCreditBalance).toHaveBeenCalledWith('org1', {
+        amount: -250,
+        reason: 'Refund adjustment',
       });
       expect(result.balance).toBe(500);
     });
@@ -487,11 +481,11 @@ describe('AdminAPI Namespace', () => {
           { amount: 300, expires_at: '2024-02-28' },
         ],
       };
-      mockClient.request.mockResolvedValue(mockExpiring);
+      mockClient.getExpiringCredits.mockResolvedValue(mockExpiring);
 
       const result = await api.getExpiringCredits('org1');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/admin/organizations/org1/credits/expiring');
+      expect(mockClient.getExpiringCredits).toHaveBeenCalledWith('org1');
       expect(result.credits).toHaveLength(2);
     });
   });
@@ -521,11 +515,11 @@ describe('AdminAPI Namespace', () => {
 
     it('should rotate security key', async () => {
       const mockResult = { success: true, new_key_id: 'key_new_123' };
-      mockClient.request.mockResolvedValue(mockResult);
+      mockClient.rotateSecurityKey.mockResolvedValue(mockResult);
 
       const result = await api.rotateSecurityKey('encryption');
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/admin/security/keys/encryption/rotate');
+      expect(mockClient.rotateSecurityKey).toHaveBeenCalledWith('encryption');
       expect(result.new_key_id).toBe('key_new_123');
     });
 
