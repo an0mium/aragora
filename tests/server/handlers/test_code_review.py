@@ -28,6 +28,18 @@ import json
 import pytest
 
 
+def _unwrap(fn, depth: int = 1):
+    """Safely unwrap a decorated function.
+
+    Under xdist parallel execution, test pollution can strip __wrapped__
+    attributes from decorator wrappers. This function gracefully handles
+    that by returning the function itself if __wrapped__ is not available.
+    """
+    for _ in range(depth):
+        fn = getattr(fn, "__wrapped__", fn)
+    return fn
+
+
 # ===========================================================================
 # Rate Limit Bypass for Testing
 # ===========================================================================
@@ -284,7 +296,7 @@ class TestReviewCode:
         ):
             from aragora.server.handlers.code_review import handle_review_code
 
-            result = await handle_review_code.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_code, 2)(
                 data={"code": "def foo(): pass", "language": "python"},
                 user_id="test-user",
             )
@@ -301,7 +313,7 @@ class TestReviewCode:
         """Test error when code is missing."""
         from aragora.server.handlers.code_review import handle_review_code
 
-        result = await handle_review_code.__wrapped__.__wrapped__(
+        result = await _unwrap(handle_review_code, 2)(
             data={},
             user_id="test-user",
         )
@@ -319,7 +331,7 @@ class TestReviewCode:
         ):
             from aragora.server.handlers.code_review import handle_review_code
 
-            result = await handle_review_code.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_code, 2)(
                 data={
                     "code": "def process(data): return data",
                     "language": "python",
@@ -343,7 +355,7 @@ class TestReviewCode:
         ):
             from aragora.server.handlers.code_review import handle_review_code
 
-            result = await handle_review_code.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_code, 2)(
                 data={"code": "def foo(): pass"},
                 user_id="test-user",
             )
@@ -375,7 +387,7 @@ class TestReviewDiff:
 +    print("hello")
      pass"""
 
-            result = await handle_review_diff.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_diff, 2)(
                 data={"diff": diff},
                 user_id="test-user",
             )
@@ -391,7 +403,7 @@ class TestReviewDiff:
         """Test error when diff is missing."""
         from aragora.server.handlers.code_review import handle_review_diff
 
-        result = await handle_review_diff.__wrapped__.__wrapped__(
+        result = await _unwrap(handle_review_diff, 2)(
             data={},
             user_id="test-user",
         )
@@ -409,7 +421,7 @@ class TestReviewDiff:
         ):
             from aragora.server.handlers.code_review import handle_review_diff
 
-            result = await handle_review_diff.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_diff, 2)(
                 data={
                     "diff": "--- a/f.py\n+++ b/f.py\n@@ -1 +1 @@\n-old\n+new",
                     "base_branch": "main",
@@ -438,7 +450,7 @@ class TestReviewPR:
         ):
             from aragora.server.handlers.code_review import handle_review_pr
 
-            result = await handle_review_pr.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_pr, 2)(
                 data={"pr_url": "https://github.com/owner/repo/pull/123"},
                 user_id="test-user",
             )
@@ -454,7 +466,7 @@ class TestReviewPR:
         """Test error when pr_url is missing."""
         from aragora.server.handlers.code_review import handle_review_pr
 
-        result = await handle_review_pr.__wrapped__.__wrapped__(
+        result = await _unwrap(handle_review_pr, 2)(
             data={},
             user_id="test-user",
         )
@@ -468,7 +480,7 @@ class TestReviewPR:
         """Test error for invalid PR URL."""
         from aragora.server.handlers.code_review import handle_review_pr
 
-        result = await handle_review_pr.__wrapped__.__wrapped__(
+        result = await _unwrap(handle_review_pr, 2)(
             data={"pr_url": "https://example.com/not-a-pr"},
             user_id="test-user",
         )
@@ -486,7 +498,7 @@ class TestReviewPR:
         ):
             from aragora.server.handlers.code_review import handle_review_pr
 
-            result = await handle_review_pr.__wrapped__.__wrapped__(
+            result = await _unwrap(handle_review_pr, 2)(
                 data={
                     "pr_url": "https://github.com/owner/repo/pull/456",
                     "post_comments": True,
@@ -518,7 +530,7 @@ class TestGetReviewResult:
         result_id = store_review_result(result)
 
         # Retrieve it
-        response = await handle_get_review_result.__wrapped__(
+        response = await _unwrap(handle_get_review_result)(
             data={},
             result_id=result_id,
             user_id="test-user",
@@ -535,7 +547,7 @@ class TestGetReviewResult:
         """Test error when result not found."""
         from aragora.server.handlers.code_review import handle_get_review_result
 
-        response = await handle_get_review_result.__wrapped__(
+        response = await _unwrap(handle_get_review_result)(
             data={},
             result_id="nonexistent-id",
             user_id="test-user",
@@ -557,7 +569,7 @@ class TestGetReviewHistory:
         """Test empty history."""
         from aragora.server.handlers.code_review import handle_get_review_history
 
-        response = await handle_get_review_history.__wrapped__(
+        response = await _unwrap(handle_get_review_history)(
             data={},
             user_id="test-user",
         )
@@ -580,7 +592,7 @@ class TestGetReviewHistory:
         for i in range(5):
             store_review_result(MockReviewResult(id=f"result-{i}"))
 
-        response = await handle_get_review_history.__wrapped__(
+        response = await _unwrap(handle_get_review_history)(
             data={},
             user_id="test-user",
         )
@@ -603,7 +615,7 @@ class TestGetReviewHistory:
         for i in range(10):
             store_review_result(MockReviewResult(id=f"result-{i}"))
 
-        response = await handle_get_review_history.__wrapped__(
+        response = await _unwrap(handle_get_review_history)(
             data={"limit": 3, "offset": 2},
             user_id="test-user",
         )
@@ -661,9 +673,7 @@ class TestSecurityScan:
         ):
             from aragora.server.handlers.code_review import handle_quick_security_scan
 
-            # Use getattr fallback: __wrapped__ may be absent if test pollution
-            # strips the decorator wrapper under parallel execution
-            handler_fn = getattr(handle_quick_security_scan, "__wrapped__", handle_quick_security_scan)
+            handler_fn = _unwrap(handle_quick_security_scan)
 
             result = await handler_fn(
                 data={"code": "password = 'secret123'"},
@@ -683,7 +693,7 @@ class TestSecurityScan:
         """Test error when code is missing."""
         from aragora.server.handlers.code_review import handle_quick_security_scan
 
-        handler_fn = getattr(handle_quick_security_scan, "__wrapped__", handle_quick_security_scan)
+        handler_fn = _unwrap(handle_quick_security_scan)
         result = await handler_fn(
             data={},
             user_id="test-user",
@@ -718,7 +728,7 @@ class TestCircuitBreaker:
 
             # Make enough failing requests to open circuit
             for _ in range(6):
-                await handle_review_code.__wrapped__.__wrapped__(
+                await _unwrap(handle_review_code, 2)(
                     data={"code": "def foo(): pass"},
                     user_id="test-user",
                 )
@@ -740,7 +750,7 @@ class TestCircuitBreaker:
         for _ in range(10):
             cb.record_failure()
 
-        result = await handle_review_code.__wrapped__.__wrapped__(
+        result = await _unwrap(handle_review_code, 2)(
             data={"code": "def foo(): pass"},
             user_id="test-user",
         )
