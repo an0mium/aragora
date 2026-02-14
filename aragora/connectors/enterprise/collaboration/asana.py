@@ -609,7 +609,7 @@ class AsanaConnector(EnterpriseConnector):
         data = await self._request("POST", "/tasks", json={"data": body})
         task = AsanaTask.from_api(data.get("data", {}))
 
-        logger.info("Created Asana task", extra={"task_gid": task.gid, "name": task.name})
+        logger.info("Created Asana task", extra={"task_gid": task.gid, "task_name": task.name})
         return task
 
     async def update_task(
