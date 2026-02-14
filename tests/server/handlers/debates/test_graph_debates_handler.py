@@ -412,6 +412,7 @@ class TestHandlePost:
 # =============================================================================
 
 
+@pytest.mark.rate_limit_test
 class TestRateLimiting:
     """Tests for rate limiting."""
 

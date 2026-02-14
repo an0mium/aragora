@@ -735,6 +735,31 @@ def mock_semantic_store_embeddings(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _disable_rate_limiting(request, monkeypatch):
+    """Disable handler rate limiters to prevent xdist cross-test interference.
+
+    Under xdist, rate limiter singletons accumulate state from tests running
+    on the same worker process, causing unrelated tests to receive 429 instead
+    of their expected status codes.
+
+    Tests that specifically exercise rate-limiting behavior should use
+    @pytest.mark.rate_limit_test to opt out and get real rate limiting.
+    """
+    markers = [m.name for m in request.node.iter_markers()]
+    if "rate_limit_test" in markers:
+        yield
+        return
+
+    try:
+        import aragora.server.handlers.utils.rate_limit as rl_mod
+
+        monkeypatch.setattr(rl_mod, "RATE_LIMITING_DISABLED", True)
+    except (ImportError, AttributeError):
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def mock_external_apis(request, monkeypatch):
     """Mock external API clients to prevent network calls during tests.
 

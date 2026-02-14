@@ -464,6 +464,9 @@ markers = [
     "performance: marks tests for performance SLA validation (latency, throughput)",
     "privacy: marks tests for privacy workflows (GDPR/CCPA/consent)",
     "enterprise: marks tests for enterprise-only features (SSO, multi-tenancy, audit)",
+    "rate_limit_test: marks tests that need real rate limiter behavior (opts out of global bypass)",
+    "no_auto_auth: marks tests that need real authentication (opts out of global RBAC bypass)",
+    "network: marks tests that make real network calls",
 ]
 # Automatically rerun flaky tests up to 3 times
 # pytest-randomly: Tests run in random order by default to detect pollution
