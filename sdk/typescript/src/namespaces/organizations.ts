@@ -212,4 +212,33 @@ export class OrganizationsAPI {
   async switchOrganization(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/user/organizations/switch', { json: data }) as Promise<Record<string, unknown>>;
   }
+
+  /**
+   * List organization invitations.
+   */
+  async getOrgInvitations(orgId: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/org/${orgId}/invitations`, { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get organization members.
+   */
+  async getOrgMembers(orgId: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/org/${orgId}/members`, { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Update a member's role in an organization.
+   */
+  async setMemberRole(orgId: string, memberId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('PUT', `/api/v1/org/${orgId}/members/${memberId}/role`, { json: data }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Accept an invitation.
+   */
+  async acceptInvite(invitationId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/invitations/${invitationId}/accept`) as Promise<Record<string, unknown>>;
+  }
+
 }

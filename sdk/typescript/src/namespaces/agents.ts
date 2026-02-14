@@ -461,4 +461,19 @@ export class AgentsAPI {
       { params }
     );
   }
+
+  /**
+   * Get head-to-head comparison between two agents.
+   */
+  async getHeadToHeadStats(agentId: string, opponentId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/agent/${agentId}/head-to-head/${opponentId}`) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get opponent briefing for an agent matchup.
+   */
+  async getOpponentBriefingReport(agentId: string, opponentId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/agent/${agentId}/opponent-briefing/${opponentId}`) as Promise<Record<string, unknown>>;
+  }
+
 }

@@ -46,7 +46,7 @@ class BackupsAPI:
         if status:
             params["status"] = status
 
-        return self._client._request("GET", "/api/v1/backups", params=params)
+        return self._client.request("GET", "/api/v1/backups", params=params)
 
     def get(self, backup_id: str) -> dict[str, Any]:
         """
@@ -58,7 +58,7 @@ class BackupsAPI:
         Returns:
             Backup details
         """
-        return self._client._request("GET", f"/api/v1/backups/{backup_id}")
+        return self._client.request("GET", f"/api/v1/backups/{backup_id}")
 
     def create(
         self,
@@ -87,7 +87,7 @@ class BackupsAPI:
         if exclude_data:
             data["exclude_data"] = exclude_data
 
-        return self._client._request("POST", "/api/v1/backups", json=data)
+        return self._client.request("POST", "/api/v1/backups", json=data)
 
     def delete(self, backup_id: str) -> dict[str, Any]:
         """
@@ -99,7 +99,7 @@ class BackupsAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client._request("DELETE", f"/api/v1/backups/{backup_id}")
+        return self._client.request("DELETE", f"/api/v1/backups/{backup_id}")
 
     def restore(
         self,
@@ -126,7 +126,7 @@ class BackupsAPI:
         if data_types:
             data["data_types"] = data_types
 
-        return self._client._request("POST", f"/api/v1/backups/{backup_id}/restore", json=data)
+        return self._client.request("POST", f"/api/v1/backups/{backup_id}/restore", json=data)
 
     def get_restore_status(self, restore_id: str) -> dict[str, Any]:
         """
@@ -138,7 +138,7 @@ class BackupsAPI:
         Returns:
             Restore operation status
         """
-        return self._client._request("GET", f"/api/v1/restores/{restore_id}")
+        return self._client.request("GET", f"/api/v1/restores/{restore_id}")
 
     def schedule(
         self,
@@ -159,7 +159,7 @@ class BackupsAPI:
         Returns:
             Created schedule
         """
-        return self._client._request(
+        return self._client.request(
             "POST",
             "/api/v1/backups/schedules",
             json={
@@ -177,7 +177,7 @@ class BackupsAPI:
         Returns:
             Backup schedules
         """
-        return self._client._request("GET", "/api/v1/backups/schedules")
+        return self._client.request("GET", "/api/v1/backups/schedules")
 
     def delete_schedule(self, schedule_id: str) -> dict[str, Any]:
         """
@@ -189,7 +189,7 @@ class BackupsAPI:
         Returns:
             Deletion confirmation
         """
-        return self._client._request("DELETE", f"/api/v1/backups/schedules/{schedule_id}")
+        return self._client.request("DELETE", f"/api/v1/backups/schedules/{schedule_id}")
 
     def verify(self, backup_id: str) -> dict[str, Any]:
         """
@@ -201,7 +201,7 @@ class BackupsAPI:
         Returns:
             Verification result with integrity status
         """
-        return self._client._request("POST", f"/api/v1/backups/{backup_id}/verify")
+        return self._client.request("POST", f"/api/v1/backups/{backup_id}/verify")
 
     def verify_comprehensive(self, backup_id: str) -> dict[str, Any]:
         """
@@ -213,7 +213,7 @@ class BackupsAPI:
         Returns:
             Detailed verification results including checksums and data validation
         """
-        return self._client._request("POST", f"/api/v1/backups/{backup_id}/verify-comprehensive")
+        return self._client.request("POST", f"/api/v1/backups/{backup_id}/verify-comprehensive")
 
     def test_restore(
         self,
@@ -233,7 +233,7 @@ class BackupsAPI:
         data: dict[str, Any] = {}
         if target_path:
             data["target_path"] = target_path
-        return self._client._request(
+        return self._client.request(
             "POST",
             f"/api/v1/backups/{backup_id}/restore-test",
             json=data if data else None,
@@ -249,7 +249,7 @@ class BackupsAPI:
         Returns:
             Cleanup results with affected backups
         """
-        return self._client._request("POST", "/api/v1/backups/cleanup", json={"dry_run": dry_run})
+        return self._client.request("POST", "/api/v1/backups/cleanup", json={"dry_run": dry_run})
 
     def get_stats(self) -> dict[str, Any]:
         """
@@ -258,7 +258,7 @@ class BackupsAPI:
         Returns:
             Backup statistics including counts, sizes, and health metrics
         """
-        return self._client._request("GET", "/api/v1/backups/stats")
+        return self._client.request("GET", "/api/v1/backups/stats")
 
 
 class AsyncBackupsAPI:
@@ -281,11 +281,11 @@ class AsyncBackupsAPI:
         if status:
             params["status"] = status
 
-        return await self._client._request("GET", "/api/v1/backups", params=params)
+        return await self._client.request("GET", "/api/v1/backups", params=params)
 
     async def get(self, backup_id: str) -> dict[str, Any]:
         """Get backup details."""
-        return await self._client._request("GET", f"/api/v1/backups/{backup_id}")
+        return await self._client.request("GET", f"/api/v1/backups/{backup_id}")
 
     async def create(
         self,
@@ -303,11 +303,11 @@ class AsyncBackupsAPI:
         if exclude_data:
             data["exclude_data"] = exclude_data
 
-        return await self._client._request("POST", "/api/v1/backups", json=data)
+        return await self._client.request("POST", "/api/v1/backups", json=data)
 
     async def delete(self, backup_id: str) -> dict[str, Any]:
         """Delete a backup."""
-        return await self._client._request("DELETE", f"/api/v1/backups/{backup_id}")
+        return await self._client.request("DELETE", f"/api/v1/backups/{backup_id}")
 
     async def restore(
         self,
@@ -323,13 +323,13 @@ class AsyncBackupsAPI:
         if data_types:
             data["data_types"] = data_types
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/backups/{backup_id}/restore", json=data
         )
 
     async def get_restore_status(self, restore_id: str) -> dict[str, Any]:
         """Get restore operation status."""
-        return await self._client._request("GET", f"/api/v1/restores/{restore_id}")
+        return await self._client.request("GET", f"/api/v1/restores/{restore_id}")
 
     async def schedule(
         self,
@@ -339,7 +339,7 @@ class AsyncBackupsAPI:
         enabled: bool = True,
     ) -> dict[str, Any]:
         """Create a backup schedule."""
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             "/api/v1/backups/schedules",
             json={
@@ -352,19 +352,19 @@ class AsyncBackupsAPI:
 
     async def list_schedules(self) -> dict[str, Any]:
         """List backup schedules."""
-        return await self._client._request("GET", "/api/v1/backups/schedules")
+        return await self._client.request("GET", "/api/v1/backups/schedules")
 
     async def delete_schedule(self, schedule_id: str) -> dict[str, Any]:
         """Delete a backup schedule."""
-        return await self._client._request("DELETE", f"/api/v1/backups/schedules/{schedule_id}")
+        return await self._client.request("DELETE", f"/api/v1/backups/schedules/{schedule_id}")
 
     async def verify(self, backup_id: str) -> dict[str, Any]:
         """Verify backup integrity."""
-        return await self._client._request("POST", f"/api/v1/backups/{backup_id}/verify")
+        return await self._client.request("POST", f"/api/v1/backups/{backup_id}/verify")
 
     async def verify_comprehensive(self, backup_id: str) -> dict[str, Any]:
         """Run comprehensive backup verification."""
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/backups/{backup_id}/verify-comprehensive"
         )
 
@@ -377,7 +377,7 @@ class AsyncBackupsAPI:
         data: dict[str, Any] = {}
         if target_path:
             data["target_path"] = target_path
-        return await self._client._request(
+        return await self._client.request(
             "POST",
             f"/api/v1/backups/{backup_id}/restore-test",
             json=data if data else None,
@@ -385,10 +385,10 @@ class AsyncBackupsAPI:
 
     async def cleanup(self, dry_run: bool = True) -> dict[str, Any]:
         """Clean up old or expired backups."""
-        return await self._client._request(
+        return await self._client.request(
             "POST", "/api/v1/backups/cleanup", json={"dry_run": dry_run}
         )
 
     async def get_stats(self) -> dict[str, Any]:
         """Get backup statistics."""
-        return await self._client._request("GET", "/api/v1/backups/stats")
+        return await self._client.request("GET", "/api/v1/backups/stats")

@@ -94,6 +94,6 @@ export class GauntletAPI {
    * Compare gauntlets.
    */
   async compareGauntlets(gauntletId: string, otherGauntletId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/gauntlet/${gauntletId}1/compare/${otherGauntletId}`) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', `/api/v1/gauntlet/${gauntletId}/compare/${otherGauntletId}`) as Promise<Record<string, unknown>>;
   }
 }

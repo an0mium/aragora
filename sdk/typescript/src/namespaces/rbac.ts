@@ -592,4 +592,19 @@ export class RBACAPI {
   async regenerateBackupCodes(code: string): Promise<{ backup_codes: string[] }> {
     return this.client.request('POST', '/api/auth/mfa/backup-codes', { json: { code } });
   }
+
+  /**
+   * List all available permissions.
+   */
+  async getAllPermissions(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/rbac/permissions', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List all available roles.
+   */
+  async getAllRoles(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/rbac/roles', { params }) as Promise<Record<string, unknown>>;
+  }
+
 }

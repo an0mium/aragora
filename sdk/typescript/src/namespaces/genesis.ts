@@ -256,4 +256,12 @@ export class GenesisAPI {
   async getDebateTree(debateId: string): Promise<DebateTree> {
     return this.client.request('GET', `/api/v1/genesis/debates/${debateId}/tree`);
   }
+
+  /**
+   * Get descendants for a genesis entry.
+   */
+  async getGenesisDescendants(genesisId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/genesis/descendants/${genesisId}`) as Promise<Record<string, unknown>>;
+  }
+
 }

@@ -58,6 +58,15 @@ class DashboardAPI:
             params["refresh"] = True
         return self._client.request("GET", "/api/v1/dashboard", params=params if params else None)
 
+    def get_overview_page(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Get dashboard overview page data.
+
+        Returns:
+            Dict with overview metrics and summary.
+        """
+        return self._client.request("GET", "/api/v1/dashboard/overview", params=kwargs or None)
+
     def get_stats(self, period: PeriodType = "week") -> dict[str, Any]:
         """
         Get detailed statistics.
@@ -288,6 +297,10 @@ class AsyncDashboardAPI:
         return await self._client.request(
             "GET", "/api/v1/dashboard", params=params if params else None
         )
+
+    async def get_overview_page(self, **kwargs: Any) -> dict[str, Any]:
+        """Get dashboard overview page data."""
+        return await self._client.request("GET", "/api/v1/dashboard/overview", params=kwargs or None)
 
     async def get_stats(self, period: PeriodType = "week") -> dict[str, Any]:
         """Get detailed statistics."""

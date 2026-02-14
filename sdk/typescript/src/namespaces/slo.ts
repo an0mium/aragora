@@ -205,4 +205,12 @@ export class SLONamespace {
     const status = await this.getStatus();
     return status.alerts;
   }
+
+  /**
+   * Get SLO operational status.
+   */
+  async getSloStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/slo/status') as Promise<Record<string, unknown>>;
+  }
+
 }
