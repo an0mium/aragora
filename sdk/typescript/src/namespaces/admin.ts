@@ -105,7 +105,12 @@ interface AdminClientInterface {
   resetNomic(): Promise<{ success: boolean }>;
   pauseNomic(): Promise<{ success: boolean }>;
   resumeNomic(): Promise<{ success: boolean }>;
+  getCreditAccount(orgId: string): Promise<Record<string, unknown>>;
+  listCreditTransactions(orgId: string, params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  adjustCreditBalance(orgId: string, data: { amount: number; reason: string }): Promise<Record<string, unknown>>;
+  getExpiringCredits(orgId: string): Promise<Record<string, unknown>>;
   getAdminSecurityStatus(): Promise<SecurityStatus>;
+  rotateSecurityKey(keyType: string): Promise<Record<string, unknown>>;
   getAdminSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }>;
   listSecurityKeys(): Promise<{ keys: SecurityKey[] }>;
 }
@@ -289,30 +294,28 @@ export class AdminAPI {
    * Get credit account for an organization.
    */
   async getCreditAccount(orgId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/admin/organizations/${orgId}/credits`);
+    return this.client.getCreditAccount(orgId);
   }
 
   /**
    * List credit transactions for an organization.
    */
   async listCreditTransactions(orgId: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/admin/organizations/${orgId}/credits/transactions`, { params });
+    return this.client.listCreditTransactions(orgId, params);
   }
 
   /**
    * Adjust credit balance for an organization.
    */
   async adjustCredits(orgId: string, amount: number, reason: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/admin/organizations/${orgId}/credits/adjust`, {
-      json: { amount, reason },
-    });
+    return this.client.adjustCreditBalance(orgId, { amount, reason });
   }
 
   /**
    * Get expiring credits for an organization.
    */
   async getExpiringCredits(orgId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/admin/organizations/${orgId}/credits/expiring`);
+    return this.client.getExpiringCredits(orgId);
   }
 
   // ===========================================================================
@@ -330,7 +333,7 @@ export class AdminAPI {
    * Rotate a security key.
    */
   async rotateSecurityKey(keyType: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/admin/security/keys/${keyType}/rotate`);
+    return this.client.rotateSecurityKey(keyType);
   }
 
   /**

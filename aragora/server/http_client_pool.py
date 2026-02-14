@@ -359,6 +359,7 @@ class HTTPClientPool:
             if client is None:
                 raise RuntimeError(f"Failed to create async client for {provider}")
             provider_metrics = self.metrics.get_provider_metrics(provider)
+            start_time = time.time()
             try:
                 yield client
                 provider_metrics.requests_success += 1
@@ -370,6 +371,10 @@ class HTTPClientPool:
                     provider_metrics.timeouts += 1
                 raise
             finally:
+                elapsed_ms = (time.time() - start_time) * 1000
+                provider_metrics.total_latency_ms += elapsed_ms
+                provider_metrics.requests_total += 1
+                provider_metrics.last_request_time = time.time()
                 try:
                     await client.aclose()
                 except Exception as e:

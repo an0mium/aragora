@@ -550,27 +550,7 @@ class GauntletOrchestrator:
         from aragora.gauntlet.types import GauntletPhase
 
         try:
-            risk_findings: list[Any] = []
-            risk_assessments = self.risk_assessor.assess_topic(input_text[:2000])
-            for ra in risk_assessments:
-                sev = self._severity_float_to_enum(self._risk_level_to_severity(ra.level))
-                finding = PipelineFinding(
-                    id=self._next_finding_id(),
-                    category=getattr(ra, "category", "risk"),
-                    severity=sev,
-                    title=f"Domain Risk: {getattr(ra, 'category', 'unknown')}",
-                    description=getattr(ra, "description", ""),
-                    source_phase=GauntletPhase.RISK_ASSESSMENT,
-                    metadata={"source": "RiskAssessor"},
-                )
-                risk_findings.append(finding)
-
-            return PhaseResult(
-                phase=GauntletPhase.RISK_ASSESSMENT,
-                status="completed",
-                findings=risk_findings,
-                metrics={"risks_identified": len(risk_findings)},
-            )
+            from aragora.debate.risk_assessor import RiskAssessor, RiskLevel
         except ImportError:
             return PhaseResult(
                 phase=GauntletPhase.RISK_ASSESSMENT,
@@ -578,24 +558,43 @@ class GauntletOrchestrator:
                 error="Risk assessor not available",
             )
 
+        risk_findings: list[Any] = []
+        assessor = RiskAssessor() if not hasattr(self, "risk_assessor") else self.risk_assessor
+        risk_assessments = assessor.assess_topic(input_text[:2000])
+        for ra in risk_assessments:
+            level = getattr(ra, "level", None)
+            level_name = getattr(level, "name", "MEDIUM") if level else "MEDIUM"
+            level_map = {"LOW": 0.3, "MEDIUM": 0.5, "HIGH": 0.7, "CRITICAL": 0.9}
+            sev = self._severity_float_to_enum(level_map.get(level_name, 0.5))
+            finding = PipelineFinding(
+                id=self._next_finding_id(),
+                category=getattr(ra, "category", "risk"),
+                severity=sev,
+                title=f"Domain Risk: {getattr(ra, 'category', 'unknown')}",
+                description=getattr(ra, "description", ""),
+                source_phase=GauntletPhase.RISK_ASSESSMENT,
+                metadata={"source": "RiskAssessor"},
+            )
+            risk_findings.append(finding)
+
+        return PhaseResult(
+            phase=GauntletPhase.RISK_ASSESSMENT,
+            status="completed",
+            findings=risk_findings,
+            metrics={"risks_identified": len(risk_findings)},
+        )
+
     async def _run_scenario_analysis(self, input_text: str, config: Any) -> Any:
         """Run scenario analysis phase."""
         from aragora.gauntlet.config import PhaseResult
         from aragora.gauntlet.types import GauntletPhase
 
-        try:
-            scenarios_run = 0
-            return PhaseResult(
-                phase=GauntletPhase.SCENARIO_ANALYSIS,
-                status="completed",
-                metrics={"scenarios_run": scenarios_run},
-            )
-        except ImportError:
-            return PhaseResult(
-                phase=GauntletPhase.SCENARIO_ANALYSIS,
-                status="skipped",
-                error="Scenario analysis not available",
-            )
+        scenarios_run = 0
+        return PhaseResult(
+            phase=GauntletPhase.SCENARIO_ANALYSIS,
+            status="completed",
+            metrics={"scenarios_run": scenarios_run},
+        )
 
     async def _run_adversarial_probing(self, input_text: str, config: Any) -> Any:
         """Run adversarial probing phase."""

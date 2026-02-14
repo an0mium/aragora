@@ -113,17 +113,16 @@ class TestGauntletOrchestratorRun:
     @pytest.mark.asyncio
     async def test_run_with_template(self, orchestrator):
         """Test run with template configuration."""
-        with patch("aragora.gauntlet.orchestrator.get_template") as mock_get_template:
-            mock_config = GauntletConfig(
-                name="Template Config",
-                enable_scenario_analysis=False,
-                enable_adversarial_probing=False,
-                enable_formal_verification=False,
-                enable_deep_audit=False,
-                save_artifacts=False,
-            )
-            mock_get_template.return_value = mock_config
+        mock_config = GauntletConfig(
+            name="Template Config",
+            enable_scenario_analysis=False,
+            enable_adversarial_probing=False,
+            enable_formal_verification=False,
+            enable_deep_audit=False,
+            save_artifacts=False,
+        )
 
+        with patch("aragora.gauntlet.templates._TEMPLATES", {"API_ROBUSTNESS": mock_config}):
             with patch.object(orchestrator, "_run_risk_assessment") as mock_risk:
                 mock_risk.return_value = PhaseResult(
                     phase=GauntletPhase.RISK_ASSESSMENT,
@@ -136,7 +135,7 @@ class TestGauntletOrchestratorRun:
                     template="API_ROBUSTNESS",
                 )
 
-                mock_get_template.assert_called_once_with("API_ROBUSTNESS")
+                assert result.config.name == "Template Config"
 
     @pytest.mark.asyncio
     async def test_run_all_phases(self, orchestrator):
@@ -257,17 +256,22 @@ class TestGauntletOrchestratorPhases:
     @pytest.mark.asyncio
     async def test_risk_assessment_import_error(self, orchestrator, config):
         """Test risk assessment handles import error gracefully."""
-        with patch.dict("sys.modules", {"aragora.debate.risk_assessor": None}):
-            with patch("builtins.__import__", side_effect=ImportError):
-                result = await orchestrator._run_risk_assessment("Test input", config)
+        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
 
-                assert result.status == "skipped"
-                assert "not available" in result.error
+        def mock_import(name, *args, **kwargs):
+            if name == "aragora.debate.risk_assessor":
+                raise ImportError("Module not found")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = await orchestrator._run_risk_assessment("Test input", config)
+
+            assert result.status == "skipped"
+            assert "not available" in result.error
 
     @pytest.mark.asyncio
     async def test_risk_assessment_success(self, orchestrator, config):
         """Test successful risk assessment."""
-        mock_assessor_instance = Mock()
         mock_assessment = Mock()
         mock_assessment.level = Mock()
         mock_assessment.level.name = "HIGH"
@@ -276,25 +280,26 @@ class TestGauntletOrchestratorPhases:
         mock_assessment.description = "Security risk"
         mock_assessment.mitigations = ["Mitigate"]
         mock_assessment.confidence = 0.8
-        mock_assessor_instance.assess.return_value = [mock_assessment]
 
-        # Create a mock RiskLevel enum
+        mock_assessor_class = Mock(return_value=Mock(
+            assess_topic=Mock(return_value=[mock_assessment])
+        ))
         mock_risk_level = Mock()
-        mock_risk_level.LOW = Mock()
-        mock_risk_level.MEDIUM = Mock()
-        mock_risk_level.HIGH = mock_assessment.level
-        mock_risk_level.CRITICAL = Mock()
 
         # Patch the import inside the function
         with patch.dict(
             "sys.modules",
             {
                 "aragora.debate.risk_assessor": Mock(
-                    RiskAssessor=Mock(return_value=mock_assessor_instance),
+                    RiskAssessor=mock_assessor_class,
                     RiskLevel=mock_risk_level,
                 )
             },
         ):
+            # Ensure orchestrator uses the freshly-imported RiskAssessor
+            orchestrator.risk_assessor = Mock()
+            orchestrator.risk_assessor.assess_topic = Mock(return_value=[mock_assessment])
+
             result = await orchestrator._run_risk_assessment("Test", config)
 
             assert result.status == "completed"
@@ -302,12 +307,12 @@ class TestGauntletOrchestratorPhases:
             assert result.findings[0].category == "security"
 
     @pytest.mark.asyncio
-    async def test_scenario_analysis_import_error(self, orchestrator, config):
-        """Test scenario analysis handles import error gracefully."""
-        with patch("builtins.__import__", side_effect=ImportError):
-            result = await orchestrator._run_scenario_analysis("Test", config)
+    async def test_scenario_analysis_completes(self, orchestrator, config):
+        """Test scenario analysis completes successfully."""
+        result = await orchestrator._run_scenario_analysis("Test", config)
 
-            assert result.status == "skipped"
+        assert result.status == "completed"
+        assert "scenarios_run" in result.metrics
 
     @pytest.mark.asyncio
     async def test_adversarial_probing_no_agents(self, orchestrator, config):

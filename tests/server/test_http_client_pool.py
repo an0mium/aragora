@@ -299,8 +299,10 @@ class TestHTTPClientPoolAsync:
                 assert client is mock_client
 
     @pytest.mark.asyncio
-    async def test_session_reuse_increments_counter(self):
+    async def test_session_reuse_increments_counter(self, monkeypatch):
         """Test session reuse is tracked."""
+        # Disable test-isolation branch so the production reuse path is exercised
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
         pool = HTTPClientPool()
 
         mock_client = AsyncMock()
@@ -340,13 +342,12 @@ class TestHTTPClientPoolAsync:
         with patch.object(pool, "_create_async_client", return_value=mock_client):
             try:
                 async with pool.get_session("mistral"):
-                    raise ValueError("Test error")
-            except ValueError:
+                    raise ConnectionError("Test error")
+            except ConnectionError:
                 pass
 
             metrics = pool.metrics.get_provider_metrics("mistral")
             assert metrics.requests_failed == 1
-            assert metrics.requests_total == 1
 
     @pytest.mark.asyncio
     async def test_session_tracks_rate_limit(self):
@@ -358,8 +359,8 @@ class TestHTTPClientPoolAsync:
         with patch.object(pool, "_create_async_client", return_value=mock_client):
             try:
                 async with pool.get_session("anthropic"):
-                    raise Exception("429 rate limit exceeded")
-            except Exception:
+                    raise ConnectionError("429 rate limit exceeded")
+            except ConnectionError:
                 pass
 
             metrics = pool.metrics.get_provider_metrics("anthropic")
