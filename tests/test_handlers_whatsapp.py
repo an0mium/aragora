@@ -105,21 +105,21 @@ class TestWhatsAppStatusEndpoint:
 
     def test_status_returns_json(self, whatsapp_handler, mock_handler):
         """Test status endpoint returns JSON."""
-        result = whatsapp_handler._get_status()
+        result = whatsapp_handler._build_status_response()
 
         assert result is not None
         assert result.status_code == 200 or hasattr(result, "status")
 
     def test_status_includes_platform(self, whatsapp_handler, mock_handler):
         """Test status includes platform identifier."""
-        result = whatsapp_handler._get_status()
+        result = whatsapp_handler._build_status_response()
 
         body = json.loads(result.body)
         assert body["platform"] == "whatsapp"
 
     def test_status_shows_configuration(self, whatsapp_handler, mock_handler):
         """Test status shows configuration state."""
-        result = whatsapp_handler._get_status()
+        result = whatsapp_handler._build_status_response()
 
         body = json.loads(result.body)
         assert "access_token_configured" in body or "token_configured" in body
@@ -237,7 +237,7 @@ class TestWhatsAppSignatureVerification:
             assert result is False
 
     def test_verify_signature_no_secret_configured(self):
-        """Test verification passes when no secret configured."""
+        """Test verification fails closed when no secret configured."""
         with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": ""}, clear=False):
             import importlib
             import aragora.server.handlers.bots.whatsapp as wa_module
@@ -248,8 +248,8 @@ class TestWhatsAppSignatureVerification:
                 "sha256=any_signature",
                 b"test body",
             )
-            # Should pass when no secret configured (dev mode)
-            assert result is True
+            # Fails closed when no secret configured (secure default)
+            assert result is False
 
 
 # =============================================================================
@@ -297,15 +297,9 @@ class TestWhatsAppWebhookMessages:
         body = json.dumps(payload).encode()
         mock_handler.set_body(body)
 
-        # Skip signature verification for this test
-        with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": ""}):
-            import importlib
-            import aragora.server.handlers.bots.whatsapp as wa_module
-
-            importlib.reload(wa_module)
-            handler = wa_module.WhatsAppHandler(MockServerContext())
-
-            result = handler._handle_webhook(mock_handler)
+        # Bypass signature verification for this test
+        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+            result = whatsapp_handler._handle_webhook(mock_handler)
 
             # Should acknowledge receipt
             assert result.status_code == 200
@@ -353,28 +347,16 @@ class TestWhatsAppWebhookMessages:
         body = json.dumps(payload).encode()
         mock_handler.set_body(body)
 
-        with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": ""}):
-            import importlib
-            import aragora.server.handlers.bots.whatsapp as wa_module
-
-            importlib.reload(wa_module)
-            handler = wa_module.WhatsAppHandler(MockServerContext())
-
-            result = handler._handle_webhook(mock_handler)
+        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+            result = whatsapp_handler._handle_webhook(mock_handler)
             assert result.status_code == 200
 
     def test_handle_webhook_invalid_json(self, whatsapp_handler, mock_handler):
         """Test handling invalid JSON payload."""
         mock_handler.set_body(b"not valid json")
 
-        with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": ""}):
-            import importlib
-            import aragora.server.handlers.bots.whatsapp as wa_module
-
-            importlib.reload(wa_module)
-            handler = wa_module.WhatsAppHandler(MockServerContext())
-
-            result = handler._handle_webhook(mock_handler)
+        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+            result = whatsapp_handler._handle_webhook(mock_handler)
             assert result.status_code == 400
 
     def test_handle_webhook_non_whatsapp_object(self, whatsapp_handler, mock_handler):
@@ -384,14 +366,8 @@ class TestWhatsAppWebhookMessages:
         body = json.dumps(payload).encode()
         mock_handler.set_body(body)
 
-        with patch.dict("os.environ", {"WHATSAPP_APP_SECRET": ""}):
-            import importlib
-            import aragora.server.handlers.bots.whatsapp as wa_module
-
-            importlib.reload(wa_module)
-            handler = wa_module.WhatsAppHandler(MockServerContext())
-
-            result = handler._handle_webhook(mock_handler)
+        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+            result = whatsapp_handler._handle_webhook(mock_handler)
             # Should still return 200 and acknowledge receipt
             assert result.status_code == 200
             body_data = json.loads(result.body)
@@ -438,11 +414,11 @@ class TestWhatsAppMessageProcessing:
                 text="/debate Should AI be regulated?",
                 msg_id="msg_123",
             )
-            mock_start.assert_called_once_with(
-                "1234567890",
-                "Test User",
-                "Should AI be regulated?",
-            )
+            mock_start.assert_called_once()
+            args = mock_start.call_args[0]
+            assert args[0] == "1234567890"
+            assert args[1] == "Test User"
+            assert args[2] == "Should AI be regulated?"
 
     def test_process_greeting_start(self, whatsapp_handler):
         """Test 'start' greeting triggers welcome."""
@@ -596,20 +572,9 @@ class TestWhatsAppIntegration:
         body = json.dumps(payload).encode()
         mock_handler.set_body(body)
 
-        with patch.dict(
-            "os.environ",
-            {
-                "WHATSAPP_APP_SECRET": "",
-                "WHATSAPP_ACCESS_TOKEN": "",
-                "WHATSAPP_PHONE_NUMBER_ID": "",
-            },
-        ):
-            import importlib
-            import aragora.server.handlers.bots.whatsapp as wa_module
+        handler = WhatsAppHandler(MockServerContext())
 
-            importlib.reload(wa_module)
-            handler = wa_module.WhatsAppHandler(MockServerContext())
-
+        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
             result = handler._handle_webhook(mock_handler)
 
             # Should acknowledge receipt
