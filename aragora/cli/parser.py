@@ -1278,10 +1278,58 @@ Examples:
 
 
 def _add_testfixer_parser(subparsers) -> None:
-    """Add the 'testfixer' subcommand parser."""
-    from aragora.cli.commands.testfixer import build_parser as _build_testfixer_parser
-
-    _build_testfixer_parser(subparsers)
+    """Add the 'testfixer' subcommand parser (inlined to avoid heavy module import)."""
+    parser = subparsers.add_parser(
+        "testfixer",
+        help="Run automated test-fix loop",
+        description="Run automated test-fix loop with multi-agent debate",
+    )
+    parser.add_argument("repo_path", help="Path to repository")
+    parser.add_argument("--test-command", default="pytest tests/ -q --maxfail=1")
+    parser.add_argument("--agents", default="codex,claude")
+    parser.add_argument("--max-iterations", type=int, default=10)
+    parser.add_argument("--min-confidence", type=float, default=0.5)
+    parser.add_argument("--min-confidence-auto", type=float, default=0.7)
+    parser.add_argument("--timeout-seconds", type=float, default=300.0)
+    parser.add_argument("--attempt-store", default=None)
+    parser.add_argument("--require-consensus", action="store_true")
+    parser.add_argument("--no-revert", action="store_true")
+    parser.add_argument(
+        "--require-approval", action="store_true",
+        help="Require manual approval before applying fixes",
+    )
+    parser.add_argument("--log-file", default=None, help="Path to log file (or '-' for stderr)")
+    parser.add_argument("--log-level", default="info", help="Log level (debug, info, warning)")
+    parser.add_argument("--run-id", default=None, help="Optional run id for correlation")
+    parser.add_argument(
+        "--artifacts-dir", default=None,
+        help="Directory for per-run artifacts (default: .testfixer/runs)",
+    )
+    parser.add_argument("--no-diagnostics", action="store_true", help="Disable crash diagnostics")
+    parser.add_argument("--llm-analyzer", action="store_true", help="Enable LLM-powered failure analysis")
+    parser.add_argument(
+        "--analysis-agents", default="",
+        help="Agent types for analysis (comma-separated, default: --agents)",
+    )
+    parser.add_argument("--analysis-require-consensus", action="store_true")
+    parser.add_argument("--analysis-consensus-threshold", type=float, default=0.7)
+    parser.add_argument("--arena-validate", action="store_true", help="Enable Arena validator")
+    parser.add_argument("--arena-agents", default="", help="Agent types for Arena validation")
+    parser.add_argument("--arena-rounds", type=int, default=2)
+    parser.add_argument("--arena-min-confidence", type=float, default=0.6)
+    parser.add_argument("--arena-require-consensus", action="store_true")
+    parser.add_argument("--arena-consensus-threshold", type=float, default=0.7)
+    parser.add_argument("--redteam-validate", action="store_true", help="Enable red team validation")
+    parser.add_argument("--redteam-attackers", default="", help="Agent types for red team attackers")
+    parser.add_argument("--redteam-defender", default="", help="Agent type for red team defender")
+    parser.add_argument("--redteam-rounds", type=int, default=2)
+    parser.add_argument("--redteam-attacks-per-round", type=int, default=3)
+    parser.add_argument("--redteam-min-robustness", type=float, default=0.6)
+    parser.add_argument("--pattern-learning", action="store_true", help="Enable pattern learning")
+    parser.add_argument("--pattern-store", default=None, help="Pattern store path")
+    parser.add_argument("--generation-timeout-seconds", type=float, default=600.0)
+    parser.add_argument("--critique-timeout-seconds", type=float, default=300.0)
+    parser.set_defaults(func=_lazy("aragora.cli.commands.testfixer", "cmd_testfixer"))
 
 
 def _add_computer_use_parser(subparsers) -> None:
