@@ -69,6 +69,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Nomic](#nomic)
 - [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
+- [OpenClawGateway](#openclawgateway)
 - [Organizations](#organizations)
 - [Partner](#partner)
 - [Persona](#persona)
@@ -2127,6 +2128,108 @@ Apply quick-start configuration
 ### `GET` `/api/v1/onboarding/analytics`
 
 Get onboarding funnel analytics
+
+---
+
+## OpenClawGateway
+
+HTTP handler for OpenClaw gateway operations.
+
+### `GET` `/api/v1/openclaw/sessions` 🔒
+
+List sessions with optional filtering
+
+### `GET` `/api/v1/openclaw/sessions/{session_id}`
+
+GET /api/v1/openclaw/sessions/{session_id}
+
+### `GET` `/api/v1/openclaw/sessions/{session_id}/end` 🔒
+
+End a session via POST (SDK-compatible endpoint)
+
+### `GET` `/api/v1/openclaw/actions`
+
+GET /api/v1/openclaw/actions
+
+### `GET` `/api/v1/openclaw/actions/{action_id}`
+
+GET /api/v1/openclaw/actions/{action_id}
+
+### `GET` `/api/v1/openclaw/actions/{action_id}/cancel` 🔒
+
+Cancel a running action
+
+### `GET` `/api/v1/openclaw/credentials` 🔒
+
+List credentials (metadata only, no secret values)
+
+### `GET` `/api/v1/openclaw/credentials/{credential_id}`
+
+GET /api/v1/openclaw/credentials/{credential_id}
+
+### `GET` `/api/v1/openclaw/credentials/{credential_id}/rotate` 🔒
+
+Rotate a credential's secret value
+
+### `GET` `/api/v1/openclaw/policy/rules` 🔒
+
+Get active policy rules
+
+### `GET` `/api/v1/openclaw/policy/rules/{rule_name}`
+
+GET /api/v1/openclaw/policy/rules/{rule_name}
+
+### `GET` `/api/v1/openclaw/approvals` 🔒
+
+List pending approval requests
+
+### `GET` `/api/v1/openclaw/approvals/{approval_id}/approve` 🔒
+
+Approve a pending action
+
+### `GET` `/api/v1/openclaw/approvals/{approval_id}/deny` 🔒
+
+Deny a pending action
+
+### `GET` `/api/v1/openclaw/health`
+
+Get gateway health status
+
+### `GET` `/api/v1/openclaw/metrics` 🔒
+
+Get gateway metrics
+
+### `GET` `/api/v1/openclaw/audit` 🔒
+
+Get audit log entries
+
+### `GET` `/api/v1/openclaw/stats` 🔒
+
+Get proxy statistics
+
+### `GET` `/api/gateway/openclaw/sessions` 🔒
+
+List sessions with optional filtering
+
+### `GET` `/api/gateway/openclaw/actions`
+
+GET /api/gateway/openclaw/actions
+
+### `GET` `/api/gateway/openclaw/credentials` 🔒
+
+List credentials (metadata only, no secret values)
+
+### `GET` `/api/gateway/openclaw/health`
+
+Get gateway health status
+
+### `GET` `/api/gateway/openclaw/metrics` 🔒
+
+Get gateway metrics
+
+### `GET` `/api/gateway/openclaw/audit` 🔒
+
+Get audit log entries
 
 ---
 
