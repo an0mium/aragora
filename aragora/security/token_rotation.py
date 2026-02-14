@@ -220,7 +220,7 @@ class TokenRotationManager:
                 "secretsmanager", region_name=self._config.aws_region
             )
             return self._aws_client
-        except Exception as e:
+        except (BotoCoreError, ClientError, OSError, ValueError) as e:
             logger.warning("Failed to initialize AWS SM client: %s", e)
             return None
 
@@ -288,7 +288,7 @@ class TokenRotationManager:
                     result.stores_updated.append("github")
                 else:
                     result.errors[store] = f"Unknown store: {store}"
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as e:
                 logger.error("Failed to store %s token in %s: %s", token_type.value, store, e)
                 result.errors[store] = str(e)
 
@@ -327,7 +327,7 @@ class TokenRotationManager:
         try:
             response = client.get_secret_value(SecretId=secret_name)
             existing = json.loads(response.get("SecretString", "{}"))
-        except Exception as e:
+        except (BotoCoreError, ClientError, json.JSONDecodeError) as e:
             error_code = ""
             if hasattr(e, "response"):
                 error_code = e.response.get("Error", {}).get("Code", "")
@@ -348,7 +348,7 @@ class TokenRotationManager:
                 SecretString=new_secret_string,
             )
             logger.info("Updated %s token in AWS SM secret %s", token_type.value, secret_name)
-        except Exception as e:
+        except (BotoCoreError, ClientError) as e:
             error_code = ""
             if hasattr(e, "response"):
                 error_code = e.response.get("Error", {}).get("Code", "")
@@ -371,7 +371,7 @@ class TokenRotationManager:
         try:
             response = client.get_secret_value(SecretId=name)
             return json.loads(response.get("SecretString", "{}"))
-        except Exception as e:
+        except (BotoCoreError, ClientError, json.JSONDecodeError) as e:
             error_code = ""
             if hasattr(e, "response"):
                 error_code = e.response.get("Error", {}).get("Code", "")

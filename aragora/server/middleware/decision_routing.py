@@ -582,7 +582,7 @@ class DecisionRoutingMiddleware:
                 "error": str(e),
                 "request_id": context.request_id,
             }
-        except Exception as e:
+        except Exception as e:  # nosec - Top-level request handler: catch-all prevents unhandled 500s
             logger.error(f"Unexpected routing error for {context.request_id}: {e}")
 
             if self._deduplicator:

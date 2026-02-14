@@ -671,7 +671,7 @@ class MonitoringHandler:
             metric_name = None
             try:
                 metric_name = request.query.get("metric_name")
-            except Exception:
+            except (AttributeError, TypeError):
                 metric_name = None
             if not isinstance(metric_name, str):
                 metric_name = None

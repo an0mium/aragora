@@ -437,7 +437,7 @@ class VoiceHandler:
 
         try:
             data = await request.json()
-        except Exception:
+        except (ValueError, TypeError):
             logger.debug("Invalid JSON in voice handler request", exc_info=True)
             return web.json_response(
                 {"error": "Invalid JSON"},

@@ -1063,7 +1063,7 @@ if HANDLER_BASE_AVAILABLE:
                 from aragora.server.handlers.utils.auth import get_auth_context
 
                 auth_context = await get_auth_context(handler, require_auth=True)
-            except Exception:
+            except (ImportError, AttributeError):
                 logger.debug("Auth context unavailable for upload metadata enrichment", exc_info=True)
                 return options
 

@@ -237,7 +237,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
         stored_hash = password_hash[len(HASH_VERSION_BCRYPT) :].encode("utf-8")
         try:
             return bcrypt.checkpw(password.encode("utf-8"), stored_hash)
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             logger.error(f"bcrypt verification failed: {e}")
             return False
 

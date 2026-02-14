@@ -649,8 +649,11 @@ def _get_session_manager_from_handler(handler: Any) -> Any:
         from aragora.billing.auth.sessions import get_session_manager
 
         return get_session_manager()
-    except Exception as e:
+    except ImportError as e:
         logger.error(f"MFA session manager import failed: {e}")
+        raise  # Don't silently bypass MFA
+    except (RuntimeError, AttributeError) as e:
+        logger.error(f"MFA session manager initialization failed: {e}")
         raise  # Don't silently bypass MFA
 
 

@@ -314,7 +314,7 @@ def validate_url(
     # Parse URL
     try:
         parsed = urlparse(url)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         return SSRFValidationResult.unsafe(url, f"URL parsing failed: {e}")
 
     # Validate protocol/scheme
@@ -560,7 +560,7 @@ try:
 except SecurityConfigurationError:
     # Re-raise security errors - these must not be silently ignored
     raise
-except Exception as e:
+except (OSError, KeyError, TypeError, ValueError) as e:
     # Log other unexpected errors but don't crash the application
     # This provides graceful degradation for edge cases like missing env access
     logger.error(f"SSRF security validation failed unexpectedly: {e}")

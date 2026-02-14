@@ -379,7 +379,7 @@ class TenantIsolationMiddleware:
         # SECURITY: Check membership - fail closed on any error
         try:
             is_member = await self._store.is_member(user_id, tenant_id)
-        except Exception as e:
+        except Exception as e:  # nosec - Intentional broad catch: fail closed on any error for security
             # SECURITY: Fail closed - any error denies access
             self._audit_attempt(
                 request=request,
@@ -686,7 +686,7 @@ async def verify_tenant_access(
 
     try:
         return await store.is_member(user_id, tenant_id)
-    except Exception as e:
+    except Exception as e:  # nosec - Intentional broad catch: fail closed for security
         security_logger.warning(
             f"Tenant access verification failed (denied): "
             f"user={user_id} tenant={tenant_id} error={e}"
@@ -711,7 +711,7 @@ async def get_user_accessible_tenants(
 
     try:
         return await store.get_user_tenants(user_id)
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, KeyError) as e:
         security_logger.warning(f"Failed to get user tenants: user={user_id} error={e}")
         return []
 

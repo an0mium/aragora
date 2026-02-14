@@ -212,13 +212,14 @@ class TestRunStartupValidation:
         with patch.dict("sys.modules", {"aragora.ops.deployment_validator": mock_validator}):
             importlib.reload(vr_module)
 
-            with pytest.raises(StartupValidationError) as exc_info:
+            # Use vr_module.StartupValidationError since reload creates a new class
+            with pytest.raises(vr_module.StartupValidationError) as exc_info:
                 await vr_module.run_startup_validation(strict=True)
+
+            assert "Critical issues found" in str(exc_info.value)
 
         # Restore original module
         importlib.reload(vr_module)
-
-        assert "Critical issues found" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_production_defaults_strict(self, monkeypatch: pytest.MonkeyPatch) -> None:

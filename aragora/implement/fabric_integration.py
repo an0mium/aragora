@@ -248,7 +248,7 @@ Include proper type hints and docstrings.""",
         try:
             policies = await self.fabric.policy.list_policies()
             enforce_policy = len(policies) > 0
-        except Exception:
+        except (AttributeError, RuntimeError, OSError):
             enforce_policy = False
 
         complexity_router: dict[str, str] = {}
@@ -410,7 +410,7 @@ Include proper type hints and docstrings.""",
                                 task_id=next_task.id,
                             )
                         )
-                    except Exception:
+                    except (ImportError, AttributeError, RuntimeError):
                         logger.debug("Failed to track usage for task %s", next_task.id, exc_info=True)
                     await self.fabric.complete_task(next_task.id, result=result)
                     if on_task_complete:

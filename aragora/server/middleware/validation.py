@@ -1101,7 +1101,7 @@ class ValidationMiddleware:
                 )
             except ImportError:
                 pass  # Audit module not available
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError) as e:
                 logger.debug(f"Failed to emit validation audit event: {e}")
 
         elif self.config.log_all:

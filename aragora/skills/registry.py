@@ -655,7 +655,7 @@ class SkillRegistry:
 
             audit_log = _audit_log_cls()
             audit_log.log(event)
-        except (ImportError, AttributeError, RuntimeError):
+        except (ImportError, AttributeError, RuntimeError, TypeError):
             logger.debug(
                 "Audit event emission failed for skill=%s (non-fatal)",
                 skill_name,

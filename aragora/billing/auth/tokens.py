@@ -236,8 +236,8 @@ def decode_jwt(token: str) -> JWTPayload | None:
 
         return payload
 
-    except Exception as e:
-        # Catch-all for unexpected errors
+    except (ValueError, TypeError, KeyError, AttributeError, UnicodeDecodeError) as e:
+        # Catch remaining decoding/validation errors not handled by inner try blocks
         logger.warning(f"jwt_decode_failed: unexpected error - {type(e).__name__}")
         return None
 
@@ -392,7 +392,7 @@ def validate_access_token(
     if user_store is not None:
         try:
             user = user_store.get_user_by_id(payload.user_id)
-        except Exception as e:
+        except Exception as e:  # nosec - Fail closed: any store error denies token validation
             logger.warning(
                 f"jwt_validate_failed: error checking token version - {type(e).__name__}"
             )
@@ -465,7 +465,7 @@ def validate_refresh_token(
     if user_store is not None:
         try:
             user = user_store.get_user_by_id(payload.user_id)
-        except Exception as e:
+        except Exception as e:  # nosec - Fail closed: any store error denies token validation
             logger.warning(
                 f"jwt_validate_failed: error checking token version - {type(e).__name__}"
             )

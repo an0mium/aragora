@@ -176,7 +176,7 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
             logger.debug(f"api_key_validated user_id={user.id}")
             return context
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, KeyError, ValueError) as e:
             logger.error(f"api_key_validation_error: {e}")
             context.authenticated = False
             return context

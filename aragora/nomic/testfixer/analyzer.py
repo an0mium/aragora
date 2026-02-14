@@ -455,7 +455,7 @@ class FailureAnalyzer:
                     continue
                 try:
                     content = path.read_text()
-                except Exception:
+                except OSError:
                     logger.debug("Failed to read %s, skipping", path)
                     continue
                 if "from enum import StrEnum" in content:

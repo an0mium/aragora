@@ -4,6 +4,7 @@ Tests for Service Token Rotation Manager.
 
 import json
 import pytest
+from botocore.exceptions import ClientError as BotoCoreClientError
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, call
 
@@ -205,13 +206,18 @@ class TestTokenRotationManagerAWS:
         mock_boto3.client.return_value = mock_client
 
         # Secret doesn't exist
-        not_found = type("ClientError", (Exception,), {
-            "response": {"Error": {"Code": "ResourceNotFoundException"}}
-        })()
+        not_found = BotoCoreClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "Secret not found"}},
+            "GetSecretValue",
+        )
         mock_client.get_secret_value.side_effect = not_found
 
         # put_secret_value also fails with not found -> create
-        mock_client.put_secret_value.side_effect = not_found
+        put_not_found = BotoCoreClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "Secret not found"}},
+            "PutSecretValue",
+        )
+        mock_client.put_secret_value.side_effect = put_not_found
         mock_client.create_secret.return_value = {}
 
         manager = self._make_manager()
@@ -279,9 +285,10 @@ class TestTokenRotationManagerAWS:
         mock_client = MagicMock()
         mock_boto3.client.return_value = mock_client
 
-        not_found = type("ClientError", (Exception,), {
-            "response": {"Error": {"Code": "ResourceNotFoundException"}}
-        })()
+        not_found = BotoCoreClientError(
+            {"Error": {"Code": "ResourceNotFoundException", "Message": "Secret not found"}},
+            "GetSecretValue",
+        )
         mock_client.get_secret_value.side_effect = not_found
 
         manager = self._make_manager()

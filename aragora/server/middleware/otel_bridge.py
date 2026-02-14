@@ -306,7 +306,7 @@ def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
             return True
     except ImportError:
         logger.debug("Unified OTel setup not available, falling back to direct bridge init")
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.debug("Unified OTel setup failed in bridge, falling back: %s", e)
 
     # Fallback: direct initialization (legacy path)
@@ -393,7 +393,7 @@ def init_otel_bridge(config: OTelBridgeConfig | None = None) -> bool:
             e,
         )
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.error("Failed to initialize OpenTelemetry bridge: %s", e)
         return False
 
@@ -441,7 +441,7 @@ def export_span_to_otel(span: Any) -> None:
             else:
                 otel_span.set_status(Status(StatusCode.OK))
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
         logger.debug(f"Failed to export span to OTEL: {e}")
 
 
@@ -478,7 +478,7 @@ def inject_trace_context(headers: dict[str, str]) -> dict[str, str]:
         from opentelemetry import context
 
         _propagator.inject(headers, context.get_current())
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to inject trace context: {e}")
 
     return headers
@@ -501,7 +501,7 @@ def extract_trace_context(headers: dict[str, str]) -> Any:
     try:
         ctx = _propagator.extract(headers)
         return ctx
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to extract trace context: {e}")
         return None
 
@@ -526,7 +526,7 @@ def get_current_trace_id() -> str | None:
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().trace_id, "032x")
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to get trace ID: {type(e).__name__}: {e}")
 
     return None
@@ -552,7 +552,7 @@ def get_current_span_id() -> str | None:
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
             return format(span.get_span_context().span_id, "016x")
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to get span ID: {type(e).__name__}: {e}")
 
     return None
@@ -589,7 +589,7 @@ def create_span_context(
             otel_context.attach(parent_context)
 
         return _tracer.start_as_current_span(operation)
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.debug(f"Failed to create span context: {e}")
         from contextlib import nullcontext
 
@@ -613,7 +613,7 @@ def shutdown_otel_bridge() -> None:
         if hasattr(provider, "shutdown"):
             provider.shutdown()
         logger.info("OpenTelemetry bridge shutdown complete")
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError) as e:
         logger.error(f"Error shutting down OpenTelemetry bridge: {e}")
     finally:
         _otel_available = False

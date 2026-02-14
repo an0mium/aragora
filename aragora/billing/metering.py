@@ -441,7 +441,7 @@ class UsageMeter:
                 await self._flush_events()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
                 logger.error(f"Error in flush loop: {e}")
 
     async def _flush_events(self) -> None:
@@ -457,7 +457,7 @@ class UsageMeter:
         logger.debug(f"Flushing {len(events_to_flush)} billing events")
         try:
             self._persist_events(events_to_flush)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.error(f"Failed to persist billing events: {e}")
             # Re-add events to buffer on failure so they aren't lost
             async with self._lock:

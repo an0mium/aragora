@@ -133,7 +133,7 @@ def extract_trace_carrier(payload: dict[str, Any]) -> TraceCarrier | None:
         return None
     try:
         return TraceCarrier.from_dict(raw)
-    except Exception:
+    except (KeyError, ValueError, TypeError):
         logger.debug("Failed to parse trace carrier from payload", exc_info=True)
         return None
 

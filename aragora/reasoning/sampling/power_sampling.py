@@ -382,7 +382,7 @@ class PowerSampler:
                 return (response, temp, time.time() - start)
             except asyncio.TimeoutError:
                 return ("", temp, time.time() - start)
-            except Exception:
+            except (OSError, RuntimeError, ValueError):
                 logger.debug("Power sampling generation failed at temp=%.2f", temp, exc_info=True)
                 return ("", temp, time.time() - start)
 
@@ -417,7 +417,7 @@ class PowerSampler:
         async def score_one(response: str, temp: float, gen_time: float) -> ScoredSample:
             try:
                 score = await scorer.score(response, prompt)
-            except Exception:
+            except (ValueError, TypeError, RuntimeError):
                 score = 0.0
 
             return ScoredSample(

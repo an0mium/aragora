@@ -231,7 +231,7 @@ class DocumentBatchHandler(BaseHandler):
                 from aragora.server.handlers.utils.auth import get_auth_context
 
                 auth_context = await get_auth_context(handler, require_auth=True)
-            except Exception:
+            except (ImportError, AttributeError):
                 auth_context = None
 
             ingest_metadata = {
