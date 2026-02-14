@@ -459,7 +459,8 @@ class TestInitializeDebateContext:
         mock_arena.prompt_builder = MagicMock()
         mock_arena.prompt_builder.classify_question_async = AsyncMock()
 
-        await initialize_debate_context(mock_arena, "corr-123")
+        with patch("aragora.utils.env.is_offline_mode", return_value=False):
+            await initialize_debate_context(mock_arena, "corr-123")
 
         mock_arena.prompt_builder.classify_question_async.assert_called_once_with(use_llm=True)
 

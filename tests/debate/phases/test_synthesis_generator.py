@@ -339,7 +339,10 @@ class TestGenerateMandatorySynthesis:
 
         gen = SynthesisGenerator()
 
-        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
+        with (
+            patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
+        ):
             mock_agent = AsyncMock()
             mock_agent.generate = AsyncMock(return_value="Generated synthesis")
             mock_agent_class.return_value = mock_agent
@@ -367,7 +370,10 @@ class TestGenerateMandatorySynthesis:
                 raise asyncio.TimeoutError()
             return "Sonnet synthesis"
 
-        with patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class:
+        with (
+            patch("aragora.utils.env.is_offline_mode", return_value=False),
+            patch("aragora.agents.api_agents.anthropic.AnthropicAPIAgent") as mock_agent_class,
+        ):
             mock_agent = MagicMock()
             mock_agent.generate = mock_generate
             mock_agent_class.return_value = mock_agent
