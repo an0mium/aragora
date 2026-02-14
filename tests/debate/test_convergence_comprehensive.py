@@ -1950,16 +1950,13 @@ class TestSentenceTransformerConvergence:
 
     @pytest.fixture
     def st_detector(self, clean_cache_state):
-        """Get detector with SentenceTransformer if available."""
-        try:
-            from aragora.debate.similarity.backends import SentenceTransformerBackend
+        """Get detector with SentenceTransformer."""
+        from aragora.debate.similarity.backends import SentenceTransformerBackend
 
-            backend = SentenceTransformerBackend(use_nli=False, debate_id="st_test")
-            detector = ConvergenceDetector(debate_id="st_test")
-            detector.backend = backend
-            return detector
-        except ImportError:
-            pytest.skip("sentence-transformers not available")
+        backend = SentenceTransformerBackend(use_nli=False, debate_id="st_test")
+        detector = ConvergenceDetector(debate_id="st_test")
+        detector.backend = backend
+        return detector
 
     def test_st_check_convergence(self, st_detector):
         """Test convergence check with SentenceTransformer."""
@@ -2004,18 +2001,15 @@ class TestSentenceTransformerAnalyzer:
 
     @pytest.fixture
     def st_analyzer(self, clean_cache_state):
-        """Get analyzer with SentenceTransformer if available."""
-        try:
-            from aragora.debate.similarity.backends import SentenceTransformerBackend
+        """Get analyzer with SentenceTransformer."""
+        from aragora.debate.similarity.backends import SentenceTransformerBackend
 
-            backend = SentenceTransformerBackend(use_nli=False, debate_id="st_analyzer")
-            return AdvancedConvergenceAnalyzer(
-                similarity_backend=backend,
-                debate_id="st_analyzer",
-                enable_cache=True,
-            )
-        except ImportError:
-            pytest.skip("sentence-transformers not available")
+        backend = SentenceTransformerBackend(use_nli=False, debate_id="st_analyzer")
+        return AdvancedConvergenceAnalyzer(
+            similarity_backend=backend,
+            debate_id="st_analyzer",
+            enable_cache=True,
+        )
 
     def test_st_diversity_optimized(self, st_analyzer):
         """Test diversity computation with SentenceTransformer optimized path."""
@@ -2120,10 +2114,7 @@ class TestSparseMatrixHandling:
 
     def test_tfidf_sparse_to_dense(self, clean_cache_state):
         """Test TF-IDF sparse matrix conversion."""
-        try:
-            backend = TFIDFBackend()
-        except ImportError:
-            pytest.skip("scikit-learn not available")
+        backend = TFIDFBackend()
 
         # TF-IDF produces sparse matrices internally
         texts = ["hello world", "hello there"]
