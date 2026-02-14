@@ -28,24 +28,9 @@ import pytest
 from datetime import datetime
 from unittest.mock import Mock, MagicMock, patch
 
-# Import pyotp for generating valid TOTP codes in tests
-try:
-    import pyotp
-
-    PYOTP_AVAILABLE = True
-except ImportError:
-    PYOTP_AVAILABLE = False
+import pyotp  # noqa: F401
 
 from aragora.server.handlers.auth import AuthHandler
-
-
-# ============================================================================
-# Skip marker if pyotp not available
-# ============================================================================
-
-pytestmark = pytest.mark.skipif(
-    not PYOTP_AVAILABLE, reason="pyotp not installed - MFA tests require pyotp"
-)
 
 
 # ============================================================================
@@ -92,7 +77,7 @@ def mock_user_with_mfa_secret():
     user.is_active = True
     user.mfa_enabled = False
     # Generate a real secret for testing
-    user.mfa_secret = pyotp.random_base32() if PYOTP_AVAILABLE else "JBSWY3DPEHPK3PXP"
+    user.mfa_secret = pyotp.random_base32()
     user.mfa_backup_codes = None
     user.verify_password = Mock(return_value=True)
     user.to_dict = Mock(
@@ -110,7 +95,7 @@ def mock_user_with_mfa_secret():
 def mock_user_with_mfa_enabled():
     """Create a mock user with MFA fully enabled."""
     # Generate a real secret for testing
-    secret = pyotp.random_base32() if PYOTP_AVAILABLE else "JBSWY3DPEHPK3PXP"
+    secret = pyotp.random_base32()
 
     # Generate backup codes and their hashes
     backup_codes = ["abc12345", "def67890", "ghi11111", "jkl22222", "mno33333"]

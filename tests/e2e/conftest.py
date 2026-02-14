@@ -44,6 +44,68 @@ def pytest_collection_modifyitems(config, items):
 
 
 # ============================================================================
+# RBAC Bypass for E2E Tests
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _bypass_rbac_for_e2e_tests(request, monkeypatch):
+    """Auto-bypass RBAC permission checks in E2E tests.
+
+    E2E tests call handler functions directly with mocked bridges.
+    These handlers use @require_permission decorators that need an
+    AuthorizationContext. This fixture provides a permissive context
+    so the tests can exercise the business logic.
+    """
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    try:
+        from aragora.rbac import decorators
+        from aragora.rbac.models import AuthorizationContext
+
+        mock_auth_ctx = AuthorizationContext(
+            user_id="e2e-test-user",
+            org_id="e2e-test-org",
+            roles={"admin", "owner"},
+            permissions={"*"},
+        )
+
+        original_get_context = decorators._get_context_from_args
+
+        def patched_get_context(args, kwargs, context_param):
+            result = original_get_context(args, kwargs, context_param)
+            if result is None:
+                return mock_auth_ctx
+            return result
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context)
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from aragora.rbac.checker import get_permission_checker
+        from aragora.rbac.models import AuthorizationDecision
+
+        checker = get_permission_checker()
+
+        def _always_allow(context, permission_key, resource_id=None):
+            return AuthorizationDecision(
+                allowed=True,
+                reason="E2E test bypass",
+                permission_key=permission_key,
+            )
+
+        monkeypatch.setattr(checker, "check_permission", _always_allow)
+    except (ImportError, AttributeError):
+        pass
+
+    yield
+
+
+
+# ============================================================================
 # Configuration
 # ============================================================================
 
