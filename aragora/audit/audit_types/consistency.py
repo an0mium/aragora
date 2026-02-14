@@ -224,6 +224,8 @@ class ConsistencyAuditor:
 
     def _normalize_key(self, key: str) -> str:
         """Normalize a key for comparison."""
+        if key is None:
+            return ""
         # Remove common variations
         key = key.lower().strip()
         key = re.sub(r"\s+", "_", key)

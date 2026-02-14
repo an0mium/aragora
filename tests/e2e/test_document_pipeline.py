@@ -15,7 +15,7 @@ class TestDocumentPipelineE2E:
     @pytest.fixture
     def project_root(self) -> Path:
         """Return the project root directory."""
-        return Path(__file__).parent.parent.parent.parent
+        return Path(__file__).parent.parent.parent
 
     @pytest.fixture
     def test_files(self, project_root: Path) -> list[Path]:
@@ -182,7 +182,7 @@ class TestDocumentAuditE2E:
     @pytest.fixture
     def project_docs(self) -> list[Path]:
         """Get documentation files for consistency testing."""
-        root = Path(__file__).parent.parent.parent.parent
+        root = Path(__file__).parent.parent.parent
         docs = []
 
         # Look for markdown documentation
@@ -265,7 +265,7 @@ class TestCLIIntegration:
 
     @pytest.fixture
     def project_root(self) -> Path:
-        return Path(__file__).parent.parent.parent.parent
+        return Path(__file__).parent.parent.parent
 
     def test_cli_module_imports(self):
         """Test that CLI modules can be imported."""
