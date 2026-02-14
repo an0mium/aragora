@@ -45,6 +45,9 @@ class TestEmptyAgentListGuards:
         # Mock protocol with topology attribute
         arena.protocol = MagicMock()
         arena.protocol.topology = "all-to-all"
+        # Mock agent_pool needed by _select_critics_for_proposal
+        arena.agent_pool = MagicMock()
+        arena.agent_pool.select_critics.return_value = []
         # Need at least one agent to pass _require_agents() check
         mock_agent = MagicMock()
         mock_agent.name = "agent1"
