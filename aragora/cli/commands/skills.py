@@ -157,7 +157,7 @@ async def _cmd_search(args: argparse.Namespace) -> None:
         try:
             error_data = e.response.json()
             print(f"  {error_data.get('error', 'Unknown error')}")
-        except Exception:
+        except (ValueError, KeyError):
             print(f"  {e.response.text}")
     except Exception as e:
         print(f"\nError: {e}")

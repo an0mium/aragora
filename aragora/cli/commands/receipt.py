@@ -198,7 +198,7 @@ def _cmd_view(args: argparse.Namespace) -> None:
 
         receipt = DecisionReceipt.from_dict(data)
         html = receipt.to_html()
-    except Exception:
+    except (ImportError, AttributeError, KeyError, ValueError, TypeError):
         html = receipt_to_html(data)
 
     if no_browser:
@@ -429,7 +429,7 @@ def cmd_receipt_export(args: argparse.Namespace) -> None:
                 content = receipt.to_csv()
             else:
                 content = receipt.to_json()
-        except Exception:
+        except (ImportError, AttributeError, KeyError, ValueError, TypeError):
             # Fallback to simple formatter
             if output_format == "html":
                 content = receipt_to_html(data)

@@ -29,7 +29,7 @@ def _get_api_client(api_url: str | None = None, api_key: str | None = None):
         client = AragoraClient(base_url=url, api_key=key)
         client.system.health()
         return client
-    except Exception:
+    except (ImportError, OSError, RuntimeError, ValueError):
         return None
 
 

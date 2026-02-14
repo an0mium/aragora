@@ -28,7 +28,7 @@ def _evidence_to_dict(item: Any) -> dict[str, Any]:
     if hasattr(item, "to_dict"):
         try:
             return item.to_dict()
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             logger.debug("to_dict() conversion failed for %s", type(item).__name__, exc_info=True)
     if isinstance(item, dict):
         return item

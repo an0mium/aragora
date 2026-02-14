@@ -89,7 +89,7 @@ def _agent_names_for_graph_matrix(agents_str: str) -> list[str]:
     try:
         specs = parse_agents(agents_str)
         return [spec.provider for spec in specs if spec.provider]
-    except Exception:
+    except (ValueError, AttributeError, TypeError):
         return _split_agents_list(agents_str)
 
 
@@ -97,7 +97,7 @@ def _agents_payload_for_api(agents_str: str) -> list[Any]:
     """Build API payload for agents (strings or dicts) from CLI input."""
     try:
         specs = parse_agents(agents_str)
-    except Exception:
+    except (ValueError, AttributeError, TypeError):
         return _split_agents_list(agents_str)
 
     if not specs:
@@ -267,7 +267,7 @@ def _maybe_add_vertical_specialist_local(
         )
         try:
             specialist.system_prompt = specialist.build_system_prompt()
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             logger.debug("Failed to build system prompt for specialist %s", resolved_vertical, exc_info=True)
         agents.append(specialist)
         print(f"[verticals] Injected specialist: {resolved_vertical}")

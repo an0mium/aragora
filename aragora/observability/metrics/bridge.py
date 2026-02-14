@@ -353,7 +353,7 @@ def track_bridge_sync(bridge: str) -> Generator[None, None, None]:
     success = True
     try:
         yield
-    except Exception:
+    except Exception:  # noqa: BLE001 - Intentional: set success flag for metrics before re-raising
         success = False
         raise
     finally:

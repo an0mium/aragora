@@ -36,7 +36,7 @@ def _get_api_client(api_url: str | None = None, api_key: str | None = None):
         # Quick health check (public)
         client.system.health()
         return client
-    except Exception:
+    except (ImportError, OSError, RuntimeError, ValueError):
         return None
 
 
@@ -256,7 +256,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
                             "file": str(cp_file),
                         }
                     )
-                except Exception:
+                except (OSError, ValueError, KeyError):
                     logger.debug("Failed to read checkpoint file %s", cp_file, exc_info=True)
 
         status_data = {

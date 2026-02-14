@@ -302,7 +302,7 @@ async def show_preset(args: Any, use_api: bool, server_url: str, api_key: str | 
             client = _build_api_client(server_url, api_key)
             try:
                 preset = client.audit.get_preset(args.name)
-            except Exception:
+            except (OSError, RuntimeError, ValueError, KeyError, AttributeError):
                 print(f"Preset not found: {args.name}")
                 print("\nAvailable presets:")
                 for p in client.audit.list_presets():
@@ -484,7 +484,7 @@ async def create_audit(args: Any, use_api: bool, server_url: str, api_key: str |
                 audit_types = preset.audit_types
                 preset_name = preset.name
                 print(f"Using preset: {preset.name}")
-            except Exception:
+            except (OSError, RuntimeError, ValueError, KeyError, AttributeError):
                 print(f"Preset not found: {args.preset}")
                 print("Use 'aragora audit presets' to list available presets.")
                 return 1

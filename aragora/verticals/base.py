@@ -260,7 +260,7 @@ class VerticalSpecialistAgent(APIAgent):
                 settings.integration.knowledge_mound_enabled
                 and settings.integration.vertical_tool_audit_enabled
             )
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             logger.debug("Settings unavailable for tool audit check", exc_info=True)
             return False
 

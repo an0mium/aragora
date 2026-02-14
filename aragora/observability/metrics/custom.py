@@ -207,7 +207,7 @@ def track_gauntlet_export(format: str, export_type: str) -> Generator[dict[str, 
     success = True
     try:
         yield ctx
-    except Exception:
+    except Exception:  # noqa: BLE001 - Intentional: set success flag for metrics before re-raising
         success = False
         raise
     finally:
@@ -313,7 +313,7 @@ def track_handler(handler_name: str, method: str = "POST") -> Callable[[F], F]:
                 result = func(*args, **kwargs)
                 status = _extract_status(result)
                 return result
-            except Exception:
+            except Exception:  # noqa: BLE001 - Intentional: set status for metrics before re-raising
                 status = 500
                 raise
             finally:
@@ -328,7 +328,7 @@ def track_handler(handler_name: str, method: str = "POST") -> Callable[[F], F]:
                 result = await cast(Coroutine[Any, Any, Any], func(*args, **kwargs))
                 status = _extract_status(result)
                 return result
-            except Exception:
+            except Exception:  # noqa: BLE001 - Intentional: set status for metrics before re-raising
                 status = 500
                 raise
             finally:

@@ -220,7 +220,7 @@ def _print_api_error(e: httpx.HTTPStatusError) -> None:
     try:
         error_data = e.response.json()
         print(f"  {error_data.get('error', error_data.get('detail', 'Unknown error'))}")
-    except Exception:
+    except (ValueError, KeyError):
         print(f"  {e.response.text}")
 
 

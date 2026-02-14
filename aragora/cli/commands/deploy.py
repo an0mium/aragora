@@ -563,7 +563,7 @@ def _wait_for_health(compose_cmd: list[str], compose_file: str, project_root: st
                 if response.status == 200:
                     print("  [+] Health check passed")
                     return
-        except Exception:
+        except (OSError, ValueError):
             logger.debug("Health check attempt failed", exc_info=True)
 
         # Show progress

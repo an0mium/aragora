@@ -41,7 +41,7 @@ def _get_api_client(api_url: str | None = None, api_key: str | None = None):
         # Quick health check
         client.system.health()
         return client
-    except Exception:
+    except (ImportError, OSError, RuntimeError, ValueError):
         return None
 
 
