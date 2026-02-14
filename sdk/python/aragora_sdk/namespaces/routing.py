@@ -185,6 +185,105 @@ class RoutingAPI:
         return self._client.request("POST", "/api/v1/routing-rules", json=data)
 
 
+    # =========================================================================
+    # Message Bindings
+    # =========================================================================
+
+    def list_bindings(self) -> dict[str, Any]:
+        """
+        List all message bindings.
+
+        Returns:
+            List of bindings mapping providers/accounts to agents
+        """
+        return self._client.request("GET", "/api/bindings")
+
+    def get_bindings_by_provider(self, provider: str) -> dict[str, Any]:
+        """
+        List bindings for a specific provider.
+
+        Args:
+            provider: Provider name (e.g., telegram, whatsapp)
+
+        Returns:
+            Bindings for the specified provider
+        """
+        return self._client.request("GET", f"/api/bindings/{provider}")
+
+    def create_binding(
+        self,
+        provider: str,
+        account_id: str,
+        peer_pattern: str,
+        agent_binding: str,
+    ) -> dict[str, Any]:
+        """
+        Create a new message binding.
+
+        Args:
+            provider: Message provider (e.g., telegram, whatsapp)
+            account_id: Provider account identifier
+            peer_pattern: Pattern to match peer messages
+            agent_binding: Agent to route matched messages to
+
+        Returns:
+            Created binding details
+        """
+        return self._client.request(
+            "POST",
+            "/api/bindings",
+            json={
+                "provider": provider,
+                "account_id": account_id,
+                "peer_pattern": peer_pattern,
+                "agent_binding": agent_binding,
+            },
+        )
+
+    def resolve_binding(self, provider: str, account_id: str, peer: str) -> dict[str, Any]:
+        """
+        Resolve a binding for a specific message.
+
+        Args:
+            provider: Message provider
+            account_id: Provider account identifier
+            peer: Peer identifier to resolve
+
+        Returns:
+            Resolved agent binding
+        """
+        return self._client.request(
+            "POST",
+            "/api/bindings/resolve",
+            json={"provider": provider, "account_id": account_id, "peer": peer},
+        )
+
+    def get_binding_stats(self) -> dict[str, Any]:
+        """
+        Get message router statistics.
+
+        Returns:
+            Router statistics including binding counts and routing metrics
+        """
+        return self._client.request("GET", "/api/bindings/stats")
+
+    def delete_binding(self, provider: str, account_id: str, peer_pattern: str) -> dict[str, Any]:
+        """
+        Delete a message binding.
+
+        Args:
+            provider: Message provider
+            account_id: Provider account identifier
+            peer_pattern: Peer pattern of the binding to delete
+
+        Returns:
+            Deletion confirmation
+        """
+        return self._client.request(
+            "DELETE", f"/api/bindings/{provider}/{account_id}/{peer_pattern}"
+        )
+
+
 class AsyncRoutingAPI:
     """Asynchronous Routing API."""
 
@@ -275,3 +374,51 @@ class AsyncRoutingAPI:
             data["description"] = description
 
         return await self._client.request("POST", "/api/v1/routing-rules", json=data)
+
+    # Message Bindings
+    async def list_bindings(self) -> dict[str, Any]:
+        """List all message bindings."""
+        return await self._client.request("GET", "/api/bindings")
+
+    async def get_bindings_by_provider(self, provider: str) -> dict[str, Any]:
+        """List bindings for a specific provider."""
+        return await self._client.request("GET", f"/api/bindings/{provider}")
+
+    async def create_binding(
+        self,
+        provider: str,
+        account_id: str,
+        peer_pattern: str,
+        agent_binding: str,
+    ) -> dict[str, Any]:
+        """Create a new message binding."""
+        return await self._client.request(
+            "POST",
+            "/api/bindings",
+            json={
+                "provider": provider,
+                "account_id": account_id,
+                "peer_pattern": peer_pattern,
+                "agent_binding": agent_binding,
+            },
+        )
+
+    async def resolve_binding(self, provider: str, account_id: str, peer: str) -> dict[str, Any]:
+        """Resolve a binding for a specific message."""
+        return await self._client.request(
+            "POST",
+            "/api/bindings/resolve",
+            json={"provider": provider, "account_id": account_id, "peer": peer},
+        )
+
+    async def get_binding_stats(self) -> dict[str, Any]:
+        """Get message router statistics."""
+        return await self._client.request("GET", "/api/bindings/stats")
+
+    async def delete_binding(
+        self, provider: str, account_id: str, peer_pattern: str
+    ) -> dict[str, Any]:
+        """Delete a message binding."""
+        return await self._client.request(
+            "DELETE", f"/api/bindings/{provider}/{account_id}/{peer_pattern}"
+        )
