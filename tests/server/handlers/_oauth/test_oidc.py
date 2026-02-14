@@ -386,15 +386,23 @@ class TestOIDCAuthStart:
         mock_validate_redirect.return_value = True
         mock_extract.return_value = MagicMock(is_authenticated=False)
 
-        # Mock discovery that hangs indefinitely (simulating unresponsive provider)
+        # Mock discovery that triggers timeout quickly.
+        # We make the coroutine timeout after 0.1s by patching wait_for
+        # so the test doesn't need to wait the full 10s handler timeout.
         async def slow_discovery(issuer):
-            await asyncio.sleep(60)  # Much longer than the 10s timeout
+            await asyncio.sleep(60)
             return {}
 
         oidc_handler._get_oidc_discovery = slow_discovery
 
-        # The asyncio.wait_for wrapper should trigger TimeoutError well before 60s
-        result = await oidc_handler._handle_oidc_auth_start(mock_request_handler, {})
+        # Patch asyncio.wait_for in the handler module to use a short timeout
+        _orig_wait_for = asyncio.wait_for
+
+        async def _fast_wait_for(coro, *, timeout=None):
+            return await _orig_wait_for(coro, timeout=0.1)
+
+        with patch.object(asyncio, "wait_for", side_effect=_fast_wait_for):
+            result = await oidc_handler._handle_oidc_auth_start(mock_request_handler, {})
 
         assert result.status_code == 504
         assert b"timed out" in result.body

@@ -1483,40 +1483,17 @@ def _restore_module_level_functions():
             _NCMock.side_effect = _real_side_effect_descriptor
 
     if _real_run_async is not None:
-        # Modules that import ``run_async`` at module level and are known
-        # to be patched by tests with side_effect lists.
-        _run_async_modules = [
-            "aragora.server.handlers.debates.implementation",
-            "aragora.server.handlers.consensus",
-            "aragora.server.handlers.evolution.handler",
-            "aragora.server.handlers.knowledge_base.facts",
-            "aragora.server.handlers.auditing",
-            "aragora.server.handlers.debates.create",
-            "aragora.server.handlers.debates.handler",
-            "aragora.server.handlers.debates.batch",
-            "aragora.server.http_utils",
-        ]
-        for mod_name in _run_async_modules:
-            mod = sys.modules.get(mod_name)
-            if mod is not None:
-                current = getattr(mod, "run_async", None)
-                if current is not _real_run_async:
-                    setattr(mod, "run_async", _real_run_async)
-
-        # Also check _run_async alias used by control_plane and http_utils
-        for mod_name in [
-            "aragora.server.handlers.control_plane",
-            "aragora.server.handlers.control_plane.__init__",
-            "aragora.server.handlers.control_plane.agents",
-            "aragora.server.handlers.control_plane.tasks",
-            "aragora.server.handlers.control_plane.health",
-            "aragora.server.http_utils",
-        ]:
-            mod = sys.modules.get(mod_name)
-            if mod is not None:
-                current = getattr(mod, "_run_async", None)
-                if current is not _real_run_async:
-                    setattr(mod, "_run_async", _real_run_async)
+        # Scan ALL loaded aragora modules for polluted run_async references.
+        # 51+ handler modules import run_async at module level; rather than
+        # maintaining a hardcoded list, we dynamically find and restore them.
+        _prefixes = ("aragora.server.", "aragora.utils.")
+        for mod_name, mod in list(sys.modules.items()):
+            if mod is None or not mod_name.startswith(_prefixes):
+                continue
+            for attr in ("run_async", "_run_async"):
+                current = getattr(mod, attr, None)
+                if current is not None and current is not _real_run_async:
+                    setattr(mod, attr, _real_run_async)
 
     # Reset the cached has_permission in control_plane.health
     # This global caches whatever callable it finds on the control_plane
@@ -1554,38 +1531,13 @@ def _restore_module_level_functions():
             _NCMock.side_effect = _real_side_effect_descriptor
 
     if _real_run_async is not None:
-        _run_async_modules = [
-            "aragora.server.handlers.debates.implementation",
-            "aragora.server.handlers.consensus",
-            "aragora.server.handlers.evolution.handler",
-            "aragora.server.handlers.knowledge_base.facts",
-            "aragora.server.handlers.auditing",
-            "aragora.server.handlers.debates.create",
-            "aragora.server.handlers.debates.handler",
-            "aragora.server.handlers.debates.batch",
-            "aragora.server.http_utils",
-        ]
-        for mod_name in _run_async_modules:
-            mod = sys.modules.get(mod_name)
-            if mod is not None:
-                current = getattr(mod, "run_async", None)
-                if current is not _real_run_async:
-                    setattr(mod, "run_async", _real_run_async)
-
-        # Also restore _run_async alias in control_plane submodules
-        for mod_name in [
-            "aragora.server.handlers.control_plane",
-            "aragora.server.handlers.control_plane.__init__",
-            "aragora.server.handlers.control_plane.agents",
-            "aragora.server.handlers.control_plane.tasks",
-            "aragora.server.handlers.control_plane.health",
-            "aragora.server.http_utils",
-        ]:
-            mod = sys.modules.get(mod_name)
-            if mod is not None:
-                current = getattr(mod, "_run_async", None)
-                if current is not _real_run_async:
-                    setattr(mod, "_run_async", _real_run_async)
+        for mod_name, mod in list(sys.modules.items()):
+            if mod is None or not mod_name.startswith(_prefixes):
+                continue
+            for attr in ("run_async", "_run_async"):
+                current = getattr(mod, attr, None)
+                if current is not None and current is not _real_run_async:
+                    setattr(mod, attr, _real_run_async)
 
     try:
         import aragora.server.handlers.control_plane.health as _cp_health
