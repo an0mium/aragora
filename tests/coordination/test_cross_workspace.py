@@ -772,22 +772,22 @@ class TestCrossWorkspaceCoordinator:
 class TestGlobalCoordinator:
     """Tests for global coordinator accessor."""
 
-    def test_get_coordinator_returns_instance(self):
-        """get_coordinator returns a coordinator."""
-        # Reset global state
+    @pytest.fixture(autouse=True)
+    def _reset_coordinator_singleton(self):
+        """Reset coordinator singleton before/after each test."""
         import aragora.coordination.cross_workspace as cw
 
         cw._coordinator = None
+        yield
+        cw._coordinator = None
 
+    def test_get_coordinator_returns_instance(self):
+        """get_coordinator returns a coordinator."""
         coordinator = get_coordinator()
         assert isinstance(coordinator, CrossWorkspaceCoordinator)
 
     def test_get_coordinator_returns_same_instance(self):
         """get_coordinator returns singleton."""
-        import aragora.coordination.cross_workspace as cw
-
-        cw._coordinator = None
-
         c1 = get_coordinator()
         c2 = get_coordinator()
         assert c1 is c2

@@ -286,7 +286,7 @@ class TestPodcastFeed:
     """Tests for podcast RSS feed."""
 
     def test_podcast_feed_no_audio_store(self, handler_no_audio_store, mock_handler):
-        result = handler_no_audio_store.handle("/api/podcast/feed.xml", {}, mock_handler)
+        result = handler_no_audio_store.handle("/api/v1/podcast/feed.xml", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -297,8 +297,8 @@ class TestPodcastFeed:
         # Setup to avoid broadcast module dependency
         mock_audio_store.list_all.return_value = []
 
-        with patch("aragora.server.handlers.audio.PODCAST_AVAILABLE", False):
-            result = audio_handler.handle("/api/podcast/feed.xml", {}, mock_handler)
+        with patch("aragora.server.handlers.features.audio.PODCAST_AVAILABLE", False):
+            result = audio_handler.handle("/api/v1/podcast/feed.xml", {}, mock_handler)
 
             if result:
                 assert result.status_code in (200, 503)
@@ -313,13 +313,13 @@ class TestPodcastEpisodes:
     """Tests for podcast episodes listing."""
 
     def test_podcast_episodes_no_audio_store(self, handler_no_audio_store, mock_handler):
-        result = handler_no_audio_store.handle("/api/podcast/episodes", {}, mock_handler)
+        result = handler_no_audio_store.handle("/api/v1/podcast/episodes", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
 
     def test_podcast_episodes_with_limit(self, audio_handler, mock_handler, mock_audio_store):
-        result = audio_handler.handle("/api/podcast/episodes", {"limit": "10"}, mock_handler)
+        result = audio_handler.handle("/api/v1/podcast/episodes", {"limit": "10"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -336,7 +336,7 @@ class TestYouTubeStatus:
     """Tests for YouTube connector status."""
 
     def test_youtube_status_not_configured(self, social_handler):
-        result = social_handler.handle("/api/youtube/status", {}, None)
+        result = social_handler.handle("/api/v1/youtube/status", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -351,7 +351,7 @@ class TestYouTubeStatus:
             "audio_store": None,
         }
         handler = SocialMediaHandler(ctx)
-        result = handler.handle("/api/youtube/status", {}, None)
+        result = handler.handle("/api/v1/youtube/status", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -364,7 +364,7 @@ class TestYouTubeStatus:
         mock_youtube_connector.client_secret = "test-secret"
         mock_youtube_connector.refresh_token = "test-token"
 
-        result = social_handler.handle("/api/youtube/status", {}, None)
+        result = social_handler.handle("/api/v1/youtube/status", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -388,13 +388,13 @@ class TestYouTubeAuth:
             "audio_store": None,
         }
         handler = SocialMediaHandler(ctx)
-        result = handler.handle("/api/youtube/auth", {}, mock_handler)
+        result = handler.handle("/api/v1/youtube/auth", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 500
 
     def test_youtube_auth_no_client_id(self, social_handler, mock_handler):
-        result = social_handler.handle("/api/youtube/auth", {}, mock_handler)
+        result = social_handler.handle("/api/v1/youtube/auth", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -411,7 +411,7 @@ class TestYouTubeCallback:
     """Tests for YouTube OAuth callback."""
 
     def test_youtube_callback_missing_code(self, social_handler, mock_handler):
-        result = social_handler.handle("/api/youtube/callback", {}, mock_handler)
+        result = social_handler.handle("/api/v1/youtube/callback", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -419,7 +419,7 @@ class TestYouTubeCallback:
         assert "code" in data["error"].lower()
 
     def test_youtube_callback_missing_state(self, social_handler, mock_handler):
-        result = social_handler.handle("/api/youtube/callback", {"code": "test"}, mock_handler)
+        result = social_handler.handle("/api/v1/youtube/callback", {"code": "test"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -439,7 +439,7 @@ class TestBroadcastGeneration:
         ctx = {"storage": None, "audio_store": None, "nomic_dir": None}
         handler = BroadcastHandler(ctx)
 
-        result = handler.handle_post("/api/debates/test/broadcast", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/test/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -467,13 +467,13 @@ class TestBroadcastGeneration:
         }
         handler = BroadcastHandler(ctx)
 
-        result = handler.handle_post("/api/debates/unknown/broadcast", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/unknown/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404
 
     def test_broadcast_invalid_debate_id(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle_post("/api/debates/../etc/broadcast", {}, mock_handler)
+        result = broadcast_handler.handle_post("/api/v1/debates/../etc/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -495,7 +495,7 @@ class TestBroadcastGeneration:
         }
         handler = BroadcastHandler(ctx)
 
-        result = handler.handle_post("/api/debates/test-debate/broadcast", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/test-debate/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -514,7 +514,7 @@ class TestBroadcastGeneration:
         }
         handler = BroadcastHandler(ctx)
 
-        result = handler.handle_post("/api/debates/test/broadcast", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/test/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
@@ -535,7 +535,7 @@ class TestBroadcastGeneration:
         # Create traces directory but no trace file
         (tmp_path / "traces").mkdir()
 
-        result = handler.handle_post("/api/debates/test/broadcast", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/test/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -560,7 +560,7 @@ class TestBroadcastGeneration:
         }
         handler = BroadcastHandler(ctx)
 
-        result = handler.handle_post("/api/debates/my-slug/broadcast", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/my-slug/broadcast", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -782,13 +782,13 @@ class TestTwitterPublish:
             "audio_store": None,
         }
         handler = SocialMediaHandler(ctx)
-        result = handler.handle_post("/api/debates/test/publish/twitter", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/test/publish/twitter", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 500
 
     def test_twitter_not_configured(self, social_handler, mock_handler):
-        result = social_handler.handle_post("/api/debates/test/publish/twitter", {}, mock_handler)
+        result = social_handler.handle_post("/api/v1/debates/test/publish/twitter", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -797,7 +797,7 @@ class TestTwitterPublish:
 
     def test_twitter_invalid_debate_id(self, social_handler, mock_handler):
         result = social_handler.handle_post(
-            "/api/debates/../../etc/publish/twitter", {}, mock_handler
+            "/api/v1/debates/../../etc/publish/twitter", {}, mock_handler
         )
 
         assert result is not None
@@ -820,13 +820,13 @@ class TestYouTubePublish:
             "audio_store": None,
         }
         handler = SocialMediaHandler(ctx)
-        result = handler.handle_post("/api/debates/test/publish/youtube", {}, mock_handler)
+        result = handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 500
 
     def test_youtube_not_configured(self, social_handler, mock_handler):
-        result = social_handler.handle_post("/api/debates/test/publish/youtube", {}, mock_handler)
+        result = social_handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -838,7 +838,7 @@ class TestYouTubePublish:
         mock_youtube_connector.rate_limiter.can_upload.return_value = False
         mock_youtube_connector.rate_limiter.remaining_quota = 0
 
-        result = social_handler.handle_post("/api/debates/test/publish/youtube", {}, mock_handler)
+        result = social_handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 429
@@ -851,7 +851,7 @@ class TestYouTubePublish:
         mock_youtube_connector.is_configured = True
         mock_audio_store.exists.return_value = False
 
-        result = social_handler.handle_post("/api/debates/test/publish/youtube", {}, mock_handler)
+        result = social_handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -873,13 +873,13 @@ class TestBroadcastSecurity:
 
     def test_broadcast_sql_injection(self, broadcast_handler, mock_handler):
         result = broadcast_handler.handle_post(
-            "/api/debates/'; DROP TABLE debates;--/broadcast", {}, mock_handler
+            "/api/v1/debates/'; DROP TABLE debates;--/broadcast", {}, mock_handler
         )
         assert result.status_code == 400
 
     def test_twitter_xss_in_debate_id(self, social_handler, mock_handler):
         result = social_handler.handle_post(
-            "/api/debates/<script>alert(1)</script>/publish/twitter", {}, mock_handler
+            "/api/v1/debates/<script>alert(1)</script>/publish/twitter", {}, mock_handler
         )
         assert result.status_code == 400
 
@@ -906,7 +906,7 @@ class TestBroadcastEdgeCases:
         assert result.status_code == 400
 
     def test_empty_debate_id_in_broadcast(self, broadcast_handler, mock_handler):
-        result = broadcast_handler.handle_post("/api/debates//broadcast", {}, mock_handler)
+        result = broadcast_handler.handle_post("/api/v1/debates//broadcast", {}, mock_handler)
         # Empty ID should fail validation
         assert result is None or result.status_code == 400
 
@@ -965,7 +965,7 @@ class TestOAuthCSRFProtection:
         mock_youtube_connector.client_id = "test-client-id"
 
         result = social_handler.handle(
-            "/api/youtube/callback",
+            "/api/v1/youtube/callback",
             {"code": "valid-code", "state": "invalid-never-stored-state"},
             mock_handler,
         )
@@ -989,7 +989,7 @@ class TestOAuthCSRFProtection:
             _oauth_states[expired_state] = time.time() - 100  # Expired 100 seconds ago
 
         result = social_handler.handle(
-            "/api/youtube/callback", {"code": "valid-code", "state": expired_state}, mock_handler
+            "/api/v1/youtube/callback", {"code": "valid-code", "state": expired_state}, mock_handler
         )
 
         assert result is not None
@@ -1012,7 +1012,7 @@ class TestHostHeaderValidation:
         evil_handler = Mock()
         evil_handler.headers = {"Host": "evil.com"}
 
-        result = social_handler.handle("/api/youtube/auth", {}, evil_handler)
+        result = social_handler.handle("/api/v1/youtube/auth", {}, evil_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -1029,7 +1029,7 @@ class TestHostHeaderValidation:
         trusted_handler = Mock()
         trusted_handler.headers = {"Host": "localhost:8080"}
 
-        result = social_handler.handle("/api/youtube/auth", {}, trusted_handler)
+        result = social_handler.handle("/api/v1/youtube/auth", {}, trusted_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1046,7 +1046,7 @@ class TestHostHeaderValidation:
         trusted_handler = Mock()
         trusted_handler.headers = {"Host": "127.0.0.1:8080"}
 
-        result = social_handler.handle("/api/youtube/auth", {}, trusted_handler)
+        result = social_handler.handle("/api/v1/youtube/auth", {}, trusted_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -1064,7 +1064,7 @@ class TestHostHeaderValidation:
         evil_handler.headers = {"Host": "attacker.com"}
 
         result = social_handler.handle(
-            "/api/youtube/callback", {"code": "auth-code", "state": valid_state}, evil_handler
+            "/api/v1/youtube/callback", {"code": "auth-code", "state": valid_state}, evil_handler
         )
 
         assert result is not None
@@ -1089,7 +1089,7 @@ class TestHostHeaderValidation:
             evil_handler = Mock()
             evil_handler.headers = {"Host": evil_host}
 
-            result = social_handler.handle("/api/youtube/auth", {}, evil_handler)
+            result = social_handler.handle("/api/v1/youtube/auth", {}, evil_handler)
 
             assert result is not None, f"No result for host: {evil_host}"
             assert result.status_code == 400, f"Should reject host: {evil_host}"

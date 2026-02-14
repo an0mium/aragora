@@ -1536,6 +1536,15 @@ class TestExtractUserInfoExtended:
 class TestSingletonExtended:
     """Extended tests for singleton pattern."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_bridge_singleton(self):
+        """Reset teams identity bridge singleton before/after each test."""
+        import aragora.connectors.chat.teams_identity as module
+
+        module._bridge = None
+        yield
+        module._bridge = None
+
     def test_singleton_returns_bridge_instance(self):
         """get_teams_identity_bridge should return a TeamsUserIdentityBridge."""
         import aragora.connectors.chat.teams_identity as module

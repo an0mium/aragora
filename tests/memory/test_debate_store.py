@@ -1061,6 +1061,15 @@ class TestConcurrentAccess:
 class TestSingletonAccess:
     """Test global singleton access."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_debate_store_singleton(self):
+        """Reset debate store singleton before/after each test."""
+        import aragora.memory.debate_store as ds
+
+        ds._debate_store = None
+        yield
+        ds._debate_store = None
+
     def test_get_debate_store_creates_singleton(self, monkeypatch):
         """Test that get_debate_store creates a singleton."""
         # Reset the global singleton

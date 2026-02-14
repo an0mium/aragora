@@ -616,6 +616,15 @@ class TestGetLevelPolicy:
 class TestGetClassifier:
     """Tests for get_classifier() global function."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_classifier_singleton(self):
+        """Reset classifier singleton before/after each test."""
+        import aragora.privacy.classifier as module
+
+        module._classifier = None
+        yield
+        module._classifier = None
+
     def test_get_classifier_default(self):
         """Test getting default classifier."""
         import aragora.privacy.classifier as module

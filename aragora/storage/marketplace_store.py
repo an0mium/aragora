@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.storage.base_store import SQLiteStore
+from aragora.utils.async_utils import run_async  # noqa: F401 — re-exported for marketplace_store_postgres
 
 logger = logging.getLogger(__name__)
 
