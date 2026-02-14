@@ -9,7 +9,7 @@ Provides payment processing capabilities for Stripe and Authorize.net:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient

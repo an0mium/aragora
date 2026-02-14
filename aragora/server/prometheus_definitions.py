@@ -25,7 +25,6 @@ try:
         Gauge,
         Histogram,
         Info,
-        generate_latest,
     )
 
     PROMETHEUS_AVAILABLE = True

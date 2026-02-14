@@ -84,8 +84,6 @@ AudioHandler = _safe_import("aragora.server.handlers", "AudioHandler")
 BroadcastHandler = _safe_import("aragora.server.handlers", "BroadcastHandler")
 TranscriptionHandler = _safe_import("aragora.server.handlers", "TranscriptionHandler")
 VoiceHandler = _safe_import("aragora.server.handlers.voice.handler", "VoiceHandler")
-SpeechHandler = _safe_import("aragora.server.handlers.features.speech", "SpeechHandler")
-
 # =============================================================================
 # Collaboration and Notifications Handler Imports
 # =============================================================================
@@ -151,7 +149,6 @@ SOCIAL_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_broadcast_handler", BroadcastHandler),
     ("_transcription_handler", TranscriptionHandler),
     ("_voice_handler", VoiceHandler),
-    ("_speech_handler", SpeechHandler),
     # Collaboration
     ("_collaboration_handler", CollaborationHandler),
     ("_notifications_handler", NotificationsHandler),
@@ -195,7 +192,6 @@ __all__ = [
     "BroadcastHandler",
     "TranscriptionHandler",
     "VoiceHandler",
-    "SpeechHandler",
     # Collaboration
     "CollaborationHandler",
     "NotificationsHandler",

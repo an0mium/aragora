@@ -8,6 +8,7 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
+
 class TestGauntletRun:
     """Tests for running Gauntlet validations."""
 

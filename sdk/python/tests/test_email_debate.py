@@ -8,6 +8,7 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
+
 class TestEmailPrioritize:
     """Tests for email prioritization methods."""
 

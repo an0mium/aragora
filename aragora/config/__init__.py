@@ -431,6 +431,15 @@ __all__ = [
     "get_missing_required_keys",
     "print_config_status",
     "ValidatorConfigurationError",
+    # Feature flags
+    "FeatureFlagRegistry",
+    "FlagCategory",
+    "FlagDefinition",
+    "FlagStatus",
+    "get_flag_registry",
+    "reset_flag_registry",
+    "is_enabled",
+    "get_flag",
     # Derived defaults
     "DEFAULT_AGENT_LIST",
     # Constants

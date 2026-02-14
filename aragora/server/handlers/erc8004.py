@@ -157,10 +157,15 @@ async def handle_blockchain_config() -> HandlerResult:
             }
         )
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Error getting blockchain config: {e}")
-        return error_response(f"Configuration error: {str(e)}", status=500)
+        return error_response("Configuration error. Check server logs for details.", status=500)
 
 
 @api_endpoint(
@@ -194,10 +199,15 @@ async def handle_get_agent(token_id: int) -> HandlerResult:
 
         return json_response(_serialize_identity(identity))
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Error fetching agent {token_id}: {e}")
-        return error_response(f"Agent not found: {str(e)}", status=404)
+        return error_response("Agent not found or could not be retrieved.", status=404)
 
 
 @api_endpoint(
@@ -245,10 +255,15 @@ async def handle_get_reputation(
             }
         )
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Error fetching reputation for agent {token_id}: {e}")
-        return error_response(f"Reputation not found: {str(e)}", status=404)
+        return error_response("Reputation not found or could not be retrieved.", status=404)
 
 
 @api_endpoint(
@@ -292,10 +307,15 @@ async def handle_get_validations(
             }
         )
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Error fetching validations for agent {token_id}: {e}")
-        return error_response(f"Validations not found: {str(e)}", status=404)
+        return error_response("Validations not found or could not be retrieved.", status=404)
 
 
 @api_endpoint(
@@ -343,10 +363,15 @@ async def handle_blockchain_sync(
             }
         )
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Blockchain sync error: {e}")
-        return error_response(f"Sync failed: {str(e)}")
+        return error_response("Blockchain sync failed. Check server logs for details.")
 
 
 @api_endpoint(
@@ -372,7 +397,8 @@ async def handle_blockchain_health() -> HandlerResult:
             adapter = _get_adapter()
             adapter_status = adapter.get_health_status()
         except Exception as e:
-            adapter_status = {"error": str(e)}
+            logger.warning("ERC-8004 adapter health check error: %s", e)
+            adapter_status = {"error": "Adapter unavailable. Check server logs for details."}
 
         return json_response(
             {
@@ -381,17 +407,20 @@ async def handle_blockchain_health() -> HandlerResult:
             }
         )
     except ImportError as e:
+        logger.warning("ERC-8004 handler error: %s", e)
         return json_response(
             {
                 "available": False,
-                "error": str(e),
+                "error": "ERC-8004 blockchain features require the 'web3' package. "
+                "Install with: pip install aragora[blockchain]",
             }
         )
     except Exception as e:
+        logger.warning("ERC-8004 health check error: %s", e)
         return json_response(
             {
                 "available": False,
-                "error": str(e),
+                "error": "Blockchain feature not available. Check server logs for details.",
             }
         )
 
@@ -478,10 +507,15 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
             }
         )
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Error listing agents: {e}")
-        return error_response(f"Listing error: {str(e)}", status=500)
+        return error_response("Listing error. Check server logs for details.", status=500)
 
 
 @api_endpoint(
@@ -556,10 +590,15 @@ async def handle_register_agent(
     except ValueError as e:
         return error_response(f"Invalid metadata: {str(e)}", status=400)
     except ImportError as e:
-        return error_response(str(e), status=501)
+        logger.warning("ERC-8004 handler error: %s", e)
+        return error_response(
+            "ERC-8004 blockchain features require the 'web3' package. "
+            "Install with: pip install aragora[blockchain]",
+            status=501,
+        )
     except Exception as e:
         logger.error(f"Error registering agent: {e}")
-        return error_response(f"Registration error: {str(e)}", status=500)
+        return error_response("Registration error. Check server logs for details.", status=500)
 
 
 # Handler registry for unified server

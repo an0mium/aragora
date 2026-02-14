@@ -8,6 +8,7 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
+
 class TestOAuthWizardConfiguration:
     """Tests for wizard configuration methods."""
 

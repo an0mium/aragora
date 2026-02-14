@@ -532,6 +532,8 @@ __all__ = [
     "validate_all_handlers",
     "validate_handlers_on_init",
     "check_handler_coverage",
+    # Tier configuration
+    "HANDLER_TIERS",
     # Utilities
     "_safe_import",
     # Re-exported for backward compatibility

@@ -8,6 +8,7 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
+
 class TestWebhookCRUD:
     """Tests for webhook create, read, update, delete operations."""
 

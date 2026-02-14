@@ -2668,3 +2668,85 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
             "  Review tests/SKIP_AUDIT.md and reduce skipped tests.", yellow=True
         )
         terminalreporter.write_line("")
+
+
+# ============================================================================
+# Global Mock Pollution Guards
+# ============================================================================
+# These guards repair module-level attributes that tests may accidentally
+# replace with mocks.  The more detailed handler-specific fixture is in
+# tests/server/handlers/conftest.py; this lightweight version covers test
+# files outside that directory tree.
+
+# Capture real references at import time
+try:
+    from aragora.utils.async_utils import run_async as _global_real_run_async
+except ImportError:
+    _global_real_run_async = None
+
+_global_real_extract_path_param = None
+try:
+    from aragora.server.handlers.base import BaseHandler as _GlobalBaseHandler
+
+    _global_real_extract_path_param = getattr(_GlobalBaseHandler, "extract_path_param", None)
+except ImportError:
+    _GlobalBaseHandler = None
+
+# Capture the side_effect property descriptor
+from unittest.mock import NonCallableMock as _GlobalNCMock
+
+_global_side_effect_descriptor = None
+for _klass in _GlobalNCMock.__mro__:
+    if "side_effect" in _klass.__dict__:
+        _global_side_effect_descriptor = _klass.__dict__["side_effect"]
+        break
+
+
+@pytest.fixture(autouse=True)
+def _global_mock_pollution_guard():
+    """Repair mock pollution that can leak across test files."""
+    import sys
+
+    # Repair MagicMock.side_effect property descriptor
+    if _global_side_effect_descriptor is not None:
+        current = _GlobalNCMock.__dict__.get("side_effect")
+        if current is not _global_side_effect_descriptor:
+            _GlobalNCMock.side_effect = _global_side_effect_descriptor
+
+    # Restore BaseHandler.extract_path_param
+    if _GlobalBaseHandler is not None and _global_real_extract_path_param is not None:
+        current = getattr(_GlobalBaseHandler, "extract_path_param", None)
+        if current is not _global_real_extract_path_param:
+            setattr(_GlobalBaseHandler, "extract_path_param", _global_real_extract_path_param)
+
+    # Restore run_async in loaded modules
+    if _global_real_run_async is not None:
+        for mod_name, mod in list(sys.modules.items()):
+            if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
+                continue
+            for attr in ("run_async", "_run_async"):
+                current = getattr(mod, attr, None)
+                if current is not None and current is not _global_real_run_async:
+                    setattr(mod, attr, _global_real_run_async)
+
+    yield
+
+    # Teardown: same repairs
+    if _global_side_effect_descriptor is not None:
+        current = _GlobalNCMock.__dict__.get("side_effect")
+        if current is not _global_side_effect_descriptor:
+            _GlobalNCMock.side_effect = _global_side_effect_descriptor
+
+    if _GlobalBaseHandler is not None and _global_real_extract_path_param is not None:
+        current = getattr(_GlobalBaseHandler, "extract_path_param", None)
+        if current is not _global_real_extract_path_param:
+            setattr(_GlobalBaseHandler, "extract_path_param", _global_real_extract_path_param)
+
+    if _global_real_run_async is not None:
+        for mod_name, mod in list(sys.modules.items()):
+            if mod is None or not mod_name.startswith(("aragora.server.", "aragora.utils.")):
+                continue
+            for attr in ("run_async", "_run_async"):
+                current = getattr(mod, attr, None)
+                if current is not None and current is not _global_real_run_async:
+                    setattr(mod, attr, _global_real_run_async)

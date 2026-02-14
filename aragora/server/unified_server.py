@@ -946,7 +946,6 @@ class UnifiedServer:
 
         try:
             from aragora.security.anomaly_detection import (
-                AnomalyDetector,
                 AnomalyDetectorConfig,
                 get_anomaly_detector,
             )

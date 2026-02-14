@@ -261,7 +261,6 @@ class AragoraClient:
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.verticals import VerticalsAPI
-
         from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflow_templates import WorkflowTemplatesAPI
         from .namespaces.workflows import WorkflowsAPI
@@ -794,7 +793,6 @@ class AragoraAsyncClient:
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.verticals import AsyncVerticalsAPI
-
         from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflow_templates import AsyncWorkflowTemplatesAPI
         from .namespaces.workflows import AsyncWorkflowsAPI

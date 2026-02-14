@@ -75,4 +75,5 @@ __all__ = [
     "TelegramMediaMixin",
     "TelegramInlineMixin",
     "TelegramBotManagementMixin",
+    "_classify_telegram_error",
 ]

@@ -654,4 +654,7 @@ __all__ = [
     "StartupValidationError",
     "run_startup_validation",
     "run_startup_validation_sync",
+    # Observability
+    "check_otlp_connectivity",
+    "init_structured_logging",
 ]
