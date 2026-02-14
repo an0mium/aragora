@@ -67,6 +67,22 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Bypass @require_permission decorator (from server.handlers.utils.decorators)
+    try:
+        from aragora.server.handlers.utils import decorators as handler_decorators
+
+        monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_auth_ctx)
+    except (ImportError, AttributeError):
+        pass
+
+    # Also bypass has_permission to always grant access
+    try:
+        from aragora.server.handlers.utils import decorators as handler_decorators
+
+        monkeypatch.setattr(handler_decorators, "has_permission", lambda role, perm: True)
+    except (ImportError, AttributeError):
+        pass
+
     # Patch SecureHandler.get_auth_context for handlers extending SecureHandler
     try:
         from aragora.server.handlers.secure import SecureHandler
