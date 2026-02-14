@@ -332,46 +332,16 @@ class TestIntrospectionHandlerAgentByNameEndpoint:
 class TestIntrospectionHandlerRateLimiting:
     """Tests for rate limiting on introspection endpoints."""
 
-    @pytest.fixture(autouse=True)
-    def _ensure_rate_limiting_enabled(self):
-        """Ensure RATE_LIMITING_DISABLED is False for rate limit tests.
-
-        importlib.reload() of rate_limit.py creates a second module object.
-        The RateLimiter's is_allowed() resolves RATE_LIMITING_DISABLED via
-        its method's __globals__, which points to the ORIGINAL module dict.
-        We must set the flag on BOTH the current sys.modules entry AND
-        the limiter's actual __globals__ dict.
-        """
-        import sys
-
-        import aragora.server.handlers.introspection as intro_mod
-
-        limiter = intro_mod._introspection_limiter
-        limiter._buckets.clear()
-
-        # Patch the limiter's actual globals (may differ from sys.modules)
-        limiter_globals = type(limiter).is_allowed.__globals__
-        saved_globals = limiter_globals.get("RATE_LIMITING_DISABLED", False)
-        limiter_globals["RATE_LIMITING_DISABLED"] = False
-
-        # Also patch sys.modules entry for consistency
-        rl_mod = sys.modules.get("aragora.server.handlers.utils.rate_limit")
-        saved_mod = None
-        if rl_mod:
-            saved_mod = getattr(rl_mod, "RATE_LIMITING_DISABLED", False)
-            rl_mod.RATE_LIMITING_DISABLED = False
-        yield
-        limiter_globals["RATE_LIMITING_DISABLED"] = saved_globals
-        if rl_mod and saved_mod is not None:
-            rl_mod.RATE_LIMITING_DISABLED = saved_mod
-
     def test_rate_limit_exceeded_returns_429(self, introspection_handler, mock_http_handler):
         """Exceeding rate limit returns 429."""
-        # Make 20 requests (limit) then one more
-        for _ in range(20):
-            introspection_handler.handle("/api/v1/introspection/agents", {}, mock_http_handler)
+        import aragora.server.handlers.introspection as intro_mod
 
-        result = introspection_handler.handle("/api/v1/introspection/agents", {}, mock_http_handler)
+        # Mock is_allowed to return False directly, bypassing any
+        # RATE_LIMITING_DISABLED pollution from importlib.reload()
+        with patch.object(intro_mod._introspection_limiter, "is_allowed", return_value=False):
+            result = introspection_handler.handle(
+                "/api/v1/introspection/agents", {}, mock_http_handler
+            )
 
         assert result is not None
         assert result.status_code == 429
