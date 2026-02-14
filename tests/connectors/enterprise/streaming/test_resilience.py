@@ -1571,11 +1571,19 @@ class TestGracefulShutdown:
 
     @pytest.mark.asyncio
     async def test_run_cleanup_handles_timeout(self):
-        """Should handle cleanup tasks that timeout."""
+        """Should handle cleanup tasks that timeout.
+
+        Uses a very short timeout to trigger TimeoutError without patching
+        asyncio.wait_for globally (which can corrupt async mock state for
+        subsequent tests when run with randomized ordering).
+        """
         shutdown = GracefulShutdown()
 
+        # Event to keep the slow cleanup blocked until we release it
+        blocker = asyncio.Event()
+
         async def slow_cleanup():
-            await asyncio.sleep(1)  # Very slow
+            await blocker.wait()  # Block until released
 
         async def fast_cleanup():
             pass
@@ -1583,11 +1591,23 @@ class TestGracefulShutdown:
         shutdown.register_cleanup(slow_cleanup)
         shutdown.register_cleanup(fast_cleanup)
 
-        # Should not hang; _run_cleanup uses 30s timeout per task
-        # We override to test faster
-        with patch("asyncio.wait_for", new_callable=lambda: AsyncMock) as mock_wait:
-            mock_wait.side_effect = [asyncio.TimeoutError(), None]
+        # Patch the hardcoded 30s timeout to 0.01s so the test is fast.
+        # We patch at the module level where asyncio.wait_for is called,
+        # wrapping the real function with a shorter timeout.
+        _real_wait_for = asyncio.wait_for
+
+        async def _short_timeout_wait_for(coro, *, timeout=30.0):
+            """Wrap real wait_for with a much shorter timeout."""
+            return await _real_wait_for(coro, timeout=0.01)
+
+        with patch(
+            "asyncio.wait_for",
+            side_effect=_short_timeout_wait_for,
+        ):
             await shutdown._run_cleanup()
+
+        # Release the blocker to avoid warnings about pending coroutines
+        blocker.set()
 
     @pytest.mark.asyncio
     async def test_run_cleanup_handles_task_failure(self):
