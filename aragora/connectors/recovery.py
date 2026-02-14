@@ -262,6 +262,7 @@ class RecoveryStrategy:
                 return result
 
             except (
+                ConnectorError,
                 ConnectionError,
                 TimeoutError,
                 OSError,

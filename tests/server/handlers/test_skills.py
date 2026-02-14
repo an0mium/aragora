@@ -74,7 +74,14 @@ class MockSkillResult:
 
 
 class MockRequest:
-    """Mock request for skills handler."""
+    """Mock request for skills handler.
+
+    The handler checks ``hasattr(request, 'json')`` to decide whether to parse
+    as an aiohttp request.  By *not* defining a ``json`` attribute here we take
+    the plain dict path where the handler calls ``request.get('body', {})``.
+    That means the mock must behave like a dict with a ``'body'`` key that
+    holds the actual payload.
+    """
 
     def __init__(self, query: dict | None = None, body: dict | None = None):
         self._query = query or {}
@@ -83,6 +90,8 @@ class MockRequest:
         self.headers = {"X-Forwarded-For": "10.0.0.1"}
 
     def get(self, key, default=None):
+        if key == "body":
+            return self._body
         return self._body.get(key, default)
 
 

@@ -200,10 +200,10 @@ class TestListFlags:
         assert "flags_by_category" in stats
 
     def test_empty_filter_returns_empty(self, handler, mock_handler, registry):
-        """Filtering by a valid category with no flags returns empty."""
+        """Filtering by a status with no matching flags returns empty."""
         result = handler.handle(
             "/api/v1/admin/feature-flags",
-            {"category": "debug"},
+            {"status": "removed"},
             mock_handler,
         )
         body = parse_body(result)
