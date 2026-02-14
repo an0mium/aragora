@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+import math
 import os
 import signal
 import threading
@@ -378,7 +379,7 @@ def timeout_context(
             )
 
         old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(int(timeout))
+        signal.alarm(max(1, math.ceil(timeout)))
 
         try:
             yield

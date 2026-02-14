@@ -100,6 +100,35 @@ class OpenClawGatewayHandler(
     - Admin operations
     """
 
+    ROUTES = [
+        # Shorthand /api/v1/openclaw/ paths (primary SDK surface)
+        "/api/v1/openclaw/sessions",
+        "/api/v1/openclaw/sessions/{session_id}",
+        "/api/v1/openclaw/sessions/{session_id}/end",
+        "/api/v1/openclaw/actions",
+        "/api/v1/openclaw/actions/{action_id}",
+        "/api/v1/openclaw/actions/{action_id}/cancel",
+        "/api/v1/openclaw/credentials",
+        "/api/v1/openclaw/credentials/{credential_id}",
+        "/api/v1/openclaw/credentials/{credential_id}/rotate",
+        "/api/v1/openclaw/policy/rules",
+        "/api/v1/openclaw/policy/rules/{rule_name}",
+        "/api/v1/openclaw/approvals",
+        "/api/v1/openclaw/approvals/{approval_id}/approve",
+        "/api/v1/openclaw/approvals/{approval_id}/deny",
+        "/api/v1/openclaw/health",
+        "/api/v1/openclaw/metrics",
+        "/api/v1/openclaw/audit",
+        "/api/v1/openclaw/stats",
+        # Legacy gateway paths
+        "/api/gateway/openclaw/sessions",
+        "/api/gateway/openclaw/actions",
+        "/api/gateway/openclaw/credentials",
+        "/api/gateway/openclaw/health",
+        "/api/gateway/openclaw/metrics",
+        "/api/gateway/openclaw/audit",
+    ]
+
     def __init__(self, server_context: dict[str, Any]) -> None:
         """Initialize with server context."""
         super().__init__(server_context)
@@ -110,14 +139,17 @@ class OpenClawGatewayHandler(
             path.startswith("/api/gateway/openclaw/")
             or path.startswith("/api/v1/gateway/openclaw/")
             or path.startswith("/api/v1/openclaw/")
+            or path.startswith("/api/openclaw/")
         )
 
     def _normalize_path(self, path: str) -> str:
-        """Normalize versioned paths to base form."""
+        """Normalize versioned/shorthand paths to base form."""
         if path.startswith("/api/v1/gateway/openclaw/"):
             return path.replace("/api/v1/gateway/openclaw/", "/api/gateway/openclaw/", 1)
         if path.startswith("/api/v1/openclaw/"):
             return path.replace("/api/v1/openclaw/", "/api/gateway/openclaw/", 1)
+        if path.startswith("/api/openclaw/"):
+            return path.replace("/api/openclaw/", "/api/gateway/openclaw/", 1)
         return path
 
     def _get_user_id(self, handler: Any) -> str:

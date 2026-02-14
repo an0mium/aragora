@@ -340,8 +340,8 @@ class TestTimeoutContext:
     def test_context_timeout_raises(self):
         """Test context manager raises on timeout (Unix only)."""
         with pytest.raises(RequestTimeoutError):
-            with timeout_context(0.1, "/api/test"):
-                time.sleep(1.0)
+            with timeout_context(1, "/api/test"):
+                time.sleep(5)
 
 
 # ============================================================================

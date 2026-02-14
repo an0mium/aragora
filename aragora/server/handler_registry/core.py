@@ -541,6 +541,12 @@ class RouteIndex:
             "_gateway_handler": [
                 "/api/v1/gateway/",
             ],
+            "_openclaw_gateway_handler": [
+                "/api/openclaw/",
+                "/api/v1/openclaw/",
+                "/api/gateway/openclaw/",
+                "/api/v1/gateway/openclaw/",
+            ],
             "_scim_handler": [
                 "/scim/",
                 "/scim/v2/",

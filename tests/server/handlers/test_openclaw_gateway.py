@@ -648,7 +648,7 @@ class TestHandlerRouting:
         """Test that handler rejects non-openclaw paths."""
         assert not handler.can_handle("/api/gateway/other")
         assert not handler.can_handle("/api/v1/debates")
-        assert not handler.can_handle("/api/openclaw/sessions")
+        assert not handler.can_handle("/api/debates/sessions")
 
     def test_normalize_path(self, handler):
         """Test path normalization."""
