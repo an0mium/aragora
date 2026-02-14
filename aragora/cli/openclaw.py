@@ -450,7 +450,11 @@ def cmd_review(args: argparse.Namespace) -> int:
     import asyncio
     import json as json_mod
 
-    from aragora.compat.openclaw.pr_review_runner import PRReviewRunner, load_policy
+    from aragora.compat.openclaw.pr_review_runner import (
+        PRReviewRunner,
+        findings_to_sarif,
+        load_policy,
+    )
 
     pr_url = getattr(args, "pr", None)
     repo_url = getattr(args, "repo", None)
@@ -521,6 +525,20 @@ def cmd_review(args: argparse.Namespace) -> int:
         Path(output_path).write_text(json_mod.dumps(output_data, indent=2))
         if not args.ci:
             print(f"\nResults written to {output_path}")
+
+    # Write SARIF output if requested
+    sarif_path = getattr(args, "sarif", None)
+    if sarif_path:
+        all_findings = []
+        last_receipt = None
+        for r in results:
+            all_findings.extend(r.findings)
+            if r.receipt:
+                last_receipt = r.receipt
+        sarif = findings_to_sarif(all_findings, last_receipt)
+        Path(sarif_path).write_text(json_mod.dumps(sarif, indent=2))
+        if not args.ci:
+            print(f"SARIF written to {sarif_path}")
 
     return exit_code
 
@@ -730,5 +748,8 @@ Examples:
     )
     review_parser.add_argument(
         "--output", "-o", help="Write JSON results to file",
+    )
+    review_parser.add_argument(
+        "--sarif", help="Write SARIF 2.1.0 results to file (for GitHub Security tab)",
     )
     review_parser.set_defaults(func=cmd_review)

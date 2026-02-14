@@ -782,6 +782,16 @@ class TestTextFormatter:
 class TestConfigureStructuredLogging:
     """Tests for configure_structured_logging function."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_root_logger(self):
+        """Save and restore root logger state to prevent cross-test pollution."""
+        root = logging.getLogger()
+        original_handlers = list(root.handlers)
+        original_level = root.level
+        yield
+        root.handlers = original_handlers
+        root.level = original_level
+
     def test_configure_default_settings(self):
         """Should configure with default settings."""
         configure_structured_logging()

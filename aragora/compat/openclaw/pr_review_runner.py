@@ -836,3 +836,101 @@ def _format_comment(
         "multi-agent debate engine*"
     )
     return "\n".join(lines)
+
+
+def findings_to_sarif(
+    findings: list[ReviewFinding],
+    receipt: ReviewReceipt | None = None,
+) -> dict[str, Any]:
+    """Convert review findings to SARIF 2.1.0 format.
+
+    SARIF (Static Analysis Results Interchange Format) is the standard
+    for tool output consumed by GitHub Security tab, Azure DevOps, and
+    other CI/CD platforms.
+
+    Args:
+        findings: List of ReviewFinding objects.
+        receipt: Optional ReviewReceipt for run-level metadata.
+
+    Returns:
+        SARIF 2.1.0 compliant dict.
+    """
+    severity_to_sarif = {
+        "critical": "error",
+        "high": "error",
+        "medium": "warning",
+        "low": "note",
+    }
+
+    rules: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    seen_rules: dict[str, int] = {}
+
+    for finding in findings:
+        # Create a stable rule ID from the title
+        rule_id = hashlib.sha256(finding.title.encode()).hexdigest()[:12]
+        if rule_id not in seen_rules:
+            seen_rules[rule_id] = len(rules)
+            rules.append({
+                "id": rule_id,
+                "name": finding.title[:80],
+                "shortDescription": {"text": finding.title[:120]},
+                "fullDescription": {"text": finding.description},
+                "defaultConfiguration": {
+                    "level": severity_to_sarif.get(finding.severity, "note"),
+                },
+                "properties": {
+                    "severity": finding.severity,
+                    "unanimous": finding.unanimous,
+                },
+            })
+
+        result: dict[str, Any] = {
+            "ruleId": rule_id,
+            "ruleIndex": seen_rules[rule_id],
+            "message": {"text": finding.description},
+            "level": severity_to_sarif.get(finding.severity, "note"),
+        }
+
+        if finding.file_path:
+            location: dict[str, Any] = {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": finding.file_path},
+                },
+            }
+            if finding.line_number:
+                location["physicalLocation"]["region"] = {
+                    "startLine": finding.line_number,
+                }
+            result["locations"] = [location]
+
+        if finding.agent:
+            result["properties"] = {"agent": finding.agent}
+
+        results.append(result)
+
+    run: dict[str, Any] = {
+        "tool": {
+            "driver": {
+                "name": "aragora-pr-reviewer",
+                "informationUri": "https://github.com/an0mium/aragora",
+                "version": "1.0.0",
+                "rules": rules,
+            },
+        },
+        "results": results,
+    }
+
+    if receipt:
+        run["properties"] = {
+            "reviewId": receipt.review_id,
+            "agreementScore": receipt.agreement_score,
+            "agentsUsed": receipt.agents_used,
+            "checksum": receipt.checksum,
+        }
+
+    return {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [run],
+    }

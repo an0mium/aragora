@@ -24,6 +24,7 @@ from aragora.compat.openclaw.pr_review_runner import (
     _parse_findings,
     _parse_policy,
     _parse_pr_url,
+    findings_to_sarif,
     load_policy,
 )
 
@@ -675,3 +676,112 @@ class TestSkillMdIntegration:
         assert policy.name == "pr-reviewer"
         assert policy.require_receipt is True
         assert policy.log_all_actions is True
+
+
+# ---------------------------------------------------------------------------
+# SARIF export
+# ---------------------------------------------------------------------------
+
+
+class TestFindingsToSarif:
+    def test_empty_findings(self):
+        sarif = findings_to_sarif([])
+        assert sarif["version"] == "2.1.0"
+        assert len(sarif["runs"]) == 1
+        assert sarif["runs"][0]["results"] == []
+        assert sarif["runs"][0]["tool"]["driver"]["name"] == "aragora-pr-reviewer"
+
+    def test_single_finding(self):
+        findings = [
+            ReviewFinding(
+                severity="critical",
+                title="SQL injection in login",
+                description="User input passed directly to SQL query",
+                file_path="src/auth.py",
+                line_number=42,
+                agent="claude-opus",
+            ),
+        ]
+        sarif = findings_to_sarif(findings)
+        run = sarif["runs"][0]
+        assert len(run["tool"]["driver"]["rules"]) == 1
+        assert len(run["results"]) == 1
+
+        result = run["results"][0]
+        assert result["level"] == "error"  # critical → error
+        assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/auth.py"
+        assert result["locations"][0]["physicalLocation"]["region"]["startLine"] == 42
+        assert result["properties"]["agent"] == "claude-opus"
+
+        rule = run["tool"]["driver"]["rules"][0]
+        assert rule["properties"]["severity"] == "critical"
+
+    def test_severity_mapping(self):
+        findings = [
+            ReviewFinding(severity="critical", title="a", description="a"),
+            ReviewFinding(severity="high", title="b", description="b"),
+            ReviewFinding(severity="medium", title="c", description="c"),
+            ReviewFinding(severity="low", title="d", description="d"),
+        ]
+        sarif = findings_to_sarif(findings)
+        levels = [r["level"] for r in sarif["runs"][0]["results"]]
+        assert levels == ["error", "error", "warning", "note"]
+
+    def test_deduplicated_rules(self):
+        """Findings with the same title should share a rule."""
+        findings = [
+            ReviewFinding(severity="high", title="Missing auth", description="In endpoint A"),
+            ReviewFinding(severity="high", title="Missing auth", description="In endpoint B"),
+        ]
+        sarif = findings_to_sarif(findings)
+        run = sarif["runs"][0]
+        assert len(run["tool"]["driver"]["rules"]) == 1  # deduplicated
+        assert len(run["results"]) == 2  # but two results
+        assert run["results"][0]["ruleIndex"] == run["results"][1]["ruleIndex"]
+
+    def test_finding_without_location(self):
+        findings = [
+            ReviewFinding(severity="low", title="Style issue", description="Naming"),
+        ]
+        sarif = findings_to_sarif(findings)
+        result = sarif["runs"][0]["results"][0]
+        assert "locations" not in result
+
+    def test_receipt_metadata(self):
+        receipt = ReviewReceipt(
+            review_id="abc123",
+            pr_url="https://github.com/o/r/pull/1",
+            started_at=1000.0,
+            completed_at=1030.0,
+            findings_count=1,
+            critical_count=0,
+            high_count=1,
+            medium_count=0,
+            low_count=0,
+            agreement_score=0.92,
+            agents_used=["anthropic-api", "openai-api"],
+            policy_name="pr-reviewer",
+            policy_violations=[],
+            checksum="deadbeef",
+        )
+        sarif = findings_to_sarif([], receipt)
+        props = sarif["runs"][0]["properties"]
+        assert props["reviewId"] == "abc123"
+        assert props["agreementScore"] == 0.92
+        assert props["checksum"] == "deadbeef"
+
+    def test_sarif_schema_field(self):
+        sarif = findings_to_sarif([])
+        assert "$schema" in sarif
+        assert "sarif-schema-2.1.0" in sarif["$schema"]
+
+    def test_unanimous_property(self):
+        findings = [
+            ReviewFinding(
+                severity="high", title="Bug", description="Bug",
+                unanimous=True,
+            ),
+        ]
+        sarif = findings_to_sarif(findings)
+        rule = sarif["runs"][0]["tool"]["driver"]["rules"][0]
+        assert rule["properties"]["unanimous"] is True
