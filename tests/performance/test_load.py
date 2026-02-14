@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import gc
+import inspect
 import statistics
 import sys
 import time
@@ -137,12 +138,33 @@ def mock_handler_context(tmp_path):
     }
 
 
+def _bypass_auth(handler_instance):
+    """Bypass auth checks on handler for load testing.
+
+    Patches both method-level auth (require_auth_or_error) and
+    unwraps @require_permission decorated methods to bypass RBAC.
+    """
+    mock_user = MagicMock()
+    mock_user.user_id = "load-test-user"
+    mock_user.permissions = ["metrics:read", "monitoring:metrics", "health:read"]
+    handler_instance.require_auth_or_error = lambda h: (mock_user, None)
+    handler_instance.require_permission_or_error = lambda h, perm: (mock_user, None)
+    # Unwrap @require_permission decorated methods to bypass RBAC decorator checks
+    for attr_name in dir(handler_instance):
+        if attr_name.startswith("_"):
+            attr = getattr(handler_instance, attr_name, None)
+            if callable(attr) and hasattr(attr, "__wrapped__"):
+                import types
+                setattr(handler_instance, attr_name, types.MethodType(attr.__wrapped__, handler_instance))
+    return handler_instance
+
+
 @pytest.fixture
 def system_handler(mock_handler_context):
     """Create SystemHandler instance."""
     from aragora.server.handlers.admin import SystemHandler
 
-    return SystemHandler(mock_handler_context)
+    return _bypass_auth(SystemHandler(mock_handler_context))
 
 
 @pytest.fixture
@@ -150,7 +172,7 @@ def health_handler(mock_handler_context):
     """Create HealthHandler instance for /api/health endpoints."""
     from aragora.server.handlers.admin import HealthHandler
 
-    return HealthHandler(mock_handler_context)
+    return _bypass_auth(HealthHandler(mock_handler_context))
 
 
 @pytest.fixture
@@ -158,7 +180,7 @@ def agents_handler(mock_handler_context):
     """Create AgentsHandler instance."""
     from aragora.server.handlers.agents import AgentsHandler
 
-    return AgentsHandler(mock_handler_context)
+    return _bypass_auth(AgentsHandler(mock_handler_context))
 
 
 @pytest.fixture
@@ -166,7 +188,7 @@ def debates_handler(mock_handler_context):
     """Create DebatesHandler instance."""
     from aragora.server.handlers.debates import DebatesHandler
 
-    return DebatesHandler(mock_handler_context)
+    return _bypass_auth(DebatesHandler(mock_handler_context))
 
 
 # =============================================================================
@@ -195,10 +217,17 @@ def run_load_test(
     result = LoadTestResult()
     result.start_time = time.time()
 
+    def _call_handler():
+        """Call handler.handle(), resolving coroutines if async."""
+        result = handler.handle(path, query_params, None)
+        if inspect.iscoroutine(result):
+            return asyncio.run(result)
+        return result
+
     # Warmup phase
     for _ in range(config.warmup_requests):
         try:
-            handler.handle(path, query_params, None)
+            _call_handler()
         except Exception:
             pass
 
@@ -206,7 +235,7 @@ def run_load_test(
     def make_request() -> tuple[bool, float, str]:
         start = time.perf_counter()
         try:
-            response = handler.handle(path, query_params, None)
+            response = _call_handler()
             elapsed = (time.perf_counter() - start) * 1000
             # Success if response is valid (even None means "not handled by this handler")
             # For load testing, we consider 2xx/3xx/4xx as success, only 5xx as failure
@@ -253,6 +282,8 @@ async def run_async_load_test(
         start = time.perf_counter()
         try:
             response = handler.handle(path, query_params, None)
+            if inspect.iscoroutine(response):
+                response = await response
             elapsed = (time.perf_counter() - start) * 1000
             success = response is not None and response.status_code < 500
             return success, elapsed, ""
@@ -409,7 +440,9 @@ class TestMemoryStability:
 
         # Run many requests
         for _ in range(1000):
-            health_handler.handle("/api/health", {}, None)
+            response = health_handler.handle("/api/health", {}, None)
+            if inspect.iscoroutine(response):
+                asyncio.run(response)
 
         # After load
         gc.collect()
@@ -472,6 +505,8 @@ class TestConnectionPooling:
             for _ in range(10):
                 try:
                     response = health_handler.handle("/api/health", {}, None)
+                    if inspect.iscoroutine(response):
+                        response = asyncio.run(response)
                     results.append(response is not None and response.status_code == 200)
                 except Exception:
                     results.append(False)
@@ -505,6 +540,8 @@ class TestRateLimitingBehavior:
 
         for _ in range(100):
             response = health_handler.handle("/api/health", {}, None)
+            if inspect.iscoroutine(response):
+                response = asyncio.run(response)
             if response and response.status_code < 500:
                 success_count += 1
 

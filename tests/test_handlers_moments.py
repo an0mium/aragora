@@ -3,11 +3,24 @@
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch, MagicMock
 from dataclasses import dataclass
 from typing import Optional
 
-from aragora.server.handlers.moments import MomentsHandler, VALID_MOMENT_TYPES
+from aragora.server.handlers.moments import MomentsHandler, VALID_MOMENT_TYPES, _moments_limiter
+
+
+def _bypass_rbac(handler: MomentsHandler) -> MomentsHandler:
+    """Bypass RBAC auth checks on a MomentsHandler for unit testing."""
+    handler.get_auth_context = AsyncMock(return_value=MagicMock())
+    handler.check_permission = MagicMock()
+    return handler
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset the module-level rate limiter between tests."""
+    _moments_limiter._buckets.clear()
 
 
 @dataclass
@@ -68,26 +81,26 @@ class TestSummaryEndpoint:
     @pytest.fixture
     def handler(self):
         """Create handler with mock context."""
-        return MomentsHandler({})
+        return _bypass_rbac(MomentsHandler({}))
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_200_when_unavailable(self, handler):
+    async def test_200_when_unavailable(self, handler):
         """Should return stub response when moment detector unavailable."""
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        result = await handler.handle("/api/moments/summary", {}, Mock())
         assert result.status_code == 200
         data = json.loads(result.body)
         assert "not available" in data["message"]
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_200_when_not_configured(self, handler):
+    async def test_200_when_not_configured(self, handler):
         """Should return stub response when moment detector not in context."""
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        result = await handler.handle("/api/moments/summary", {}, Mock())
         assert result.status_code == 200
         data = json.loads(result.body)
         assert "not configured" in data["message"]
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_returns_summary_structure(self):
+    async def test_returns_summary_structure(self):
         """Should return proper summary structure."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -99,8 +112,8 @@ class TestSummaryEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -111,7 +124,7 @@ class TestSummaryEndpoint:
         assert "recent" in data
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_counts_by_type_correctly(self):
+    async def test_counts_by_type_correctly(self):
         """Should count moments by type."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -124,15 +137,15 @@ class TestSummaryEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
 
         data = json.loads(result.body)
         assert data["by_type"]["upset_victory"] == 2
         assert data["by_type"]["position_reversal"] == 1
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_counts_by_agent_correctly(self):
+    async def test_counts_by_agent_correctly(self):
         """Should count moments by agent."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -145,15 +158,15 @@ class TestSummaryEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
 
         data = json.loads(result.body)
         assert data["by_agent"]["claude"] == 2
         assert data["by_agent"]["gpt4"] == 1
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_returns_most_significant(self):
+    async def test_returns_most_significant(self):
         """Should return the most significant moment."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -163,21 +176,21 @@ class TestSummaryEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
 
         data = json.loads(result.body)
         assert data["most_significant"]["significance"] == 0.95
         assert data["most_significant"]["description"] == "High significance"
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_empty_cache_returns_valid_response(self):
+    async def test_empty_cache_returns_valid_response(self):
         """Should handle empty moment cache."""
         mock_detector = Mock()
         mock_detector._moment_cache = {}
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -193,16 +206,16 @@ class TestTimelineEndpoint:
     @pytest.fixture
     def handler(self):
         """Create handler with mock context."""
-        return MomentsHandler({})
+        return _bypass_rbac(MomentsHandler({}))
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_200_when_unavailable(self, handler):
+    async def test_200_when_unavailable(self, handler):
         """Should return stub response when moment detector unavailable."""
-        result = handler.handle("/api/moments/timeline", {}, Mock())
+        result = await handler.handle("/api/moments/timeline", {}, Mock())
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_returns_timeline_structure(self):
+    async def test_returns_timeline_structure(self):
         """Should return proper timeline structure."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -219,8 +232,8 @@ class TestTimelineEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/timeline", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/timeline", {}, Mock())
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -231,7 +244,7 @@ class TestTimelineEndpoint:
         assert "has_more" in data
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_respects_limit_parameter(self):
+    async def test_respects_limit_parameter(self):
         """Should respect limit parameter."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -241,8 +254,8 @@ class TestTimelineEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/timeline", {"limit": "5"}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/timeline", {"limit": "5"}, Mock())
 
         data = json.loads(result.body)
         assert len(data["moments"]) == 5
@@ -250,7 +263,7 @@ class TestTimelineEndpoint:
         assert data["has_more"] is True
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_respects_offset_parameter(self):
+    async def test_respects_offset_parameter(self):
         """Should respect offset parameter."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -260,21 +273,21 @@ class TestTimelineEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/timeline", {"limit": "5", "offset": "8"}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/timeline", {"limit": "5", "offset": "8"}, Mock())
 
         data = json.loads(result.body)
         assert len(data["moments"]) == 2  # Only 2 remaining after offset 8
         assert data["has_more"] is False
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_caps_limit_at_200(self):
+    async def test_caps_limit_at_200(self):
         """Should cap limit at 200."""
         mock_detector = Mock()
         mock_detector._moment_cache = {}
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/timeline", {"limit": "500"}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/timeline", {"limit": "500"}, Mock())
 
         data = json.loads(result.body)
         assert data["limit"] == 200
@@ -286,16 +299,16 @@ class TestTrendingEndpoint:
     @pytest.fixture
     def handler(self):
         """Create handler with mock context."""
-        return MomentsHandler({})
+        return _bypass_rbac(MomentsHandler({}))
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_200_when_unavailable(self, handler):
+    async def test_200_when_unavailable(self, handler):
         """Should return stub response when moment detector unavailable."""
-        result = handler.handle("/api/moments/trending", {}, Mock())
+        result = await handler.handle("/api/moments/trending", {}, Mock())
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_returns_trending_structure(self):
+    async def test_returns_trending_structure(self):
         """Should return proper trending structure."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -304,8 +317,8 @@ class TestTrendingEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/trending", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/trending", {}, Mock())
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -313,7 +326,7 @@ class TestTrendingEndpoint:
         assert "count" in data
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_orders_by_significance(self):
+    async def test_orders_by_significance(self):
         """Should order by significance descending."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -324,8 +337,8 @@ class TestTrendingEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/trending", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/trending", {}, Mock())
 
         data = json.loads(result.body)
         assert data["trending"][0]["id"] == "high"
@@ -333,7 +346,7 @@ class TestTrendingEndpoint:
         assert data["trending"][2]["id"] == "low"
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_respects_limit_parameter(self):
+    async def test_respects_limit_parameter(self):
         """Should respect limit parameter."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -343,22 +356,22 @@ class TestTrendingEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/trending", {"limit": "3"}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/trending", {"limit": "3"}, Mock())
 
         data = json.loads(result.body)
         assert len(data["trending"]) == 3
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_caps_limit_at_50(self):
+    async def test_caps_limit_at_50(self):
         """Should cap limit at 50."""
         mock_detector = Mock()
         mock_detector._moment_cache = {}
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
         # Test that limit is capped - we can't directly verify the cap
         # but we can verify it doesn't crash with large values
-        result = handler.handle("/api/moments/trending", {"limit": "100"}, Mock())
+        result = await handler.handle("/api/moments/trending", {"limit": "100"}, Mock())
         assert result.status_code == 200
 
 
@@ -368,40 +381,40 @@ class TestByTypeEndpoint:
     @pytest.fixture
     def handler(self):
         """Create handler with mock context."""
-        return MomentsHandler({})
+        return _bypass_rbac(MomentsHandler({}))
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_200_when_unavailable(self, handler):
+    async def test_200_when_unavailable(self, handler):
         """Should return stub response when moment detector unavailable."""
-        result = handler.handle("/api/moments/by-type/upset_victory", {}, Mock())
+        result = await handler.handle("/api/moments/by-type/upset_victory", {}, Mock())
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_validates_moment_type(self):
+    async def test_validates_moment_type(self):
         """Should reject invalid moment types."""
         mock_detector = Mock()
         mock_detector._moment_cache = {}
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/by-type/invalid_type", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/by-type/invalid_type", {}, Mock())
 
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "Invalid moment type" in data["error"]
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_rejects_path_traversal(self):
+    async def test_rejects_path_traversal(self):
         """Should reject path traversal in moment type."""
         mock_detector = Mock()
         mock_detector._moment_cache = {}
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/by-type/../../../etc", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/by-type/../../../etc", {}, Mock())
 
         assert result.status_code == 400
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_filters_by_type(self):
+    async def test_filters_by_type(self):
         """Should filter moments by type."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -412,8 +425,8 @@ class TestByTypeEndpoint:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/by-type/upset_victory", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/by-type/upset_victory", {}, Mock())
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -422,15 +435,15 @@ class TestByTypeEndpoint:
         assert len(data["moments"]) == 2
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_returns_all_valid_types(self):
+    async def test_returns_all_valid_types(self):
         """Should accept all valid moment types."""
         mock_detector = Mock()
         mock_detector._moment_cache = {}
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
 
         for moment_type in VALID_MOMENT_TYPES:
-            result = handler.handle(f"/api/moments/by-type/{moment_type}", {}, Mock())
+            result = await handler.handle(f"/api/moments/by-type/{moment_type}", {}, Mock())
             assert result.status_code == 200, f"Failed for type: {moment_type}"
 
 
@@ -438,7 +451,7 @@ class TestMomentSerialization:
     """Tests for moment to dict conversion."""
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_serializes_all_fields(self):
+    async def test_serializes_all_fields(self):
         """Should serialize all moment fields."""
         mock_detector = Mock()
         mock_detector._moment_cache = {
@@ -457,8 +470,8 @@ class TestMomentSerialization:
             ],
         }
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
 
         data = json.loads(result.body)
         moment = data["recent"][0]
@@ -501,7 +514,7 @@ class TestErrorHandling:
     """Tests for error handling."""
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_handles_exception_in_summary(self):
+    async def test_handles_exception_in_summary(self):
         """Should handle exceptions gracefully in summary."""
 
         class ExplodingCache:
@@ -511,6 +524,6 @@ class TestErrorHandling:
         mock_detector = Mock()
         mock_detector._moment_cache = ExplodingCache()
 
-        handler = MomentsHandler({"moment_detector": mock_detector})
-        result = handler.handle("/api/moments/summary", {}, Mock())
+        handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
+        result = await handler.handle("/api/moments/summary", {}, Mock())
         assert result.status_code == 500

@@ -6,6 +6,7 @@ and Prometheus-format metrics endpoints.
 """
 
 import json
+import sqlite3
 import time
 import pytest
 from pathlib import Path
@@ -22,25 +23,47 @@ from aragora.server.handlers.base import clear_cache, _cache
 
 
 @pytest.fixture
-def handler(tmp_path):
-    """Create MetricsHandler with mock context."""
+def mock_user():
+    """Create a mock authenticated user context for auth checks."""
+    user = MagicMock()
+    user.user_id = "test-user"
+    user.email = "test@example.com"
+    user.role = "admin"
+    user.roles = ["admin"]
+    user.permissions = ["metrics:read"]
+    user.is_admin = True
+    user.is_authenticated = True
+    user.authenticated = True
+    return user
+
+
+def _patch_auth(handler_instance, user):
+    """Patch auth methods on a MetricsHandler so tests bypass authentication."""
+    handler_instance.require_auth_or_error = lambda h: (user, None)
+    handler_instance.require_permission_or_error = lambda h, perm: (user, None)
+    return handler_instance
+
+
+@pytest.fixture
+def handler(tmp_path, mock_user):
+    """Create MetricsHandler with mock context and bypassed auth."""
     ctx = {
         "storage": Mock(),
         "elo_system": Mock(),
         "nomic_dir": tmp_path,
     }
-    return MetricsHandler(ctx)
+    return _patch_auth(MetricsHandler(ctx), mock_user)
 
 
 @pytest.fixture
-def handler_no_components():
+def handler_no_components(mock_user):
     """Create MetricsHandler without storage/elo."""
     ctx = {
         "storage": None,
         "elo_system": None,
         "nomic_dir": None,
     }
-    return MetricsHandler(ctx)
+    return _patch_auth(MetricsHandler(ctx), mock_user)
 
 
 @pytest.fixture(autouse=True)
@@ -196,7 +219,7 @@ class TestHealthEndpoint:
 
     def test_returns_degraded_when_storage_fails(self, handler):
         """Returns degraded status when storage check fails."""
-        handler.ctx["storage"].list_debates.side_effect = Exception("DB error")
+        handler.ctx["storage"].list_debates.side_effect = sqlite3.Error("DB error")
         handler.ctx["elo_system"].get_leaderboard.return_value = []
 
         result = handler.handle("/api/metrics/health", {}, None)
@@ -209,7 +232,7 @@ class TestHealthEndpoint:
     def test_returns_degraded_when_elo_fails(self, handler):
         """Returns degraded status when ELO check fails."""
         handler.ctx["storage"].list_debates.return_value = []
-        handler.ctx["elo_system"].get_leaderboard.side_effect = Exception("ELO error")
+        handler.ctx["elo_system"].get_leaderboard.side_effect = sqlite3.Error("ELO error")
 
         result = handler.handle("/api/metrics/health", {}, None)
         data = json.loads(result.body)
@@ -351,7 +374,7 @@ class TestPrometheusEndpoint:
     @patch("aragora.server.handlers.metrics.handler.get_metrics_output")
     def test_handles_prometheus_error(self, mock_output, handler):
         """Handles errors during Prometheus generation."""
-        mock_output.side_effect = Exception("Prometheus error")
+        mock_output.side_effect = RuntimeError("Prometheus error")
 
         result = handler.handle("/metrics", {}, None)
 
