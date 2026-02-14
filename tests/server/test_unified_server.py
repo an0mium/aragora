@@ -355,77 +355,60 @@ class TestAuthentication:
 
     def test_unauthenticated_request_blocked_on_protected_route(self):
         """Test that unauthenticated requests are blocked on protected routes."""
-        from aragora.server.auth import auth_config, check_auth
+        from aragora.server.auth import AuthConfig, check_auth
+        import aragora.server.auth as auth_mod
 
-        # Simulate auth being enabled
-        original_enabled = auth_config.enabled
-        original_token = auth_config.api_token
-        try:
-            auth_config.enabled = True
-            auth_config.api_token = "secret_token"
+        test_config = AuthConfig()
+        test_config.enabled = True
+        test_config.api_token = "secret_token"
 
-            # Request without token should fail
+        # Use a dedicated AuthConfig to avoid pollution from parallel tests
+        with patch.object(auth_mod, "auth_config", test_config):
             authenticated, _ = check_auth({})
             assert not authenticated
-        finally:
-            auth_config.enabled = original_enabled
-            auth_config.api_token = original_token
 
     def test_authenticated_request_allowed(self):
         """Test that authenticated requests are allowed."""
-        from aragora.server.auth import auth_config, check_auth
+        from aragora.server.auth import AuthConfig, check_auth
+        import aragora.server.auth as auth_mod
 
-        original_enabled = auth_config.enabled
-        original_token = auth_config.api_token
-        try:
-            auth_config.enabled = True
-            auth_config.api_token = "secret_token"
+        test_config = AuthConfig()
+        test_config.enabled = True
+        test_config.api_token = "secret_token"
 
-            # Generate valid token
-            token = auth_config.generate_token()
+        # Use a dedicated AuthConfig to avoid pollution from parallel tests
+        with patch.object(auth_mod, "auth_config", test_config):
+            token = test_config.generate_token()
             headers = {"Authorization": f"Bearer {token}"}
 
             authenticated, _ = check_auth(headers)
             assert authenticated
-        finally:
-            auth_config.enabled = original_enabled
-            auth_config.api_token = original_token
 
     def test_token_validation_expired(self):
         """Test that expired tokens are rejected."""
-        from aragora.server.auth import auth_config
+        from aragora.server.auth import AuthConfig
 
-        original_enabled = auth_config.enabled
-        original_token = auth_config.api_token
-        try:
-            auth_config.enabled = True
-            auth_config.api_token = "secret_token"
+        test_config = AuthConfig()
+        test_config.enabled = True
+        test_config.api_token = "secret_token"
 
-            # Generate token that expires immediately
-            token = auth_config.generate_token(expires_in=-1)
-            assert not auth_config.validate_token(token)
-        finally:
-            auth_config.enabled = original_enabled
-            auth_config.api_token = original_token
+        # Generate token that expires immediately
+        token = test_config.generate_token(expires_in=-1)
+        assert not test_config.validate_token(token)
 
     def test_token_revocation(self):
         """Test that revoked tokens are rejected."""
-        from aragora.server.auth import auth_config
+        from aragora.server.auth import AuthConfig
 
-        original_enabled = auth_config.enabled
-        original_token = auth_config.api_token
-        try:
-            auth_config.enabled = True
-            auth_config.api_token = "secret_token"
+        test_config = AuthConfig()
+        test_config.enabled = True
+        test_config.api_token = "secret_token"
 
-            # Generate and revoke token
-            token = auth_config.generate_token()
-            auth_config.revoke_token(token)
-            assert auth_config.is_revoked(token)
-            assert not auth_config.validate_token(token)
-        finally:
-            auth_config.enabled = original_enabled
-            auth_config.api_token = original_token
+        # Generate and revoke token
+        token = test_config.generate_token()
+        test_config.revoke_token(token)
+        assert test_config.is_revoked(token)
+        assert not test_config.validate_token(token)
 
 
 class TestAuthContextPropagation:
