@@ -91,7 +91,10 @@ def _verify_google_chat_token(auth_header: str) -> bool:
     if not auth_header or not auth_header.startswith("Bearer "):
         return False
 
-    token = auth_header[7:]  # Remove "Bearer " prefix
+    token = auth_header[7:].strip()  # Remove "Bearer " prefix and whitespace
+
+    if not token:
+        return False
 
     try:
         from google.oauth2 import id_token

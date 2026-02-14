@@ -283,14 +283,16 @@ class TestPreDebateResearcherInit:
         researcher = PreDebateResearcher()
         assert researcher._anthropic_client is None
 
-        with patch("anthropic.Anthropic") as mock_anthropic:
-            mock_client = MagicMock()
-            mock_anthropic.return_value = mock_client
+        # Create a mock anthropic module for environments where anthropic isn't installed
+        mock_anthropic_mod = MagicMock()
+        mock_client = MagicMock()
+        mock_anthropic_mod.Anthropic.return_value = mock_client
 
+        with patch.dict("sys.modules", {"anthropic": mock_anthropic_mod}):
             client = researcher.anthropic_client
 
         assert client is mock_client
-        mock_anthropic.assert_called_once()
+        mock_anthropic_mod.Anthropic.assert_called_once()
 
 
 # =============================================================================
