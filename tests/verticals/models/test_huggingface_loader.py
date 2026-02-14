@@ -419,7 +419,7 @@ class TestHuggingFaceSpecialistLoaderQuantization:
         assert config is None
         assert kwargs == {}
 
-    @patch("aragora.verticals.models.huggingface_loader.BitsAndBytesConfig")
+    @patch("transformers.BitsAndBytesConfig")
     def test_8bit_quantization(self, mock_bnb):
         """Test 8bit quantization config."""
         loader = HuggingFaceSpecialistLoader()
@@ -432,7 +432,7 @@ class TestHuggingFaceSpecialistLoaderQuantization:
         assert call_kwargs.get("load_in_8bit") is True
         assert "device_map" in kwargs
 
-    @patch("aragora.verticals.models.huggingface_loader.BitsAndBytesConfig")
+    @patch("transformers.BitsAndBytesConfig")
     def test_4bit_quantization(self, mock_bnb):
         """Test 4bit quantization config."""
         loader = HuggingFaceSpecialistLoader()
@@ -463,8 +463,8 @@ class TestHuggingFaceSpecialistLoaderLoadModel:
         with pytest.raises(ModelLoadError, match="PyTorch and transformers required"):
             loader.load_model("test-model", "software")
 
-    @patch("aragora.verticals.models.huggingface_loader.AutoTokenizer")
-    @patch("aragora.verticals.models.huggingface_loader.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("transformers.AutoModelForCausalLM")
     def test_load_model_causal_lm(self, mock_model_cls, mock_tokenizer_cls):
         """Test loading causal LM."""
         loader = HuggingFaceSpecialistLoader()

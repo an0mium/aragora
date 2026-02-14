@@ -78,7 +78,7 @@ class TestLangGraphTimeoutHandling:
 
         # Mock the HTTP session
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.langgraph_agent.create_client_session"
         ) as mock_session_factory:
             mock_session = MagicMock()
             mock_response = AsyncMock()
@@ -325,7 +325,7 @@ class TestLangGraphTimeoutHandling:
 
         # Mock the HTTP session for update_state
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.langgraph_agent.create_client_session"
         ) as mock_session_factory:
             mock_session = MagicMock()
             mock_response = AsyncMock()
@@ -386,7 +386,7 @@ class TestLangGraphTimeoutHandling:
 
         # Test handling of API error response
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.langgraph_agent.create_client_session"
         ) as mock_session_factory:
             mock_session = MagicMock()
             mock_response = AsyncMock()
@@ -411,7 +411,7 @@ class TestLangGraphTimeoutHandling:
 
         # Test handling of connection error
         with patch(
-            "aragora.agents.api_agents.common.create_client_session"
+            "aragora.agents.api_agents.langgraph_agent.create_client_session"
         ) as mock_session_factory:
             mock_session = MagicMock()
 

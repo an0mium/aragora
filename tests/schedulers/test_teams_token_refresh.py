@@ -37,7 +37,7 @@ class MockTenantStore:
         """Return tenants with expiring tokens."""
         return self.tenants
 
-    def refresh_workspace_token(
+    async def refresh_workspace_token(
         self, tenant_id: str, client_id: str, client_secret: str
     ) -> MockTenant | None:
         """Mock token refresh."""
