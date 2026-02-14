@@ -838,6 +838,7 @@ class WebhookRetryQueue:
         def _sync_send() -> tuple[bool, int, str | None]:
             import json as _json
             from urllib.error import HTTPError, URLError
+            from urllib.parse import urlparse
             from urllib.request import Request, urlopen
 
             try:
@@ -866,6 +867,11 @@ class WebhookRetryQueue:
                     signature = generate_signature(payload_json, delivery.webhook_secret)
                     headers["X-Aragora-Signature"] = signature
 
+                # Validate URL scheme to prevent SSRF
+                parsed = urlparse(delivery.url)
+                if parsed.scheme not in ("http", "https"):
+                    return False, 0, f"Unsupported URL scheme: {parsed.scheme}"
+
                 request = Request(
                     delivery.url,
                     data=payload_json.encode("utf-8"),
@@ -873,7 +879,7 @@ class WebhookRetryQueue:
                     method="POST",
                 )
 
-                with urlopen(request, timeout=self._request_timeout) as response:
+                with urlopen(request, timeout=self._request_timeout) as response:  # noqa: S310
                     return True, response.status, None
 
             except HTTPError as e:

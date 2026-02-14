@@ -300,7 +300,7 @@ services:
       redis-replica-2:
         condition: service_healthy
     volumes:
-      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf
       - sentinel-1-data:/data
     networks:
       - aragora-network
@@ -328,7 +328,7 @@ services:
       redis-replica-2:
         condition: service_healthy
     volumes:
-      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf
       - sentinel-2-data:/data
     networks:
       - aragora-network
@@ -356,7 +356,7 @@ services:
       redis-replica-2:
         condition: service_healthy
     volumes:
-      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf
       - sentinel-3-data:/data
     networks:
       - aragora-network

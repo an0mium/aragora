@@ -81,7 +81,7 @@ export interface AgentAccuracy {
 /**
  * Interface for the internal client methods used by AgentsAPI.
  */
-interface AgentsClientInterface {
+export interface AgentsClientInterface {
   // Core listing methods
   listAgents(): Promise<{ agents: Agent[] }>;
   listAgentsAvailability(): Promise<{ available: string[]; missing?: string[] }>;
@@ -90,13 +90,17 @@ interface AgentsClientInterface {
   getLocalAgentsStatus(): Promise<Record<string, unknown>>;
 
   // Basic agent info
+  getAgent(name: string): Promise<Record<string, unknown>>;
   getAgentProfile(name: string): Promise<AgentProfile>;
+  getAgentHistory(name: string, params?: Record<string, unknown>): Promise<{ matches: unknown[] }>;
 
   // Calibration
+  getAgentCalibration(name: string): Promise<Record<string, unknown>>;
   getAgentCalibrationCurve(name: string): Promise<Record<string, unknown>>;
   getAgentCalibrationSummary(name: string): Promise<Record<string, unknown>>;
 
   // Performance
+  getAgentPerformance(name: string): Promise<Record<string, unknown>>;
   getAgentHeadToHead(name: string, opponent: string): Promise<HeadToHeadStats>;
   getAgentOpponentBriefing(name: string, opponent: string): Promise<OpponentBriefing>;
   getAgentConsistency(name: string): Promise<AgentConsistency>;
@@ -109,10 +113,13 @@ interface AgentsClientInterface {
   getAgentNetwork(name: string): Promise<AgentNetwork>;
   getAgentAllies(name: string): Promise<{ allies: AgentRelationship[] }>;
   getAgentRivals(name: string): Promise<{ rivals: AgentRelationship[] }>;
+  getAgentRelationship(agentA: string, agentB: string): Promise<AgentRelationship>;
 
   // Other metrics
+  getAgentReputation(name: string): Promise<Record<string, unknown>>;
   getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }>;
   getAgentDomains(name: string): Promise<{ domains: DomainRating[] }>;
+  getAgentElo(name: string): Promise<Record<string, unknown>>;
 
   // Comparison and leaderboards
   getLeaderboard(): Promise<{ agents: Agent[] }>;
@@ -124,6 +131,9 @@ interface AgentsClientInterface {
   getRecentFlips(params?: { limit?: number }): Promise<{ flips: unknown[] }>;
   getFlipsSummary(): Promise<Record<string, unknown>>;
   getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }>;
+
+  // Team selection
+  selectTeam(params: Record<string, unknown>): Promise<Record<string, unknown>>;
 
   // Generic request method (for persona/identity/accuracy endpoints)
   request<T = unknown>(
@@ -164,6 +174,13 @@ export class AgentsAPI {
    */
   async list(): Promise<{ agents: Agent[] }> {
     return this.client.listAgents();
+  }
+
+  /**
+   * Get a specific agent by name.
+   */
+  async get(name: string): Promise<Record<string, unknown>> {
+    return this.client.getAgent(name);
   }
 
   /**

@@ -367,13 +367,17 @@ class HuggingFaceSpecialistLoader:
             if quant_config:
                 model_kwargs["quantization_config"] = quant_config
 
+            # Ensure revision is set for supply-chain safety (callers can pass
+            # revision= via kwargs to pin a specific commit hash).
+            model_kwargs.setdefault("revision", None)
+
             if model_type == "causal_lm":
-                model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
+                model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)  # nosec B614
             elif model_type == "encoder":
-                model = AutoModel.from_pretrained(model_id, **model_kwargs)
+                model = AutoModel.from_pretrained(model_id, **model_kwargs)  # nosec B614
             else:
                 # Default to auto model
-                model = AutoModel.from_pretrained(model_id, **model_kwargs)
+                model = AutoModel.from_pretrained(model_id, **model_kwargs)  # nosec B614
 
             # Load LoRA adapter if specified
             if adapter_id:

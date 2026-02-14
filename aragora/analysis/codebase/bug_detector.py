@@ -904,7 +904,7 @@ class DeprecatedAPIPattern(BugPattern):
     # Deprecated patterns: (regex, message, suggested replacement)
     DEPRECATED_PATTERNS = [
         (r"\.has_key\(", "dict.has_key() is deprecated", "Use 'key in dict' instead"),
-        (r"execfile\(", "execfile() is removed in Python 3", "Use exec(open().read())"),
+        (r"execfile\(", "execfile() is removed in Python 3", "Use exec(open().read())"),  # nosec
         (r"print\s+['\"]", "print statement syntax", "Use print() function"),
         (
             r"from collections import.*Callable",

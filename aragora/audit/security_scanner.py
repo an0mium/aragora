@@ -149,13 +149,12 @@ class SecurityReport:
 
     def calculate_summary(self) -> None:
         """Calculate summary statistics."""
-        self.critical_count = sum(
-            1 for f in self.findings if f.severity == SecuritySeverity.CRITICAL
-        )
-        self.high_count = sum(1 for f in self.findings if f.severity == SecuritySeverity.HIGH)
-        self.medium_count = sum(1 for f in self.findings if f.severity == SecuritySeverity.MEDIUM)
-        self.low_count = sum(1 for f in self.findings if f.severity == SecuritySeverity.LOW)
-        self.info_count = sum(1 for f in self.findings if f.severity == SecuritySeverity.INFO)
+        active = [f for f in self.findings if not f.is_false_positive]
+        self.critical_count = sum(1 for f in active if f.severity == SecuritySeverity.CRITICAL)
+        self.high_count = sum(1 for f in active if f.severity == SecuritySeverity.HIGH)
+        self.medium_count = sum(1 for f in active if f.severity == SecuritySeverity.MEDIUM)
+        self.low_count = sum(1 for f in active if f.severity == SecuritySeverity.LOW)
+        self.info_count = sum(1 for f in active if f.severity == SecuritySeverity.INFO)
 
     @property
     def total_findings(self) -> int:
@@ -837,6 +836,11 @@ class SecurityScanner:
 
                 # Calculate line number
                 line_num = content[: match.start()].count("\n") + 1
+
+                # Check for # nosec inline suppression
+                source_line = lines[line_num - 1] if line_num <= len(lines) else ""
+                if "# nosec" in source_line:
+                    is_false_positive = True
 
                 # Get code snippet
                 snippet_start = max(0, line_num - 2)

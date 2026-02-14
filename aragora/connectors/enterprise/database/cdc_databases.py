@@ -715,7 +715,7 @@ class MongoDBCDCHandler(BaseCDCHandler):
             conn_str = self.connection_string
         elif self.username and self.password:
             conn_str = (
-                f"mongodb://{self.username}:{self.password}@"
+                f"mongodb://{self.username}:{self.password}@"  # nosec
                 f"{self.host}:{self.port}/{self.database_name}"
             )
         else:

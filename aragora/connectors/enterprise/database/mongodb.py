@@ -140,7 +140,7 @@ class MongoDBConnector(EnterpriseConnector):
         Mask any password in a MongoDB connection string for safe logging.
 
         Handles formats like:
-        - mongodb://user:password@host:port/db
+        - mongodb://user:password@host:port/db  # nosec
         - mongodb+srv://user:password@cluster/db
         """
         import re

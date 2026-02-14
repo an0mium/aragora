@@ -165,6 +165,15 @@ class FixLoopConfig:
     on_fix_applied: Callable[[FixAttempt], Awaitable[None]] | None = None
     on_iteration_complete: Callable[[int, TestResult], Awaitable[None]] | None = None
 
+    # Batch mode
+    enable_batch_mode: bool = False
+    max_batch_size: int = 5
+    enable_elo_selection: bool = False
+    elo_fallback_agents: list[str] | None = None
+    enable_bug_check: bool = False
+    enable_impact_analysis: bool = False
+    batch_test_command: str | None = None
+
     # Persistence
     save_attempts: bool = True
     attempts_dir: Path | None = None
@@ -829,6 +838,27 @@ class TestFixerOrchestrator:
         )
         self._learn_from_attempt(attempt)
         return attempt
+
+    async def run_batch_fix_loop(
+        self,
+        max_iterations: int | None = None,
+    ) -> "BatchFixResult":
+        """Run the batch fix loop.
+
+        Collects all failures, groups them into batches, and processes
+        each batch with optional ELO selection, bug checking, and
+        impact analysis.
+
+        Args:
+            max_iterations: Override config max_iterations.
+
+        Returns:
+            BatchFixResult with complete batch history.
+        """
+        from aragora.nomic.testfixer.batch import BatchOrchestrator, BatchFixResult
+
+        batch_orch = BatchOrchestrator(self, self.config)
+        return await batch_orch.run(max_iterations)
 
     def _learn_from_attempt(self, attempt: FixAttempt) -> None:
         if not self.pattern_learner:

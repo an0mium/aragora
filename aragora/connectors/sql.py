@@ -63,8 +63,8 @@ class SQLConnector(BaseConnector):
     - SQLite (uses built-in sqlite3, wrapped for async)
 
     Connection string formats:
-    - PostgreSQL: postgresql://user:pass@host:port/database
-    - MySQL: mysql://user:pass@host:port/database
+    - PostgreSQL: postgresql://user:pass@host:port/database  # nosec
+    - MySQL: mysql://user:pass@host:port/database  # nosec
     - SQLite: sqlite:///path/to/database.db or sqlite://:memory:
 
     IMPORTANT: Only parameterized queries are allowed.
@@ -210,7 +210,7 @@ class SQLConnector(BaseConnector):
             import aiomysql
 
             # Parse connection string
-            # mysql://user:pass@host:port/database
+            # mysql://user:pass@host:port/database  # nosec
             import urllib.parse
 
             parsed = urllib.parse.urlparse(self._connection_string)

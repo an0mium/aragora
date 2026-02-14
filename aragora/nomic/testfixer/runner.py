@@ -837,6 +837,34 @@ class TestRunner:
             diagnostics=diagnostics,
         )
 
+    async def run_full(self, override_command: str | None = None) -> TestResult:
+        """Run tests collecting ALL failures (strips --maxfail).
+
+        Args:
+            override_command: Optional full-suite test command. If not
+                provided, the configured test_command is used with
+                --maxfail stripped.
+
+        Returns:
+            TestResult with all failures collected.
+        """
+        command = override_command or self._strip_maxfail(self.test_command)
+        runner = TestRunner(
+            repo_path=self.repo_path,
+            test_command=command,
+            timeout_seconds=self.timeout,
+            env=self.env,
+            run_id=self.run_id,
+            artifacts_dir=self.artifacts_dir,
+            enable_diagnostics=self.enable_diagnostics,
+        )
+        return await runner.run()
+
+    @staticmethod
+    def _strip_maxfail(command: str) -> str:
+        """Remove --maxfail flag from a test command."""
+        return re.sub(r"\s*--maxfail=?\s*\d*", "", command).strip()
+
     async def run_single_test(self, test_id: str) -> TestResult:
         """Run a single specific test.
 

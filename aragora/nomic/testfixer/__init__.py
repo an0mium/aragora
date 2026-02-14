@@ -68,6 +68,15 @@ from aragora.nomic.testfixer.learning import (
     FixPattern,
     PatternMatch,
 )
+from aragora.nomic.testfixer.batch import (
+    BatchOrchestrator,
+    BatchFixResult,
+    FailureBatch,
+    FailureGrouper,
+)
+from aragora.nomic.testfixer.agent_selector import AgentSelector
+from aragora.nomic.testfixer.bug_check import PostFixBugChecker, BugCheckResult
+from aragora.nomic.testfixer.impact import ImpactAnalyzer, ImpactResult
 
 __all__ = [
     "TestFixerOrchestrator",
@@ -97,4 +106,13 @@ __all__ = [
     "PatternLearner",
     "FixPattern",
     "PatternMatch",
+    "BatchOrchestrator",
+    "BatchFixResult",
+    "FailureBatch",
+    "FailureGrouper",
+    "AgentSelector",
+    "PostFixBugChecker",
+    "BugCheckResult",
+    "ImpactAnalyzer",
+    "ImpactResult",
 ]

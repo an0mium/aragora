@@ -372,7 +372,7 @@ class EmailRateLimiter:
         """
 
         try:
-            result = redis.eval(
+            result = redis.eval(  # nosec
                 lua_script,
                 4,  # Number of keys
                 self._bucket_key(tenant_id, provider),

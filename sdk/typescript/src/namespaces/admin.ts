@@ -96,6 +96,7 @@ export interface SecurityKey {
  * Interface for the internal client methods used by AdminAPI.
  */
 interface AdminClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
   listOrganizations(params?: PaginationParams): Promise<OrganizationList>;
   listAdminUsers(params?: PaginationParams): Promise<AdminUserList>;
   getAdminStats(): Promise<PlatformStats>;

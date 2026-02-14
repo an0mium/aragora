@@ -17,12 +17,19 @@ import type {
  * Interface for the internal client methods used by GauntletAPI.
  */
 interface GauntletClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
   runGauntlet(request: GauntletRunRequest): Promise<GauntletRunResponse>;
   runGauntletAndWait(
     request: GauntletRunRequest,
     options?: { pollIntervalMs?: number; timeoutMs?: number }
   ): Promise<GauntletRun>;
+  listGauntletReceipts(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getGauntletReceipt(receiptId: string): Promise<Record<string, unknown>>;
+  verifyGauntletReceipt(receiptId: string): Promise<{ valid: boolean; hash: string }>;
+  exportGauntletReceipt(receiptId: string, format: string): Promise<Record<string, unknown>>;
   listGauntletPersonas(params?: { category?: string; enabled?: boolean }): Promise<{ personas: GauntletPersona[] }>;
+  listGauntletResults(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getGauntletHeatmap(gauntletId: string, format: string): Promise<Record<string, unknown>>;
   compareGauntlets(gauntletId1: string, gauntletId2: string): Promise<GauntletComparison>;
 }
 
@@ -84,6 +91,48 @@ export class GauntletAPI {
   }
 
   /**
+   * List gauntlet receipts with optional filtering.
+   */
+  async list(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.listGauntletReceipts(params);
+  }
+
+  /**
+   * Get a specific gauntlet receipt by ID.
+   */
+  async get(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.getGauntletReceipt(receiptId);
+  }
+
+  /**
+   * Verify a gauntlet receipt's integrity.
+   */
+  async verify(receiptId: string): Promise<{ valid: boolean; hash: string }> {
+    return this.client.verifyGauntletReceipt(receiptId);
+  }
+
+  /**
+   * Export a gauntlet receipt in various formats.
+   */
+  async export(receiptId: string, format: string): Promise<Record<string, unknown>> {
+    return this.client.exportGauntletReceipt(receiptId, format);
+  }
+
+  /**
+   * List gauntlet results with optional filtering.
+   */
+  async listResults(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.listGauntletResults(params);
+  }
+
+  /**
+   * Get gauntlet heatmap in the specified format.
+   */
+  async getHeatmap(gauntletId: string, format: string): Promise<Record<string, unknown>> {
+    return this.client.getGauntletHeatmap(gauntletId, format);
+  }
+
+  /**
    * Get gauntlet details.
    */
   async getGauntlet(gauntletId: string): Promise<Record<string, unknown>> {
@@ -91,7 +140,7 @@ export class GauntletAPI {
   }
 
   /**
-   * Compare gauntlets.
+   * Compare gauntlets (alias using request).
    */
   async compareGauntlets(gauntletId: string, otherGauntletId: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/gauntlet/${gauntletId}/compare/${otherGauntletId}`) as Promise<Record<string, unknown>>;

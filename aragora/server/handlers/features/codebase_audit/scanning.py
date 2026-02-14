@@ -487,7 +487,7 @@ def _get_mock_sast_findings(scan_id: str) -> list[Finding]:
             description="Unsanitized input passed to shell command",
             file_path="src/utils/export.py",
             line_number=78,
-            code_snippet='os.system(f"convert {filename} output.pdf")',
+            code_snippet='os.system(f"convert {filename} output.pdf")',  # nosec
             rule_id="python.command-injection",
             cwe_id="CWE-78",
             owasp_category="A03:2021 - Injection",

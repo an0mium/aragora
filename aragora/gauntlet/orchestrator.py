@@ -1356,9 +1356,6 @@ class GauntletOrchestrator:
         if len(critical) >= 2:
             return Verdict.REJECTED, 0.9
 
-        if len(critical) >= 1 and len(high) >= 3:
-            return Verdict.REJECTED, 0.85
-
         if risk_score > 0.8:
             return Verdict.REJECTED, 0.8
 

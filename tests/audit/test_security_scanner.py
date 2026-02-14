@@ -520,6 +520,67 @@ class TestQuickSecurityScan:
         assert "total_findings" in result or "findings" in result
 
 
+class TestNosecSuppression:
+    """Tests for # nosec inline suppression."""
+
+    @pytest.fixture
+    def scanner(self):
+        return SecurityScanner()
+
+    def test_nosec_marks_false_positive(self, scanner, tmp_path):
+        """Test that # nosec marks findings as false positive."""
+        code = 'result = eval(user_input)  # nosec\n'
+        file_path = tmp_path / "suppressed.py"
+        file_path.write_text(code)
+
+        findings = scanner.scan_file(str(file_path))
+        assert len(findings) >= 1
+        assert all(f.is_false_positive for f in findings)
+
+    def test_nosec_excluded_from_summary(self, scanner, tmp_path):
+        """Test that # nosec findings are excluded from summary counts."""
+        from datetime import datetime, timezone
+
+        code = 'result = eval(user_input)  # nosec\n'
+        file_path = tmp_path / "suppressed.py"
+        file_path.write_text(code)
+
+        findings = scanner.scan_file(str(file_path))
+        report = SecurityReport(
+            scan_id="test",
+            repository="/test",
+            started_at=datetime.now(timezone.utc),
+            findings=findings,
+        )
+        report.calculate_summary()
+
+        assert report.critical_count == 0
+        assert report.high_count == 0
+
+    def test_without_nosec_counts_normally(self, scanner, tmp_path):
+        """Test that findings without # nosec are counted normally."""
+        from datetime import datetime, timezone
+
+        code = 'result = eval(user_input)\n'
+        file_path = tmp_path / "not_suppressed.py"
+        file_path.write_text(code)
+
+        findings = scanner.scan_file(str(file_path))
+        non_fp = [f for f in findings if not f.is_false_positive]
+        assert len(non_fp) >= 1
+
+        report = SecurityReport(
+            scan_id="test",
+            repository="/test",
+            started_at=datetime.now(timezone.utc),
+            findings=findings,
+        )
+        report.calculate_summary()
+
+        total = report.critical_count + report.high_count + report.medium_count + report.low_count + report.info_count
+        assert total >= 1
+
+
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 

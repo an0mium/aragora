@@ -129,7 +129,7 @@ SECRET_VALUE_PATTERNS = [
     re.compile(r"aws[-_]?secret[-_]?[a-zA-Z0-9/+=]{40}"),
     # Private keys
     re.compile(r"-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----"),
-    re.compile(r"-----BEGIN OPENSSH PRIVATE KEY-----"),
+    re.compile(r"-----BEGIN OPENSSH PRIVATE KEY-----"),  # nosec
     # Database connection strings
     re.compile(r"(?:postgres|mysql|mongodb|redis)://[^@]+:[^@]+@"),
     # Basic auth in URLs

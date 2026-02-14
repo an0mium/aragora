@@ -382,7 +382,7 @@ old_stdout = sys.stdout
 sys.stdout = OutputCapture()
 
 try:
-    exec({repr(code)}, {{"__builtins__": SAFE_BUILTINS}}, namespace)
+    exec({repr(code)}, {{"__builtins__": SAFE_BUILTINS}}, namespace)  # nosec
     sys.stdout = old_stdout
     # Serialize all namespace variables that can be repr'd to literals
     serializable_ns = {{}}

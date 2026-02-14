@@ -328,6 +328,12 @@ class StreamEventType(Enum):
     TESTFIXER_LOOP_COMPLETE = "testfixer_loop_complete"  # Full fix loop finished
     TESTFIXER_PATTERN_LEARNED = "testfixer_pattern_learned"  # New fix pattern learned
 
+    # TestFixer Batch Events (batch processing lifecycle)
+    TESTFIXER_BATCH_STARTED = "testfixer_batch_started"  # Batch fix loop started
+    TESTFIXER_BATCH_COMPLETE = "testfixer_batch_complete"  # Batch fix loop finished
+    TESTFIXER_BUG_CHECK = "testfixer_bug_check"  # Post-fix bug check result
+    TESTFIXER_IMPACT_CHECK = "testfixer_impact_check"  # Cross-test impact analysis result
+
 
 @dataclass
 class StreamEvent:

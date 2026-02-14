@@ -62,6 +62,7 @@ export interface MarketplacePurchase {
  * Interface for the internal client methods used by MarketplaceAPI.
  */
 interface MarketplaceClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
   browseMarketplace(params?: MarketplaceListParams): Promise<{ templates: MarketplaceTemplate[] }>;
   getMarketplaceTemplate(templateId: string): Promise<MarketplaceTemplate>;
   publishTemplate(body: {

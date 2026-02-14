@@ -17,6 +17,7 @@ import type {
  * Interface for the internal client methods used by OrganizationsAPI.
  */
 interface OrganizationsClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
   getOrganization(orgId: string): Promise<Organization>;
   updateOrganization(orgId: string, body: { name?: string; settings?: Record<string, unknown> }): Promise<Organization>;
   listOrganizationMembers(orgId: string, params?: PaginationParams): Promise<{ members: OrganizationMember[] }>;

@@ -724,10 +724,17 @@ class InMemorySessionStore(SessionStore):
                 self._device_token_index.pop(old_session.push_token, None)
                 del self._device_sessions[oldest_id]
 
-            # Update token index
-            old_session = self._device_sessions.get(session.device_id)
-            if old_session and old_session.push_token != session.push_token:
-                self._device_token_index.pop(old_session.push_token, None)
+            # Remove stale token index entries for this device.
+            # Walk the index rather than comparing object fields, because
+            # callers may mutate the session in-place before re-storing it,
+            # making old_session.push_token == session.push_token even when
+            # the token actually changed.
+            stale_tokens = [
+                tok for tok, did in self._device_token_index.items()
+                if did == session.device_id and tok != session.push_token
+            ]
+            for tok in stale_tokens:
+                del self._device_token_index[tok]
 
             session.touch()
             self._device_sessions[session.device_id] = session

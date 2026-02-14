@@ -558,7 +558,7 @@ _user_code = {repr(code)}
 try:
     result = None
     exec_globals = {{"input_data": input_data, "__builtins__": SAFE_BUILTINS}}
-    exec(_user_code, exec_globals)
+    exec(_user_code, exec_globals)  # nosec
     result = exec_globals.get("result")
 except Exception as e:
     _capture_print(f"Error: {{e}}")

@@ -194,6 +194,20 @@ async def _run(args: argparse.Namespace) -> int:
 
         config.on_fix_proposed = approve
 
+    # Batch mode config
+    if args.batch:
+        config.enable_batch_mode = True
+        config.max_batch_size = args.max_batch_size
+        config.enable_elo_selection = args.elo_select
+        config.enable_bug_check = args.bug_check
+        config.enable_impact_analysis = args.impact_analysis
+        if args.batch_test_command:
+            config.batch_test_command = args.batch_test_command
+        if args.elo_fallback_agents:
+            config.elo_fallback_agents = [
+                a.strip() for a in args.elo_fallback_agents.split(",") if a.strip()
+            ]
+
     fixer = TestFixerOrchestrator(
         repo_path=repo_path,
         test_command=test_command,
@@ -202,7 +216,10 @@ async def _run(args: argparse.Namespace) -> int:
         test_timeout=args.timeout_seconds,
     )
 
-    result = await fixer.run_fix_loop(max_iterations=args.max_iterations)
+    if args.batch:
+        result = await fixer.run_batch_fix_loop(max_iterations=args.max_iterations)
+    else:
+        result = await fixer.run_fix_loop(max_iterations=args.max_iterations)
     print(result.summary())
     if result.status.value not in ("success",):
         return 1
@@ -321,6 +338,44 @@ def build_parser(subparsers) -> None:
         default=None,
         help="Pattern store path (default: .testfixer/patterns.json)",
     )
+    # Batch mode arguments
+    parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="Enable batch mode (collect all failures, group, fix in batches)",
+    )
+    parser.add_argument(
+        "--max-batch-size",
+        type=int,
+        default=5,
+        help="Max failures per batch (default: 5)",
+    )
+    parser.add_argument(
+        "--elo-select",
+        action="store_true",
+        help="Use ELO-based agent selection per batch category",
+    )
+    parser.add_argument(
+        "--elo-fallback-agents",
+        default="",
+        help="Comma-separated fallback agent types for ELO selection",
+    )
+    parser.add_argument(
+        "--bug-check",
+        action="store_true",
+        help="Run post-fix static analysis validation",
+    )
+    parser.add_argument(
+        "--impact-analysis",
+        action="store_true",
+        help="Run cross-test regression detection after each batch",
+    )
+    parser.add_argument(
+        "--batch-test-command",
+        default=None,
+        help="Override test command for full-suite runs in batch mode",
+    )
+
     parser.add_argument(
         "--generation-timeout-seconds",
         type=float,
