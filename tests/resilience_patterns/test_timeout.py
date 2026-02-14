@@ -418,10 +418,6 @@ class TestTimeoutContextSync:
         assert exc_info.value.timeout_seconds == 0.1
         assert exc_info.value.operation == "slow_context"
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_callback_invoked(self):
         """Test that callback is invoked on timeout."""
         import time
@@ -434,10 +430,6 @@ class TestTimeoutContextSync:
 
         callback.assert_called_once_with("test")
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_signal_handler_cleanup(self):
         """Test that signal handler is properly cleaned up."""
         original_handler = signal.getsignal(signal.SIGALRM)
