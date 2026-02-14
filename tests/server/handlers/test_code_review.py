@@ -40,7 +40,13 @@ def _always_allowed(key: str) -> bool:
 
 @pytest.fixture(autouse=True)
 def disable_rate_limits():
-    """Disable rate limits for all tests in this module."""
+    """Disable rate limits for all tests in this module.
+
+    Patches both local (in-memory) rate limiters and the distributed rate
+    limiter singleton.  The distributed limiter is captured by the
+    ``@rate_limit`` decorator at decoration time, so its internal request
+    counts survive across tests unless explicitly reset here.
+    """
     import sys
 
     rl_module = sys.modules.get("aragora.server.handlers.utils.rate_limit")
@@ -48,16 +54,36 @@ def disable_rate_limits():
         yield
         return
 
+    # --- local limiters ---
     original_is_allowed = {}
     for name, limiter in getattr(rl_module, "_limiters", {}).items():
         original_is_allowed[name] = limiter.is_allowed
         limiter.is_allowed = _always_allowed
+
+    # --- distributed limiter ---
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
 
     yield
 
     for name, original in original_is_allowed.items():
         if name in getattr(rl_module, "_limiters", {}):
             rl_module._limiters[name].is_allowed = original
+
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
 
 
 # ===========================================================================
@@ -223,16 +249,22 @@ def reset_circuit_breaker():
     reset_code_review_circuit_breaker()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def clear_review_results():
-    """Clear stored review results before each test."""
-    from aragora.server.handlers.code_review import _review_results, _review_results_lock
+    """Clear stored review results before and after each test.
 
-    with _review_results_lock:
-        _review_results.clear()
+    Accesses ``_review_results`` through the module object rather than a
+    ``from … import`` binding so that the reference remains correct even
+    if the module is reloaded by another test file (e.g. RBAC reload in
+    ``test_code_review_handler.py``).
+    """
+    import aragora.server.handlers.code_review as _cr_module
+
+    with _cr_module._review_results_lock:
+        _cr_module._review_results.clear()
     yield
-    with _review_results_lock:
-        _review_results.clear()
+    with _cr_module._review_results_lock:
+        _cr_module._review_results.clear()
 
 
 # ===========================================================================
