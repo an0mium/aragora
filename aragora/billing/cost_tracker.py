@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 from uuid import uuid4
 
+from aragora.billing.budget_manager import get_budget_manager
 from aragora.billing.usage import (
     UsageEvent,
     UsageEventType,
@@ -1069,6 +1070,24 @@ class CostTracker:
                             exc_info=True,
                         )
 
+            # Enforce budget suspension for critical anomalies
+            for anomaly_dict in stored:
+                if anomaly_dict.get("severity") == "critical":
+                    try:
+                        mgr = get_budget_manager()
+                        mgr.handle_cost_anomaly(
+                            org_id=workspace_id,
+                            anomaly_type=anomaly_dict.get("type", "unknown"),
+                            severity="critical",
+                            amount=anomaly_dict.get("actual", 0.0),
+                            expected=anomaly_dict.get("expected", 0.0),
+                        )
+                    except Exception as enforce_err:
+                        logger.warning(
+                            "Budget enforcement failed for critical anomaly: %s",
+                            enforce_err,
+                        )
+
             return stored
         except Exception as e:
             logger.error(f"Failed to detect/store anomalies: {e}")
@@ -1194,6 +1213,7 @@ __all__ = [
     "CostReport",
     "CostGranularity",
     "DebateBudgetExceededError",
+    "get_budget_manager",
     "get_cost_tracker",
     "record_usage",
 ]

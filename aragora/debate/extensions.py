@@ -25,6 +25,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from aragora.billing.budget_manager import get_budget_manager
+from aragora.billing.cost_tracker import get_cost_tracker
+
 if TYPE_CHECKING:
     from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
@@ -144,15 +147,28 @@ class ArenaExtensions:
         If debate_budget_limit_usd is set, this will configure the cost
         tracker to enforce that limit.
 
+        Raises RuntimeError if the organization's budget is suspended.
+
         Args:
             debate_id: The debate ID to track
         """
+        # Check for budget suspension before setting up debate budget
+        org_id = getattr(self, "org_id", None)
+        if org_id:
+            try:
+                mgr = get_budget_manager()
+                if mgr.is_budget_suspended(org_id):
+                    raise RuntimeError("Budget suspended")
+            except RuntimeError:
+                raise
+            except Exception as e:
+                logger.debug("Budget suspension check skipped: %s", e)
+
         if not self.has_debate_budget:
             return
 
         try:
             from decimal import Decimal
-            from aragora.billing.cost_tracker import get_cost_tracker
 
             if self.cost_tracker is None:
                 self.cost_tracker = get_cost_tracker()
@@ -896,4 +912,7 @@ class ExtensionsConfig:
         )
 
 
-__all__ = ["ArenaExtensions", "ExtensionsConfig"]
+# Convenience alias for billing/debate integration tests
+DebateExtensions = ArenaExtensions
+
+__all__ = ["ArenaExtensions", "DebateExtensions", "ExtensionsConfig"]

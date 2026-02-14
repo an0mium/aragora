@@ -169,7 +169,7 @@ class TestArenaExtensionsBudget:
             debate_budget_limit_usd=5.00,
         )
 
-        with patch("aragora.billing.cost_tracker.get_cost_tracker") as mock_get:
+        with patch("aragora.debate.extensions.get_cost_tracker") as mock_get:
             mock_tracker = MagicMock()
             mock_get.return_value = mock_tracker
 
@@ -188,7 +188,7 @@ class TestArenaExtensionsBudget:
             debate_budget_limit_usd=None,
         )
 
-        with patch("aragora.billing.cost_tracker.get_cost_tracker") as mock_get:
+        with patch("aragora.debate.extensions.get_cost_tracker") as mock_get:
             extensions.setup_debate_budget("debate_123")
             mock_get.assert_not_called()
 

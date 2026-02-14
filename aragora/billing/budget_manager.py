@@ -632,6 +632,55 @@ class BudgetManager:
 
         return [self._budget_from_row(row) for row in cursor.fetchall()]
 
+    def handle_cost_anomaly(
+        self,
+        org_id: str,
+        anomaly_type: str,
+        severity: str,
+        amount: float,
+        expected: float,
+    ) -> bool:
+        """Handle a cost anomaly by suspending budgets if critical.
+
+        Args:
+            org_id: Organization ID
+            anomaly_type: Type of anomaly (spike, drift, etc.)
+            severity: Severity level (info, warning, critical)
+            amount: Actual cost amount
+            expected: Expected cost amount
+
+        Returns:
+            True if budgets were suspended, False otherwise
+        """
+        if severity != "critical":
+            return False
+
+        budgets = self.get_budgets_for_org(org_id, active_only=True)
+        if not budgets:
+            return False
+
+        for budget in budgets:
+            self.update_budget(budget.budget_id, status=BudgetStatus.SUSPENDED)
+
+        logger.warning(
+            f"Suspended {len(budgets)} budget(s) for org {org_id} "
+            f"due to {severity} {anomaly_type} anomaly "
+            f"(actual={amount}, expected={expected})"
+        )
+        return True
+
+    def is_budget_suspended(self, org_id: str) -> bool:
+        """Check if any budget for an organization is suspended.
+
+        Args:
+            org_id: Organization ID
+
+        Returns:
+            True if any budget is in SUSPENDED state
+        """
+        all_budgets = self.get_budgets_for_org(org_id, active_only=False)
+        return any(b.status == BudgetStatus.SUSPENDED for b in all_budgets)
+
     def update_budget(
         self,
         budget_id: str,

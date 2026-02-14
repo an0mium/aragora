@@ -113,9 +113,15 @@ class TestProductionRequirements:
         """Test encryption key required in production."""
         from aragora.server.startup import check_production_requirements
 
+        def _env_only(name: str):
+            """Only check env vars, not secrets manager."""
+            return os.environ.get(name)
+
         with patch.dict(os.environ, {"ARAGORA_ENV": "production"}, clear=True):
             with patch(
                 "aragora.control_plane.leader.is_distributed_state_required", return_value=False
+            ), patch(
+                "aragora.server.startup.validation._get_config_value", side_effect=_env_only
             ):
                 missing = check_production_requirements()
                 encryption_missing = [m for m in missing if "ENCRYPTION_KEY" in m]

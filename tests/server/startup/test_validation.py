@@ -1,6 +1,7 @@
 """Tests for server startup validation functions."""
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -198,6 +199,10 @@ class TestCheckProductionRequirements:
                 assert isinstance(missing, list)
 
     def test_production_missing_encryption_key(self):
+        def _env_only(name: str):
+            """Only check env vars, not secrets manager."""
+            return os.environ.get(name)
+
         with patch.dict(
             "os.environ",
             {"ARAGORA_ENV": "production", "ARAGORA_SECRETS_STRICT": "false"},
@@ -206,6 +211,9 @@ class TestCheckProductionRequirements:
             with patch(
                 "aragora.control_plane.leader.is_distributed_state_required",
                 return_value=False,
+            ), patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
             ):
                 missing = check_production_requirements()
                 assert any("ARAGORA_ENCRYPTION_KEY" in m for m in missing)
