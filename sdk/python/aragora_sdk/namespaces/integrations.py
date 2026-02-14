@@ -205,6 +205,10 @@ class IntegrationsAPI:
     # Bot Platform Status
     # =========================================================================
 
+    def get_slack_status(self) -> dict[str, Any]:
+        """Get Slack bot connection status."""
+        return self._client.request("GET", "/api/v1/bots/slack/status")
+
     def get_telegram_status(self) -> dict[str, Any]:
         """Get Telegram bot connection status."""
         return self._client.request("GET", "/api/v1/bots/telegram/status")
@@ -512,6 +516,10 @@ class AsyncIntegrationsAPI:
     # =========================================================================
     # Bot Platform Status
     # =========================================================================
+
+    async def get_slack_status(self) -> dict[str, Any]:
+        """Get Slack bot connection status."""
+        return await self._client.request("GET", "/api/v1/bots/slack/status")
 
     async def get_telegram_status(self) -> dict[str, Any]:
         """Get Telegram bot connection status."""

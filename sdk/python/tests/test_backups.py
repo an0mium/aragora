@@ -1,9 +1,4 @@
-"""Tests for Backups namespace API.
-
-Note: BackupsAPI uses self._client._request() which is an alias for
-self.request() that passes params/json/headers explicitly, so all
-assert_called_once_with calls must include params= and headers= kwargs.
-"""
+"""Tests for Backups namespace API."""
 
 from __future__ import annotations
 
@@ -25,8 +20,6 @@ class TestBackupsList:
             "GET",
             "/api/v1/backups",
             params={"limit": 50, "offset": 0},
-            json=None,
-            headers=None,
         )
         assert result[0]["backup_id"] == "bk_1"
 
@@ -56,9 +49,7 @@ class TestBackupsGet:
 
         result = client.backups.get("bk_123")
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/backups/bk_123", params=None, json=None, headers=None
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/backups/bk_123")
         assert result["backup_type"] == "full"
         assert result["size_bytes"] == 1048576
 
@@ -75,9 +66,7 @@ class TestBackupsCreate:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups",
-            params=None,
             json={"backup_type": "full"},
-            headers=None,
         )
         assert result["status"] == "in_progress"
 
@@ -118,9 +107,7 @@ class TestBackupsDelete:
 
         result = client.backups.delete("bk_123")
 
-        mock_request.assert_called_once_with(
-            "DELETE", "/api/v1/backups/bk_123", params=None, json=None, headers=None
-        )
+        mock_request.assert_called_once_with("DELETE", "/api/v1/backups/bk_123")
         assert result["deleted"] is True
 
 
@@ -136,9 +123,7 @@ class TestBackupsRestore:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/bk_123/restore",
-            params=None,
             json={"dry_run": False},
-            headers=None,
         )
         assert result["restore_id"] == "rst_1"
 
@@ -166,20 +151,6 @@ class TestBackupsRestore:
         assert call_json["target_namespace"] == "staging"
         assert call_json["data_types"] == ["debates", "agents"]
 
-    def test_get_restore_status(self, client: AragoraClient, mock_request) -> None:
-        """Get restore operation status."""
-        mock_request.return_value = {
-            "restore_id": "rst_1",
-            "status": "completed",
-            "progress": 100,
-        }
-
-        result = client.backups.get_restore_status("rst_1")
-
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/restores/rst_1", params=None, json=None, headers=None
-        )
-        assert result["status"] == "completed"
 
 
 class TestBackupsSchedules:
@@ -194,14 +165,12 @@ class TestBackupsSchedules:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/schedules",
-            params=None,
             json={
                 "schedule": "0 2 * * *",
                 "backup_type": "incremental",
                 "retention_days": 30,
                 "enabled": True,
             },
-            headers=None,
         )
         assert result["schedule_id"] == "sch_1"
 
@@ -231,9 +200,7 @@ class TestBackupsSchedules:
 
         result = client.backups.list_schedules()
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/backups/schedules", params=None, json=None, headers=None
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/backups/schedules")
         assert len(result) == 1
 
     def test_delete_schedule(self, client: AragoraClient, mock_request) -> None:
@@ -242,9 +209,7 @@ class TestBackupsSchedules:
 
         result = client.backups.delete_schedule("sch_1")
 
-        mock_request.assert_called_once_with(
-            "DELETE", "/api/v1/backups/schedules/sch_1", params=None, json=None, headers=None
-        )
+        mock_request.assert_called_once_with("DELETE", "/api/v1/backups/schedules/sch_1")
         assert result["deleted"] is True
 
 
@@ -258,9 +223,6 @@ class TestBackupsVerification:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/bk_123/verify",
-            params=None,
-            json=None,
-            headers=None,
         )
         assert result["valid"] is True
 
@@ -274,9 +236,6 @@ class TestBackupsVerification:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/bk_123/verify-comprehensive",
-            params=None,
-            json=None,
-            headers=None,
         )
         assert result["checks"]["data"] is True
 
@@ -287,9 +246,7 @@ class TestBackupsVerification:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/bk_123/restore-test",
-            params=None,
             json=None,
-            headers=None,
         )
         assert result["success"] is True
 
@@ -307,9 +264,7 @@ class TestBackupsVerification:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/cleanup",
-            params=None,
             json={"dry_run": True},
-            headers=None,
         )
         assert result["would_delete"] == 5
 
@@ -320,9 +275,7 @@ class TestBackupsVerification:
         mock_request.assert_called_once_with(
             "POST",
             "/api/v1/backups/cleanup",
-            params=None,
             json={"dry_run": False},
-            headers=None,
         )
         assert result["deleted"] == 5
 
@@ -334,9 +287,7 @@ class TestBackupsVerification:
             "health": "healthy",
         }
         result = client.backups.get_stats()
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/backups/stats", params=None, json=None, headers=None
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/backups/stats")
         assert result["total_backups"] == 42
         assert result["health"] == "healthy"
 

@@ -128,18 +128,6 @@ class BackupsAPI:
 
         return self._client.request("POST", f"/api/v1/backups/{backup_id}/restore", json=data)
 
-    def get_restore_status(self, restore_id: str) -> dict[str, Any]:
-        """
-        Get restore operation status.
-
-        Args:
-            restore_id: Restore operation identifier
-
-        Returns:
-            Restore operation status
-        """
-        return self._client.request("GET", f"/api/v1/restores/{restore_id}")
-
     def schedule(
         self,
         schedule: str,
@@ -326,10 +314,6 @@ class AsyncBackupsAPI:
         return await self._client.request(
             "POST", f"/api/v1/backups/{backup_id}/restore", json=data
         )
-
-    async def get_restore_status(self, restore_id: str) -> dict[str, Any]:
-        """Get restore operation status."""
-        return await self._client.request("GET", f"/api/v1/restores/{restore_id}")
 
     async def schedule(
         self,

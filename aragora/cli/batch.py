@@ -24,7 +24,9 @@ if TYPE_CHECKING:
 
 def create_batch_parser(subparsers: argparse._SubParsersAction) -> None:
     """Create the batch command subparser."""
-    from aragora.cli.main import DEFAULT_API_URL
+    import os
+
+    DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
     batch_parser = subparsers.add_parser(
         "batch",
