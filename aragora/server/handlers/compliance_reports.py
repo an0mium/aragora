@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     handle_errors,
     json_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.responses import HandlerResult as HR
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class ComplianceReportHandler(BaseHandler):
 
         return None
 
+    @require_permission("compliance:generate")
     @handle_errors("generate compliance report")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any

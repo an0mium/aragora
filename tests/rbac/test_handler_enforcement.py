@@ -386,6 +386,17 @@ ALLOWED_WITHOUT_RBAC = {
     "features/speech",
     # Public demo endpoint (no auth by design)
     "playground",
+    # Read-only analytics/informational endpoints (no mutations)
+    "agents/recommendations",
+    "debate_stats",
+    "feature_flags",
+    "moderation_analytics",
+    "receipt_export",
+    # Notification subsystem (re-export and read-only modules)
+    "notifications/__init__",
+    "notifications/history",
+    # Pipeline re-export module (actual handler is in pipeline/plans.py)
+    "pipeline/__init__",
 }
 
 

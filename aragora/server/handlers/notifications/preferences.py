@@ -8,6 +8,7 @@ Provides:
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -19,6 +20,7 @@ from ..base import (
     error_response,
     json_response,
 )
+from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -81,6 +83,7 @@ class NotificationPreferencesHandler(BaseHandler):
 
         return self._get_preferences(handler)
 
+    @require_permission("notifications:manage_preferences")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -109,7 +112,7 @@ class NotificationPreferencesHandler(BaseHandler):
 
         prefs = _user_preferences.get(user_id)
         if prefs is None:
-            prefs = _DEFAULT_PREFERENCES.copy()
+            prefs = copy.deepcopy(_DEFAULT_PREFERENCES)
 
         return json_response({
             "user_id": user_id,
@@ -125,7 +128,7 @@ class NotificationPreferencesHandler(BaseHandler):
         user_id = self._get_user_id(handler)
 
         # Get existing prefs or defaults
-        current = _user_preferences.get(user_id, _DEFAULT_PREFERENCES.copy())
+        current = _user_preferences.get(user_id, copy.deepcopy(_DEFAULT_PREFERENCES))
 
         # Validate and merge updates
         updates = body.get("preferences", body)

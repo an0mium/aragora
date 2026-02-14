@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     handle_errors,
     json_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ class GDPRDeletionHandler(BaseHandler):
             "requests": [r.to_dict() for r in requests],
         })
 
+    @require_permission("privacy:request_deletion")
     @handle_errors("schedule deletion request")
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
@@ -139,6 +141,7 @@ class GDPRDeletionHandler(BaseHandler):
 
         return json_response(request.to_dict(), status=201)
 
+    @require_permission("privacy:cancel_deletion")
     @handle_errors("cancel deletion request")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any

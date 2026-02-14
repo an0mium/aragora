@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     handle_errors,
     json_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class EmailTriageHandler(BaseHandler):
             return self._handle_get_rules()
         return None
 
+    @require_permission("email:manage_rules")
     @handle_errors("update triage rules")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any

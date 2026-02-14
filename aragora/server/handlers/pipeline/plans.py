@@ -25,6 +25,7 @@ from ..base import (
     json_response,
     validate_path_segment,
 )
+from ..utils.decorators import require_permission
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ class PlanManagementHandler(BaseHandler):
 
         return None
 
+    @require_permission("plans:approve")
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
