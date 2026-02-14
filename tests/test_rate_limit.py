@@ -593,7 +593,7 @@ class TestRedisRateLimiter:
         # Create a mock Redis client that raises on evalsha
         mock_redis = MagicMock()
         mock_redis.script_load.return_value = "fake_sha"
-        mock_redis.evalsha.side_effect = Exception("Redis connection error")
+        mock_redis.evalsha.side_effect = ConnectionError("Redis connection error")
 
         bucket = RedisTokenBucket(
             mock_redis,
@@ -613,7 +613,7 @@ class TestRedisRateLimiter:
 
         # Create a mock Redis client that raises
         mock_redis = MagicMock()
-        mock_redis.script_load.side_effect = Exception("Redis error")
+        mock_redis.script_load.side_effect = ConnectionError("Redis error")
 
         limiter = RedisRateLimiter(mock_redis)
 
