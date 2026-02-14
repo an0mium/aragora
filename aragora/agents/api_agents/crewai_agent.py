@@ -304,7 +304,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
                 extra={
                     "prompt_length": len(prompt),
                     "allowed_tools": self._get_allowed_tools(),
-                    "process": self.crewai_config.process,
+                    "crewai_process": self.crewai_config.process,
                     "memory_enabled": self.crewai_config.memory,
                 },
             )
@@ -375,7 +375,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
                     "inputs": list(inputs.keys()) if inputs else [],
                     "requested_tools": tools or [],
                     "allowed_tools": filtered_tools,
-                    "process": self.crewai_config.process,
+                    "crewai_process": self.crewai_config.process,
                 },
             )
 
@@ -385,7 +385,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
         # Build request payload
         payload = {
             "task": task,
-            "process": self.crewai_config.process,
+            "crewai_process": self.crewai_config.process,
             "verbose": self.crewai_config.verbose,
             "memory": self.crewai_config.memory,
         }
@@ -440,7 +440,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
                         "output": self._sanitize_response(output),
                         "agent": self.name,
                         "tools_used": filtered_tools,
-                        "process": self.crewai_config.process,
+                        "crewai_process": self.crewai_config.process,
                         "execution_time": execution_time,
                     }
 
@@ -470,7 +470,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
                 "output": str(e),
                 "agent": self.name,
                 "tools_used": [],
-                "process": self.crewai_config.process,
+                "crewai_process": self.crewai_config.process,
                 "execution_time": execution_time,
             }
 
@@ -554,7 +554,7 @@ class CrewAIAgent(ExternalFrameworkAgent):
             Dict describing current configuration settings.
         """
         return {
-            "process": self.crewai_config.process,
+            "crewai_process": self.crewai_config.process,
             "verbose": self.crewai_config.verbose,
             "memory_enabled": self.crewai_config.memory,
             "max_rpm": self.crewai_config.max_rpm,
