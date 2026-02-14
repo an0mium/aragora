@@ -41,17 +41,17 @@ class TestHealthEndpointBenchmarks:
         app.router.add_get("/api/health", health_handler)
         return app
 
-    @pytest.mark.skipif(
-        True,  # Known incompatibility: aiohttp Application bound to single event loop
+    @pytest.mark.xfail(
         reason="aiohttp event loop incompatibility with benchmark iterations - see #1234",
+        strict=False,
     )
     def test_health_endpoint_latency(self, benchmark, mock_app):
         """Benchmark health endpoint latency.
 
-        Note: Skipped due to aiohttp Application being bound to a single event loop,
+        Note: xfail due to aiohttp Application being bound to a single event loop,
         which conflicts with pytest-benchmark running multiple iterations.
         """
-        pass
+        pytest.fail("aiohttp Application bound to single event loop - cannot benchmark")
 
 
 class TestUsageTrackingBenchmarks:

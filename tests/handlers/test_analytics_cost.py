@@ -22,6 +22,15 @@ import pytest
 
 
 @dataclass
+class FakeUserCtx:
+    user_id: str = "test_user"
+    org_id: str = "org_123"
+    role: str = "admin"
+    is_authenticated: bool = True
+    error_reason: str | None = None
+
+
+@dataclass
 class FakeBudget:
     monthly_limit_usd: Decimal = Decimal("500")
     current_monthly_spend: Decimal = Decimal("125")
@@ -57,16 +66,19 @@ def _make_mixin_instance():
     return TestHandler()
 
 
-def _mock_handler():
-    """Create a mock HTTP handler with headers for auth bypass."""
-    h = MagicMock()
-    h.headers = {"Authorization": "Bearer test-token"}
-    return h
-
-
 def _parse_body(result) -> dict:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body)
+
+
+@pytest.fixture(autouse=True)
+def _patch_auth():
+    """Patch auth to always succeed for cost breakdown tests."""
+    with patch(
+        "aragora.billing.jwt_auth.extract_user_from_request",
+        return_value=FakeUserCtx(),
+    ):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -74,46 +86,41 @@ def _parse_body(result) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "aragora.billing.jwt_auth.extract_user_from_request",
-    return_value=MagicMock(user_id="test_user", email="test@example.com"),
-)
 class TestCostBreakdownEndpoint:
     """Tests for _get_cost_breakdown method."""
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_returns_200(self, mock_get_tracker, _mock_auth):
+    def test_returns_200(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         assert result.status_code == 200
 
-    @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_missing_workspace_id(self, mock_get_tracker, _mock_auth):
+    def test_missing_workspace_id(self):
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({}, handler=MagicMock())
         assert result.status_code == 400
         body = _parse_body(result)
         assert "workspace_id" in body.get("error", "")
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_total_spend_returned(self, mock_get_tracker, _mock_auth):
+    def test_total_spend_returned(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(total_cost="42.50")
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["total_spend_usd"] == "42.50"
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_agent_costs_returned(self, mock_get_tracker, _mock_auth):
+    def test_agent_costs_returned(self, mock_get_tracker):
         agent_costs = {"claude": "15.00", "gpt-4": "10.00"}
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(
@@ -123,32 +130,32 @@ class TestCostBreakdownEndpoint:
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["agent_costs"]["claude"] == "15.00"
         assert body["agent_costs"]["gpt-4"] == "10.00"
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_empty_agent_costs(self, mock_get_tracker, _mock_auth):
+    def test_empty_agent_costs(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(agent_costs={})
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["agent_costs"] == {}
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_budget_utilization(self, mock_get_tracker, _mock_auth):
+    def test_budget_utilization(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.return_value = FakeBudget()
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         budget = body["budget"]
         assert budget["monthly_limit_usd"] == 500.0
@@ -157,19 +164,19 @@ class TestCostBreakdownEndpoint:
         assert budget["utilization_percent"] == 25.0
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_no_budget(self, mock_get_tracker, _mock_auth):
+    def test_no_budget(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["budget"] == {}
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_budget_zero_limit(self, mock_get_tracker, _mock_auth):
+    def test_budget_zero_limit(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         budget = FakeBudget(monthly_limit_usd=Decimal("0"), current_monthly_spend=Decimal("0"))
@@ -177,46 +184,45 @@ class TestCostBreakdownEndpoint:
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         # Zero limit means no budget configured effectively
-        # The monthly_limit_usd is falsy (0), so budget_info stays empty
         assert body["budget"] == {}
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_budget_exception_handled(self, mock_get_tracker, _mock_auth):
+    def test_budget_exception_handled(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.side_effect = AttributeError("no budget table")
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         assert result.status_code == 200
         body = _parse_body(result)
         assert body["budget"] == {}
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_workspace_id_in_response(self, mock_get_tracker, _mock_auth):
+    def test_workspace_id_in_response(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_abc"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_abc"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["workspace_id"] == "ws_abc"
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_response_has_all_keys(self, mock_get_tracker, _mock_auth):
+    def test_response_has_all_keys(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert "workspace_id" in body
         assert "total_spend_usd" in body
@@ -224,7 +230,7 @@ class TestCostBreakdownEndpoint:
         assert "budget" in body
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_full_budget_utilization(self, mock_get_tracker, _mock_auth):
+    def test_full_budget_utilization(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         budget = FakeBudget(
@@ -235,13 +241,13 @@ class TestCostBreakdownEndpoint:
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["budget"]["utilization_percent"] == 100.0
         assert body["budget"]["remaining_usd"] == 0
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_over_budget(self, mock_get_tracker, _mock_auth):
+    def test_over_budget(self, mock_get_tracker):
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats()
         budget = FakeBudget(
@@ -252,13 +258,13 @@ class TestCostBreakdownEndpoint:
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert body["budget"]["utilization_percent"] == 150.0
         assert body["budget"]["remaining_usd"] == 0  # max(0, ...)
 
     @patch("aragora.billing.cost_tracker.get_cost_tracker")
-    def test_many_agents(self, mock_get_tracker, _mock_auth):
+    def test_many_agents(self, mock_get_tracker):
         agents = {f"agent_{i}": f"{i}.00" for i in range(10)}
         mock_tracker = MagicMock()
         mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(
@@ -268,7 +274,7 @@ class TestCostBreakdownEndpoint:
         mock_get_tracker.return_value = mock_tracker
 
         handler = _make_mixin_instance()
-        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=_mock_handler())
+        result = handler._get_cost_breakdown({"workspace_id": "ws_123"}, handler=MagicMock())
         body = _parse_body(result)
         assert len(body["agent_costs"]) == 10
 

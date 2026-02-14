@@ -18,11 +18,8 @@ import pytest
 @pytest.fixture(scope="module")
 def sentence_transformers_module():
     """Import sentence-transformers lazily to avoid heavy import at collection."""
-    try:
-        import sentence_transformers
-    except (ImportError, RuntimeError):
-        # RuntimeError occurs when Keras 3 is installed without tf-keras
-        pytest.skip("sentence-transformers not available or Keras 3 compatibility issue")
+    import sentence_transformers
+
     return sentence_transformers
 
 

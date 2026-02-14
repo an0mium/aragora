@@ -772,8 +772,7 @@ class TestMetricsRecording:
             PROMETHEUS_AVAILABLE,
         )
 
-        if not PROMETHEUS_AVAILABLE:
-            pytest.skip("prometheus_client not installed")
+        assert PROMETHEUS_AVAILABLE, "prometheus_client must be installed"
 
         with (
             patch(

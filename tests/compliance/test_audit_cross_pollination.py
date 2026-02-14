@@ -45,13 +45,15 @@ class TestComplianceToAudit:
             # Should gracefully return None
             assert result is None
 
-    def test_fetch_audit_context_no_store(self, monitor):
-        """Returns None when audit store is not available."""
+    def test_fetch_audit_context_no_log(self, monitor):
+        """Returns None when audit log is not available."""
         with patch(
-            "aragora.compliance.monitor.ComplianceMonitor._fetch_audit_context",
+            "aragora.audit.log.get_audit_log",
             return_value=None,
         ):
-            status = ComplianceStatus()
+            status = ComplianceStatus(
+                frameworks={"soc2": FrameworkStatus(framework="soc2")}
+            )
             result = monitor._fetch_audit_context(status)
             assert result is None
 
@@ -69,16 +71,25 @@ class TestComplianceToAudit:
             }
         )
 
-        mock_store = MagicMock()
-        mock_store.query.return_value = [
-            {"category": "soc2_access_control", "severity": "critical"},
-            {"category": "soc2_encryption", "severity": "major"},
-            {"category": "gdpr_consent", "severity": "minor"},  # Won't match
-        ]
+        # Create mock AuditEvent objects with action/details attributes
+        event1 = MagicMock()
+        event1.action = "soc2_access_review"
+        event1.details = {"severity": "critical", "framework": "soc2"}
+
+        event2 = MagicMock()
+        event2.action = "encryption_check"
+        event2.details = {"severity": "major", "category": "soc2_encryption"}
+
+        event3 = MagicMock()
+        event3.action = "gdpr_consent_check"
+        event3.details = {"severity": "minor", "category": "gdpr_consent"}
+
+        mock_log = MagicMock()
+        mock_log.query.return_value = [event1, event2, event3]
 
         with patch(
-            "aragora.compliance.monitor.get_audit_store",
-            return_value=mock_store,
+            "aragora.audit.log.get_audit_log",
+            return_value=mock_log,
         ):
             result = monitor._fetch_audit_context(status)
             assert result is not None
@@ -94,30 +105,32 @@ class TestComplianceToAudit:
             }
         )
 
-        mock_store = MagicMock()
-        mock_store.query.return_value = [
-            {"category": "gdpr_consent", "severity": "minor"},
-        ]
+        event = MagicMock()
+        event.action = "gdpr_consent_check"
+        event.details = {"severity": "minor", "category": "gdpr_consent"}
+
+        mock_log = MagicMock()
+        mock_log.query.return_value = [event]
 
         with patch(
-            "aragora.compliance.monitor.get_audit_store",
-            return_value=mock_store,
+            "aragora.audit.log.get_audit_log",
+            return_value=mock_log,
         ):
             result = monitor._fetch_audit_context(status)
             assert result is None
 
-    def test_fetch_audit_context_store_error(self, monitor):
-        """Returns None gracefully on store errors."""
+    def test_fetch_audit_context_log_error(self, monitor):
+        """Returns None gracefully on audit log errors."""
         status = ComplianceStatus(
             frameworks={"soc2": FrameworkStatus(framework="soc2")}
         )
 
-        mock_store = MagicMock()
-        mock_store.query.side_effect = TypeError("query failed")
+        mock_log = MagicMock()
+        mock_log.query.side_effect = TypeError("query failed")
 
         with patch(
-            "aragora.compliance.monitor.get_audit_store",
-            return_value=mock_store,
+            "aragora.audit.log.get_audit_log",
+            return_value=mock_log,
         ):
             result = monitor._fetch_audit_context(status)
             assert result is None
@@ -167,7 +180,7 @@ class TestAuditToCompliance:
         return AuditOrchestrator(verticals=[AuditVertical.SECURITY])
 
     def test_fetch_compliance_context_no_monitor(self, orchestrator):
-        """Returns None when compliance monitor is not available."""
+        """Returns None when compliance monitor returns None."""
         with patch(
             "aragora.compliance.monitor.get_compliance_monitor",
             return_value=None,
@@ -247,8 +260,8 @@ class TestAuditToCompliance:
 
             session = AuditSession(
                 id="test-session",
-                document_name="test.pdf",
-                chunks=[],
+                name="test.pdf",
+                document_ids=["test.pdf"],
             )
             result = asyncio.get_event_loop().run_until_complete(
                 orchestrator.run(chunks=[], session=session)
@@ -267,8 +280,8 @@ class TestAuditToCompliance:
 
             session = AuditSession(
                 id="test-session",
-                document_name="test.pdf",
-                chunks=[],
+                name="test.pdf",
+                document_ids=["test.pdf"],
             )
             result = asyncio.get_event_loop().run_until_complete(
                 orchestrator.run(chunks=[], session=session)

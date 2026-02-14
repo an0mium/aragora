@@ -1111,7 +1111,6 @@ class TestOptionalTraceSupport:
         html = generator.generate(sample_debate_result, trace=None)
         assert "<!DOCTYPE html>" in html
 
-    @pytest.mark.skipif(not HAS_TRACE_SUPPORT, reason="Trace support not available")
     def test_generate_with_trace(self, generator, sample_debate_result):
         """Test generate with trace if available."""
         from datetime import datetime

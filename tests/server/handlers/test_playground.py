@@ -145,15 +145,6 @@ class TestStatusEndpoint:
 # ===========================================================================
 
 
-_HAS_DEBATE_PKG: bool
-try:
-    import aragora_debate  # noqa: F401
-    _HAS_DEBATE_PKG = True
-except ImportError:
-    _HAS_DEBATE_PKG = False
-
-
-@pytest.mark.skipif(not _HAS_DEBATE_PKG, reason="aragora-debate package not installed")
 class TestDebateEndpoint:
     def test_debate_with_defaults(self, handler, mock_http_handler):
         """Running a debate with default parameters succeeds."""
@@ -251,7 +242,6 @@ class TestDebateEndpoint:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not _HAS_DEBATE_PKG, reason="aragora-debate package not installed")
 class TestInputValidation:
     def test_topic_too_long(self, handler, mock_http_handler):
         """Topics over 500 characters are rejected."""
@@ -316,7 +306,6 @@ class TestInputValidation:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not _HAS_DEBATE_PKG, reason="aragora-debate package not installed")
 class TestRateLimiting:
     def test_allows_requests_within_limit(self):
         """Requests within the limit are allowed."""
