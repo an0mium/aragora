@@ -81,7 +81,7 @@ def _extract_notification_context(
             from aragora.approvals.chat import get_default_chat_targets
 
             channel_targets = get_default_chat_targets() or None
-        except Exception:
+        except (ImportError, AttributeError):
             channel_targets = None
 
     metadata = dict(base_meta)
@@ -175,7 +175,7 @@ async def _dispatch_chat_message(
     try:
         from aragora.approvals.chat import parse_chat_targets
         from aragora.connectors.chat.registry import get_connector
-    except Exception:
+    except (ImportError, AttributeError):
         return
 
     parsed = parse_chat_targets(channel_targets)

@@ -92,7 +92,7 @@ class FilePatch:
             full_path.parent.mkdir(parents=True, exist_ok=True)
             full_path.write_text(self.patched_content)
             return True
-        except Exception:
+        except OSError:
             logger.warning("Failed to apply patch to %s", self.file_path, exc_info=True)
             return False
 
@@ -109,7 +109,7 @@ class FilePatch:
             full_path = repo_path / self.file_path
             full_path.write_text(self.original_content)
             return True
-        except Exception:
+        except OSError:
             logger.warning("Failed to revert patch for %s", self.file_path, exc_info=True)
             return False
 
@@ -418,7 +418,7 @@ class SimpleCodeGenerator:
                             continue
                         try:
                             content = py_file.read_text()
-                        except Exception:
+                        except OSError:
                             logger.debug("Failed to read %s, skipping import search", py_file)
                             continue
                         if re.search(rf"\b{re.escape(symbol)}\b", content):

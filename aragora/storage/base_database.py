@@ -150,7 +150,7 @@ class BaseDatabase:
             conn.execute("BEGIN IMMEDIATE")
             yield conn
             conn.execute("COMMIT")
-        except Exception:
+        except Exception:  # noqa: BLE001 - Intentional: rollback transaction before re-raising any error
             try:
                 conn.execute("ROLLBACK")
             except (sqlite3.ProgrammingError, sqlite3.OperationalError):

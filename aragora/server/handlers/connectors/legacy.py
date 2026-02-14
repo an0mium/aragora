@@ -77,7 +77,7 @@ def _check_permission(
     # Read RBAC flags from the package module so tests can patch them.
     try:
         from aragora.server.handlers import connectors as connectors_module
-    except Exception:
+    except (ImportError, AttributeError):
         connectors_module = None
 
     rbac_enabled = RBAC_AVAILABLE
@@ -135,7 +135,7 @@ def _resolve_tenant_id(
     """
     try:
         from aragora.server.handlers import connectors as connectors_module
-    except Exception:
+    except (ImportError, AttributeError):
         connectors_module = None
 
     rbac_enabled = RBAC_AVAILABLE

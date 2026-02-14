@@ -265,7 +265,7 @@ class DevOpsHandler(BaseHandler):
             result = emitter.emit(event_type, tenant_id=tenant_id, data=data)
             if inspect.isawaitable(result):
                 await result
-        except Exception:
+        except (TypeError, AttributeError, RuntimeError):
             logger.debug("Failed to emit connector event", exc_info=True)
 
     def _handle_status(self) -> HandlerResult:
@@ -506,7 +506,7 @@ class DevOpsHandler(BaseHandler):
             sig = None
             try:
                 sig = inspect.signature(connector.reassign_incident)
-            except Exception:
+            except (ValueError, TypeError):
                 sig = None
             if escalation_policy_id and sig and "escalation_policy_id" in sig.parameters:
                 kwargs["escalation_policy_id"] = escalation_policy_id
@@ -692,7 +692,7 @@ class DevOpsHandler(BaseHandler):
                 signature = self._get_header(request, "X-PagerDuty-Signature")
                 if signature is not None:
                     connector.verify_webhook_signature(signature, raw_body)
-            except Exception:
+            except (ValueError, AttributeError, RuntimeError):
                 logger.debug("Webhook signature verification failed", exc_info=True)
 
             try:
@@ -701,7 +701,7 @@ class DevOpsHandler(BaseHandler):
                     event_type = getattr(parsed, "event_type", None)
                 if hasattr(parsed, "to_dict"):
                     payload = parsed.to_dict()
-            except Exception:
+            except (ValueError, KeyError, AttributeError):
                 logger.debug("Webhook parse failed", exc_info=True)
 
         if event_type is None:

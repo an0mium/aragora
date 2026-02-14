@@ -73,7 +73,7 @@ def track_gateway_operation(
     status = "success"
     try:
         yield
-    except Exception:
+    except Exception:  # noqa: BLE001 - Intentional: set status for metrics before re-raising
         status = "error"
         raise
     finally:

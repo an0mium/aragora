@@ -567,7 +567,7 @@ class OAuthWizardHandler(SecureHandler):
                 self._normalize_mock_side_effect(store.list_active)
                 count = await self._maybe_await(store.list_active(limit=100))
                 total = len(count)
-            except Exception:
+            except (TypeError, AttributeError, RuntimeError):
                 total = len(workspaces)
             return {
                 "status": "connected",
@@ -592,7 +592,7 @@ class OAuthWizardHandler(SecureHandler):
                 self._normalize_mock_side_effect(store.list_active)
                 count = await self._maybe_await(store.list_active(limit=100))
                 total = len(count)
-            except Exception:
+            except (TypeError, AttributeError, RuntimeError):
                 total = len(workspaces)
             return {
                 "status": "connected",

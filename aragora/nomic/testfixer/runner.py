@@ -216,7 +216,7 @@ def _run_command(command: list[str], cwd: Path | None = None) -> str | None:
         if result.returncode != 0:
             return None
         return result.stdout.strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         logger.debug("Command failed: %s", command, exc_info=True)
         return None
 
@@ -260,7 +260,7 @@ def _collect_resource_snapshot(repo_path: Path) -> dict[str, Any]:
             "used": disk.used,
             "free": disk.free,
         }
-    except Exception:
+    except OSError:
         snapshot["disk"] = None
 
     meminfo_path = Path("/proc/meminfo")
@@ -277,7 +277,7 @@ def _collect_resource_snapshot(repo_path: Path) -> dict[str, Any]:
                         except ValueError:
                             continue
             snapshot["meminfo_kb"] = meminfo
-        except Exception:
+        except OSError:
             snapshot["meminfo_kb"] = None
     else:
         snapshot["meminfo_kb"] = None
@@ -304,7 +304,7 @@ def _signal_name_from_exit(exit_code: int) -> str | None:
         else:
             return None
         return signal.Signals(sig).name
-    except Exception:
+    except (ValueError, AttributeError):
         logger.debug("Failed to map exit code %d to signal name", exit_code)
         return None
 

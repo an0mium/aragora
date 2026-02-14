@@ -96,7 +96,7 @@ def collect_pending_approvals(
                         _sort_ts=_to_sort_ts(created_at),
                     )
                 )
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             logger.debug("Failed to fetch workflow approvals for inbox", exc_info=True)
 
     if "decision_plan" in sources:
@@ -136,7 +136,7 @@ def collect_pending_approvals(
                         _sort_ts=_to_sort_ts(created_at),
                     )
                 )
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             logger.debug("Failed to fetch decision plan approvals for inbox", exc_info=True)
 
     if "computer_use" in sources:
@@ -182,7 +182,7 @@ def collect_pending_approvals(
                             _sort_ts=_to_sort_ts(created_at),
                         )
                     )
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             logger.debug("Failed to fetch computer use approvals for inbox", exc_info=True)
 
     if "gateway" in sources:
@@ -220,7 +220,7 @@ def collect_pending_approvals(
                             _sort_ts=_to_sort_ts(created_at),
                         )
                     )
-        except Exception:
+        except (ImportError, AttributeError, OSError):
             logger.debug("Failed to fetch gateway approvals for inbox", exc_info=True)
 
     items.sort(key=lambda item: item._sort_ts, reverse=True)

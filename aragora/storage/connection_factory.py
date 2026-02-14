@@ -117,7 +117,7 @@ def _get_secret(name: str) -> str | None:
         return get_secret(name)
     except ImportError:
         return None
-    except Exception:  # noqa: BLE001 - Secret fetch fallback
+    except (OSError, RuntimeError, ValueError):
         logger.debug("Secret fetch failed for %r, returning None", name, exc_info=True)
         return None
 

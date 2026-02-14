@@ -71,7 +71,7 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
 
             nest_asyncio.apply(running_loop)
             return running_loop.run_until_complete(coro)
-        except Exception:
+        except (ImportError, RuntimeError):
             pass
 
         # Running loop but NOT the main pool loop - caller bug

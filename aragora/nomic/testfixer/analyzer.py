@@ -260,7 +260,7 @@ def extract_relevant_code(
 
             code_snippets[file_path] = snippet
 
-        except Exception:
+        except OSError:
             logger.debug("Failed to read %s for snippet extraction", file_path)
 
     return code_snippets
@@ -405,7 +405,7 @@ class FailureAnalyzer:
                     root_cause = ai_root_cause
                     suggested_approach = ai_approach
                     confidence = ai_confidence
-            except Exception:
+            except (RuntimeError, ValueError, OSError):
                 logger.exception("analysis.ai_error")
                 pass  # Fall back to heuristics
 
@@ -436,7 +436,7 @@ class FailureAnalyzer:
                         continue
                     try:
                         content = path.read_text()
-                    except Exception:
+                    except OSError:
                         logger.debug("Failed to read %s, skipping import search", path)
                         continue
                     if f"import {missing_mod}" in content or f"from {missing_mod}" in content:

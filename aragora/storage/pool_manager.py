@@ -101,7 +101,7 @@ async def initialize_shared_pool(
             logger.warning("[pool_manager] Error closing stale pool: %s", close_err)
             try:
                 _shared_pool.terminate()
-            except Exception:
+            except (OSError, RuntimeError):
                 logger.debug("Failed to terminate stale pool", exc_info=True)
         _shared_pool = None
         _pool_event_loop = None

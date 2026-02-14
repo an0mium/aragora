@@ -51,11 +51,15 @@ class TestWebSocketMessageRateLimiter:
             messages_per_second=10.0,
             burst_size=3,
         )
-        # Exhaust burst
-        for _ in range(3):
-            limiter.allow_message()
-        # Next should be rejected
-        assert limiter.allow_message() is False
+        # Freeze time so token replenishment doesn't interfere
+        frozen = time.time()
+        with patch("aragora.server.stream.debate_stream_server.time") as mock_time:
+            mock_time.time.return_value = frozen
+            # Exhaust burst
+            for _ in range(3):
+                limiter.allow_message()
+            # Next should be rejected
+            assert limiter.allow_message() is False
 
     def test_tokens_replenish_over_time(self):
         """Should replenish tokens over time."""
@@ -63,15 +67,16 @@ class TestWebSocketMessageRateLimiter:
             messages_per_second=100.0,  # Fast replenishment for test
             burst_size=1,
         )
-        # Use the one token
-        assert limiter.allow_message() is True
-        assert limiter.allow_message() is False
+        t0 = time.time()
+        with patch("aragora.server.stream.debate_stream_server.time") as mock_time:
+            mock_time.time.return_value = t0
+            # Use the one token
+            assert limiter.allow_message() is True
+            assert limiter.allow_message() is False
 
-        # Simulate time passing (manually set _last_update)
-        limiter._last_update = time.time() - 0.1  # 0.1 seconds ago
-
-        # Now should have replenished ~10 tokens (100 * 0.1)
-        assert limiter.allow_message() is True
+            # Advance time by 0.1s → replenishes ~10 tokens (100 * 0.1)
+            mock_time.time.return_value = t0 + 0.1
+            assert limiter.allow_message() is True
 
     def test_tokens_capped_at_burst_size(self):
         """Should not accumulate more than burst_size tokens."""
@@ -79,30 +84,27 @@ class TestWebSocketMessageRateLimiter:
             messages_per_second=1000.0,
             burst_size=5,
         )
-        # Even after a long time, only burst_size tokens available
-        limiter._last_update = time.time() - 100  # 100 seconds ago
+        t0 = time.time()
+        with patch("aragora.server.stream.debate_stream_server.time") as mock_time:
+            # Even after a long time, only burst_size tokens available
+            mock_time.time.return_value = t0 + 100  # 100 seconds later
+            # Check allows burst_size
+            for _ in range(5):
+                assert limiter.allow_message() is True
+            assert limiter.allow_message() is False
 
-        # Check allows burst_size
-        for _ in range(5):
-            assert limiter.allow_message() is True
-        assert limiter.allow_message() is False
-
-    @patch.dict("os.environ", {"ARAGORA_DISABLE_ALL_RATE_LIMITS": "true"})
     def test_bypassed_when_rate_limits_disabled(self):
         """Should always allow when rate limiting is globally disabled."""
-        # Need to reimport to pick up the env change
-        from importlib import reload
-
         import aragora.server.stream.debate_stream_server as module
 
-        reload(module)
-        limiter = module.WebSocketMessageRateLimiter(
-            messages_per_second=0.001,  # Very restrictive
-            burst_size=1,
-        )
-        # Should still allow due to global disable
-        for _ in range(100):
-            assert limiter.allow_message() is True
+        with patch.object(module, "WS_RATE_LIMITING_DISABLED", True):
+            limiter = module.WebSocketMessageRateLimiter(
+                messages_per_second=0.001,  # Very restrictive
+                burst_size=1,
+            )
+            # Should still allow due to global disable
+            for _ in range(100):
+                assert limiter.allow_message() is True
 
 
 # ===========================================================================

@@ -585,7 +585,7 @@ class RedisStoreMixin:
         if self._redis_client:
             try:
                 self._redis_client.close()
-            except Exception:
+            except (OSError, RuntimeError):
                 logger.debug("Failed to close Redis client", exc_info=True)
 
 

@@ -165,7 +165,7 @@ async def send_chat_approval_request(
                 fields=fields,
                 actions=buttons if buttons else None,
             )
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             blocks = None
 
         platform_thread_id = None

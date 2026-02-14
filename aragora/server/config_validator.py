@@ -339,7 +339,7 @@ class ConfigValidator:
             from onelogin.saml2.auth import OneLogin_Saml2_Auth  # noqa: F401
 
             saml_lib_available = True
-        except Exception:  # noqa: BLE001
+        except ImportError:
             if is_prod_or_staging:
                 logger.warning(
                     "SAML pre-flight: python3-saml library is not available in %s. "

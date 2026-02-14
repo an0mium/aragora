@@ -741,34 +741,50 @@ class TestGetUsage:
                 assert body["usage"]["debates_used"] == 0
                 assert body["usage"]["debates_limit"] == 10
 
+    @pytest.mark.no_auto_auth
     def test_get_usage_requires_billing_permission(self, billing_handler, user_store):
         """Test that usage endpoint requires org:billing permission."""
-        mock_handler = MockHandler(user_store=user_store)
-        member = user_store.get_user_by_id("member_1")
+        from aragora.server.handlers.utils import decorators
 
-        with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                mock_limiter.is_allowed.return_value = True
-                # Member role doesn't have org:billing permission
-                mock_extract.return_value = self.make_auth_context(member)
+        original_override = decorators._test_user_context_override
+        decorators._test_user_context_override = None
+        try:
+            mock_handler = MockHandler(user_store=user_store)
+            member = user_store.get_user_by_id("member_1")
 
-                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
+            with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
+                with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+                    mock_limiter.is_allowed.return_value = True
+                    # Member role doesn't have org:billing permission
+                    mock_extract.return_value = self.make_auth_context(member)
 
-                # Should be rejected due to missing permission
-                assert result.status_code == 403
+                    result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
 
+                    # Should be rejected due to missing permission
+                    assert result.status_code == 403
+        finally:
+            decorators._test_user_context_override = original_override
+
+    @pytest.mark.no_auto_auth
     def test_get_usage_unauthenticated(self, billing_handler, user_store):
         """Test usage returns 401 when not authenticated."""
-        mock_handler = MockHandler(user_store=user_store)
+        from aragora.server.handlers.utils import decorators
 
-        with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                mock_limiter.is_allowed.return_value = True
-                mock_extract.return_value = MockAuthContext("", is_authenticated=False)
+        original_override = decorators._test_user_context_override
+        decorators._test_user_context_override = None
+        try:
+            mock_handler = MockHandler(user_store=user_store)
 
-                result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
+            with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
+                with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+                    mock_limiter.is_allowed.return_value = True
+                    mock_extract.return_value = MockAuthContext("", is_authenticated=False)
 
-                assert result.status_code == 401
+                    result = billing_handler.handle("/api/v1/billing/usage", {}, mock_handler)
+
+                    assert result.status_code == 401
+        finally:
+            decorators._test_user_context_override = original_override
 
 
 class TestGetSubscription:
@@ -1344,19 +1360,27 @@ class TestUsageExport:
                 assert result.content_type == "text/csv"
                 assert "Content-Disposition" in result.headers
 
+    @pytest.mark.no_auto_auth
     def test_export_usage_requires_auth(self, billing_handler, user_store):
         """Test that export requires authentication."""
-        mock_handler = MockHandler(user_store=user_store)
+        from aragora.server.handlers.utils import decorators
 
-        with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
-                mock_limiter.is_allowed.return_value = True
-                mock_ctx = MockAuthContext("", is_authenticated=False)
-                mock_extract.return_value = mock_ctx
+        original_override = decorators._test_user_context_override
+        decorators._test_user_context_override = None
+        try:
+            mock_handler = MockHandler(user_store=user_store)
 
-                result = billing_handler.handle("/api/v1/billing/usage/export", {}, mock_handler)
+            with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
+                with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+                    mock_limiter.is_allowed.return_value = True
+                    mock_ctx = MockAuthContext("", is_authenticated=False)
+                    mock_extract.return_value = mock_ctx
 
-                assert result.status_code == 401
+                    result = billing_handler.handle("/api/v1/billing/usage/export", {}, mock_handler)
+
+                    assert result.status_code == 401
+        finally:
+            decorators._test_user_context_override = original_override
 
 
 class TestUsageForecast:

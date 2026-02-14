@@ -476,7 +476,7 @@ class DecisionPipelineHandler(SecureHandler):
                         if origin:
                             approval_targets = [f"{origin.platform}:{origin.channel_id}"]
                             thread_id = origin.thread_id
-                    except Exception:
+                    except (ImportError, AttributeError):
                         approval_targets = approval_targets or []
 
                 fields = [

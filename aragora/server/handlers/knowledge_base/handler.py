@@ -91,7 +91,7 @@ class KnowledgeHandler(
         # Reset global limiter buckets to avoid cross-test leakage.
         try:
             _knowledge_limiter._buckets.clear()
-        except Exception:
+        except (AttributeError, TypeError):
             logger.debug("Failed to clear knowledge limiter buckets", exc_info=True)
         self._fact_store: FactStore | InMemoryFactStore | None = None
         self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None

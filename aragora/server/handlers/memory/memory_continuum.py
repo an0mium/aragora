@@ -349,7 +349,7 @@ class MemoryContinuumMixin:
         try:
             try:
                 from aragora.memory.access import resolve_tenant_id, tenant_enforcement_enabled
-            except Exception:
+            except (ImportError, AttributeError):
                 resolve_tenant_id = None  # type: ignore[assignment]
                 tenant_enforcement_enabled = None  # type: ignore[assignment]
 
