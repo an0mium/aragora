@@ -8,11 +8,6 @@ rebuttal, synthesis) and emits appropriate events.
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
-from tests.conftest import requires_rhetorical_observer, REQUIRES_RHETORICAL_OBSERVER
-
-# Skip entire module if RhetoricalObserver is not available
-pytestmark = pytest.mark.skipif(requires_rhetorical_observer, reason=REQUIRES_RHETORICAL_OBSERVER)
-
 
 class TestRhetoricalObserverBasics:
     """Tests for RhetoricalObserver basic functionality."""

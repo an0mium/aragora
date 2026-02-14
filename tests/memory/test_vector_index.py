@@ -21,9 +21,6 @@ from aragora.memory.backends.in_memory import InMemoryBackend
 from aragora.memory.protocols import MemoryEntry
 
 
-# Skip all tests if numpy is not available
-pytestmark = pytest.mark.skipif(not HAS_NUMPY, reason="numpy required for vector index")
-
 
 class TestVectorIndexBasics:
     """Basic tests for VectorIndex functionality."""

@@ -23,17 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Check numpy availability before importing cache module
-try:
-    import numpy as np
-
-    HAS_NUMPY = True
-except ImportError:
-    np = None
-    HAS_NUMPY = False
-
-# Skip entire module if numpy is not available
-pytestmark = pytest.mark.skipif(not HAS_NUMPY, reason="numpy required for embedding cache tests")
+import numpy as np
 
 
 @pytest.fixture
