@@ -1,11 +1,5 @@
 {
   "version": 1,
-  "include": ["/*"],
-  "exclude": [
-    "/_next/*",
-    "/favicon.ico",
-    "/*.png",
-    "/*.jpg",
-    "/*.svg"
-  ]
+  "include": ["/api/*"],
+  "exclude": []
 }

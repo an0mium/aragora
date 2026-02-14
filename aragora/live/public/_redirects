@@ -1,5 +1,5 @@
-# API proxy to backend (required because static export ignores next.config.js rewrites)
-/api/*  https://api.aragora.ai/api/:splat  200
+# API proxy is handled by functions/api/[[catchall]].ts (Pages Function)
+# Cloudflare Pages _redirects only supports 200 rewrites to internal paths
 
 # SPA-style rewrites for dynamic routes
 /debate/:id  /debate/  200
