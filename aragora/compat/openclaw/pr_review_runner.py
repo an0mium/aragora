@@ -201,10 +201,37 @@ def load_policy(path: str | Path | None = None) -> PolicyConfig:
 def _default_policy() -> PolicyConfig:
     """Return a sensible default policy."""
     return PolicyConfig(
-        allowed_tools=["gh", "git", "aragora", "python", "python3",
-                        "cat", "head", "tail", "grep", "find", "ls", "wc", "sort", "jq"],
-        denied_tools=["rm", "rmdir", "dd", "chmod", "chown", "sudo", "su",
-                       "curl", "wget", "nc", "ssh", "docker", "kill"],
+        allowed_tools=[
+            "gh",
+            "git",
+            "aragora",
+            "python",
+            "python3",
+            "cat",
+            "head",
+            "tail",
+            "grep",
+            "find",
+            "ls",
+            "wc",
+            "sort",
+            "jq",
+        ],
+        denied_tools=[
+            "rm",
+            "rmdir",
+            "dd",
+            "chmod",
+            "chown",
+            "sudo",
+            "su",
+            "curl",
+            "wget",
+            "nc",
+            "ssh",
+            "docker",
+            "kill",
+        ],
         allowed_hosts={
             "api.github.com": [443],
             "github.com": [443],
@@ -396,9 +423,7 @@ class PRReviewRunner:
             ReviewResult with findings, receipt, and metadata.
         """
         started_at = time.time()
-        review_id = hashlib.sha256(
-            f"{pr_url}:{started_at}".encode()
-        ).hexdigest()[:16]
+        review_id = hashlib.sha256(f"{pr_url}:{started_at}".encode()).hexdigest()[:16]
 
         logger.info("Starting review %s for %s", review_id, pr_url)
 
@@ -406,9 +431,15 @@ class PRReviewRunner:
         repo, pr_number, error = _parse_pr_url(pr_url)
         if error:
             return ReviewResult(
-                pr_url=pr_url, pr_number=None, repo=None,
-                findings=[], agreement_score=0.0, agents_used=[],
-                comment_posted=False, comment_url=None, receipt=None,
+                pr_url=pr_url,
+                pr_number=None,
+                repo=None,
+                findings=[],
+                agreement_score=0.0,
+                agents_used=[],
+                comment_posted=False,
+                comment_url=None,
+                receipt=None,
                 error=error,
             )
 
@@ -445,7 +476,10 @@ class PRReviewRunner:
                 logger.warning("Policy denied posting comment")
             else:
                 comment_url, post_error = self._post_comment(
-                    repo, pr_number, findings, agreement_score,
+                    repo,
+                    pr_number,
+                    findings,
+                    agreement_score,
                 )
                 if post_error:
                     logger.warning("Failed to post comment: %s", post_error)
@@ -478,10 +512,13 @@ class PRReviewRunner:
         )
 
         logger.info(
-            "Review %s complete: %d findings (%d critical, %d high), "
-            "agreement=%.0f%%, comment=%s",
-            review_id, len(findings), result.critical_count, result.high_count,
-            agreement_score * 100, "posted" if comment_posted else "skipped",
+            "Review %s complete: %d findings (%d critical, %d high), agreement=%.0f%%, comment=%s",
+            review_id,
+            len(findings),
+            result.critical_count,
+            result.high_count,
+            agreement_score * 100,
+            "posted" if comment_posted else "skipped",
         )
 
         return result
@@ -511,7 +548,7 @@ class PRReviewRunner:
             return []
 
         results = []
-        for pr_num in pr_numbers[:self.policy.max_concurrent_reviews]:
+        for pr_num in pr_numbers[: self.policy.max_concurrent_reviews]:
             pr_url = f"https://github.com/{repo}/pull/{pr_num}"
             result = await self.review_pr(pr_url)
             results.append(result)
@@ -525,7 +562,8 @@ class PRReviewRunner:
         try:
             result = subprocess.run(
                 ["gh", "pr", "diff", str(pr_number), "--repo", repo],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
                 timeout=self.policy.max_execution_seconds,
             )
             if result.returncode != 0:
@@ -537,7 +575,8 @@ class PRReviewRunner:
             return None, "Timed out fetching PR diff"
 
     async def _run_review(
-        self, diff: str,
+        self,
+        diff: str,
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Run the Aragora review engine."""
         # Demo mode only works via subprocess (CLI handles mock output)
@@ -568,14 +607,19 @@ class PRReviewRunner:
         return self._run_review_subprocess(diff)
 
     def _run_review_subprocess(
-        self, diff: str,
+        self,
+        diff: str,
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Fallback: run review via aragora CLI subprocess."""
         cmd = [
-            "aragora", "review",
-            "--output-format", "json",
-            "--agents", self.agents,
-            "--rounds", str(self.rounds),
+            "aragora",
+            "review",
+            "--output-format",
+            "json",
+            "--agents",
+            self.agents,
+            "--rounds",
+            str(self.rounds),
         ]
         if self.demo:
             cmd.append("--demo")
@@ -584,7 +628,10 @@ class PRReviewRunner:
 
         try:
             result = subprocess.run(
-                cmd, input=diff, capture_output=True, text=True,
+                cmd,
+                input=diff,
+                capture_output=True,
+                text=True,
                 timeout=self.policy.max_execution_seconds,
             )
             if result.returncode != 0:
@@ -626,11 +673,18 @@ class PRReviewRunner:
         try:
             result = subprocess.run(
                 [
-                    "gh", "pr", "comment", str(pr_number),
-                    "--repo", repo,
-                    "--body", body,
+                    "gh",
+                    "pr",
+                    "comment",
+                    str(pr_number),
+                    "--repo",
+                    repo,
+                    "--body",
+                    body,
                 ],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode != 0:
                 return None, result.stderr.strip()
@@ -641,19 +695,29 @@ class PRReviewRunner:
             return None, "Timed out posting comment"
 
     def _list_open_prs(
-        self, repo: str, limit: int,
+        self,
+        repo: str,
+        limit: int,
     ) -> tuple[list[int] | None, str | None]:
         """List open PR numbers for a repo."""
         try:
             result = subprocess.run(
                 [
-                    "gh", "pr", "list",
-                    "--repo", repo,
-                    "--state", "open",
-                    "--limit", str(limit),
-                    "--json", "number",
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "open",
+                    "--limit",
+                    str(limit),
+                    "--json",
+                    "number",
                 ],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode != 0:
                 return None, result.stderr.strip()
@@ -705,13 +769,23 @@ class PRReviewRunner:
         )
 
     def _error_result(
-        self, pr_url: str, pr_number: int | None, repo: str | None, error: str,
+        self,
+        pr_url: str,
+        pr_number: int | None,
+        repo: str | None,
+        error: str,
     ) -> ReviewResult:
         """Create an error ReviewResult."""
         return ReviewResult(
-            pr_url=pr_url, pr_number=pr_number, repo=repo,
-            findings=[], agreement_score=0.0, agents_used=[],
-            comment_posted=False, comment_url=None, receipt=None,
+            pr_url=pr_url,
+            pr_number=pr_number,
+            repo=repo,
+            findings=[],
+            agreement_score=0.0,
+            agents_used=[],
+            comment_posted=False,
+            comment_url=None,
+            receipt=None,
             error=error,
         )
 
@@ -756,22 +830,26 @@ def _parse_findings(findings_data: dict[str, Any]) -> list[ReviewFinding]:
     # Parse unanimous critiques
     for critique in findings_data.get("unanimous_critiques", []):
         text = critique if isinstance(critique, str) else str(critique)
-        findings.append(ReviewFinding(
-            severity=_infer_severity(text),
-            title=text[:120],
-            description=text,
-            unanimous=True,
-        ))
+        findings.append(
+            ReviewFinding(
+                severity=_infer_severity(text),
+                title=text[:120],
+                description=text,
+                unanimous=True,
+            )
+        )
 
     # Parse severity-bucketed issues
     for severity in ("critical", "high", "medium", "low"):
         for issue in findings_data.get(f"{severity}_issues", []):
             text = issue if isinstance(issue, str) else str(issue)
-            findings.append(ReviewFinding(
-                severity=severity,
-                title=text[:120],
-                description=text,
-            ))
+            findings.append(
+                ReviewFinding(
+                    severity=severity,
+                    title=text[:120],
+                    description=text,
+                )
+            )
 
     return findings
 
@@ -779,8 +857,18 @@ def _parse_findings(findings_data: dict[str, Any]) -> list[ReviewFinding]:
 def _infer_severity(text: str) -> str:
     """Infer severity from finding text."""
     lower = text.lower()
-    if any(w in lower for w in ("critical", "vulnerability", "injection", "rce",
-                                  "exploit", "remote code", "code execution")):
+    if any(
+        w in lower
+        for w in (
+            "critical",
+            "vulnerability",
+            "injection",
+            "rce",
+            "exploit",
+            "remote code",
+            "code execution",
+        )
+    ):
         return "critical"
     if any(w in lower for w in ("security", "auth", "credential", "secret", "xss")):
         return "high"
@@ -790,7 +878,8 @@ def _infer_severity(text: str) -> str:
 
 
 def _format_comment(
-    findings: list[ReviewFinding], agreement_score: float,
+    findings: list[ReviewFinding],
+    agreement_score: float,
 ) -> str:
     """Format findings as a GitHub PR comment."""
     lines = ["## Aragora Multi-Agent Code Review", ""]
@@ -844,8 +933,8 @@ def _format_comment(
         "*Reviewed by [Aragora](https://github.com/your-org/aragora) "
         "multi-agent debate engine | "
         f"Policy: `{findings[0].agent or 'pr-reviewer'}`*"
-        if findings else
-        "*Reviewed by [Aragora](https://github.com/your-org/aragora) "
+        if findings
+        else "*Reviewed by [Aragora](https://github.com/your-org/aragora) "
         "multi-agent debate engine*"
     )
     return "\n".join(lines)
@@ -884,19 +973,21 @@ def findings_to_sarif(
         rule_id = hashlib.sha256(finding.title.encode()).hexdigest()[:12]
         if rule_id not in seen_rules:
             seen_rules[rule_id] = len(rules)
-            rules.append({
-                "id": rule_id,
-                "name": finding.title[:80],
-                "shortDescription": {"text": finding.title[:120]},
-                "fullDescription": {"text": finding.description},
-                "defaultConfiguration": {
-                    "level": severity_to_sarif.get(finding.severity, "note"),
-                },
-                "properties": {
-                    "severity": finding.severity,
-                    "unanimous": finding.unanimous,
-                },
-            })
+            rules.append(
+                {
+                    "id": rule_id,
+                    "name": finding.title[:80],
+                    "shortDescription": {"text": finding.title[:120]},
+                    "fullDescription": {"text": finding.description},
+                    "defaultConfiguration": {
+                        "level": severity_to_sarif.get(finding.severity, "note"),
+                    },
+                    "properties": {
+                        "severity": finding.severity,
+                        "unanimous": finding.unanimous,
+                    },
+                }
+            )
 
         result: dict[str, Any] = {
             "ruleId": rule_id,

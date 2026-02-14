@@ -423,7 +423,7 @@ class GauntletRunner:
         async def debate_func(task: str, ctx: str):
             try:
                 from aragora import Arena, DebateProtocol, Environment
-                from aragora.debate.orchestrator import ArenaConfig
+                from aragora.debate.arena_config import ArenaConfig
 
                 # Create environment for this scenario
                 env = Environment(

@@ -1,6 +1,6 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
@@ -78,7 +78,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
-| `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `policy`, `serve`, `status` |
+| `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `policy`, `review`, `serve`, `status` |
 | `patterns` | - | Show learned patterns | - |
 | `plans` | - | Manage decision plans | `approve`, `execute`, `list`, `reject`, `show` |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |

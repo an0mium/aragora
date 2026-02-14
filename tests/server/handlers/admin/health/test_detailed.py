@@ -39,7 +39,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import psutil  # noqa: F401
+psutil = pytest.importorskip("psutil")
 
 
 class MockHandler:
