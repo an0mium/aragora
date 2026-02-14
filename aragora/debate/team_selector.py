@@ -133,6 +133,9 @@ class TeamSelectionConfig:
     )
     budget_warn_max_agents: int | None = None  # Max agents under WARN (None = no limit)
     budget_soft_limit_max_agents: int = 3  # Max agents under SOFT_LIMIT
+    # Feedback loop integration
+    enable_feedback_weights: bool = False  # Enable selection feedback loop scoring
+    feedback_weight: float = 0.3  # Weight for feedback-based score adjustment
 
 
 class TeamSelector:
@@ -167,6 +170,7 @@ class TeamSelector:
         org_id: str | None = None,
         config: TeamSelectionConfig | None = None,
         performance_adapter: Any | None = None,
+        feedback_loop: Any | None = None,
     ):
         self.elo_system = elo_system
         self.calibration_tracker = calibration_tracker
@@ -182,6 +186,7 @@ class TeamSelector:
         self.org_id = org_id
         self.config = config or TeamSelectionConfig()
         self.performance_adapter = performance_adapter
+        self.feedback_loop = feedback_loop
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
@@ -1306,6 +1311,14 @@ class TeamSelector:
             cv_score = self._compute_cv_score(agent_cvs[agent.name], domain)
             score += cv_score * self.config.cv_weight
 
+        # Feedback loop contribution (domain-specific win/loss adjustment)
+        if self.feedback_loop and self.config.enable_feedback_weights and domain:
+            try:
+                adjustment = self.feedback_loop.get_domain_adjustment(agent.name, domain)
+                score += adjustment * self.config.feedback_weight
+            except (AttributeError, TypeError) as e:
+                logger.debug(f"Feedback adjustment failed for {agent.name}: {e}")
+
         return score
 
     def score_agent(
@@ -1324,6 +1337,30 @@ class TeamSelector:
             context: Optional debate context for state-aware scoring
         """
         return self._compute_score(agent, domain=domain, task=task, context=context)
+
+    def apply_feedback_weights(
+        self,
+        agents: list[Agent],
+        domain: str = "general",
+    ) -> dict[str, float]:
+        """Get feedback-based weight adjustments for a set of agents.
+
+        Convenience method that returns domain-specific feedback weights
+        for the given agents. Requires a feedback_loop to be configured.
+
+        Args:
+            agents: List of agents to get weights for
+            domain: Domain to compute weights in
+
+        Returns:
+            Dict mapping agent names to weight adjustments
+        """
+        if not self.feedback_loop or not self.config.enable_feedback_weights:
+            return {}
+        try:
+            return self.feedback_loop.get_domain_weights(domain)
+        except (AttributeError, TypeError):
+            return {}
 
     def set_delegation_strategy(self, strategy: DelegationStrategy) -> None:
         """Set or update the delegation strategy.

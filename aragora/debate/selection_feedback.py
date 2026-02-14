@@ -260,6 +260,28 @@ class SelectionFeedbackLoop:
         # Centered around 0.5 (50% win rate = no adjustment)
         return (win_rate - 0.5) * self.config.max_adjustment * 2
 
+    def get_domain_weights(self, domain: str) -> dict[str, float]:
+        """Get domain-specific selection weights for all agents.
+
+        Returns a mapping of agent name to weight adjustment for the given domain.
+        Agents below the minimum debate threshold are excluded.
+
+        Args:
+            domain: Domain to get weights for
+
+        Returns:
+            Dict mapping agent names to weight adjustments (positive = favoured)
+        """
+        if not self.config.enabled:
+            return {}
+
+        weights: dict[str, float] = {}
+        for agent_name, state in self._agent_states.items():
+            adjustment = self.get_domain_adjustment(agent_name, domain)
+            if adjustment != 0.0:
+                weights[agent_name] = adjustment
+        return weights
+
     def record_timeout(self, agent_name: str) -> None:
         """Record a timeout for an agent."""
         state = self._get_or_create_state(agent_name)
