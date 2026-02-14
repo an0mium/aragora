@@ -658,8 +658,9 @@ class TestGatherEvidenceContext:
         """Returns None when EvidenceCollector is not available."""
         gatherer = _make_gatherer()
 
-        # The import of aragora.evidence.collector may fail in test env
-        result = await gatherer.gather_evidence_context("test task")
+        # Simulate environment where evidence collector is not installed
+        with patch.dict("sys.modules", {"aragora.evidence.collector": None}):
+            result = await gatherer.gather_evidence_context("test task")
 
         # Should gracefully return None on import error
         assert result is None
@@ -1524,7 +1525,7 @@ class TestGatherEvidenceWithTimeout:
             return "slow evidence"
 
         with patch.object(gatherer, "gather_evidence_context", side_effect=slow_evidence):
-            with patch("aragora.debate.context_gatherer.EVIDENCE_TIMEOUT", 0.01):
+            with patch("aragora.debate.context_gatherer.sources.EVIDENCE_TIMEOUT", 0.01):
                 result = await gatherer._gather_evidence_with_timeout("test task")
 
         assert result is None
@@ -1558,7 +1559,7 @@ class TestGatherTrendingWithTimeout:
             return "slow trending"
 
         with patch.object(gatherer, "gather_trending_context", side_effect=slow_trending):
-            with patch("aragora.debate.context_gatherer.TRENDING_TIMEOUT", 0.01):
+            with patch("aragora.debate.context_gatherer.sources.TRENDING_TIMEOUT", 0.01):
                 result = await gatherer._gather_trending_with_timeout()
 
         assert result is None
