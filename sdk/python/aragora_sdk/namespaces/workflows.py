@@ -207,6 +207,74 @@ class WorkflowsAPI:
         """Get a workflow pattern template by ID."""
         return self._client.request("GET", f"/api/v1/workflow/pattern-templates/{template_id}")
 
+    # =========================================================================
+    # Workflows/Templates & Workflows/Executions (alternate paths)
+    # =========================================================================
+
+    def list_workflow_templates(self, **params: Any) -> dict[str, Any]:
+        """
+        List workflow templates via /workflows/templates path.
+
+        GET /api/v1/workflows/templates
+
+        Returns:
+            List of workflow templates
+        """
+        return self._client.request("GET", "/api/v1/workflows/templates", params=params or None)
+
+    def get_workflow_template(self, template_id: str) -> dict[str, Any]:
+        """
+        Get a workflow template by ID via /workflows/templates path.
+
+        GET /api/v1/workflows/templates/:template_id
+
+        Args:
+            template_id: Template identifier
+
+        Returns:
+            Template details
+        """
+        return self._client.request("GET", f"/api/v1/workflows/templates/{template_id}")
+
+    def list_workflow_executions(
+        self,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List workflow executions via /workflows/executions path.
+
+        GET /api/v1/workflows/executions
+
+        Args:
+            workflow_id: Optional filter by workflow ID
+            limit: Maximum executions to return
+            offset: Pagination offset
+
+        Returns:
+            List of executions
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if workflow_id:
+            params["workflow_id"] = workflow_id
+        return self._client.request("GET", "/api/v1/workflows/executions", params=params)
+
+    def get_workflow_execution(self, execution_id: str) -> dict[str, Any]:
+        """
+        Get a workflow execution by ID via /workflows/executions path.
+
+        GET /api/v1/workflows/executions/:execution_id
+
+        Args:
+            execution_id: Execution identifier
+
+        Returns:
+            Execution details including status and steps
+        """
+        return self._client.request("GET", f"/api/v1/workflows/executions/{execution_id}")
+
 class AsyncWorkflowsAPI:
     """
     Asynchronous Workflows API.
@@ -327,4 +395,41 @@ class AsyncWorkflowsAPI:
         """Get a workflow pattern template by ID."""
         return await self._client.request(
             "GET", f"/api/v1/workflow/pattern-templates/{template_id}"
+        )
+
+    # =========================================================================
+    # Workflows/Templates & Workflows/Executions (alternate paths)
+    # =========================================================================
+
+    async def list_workflow_templates(self, **params: Any) -> dict[str, Any]:
+        """List workflow templates. GET /api/v1/workflows/templates"""
+        return await self._client.request(
+            "GET", "/api/v1/workflows/templates", params=params or None
+        )
+
+    async def get_workflow_template(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow template by ID. GET /api/v1/workflows/templates/:template_id"""
+        return await self._client.request(
+            "GET", f"/api/v1/workflows/templates/{template_id}"
+        )
+
+    async def list_workflow_executions(
+        self,
+        *,
+        workflow_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List workflow executions. GET /api/v1/workflows/executions"""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if workflow_id:
+            params["workflow_id"] = workflow_id
+        return await self._client.request(
+            "GET", "/api/v1/workflows/executions", params=params
+        )
+
+    async def get_workflow_execution(self, execution_id: str) -> dict[str, Any]:
+        """Get a workflow execution. GET /api/v1/workflows/executions/:execution_id"""
+        return await self._client.request(
+            "GET", f"/api/v1/workflows/executions/{execution_id}"
         )

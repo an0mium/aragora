@@ -54,6 +54,19 @@ class HealthAPI:
         """
         return self._client.request("GET", "/api/v1/health/components")
 
+    def job_queue_status(self) -> dict[str, Any]:
+        """Get job queue health status."""
+        return self._client.request("GET", "/api/v1/health/job-queue")
+
+    def list_workers(self) -> dict[str, Any]:
+        """Get background worker health status."""
+        return self._client.request("GET", "/api/v1/health/workers")
+
+    def list_all_workers(self) -> dict[str, Any]:
+        """Get combined workers and job queue health."""
+        return self._client.request("GET", "/api/v1/health/workers/all")
+
+
 class AsyncHealthAPI:
     """
     Asynchronous Health API.
@@ -74,4 +87,16 @@ class AsyncHealthAPI:
     async def components(self) -> dict[str, Any]:
         """Get detailed health status of all components."""
         return await self._client.request("GET", "/api/v1/health/components")
+
+    async def job_queue_status(self) -> dict[str, Any]:
+        """Get job queue health status."""
+        return await self._client.request("GET", "/api/v1/health/job-queue")
+
+    async def list_workers(self) -> dict[str, Any]:
+        """Get background worker health status."""
+        return await self._client.request("GET", "/api/v1/health/workers")
+
+    async def list_all_workers(self) -> dict[str, Any]:
+        """Get combined workers and job queue health."""
+        return await self._client.request("GET", "/api/v1/health/workers/all")
 

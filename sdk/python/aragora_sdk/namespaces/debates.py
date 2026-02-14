@@ -443,6 +443,13 @@ class DebatesAPI:
             "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
         )
 
+    # ========== Quick Debate ==========
+
+    def quick_debate(self, task: str, **kwargs: Any) -> dict[str, Any]:
+        """Create a debate via the non-versioned quick endpoint."""
+        data: dict[str, Any] = {"task": task, **kwargs}
+        return self._client.request("POST", "/api/debate", json=data)
+
 
 class AsyncDebatesAPI:
     """
@@ -856,3 +863,10 @@ class AsyncDebatesAPI:
         return await self._client.request(
             "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
         )
+
+    # ========== Quick Debate ==========
+
+    async def quick_debate(self, task: str, **kwargs: Any) -> dict[str, Any]:
+        """Create a debate via the non-versioned quick endpoint."""
+        data: dict[str, Any] = {"task": task, **kwargs}
+        return await self._client.request("POST", "/api/debate", json=data)

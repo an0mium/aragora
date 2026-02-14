@@ -20,14 +20,16 @@ class ExplainabilityAPI:
 
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
-        >>> explanation = client.explainability.explain("decision_123")
+        >>> explanation = client.explainability.get_explanation("decision_123")
         >>> print(explanation["summary"])
-        >>> for factor in explanation["factors"]:
-        ...     print(factor["name"], factor["weight"])
     """
 
     def __init__(self, client: AragoraClient):
         self._client = client
+
+    def get_explanation(self, decision_id: str) -> dict[str, Any]:
+        """Get a full explanation for a decision or debate."""
+        return self._client.request("GET", f"/api/v1/explain/{decision_id}")
 
     def compare_decisions(
         self,
@@ -56,11 +58,15 @@ class AsyncExplainabilityAPI:
 
     Example:
         >>> async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
-        ...     explanation = await client.explainability.explain("decision_123")
+        ...     explanation = await client.explainability.get_explanation("decision_123")
     """
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    async def get_explanation(self, decision_id: str) -> dict[str, Any]:
+        """Get a full explanation for a decision or debate."""
+        return await self._client.request("GET", f"/api/v1/explain/{decision_id}")
 
     async def compare_decisions(
         self,

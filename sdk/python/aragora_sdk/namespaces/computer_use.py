@@ -112,10 +112,26 @@ class ComputerUseAPI:
         """
         List active policies.
 
+        GET /api/v1/computer-use/policies
+
         Returns:
             Dict with policies array and total count.
         """
         return self._client.request("GET", "/api/v1/computer-use/policies")
+
+    def get_policy(self, policy_id: str) -> dict[str, Any]:
+        """
+        Get a specific computer use policy.
+
+        GET /api/v1/computer-use/policies/:policy_id
+
+        Args:
+            policy_id: Policy identifier.
+
+        Returns:
+            Dict with policy details.
+        """
+        return self._client.request("GET", f"/api/v1/computer-use/policies/{policy_id}")
 
     def create_policy(
         self,
@@ -126,6 +142,8 @@ class ComputerUseAPI:
     ) -> dict[str, Any]:
         """
         Create a computer use policy.
+
+        POST /api/v1/computer-use/policies
 
         Args:
             name: Policy name.
@@ -145,6 +163,108 @@ class ComputerUseAPI:
             data["blocked_domains"] = blocked_domains
 
         return self._client.request("POST", "/api/v1/computer-use/policies", json=data)
+
+    # =========================================================================
+    # Actions
+    # =========================================================================
+
+    def get_action_stats(self) -> dict[str, Any]:
+        """
+        Get action statistics.
+
+        GET /api/v1/computer-use/actions/stats
+
+        Returns:
+            Dict with aggregated action stats.
+        """
+        return self._client.request("GET", "/api/v1/computer-use/actions/stats")
+
+    def get_action(self, action_id: str) -> dict[str, Any]:
+        """
+        Get a specific action's details.
+
+        GET /api/v1/computer-use/actions/:action_id
+
+        Args:
+            action_id: Action identifier.
+
+        Returns:
+            Dict with action details.
+        """
+        return self._client.request("GET", f"/api/v1/computer-use/actions/{action_id}")
+
+    # =========================================================================
+    # Approvals
+    # =========================================================================
+
+    def list_approvals(
+        self,
+        *,
+        status: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """
+        List approval requests.
+
+        GET /api/v1/computer-use/approvals
+
+        Args:
+            status: Filter by approval status (pending, approved, denied).
+            limit: Maximum approvals to return.
+
+        Returns:
+            Dict with approvals array.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
+        return self._client.request("GET", "/api/v1/computer-use/approvals", params=params)
+
+    def get_approval(self, request_id: str) -> dict[str, Any]:
+        """
+        Get a specific approval request.
+
+        GET /api/v1/computer-use/approvals/:request_id
+
+        Args:
+            request_id: Approval request identifier.
+
+        Returns:
+            Dict with approval request details.
+        """
+        return self._client.request("GET", f"/api/v1/computer-use/approvals/{request_id}")
+
+    def approve_approval(self, request_id: str) -> dict[str, Any]:
+        """
+        Approve an approval request.
+
+        POST /api/v1/computer-use/approvals/:request_id/approve
+
+        Args:
+            request_id: Approval request identifier.
+
+        Returns:
+            Dict with updated approval status.
+        """
+        return self._client.request(
+            "POST", f"/api/v1/computer-use/approvals/{request_id}/approve"
+        )
+
+    def deny_approval(self, request_id: str) -> dict[str, Any]:
+        """
+        Deny an approval request.
+
+        POST /api/v1/computer-use/approvals/:request_id/deny
+
+        Args:
+            request_id: Approval request identifier.
+
+        Returns:
+            Dict with updated approval status.
+        """
+        return self._client.request(
+            "POST", f"/api/v1/computer-use/approvals/{request_id}/deny"
+        )
 
 class AsyncComputerUseAPI:
     """Asynchronous Computer Use API."""
@@ -186,8 +306,12 @@ class AsyncComputerUseAPI:
         return await self._client.request("GET", f"/api/v1/computer-use/tasks/{task_id}")
 
     async def list_policies(self) -> dict[str, Any]:
-        """List active policies."""
+        """List active policies. GET /api/v1/computer-use/policies"""
         return await self._client.request("GET", "/api/v1/computer-use/policies")
+
+    async def get_policy(self, policy_id: str) -> dict[str, Any]:
+        """Get a specific policy. GET /api/v1/computer-use/policies/:policy_id"""
+        return await self._client.request("GET", f"/api/v1/computer-use/policies/{policy_id}")
 
     async def create_policy(
         self,
@@ -196,7 +320,7 @@ class AsyncComputerUseAPI:
         allowed_actions: list[str] | None = None,
         blocked_domains: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Create a computer use policy."""
+        """Create a computer use policy. POST /api/v1/computer-use/policies"""
         data: dict[str, Any] = {"name": name}
         if description:
             data["description"] = description
@@ -206,3 +330,51 @@ class AsyncComputerUseAPI:
             data["blocked_domains"] = blocked_domains
 
         return await self._client.request("POST", "/api/v1/computer-use/policies", json=data)
+
+    # =========================================================================
+    # Actions
+    # =========================================================================
+
+    async def get_action_stats(self) -> dict[str, Any]:
+        """Get action statistics. GET /api/v1/computer-use/actions/stats"""
+        return await self._client.request("GET", "/api/v1/computer-use/actions/stats")
+
+    async def get_action(self, action_id: str) -> dict[str, Any]:
+        """Get a specific action's details. GET /api/v1/computer-use/actions/:action_id"""
+        return await self._client.request("GET", f"/api/v1/computer-use/actions/{action_id}")
+
+    # =========================================================================
+    # Approvals
+    # =========================================================================
+
+    async def list_approvals(
+        self,
+        *,
+        status: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """List approval requests. GET /api/v1/computer-use/approvals"""
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
+        return await self._client.request(
+            "GET", "/api/v1/computer-use/approvals", params=params
+        )
+
+    async def get_approval(self, request_id: str) -> dict[str, Any]:
+        """Get an approval request. GET /api/v1/computer-use/approvals/:request_id"""
+        return await self._client.request(
+            "GET", f"/api/v1/computer-use/approvals/{request_id}"
+        )
+
+    async def approve_approval(self, request_id: str) -> dict[str, Any]:
+        """Approve an approval request. POST /api/v1/computer-use/approvals/:request_id/approve"""
+        return await self._client.request(
+            "POST", f"/api/v1/computer-use/approvals/{request_id}/approve"
+        )
+
+    async def deny_approval(self, request_id: str) -> dict[str, Any]:
+        """Deny an approval request. POST /api/v1/computer-use/approvals/:request_id/deny"""
+        return await self._client.request(
+            "POST", f"/api/v1/computer-use/approvals/{request_id}/deny"
+        )

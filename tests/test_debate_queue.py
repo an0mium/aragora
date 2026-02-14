@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
 from aragora.server.debate_queue import (
     BatchItem,
     BatchRequest,
@@ -226,9 +227,9 @@ class TestBatchItem:
         """Default values should be set correctly."""
         item = BatchItem(question="Test question?")
         assert item.question == "Test question?"
-        assert item.agents == "anthropic-api,openai-api,gemini"
-        assert item.rounds == 3
-        assert item.consensus == "majority"
+        assert item.agents == DEFAULT_AGENTS
+        assert item.rounds == DEFAULT_ROUNDS
+        assert item.consensus == DEFAULT_CONSENSUS
         assert item.priority == 0
         assert item.metadata == {}
         assert item.status == ItemStatus.QUEUED
@@ -273,7 +274,7 @@ class TestBatchItem:
         """from_dict with minimal data should work."""
         item = BatchItem.from_dict({"question": "Minimal test"})
         assert item.question == "Minimal test"
-        assert item.agents == "anthropic-api,openai-api,gemini"
+        assert item.agents == DEFAULT_AGENTS
 
     def test_from_dict_full(self):
         """from_dict with full data should work."""
@@ -330,12 +331,12 @@ class TestBatchItem:
             BatchItem.from_dict({"question": "Test", "metadata": "not-a-dict"})
 
     def test_from_dict_rounds_clamped(self):
-        """from_dict should clamp rounds to 1-10."""
+        """from_dict should clamp rounds to 1-MAX_ROUNDS."""
         item = BatchItem.from_dict({"question": "Test", "rounds": 0})
         assert item.rounds == 1
 
         item = BatchItem.from_dict({"question": "Test", "rounds": 100})
-        assert item.rounds == 10
+        assert item.rounds == MAX_ROUNDS
 
 
 class TestBatchRequest:
@@ -747,33 +748,36 @@ class TestWebhookSending:
     @pytest.mark.asyncio
     async def test_send_webhook_success(self, queue):
         """Webhook should be sent on batch completion."""
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
 
-            mock_session = MagicMock()
-            mock_session.post = MagicMock(return_value=mock_response)
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock()
-            mock_session_class.return_value = mock_session
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
 
-            items = [BatchItem(question="Test")]
-            items[0].status = ItemStatus.COMPLETED
+        mock_pool = MagicMock()
 
-            batch = BatchRequest(
-                items=items,
-                webhook_url="https://example.com/webhook",
-            )
-            queue._batches[batch.batch_id] = batch
+        from contextlib import asynccontextmanager
 
-            with patch.object(queue, "_send_webhook", wraps=queue._send_webhook) as mock_send:
-                with patch("socket.getaddrinfo") as mock_getaddr:
-                    mock_getaddr.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
-                    await queue._send_webhook(batch)
-                    # Verify aiohttp was used
-                    mock_session.post.assert_called_once()
+        @asynccontextmanager
+        async def _mock_get_session(provider):
+            yield mock_client
+
+        mock_pool.get_session = _mock_get_session
+
+        items = [BatchItem(question="Test")]
+        items[0].status = ItemStatus.COMPLETED
+
+        batch = BatchRequest(
+            items=items,
+            webhook_url="https://example.com/webhook",
+        )
+        queue._batches[batch.batch_id] = batch
+
+        with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
+            with patch("socket.getaddrinfo") as mock_getaddr:
+                mock_getaddr.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
+                await queue._send_webhook(batch)
+                mock_client.post.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_send_webhook_skipped_invalid_url(self, queue):

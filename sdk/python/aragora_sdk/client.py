@@ -197,6 +197,7 @@ class AragoraClient:
         from .namespaces.gauntlet import GauntletAPI
         from .namespaces.genesis import GenesisAPI
         from .namespaces.gmail import GmailAPI
+        from .namespaces.graph_debates import GraphDebatesAPI
         from .namespaces.health import HealthAPI
         from .namespaces.hybrid_debates import HybridDebatesAPI
         from .namespaces.inbox_command import InboxCommandAPI
@@ -325,6 +326,7 @@ class AragoraClient:
         self.gauntlet = GauntletAPI(self)
         self.genesis = GenesisAPI(self)
         self.gmail = GmailAPI(self)
+        self.graph_debates = GraphDebatesAPI(self)
         self.health = HealthAPI(self)
         self.hybrid_debates = HybridDebatesAPI(self)
         self.inbox_command = InboxCommandAPI(self)
@@ -729,6 +731,7 @@ class AragoraAsyncClient:
         from .namespaces.gauntlet import AsyncGauntletAPI
         from .namespaces.genesis import AsyncGenesisAPI
         from .namespaces.gmail import AsyncGmailAPI
+        from .namespaces.graph_debates import AsyncGraphDebatesAPI
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.hybrid_debates import AsyncHybridDebatesAPI
         from .namespaces.inbox_command import AsyncInboxCommandAPI
@@ -857,6 +860,7 @@ class AragoraAsyncClient:
         self.gauntlet = AsyncGauntletAPI(self)
         self.genesis = AsyncGenesisAPI(self)
         self.gmail = AsyncGmailAPI(self)
+        self.graph_debates = AsyncGraphDebatesAPI(self)
         self.health = AsyncHealthAPI(self)
         self.hybrid_debates = AsyncHybridDebatesAPI(self)
         self.inbox_command = AsyncInboxCommandAPI(self)

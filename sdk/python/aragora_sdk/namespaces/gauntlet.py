@@ -99,6 +99,12 @@ class GauntletAPI:
         """
         return self._client.request("POST", f"/api/v1/gauntlet/{gauntlet_id}/receipt/verify")
 
+    def compare_receipts(self, receipt_id: str, other_id: str) -> dict[str, Any]:
+        """Compare two gauntlet runs side-by-side."""
+        return self._client.request(
+            "GET", f"/api/v1/gauntlet/{receipt_id}/compare/{other_id}"
+        )
+
     def run_and_wait(
         self,
         timeout: float = 300,
@@ -175,6 +181,12 @@ class AsyncGauntletAPI:
     async def verify_receipt(self, gauntlet_id: str) -> dict[str, Any]:
         """Verify a Gauntlet receipt's integrity."""
         return await self._client.request("POST", f"/api/v1/gauntlet/{gauntlet_id}/receipt/verify")
+
+    async def compare_receipts(self, receipt_id: str, other_id: str) -> dict[str, Any]:
+        """Compare two gauntlet runs side-by-side."""
+        return await self._client.request(
+            "GET", f"/api/v1/gauntlet/{receipt_id}/compare/{other_id}"
+        )
 
     async def run_and_wait(
         self,

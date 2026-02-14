@@ -229,6 +229,110 @@ class MemoryAPI:
             body["metadata"] = metadata
         return self._client.request("POST", "/api/v1/memory/critiques", json=body)
 
+    # ===========================================================================
+    # Progressive Retrieval & Viewer
+    # ===========================================================================
+
+    def search_index(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        min_importance: float = 0.0,
+        tiers: list[MemoryTier] | None = None,
+        use_hybrid: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Progressive retrieval stage 1: compact index entries.
+
+        GET /api/v1/memory/search-index
+
+        Args:
+            query: Search query
+            limit: Maximum entries to return (1-100)
+            min_importance: Minimum importance threshold (0.0-1.0)
+            tiers: Filter by memory tiers
+            use_hybrid: Enable hybrid search mode
+
+        Returns:
+            Dict with compact index entries for progressive loading
+        """
+        params: dict[str, Any] = {
+            "q": query,
+            "limit": limit,
+            "min_importance": min_importance,
+            "use_hybrid": str(use_hybrid).lower(),
+        }
+        if tiers:
+            params["tiers"] = ",".join(tiers)
+        return self._client.request("GET", "/api/v1/memory/search-index", params=params)
+
+    def search_timeline(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        min_importance: float = 0.0,
+        tiers: list[MemoryTier] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Progressive retrieval: timeline-ordered search results.
+
+        GET /api/v1/memory/search-timeline
+
+        Args:
+            query: Search query
+            limit: Maximum entries to return
+            min_importance: Minimum importance threshold
+            tiers: Filter by memory tiers
+
+        Returns:
+            Dict with timeline-ordered memory entries
+        """
+        params: dict[str, Any] = {
+            "q": query,
+            "limit": limit,
+            "min_importance": min_importance,
+        }
+        if tiers:
+            params["tiers"] = ",".join(tiers)
+        return self._client.request("GET", "/api/v1/memory/search-timeline", params=params)
+
+    def list_entries(
+        self,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        tier: MemoryTier | None = None,
+    ) -> dict[str, Any]:
+        """
+        List memory entries.
+
+        GET /api/v1/memory/entries
+
+        Args:
+            limit: Maximum entries to return
+            offset: Pagination offset
+            tier: Filter by memory tier
+
+        Returns:
+            Dict with memory entries and pagination
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if tier:
+            params["tier"] = tier
+        return self._client.request("GET", "/api/v1/memory/entries", params=params)
+
+    def get_viewer(self) -> dict[str, Any]:
+        """
+        Get memory viewer HTML interface.
+
+        GET /api/v1/memory/viewer
+
+        Returns:
+            Dict with viewer HTML content
+        """
+        return self._client.request("GET", "/api/v1/memory/viewer")
 
 
 class AsyncMemoryAPI:

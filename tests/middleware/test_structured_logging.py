@@ -783,14 +783,20 @@ class TestConfigureStructuredLogging:
     """Tests for configure_structured_logging function."""
 
     @pytest.fixture(autouse=True)
-    def _reset_root_logger(self):
-        """Save and restore root logger state to prevent cross-test pollution."""
-        root = logging.getLogger()
-        original_handlers = list(root.handlers)
-        original_level = root.level
+    def _clean_root_logger(self):
+        """Ensure root logger is clean before each test.
+
+        Other test modules may add handlers (e.g., pytest's caplog).
+        configure_structured_logging removes existing handlers, so this
+        fixture just ensures a clean teardown.
+        """
         yield
-        root.handlers = original_handlers
-        root.level = original_level
+        # After test: reset root logger to avoid polluting other tests
+        root = logging.getLogger()
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+        root.addHandler(logging.StreamHandler())
+        root.setLevel(logging.WARNING)
 
     def test_configure_default_settings(self):
         """Should configure with default settings."""
@@ -806,7 +812,8 @@ class TestConfigureStructuredLogging:
 
         root_logger = logging.getLogger()
         formatter = root_logger.handlers[0].formatter
-        assert isinstance(formatter, JsonFormatter)
+        # Check by class name to avoid module reload issues with isinstance
+        assert formatter.__class__.__name__ == "JsonFormatter"
 
     def test_configure_text_output(self):
         """Should use TextFormatter when json_output=False."""
@@ -814,7 +821,8 @@ class TestConfigureStructuredLogging:
 
         root_logger = logging.getLogger()
         formatter = root_logger.handlers[0].formatter
-        assert isinstance(formatter, TextFormatter)
+        # Check by class name to avoid module reload issues with isinstance
+        assert formatter.__class__.__name__ == "TextFormatter"
 
     def test_configure_log_level(self):
         """Should set the specified log level."""
@@ -836,7 +844,8 @@ class TestConfigureStructuredLogging:
 
         root_logger = logging.getLogger()
         formatter = root_logger.handlers[0].formatter
-        assert isinstance(formatter, JsonFormatter)
+        # Check by class name to avoid module reload issues with isinstance
+        assert formatter.__class__.__name__ == "JsonFormatter"
         assert formatter.service_name == "my-service"
 
     def test_configure_removes_existing_handlers(self):

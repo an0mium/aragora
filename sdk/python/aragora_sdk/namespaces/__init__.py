@@ -61,6 +61,7 @@ from .flips import AsyncFlipsAPI, FlipsAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .genesis import AsyncGenesisAPI, GenesisAPI
 from .gmail import AsyncGmailAPI, GmailAPI
+from .graph_debates import AsyncGraphDebatesAPI, GraphDebatesAPI
 from .health import AsyncHealthAPI, HealthAPI
 from .history import AsyncHistoryAPI, HistoryAPI
 from .hybrid_debates import AsyncHybridDebatesAPI, HybridDebatesAPI
@@ -251,6 +252,8 @@ __all__ = [
     "AsyncGenesisAPI",
     "GmailAPI",
     "AsyncGmailAPI",
+    "GraphDebatesAPI",
+    "AsyncGraphDebatesAPI",
     "HealthAPI",
     "AsyncHealthAPI",
     "HistoryAPI",

@@ -69,11 +69,11 @@ class TestExtensionInitialization:
 
     def test_init_computer_use_disabled_by_default(self):
         """Test Computer Use is disabled by default."""
-        orchestrator, policy = init_computer_use()
+        result = init_computer_use()
 
-        # Computer Use is disabled by default
-        assert orchestrator is None
-        assert policy is None
+        # Computer Use is disabled by default - returns 4-tuple of Nones
+        assert len(result) == 4
+        assert all(r is None for r in result)
 
     def test_init_extensions_creates_state(self, tmp_path: Path):
         """Test init_extensions creates global state."""
@@ -205,8 +205,8 @@ class TestExtensionFeatureFlags:
         importlib.reload(ext_module)
 
         # Will only be non-None if module is available
-        orchestrator, policy = ext_module.init_computer_use()
-        # Just verify it doesn't error
+        result = ext_module.init_computer_use()
+        assert len(result) == 4  # orchestrator, policy, approval, enforcer
 
 
 class TestExtensionHandlers:
@@ -222,6 +222,7 @@ class TestExtensionHandlers:
             org_id="test-org",
             roles={"admin"},  # Admin role has all permissions
             permissions={
+                "extensions:read",
                 "workspaces:read",
                 "workspaces:write",
                 "convoys:read",

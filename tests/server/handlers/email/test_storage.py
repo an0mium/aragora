@@ -39,6 +39,7 @@ class FakeAuthContext:
 @pytest.fixture(autouse=True)
 def _reset_singletons():
     """Reset all module-level singletons between tests."""
+    saved_store = storage_mod._email_store
     storage_mod._email_store = None
     storage_mod._gmail_connector = None
     storage_mod._prioritizer = None
@@ -46,7 +47,7 @@ def _reset_singletons():
     with storage_mod._user_configs_lock:
         storage_mod._user_configs.clear()
     yield
-    storage_mod._email_store = None
+    storage_mod._email_store = saved_store
     storage_mod._gmail_connector = None
     storage_mod._prioritizer = None
     storage_mod._context_service = None

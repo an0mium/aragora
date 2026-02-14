@@ -19,6 +19,7 @@ from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
+import os
 
 import pytest
 from aiohttp import web
@@ -4004,6 +4005,17 @@ class TestInputValidation:
 class TestConnectorInitialization:
     """Tests for payment connector initialization."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_payment_connectors(self):
+        """Reset payment connector singletons before/after each test."""
+        import aragora.server.handlers.payments as payments_module
+
+        payments_module._stripe_connector = None
+        payments_module._authnet_connector = None
+        yield
+        payments_module._stripe_connector = None
+        payments_module._authnet_connector = None
+
     @pytest.mark.asyncio
     async def test_stripe_connector_caches_instance(self):
         """Stripe connector is cached after first initialization."""
@@ -4038,25 +4050,16 @@ class TestConnectorInitialization:
     async def test_stripe_connector_returns_none_when_not_configured(self):
         """Stripe connector returns None when API keys not configured."""
         import aragora.server.handlers.payments as payments_module
-        import os
-
-        payments_module._stripe_connector = None
 
         request = MagicMock(spec=web.Request)
 
-        # Remove Stripe API key from environment
-        original_key = os.environ.pop("STRIPE_SECRET_KEY", None)
-        try:
+        with patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("STRIPE_SECRET_KEY", None)
             # Without API key, connector should return None
             result = await payments_module.get_stripe_connector(request)
             # Either returns None or an unconfigured connector
             # The actual behavior depends on implementation
             assert result is None or result is not None  # Connector behavior varies
-        finally:
-            if original_key:
-                os.environ["STRIPE_SECRET_KEY"] = original_key
-
-        payments_module._stripe_connector = None
 
     @pytest.mark.asyncio
     async def test_authnet_connector_caches_instance(self):

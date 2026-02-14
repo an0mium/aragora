@@ -355,6 +355,19 @@ class AnalyticsAPI:
             params["agent"] = agent
         return self._client.request("GET", "/api/analytics/calibration", params=params)
 
+    def get_trends(
+        self,
+        period: str | None = None,
+        granularity: str | None = None,
+    ) -> dict[str, Any]:
+        """Get general trend analysis across debates, consensus, and agents."""
+        params: dict[str, Any] = {}
+        if period:
+            params["time_range"] = period
+        if granularity:
+            params["granularity"] = granularity
+        return self._client.request("GET", "/api/v1/analytics/trends", params=params)
+
     # ===========================================================================
     # Usage & Costs
     # ===========================================================================
@@ -784,3 +797,20 @@ class AsyncAnalyticsAPI:
         return await self._client.request(
             "GET", "/api/analytics/deliberations/consensus", params=params
         )
+
+    # ===========================================================================
+    # Trends
+    # ===========================================================================
+
+    async def get_trends(
+        self,
+        period: str | None = None,
+        granularity: str | None = None,
+    ) -> dict[str, Any]:
+        """Get general trend analysis across debates, consensus, and agents."""
+        params: dict[str, Any] = {}
+        if period:
+            params["time_range"] = period
+        if granularity:
+            params["granularity"] = granularity
+        return await self._client.request("GET", "/api/v1/analytics/trends", params=params)

@@ -37,6 +37,7 @@ _handle_remove_vip = getattr(
 
 @pytest.fixture(autouse=True)
 def _reset_singletons():
+    saved_store = storage_mod._email_store
     storage_mod._prioritizer = None
     storage_mod._gmail_connector = None
     storage_mod._email_store = None
@@ -45,7 +46,7 @@ def _reset_singletons():
     yield
     storage_mod._prioritizer = None
     storage_mod._gmail_connector = None
-    storage_mod._email_store = None
+    storage_mod._email_store = saved_store
     with storage_mod._user_configs_lock:
         storage_mod._user_configs.clear()
 

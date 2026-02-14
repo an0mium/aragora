@@ -102,6 +102,8 @@ get_email_store = _email_store.get
 
 def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict[str, Any]:
     """Load config from persistent store into memory cache."""
+    if _email_store is None:
+        return {}
     store = _email_store.get()
     if store:
         try:
@@ -117,6 +119,8 @@ def _save_config_to_store(
     user_id: str, config: dict[str, Any], workspace_id: str = "default"
 ) -> None:
     """Save config to persistent store."""
+    if _email_store is None:
+        return
     store = _email_store.get()
     if store:
         try:

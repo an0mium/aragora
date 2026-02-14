@@ -209,6 +209,35 @@ class BillingAPI:
             params["action"] = action
         return self._client.request("GET", "/api/v1/billing/audit-log", params=params)
 
+    # ===========================================================================
+    # Dashboard
+    # ===========================================================================
+
+    def get_dashboard(
+        self,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get consolidated cost dashboard summary."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if org_id:
+            params["org_id"] = org_id
+        return self._client.request("GET", "/api/v1/billing/dashboard", params=params)
+
+    # ===========================================================================
+    # Trial
+    # ===========================================================================
+
+    def get_trial(self) -> dict[str, Any]:
+        """Get trial status for the organization."""
+        return self._client.request("GET", "/api/v1/billing/trial")
+
+    def start_trial(self) -> dict[str, Any]:
+        """Start a free trial for a new organization."""
+        return self._client.request("POST", "/api/v1/billing/trial/start")
+
 
 class AsyncBillingAPI:
     """
@@ -322,3 +351,32 @@ class AsyncBillingAPI:
         if action:
             params["action"] = action
         return await self._client.request("GET", "/api/v1/billing/audit-log", params=params)
+
+    # ===========================================================================
+    # Dashboard
+    # ===========================================================================
+
+    async def get_dashboard(
+        self,
+        workspace_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get consolidated cost dashboard summary."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if org_id:
+            params["org_id"] = org_id
+        return await self._client.request("GET", "/api/v1/billing/dashboard", params=params)
+
+    # ===========================================================================
+    # Trial
+    # ===========================================================================
+
+    async def get_trial(self) -> dict[str, Any]:
+        """Get trial status for the organization."""
+        return await self._client.request("GET", "/api/v1/billing/trial")
+
+    async def start_trial(self) -> dict[str, Any]:
+        """Start a free trial for a new organization."""
+        return await self._client.request("POST", "/api/v1/billing/trial/start")
