@@ -607,10 +607,10 @@ class WebhookDeliveryManager:
         # Capture trace context at creation time
         delivery_metadata = metadata.copy() if metadata else {}
         trace_id = get_trace_id()
-        if trace_id:
+        if trace_id and isinstance(trace_id, str):
             delivery_metadata["trace_id"] = trace_id
             span_id = get_span_id()
-            if span_id:
+            if span_id and isinstance(span_id, str):
                 delivery_metadata["span_id"] = span_id
 
         delivery = WebhookDelivery(

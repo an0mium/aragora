@@ -377,9 +377,13 @@ class StreamEvent:
                 # Lazy import to avoid circular dependency with server layer
                 from aragora.server.middleware.tracing import get_trace_id, get_span_id
 
-                self.trace_id = get_trace_id() or ""
-                self.span_id = get_span_id() or ""
-                self.correlation_id = self.trace_id  # Use trace_id as correlation_id
+                trace_id = get_trace_id()
+                if isinstance(trace_id, str) and trace_id:
+                    self.trace_id = trace_id
+                    span_id = get_span_id()
+                    if isinstance(span_id, str) and span_id:
+                        self.span_id = span_id
+                    self.correlation_id = self.trace_id
             except ImportError:
                 pass
 

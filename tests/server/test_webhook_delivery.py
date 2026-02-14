@@ -20,6 +20,31 @@ from aragora.server.webhook_delivery import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_tracing_and_delivery():
+    """Reset tracing context and delivery manager to prevent cross-test pollution."""
+    # Reset tracing ContextVars
+    try:
+        from aragora.server.middleware.tracing import _trace_id, _span_id
+
+        token_trace = _trace_id.set(None)
+        token_span = _span_id.set(None)
+    except ImportError:
+        token_trace = token_span = None
+
+    # Reset global delivery manager singleton
+    reset_delivery_manager()
+    yield
+    reset_delivery_manager()
+
+    # Restore tracing context
+    if token_trace is not None:
+        from aragora.server.middleware.tracing import _trace_id, _span_id
+
+        _trace_id.reset(token_trace)
+        _span_id.reset(token_span)
+
+
 class TestWebhookDelivery:
     """Tests for WebhookDelivery dataclass."""
 
