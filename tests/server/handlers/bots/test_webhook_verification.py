@@ -41,12 +41,17 @@ def _reset_whatsapp_module_for_verification():
     """Ensure whatsapp module consistency and reset globals between tests.
 
     Other test files (e.g. test_rate_limit_enforcement) may reload the whatsapp
-    module, creating a new module object.  This fixture restores the original
-    module and resets key globals to prevent cross-test pollution.
+    module, creating a new module object in sys.modules while the parent
+    package (bots) still holds the old reference.  This fixture restores both
+    sys.modules AND the parent package attribute to the original module.
     """
     import sys
 
     sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+    # Also fix the parent package attribute (reload changes bots.whatsapp)
+    bots_pkg = sys.modules.get("aragora.server.handlers.bots")
+    if bots_pkg is not None:
+        bots_pkg.whatsapp = _ORIGINAL_WA_MODULE
 
     orig = {
         "WHATSAPP_VERIFY_TOKEN": _wa_mod.WHATSAPP_VERIFY_TOKEN,
@@ -58,6 +63,8 @@ def _reset_whatsapp_module_for_verification():
     yield
 
     sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+    if bots_pkg is not None:
+        bots_pkg.whatsapp = _ORIGINAL_WA_MODULE
     for attr, value in orig.items():
         setattr(_wa_mod, attr, value)
 

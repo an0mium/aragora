@@ -663,6 +663,7 @@ class TestImpersonation:
     def test_impersonate_user_success(self, admin_handler, user_store):
         """Test successful user impersonation."""
         mock_handler = MockHandler(command="POST")
+        mock_handler.headers["Authorization"] = "Bearer test_admin_token"
 
         with patch(
             "aragora.server.handlers.admin.handler.extract_user_from_request"
@@ -673,29 +674,36 @@ class TestImpersonation:
                 with patch(
                     "aragora.server.handlers.admin.handler.create_access_token"
                 ) as mock_token:
-                    with mock_rbac_allowed("admin.users.impersonate"):
-                        mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
-                        mock_extract.return_value = mock_ctx
-                        mock_mfa.return_value = None
-                        mock_token.return_value = "impersonation_token_123"
+                    with patch(
+                        "aragora.server.handlers.admin.users._get_session_manager_from_handler"
+                    ) as mock_session_mgr:
+                        with mock_rbac_allowed("admin.users.impersonate"):
+                            mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
+                            mock_extract.return_value = mock_ctx
+                            mock_mfa.return_value = None
+                            mock_token.return_value = "impersonation_token_123"
+                            mock_mgr = MagicMock()
+                            mock_mgr.is_session_mfa_fresh.return_value = True
+                            mock_session_mgr.return_value = mock_mgr
 
-                        result = admin_handler.handle(
-                            "/api/v1/admin/impersonate/user_0",
-                            {},
-                            mock_handler,
-                            method="POST",
-                        )
-                        body = parse_body(result)
+                            result = admin_handler.handle(
+                                "/api/v1/admin/impersonate/user_0",
+                                {},
+                                mock_handler,
+                                method="POST",
+                            )
+                            body = parse_body(result)
 
-                        assert result.status_code == 200
-                        assert "token" in body
-                        assert body["expires_in"] == 3600
-                        assert body["target_user"]["id"] == "user_0"
-                        assert "warning" in body
+                            assert result.status_code == 200
+                            assert "token" in body
+                            assert body["expires_in"] == 3600
+                            assert body["target_user"]["id"] == "user_0"
+                            assert "warning" in body
 
     def test_impersonate_records_audit(self, admin_handler, user_store):
         """Test that impersonation is recorded in audit log."""
         mock_handler = MockHandler(command="POST")
+        mock_handler.headers["Authorization"] = "Bearer test_admin_token"
 
         with patch(
             "aragora.server.handlers.admin.handler.extract_user_from_request"
@@ -706,20 +714,26 @@ class TestImpersonation:
                 with patch(
                     "aragora.server.handlers.admin.handler.create_access_token"
                 ) as mock_token:
-                    with mock_rbac_allowed("admin.users.impersonate"):
-                        mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
-                        mock_extract.return_value = mock_ctx
-                        mock_mfa.return_value = None
-                        mock_token.return_value = "token"
+                    with patch(
+                        "aragora.server.handlers.admin.users._get_session_manager_from_handler"
+                    ) as mock_session_mgr:
+                        with mock_rbac_allowed("admin.users.impersonate"):
+                            mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
+                            mock_extract.return_value = mock_ctx
+                            mock_mfa.return_value = None
+                            mock_token.return_value = "token"
+                            mock_mgr = MagicMock()
+                            mock_mgr.is_session_mfa_fresh.return_value = True
+                            mock_session_mgr.return_value = mock_mgr
 
-                        result = admin_handler.handle(
-                            "/api/v1/admin/impersonate/user_0",
-                            {},
-                            mock_handler,
-                            method="POST",
-                        )
+                            result = admin_handler.handle(
+                                "/api/v1/admin/impersonate/user_0",
+                                {},
+                                mock_handler,
+                                method="POST",
+                            )
 
-                        assert result.status_code == 200
+                            assert result.status_code == 200
                         # Check audit event was recorded
                         assert len(user_store._audit_events) == 1
                         event = user_store._audit_events[0]
@@ -729,6 +743,7 @@ class TestImpersonation:
     def test_impersonate_nonexistent_user(self, admin_handler):
         """Test impersonating non-existent user."""
         mock_handler = MockHandler(command="POST")
+        mock_handler.headers["Authorization"] = "Bearer test_admin_token"
 
         with patch(
             "aragora.server.handlers.admin.handler.extract_user_from_request"
@@ -736,19 +751,25 @@ class TestImpersonation:
             with patch(
                 "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy"
             ) as mock_mfa:
-                with mock_rbac_allowed("admin.users.impersonate"):
-                    mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
-                    mock_extract.return_value = mock_ctx
-                    mock_mfa.return_value = None
+                with patch(
+                    "aragora.server.handlers.admin.users._get_session_manager_from_handler"
+                ) as mock_session_mgr:
+                    with mock_rbac_allowed("admin.users.impersonate"):
+                        mock_ctx = MockAuthContext("admin_1", is_authenticated=True)
+                        mock_extract.return_value = mock_ctx
+                        mock_mfa.return_value = None
+                        mock_mgr = MagicMock()
+                        mock_mgr.is_session_mfa_fresh.return_value = True
+                        mock_session_mgr.return_value = mock_mgr
 
-                    result = admin_handler.handle(
-                        "/api/v1/admin/impersonate/nonexistent",
-                        {},
-                        mock_handler,
-                        method="POST",
-                    )
+                        result = admin_handler.handle(
+                            "/api/v1/admin/impersonate/nonexistent",
+                            {},
+                            mock_handler,
+                            method="POST",
+                        )
 
-                    assert result.status_code == 404
+                        assert result.status_code == 404
 
 
 class TestMethodNotAllowed:

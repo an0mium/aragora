@@ -234,10 +234,10 @@ class TestVersionHeaderExceptionHandling:
 # that SHOULD also use @api_endpoint decorators.
 _HANDLERS_EXPECTED_TO_HAVE_API_ENDPOINT = [
     "aragora.server.handlers.receipts",
-    "aragora.server.handlers.gauntlet",
+    "aragora.server.handlers.gauntlet.handler",
     "aragora.server.handlers.debates.handler",
     "aragora.server.handlers.debates.graph_debates",
-    "aragora.server.handlers.admin.admin",
+    "aragora.server.handlers.admin.handler",
 ]
 
 # Handler files known to NOT require @api_endpoint (e.g., base classes, mixins,

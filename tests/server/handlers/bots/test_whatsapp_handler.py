@@ -48,8 +48,13 @@ def _ensure_module_consistency():
     test and again in teardown.
     """
     sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+    _bots_pkg = sys.modules.get("aragora.server.handlers.bots")
+    if _bots_pkg is not None:
+        _bots_pkg.whatsapp = _ORIGINAL_WA_MODULE
     yield
     sys.modules["aragora.server.handlers.bots.whatsapp"] = _ORIGINAL_WA_MODULE
+    if _bots_pkg is not None:
+        _bots_pkg.whatsapp = _ORIGINAL_WA_MODULE
 
 
 @pytest.fixture(autouse=True)

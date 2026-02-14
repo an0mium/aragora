@@ -409,6 +409,11 @@ class TestWhatsAppWebhookRateLimits:
             k: v for k, v in sys.modules.items() if "whatsapp" in k.lower()
         }
 
+        # Save the parent package's whatsapp attribute.  importlib.reload()
+        # sets bots.whatsapp to the new module, so we must restore it too.
+        bots_pkg = sys.modules.get("aragora.server.handlers.bots")
+        saved_bots_whatsapp = getattr(bots_pkg, "whatsapp", None) if bots_pkg else None
+
         # Remove WhatsApp module from cache to force reimport
         for mod_name in whatsapp_modules:
             del sys.modules[mod_name]
@@ -420,6 +425,12 @@ class TestWhatsAppWebhookRateLimits:
         # ``patch()`` targets all refer to the same module instance.
         for mod_name, mod_obj in whatsapp_modules.items():
             sys.modules[mod_name] = mod_obj
+
+        # Restore the parent package attribute so that
+        # ``from aragora.server.handlers.bots import whatsapp`` returns the
+        # original module, not the reloaded one.
+        if bots_pkg is not None and saved_bots_whatsapp is not None:
+            bots_pkg.whatsapp = saved_bots_whatsapp
 
         # Restore saved limiters and clear all
         with rate_limit_mod._limiters_lock:

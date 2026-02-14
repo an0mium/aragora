@@ -494,13 +494,18 @@ class TestAdminImpersonate:
     """Tests for impersonate user endpoint."""
 
     @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.users._get_session_manager_from_handler")
     @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     @patch("aragora.server.handlers.admin.handler.create_access_token")
-    def test_impersonate_success(self, mock_token, mock_auth, admin_handler, user_store):
+    def test_impersonate_success(self, mock_token, mock_auth, mock_session_mgr, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
         mock_token.return_value = "impersonation_token_123"
+        mock_mgr = MagicMock()
+        mock_mgr.is_session_mfa_fresh.return_value = True
+        mock_session_mgr.return_value = mock_mgr
 
         handler = make_mock_handler(method="POST")
+        handler.headers["Authorization"] = "Bearer test_admin_token"
 
         result = admin_handler.handle("/api/v1/admin/impersonate/user-456", {}, handler, "POST")
 
@@ -512,11 +517,16 @@ class TestAdminImpersonate:
         assert "warning" in data
 
     @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.users._get_session_manager_from_handler")
     @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
-    def test_impersonate_user_not_found(self, mock_auth, admin_handler, user_store):
+    def test_impersonate_user_not_found(self, mock_auth, mock_session_mgr, admin_handler, user_store):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
+        mock_mgr = MagicMock()
+        mock_mgr.is_session_mfa_fresh.return_value = True
+        mock_session_mgr.return_value = mock_mgr
 
         handler = make_mock_handler(method="POST")
+        handler.headers["Authorization"] = "Bearer test_admin_token"
 
         result = admin_handler.handle("/api/v1/admin/impersonate/nonexistent", {}, handler, "POST")
 
@@ -524,11 +534,16 @@ class TestAdminImpersonate:
         assert get_status(result) == 404
 
     @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.admin.users._get_session_manager_from_handler")
     @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
-    def test_impersonate_invalid_user_id(self, mock_auth, admin_handler):
+    def test_impersonate_invalid_user_id(self, mock_auth, mock_session_mgr, admin_handler):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
+        mock_mgr = MagicMock()
+        mock_mgr.is_session_mfa_fresh.return_value = True
+        mock_session_mgr.return_value = mock_mgr
 
         handler = make_mock_handler(method="POST")
+        handler.headers["Authorization"] = "Bearer test_admin_token"
 
         result = admin_handler.handle(
             "/api/v1/admin/impersonate/../etc/passwd", {}, handler, "POST"
