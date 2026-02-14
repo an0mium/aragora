@@ -424,9 +424,7 @@ class TestMultiPlatformOrigins:
             ("email", "user@example.com", "user@example.com", {}),
         ],
     )
-    def test_register_origin_per_platform(
-        self, platform, channel_id, user_id, extra_kwargs
-    ):
+    def test_register_origin_per_platform(self, platform, channel_id, user_id, extra_kwargs):
         """Each platform can register and retrieve origins."""
         from aragora.server.debate_origin import (
             register_debate_origin,

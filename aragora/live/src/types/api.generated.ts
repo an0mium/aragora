@@ -27991,6 +27991,382 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/openclaw/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List OpenClaw sessions
+         * @description List all OpenClaw sessions for the current user/tenant.
+         */
+        get: operations["listOpenclawSessions"];
+        put?: never;
+        /**
+         * Create OpenClaw session
+         * @description Create a new OpenClaw session for executing actions.
+         */
+        post: operations["createOpenclawSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get OpenClaw session
+         * @description Get details of a specific OpenClaw session.
+         */
+        get: operations["getOpenclawSession"];
+        put?: never;
+        post?: never;
+        /**
+         * Close OpenClaw session
+         * @description Close an OpenClaw session. Running actions will be cancelled.
+         */
+        delete: operations["closeOpenclawSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/sessions/{session_id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End OpenClaw session
+         * @description Gracefully end an OpenClaw session, waiting for running actions.
+         */
+        post: operations["endOpenclawSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute OpenClaw action
+         * @description Execute an action within an OpenClaw session.
+         */
+        post: operations["executeOpenclawAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/actions/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get action status
+         * @description Get the current status and details of an OpenClaw action.
+         */
+        get: operations["getOpenclawAction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/actions/{action_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel OpenClaw action
+         * @description Cancel a running or pending OpenClaw action.
+         */
+        post: operations["cancelOpenclawAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List credentials
+         * @description List credential metadata (not secret values).
+         */
+        get: operations["listOpenclawCredentials"];
+        put?: never;
+        /**
+         * Store credential
+         * @description Securely store a new credential for OpenClaw actions.
+         */
+        post: operations["storeOpenclawCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/credentials/{credential_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete credential
+         * @description Delete a stored credential.
+         */
+        delete: operations["deleteOpenclawCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/credentials/{credential_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate credential
+         * @description Rotate a credential with a new value.
+         */
+        post: operations["rotateOpenclawCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/policy/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get policy rules
+         * @description List all OpenClaw policy rules.
+         */
+        get: operations["getOpenclawPolicyRules"];
+        put?: never;
+        /**
+         * Add policy rule
+         * @description Add a new OpenClaw policy rule.
+         */
+        post: operations["addOpenclawPolicyRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/policy/rules/{rule_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove policy rule
+         * @description Remove an OpenClaw policy rule.
+         */
+        delete: operations["removeOpenclawPolicyRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pending approvals
+         * @description List actions requiring approval.
+         */
+        get: operations["listOpenclawApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/approvals/{approval_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve action
+         * @description Approve a pending action request.
+         */
+        post: operations["approveOpenclawAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/approvals/{approval_id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deny action
+         * @description Deny a pending action request.
+         */
+        post: operations["denyOpenclawAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gateway health check
+         * @description Check the health status of the OpenClaw gateway.
+         */
+        get: operations["getOpenclawHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gateway metrics
+         * @description Get OpenClaw gateway performance metrics.
+         */
+        get: operations["getOpenclawMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get audit log
+         * @description Get OpenClaw gateway audit log entries.
+         */
+        get: operations["getOpenclawAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/openclaw/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gateway statistics
+         * @description Get comprehensive OpenClaw gateway statistics.
+         */
+        get: operations["getOpenclawStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/debates/{id}/join": {
         parameters: {
             query?: never;
@@ -69103,6 +69479,786 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gateway/openclaw/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/openclaw/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gateway/openclaw/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/openclaw/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gateway/openclaw/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/openclaw/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gateway/openclaw/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/openclaw/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gateway/openclaw/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/openclaw/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gateway/openclaw/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/openclaw/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Created resource ID */
+                            id?: string;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/external-agents/tasks": {
         parameters: {
             query?: never;
@@ -70463,6 +71619,581 @@ export interface paths {
             cookie?: never;
         };
         /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/inbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/gather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/gather/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/synthesize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/voices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Path parameter: session_id */
+                    session_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice/inbound": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice/gather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Response data */
+                            data?: Record<string, never>;
+                            success?: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/voice/gather/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
         get: {
             parameters: {
                 query?: never;
@@ -105943,6 +107674,2281 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listOpenclawSessions: {
+        parameters: {
+            query?: {
+                /** @description Filter by session status */
+                status?: "active" | "idle" | "closing" | "closed" | "error";
+                /** @description Maximum number of sessions to return */
+                limit?: number;
+                /** @description Number of sessions to skip */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sessions?: {
+                            /** @description Unique session identifier */
+                            id?: string;
+                            /** @description User who owns the session */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * @description Current session status
+                             * @enum {string}
+                             */
+                            status?: "active" | "idle" | "closing" | "closed" | "error";
+                            /**
+                             * Format: date-time
+                             * @description Session creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last activity timestamp
+                             */
+                            last_activity_at?: string;
+                            /** @description Session configuration */
+                            config?: Record<string, never>;
+                            /** @description Session metadata */
+                            metadata?: Record<string, never>;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createOpenclawSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Session configuration */
+                    config?: Record<string, never>;
+                    /** @description Session metadata */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: {
+                            /** @description Unique session identifier */
+                            id?: string;
+                            /** @description User who owns the session */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * @description Current session status
+                             * @enum {string}
+                             */
+                            status?: "active" | "idle" | "closing" | "closed" | "error";
+                            /**
+                             * Format: date-time
+                             * @description Session creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last activity timestamp
+                             */
+                            last_activity_at?: string;
+                            /** @description Session configuration */
+                            config?: Record<string, never>;
+                            /** @description Session metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique session identifier */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: {
+                            /** @description Unique session identifier */
+                            id?: string;
+                            /** @description User who owns the session */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * @description Current session status
+                             * @enum {string}
+                             */
+                            status?: "active" | "idle" | "closing" | "closed" | "error";
+                            /**
+                             * Format: date-time
+                             * @description Session creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last activity timestamp
+                             */
+                            last_activity_at?: string;
+                            /** @description Session configuration */
+                            config?: Record<string, never>;
+                            /** @description Session metadata */
+                            metadata?: Record<string, never>;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    closeOpenclawSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique session identifier */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: {
+                            /** @description Unique session identifier */
+                            id?: string;
+                            /** @description User who owns the session */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * @description Current session status
+                             * @enum {string}
+                             */
+                            status?: "active" | "idle" | "closing" | "closed" | "error";
+                            /**
+                             * Format: date-time
+                             * @description Session creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last activity timestamp
+                             */
+                            last_activity_at?: string;
+                            /** @description Session configuration */
+                            config?: Record<string, never>;
+                            /** @description Session metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    endOpenclawSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique session identifier */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session?: {
+                            /** @description Unique session identifier */
+                            id?: string;
+                            /** @description User who owns the session */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * @description Current session status
+                             * @enum {string}
+                             */
+                            status?: "active" | "idle" | "closing" | "closed" | "error";
+                            /**
+                             * Format: date-time
+                             * @description Session creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last activity timestamp
+                             */
+                            last_activity_at?: string;
+                            /** @description Session configuration */
+                            config?: Record<string, never>;
+                            /** @description Session metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    executeOpenclawAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Session to execute action in */
+                    session_id: string;
+                    /** @description Type of action to execute */
+                    action_type: string;
+                    /** @description Input parameters for the action */
+                    input_data?: Record<string, never>;
+                    /** @description Action metadata */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Action queued for execution */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        action?: {
+                            /** @description Unique action identifier */
+                            id?: string;
+                            /** @description Associated session ID */
+                            session_id?: string;
+                            /** @description Type of action to execute */
+                            action_type?: string;
+                            /**
+                             * @description Current action status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "running" | "completed" | "failed" | "cancelled" | "timeout";
+                            /** @description Input parameters for the action */
+                            input_data?: Record<string, never>;
+                            /** @description Action output (when completed) */
+                            output_data?: Record<string, never> | null;
+                            /** @description Error message (if failed) */
+                            error?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Action creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Action start timestamp
+                             */
+                            started_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Action completion timestamp
+                             */
+                            completed_at?: string | null;
+                            /** @description Action metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique action identifier */
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        action?: {
+                            /** @description Unique action identifier */
+                            id?: string;
+                            /** @description Associated session ID */
+                            session_id?: string;
+                            /** @description Type of action to execute */
+                            action_type?: string;
+                            /**
+                             * @description Current action status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "running" | "completed" | "failed" | "cancelled" | "timeout";
+                            /** @description Input parameters for the action */
+                            input_data?: Record<string, never>;
+                            /** @description Action output (when completed) */
+                            output_data?: Record<string, never> | null;
+                            /** @description Error message (if failed) */
+                            error?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Action creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Action start timestamp
+                             */
+                            started_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Action completion timestamp
+                             */
+                            completed_at?: string | null;
+                            /** @description Action metadata */
+                            metadata?: Record<string, never>;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelOpenclawAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique action identifier */
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        action?: {
+                            /** @description Unique action identifier */
+                            id?: string;
+                            /** @description Associated session ID */
+                            session_id?: string;
+                            /** @description Type of action to execute */
+                            action_type?: string;
+                            /**
+                             * @description Current action status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "running" | "completed" | "failed" | "cancelled" | "timeout";
+                            /** @description Input parameters for the action */
+                            input_data?: Record<string, never>;
+                            /** @description Action output (when completed) */
+                            output_data?: Record<string, never> | null;
+                            /** @description Error message (if failed) */
+                            error?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Action creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Action start timestamp
+                             */
+                            started_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Action completion timestamp
+                             */
+                            completed_at?: string | null;
+                            /** @description Action metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listOpenclawCredentials: {
+        parameters: {
+            query?: {
+                /** @description Filter by credential type */
+                credential_type?: "api_key" | "oauth_token" | "password" | "certificate" | "ssh_key" | "service_account";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of credential metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        credentials?: {
+                            /** @description Unique credential identifier */
+                            id?: string;
+                            /** @description Human-readable credential name */
+                            name?: string;
+                            /**
+                             * @description Type of credential
+                             * @enum {string}
+                             */
+                            credential_type?: "api_key" | "oauth_token" | "password" | "certificate" | "ssh_key" | "service_account";
+                            /** @description User who owns the credential */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last rotation timestamp
+                             */
+                            last_rotated_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Expiration timestamp
+                             */
+                            expires_at?: string | null;
+                            /** @description Credential metadata */
+                            metadata?: Record<string, never>;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    storeOpenclawCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Human-readable credential name */
+                    name: string;
+                    /**
+                     * @description Type of credential
+                     * @enum {string}
+                     */
+                    credential_type: "api_key" | "oauth_token" | "password" | "certificate" | "ssh_key" | "service_account";
+                    /** @description The credential secret value */
+                    value: string;
+                    /**
+                     * Format: date-time
+                     * @description Optional expiration timestamp
+                     */
+                    expires_at?: string;
+                    /** @description Additional metadata */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Credential stored */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Credential metadata (never includes actual secret values) */
+                        credential?: {
+                            /** @description Unique credential identifier */
+                            id?: string;
+                            /** @description Human-readable credential name */
+                            name?: string;
+                            /**
+                             * @description Type of credential
+                             * @enum {string}
+                             */
+                            credential_type?: "api_key" | "oauth_token" | "password" | "certificate" | "ssh_key" | "service_account";
+                            /** @description User who owns the credential */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last rotation timestamp
+                             */
+                            last_rotated_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Expiration timestamp
+                             */
+                            expires_at?: string | null;
+                            /** @description Credential metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteOpenclawCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique credential identifier */
+                credential_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credential deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    rotateOpenclawCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique credential identifier */
+                credential_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description New credential secret value */
+                    new_value: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Credential rotated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Credential metadata (never includes actual secret values) */
+                        credential?: {
+                            /** @description Unique credential identifier */
+                            id?: string;
+                            /** @description Human-readable credential name */
+                            name?: string;
+                            /**
+                             * @description Type of credential
+                             * @enum {string}
+                             */
+                            credential_type?: "api_key" | "oauth_token" | "password" | "certificate" | "ssh_key" | "service_account";
+                            /** @description User who owns the credential */
+                            user_id?: string;
+                            /** @description Tenant identifier */
+                            tenant_id?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Creation timestamp
+                             */
+                            created_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last update timestamp
+                             */
+                            updated_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Last rotation timestamp
+                             */
+                            last_rotated_at?: string | null;
+                            /**
+                             * Format: date-time
+                             * @description Expiration timestamp
+                             */
+                            expires_at?: string | null;
+                            /** @description Credential metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawPolicyRules: {
+        parameters: {
+            query?: {
+                /** @description Filter by enabled status */
+                enabled?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of policy rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rules?: {
+                            /** @description Unique rule name */
+                            name?: string;
+                            /** @description Rule description */
+                            description?: string;
+                            /** @description Action pattern to match */
+                            action_pattern?: string;
+                            /** @description Conditions for rule application */
+                            conditions?: Record<string, never>[];
+                            /**
+                             * @description Rule effect
+                             * @enum {string}
+                             */
+                            effect?: "allow" | "deny" | "require_approval";
+                            /** @description Rule evaluation priority */
+                            priority?: number;
+                            /** @description Whether the rule is active */
+                            enabled?: boolean;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addOpenclawPolicyRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Unique rule name */
+                    name: string;
+                    /** @description Rule description */
+                    description?: string;
+                    /** @description Action pattern to match */
+                    action_pattern: string;
+                    /** @description Conditions for rule application */
+                    conditions?: Record<string, never>[];
+                    /**
+                     * @description Rule effect
+                     * @enum {string}
+                     */
+                    effect: "allow" | "deny" | "require_approval";
+                    /** @description Rule evaluation priority */
+                    priority?: number;
+                    /**
+                     * @description Whether the rule is active
+                     * @default true
+                     */
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Policy rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule?: {
+                            /** @description Unique rule name */
+                            name?: string;
+                            /** @description Rule description */
+                            description?: string;
+                            /** @description Action pattern to match */
+                            action_pattern?: string;
+                            /** @description Conditions for rule application */
+                            conditions?: Record<string, never>[];
+                            /**
+                             * @description Rule effect
+                             * @enum {string}
+                             */
+                            effect?: "allow" | "deny" | "require_approval";
+                            /** @description Rule evaluation priority */
+                            priority?: number;
+                            /** @description Whether the rule is active */
+                            enabled?: boolean;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeOpenclawPolicyRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Policy rule name */
+                rule_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Policy rule removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listOpenclawApprovals: {
+        parameters: {
+            query?: {
+                /** @description Filter by approval status */
+                status?: "pending" | "approved" | "denied";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of approvals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvals?: {
+                            /** @description Unique approval identifier */
+                            id?: string;
+                            /** @description Associated action ID */
+                            action_id?: string;
+                            /** @description Associated session ID */
+                            session_id?: string;
+                            /** @description User who requested the action */
+                            user_id?: string;
+                            /**
+                             * @description Approval status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "approved" | "denied";
+                            /** @description Type of action requiring approval */
+                            action_type?: string;
+                            /** @description Action input data for review */
+                            action_data?: Record<string, never>;
+                            /**
+                             * Format: date-time
+                             * @description Request timestamp
+                             */
+                            requested_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Decision timestamp
+                             */
+                            decided_at?: string | null;
+                            /** @description User who made the decision */
+                            decided_by?: string | null;
+                            /** @description Decision reason */
+                            reason?: string | null;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approveOpenclawAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique approval identifier */
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Optional approval reason */
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Action approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approval?: {
+                            /** @description Unique approval identifier */
+                            id?: string;
+                            /** @description Associated action ID */
+                            action_id?: string;
+                            /** @description Associated session ID */
+                            session_id?: string;
+                            /** @description User who requested the action */
+                            user_id?: string;
+                            /**
+                             * @description Approval status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "approved" | "denied";
+                            /** @description Type of action requiring approval */
+                            action_type?: string;
+                            /** @description Action input data for review */
+                            action_data?: Record<string, never>;
+                            /**
+                             * Format: date-time
+                             * @description Request timestamp
+                             */
+                            requested_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Decision timestamp
+                             */
+                            decided_at?: string | null;
+                            /** @description User who made the decision */
+                            decided_by?: string | null;
+                            /** @description Decision reason */
+                            reason?: string | null;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    denyOpenclawAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique approval identifier */
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Reason for denial */
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Action denied */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approval?: {
+                            /** @description Unique approval identifier */
+                            id?: string;
+                            /** @description Associated action ID */
+                            action_id?: string;
+                            /** @description Associated session ID */
+                            session_id?: string;
+                            /** @description User who requested the action */
+                            user_id?: string;
+                            /**
+                             * @description Approval status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "approved" | "denied";
+                            /** @description Type of action requiring approval */
+                            action_type?: string;
+                            /** @description Action input data for review */
+                            action_data?: Record<string, never>;
+                            /**
+                             * Format: date-time
+                             * @description Request timestamp
+                             */
+                            requested_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Decision timestamp
+                             */
+                            decided_at?: string | null;
+                            /** @description User who made the decision */
+                            decided_by?: string | null;
+                            /** @description Decision reason */
+                            reason?: string | null;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gateway health status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status?: "healthy" | "degraded" | "unhealthy";
+                        /** @description Individual component health statuses */
+                        components?: Record<string, never>;
+                        /** Format: date-time */
+                        timestamp?: string;
+                    };
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gateway metrics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sessions?: {
+                            active?: number;
+                            total?: number;
+                        };
+                        actions?: {
+                            pending?: number;
+                            running?: number;
+                            completed?: number;
+                            failed?: number;
+                        };
+                        circuit_breaker?: {
+                            state?: string;
+                            failure_count?: number;
+                        };
+                        /** Format: date-time */
+                        timestamp?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawAudit: {
+        parameters: {
+            query?: {
+                /** @description Filter by event type */
+                event_type?: string;
+                /** @description Filter by user ID */
+                user_id?: string;
+                /** @description Filter by session ID */
+                session_id?: string;
+                /** @description Filter entries after this timestamp */
+                start_time?: string;
+                /** @description Filter entries before this timestamp */
+                end_time?: string;
+                /** @description Maximum number of entries to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries?: {
+                            /** @description Unique audit entry ID */
+                            id?: string;
+                            /**
+                             * Format: date-time
+                             * @description Event timestamp
+                             */
+                            timestamp?: string;
+                            /** @description Type of event */
+                            event_type?: string;
+                            /** @description User who triggered the event */
+                            user_id?: string;
+                            /** @description Associated session */
+                            session_id?: string | null;
+                            /** @description Associated action */
+                            action_id?: string | null;
+                            /** @description Event details */
+                            details?: Record<string, never>;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOpenclawStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gateway statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sessions_created?: number;
+                        actions_executed?: number;
+                        actions_succeeded?: number;
+                        actions_failed?: number;
+                        approvals_pending?: number;
+                        credentials_stored?: number;
+                        policy_rules_active?: number;
+                        uptime_seconds?: number;
+                        /** Format: date-time */
+                        timestamp?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
                 headers: {
                     /** @description Unique request identifier for tracing and debugging */
                     "X-Request-ID"?: string;
