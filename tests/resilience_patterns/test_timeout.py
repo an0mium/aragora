@@ -401,20 +401,12 @@ class TestTimeoutContextAsync:
 class TestTimeoutContextSync:
     """Test timeout_context_sync context manager."""
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_success_case(self):
         """Test successful operation within context."""
         with timeout_context_sync(5.0, context_name="test"):
             result = "success"
         assert result == "success"
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_timeout_case(self):
         """Test timeout within context."""
         import time
