@@ -42,18 +42,7 @@ from enum import Enum
 
 import pytest
 
-# Try to import the handler module
-try:
-    from aragora.server.handlers.sme.receipt_delivery import ReceiptDeliveryHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    ReceiptDeliveryHandler = None
-
-pytestmark = pytest.mark.skipif(
-    not HANDLER_AVAILABLE, reason="ReceiptDeliveryHandler not available"
-)
+from aragora.server.handlers.sme.receipt_delivery import ReceiptDeliveryHandler
 
 
 # ===========================================================================
