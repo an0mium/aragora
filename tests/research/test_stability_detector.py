@@ -46,18 +46,19 @@ class TestStabilityDetector:
         config = StabilityConfig(
             min_rounds_before_check=2,
             ks_threshold=0.15,
+            stability_threshold=0.7,  # Lower for small sample sizes
             min_stable_rounds=1,
         )
         detector = BetaBinomialStabilityDetector(config)
 
-        # Round 1
-        votes1 = {"agent1": 0.7, "agent2": 0.3}
-        result1 = detector.update(votes1, round_num=1)
+        # Use enough agents so ks_2samp produces meaningful results
+        # (with only 2 agents, ks_2samp always returns 0.5)
+        votes = {f"agent{i}": 0.1 + 0.05 * i for i in range(10)}
+        result1 = detector.update(votes, round_num=1)
         assert result1.recommendation == "continue"
 
-        # Round 2 - very similar votes
-        votes2 = {"agent1": 0.72, "agent2": 0.28}
-        result2 = detector.update(votes2, round_num=2)
+        # Round 2 - identical votes
+        result2 = detector.update(votes, round_num=2)
 
         # Should detect stability
         assert result2.ks_distance < 0.15
@@ -85,17 +86,18 @@ class TestStabilityDetector:
         config = StabilityConfig(
             min_rounds_before_check=2,
             muse_disagreement_gate=0.3,
+            ks_threshold=0.15,
+            stability_threshold=0.7,
         )
         detector = BetaBinomialStabilityDetector(config)
 
-        # Round 1
-        votes1 = {"agent1": 0.7, "agent2": 0.3}
-        detector.update(votes1, round_num=1)
+        # Use enough agents so ks_2samp works properly
+        votes = {f"agent{i}": 0.1 + 0.05 * i for i in range(10)}
+        detector.update(votes, round_num=1)
 
         # Round 2 - stable votes but high MUSE divergence
-        votes2 = {"agent1": 0.71, "agent2": 0.29}
         result = detector.update(
-            votes2,
+            votes,
             round_num=2,
             muse_divergence=0.5,  # Above gate
         )
@@ -108,17 +110,18 @@ class TestStabilityDetector:
         config = StabilityConfig(
             min_rounds_before_check=2,
             ascot_fragility_gate=0.6,
+            ks_threshold=0.15,
+            stability_threshold=0.7,  # Lower for small sample sizes
         )
         detector = BetaBinomialStabilityDetector(config)
 
-        # Round 1
-        votes1 = {"agent1": 0.7, "agent2": 0.3}
-        detector.update(votes1, round_num=1)
+        # Use enough agents so ks_2samp produces meaningful KS distance
+        votes = {f"agent{i}": 0.1 + 0.05 * i for i in range(10)}
+        detector.update(votes, round_num=1)
 
-        # Round 2 - stable but high fragility
-        votes2 = {"agent1": 0.71, "agent2": 0.29}
+        # Round 2 - stable (identical votes) but high fragility
         result = detector.update(
-            votes2,
+            votes,
             round_num=2,
             ascot_fragility=0.8,  # Above gate
         )
@@ -135,18 +138,17 @@ class TestStabilityDetector:
         )
         detector = BetaBinomialStabilityDetector(config)
 
-        # Simulate consistent voting across rounds (near-identical each time)
+        # Use enough agents so ks_2samp produces meaningful KS distance
+        votes = {f"agent{i}": 0.1 + 0.05 * i for i in range(10)}
+
+        # Simulate consistent voting across rounds (identical each time)
         for round_num in range(1, 7):
-            votes = {
-                "agent1": 0.7,
-                "agent2": 0.3,
-            }
             result = detector.update(votes, round_num=round_num)
 
         # After sufficient stable rounds, should recommend stop
         assert result.rounds_since_stable >= 2
-        if result.is_stable and result.rounds_since_stable >= 2:
-            assert result.recommendation == "stop"
+        assert result.is_stable
+        assert result.recommendation == "stop"
 
     def test_reset_clears_state(self) -> None:
         """Test that reset clears all internal state."""
