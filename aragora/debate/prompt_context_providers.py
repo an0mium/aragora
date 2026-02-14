@@ -79,6 +79,8 @@ class PromptContextMixin:
     _supermemory_context: Any
     _supermemory_context_cache: str
     _evict_cache_if_needed: Any
+    claims_kernel: Any
+    include_prior_claims: bool
 
     def format_patterns_for_prompt(self, patterns: list[dict]) -> str:
         """Format learned patterns as prompt context for agents.
@@ -395,6 +397,51 @@ class PromptContextMixin:
     def get_supermemory_context(self) -> str:
         """Get cached supermemory context for prompt injection."""
         return self._supermemory_context_cache
+
+    def get_prior_claims_context(self, limit: int = 5) -> str:
+        """Get prior claims related to the current topic for context injection.
+
+        Queries the ClaimsKernel for claims matching the debate topic
+        and formats them as a prompt section.
+
+        Args:
+            limit: Maximum number of prior claims to include
+
+        Returns:
+            Formatted string with prior claims context, or empty string
+        """
+        if not self.include_prior_claims or not self.claims_kernel:
+            return ""
+
+        try:
+            topic = self.env.task if hasattr(self.env, "task") else ""
+            if not topic:
+                return ""
+
+            related = self.claims_kernel.get_related_claims(topic, limit=limit)
+            if not related:
+                return ""
+
+            lines = ["## PRIOR CLAIMS (From Previous Debates)"]
+            lines.append("Consider these established positions when formulating your response:\n")
+
+            for claim in related:
+                type_label = claim.claim_type.value.upper()
+                author = claim.author
+                confidence = f"{claim.adjusted_confidence:.0%}"
+                status = claim.status
+                statement = claim.statement[:150]
+                if len(claim.statement) > 150:
+                    statement += "..."
+                lines.append(
+                    f"- [{type_label}] **{author}** ({confidence} confidence, {status}): "
+                    f"{statement}"
+                )
+
+            return "\n".join(lines)
+        except (AttributeError, TypeError, KeyError) as e:
+            logger.debug(f"Prior claims context error: {e}")
+            return ""
 
     def set_supermemory_adapter(self, adapter: SupermemoryAdapter | None) -> None:
         """Set the supermemory adapter for external memory integration."""

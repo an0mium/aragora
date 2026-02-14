@@ -518,6 +518,57 @@ class BaseConnector(ABC):
                 self._enable_circuit_breaker = False
         return self._circuit_breaker
 
+    def check_circuit_breaker(self) -> bool:
+        """
+        Check if requests are allowed by the circuit breaker.
+
+        Convenience method for connectors that don't use _request_with_retry
+        (e.g., connectors using subprocess calls or custom HTTP logic).
+
+        Returns:
+            True if requests are allowed, False if circuit is open.
+        """
+        cb = self._get_circuit_breaker()
+        if cb is None:
+            return True
+        can = cb.can_proceed()
+        if not can:
+            remaining = cb.cooldown_remaining()
+            logger.warning(
+                f"[{getattr(self, 'name', self.__class__.__name__)}] "
+                f"Circuit breaker open, cooldown remaining: {remaining:.1f}s"
+            )
+        return can
+
+    def record_circuit_breaker_success(self) -> None:
+        """Record a successful external call for the circuit breaker."""
+        cb = self._get_circuit_breaker()
+        if cb is not None:
+            cb.record_success()
+
+    def record_circuit_breaker_failure(self) -> None:
+        """Record a failed external call for the circuit breaker."""
+        cb = self._get_circuit_breaker()
+        if cb is not None:
+            cb.record_failure()
+
+    def get_circuit_breaker_status(self) -> dict:
+        """Get current circuit breaker status.
+
+        Returns:
+            Dict with 'enabled', 'status', 'failures', etc.
+        """
+        cb = self._get_circuit_breaker()
+        if cb is None:
+            return {"enabled": False}
+        return {
+            "enabled": True,
+            "status": cb.get_status(),
+            "failures": cb.failures,
+            "failure_threshold": cb.failure_threshold,
+            "cooldown_seconds": cb.cooldown_seconds,
+        }
+
     def _cache_get(self, evidence_id: str) -> Evidence | None:
         """Get from cache if not expired."""
         # Lazy import metrics

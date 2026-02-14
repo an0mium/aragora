@@ -114,6 +114,7 @@ class OrchestrationRequest:
     max_rounds: int = MAX_ROUNDS
     timeout_seconds: float = 300.0
     template: str | None = None
+    notify: bool = True  # Auto-notify on debate completion (server default)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Assigned by system
@@ -187,6 +188,7 @@ class OrchestrationRequest:
             max_rounds=data.get("max_rounds", MAX_ROUNDS),
             timeout_seconds=data.get("timeout_seconds", 300.0),
             template=data.get("template"),
+            notify=data.get("notify", True),
             metadata=data.get("metadata", {}),
         )
 

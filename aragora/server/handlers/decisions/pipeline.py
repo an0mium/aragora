@@ -431,6 +431,11 @@ class DecisionPipelineHandler(SecureHandler):
         elif not isinstance(metadata, dict):
             return error_response("metadata must be an object", 400)
 
+        # Pass operational mode through to metadata for downstream consumption
+        request_mode = body.get("mode")
+        if request_mode and isinstance(request_mode, str):
+            metadata["operational_mode"] = request_mode
+
         try:
             implementation_profile = _build_implementation_profile_payload(body)
         except ValueError as exc:

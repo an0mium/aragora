@@ -118,8 +118,12 @@ class GitHubConnector(BaseConnector):
         return self._gh_available
 
     async def _run_gh(self, args: list[str]) -> str | None:
-        """Run gh CLI command."""
+        """Run gh CLI command with circuit breaker protection."""
         if not self._check_gh_cli():
+            return None
+
+        # Check circuit breaker before making external call
+        if not self.check_circuit_breaker():
             return None
 
         try:
@@ -135,9 +139,12 @@ class GitHubConnector(BaseConnector):
             )
 
             if proc.returncode == 0:
+                self.record_circuit_breaker_success()
                 return stdout.decode("utf-8")
+            self.record_circuit_breaker_failure()
             return None
         except (asyncio.TimeoutError, OSError, UnicodeDecodeError) as e:
+            self.record_circuit_breaker_failure()
             logger.warning(f"[github] gh command failed (args={args[:2]}...): {e}")
             return None
 

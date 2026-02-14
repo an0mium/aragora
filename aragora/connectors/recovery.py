@@ -261,7 +261,18 @@ class RecoveryStrategy:
 
                 return result
 
-            except Exception as e:  # Safety net for unexpected errors: wraps arbitrary async callables
+            except (
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RuntimeError,
+                UnicodeError,
+                ImportError,
+            ) as e:
                 last_error = e
                 self._consecutive_failures += 1
                 self._last_error_time = time.time()

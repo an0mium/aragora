@@ -292,6 +292,8 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         elo_system: EloSystem | None = None,
         domain: str = "general",
         supermemory_adapter: SupermemoryAdapter | None = None,
+        claims_kernel: Any | None = None,
+        include_prior_claims: bool = False,
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -322,6 +324,10 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self.calibration_tracker = calibration_tracker
         self.elo_system = elo_system
         self.domain = domain
+
+        # Prior claims kernel for injecting related claims from previous debates
+        self.claims_kernel = claims_kernel
+        self.include_prior_claims = include_prior_claims
 
         # Trending topics for pulse injection (set externally via set_trending_topics)
         self.trending_topics: list[TrendingTopic] = []

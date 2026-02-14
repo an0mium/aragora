@@ -429,8 +429,8 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                     f"[slack] {operation} unexpected error [{type(classified).__name__}]: {e}"
                 )
                 break
-            except Exception as e:  # Intentionally broad: safety net to avoid leaking unexpected exceptions
-                # Catch-all to avoid leaking unexpected exceptions to callers
+            except (_httpx.HTTPError, KeyError, AttributeError, UnicodeError) as e:
+                # Narrowed catch: remaining httpx errors and data-handling exceptions
                 last_error = f"Unexpected error: {e}"
                 classified = classify_connector_error(last_error, "slack")
                 logger.exception(

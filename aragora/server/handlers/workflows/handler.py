@@ -1110,18 +1110,37 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
         tags=["Workflows"],
     )
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
-        """Handle GET /api/workflow-templates."""
+        """Handle GET /api/workflow-templates.
+
+        Returns merged list of code-defined templates (WORKFLOW_TEMPLATES)
+        and persistent store templates.
+        """
         # RBAC check - templates require read permission
         if error := self._check_permission(handler, "workflows:read"):
             return error
 
+        category = get_string_param(query_params, "category", None)
+
         try:
-            templates = self._run_async_fn()(
-                list_templates(
-                    category=get_string_param(query_params, "category", None),
-                )
+            # Get templates from persistent store
+            store_templates = self._run_async_fn()(
+                list_templates(category=category)
             )
-            return json_response({"templates": templates, "count": len(templates)})
+
+            # Merge with code-defined templates from the catalog
+            try:
+                from aragora.workflow.templates import list_templates as list_catalog_templates
+
+                catalog = list_catalog_templates(category=category)
+                # Deduplicate by template ID
+                seen_ids = {t.get("id") for t in store_templates if t.get("id")}
+                for ct in catalog:
+                    if ct.get("id") not in seen_ids:
+                        store_templates.append(ct)
+            except ImportError:
+                pass
+
+            return json_response({"templates": store_templates, "count": len(store_templates)})
         except OSError as e:
             logger.error("Storage error listing templates: %s", e)
             return error_response("Storage error", 503)

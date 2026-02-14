@@ -342,11 +342,11 @@ class HTTPResilienceMixin:
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
                 # Don't retry on unexpected errors
                 break
-            except Exception as e:  # Intentionally broad: safety net after specific httpx/OS catches
+            except (httpx.HTTPError, KeyError, AttributeError, UnicodeError) as e:
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
                 logger.error(f"{self.platform_name} {operation} unexpected error: {e}")
-                # Don't retry on unknown exceptions
+                # Don't retry on remaining httpx/data exceptions
                 break
 
         return False, None, last_error

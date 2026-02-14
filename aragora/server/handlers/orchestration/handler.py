@@ -556,6 +556,7 @@ class OrchestrationHandler(SecureHandler):
                     metadata={
                         "orchestration_request_id": request.request_id,
                         "knowledge_sources": knowledge_context_used,
+                        "auto_notify": request.notify,
                         "output_channels": [
                             f"{c.channel_type}:{c.channel_id}" for c in request.output_channels
                         ],
@@ -593,9 +594,14 @@ class OrchestrationHandler(SecureHandler):
                 # Fallback: Direct vetted decisionmaking without control plane
                 from aragora.core.decision import DecisionRequest, get_decision_router, DecisionType
 
+                from aragora.core.decision import RequestContext
+
                 decision_request = DecisionRequest(
                     content=request.question,
                     decision_type=DecisionType.DEBATE,
+                    context=RequestContext(
+                        metadata={"auto_notify": request.notify},
+                    ),
                 )
 
                 router = get_decision_router()

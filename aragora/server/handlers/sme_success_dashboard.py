@@ -246,6 +246,16 @@ class SMESuccessDashboardHandler(SecureHandler):
 
         return db_user, org, None
 
+    def _get_debate_analytics(self) -> Any | None:
+        """Get debate analytics service instance."""
+        try:
+            from aragora.analytics.debate_analytics import get_debate_analytics
+
+            return get_debate_analytics()
+        except ImportError:
+            logger.debug("DebateAnalytics not available")
+            return None
+
     def _get_cost_tracker(self) -> Any | None:
         """Get cost tracker instance."""
         from aragora.billing.cost_tracker import get_cost_tracker
@@ -285,22 +295,56 @@ class SMESuccessDashboardHandler(SecureHandler):
     def _calculate_success_metrics(
         self, org_id: str, start_date: datetime, end_date: datetime
     ) -> dict[str, Any]:
-        """Calculate core success metrics for an organization."""
+        """Calculate core success metrics for an organization.
+
+        Attempts to use DebateAnalytics for real debate data (counts, consensus rate,
+        avg duration). Falls back to cost-tracker-based estimation when analytics
+        data is unavailable.
+        """
         cost_tracker = self._get_cost_tracker()
         workspace_stats = cost_tracker.get_workspace_stats(org_id)
 
-        # Get usage data
+        # Get usage data from cost tracker
         total_cost = Decimal(workspace_stats.get("total_cost_usd", "0"))
         api_calls = workspace_stats.get("total_api_calls", 0)
 
-        # Estimate debates from API calls
-        estimated_debates = max(1, api_calls // 10) if api_calls > 0 else 0
+        # Try to get real debate stats from DebateAnalytics
+        days_back = max(1, (end_date - start_date).days)
+        debate_stats = None
+        analytics = self._get_debate_analytics()
+        if analytics is not None:
+            try:
+                import asyncio
+
+                debate_stats = asyncio.get_event_loop().run_until_complete(
+                    analytics.get_debate_stats(org_id=org_id, days_back=days_back)
+                )
+            except RuntimeError:
+                # No running event loop or nested call - try creating a new one
+                try:
+                    debate_stats = asyncio.run(
+                        analytics.get_debate_stats(org_id=org_id, days_back=days_back)
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to run async get_debate_stats: {e}")
+            except Exception as e:
+                logger.debug(f"Failed to get debate stats from analytics: {e}")
+
+        # Use real data if available, fall back to estimates
+        if debate_stats is not None and debate_stats.total_debates > 0:
+            estimated_debates = debate_stats.total_debates
+            consensus_rate = debate_stats.consensus_rate * 100  # Convert 0-1 to percentage
+            avg_debate_duration_minutes = debate_stats.avg_duration_seconds / 60 if debate_stats.avg_duration_seconds > 0 else 5
+        else:
+            # Fallback: estimate debates from API calls
+            estimated_debates = max(1, api_calls // 10) if api_calls > 0 else 0
+            avg_debate_duration_minutes = 5
+            # Get consensus rate from debate store
+            consensus_rate = _get_real_consensus_rate(org_id, start_date, end_date)
 
         # Calculate ROI metrics
         calculator = self._get_roi_calculator("sme")
 
-        # Assumptions for ROI calculation
-        avg_debate_duration_minutes = 5
         manual_decision_time_minutes = 45  # Industry benchmark
         hourly_rate = calculator.hourly_rate
 
@@ -316,9 +360,6 @@ class SMESuccessDashboardHandler(SecureHandler):
         # Net savings
         net_savings = time_value_saved - total_cost
         roi_percentage = float((net_savings / total_cost) * 100) if total_cost > 0 else 0
-
-        # Get real consensus rate from debate store
-        consensus_rate = _get_real_consensus_rate(org_id, start_date, end_date)
 
         return {
             "total_debates": estimated_debates,

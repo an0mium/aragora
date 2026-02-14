@@ -371,6 +371,72 @@ class DebateHandlersMixin:
             logger.error(f"Provenance → Mound handler error: {e}")
             self.stats["provenance_to_mound"]["errors"] += 1
 
+    def _handle_debate_outcome_to_knowledge(self, event: StreamEvent) -> None:
+        """Handle DEBATE_END events → persist outcome to Knowledge Mound.
+
+        Extracts the winning position, key arguments, and consensus strength
+        from completed debates and stores them as knowledge facts. This enables
+        future debates on similar topics to retrieve prior conclusions.
+        """
+        if not self._is_km_handler_enabled("debate_outcome_to_knowledge"):
+            return
+
+        try:
+            data = event.data
+            debate_id = data.get("debate_id", "")
+            task = data.get("task", "")
+            consensus_reached = data.get("consensus_reached", False)
+            confidence = data.get("confidence", 0.0)
+            synthesis = data.get("synthesis", "")
+            winning_position = data.get("winning_position", "")
+            workspace = data.get("workspace", "default")
+
+            if not task or not debate_id:
+                return
+
+            # Only persist outcomes with meaningful consensus
+            if not consensus_reached and confidence < 0.5:
+                return
+
+            content = winning_position or synthesis
+            if not content:
+                return
+
+            # Store as knowledge fact
+            try:
+                from aragora.knowledge.mound_core import KnowledgeMound
+
+                mound = KnowledgeMound(workspace_id=workspace)
+                if hasattr(mound, "add_fact"):
+                    mound.add_fact(
+                        content=content[:2000],
+                        source_type="CONSENSUS",
+                        source_id=debate_id,
+                        domain=data.get("domain", "general"),
+                        confidence=confidence,
+                        metadata={
+                            "debate_id": debate_id,
+                            "task": task[:500],
+                            "consensus_reached": consensus_reached,
+                        },
+                    )
+                    logger.debug(
+                        "Stored debate outcome as knowledge: debate=%s confidence=%.2f",
+                        debate_id, confidence,
+                    )
+            except ImportError:
+                logger.debug("KnowledgeMound not available for debate outcome storage")
+            except Exception as e:
+                logger.debug("Knowledge storage failed: %s", e)
+
+            self.stats.setdefault("debate_outcome_to_knowledge", {"events": 0, "errors": 0})
+            self.stats["debate_outcome_to_knowledge"]["events"] += 1
+
+        except Exception as e:
+            logger.error("Debate outcome → Knowledge handler error: %s", e)
+            self.stats.setdefault("debate_outcome_to_knowledge", {"events": 0, "errors": 0})
+            self.stats["debate_outcome_to_knowledge"]["errors"] += 1
+
     def _handle_mound_to_provenance(self, event: StreamEvent) -> None:
         """Handle Knowledge Mound → Provenance events.
 

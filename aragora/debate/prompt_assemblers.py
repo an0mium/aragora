@@ -42,6 +42,7 @@ class PromptAssemblyMixin:
     get_rlm_context_hint: Any
     get_continuum_context: Any
     get_supermemory_context: Any
+    get_prior_claims_context: Any
     get_language_constraint: Any
     format_successful_patterns: Any
     format_evidence_for_prompt: Any
@@ -168,6 +169,11 @@ class PromptAssemblyMixin:
         if trending_context:
             trending_section = f"{trending_context}"
 
+        prior_claims_section = ""
+        prior_claims_context = self.get_prior_claims_context(limit=5)
+        if prior_claims_context:
+            prior_claims_section = f"{prior_claims_context}"
+
         if audience_section:
             audience_section = f"{audience_section}"
 
@@ -182,6 +188,7 @@ class PromptAssemblyMixin:
             ContextSection("elo", elo_section.strip()),
             ContextSection("evidence", evidence_section.strip()),
             ContextSection("trending", trending_section.strip()),
+            ContextSection("prior_claims", prior_claims_section.strip()),
             ContextSection("audience", audience_section.strip()),
         ]
 

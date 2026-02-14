@@ -715,6 +715,48 @@ class ClaimsKernel:
 
         return results
 
+    def get_related_claims(self, topic: str, limit: int = 5) -> list[TypedClaim]:
+        """Get claims related to a topic by keyword matching.
+
+        Searches claim statements for overlap with topic words to find
+        relevant prior claims for context injection.
+
+        Args:
+            topic: The topic/question to find related claims for
+            limit: Maximum number of claims to return
+
+        Returns:
+            List of TypedClaim objects sorted by relevance (strongest first)
+        """
+        if not topic or not self.claims:
+            return []
+
+        # Tokenize topic into meaningful words (3+ chars)
+        topic_words = {
+            w.lower()
+            for w in re.split(r"\W+", topic)
+            if len(w) >= 3
+        }
+
+        if not topic_words:
+            return []
+
+        scored: list[tuple[TypedClaim, float]] = []
+        for claim in self.claims.values():
+            claim_words = {
+                w.lower()
+                for w in re.split(r"\W+", claim.statement)
+                if len(w) >= 3
+            }
+            overlap = len(topic_words & claim_words)
+            if overlap > 0:
+                # Score by overlap count weighted by claim strength
+                relevance = overlap * (0.5 + 0.5 * self.calculate_claim_strength(claim.claim_id))
+                scored.append((claim, relevance))
+
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [claim for claim, _ in scored[:limit]]
+
     def generate_summary(self) -> str:
         """Generate a text summary of the argument structure."""
         lines = [

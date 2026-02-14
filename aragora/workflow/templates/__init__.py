@@ -101,6 +101,11 @@ from aragora.workflow.templates.quickstart import (
     quick_risks,
     quick_ideas,
 )
+from aragora.workflow.templates.decision import (
+    DECISION_TEMPLATES,
+    create_sme_decision_template,
+    create_quick_decision_template,
+)
 
 # Template registry
 WORKFLOW_TEMPLATES = {
@@ -140,6 +145,8 @@ WORKFLOW_TEMPLATES = {
     "support/ticket-triage": SUPPORT_TICKET_TRIAGE_TEMPLATE,
     # E-commerce
     "ecommerce/order-sync": ECOMMERCE_ORDER_SYNC_TEMPLATE,
+    # Decision Pipeline
+    **DECISION_TEMPLATES,
     # Note: Pattern templates (hive-mind, map-reduce, review-cycle) are not included
     # in WORKFLOW_TEMPLATES as they are factory patterns with a different schema.
     # Use PATTERN_TEMPLATES or create_*_workflow() functions instead.
@@ -269,4 +276,8 @@ __all__ = [
     "quick_analysis",
     "quick_risks",
     "quick_ideas",
+    # Decision Pipeline Templates
+    "DECISION_TEMPLATES",
+    "create_sme_decision_template",
+    "create_quick_decision_template",
 ]

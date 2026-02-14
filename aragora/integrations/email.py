@@ -49,27 +49,46 @@ from aragora.http_client import DEFAULT_TIMEOUT
 logger = logging.getLogger(__name__)
 
 # Circuit breaker for email providers (lazy import to avoid circular deps)
-# Thread-safe storage using a lock to prevent race conditions in multi-worker environments
+# Uses contextvars for per-context isolation in multi-worker deployments,
+# consistent with the pattern used across 63+ other modules in the codebase.
+import contextvars
 import threading
 
-_circuit_breakers: dict[str, Any] = {}
-_circuit_breakers_lock = threading.Lock()
+_circuit_breakers_var: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
+    "email_circuit_breakers", default=None  # type: ignore[arg-type]
+)
+_circuit_breakers_init_lock = threading.Lock()
+
+
+def _get_email_circuit_breakers() -> dict[str, Any]:
+    """Get context-local circuit breaker dict, creating if needed."""
+    breakers = _circuit_breakers_var.get(None)
+    if breakers is None:
+        breakers = {}
+        _circuit_breakers_var.set(breakers)
+    return breakers
 
 
 def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: float = 60.0) -> Any:
-    """Get or create circuit breaker for email provider (thread-safe)."""
-    # Quick check without lock for common case (circuit breaker already exists)
-    if provider in _circuit_breakers:
-        return _circuit_breakers.get(provider)
+    """Get or create circuit breaker for email provider.
+
+    Uses context-local storage for multi-worker isolation.
+    Thread-safe initialization via lock for the creation path.
+    """
+    breakers = _get_email_circuit_breakers()
+
+    if provider in breakers:
+        return breakers[provider]
 
     # Acquire lock for creation to prevent race conditions
-    with _circuit_breakers_lock:
-        # Double-check after acquiring lock
-        if provider not in _circuit_breakers:
+    with _circuit_breakers_init_lock:
+        # Re-check after acquiring lock (another thread may have created it)
+        breakers = _get_email_circuit_breakers()
+        if provider not in breakers:
             try:
                 from aragora.resilience import get_circuit_breaker
 
-                _circuit_breakers[provider] = get_circuit_breaker(
+                breakers[provider] = get_circuit_breaker(
                     name=f"email_{provider}",
                     failure_threshold=threshold,
                     cooldown_seconds=cooldown,
@@ -77,8 +96,8 @@ def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: floa
                 logger.debug(f"Circuit breaker initialized for email provider: {provider}")
             except ImportError:
                 logger.debug("Circuit breaker module not available for email")
-                _circuit_breakers[provider] = None
-    return _circuit_breakers.get(provider)
+                breakers[provider] = None
+    return breakers.get(provider)
 
 
 class EmailProvider(Enum):
@@ -243,7 +262,10 @@ class EmailIntegration:
         self._email_count = 0
         self._last_reset = datetime.now()
         self._pending_digests: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        # asyncio.Lock for async coroutine coordination within a single event loop
         self._rate_limit_lock = asyncio.Lock()
+        # threading.Lock for cross-thread safety in multi-worker deployments
+        self._thread_lock = threading.Lock()
         self._session: aiohttp.ClientSession | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -272,23 +294,24 @@ class EmailIntegration:
     async def _check_rate_limit(self) -> bool:
         """Check if we're within rate limits (thread-safe).
 
-        Uses asyncio.Lock to prevent race conditions when multiple
-        coroutines check and increment the counter concurrently.
+        Uses both asyncio.Lock (for async coroutine coordination) and
+        threading.Lock (for cross-thread safety in multi-worker deployments).
         """
         async with self._rate_limit_lock:
-            now = datetime.now()
-            elapsed = (now - self._last_reset).total_seconds()
+            with self._thread_lock:
+                now = datetime.now()
+                elapsed = (now - self._last_reset).total_seconds()
 
-            if elapsed >= 3600:  # 1 hour
-                self._email_count = 0
-                self._last_reset = now
+                if elapsed >= 3600:  # 1 hour
+                    self._email_count = 0
+                    self._last_reset = now
 
-            if self._email_count >= self.config.max_emails_per_hour:
-                logger.warning("Email rate limit reached, skipping email")
-                return False
+                if self._email_count >= self.config.max_emails_per_hour:
+                    logger.warning("Email rate limit reached, skipping email")
+                    return False
 
-            self._email_count += 1
-            return True
+                self._email_count += 1
+                return True
 
     def _get_circuit_breaker(self) -> Any:
         """Get circuit breaker for current provider."""
@@ -910,9 +933,10 @@ class EmailIntegration:
         return "\n".join(lines)
 
     def _add_to_digest(self, item: dict[str, Any]) -> None:
-        """Add an item to the pending digest."""
-        date_key = datetime.now().strftime("%Y-%m-%d")
-        self._pending_digests[date_key].append(item)
+        """Add an item to the pending digest (thread-safe)."""
+        with self._thread_lock:
+            date_key = datetime.now().strftime("%Y-%m-%d")
+            self._pending_digests[date_key].append(item)
 
     async def send_digest(
         self,
@@ -936,13 +960,14 @@ class EmailIntegration:
             days=7 if self.config.digest_frequency == "weekly" else 1
         )
 
-        for date_key, day_items in list(self._pending_digests.items()):
-            date = datetime.strptime(date_key, "%Y-%m-%d")
-            if date >= cutoff:
-                items.extend(day_items)
-            else:
-                # Clean up old items
-                del self._pending_digests[date_key]
+        with self._thread_lock:
+            for date_key, day_items in list(self._pending_digests.items()):
+                date = datetime.strptime(date_key, "%Y-%m-%d")
+                if date >= cutoff:
+                    items.extend(day_items)
+                else:
+                    # Clean up old items
+                    del self._pending_digests[date_key]
 
         if not items:
             return 0

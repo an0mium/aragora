@@ -772,19 +772,27 @@ class ResourceHandler(PermissionHandler):
         self, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult:
         """List resources. Override in subclass."""
-        return error_response("Not implemented", 501)
+        return error_response(
+            f"GET {handler.path}: list {self.RESOURCE_NAME} not implemented", 501
+        )
 
     def _get_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Get a single resource. Override in subclass."""
-        return error_response("Not implemented", 501)
+        return error_response(
+            f"GET {handler.path}: get {self.RESOURCE_NAME} not implemented", 501
+        )
 
     def _create_resource(self, handler: HTTPRequestHandler) -> HandlerResult:
         """Create a new resource. Override in subclass."""
-        return error_response("Not implemented", 501)
+        return error_response(
+            f"POST {handler.path}: create {self.RESOURCE_NAME} not implemented", 501
+        )
 
     def _update_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Update a resource (full replacement). Override in subclass."""
-        return error_response("Not implemented", 501)
+        return error_response(
+            f"PUT {handler.path}: update {self.RESOURCE_NAME} not implemented", 501
+        )
 
     def _patch_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Partially update a resource. Override in subclass."""
@@ -793,7 +801,9 @@ class ResourceHandler(PermissionHandler):
 
     def _delete_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Delete a resource. Override in subclass."""
-        return error_response("Not implemented", 501)
+        return error_response(
+            f"DELETE {handler.path}: delete {self.RESOURCE_NAME} not implemented", 501
+        )
 
 
 __all__ = [

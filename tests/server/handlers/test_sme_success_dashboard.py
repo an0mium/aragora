@@ -940,3 +940,163 @@ class TestModuleExports:
         from aragora.server.handlers.sme_success_dashboard import SMESuccessDashboardHandler
 
         assert len(SMESuccessDashboardHandler.ROUTES) == 6
+
+
+# =========================================================================
+# DebateAnalytics integration
+# =========================================================================
+
+
+class TestDebateAnalyticsIntegration:
+    """Tests that DebateAnalytics data flows into success metrics."""
+
+    def _make_debate_stats(
+        self, total=25, completed=20, consensus=18, avg_duration=180.0
+    ):
+        """Create a mock DebateStats-like object."""
+        stats = MagicMock()
+        stats.total_debates = total
+        stats.completed_debates = completed
+        stats.consensus_reached = consensus
+        stats.consensus_rate = consensus / completed if completed > 0 else 0.0
+        stats.avg_duration_seconds = avg_duration
+        stats.avg_rounds = 3.5
+        return stats
+
+    def test_real_debate_count_used(self):
+        """When analytics available, total_debates comes from real data."""
+        import asyncio
+
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        mock_analytics = MagicMock()
+        stats = self._make_debate_stats(total=25)
+
+        async def fake_get_stats(**kwargs):
+            return stats
+
+        mock_analytics.get_debate_stats = fake_get_stats
+        dashboard._get_debate_analytics = MagicMock(return_value=mock_analytics)
+
+        now = datetime.now(timezone.utc)
+        metrics = dashboard._calculate_success_metrics("org_123", now - timedelta(days=30), now)
+        assert metrics["total_debates"] == 25  # Real count, not 100//10=10
+
+    def test_real_consensus_rate_used(self):
+        """When analytics available, consensus_rate comes from DebateStats."""
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        mock_analytics = MagicMock()
+        stats = self._make_debate_stats(total=20, completed=20, consensus=16)
+
+        async def fake_get_stats(**kwargs):
+            return stats
+
+        mock_analytics.get_debate_stats = fake_get_stats
+        dashboard._get_debate_analytics = MagicMock(return_value=mock_analytics)
+
+        now = datetime.now(timezone.utc)
+        metrics = dashboard._calculate_success_metrics("org_123", now - timedelta(days=30), now)
+        assert metrics["consensus_rate"] == 80.0  # 16/20 * 100
+
+    def test_real_avg_duration_used(self):
+        """When analytics available, avg_debate_time comes from real data."""
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        mock_analytics = MagicMock()
+        stats = self._make_debate_stats(total=10, avg_duration=240.0)
+
+        async def fake_get_stats(**kwargs):
+            return stats
+
+        mock_analytics.get_debate_stats = fake_get_stats
+        dashboard._get_debate_analytics = MagicMock(return_value=mock_analytics)
+
+        now = datetime.now(timezone.utc)
+        metrics = dashboard._calculate_success_metrics("org_123", now - timedelta(days=30), now)
+        assert metrics["avg_debate_time_minutes"] == 4.0  # 240/60
+
+    def test_fallback_when_analytics_unavailable(self):
+        """Falls back to estimation when DebateAnalytics returns None."""
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        dashboard._get_debate_analytics = MagicMock(return_value=None)
+
+        now = datetime.now(timezone.utc)
+        metrics = dashboard._calculate_success_metrics("org_123", now - timedelta(days=30), now)
+        assert metrics["total_debates"] == 10  # 100//10 fallback
+        assert metrics["avg_debate_time_minutes"] == 5  # Default
+        assert metrics["consensus_rate"] == 85.0  # Default from _get_real_consensus_rate
+
+    def test_fallback_when_analytics_returns_zero_debates(self):
+        """Falls back to estimation when analytics has 0 debates."""
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        mock_analytics = MagicMock()
+        stats = self._make_debate_stats(total=0, completed=0, consensus=0)
+
+        async def fake_get_stats(**kwargs):
+            return stats
+
+        mock_analytics.get_debate_stats = fake_get_stats
+        dashboard._get_debate_analytics = MagicMock(return_value=mock_analytics)
+
+        now = datetime.now(timezone.utc)
+        metrics = dashboard._calculate_success_metrics("org_123", now - timedelta(days=30), now)
+        assert metrics["total_debates"] == 10  # Fallback to estimation
+
+    def test_fallback_on_analytics_exception(self):
+        """Falls back gracefully when analytics raises an exception."""
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        mock_analytics = MagicMock()
+
+        async def failing_get_stats(**kwargs):
+            raise RuntimeError("DB unavailable")
+
+        mock_analytics.get_debate_stats = failing_get_stats
+        dashboard._get_debate_analytics = MagicMock(return_value=mock_analytics)
+
+        now = datetime.now(timezone.utc)
+        metrics = dashboard._calculate_success_metrics("org_123", now - timedelta(days=30), now)
+        # Should fall back to estimation without crashing
+        assert metrics["total_debates"] == 10
+
+    def test_get_debate_analytics_returns_none_on_import_error(self):
+        """_get_debate_analytics returns None when module not importable."""
+        from aragora.server.handlers.sme_success_dashboard import SMESuccessDashboardHandler
+
+        ctx = _make_server_context()
+        dashboard = SMESuccessDashboardHandler(ctx)
+        with patch(
+            "aragora.server.handlers.sme_success_dashboard.SMESuccessDashboardHandler._get_debate_analytics",
+            return_value=None,
+        ):
+            result = dashboard._get_debate_analytics()
+            assert result is None
+
+    def test_real_analytics_flows_to_pm_view(self):
+        """PM view uses real analytics data when available."""
+        dashboard, _, _ = _build_handler_with_mocks(
+            workspace_stats=_make_workspace_stats(total_cost="10.00", api_calls=100),
+        )
+        mock_analytics = MagicMock()
+        stats = self._make_debate_stats(total=30, completed=30, consensus=27, avg_duration=120.0)
+
+        async def fake_get_stats(**kwargs):
+            return stats
+
+        mock_analytics.get_debate_stats = fake_get_stats
+        dashboard._get_debate_analytics = MagicMock(return_value=mock_analytics)
+
+        result = dashboard._get_pm_view(_make_handler(), {})
+        body = _parse_body(result)
+        pm = body["pm_view"]
+        assert pm["quality"]["consensus_rate_percent"] == 90.0  # 27/30 * 100
+        assert pm["velocity"]["total_decisions"] == 30
