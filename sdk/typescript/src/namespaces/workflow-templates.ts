@@ -122,4 +122,32 @@ export class WorkflowTemplatesAPI {
   async getTemplate(templateId: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/workflows/templates/${templateId}`) as Promise<Record<string, unknown>>;
   }
+
+  /**
+   * Get a specific pattern template by ID.
+   *
+   * @param templateId - Pattern template ID
+   * @returns Pattern template details
+   */
+  async getPatternTemplate(templateId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/workflow/pattern-templates/${encodeURIComponent(templateId)}`);
+  }
+
+  /**
+   * Instantiate a pattern template.
+   *
+   * Creates a new workflow from a pattern template with the given parameters.
+   *
+   * @param templateId - Pattern template ID to instantiate
+   * @param params - Instantiation parameters
+   * @returns Instantiated workflow details
+   */
+  async instantiatePattern(
+    templateId: string,
+    params?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/workflow/pattern-templates/${encodeURIComponent(templateId)}/instantiate`, {
+      body: params ?? {},
+    });
+  }
 }

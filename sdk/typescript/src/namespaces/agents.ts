@@ -763,4 +763,53 @@ export class AgentsAPI {
       '/api/v1/agents/stats'
     );
   }
+
+  // ===========================================================================
+  // Agent Configurations (YAML-based)
+  // ===========================================================================
+
+  /**
+   * List available YAML agent configurations.
+   *
+   * @param options - Optional filters
+   * @param options.priority - Filter by priority (low, normal, high, critical)
+   * @param options.role - Filter by role (proposer, critic, synthesizer, judge)
+   */
+  async listConfigs(options?: { priority?: string; role?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/agents/configs', { params: options });
+  }
+
+  /**
+   * Get a specific agent configuration by name.
+   *
+   * @param configName - Name of the agent configuration
+   */
+  async getConfig(configName: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/agents/configs/${encodeURIComponent(configName)}`);
+  }
+
+  /**
+   * Search agent configurations by expertise, capability, or tag.
+   *
+   * @param options - Search filters
+   */
+  async searchConfigs(options?: { q?: string; expertise?: string; capability?: string; tag?: string }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/agents/configs/search', { params: options });
+  }
+
+  /**
+   * Create an agent from a named YAML configuration.
+   *
+   * @param configName - Name of the configuration to instantiate
+   */
+  async createFromConfig(configName: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/agents/configs/${encodeURIComponent(configName)}/create`);
+  }
+
+  /**
+   * Reload all agent configurations from disk. Requires admin role.
+   */
+  async reloadConfigs(): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/agents/configs/reload');
+  }
 }

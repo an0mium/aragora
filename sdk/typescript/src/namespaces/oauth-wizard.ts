@@ -291,4 +291,31 @@ export class OAuthWizardAPI {
   }> {
     return this.client.request('GET', '/api/v2/integrations/wizard/recommendations');
   }
+
+  /**
+   * Test connection to a specific provider.
+   *
+   * @param providerId - Provider identifier (e.g., 'slack', 'github')
+   */
+  async testConnection(providerId: string): Promise<{ success: boolean; error?: string }> {
+    return this.client.request('POST', `/api/v2/integrations/wizard/${providerId}/test`);
+  }
+
+  /**
+   * List workspaces/tenants for a provider.
+   *
+   * @param providerId - Provider identifier
+   */
+  async listWorkspaces(providerId: string): Promise<{ workspaces: Array<{ id: string; name: string }> }> {
+    return this.client.request('GET', `/api/v2/integrations/wizard/${providerId}/workspaces`);
+  }
+
+  /**
+   * Disconnect a provider integration using the wizard endpoint.
+   *
+   * @param providerId - Provider identifier
+   */
+  async disconnectProvider(providerId: string): Promise<{ disconnected: boolean; message: string }> {
+    return this.client.request('POST', `/api/v2/integrations/wizard/${providerId}/disconnect`);
+  }
 }

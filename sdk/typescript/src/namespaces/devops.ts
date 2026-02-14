@@ -128,4 +128,67 @@ export class DevOpsNamespace {
     );
     return response.data.incident;
   }
+
+  /** Reassign an incident to different users. */
+  async reassignIncident(incidentId: string, userIds: string[]): Promise<Incident> {
+    const response = await this.client.request<{ data: { incident: Incident } }>(
+      'POST',
+      `/api/v1/incidents/${encodeURIComponent(incidentId)}/reassign`,
+      { body: { user_ids: userIds } }
+    );
+    return response.data.incident;
+  }
+
+  /** Add a note to an incident. */
+  async addNote(incidentId: string, content: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/incidents/${encodeURIComponent(incidentId)}/notes`,
+      { body: { content } }
+    );
+  }
+
+  /** List notes for an incident. */
+  async listNotes(incidentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/incidents/${encodeURIComponent(incidentId)}/notes`
+    );
+  }
+
+  /** Get current on-call schedule. */
+  async getOnCall(): Promise<OnCallEntry[]> {
+    const response = await this.client.request<{ data: { oncall: OnCallEntry[] } }>(
+      'GET',
+      '/api/v1/oncall'
+    );
+    return response.data.oncall;
+  }
+
+  /** Get on-call schedule for a specific service. */
+  async getOnCallForService(serviceId: string): Promise<OnCallEntry[]> {
+    const response = await this.client.request<{ data: { oncall: OnCallEntry[] } }>(
+      'GET',
+      `/api/v1/oncall/services/${encodeURIComponent(serviceId)}`
+    );
+    return response.data.oncall;
+  }
+
+  /** List PagerDuty services. */
+  async listServices(): Promise<DevOpsService[]> {
+    const response = await this.client.request<{ data: { services: DevOpsService[] } }>(
+      'GET',
+      '/api/v1/services'
+    );
+    return response.data.services;
+  }
+
+  /** Get a specific PagerDuty service. */
+  async getService(serviceId: string): Promise<DevOpsService> {
+    const response = await this.client.request<{ data: { service: DevOpsService } }>(
+      'GET',
+      `/api/v1/services/${encodeURIComponent(serviceId)}`
+    );
+    return response.data.service;
+  }
 }

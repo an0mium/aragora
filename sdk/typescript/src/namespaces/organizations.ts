@@ -242,4 +242,33 @@ export class OrganizationsAPI {
     return this.client.request('POST', `/api/v1/invitations/${invitationId}/accept`) as Promise<Record<string, unknown>>;
   }
 
+  /**
+   * Get an organization by ID (request-based).
+   *
+   * @param orgId - Organization ID
+   */
+  async getOrg(orgId: string): Promise<Organization> {
+    return this.client.request('GET', `/api/v1/org/${orgId}`);
+  }
+
+  /**
+   * Remove a member from an organization (request-based).
+   *
+   * @param orgId - Organization ID
+   * @param userId - User ID to remove
+   */
+  async removeMemberDirect(orgId: string, userId: string): Promise<void> {
+    return this.client.request('DELETE', `/api/v1/org/${orgId}/members/${userId}`);
+  }
+
+  /**
+   * Revoke an invitation (request-based).
+   *
+   * @param orgId - Organization ID
+   * @param invitationId - Invitation ID to revoke
+   */
+  async revokeInvitationDirect(orgId: string, invitationId: string): Promise<void> {
+    return this.client.request('DELETE', `/api/v1/org/${orgId}/invitations/${invitationId}`);
+  }
+
 }

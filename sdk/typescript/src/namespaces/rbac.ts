@@ -607,4 +607,24 @@ export class RBACAPI {
     return this.client.request('GET', '/api/v1/rbac/roles', { params }) as Promise<Record<string, unknown>>;
   }
 
+  /**
+   * Get a role by name (request-based).
+   *
+   * @param roleName - Role name
+   * @returns Role details with permissions
+   */
+  async getRoleByName(roleName: string): Promise<Role> {
+    return this.client.request('GET', `/api/v1/rbac/roles/${encodeURIComponent(roleName)}`);
+  }
+
+  /**
+   * Delete a role assignment by ID.
+   *
+   * @param assignmentId - Assignment ID to delete
+   * @returns Deletion result
+   */
+  async deleteAssignment(assignmentId: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/rbac/assignments/${encodeURIComponent(assignmentId)}`);
+  }
+
 }

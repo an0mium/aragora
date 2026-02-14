@@ -270,6 +270,26 @@ export class RepositoryAPI {
     const { index_id } = await this.index(request);
     return this.waitForIndex(index_id, options);
   }
+
+  /**
+   * Get repository info by ID.
+   *
+   * @param repositoryId - Repository ID
+   * @returns Repository details
+   */
+  async getRepository(repositoryId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(repositoryId)}`);
+  }
+
+  /**
+   * Delete a repository index.
+   *
+   * @param repositoryId - Repository ID
+   * @returns Deletion result
+   */
+  async deleteRepository(repositoryId: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/repository/${encodeURIComponent(repositoryId)}`);
+  }
 }
 
 export default RepositoryAPI;

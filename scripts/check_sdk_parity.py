@@ -260,9 +260,18 @@ def build_parity_report(
         # SDK coverage should be enforced for documented API routes.
         public_handler_paths = public_handler_paths & documented_routes
 
-    # Find gaps
-    missing_from_py_sdk = public_handler_paths - all_py_paths
-    missing_from_ts_sdk = public_handler_paths - all_ts_paths
+    # Find gaps (wildcard-aware: handler routes ending with /{param}
+    # are considered covered if any SDK path shares the prefix)
+    def _is_covered(route: str, sdk_paths: set[str]) -> bool:
+        if route in sdk_paths:
+            return True
+        if route.endswith("/{param}"):
+            prefix = route[: -len("/{param}")]
+            return any(sp.startswith(prefix + "/") for sp in sdk_paths)
+        return False
+
+    missing_from_py_sdk = {r for r in public_handler_paths if not _is_covered(r, all_py_paths)}
+    missing_from_ts_sdk = {r for r in public_handler_paths if not _is_covered(r, all_ts_paths)}
     missing_from_both = missing_from_py_sdk & missing_from_ts_sdk
 
     # SDK paths not in handlers (potential stale SDK methods)
@@ -285,6 +294,17 @@ def build_parity_report(
     stale_py = {p for p in all_py_paths if not _covered_by_handler(p)}
     stale_ts = {p for p in all_ts_paths if not _covered_by_handler(p)}
 
+    # Helper: check if an SDK path set covers a handler route.
+    # For wildcard routes ending with /{param}, any SDK path starting with
+    # the prefix counts as coverage (mirrors _covered_by_handler logic).
+    def _sdk_covers_route(route: str, sdk_paths: set[str]) -> bool:
+        if route in sdk_paths:
+            return True
+        if route.endswith("/{param}"):
+            prefix = route[: -len("/{param}")]
+            return any(sp.startswith(prefix + "/") for sp in sdk_paths)
+        return False
+
     # Per-handler coverage
     handler_coverage: list[dict[str, Any]] = []
     for handler_name, normalized_routes in sorted(handler_to_routes.items()):
@@ -292,8 +312,8 @@ def build_parity_report(
         if not public_routes:
             continue
 
-        py_covered = sum(1 for r in public_routes if r in all_py_paths)
-        ts_covered = sum(1 for r in public_routes if r in all_ts_paths)
+        py_covered = sum(1 for r in public_routes if _sdk_covers_route(r, all_py_paths))
+        ts_covered = sum(1 for r in public_routes if _sdk_covers_route(r, all_ts_paths))
 
         handler_coverage.append(
             {
@@ -301,8 +321,8 @@ def build_parity_report(
                 "total_routes": len(public_routes),
                 "python_sdk_covered": py_covered,
                 "typescript_sdk_covered": ts_covered,
-                "missing_python": [r for r in public_routes if r not in all_py_paths],
-                "missing_typescript": [r for r in public_routes if r not in all_ts_paths],
+                "missing_python": [r for r in public_routes if not _sdk_covers_route(r, all_py_paths)],
+                "missing_typescript": [r for r in public_routes if not _sdk_covers_route(r, all_ts_paths)],
             }
         )
 

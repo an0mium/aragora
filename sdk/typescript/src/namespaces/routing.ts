@@ -455,4 +455,54 @@ export class RoutingAPI {
   async getRuleTemplates(): Promise<{ templates: RuleTemplate[] }> {
     return this.client.request('GET', '/api/v1/routing-rules/templates');
   }
+
+  // =========================================================================
+  // Message Bindings
+  // =========================================================================
+
+  /**
+   * List all message bindings.
+   */
+  async listBindings(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/bindings', { params });
+  }
+
+  /**
+   * Get bindings for a specific provider.
+   *
+   * @param provider - Provider name (e.g., 'slack', 'telegram')
+   */
+  async getBindingsByProvider(provider: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/bindings/${encodeURIComponent(provider)}`);
+  }
+
+  /**
+   * Create a message binding.
+   */
+  async createBinding(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/bindings', { json: data });
+  }
+
+  /**
+   * Resolve a message binding.
+   */
+  async resolveBinding(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/bindings/resolve', { json: data });
+  }
+
+  /**
+   * Get binding statistics.
+   */
+  async getBindingStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/bindings/stats');
+  }
+
+  /**
+   * Delete a message binding.
+   *
+   * @param bindingId - Binding ID to delete
+   */
+  async deleteBinding(bindingId: string): Promise<Record<string, unknown>> {
+    return this.client.request('DELETE', `/api/v1/bindings/${encodeURIComponent(bindingId)}`);
+  }
 }

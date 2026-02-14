@@ -411,7 +411,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/available
    */
   async listAvailable(): Promise<{ integrations: AvailableIntegration[] }> {
-    return this.client.get('/api/v1/integrations/available');
+    return this.client.request('GET', '/api/v1/integrations/available');
   }
 
   /**
@@ -419,7 +419,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/status
    */
   async getStatus(): Promise<Record<string, unknown>> {
-    return this.client.get('/api/v1/integrations/status');
+    return this.client.request('GET', '/api/v1/integrations/status');
   }
 
   /**
@@ -427,7 +427,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/config
    */
   async getConfig(): Promise<Record<string, unknown>> {
-    return this.client.get('/api/v1/integrations/config');
+    return this.client.request('GET', '/api/v1/integrations/config');
   }
 
   /**
@@ -435,7 +435,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/config/{type}
    */
   async getConfigSchema(type: string): Promise<IntegrationConfigSchema> {
-    return this.client.get(`/api/v1/integrations/config/${type}`);
+    return this.client.request('GET', `/api/v1/integrations/config/${type}`);
   }
 
   // ===========================================================================
@@ -446,35 +446,35 @@ export class IntegrationsAPI {
    * List all configured integrations.
    */
   async list(): Promise<{ integrations: Integration[]; total: number }> {
-    return this.client.get('/api/v1/integrations');
+    return this.client.request('GET', '/api/v1/integrations');
   }
 
   /**
    * Get a specific integration by ID.
    */
   async get(id: string): Promise<Integration> {
-    return this.client.get(`/api/v1/integrations/${id}`);
+    return this.client.request('GET', `/api/v1/integrations/${id}`);
   }
 
   /**
    * Create a new integration.
    */
   async create(body: CreateIntegrationRequest): Promise<Integration> {
-    return this.client.post('/api/v1/integrations', body);
+    return this.client.request('POST', '/api/v1/integrations', { json: body as unknown as Record<string, unknown> });
   }
 
   /**
    * Update an existing integration.
    */
   async update(id: string, body: UpdateIntegrationRequest): Promise<Integration> {
-    return this.client.put(`/api/v1/integrations/${id}`, body);
+    return this.client.request('PUT', `/api/v1/integrations/${id}`, { json: body as unknown as Record<string, unknown> });
   }
 
   /**
    * Delete an integration.
    */
   async delete(id: string): Promise<{ deleted: boolean }> {
-    return this.client.delete(`/api/v1/integrations/${id}`);
+    return this.client.request('DELETE', `/api/v1/integrations/${id}`);
   }
 
   // ===========================================================================
@@ -485,7 +485,7 @@ export class IntegrationsAPI {
    * Test an integration connection.
    */
   async test(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    return this.client.post(`/api/v1/integrations/${id}/test`);
+    return this.client.request('POST', `/api/v1/integrations/${id}/test`);
   }
 
   /**
@@ -493,7 +493,7 @@ export class IntegrationsAPI {
    * @route POST /api/v1/integrations/{id}/sync
    */
   async sync(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.post(`/api/v1/integrations/${id}/sync`);
+    return this.client.request('POST', `/api/v1/integrations/${id}/sync`);
   }
 
   /**
@@ -501,7 +501,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/{id}/sync
    */
   async getSyncStatus(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.get(`/api/v1/integrations/${id}/sync`);
+    return this.client.request('GET', `/api/v1/integrations/${id}/sync`);
   }
 
   // ===========================================================================
