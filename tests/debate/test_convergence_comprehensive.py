@@ -1883,13 +1883,10 @@ class TestSentenceTransformerBackend:
 
     @pytest.fixture
     def sentence_backend(self):
-        """Get SentenceTransformer backend if available."""
-        try:
-            from aragora.debate.similarity.backends import SentenceTransformerBackend
+        """Get SentenceTransformer backend."""
+        from aragora.debate.similarity.backends import SentenceTransformerBackend
 
-            return SentenceTransformerBackend(use_nli=False)  # Skip NLI for faster tests
-        except ImportError:
-            pytest.skip("sentence-transformers not available")
+        return SentenceTransformerBackend(use_nli=False)  # Skip NLI for faster tests
 
     def test_sentence_transformer_similarity(self, sentence_backend):
         """Test similarity computation with SentenceTransformer."""
