@@ -14,10 +14,10 @@ ARG NEXT_PUBLIC_WS_URL=ws://localhost:8765/ws
 COPY sdk/typescript/ /sdk/typescript/
 
 # Copy package files and fix local SDK path for Docker context
-COPY aragora/live/package*.json ./
+COPY aragora/live/package.json ./
 RUN sed -i 's|file:../../sdk/typescript|file:/sdk/typescript|g' package.json
 
-# Install dependencies
+# Install dependencies (fresh lockfile to avoid version mismatch)
 RUN npm install --legacy-peer-deps
 
 # Copy source code
