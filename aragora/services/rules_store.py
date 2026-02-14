@@ -83,7 +83,7 @@ class RulesStore:
         try:
             yield cursor
             conn.commit()
-        except Exception:
+        except Exception:  # noqa: BLE001 - Intentional: rollback transaction before re-raising any error
             conn.rollback()
             raise
         finally:
