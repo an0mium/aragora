@@ -6,11 +6,13 @@
 
 import type {
   Agent,
+  AgentCalibration,
   AgentComparison,
   AgentConsistency,
   AgentFlip,
   AgentMoment,
   AgentNetwork,
+  AgentPerformance,
   AgentPosition,
   AgentProfile,
   AgentRelationship,
@@ -18,6 +20,8 @@ import type {
   HeadToHeadStats,
   OpponentBriefing,
   PaginationParams,
+  TeamSelection,
+  TeamSelectionRequest,
 } from '../types';
 
 // =============================================================================
@@ -90,17 +94,17 @@ export interface AgentsClientInterface {
   getLocalAgentsStatus(): Promise<Record<string, unknown>>;
 
   // Basic agent info
-  getAgent(name: string): Promise<Record<string, unknown>>;
+  getAgent(name: string): Promise<Agent>;
   getAgentProfile(name: string): Promise<AgentProfile>;
   getAgentHistory(name: string, params?: Record<string, unknown>): Promise<{ matches: unknown[] }>;
 
   // Calibration
-  getAgentCalibration(name: string): Promise<Record<string, unknown>>;
+  getAgentCalibration(name: string): Promise<AgentCalibration>;
   getAgentCalibrationCurve(name: string): Promise<Record<string, unknown>>;
   getAgentCalibrationSummary(name: string): Promise<Record<string, unknown>>;
 
   // Performance
-  getAgentPerformance(name: string): Promise<Record<string, unknown>>;
+  getAgentPerformance(name: string): Promise<AgentPerformance>;
   getAgentHeadToHead(name: string, opponent: string): Promise<HeadToHeadStats>;
   getAgentOpponentBriefing(name: string, opponent: string): Promise<OpponentBriefing>;
   getAgentConsistency(name: string): Promise<AgentConsistency>;
@@ -116,10 +120,10 @@ export interface AgentsClientInterface {
   getAgentRelationship(agentA: string, agentB: string): Promise<AgentRelationship>;
 
   // Other metrics
-  getAgentReputation(name: string): Promise<Record<string, unknown>>;
+  getAgentReputation(name: string): Promise<{ reputation: number | null }>;
   getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }>;
   getAgentDomains(name: string): Promise<{ domains: DomainRating[] }>;
-  getAgentElo(name: string): Promise<Record<string, unknown>>;
+  getAgentElo(name: string): Promise<{ agent: string; elo: number; history: Array<{ date: string; elo: number }> }>;
 
   // Comparison and leaderboards
   getLeaderboard(): Promise<{ agents: Agent[] }>;
@@ -133,7 +137,7 @@ export interface AgentsClientInterface {
   getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }>;
 
   // Team selection
-  selectTeam(params: Record<string, unknown>): Promise<Record<string, unknown>>;
+  selectTeam(params: TeamSelectionRequest): Promise<TeamSelection>;
 
   // Generic request method (for persona/identity/accuracy endpoints)
   request<T = unknown>(
@@ -179,7 +183,7 @@ export class AgentsAPI {
   /**
    * Get a specific agent by name.
    */
-  async get(name: string): Promise<Record<string, unknown>> {
+  async get(name: string): Promise<Agent> {
     return this.client.getAgent(name);
   }
 
@@ -493,4 +497,270 @@ export class AgentsAPI {
     return this.client.request('GET', `/api/agent/${agentId}/opponent-briefing/${opponentId}`) as Promise<Record<string, unknown>>;
   }
 
+  // ===========================================================================
+  // Agent History and Performance
+  // ===========================================================================
+
+  /**
+   * Get an agent's match history with optional pagination.
+   */
+  async getHistory(name: string, params?: Record<string, unknown>): Promise<{ matches: unknown[] }> {
+    return this.client.getAgentHistory(name, params);
+  }
+
+  /**
+   * Get an agent's performance metrics.
+   */
+  async getPerformance(name: string): Promise<AgentPerformance> {
+    return this.client.getAgentPerformance(name);
+  }
+
+  /**
+   * Get an agent's calibration data.
+   */
+  async getCalibration(name: string): Promise<AgentCalibration> {
+    return this.client.getAgentCalibration(name);
+  }
+
+  /**
+   * Trigger agent calibration.
+   *
+   * @param name - Agent name
+   * @param options - Calibration options
+   */
+  async calibrate(name: string, options?: {
+    domains?: string[];
+    sampleSize?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/calibrate`,
+      {
+        body: {
+          domains: options?.domains,
+          sample_size: options?.sampleSize,
+        },
+      }
+    );
+  }
+
+  // ===========================================================================
+  // ELO and Rankings (extended)
+  // ===========================================================================
+
+  /**
+   * Get an agent's ELO rating and history.
+   */
+  async getElo(name: string): Promise<{ agent: string; elo: number; history: Array<{ date: string; elo: number }> }> {
+    return this.client.getAgentElo(name);
+  }
+
+  /**
+   * Update an agent's ELO rating.
+   *
+   * @param name - Agent name
+   * @param eloChange - Amount to change ELO by
+   * @param options - Additional metadata
+   */
+  async updateElo(name: string, eloChange: number, options?: {
+    debateId?: string;
+    reason?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/elo`,
+      {
+        body: {
+          elo_change: eloChange,
+          debate_id: options?.debateId,
+          reason: options?.reason,
+        },
+      }
+    );
+  }
+
+  /**
+   * Compare multiple agents' performance.
+   *
+   * @param agents - Array of agent names to compare
+   */
+  async compare(agents: string[]): Promise<AgentComparison> {
+    return this.client.compareAgents(agents);
+  }
+
+  // ===========================================================================
+  // Team Selection
+  // ===========================================================================
+
+  /**
+   * Select a team of agents for a task.
+   *
+   * @param taskType - Description of the task
+   * @param teamSize - Number of agents to select
+   * @param strategy - Selection strategy
+   */
+  async selectTeam(
+    taskType: string,
+    teamSize: number,
+    strategy: 'balanced' | 'diverse' | 'competitive' | 'specialized' = 'balanced'
+  ): Promise<Record<string, unknown>> {
+    const weights: Record<string, { diversity: number; quality: number }> = {
+      balanced: { diversity: 0.5, quality: 0.5 },
+      diverse: { diversity: 0.8, quality: 0.2 },
+      competitive: { diversity: 0.2, quality: 0.8 },
+      specialized: { diversity: 0.0, quality: 1.0 },
+    };
+    const w = weights[strategy] ?? weights.balanced;
+    return this.client.selectTeam({
+      task_type: taskType,
+      team_size: teamSize,
+      diversity_weight: w.diversity,
+      quality_weight: w.quality,
+    });
+  }
+
+  // ===========================================================================
+  // Relationships (extended)
+  // ===========================================================================
+
+  /**
+   * Get an agent's relationships (alias for getNetwork).
+   */
+  async getRelationships(name: string): Promise<AgentNetwork> {
+    return this.client.getAgentNetwork(name);
+  }
+
+  /**
+   * Get the relationship between two specific agents.
+   */
+  async getRelationship(agentA: string, agentB: string): Promise<AgentRelationship> {
+    return this.client.getAgentRelationship(agentA, agentB);
+  }
+
+  /**
+   * Get an agent's reputation score.
+   */
+  async getReputation(name: string): Promise<{ reputation: number | null }> {
+    return this.client.getAgentReputation(name);
+  }
+
+  // ===========================================================================
+  // Registration and Lifecycle
+  // ===========================================================================
+
+  /**
+   * Register a new agent.
+   *
+   * @param agentId - Unique agent identifier
+   * @param options - Registration options
+   */
+  async register(agentId: string, options?: {
+    capabilities?: string[];
+    model?: string;
+    provider?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      '/api/v1/control-plane/agents',
+      {
+        body: {
+          agent_id: agentId,
+          capabilities: options?.capabilities,
+          model: options?.model,
+          provider: options?.provider,
+          metadata: options?.metadata ?? {},
+        },
+      }
+    );
+  }
+
+  /**
+   * Unregister an agent.
+   */
+  async unregister(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/control-plane/agents/${encodeURIComponent(agentId)}`
+    );
+  }
+
+  /**
+   * Enable an agent.
+   */
+  async enable(name: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/enable`
+    );
+  }
+
+  /**
+   * Disable an agent with optional reason.
+   */
+  async disable(name: string, reason?: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/disable`,
+      reason ? { body: { reason } } : undefined
+    );
+  }
+
+  /**
+   * Send a heartbeat for an agent.
+   */
+  async heartbeat(agentId: string, status: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/control-plane/agents/${encodeURIComponent(agentId)}/heartbeat`,
+      { body: { status } }
+    );
+  }
+
+  // ===========================================================================
+  // Quota Management
+  // ===========================================================================
+
+  /**
+   * Get an agent's quota information.
+   */
+  async getQuota(name: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/agents/${encodeURIComponent(name)}/quota`
+    );
+  }
+
+  /**
+   * Set an agent's quota.
+   */
+  async setQuota(name: string, options: {
+    debatesLimit?: number;
+    tokensLimit?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'PUT',
+      `/api/v1/agents/${encodeURIComponent(name)}/quota`,
+      {
+        body: {
+          debates_limit: options.debatesLimit,
+          tokens_limit: options.tokensLimit,
+        },
+      }
+    );
+  }
+
+  // ===========================================================================
+  // Statistics
+  // ===========================================================================
+
+  /**
+   * Get aggregate agent statistics.
+   */
+  async getStats(): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      '/api/v1/agents/stats'
+    );
+  }
 }

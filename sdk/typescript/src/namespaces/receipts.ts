@@ -18,6 +18,7 @@ export type { DecisionReceipt, GauntletReceiptExport } from '../types';
  * Interface for the internal client methods used by ReceiptsAPI.
  */
 interface ReceiptsClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
   listGauntletReceipts(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }>;
   getGauntletReceipt(receiptId: string): Promise<DecisionReceipt>;
   verifyGauntletReceipt(receiptId: string): Promise<{ valid: boolean; hash: string }>;
@@ -55,6 +56,38 @@ interface ReceiptsClientInterface {
  */
 export class ReceiptsAPI {
   constructor(private client: ReceiptsClientInterface) {}
+
+  // ===========================================================================
+  // Generic Receipt Methods
+  // ===========================================================================
+
+  /**
+   * List receipts with optional filtering.
+   */
+  async list(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }> {
+    return this.client.listGauntletReceipts(params);
+  }
+
+  /**
+   * Get a receipt by ID.
+   */
+  async get(receiptId: string): Promise<DecisionReceipt> {
+    return this.client.getGauntletReceipt(receiptId);
+  }
+
+  /**
+   * Verify a receipt's integrity.
+   */
+  async verify(receiptId: string): Promise<{ valid: boolean; hash: string }> {
+    return this.client.verifyGauntletReceipt(receiptId);
+  }
+
+  /**
+   * Verify a receipt with full signature validation.
+   */
+  async verifyFull(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/gauntlet/receipts/${encodeURIComponent(receiptId)}/verify-full`);
+  }
 
   // ===========================================================================
   // Gauntlet Receipts

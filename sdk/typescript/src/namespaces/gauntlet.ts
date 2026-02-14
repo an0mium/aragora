@@ -6,11 +6,16 @@
  */
 
 import type {
+  DecisionReceipt,
+  GauntletHeatmapExtended,
   GauntletPersona,
   GauntletComparison,
+  GauntletReceiptExport,
+  GauntletResult,
   GauntletRunRequest,
   GauntletRunResponse,
   GauntletRun,
+  PaginationParams,
 } from '../types';
 
 /**
@@ -23,13 +28,13 @@ interface GauntletClientInterface {
     request: GauntletRunRequest,
     options?: { pollIntervalMs?: number; timeoutMs?: number }
   ): Promise<GauntletRun>;
-  listGauntletReceipts(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
-  getGauntletReceipt(receiptId: string): Promise<Record<string, unknown>>;
+  listGauntletReceipts(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }>;
+  getGauntletReceipt(receiptId: string): Promise<DecisionReceipt>;
   verifyGauntletReceipt(receiptId: string): Promise<{ valid: boolean; hash: string }>;
-  exportGauntletReceipt(receiptId: string, format: string): Promise<Record<string, unknown>>;
+  exportGauntletReceipt(receiptId: string, format: 'json' | 'html' | 'markdown' | 'sarif'): Promise<GauntletReceiptExport>;
   listGauntletPersonas(params?: { category?: string; enabled?: boolean }): Promise<{ personas: GauntletPersona[] }>;
-  listGauntletResults(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
-  getGauntletHeatmap(gauntletId: string, format: string): Promise<Record<string, unknown>>;
+  listGauntletResults(params?: { gauntlet_id?: string; status?: string } & PaginationParams): Promise<{ results: GauntletResult[] }>;
+  getGauntletHeatmap(gauntletId: string, format?: 'json' | 'svg'): Promise<GauntletHeatmapExtended>;
   compareGauntlets(gauntletId1: string, gauntletId2: string): Promise<GauntletComparison>;
 }
 
@@ -93,14 +98,14 @@ export class GauntletAPI {
   /**
    * List gauntlet receipts with optional filtering.
    */
-  async list(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async list(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }> {
     return this.client.listGauntletReceipts(params);
   }
 
   /**
    * Get a specific gauntlet receipt by ID.
    */
-  async get(receiptId: string): Promise<Record<string, unknown>> {
+  async get(receiptId: string): Promise<DecisionReceipt> {
     return this.client.getGauntletReceipt(receiptId);
   }
 
@@ -114,14 +119,14 @@ export class GauntletAPI {
   /**
    * Export a gauntlet receipt in various formats.
    */
-  async export(receiptId: string, format: string): Promise<Record<string, unknown>> {
+  async export(receiptId: string, format: 'json' | 'html' | 'markdown' | 'sarif'): Promise<GauntletReceiptExport> {
     return this.client.exportGauntletReceipt(receiptId, format);
   }
 
   /**
    * List gauntlet results with optional filtering.
    */
-  async listResults(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async listResults(params?: { gauntlet_id?: string; status?: string } & PaginationParams): Promise<{ results: GauntletResult[] }> {
     return this.client.listGauntletResults(params);
   }
 
