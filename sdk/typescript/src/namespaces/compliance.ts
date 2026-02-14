@@ -159,6 +159,74 @@ export interface AuditEventsExport {
   exported_at: string;
 }
 
+// ===========================================================================
+// EU AI Act Types
+// ===========================================================================
+
+/**
+ * EU AI Act risk level classification.
+ */
+export type EuAiActRiskLevel = 'unacceptable' | 'high' | 'limited' | 'minimal';
+
+/**
+ * EU AI Act risk classification result.
+ */
+export interface EuAiActRiskClassification {
+  risk_level: EuAiActRiskLevel;
+  annex_iii_category: string | null;
+  annex_iii_number: number | null;
+  rationale: string;
+  matched_keywords: string[];
+  applicable_articles: string[];
+  obligations: string[];
+}
+
+/**
+ * EU AI Act conformity report.
+ */
+export interface EuAiActConformityReport {
+  overall_status: string;
+  receipt_id: string;
+  article_mappings: Array<{
+    article: string;
+    article_title: string;
+    receipt_field: string;
+    evidence: string;
+    status: string;
+  }>;
+  generated_at: string;
+  integrity_hash: string;
+}
+
+/**
+ * EU AI Act compliance artifact bundle.
+ */
+export interface EuAiActArtifactBundle {
+  bundle_id: string;
+  regulation: string;
+  compliance_deadline: string;
+  receipt_id: string;
+  generated_at: string;
+  risk_classification: EuAiActRiskClassification;
+  conformity_report: EuAiActConformityReport;
+  article_12_record_keeping: Record<string, unknown>;
+  article_13_transparency: Record<string, unknown>;
+  article_14_human_oversight: Record<string, unknown>;
+  integrity_hash: string;
+}
+
+/**
+ * Options for artifact bundle generation.
+ */
+export interface EuAiActBundleOptions {
+  receipt: Record<string, unknown>;
+  providerName?: string;
+  providerContact?: string;
+  euRepresentative?: string;
+  systemName?: string;
+  systemVersion?: string;
+}
+
 /**
  * Client interface for compliance operations.
  */
@@ -389,5 +457,78 @@ export class ComplianceAPI {
    */
   async getViolation(violationId: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/compliance/violations/${violationId}`) as Promise<Record<string, unknown>>;
+  }
+
+  // ===========================================================================
+  // EU AI Act
+  // ===========================================================================
+
+  /**
+   * Classify an AI use case by EU AI Act risk level.
+   *
+   * @param description - Free-text description of the AI use case.
+   * @returns Risk classification with level, rationale, and obligations.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.compliance.euAiActClassify(
+   *   'AI system for employment screening and hiring decisions'
+   * );
+   * console.log(`Risk: ${result.classification.risk_level}`);
+   * console.log(`Obligations: ${result.classification.obligations.join(', ')}`);
+   * ```
+   */
+  async euAiActClassify(description: string): Promise<{ classification: EuAiActRiskClassification }> {
+    return this.client.request('POST', '/api/v2/compliance/eu-ai-act/classify', {
+      json: { description },
+    });
+  }
+
+  /**
+   * Generate a conformity report from a decision receipt.
+   *
+   * @param receipt - Decision receipt data.
+   * @returns Conformity report with article-by-article assessment.
+   */
+  async euAiActAudit(receipt: Record<string, unknown>): Promise<{ conformity_report: EuAiActConformityReport }> {
+    return this.client.request('POST', '/api/v2/compliance/eu-ai-act/audit', {
+      json: { receipt },
+    });
+  }
+
+  /**
+   * Generate a full EU AI Act compliance artifact bundle.
+   *
+   * Produces Articles 12 (Record-Keeping), 13 (Transparency), and
+   * 14 (Human Oversight) artifacts bundled with a conformity report
+   * and SHA-256 integrity hash.
+   *
+   * @param options - Bundle generation options including receipt and provider details.
+   * @returns Complete artifact bundle.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.compliance.euAiActGenerateBundle({
+   *   receipt: myDecisionReceipt,
+   *   providerName: 'Acme Corp',
+   *   systemName: 'Acme Decision Engine',
+   * });
+   * console.log(`Bundle: ${result.bundle.bundle_id}`);
+   * console.log(`Hash: ${result.bundle.integrity_hash}`);
+   * ```
+   */
+  async euAiActGenerateBundle(
+    options: EuAiActBundleOptions
+  ): Promise<{ bundle: EuAiActArtifactBundle }> {
+    const body: Record<string, unknown> = { receipt: options.receipt };
+    if (options.providerName) body.provider_name = options.providerName;
+    if (options.providerContact) body.provider_contact = options.providerContact;
+    if (options.euRepresentative) body.eu_representative = options.euRepresentative;
+    if (options.systemName) body.system_name = options.systemName;
+    if (options.systemVersion) body.system_version = options.systemVersion;
+
+    return this.client.request('POST', '/api/v2/compliance/eu-ai-act/generate-bundle', {
+      json: body,
+    });
   }
 }
