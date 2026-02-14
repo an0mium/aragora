@@ -675,7 +675,6 @@ class TestOAuthStateCapacity:
 class TestDebateIdValidation:
     """Tests for debate ID validation in publishing endpoints."""
 
-    @pytest.mark.xfail(reason="Handler lacks debate ID validation before processing")
     def test_invalid_debate_id_rejected(self, social_handler, mock_http_handler):
         """Invalid debate IDs are rejected."""
         invalid_ids = [

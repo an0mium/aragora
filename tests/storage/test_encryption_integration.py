@@ -305,6 +305,7 @@ class TestGmailTokenStoreEncryption:
 # ============================================================================
 
 
+@pytest.mark.timeout(10)
 class TestSyncStoreEncryption:
     """Tests for encryption in SyncStore (enterprise connectors)."""
 
