@@ -199,13 +199,13 @@ jobs:
         working-directory: aragora/live
         run: npm audit --audit-level=high
 
-      - name: Install npm dependencies (aragora-js)
-        working-directory: aragora-js
+      - name: Install npm dependencies (typescript-sdk)
+        working-directory: sdk/typescript
         run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
 
-      - name: Audit npm dependencies (aragora-js)
+      - name: Audit npm dependencies (typescript-sdk)
         id: npm-audit-js
-        working-directory: aragora-js
+        working-directory: sdk/typescript
         run: npm audit --audit-level=high
 
       - name: Report npm dependency status
