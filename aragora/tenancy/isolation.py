@@ -452,20 +452,17 @@ class TenantDataIsolation:
             if key is not None:
                 self._encryption_keys[tid] = key
             else:
-                # Fallback: Derive key using HKDF with a per-tenant random salt.
-                # The salt is generated once and stored in memory so that keys
-                # are consistent within a process lifetime but cannot be
-                # predicted from the tenant ID alone.
+                # Fallback: Derive key deterministically from tenant ID
+                # using HMAC with a fixed application salt. This allows
+                # key recovery without external state (KMS). Configure a
+                # KMS provider for production use.
                 logger.warning(
                     f"Using salt-based key derivation for tenant {tid}. "
                     "Configure a KMS provider for production use."
                 )
-                if tid not in self._tenant_salts:
-                    self._tenant_salts[tid] = os.urandom(32)
-                salt = self._tenant_salts[tid]
-                # HKDF-like derivation: HMAC(salt, tenant_id) provides
-                # non-deterministic keys that require both the salt and
-                # tenant ID to reproduce.
+                salt = hashlib.sha256(
+                    f"aragora_tenant_salt_{tid}".encode()
+                ).digest()
                 self._encryption_keys[tid] = hmac.new(
                     salt,
                     f"aragora_tenant_key_{tid}".encode(),

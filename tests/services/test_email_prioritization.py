@@ -957,25 +957,27 @@ class TestPrioritizeInbox:
 
         mock_gmail = AsyncMock()
 
-        # Mock sync to return some emails
-        async def mock_sync():
-            for i in range(3):
-                item = MagicMock()
-                item.raw_data = {"message": MagicMock()}
-                msg = item.raw_data["message"]
-                msg.id = f"msg_{i}"
-                msg.from_address = f"sender{i}@example.com"
-                msg.subject = f"Email {i}"
-                msg.body_text = "Content"
-                msg.body_html = None
-                msg.snippet = "Content"
-                msg.is_important = False
-                msg.is_starred = False
-                msg.labels = []
-                msg.headers = {}
-                yield item
+        # Mock list_messages to return message IDs
+        mock_gmail.list_messages = AsyncMock(
+            return_value=(["msg_0", "msg_1", "msg_2"], None)
+        )
 
-        mock_gmail.sync = mock_sync
+        # Mock get_messages to return email objects
+        mock_emails = []
+        for i in range(3):
+            email = MagicMock()
+            email.id = f"msg_{i}"
+            email.from_address = f"sender{i}@example.com"
+            email.subject = f"Email {i}"
+            email.body_text = "Content"
+            email.body_html = None
+            email.snippet = "Content"
+            email.is_important = False
+            email.is_starred = False
+            email.labels = []
+            email.headers = {}
+            mock_emails.append(email)
+        mock_gmail.get_messages = AsyncMock(return_value=mock_emails)
 
         with patch(
             "aragora.services.email_prioritization.EmailPrioritizer.rank_inbox",
