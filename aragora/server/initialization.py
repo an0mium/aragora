@@ -896,6 +896,31 @@ async def prewarm_caches(
 # =============================================================================
 
 
+def init_budget_notifications() -> bool:
+    """Wire budget alert notifier to the BudgetManager singleton.
+
+    Registers the notifier callback so budget threshold crossings
+    trigger Slack/Teams/webhook notifications.
+
+    Returns:
+        True if wired successfully, False otherwise.
+    """
+    try:
+        from aragora.billing.budget_manager import get_budget_manager
+        from aragora.billing.budget_alert_notifier import setup_budget_notifications
+
+        manager = get_budget_manager()
+        setup_budget_notifications(manager)
+        logger.info("[init] Budget alert notifications wired to BudgetManager")
+        return True
+    except ImportError:
+        logger.debug("[init] Budget notification modules not available")
+        return False
+    except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+        logger.warning("[init] Budget alert notification setup failed: %s", e)
+        return False
+
+
 def init_handler_stores(nomic_dir: Path) -> dict:
     """Initialize document, audio, video stores and connectors for handlers.
 

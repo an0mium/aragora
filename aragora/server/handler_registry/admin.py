@@ -303,6 +303,11 @@ UnifiedApprovalsHandler = _safe_import(
 )
 RBACHandler = _safe_import("aragora.server.handlers.rbac", "RBACHandler")
 
+# Feature flag admin
+FeatureFlagAdminHandler = _safe_import(
+    "aragora.server.handlers.admin.feature_flags", "FeatureFlagAdminHandler"
+)
+
 # Emergency break-glass access
 EmergencyAccessHandler = _safe_import(
     "aragora.server.handlers.admin.emergency_access", "EmergencyAccessHandler"
@@ -471,6 +476,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Approvals, RBAC, and management
     ("_unified_approvals_handler", UnifiedApprovalsHandler),
     ("_rbac_handler", RBACHandler),
+    ("_feature_flag_admin_handler", FeatureFlagAdminHandler),
     ("_emergency_access_handler", EmergencyAccessHandler),
     ("_cost_dashboard_handler", CostDashboardHandler),
     ("_gastown_dashboard_handler", GasTownDashboardHandler),
@@ -614,6 +620,7 @@ __all__ = [
     # Approvals, RBAC, and management
     "UnifiedApprovalsHandler",
     "RBACHandler",
+    "FeatureFlagAdminHandler",
     "EmergencyAccessHandler",
     "CostDashboardHandler",
     "GasTownDashboardHandler",

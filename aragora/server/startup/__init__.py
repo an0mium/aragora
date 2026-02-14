@@ -387,6 +387,7 @@ def _build_initial_status(
         "mayor_coordinator": False,
         "postgres_pool": {"enabled": False},
         "slack_token_refresh_scheduler": False,
+        "budget_notifications": False,
     }
 
 
@@ -443,6 +444,15 @@ async def _init_all_components(
     except Exception as e:
         logger.warning(f"CostTracker initialization failed: {e}")
         status["cost_tracker"] = False
+
+    # Budget alert notifications (after cost tracking)
+    try:
+        from aragora.server.initialization import init_budget_notifications
+
+        status["budget_notifications"] = init_budget_notifications()
+    except ImportError:
+        logger.debug("Budget notification init not available")
+        status["budget_notifications"] = False
 
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
     status["tts_integration"] = await init_tts_integration()

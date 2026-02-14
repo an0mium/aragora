@@ -242,10 +242,16 @@ class TestResultRouting:
         }
 
         # Mock the Telegram API call
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_response = MagicMock()
-            mock_response.is_success = True
-            mock_post.return_value.__aenter__.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ok": True, "result": {}}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch("httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}):
                 success = await route_debate_result(debate_id, result)
@@ -282,11 +288,16 @@ class TestResultRouting:
             "task": "Architecture decision",
         }
 
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_response = MagicMock()
-            mock_response.is_success = True
-            mock_response.json.return_value = {"ok": True}
-            mock_post.return_value.__aenter__.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ok": True}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch("httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with patch.dict("os.environ", {"SLACK_BOT_TOKEN": "xoxb-test"}):
                 await route_debate_result(debate_id, result)
@@ -602,17 +613,23 @@ class TestDebateToChatIntegration:
         assert retrieved_origin.channel_id == chat_id
 
         # 4. Route result back to Telegram (mocked)
-        with patch("httpx.AsyncClient.post") as mock_post:
-            mock_response = MagicMock()
-            mock_response.is_success = True
-            mock_post.return_value.__aenter__.return_value = mock_response
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {"ok": True, "result": {}}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch("httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}):
                 success = await route_debate_result(debate_id, result)
 
                 # Verify API was called with correct params
                 if success:
-                    assert mock_post.called
+                    assert mock_client.post.called
 
         # 5. Verify result was marked as sent
         final_origin = get_debate_origin(debate_id)
