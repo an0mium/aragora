@@ -206,11 +206,17 @@ class TestRunStartupValidation:
         mock_validator.Severity = MagicMock()
         mock_validator.DeploymentNotReadyError = MockDeploymentNotReadyError
 
+        import importlib
+        import aragora.server.startup.validation_runner as vr_module
+
         with patch.dict("sys.modules", {"aragora.ops.deployment_validator": mock_validator}):
-            from aragora.server.startup.validation_runner import run_startup_validation
+            importlib.reload(vr_module)
 
             with pytest.raises(StartupValidationError) as exc_info:
-                await run_startup_validation(strict=True)
+                await vr_module.run_startup_validation(strict=True)
+
+        # Restore original module
+        importlib.reload(vr_module)
 
         assert "Critical issues found" in str(exc_info.value)
 

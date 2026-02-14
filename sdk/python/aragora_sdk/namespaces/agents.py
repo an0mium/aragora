@@ -137,6 +137,97 @@ class AgentsAPI:
         )
 
     # =========================================================================
+    # Agent Configurations (YAML-based)
+    # =========================================================================
+
+    def list_configs(
+        self,
+        priority: str | None = None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        List available YAML agent configurations.
+
+        Args:
+            priority: Filter by priority level (low, normal, high, critical)
+            role: Filter by role (proposer, critic, synthesizer, judge)
+
+        Returns:
+            List of configuration summaries
+        """
+        params: dict[str, Any] = {}
+        if priority:
+            params["priority"] = priority
+        if role:
+            params["role"] = role
+        return self._client.request("GET", "/api/v1/agents/configs", params=params or None)
+
+    def get_config(self, config_name: str) -> dict[str, Any]:
+        """
+        Get a specific agent configuration by name.
+
+        Args:
+            config_name: Name of the agent configuration
+
+        Returns:
+            Agent configuration details including expertise, capabilities, and model settings
+        """
+        return self._client.request("GET", f"/api/v1/agents/configs/{config_name}")
+
+    def search_configs(
+        self,
+        query: str | None = None,
+        expertise: str | None = None,
+        capability: str | None = None,
+        tag: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Search agent configurations by expertise, capability, or tag.
+
+        Args:
+            query: Free-text search query
+            expertise: Filter by expertise area
+            capability: Filter by capability
+            tag: Filter by tag
+
+        Returns:
+            Matching configurations
+        """
+        params: dict[str, Any] = {}
+        if query:
+            params["q"] = query
+        if expertise:
+            params["expertise"] = expertise
+        if capability:
+            params["capability"] = capability
+        if tag:
+            params["tag"] = tag
+        return self._client.request("GET", "/api/v1/agents/configs/search", params=params or None)
+
+    def create_from_config(self, config_name: str) -> dict[str, Any]:
+        """
+        Create an agent from a named YAML configuration.
+
+        Args:
+            config_name: Name of the agent configuration to instantiate
+
+        Returns:
+            Created agent details
+        """
+        return self._client.request("POST", f"/api/v1/agents/configs/{config_name}/create")
+
+    def reload_configs(self) -> dict[str, Any]:
+        """
+        Reload all agent configurations from disk.
+
+        Requires admin role.
+
+        Returns:
+            Reload result with count of loaded configurations
+        """
+        return self._client.request("POST", "/api/v1/agents/configs/reload")
+
+    # =========================================================================
     # Health & Availability
     # =========================================================================
 
@@ -331,6 +422,53 @@ class AsyncAgentsAPI:
         return await self._client.request(
             "GET", "/api/v1/agent/compare", params={"agent1": agent1, "agent2": agent2}
         )
+
+    # Agent Configurations (YAML-based)
+    async def list_configs(
+        self,
+        priority: str | None = None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        """List available YAML agent configurations."""
+        params: dict[str, Any] = {}
+        if priority:
+            params["priority"] = priority
+        if role:
+            params["role"] = role
+        return await self._client.request("GET", "/api/v1/agents/configs", params=params or None)
+
+    async def get_config(self, config_name: str) -> dict[str, Any]:
+        """Get a specific agent configuration by name."""
+        return await self._client.request("GET", f"/api/v1/agents/configs/{config_name}")
+
+    async def search_configs(
+        self,
+        query: str | None = None,
+        expertise: str | None = None,
+        capability: str | None = None,
+        tag: str | None = None,
+    ) -> dict[str, Any]:
+        """Search agent configurations by expertise, capability, or tag."""
+        params: dict[str, Any] = {}
+        if query:
+            params["q"] = query
+        if expertise:
+            params["expertise"] = expertise
+        if capability:
+            params["capability"] = capability
+        if tag:
+            params["tag"] = tag
+        return await self._client.request(
+            "GET", "/api/v1/agents/configs/search", params=params or None
+        )
+
+    async def create_from_config(self, config_name: str) -> dict[str, Any]:
+        """Create an agent from a named YAML configuration."""
+        return await self._client.request("POST", f"/api/v1/agents/configs/{config_name}/create")
+
+    async def reload_configs(self) -> dict[str, Any]:
+        """Reload all agent configurations from disk. Requires admin role."""
+        return await self._client.request("POST", "/api/v1/agents/configs/reload")
 
     # =========================================================================
     # Health & Availability
