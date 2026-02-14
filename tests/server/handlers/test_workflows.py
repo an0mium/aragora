@@ -618,6 +618,7 @@ class TestListTemplates:
         with (
             patch("aragora.server.handlers.workflows._get_store", return_value=mock_store),
             patch("aragora.server.handlers.workflows.RBAC_AVAILABLE", False),
+            patch("aragora.workflow.templates.list_templates", return_value=[]),
         ):
             result = handler_no_rbac.handle("/api/v1/workflow-templates", {}, mock_http_handler)
         assert result is not None
@@ -632,6 +633,7 @@ class TestListTemplates:
         with (
             patch("aragora.server.handlers.workflows._get_store", return_value=mock_store),
             patch("aragora.server.handlers.workflows.RBAC_AVAILABLE", False),
+            patch("aragora.workflow.templates.list_templates", return_value=[]),
         ):
             result = handler_no_rbac.handle("/api/v1/workflows/templates", {}, mock_http_handler)
         assert result is not None

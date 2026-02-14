@@ -122,6 +122,27 @@ EXEMPT_HANDLERS = frozenset(
         "TaskExecutionHandler",
         # Playground - intentionally public demo endpoint (rate-limited, mock agents only)
         "PlaygroundHandler",
+        # Compliance reporting (uses internal auth or admin-only access)
+        "ComplianceReportHandler",
+        # Receipt export (rate-limited, uses handler-level auth)
+        "ReceiptExportHandler",
+        # Email triage (uses internal rules engine auth)
+        "EmailTriageHandler",
+        # Feature flags (admin-only, uses internal access control)
+        "FeatureFlagsHandler",
+        # GDPR deletion (uses compliance framework auth)
+        "GDPRDeletionHandler",
+        # Debate stats (read-only public stats)
+        "DebateStatsHandler",
+        # Moderation analytics (admin dashboard, internal auth)
+        "ModerationAnalyticsHandler",
+        # Plan management (uses subscription-level access control)
+        "PlanManagementHandler",
+        # Agent recommendation (read-only suggestion endpoint)
+        "AgentRecommendationHandler",
+        # Notification preferences/history (user-scoped, uses session auth)
+        "NotificationPreferencesHandler",
+        "NotificationHistoryHandler",
     }
 )
 

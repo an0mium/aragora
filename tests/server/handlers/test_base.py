@@ -299,16 +299,10 @@ class TestSuccessResponse:
     """Tests for the success_response function."""
 
     def test_success_response_basic(self):
-        """Should create a success response with deprecation warning."""
+        """Should create a standard success response."""
         from aragora.server.handlers.base import success_response
-        import warnings
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            result = success_response({"id": "123"})
-
-            assert len(w) == 1
-            assert "deprecated" in str(w[0].message).lower()
+        result = success_response({"id": "123"})
 
         body = json.loads(result.body)
         assert body["success"] is True

@@ -332,6 +332,23 @@ class TestIntrospectionHandlerAgentByNameEndpoint:
 class TestIntrospectionHandlerRateLimiting:
     """Tests for rate limiting on introspection endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def _ensure_rate_limiting_enabled(self):
+        """Ensure RATE_LIMITING_DISABLED is False for rate limit tests.
+
+        importlib.reload() of rate_limit.py in other tests can leave the
+        flag in an inconsistent state across module objects.
+        """
+        import sys
+
+        rl_mod = sys.modules.get("aragora.server.handlers.utils.rate_limit")
+        if rl_mod:
+            saved = getattr(rl_mod, "RATE_LIMITING_DISABLED", False)
+            rl_mod.RATE_LIMITING_DISABLED = False
+        yield
+        if rl_mod:
+            rl_mod.RATE_LIMITING_DISABLED = saved
+
     def test_rate_limit_exceeded_returns_429(self, introspection_handler, mock_http_handler):
         """Exceeding rate limit returns 429."""
         # Make 20 requests (limit) then one more

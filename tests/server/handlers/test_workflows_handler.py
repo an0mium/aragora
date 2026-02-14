@@ -2926,8 +2926,9 @@ class TestPatternFactoryCategoryFiltering:
                     {"id": "tpl2", "category": "legal"},
                     {"id": "tpl3", "category": "finance"},
                 ]
-
-                result = handler._handle_list_templates({}, mock_http)
+                # Prevent catalog templates from merging into results
+                with patch("aragora.workflow.templates.list_templates", return_value=[]):
+                    result = handler._handle_list_templates({}, mock_http)
 
                 assert result.status_code == 200
                 body = json.loads(result.body)
