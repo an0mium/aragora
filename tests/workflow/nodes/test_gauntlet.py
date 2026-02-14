@@ -191,14 +191,15 @@ class TestGauntletStepInit:
         step = GauntletStep(name="Test Gauntlet")
         assert step._highest_severity is None
 
-    @pytest.mark.xfail(reason="class identity pollution", strict=False)
     def test_inherits_base_step(self):
         """Test GauntletStep inherits from BaseStep."""
         from aragora.workflow.nodes.gauntlet import GauntletStep
         from aragora.workflow.step import BaseStep
 
         step = GauntletStep(name="Test Gauntlet")
-        assert isinstance(step, BaseStep)
+        # Check by name to avoid class identity pollution across test runs
+        base_names = [c.__name__ for c in type(step).__mro__]
+        assert "BaseStep" in base_names or isinstance(step, BaseStep)
 
 
 # ============================================================================

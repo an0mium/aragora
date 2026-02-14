@@ -47,10 +47,9 @@ class TestExtensionInitialization:
         else:
             assert fabric is None
 
-    @pytest.mark.xfail(reason="init_gastown returns more values than test expects (pre-existing bug)")
     def test_init_gastown(self, tmp_path: Path):
         """Test Gastown initialization."""
-        coordinator, workspace_mgr, convoy_tracker, hooks = init_gastown(tmp_path)
+        coordinator, workspace_mgr, convoy_tracker, hooks, adapter = init_gastown(tmp_path)
 
         if GASTOWN_AVAILABLE:
             assert coordinator is not None

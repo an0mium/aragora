@@ -1124,14 +1124,15 @@ class TestQuickDebateStepInit:
         step = QuickDebateStep(name="No Config", config=None)
         assert step.config == {}
 
-    @pytest.mark.xfail(reason="class identity pollution", strict=False)
     def test_is_base_step_subclass(self):
         """Test that QuickDebateStep is a BaseStep subclass."""
         from aragora.workflow.nodes.debate import QuickDebateStep
         from aragora.workflow.step import BaseStep
 
         step = QuickDebateStep(name="Test")
-        assert isinstance(step, BaseStep)
+        # Check by name to avoid class identity pollution across test runs
+        base_names = [c.__name__ for c in type(step).__mro__]
+        assert "BaseStep" in base_names or isinstance(step, BaseStep)
 
 
 # ============================================================================

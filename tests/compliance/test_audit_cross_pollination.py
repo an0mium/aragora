@@ -135,7 +135,8 @@ class TestComplianceToAudit:
             result = monitor._fetch_audit_context(status)
             assert result is None
 
-    def test_metadata_enriched_in_quick_check(self, monitor):
+    @pytest.mark.asyncio
+    async def test_metadata_enriched_in_quick_check(self, monitor):
         """_run_quick_check enriches status metadata with audit context."""
         mock_context = {
             "relevant_findings": 3,
@@ -155,11 +156,7 @@ class TestComplianceToAudit:
         ), patch.object(
             monitor, "_check_and_alert",
         ):
-            import asyncio
-
-            status = asyncio.get_event_loop().run_until_complete(
-                monitor._run_quick_check()
-            )
+            status = await monitor._run_quick_check()
             assert "audit_findings_summary" in status.metadata
             assert status.metadata["audit_findings_summary"]["relevant_findings"] == 3
 
@@ -240,7 +237,8 @@ class TestAuditToCompliance:
             assert result["frameworks"]["soc2"]["major"] == 2
             assert result["source"] == "compliance_monitor"
 
-    def test_compliance_context_in_run_result(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_compliance_context_in_run_result(self, orchestrator):
         """Compliance context appears in run() result metadata."""
         from aragora.audit.document_auditor import AuditSession
 
@@ -256,26 +254,21 @@ class TestAuditToCompliance:
         with patch.object(
             orchestrator, "_fetch_compliance_context", return_value=mock_compliance
         ):
-            import asyncio
-
             session = AuditSession(
                 id="test-session",
                 name="test.pdf",
                 document_ids=["test.pdf"],
             )
-            result = asyncio.get_event_loop().run_until_complete(
-                orchestrator.run(chunks=[], session=session)
-            )
+            result = await orchestrator.run(chunks=[], session=session)
             assert "compliance_status" in result.metadata
             assert result.metadata["compliance_status"]["overall_health"] == "healthy"
 
-    def test_no_compliance_context_when_unavailable(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_no_compliance_context_when_unavailable(self, orchestrator):
         """No metadata when compliance context is unavailable."""
         with patch.object(
             orchestrator, "_fetch_compliance_context", return_value=None
         ):
-            import asyncio
-
             from aragora.audit.document_auditor import AuditSession
 
             session = AuditSession(
@@ -283,9 +276,7 @@ class TestAuditToCompliance:
                 name="test.pdf",
                 document_ids=["test.pdf"],
             )
-            result = asyncio.get_event_loop().run_until_complete(
-                orchestrator.run(chunks=[], session=session)
-            )
+            result = await orchestrator.run(chunks=[], session=session)
             assert "compliance_status" not in result.metadata
 
 
