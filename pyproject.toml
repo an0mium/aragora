@@ -224,7 +224,7 @@ rlm = [
     # Enables recursive language models for infinite context processing
     # Source: https://github.com/alexzhang13/rlm
     # The aragora.rlm module also works without this package (graceful fallback via HierarchicalCompressor).
-    "rlm @ git+https://github.com/alexzhang13/rlm.git@v1.0.0",
+    "rlm>=0.1.0",
 ]
 control-plane = [
     "redis>=5.0.0,<8.0",
