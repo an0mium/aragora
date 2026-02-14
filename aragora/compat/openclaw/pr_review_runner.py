@@ -540,6 +540,10 @@ class PRReviewRunner:
         self, diff: str,
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Run the Aragora review engine."""
+        # Demo mode only works via subprocess (CLI handles mock output)
+        if self.demo:
+            return self._run_review_subprocess(diff)
+
         # Try direct import first (faster, in-process)
         try:
             from aragora.cli.review import (
