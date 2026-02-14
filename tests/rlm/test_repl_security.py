@@ -429,28 +429,32 @@ class TestStringConcatenationAttack:
 class TestMemoryProtection:
     """Tests for memory exhaustion protection."""
 
-    def test_large_string_creation_blocked(self, env):
+    @pytest.fixture
+    def tight_env(self, context):
+        """REPL env with a 10 MB namespace cap so size-limit tests trigger."""
+        cfg = RLMConfig(max_repl_memory_mb=10)
+        return RLMEnvironment(cfg, context)
+
+    def test_large_string_creation_blocked(self, tight_env):
         """Creating very large strings is blocked."""
-        # Try to create a 100MB string
-        code = 'x = "a" * (100 * 1024 * 1024)'
-        output, _ = env.execute(code)
+        # 15MB string exceeds the 10MB cap
+        code = 'x = "a" * (15 * 1024 * 1024)'
+        output, _ = tight_env.execute(code)
         assert (
             "SecurityError" in output or "size limit" in output.lower() or "MemoryError" in output
         )
 
-    def test_moderate_string_allowed(self, env):
+    def test_moderate_string_allowed(self, tight_env):
         """Moderate string sizes are allowed."""
         code = 'x = "a" * 10000; print(len(x))'
-        output, _ = env.execute(code)
+        output, _ = tight_env.execute(code)
         assert "10000" in output
 
-    def test_large_list_blocked(self, env):
+    def test_large_list_blocked(self, tight_env):
         """Creating large string from list is blocked by size check."""
-        # Create a list with large string content that exceeds size limits
-        # Note: Python list multiplication is efficient but our post-exec check
-        # validates the serialized size which will catch very large data
-        code = 'x = "a" * (15 * 1024 * 1024); print(len(x))'  # 15MB string
-        output, _ = env.execute(code)
+        # 15MB string exceeds the 10MB namespace cap
+        code = 'x = "a" * (15 * 1024 * 1024); print(len(x))'
+        output, _ = tight_env.execute(code)
         # Should be blocked by size limit
         assert "SecurityError" in output or "size limit" in output.lower()
 

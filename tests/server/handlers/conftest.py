@@ -1037,6 +1037,12 @@ def _reset_rate_limiters():
 
     Uses sys.modules lookup because the utils __init__.py exports
     rate_limit as a function name, which shadows the module import.
+
+    Also resets the distributed rate limiter singleton, which coordinates
+    across server instances and uses an in-memory fallback in tests.
+    The ``@rate_limit`` decorator captures a reference to this singleton
+    at decoration time, so its internal state accumulates across tests
+    unless explicitly reset.
     """
     import sys
 
@@ -1052,6 +1058,17 @@ def _reset_rate_limiters():
     if rl_mod is not None:
         rl_mod.clear_all_limiters()
 
+    # Also reset the distributed rate limiter singleton so that request
+    # counts from prior tests don't cause spurious 429 responses.
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except ImportError:
+        pass
+
     yield
 
     if rl_mod is not None:
@@ -1059,6 +1076,15 @@ def _reset_rate_limiters():
             rl_mod.clear_all_limiters()
         except Exception:
             pass
+
+    try:
+        from aragora.server.middleware.rate_limit.distributed import (
+            reset_distributed_limiter,
+        )
+
+        reset_distributed_limiter()
+    except (ImportError, Exception):
+        pass
 
 
 @pytest.fixture

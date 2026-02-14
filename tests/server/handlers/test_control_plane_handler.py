@@ -75,6 +75,9 @@ def mock_run_async():
                     return loop.run_until_complete(coro)
                 finally:
                     loop.close()
+                    # Restore a fresh event loop so subsequent code doesn't
+                    # see a closed loop.
+                    asyncio.set_event_loop(asyncio.new_event_loop())
             except Exception:
                 # Fallback: if it's already a result, return it
                 return coro

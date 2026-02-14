@@ -491,6 +491,27 @@ def mock_env_with_grok_key(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_circuit_breakers_between_tests():
+    """Clear all circuit breaker singletons before each test.
+
+    Circuit breakers are shared singletons per agent type.  If an earlier test
+    drives a breaker into OPEN state — or patches ``can_proceed`` with a
+    MagicMock — the next test inherits that corrupted state.  Clearing the
+    dict forces fresh breaker creation.
+    """
+    from aragora.resilience.circuit_breaker_v2 import (
+        _circuit_breakers,
+        _circuit_breakers_lock,
+    )
+
+    with _circuit_breakers_lock:
+        _circuit_breakers.clear()
+    yield
+    with _circuit_breakers_lock:
+        _circuit_breakers.clear()
+
+
+@pytest.fixture(autouse=True)
 def _restore_create_client_session():
     """Re-establish create_client_session on agent modules before each test.
 

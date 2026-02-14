@@ -620,6 +620,10 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
         def _check_permission(*args: Any, **kwargs: Any) -> tuple[Any, HandlerResult | None]:
             """Common permission checking logic, returns (user_ctx, error_response) tuple."""
 
+            # Test hook: bypass auth entirely when override is set
+            if _test_user_context_override is not None:
+                return _test_user_context_override, None
+
             from aragora.billing.jwt_auth import extract_user_from_request
 
             handler = kwargs.get("handler")
@@ -630,9 +634,6 @@ def require_permission(permission: str) -> Callable[[Callable], Callable]:
                         break
 
             if handler is None:
-                # Test hook: when no handler is found, use override instead of 401
-                if _test_user_context_override is not None:
-                    return _test_user_context_override, None
                 logger.warning(f"require_permission({permission}): No handler provided")
                 return None, error_response("Authentication required", 401)
 

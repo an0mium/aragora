@@ -9,7 +9,7 @@ Tests:
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from aragora.server.handlers.agents.agents import AgentsHandler
 
@@ -310,37 +310,43 @@ class TestAgentsHandlerAgentEndpoint:
         """Should route head-to-head endpoint correctly."""
         handler = AgentsHandler({})
         handler._get_head_to_head = MagicMock(return_value={"status": 200})
-        handler.extract_path_param = MagicMock(return_value=("claude", None))
 
-        # Need to mock extract_path_param to return agent and opponent
-        with patch.object(
-            handler,
-            "extract_path_param",
-            side_effect=[
-                ("claude", None),  # First call returns agent name
-                ("gpt", None),  # Second call returns opponent name
-            ],
-        ):
-            result = handler._handle_agent_endpoint("/api/v1/agent/claude/head-to-head/gpt", {})
-            handler._get_head_to_head.assert_called_once_with("claude", "gpt")
+        # Mock extract_path_param to return agent name (index 3) and opponent (index 5).
+        # Uses a function instead of a side_effect list to avoid dependence on the
+        # MagicMock.side_effect property descriptor, which can be corrupted by other
+        # tests in the suite (see conftest._real_side_effect_descriptor guard).
+        def _fake_extract(path, idx, name, pattern=None):
+            if idx == 3:
+                return ("claude", None)
+            if idx == 5:
+                return ("gpt", None)
+            return (None, None)
+
+        handler.extract_path_param = _fake_extract
+
+        result = handler._handle_agent_endpoint("/api/v1/agent/claude/head-to-head/gpt", {})
+        handler._get_head_to_head.assert_called_once_with("claude", "gpt")
 
     def test_opponent_briefing_routing(self):
         """Should route opponent-briefing endpoint correctly."""
         handler = AgentsHandler({})
         handler._get_opponent_briefing = MagicMock(return_value={"status": 200})
 
-        with patch.object(
-            handler,
-            "extract_path_param",
-            side_effect=[
-                ("claude", None),
-                ("gpt", None),
-            ],
-        ):
-            result = handler._handle_agent_endpoint(
-                "/api/v1/agent/claude/opponent-briefing/gpt", {}
-            )
-            handler._get_opponent_briefing.assert_called_once_with("claude", "gpt")
+        # Uses a function instead of a side_effect list to avoid dependence on the
+        # MagicMock.side_effect property descriptor (see test_head_to_head_routing).
+        def _fake_extract(path, idx, name, pattern=None):
+            if idx == 3:
+                return ("claude", None)
+            if idx == 5:
+                return ("gpt", None)
+            return (None, None)
+
+        handler.extract_path_param = _fake_extract
+
+        result = handler._handle_agent_endpoint(
+            "/api/v1/agent/claude/opponent-briefing/gpt", {}
+        )
+        handler._get_opponent_briefing.assert_called_once_with("claude", "gpt")
 
 
 class TestCompareAgents:
