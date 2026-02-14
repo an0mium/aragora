@@ -15,8 +15,16 @@ from aragora.verification.think_prm import (
 # Mock query function for testing
 async def mock_query_fn(agent_id: str, prompt: str, max_tokens: int = 1000) -> str:
     """Mock LLM query function that returns verification responses."""
-    # Simple heuristic: if prompt contains "error" -> INCORRECT, else CORRECT
-    if "error" in prompt.lower() or "wrong" in prompt.lower():
+    # Check only the step content (between CURRENT STEP and CLAIMED DEPENDENCIES)
+    # to avoid matching template text like "factual errors" in the prompt itself
+    step_section = ""
+    if "CURRENT STEP TO VERIFY:" in prompt:
+        after = prompt.split("CURRENT STEP TO VERIFY:", 1)[1]
+        if "CLAIMED DEPENDENCIES:" in after:
+            step_section = after.split("CLAIMED DEPENDENCIES:", 1)[0]
+        else:
+            step_section = after
+    if "error" in step_section.lower() or "wrong" in step_section.lower():
         return """VERDICT: INCORRECT
 CONFIDENCE: 0.85
 REASONING: The step contains logical errors

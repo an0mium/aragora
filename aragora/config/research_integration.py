@@ -6,7 +6,7 @@ such as adaptive stopping, MUSE scoring, LARA analysis, ThinkPRM
 verification, GraphRAG, and ASCOT calibration.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 
@@ -191,3 +191,9 @@ class ResearchIntegrationConfig:
                 "limited knowledge retrieval."
             )
         return warnings
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary with enum values as strings."""
+        result = asdict(self)
+        result["level"] = self.level.value
+        return result
