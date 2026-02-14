@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.server.handlers.debates.graph_debates as _graph_module
+
 from aragora.server.handlers.debates.graph_debates import (
     GraphDebatesHandler,
     _graph_limiter,
@@ -56,9 +58,16 @@ def reset_rate_limiter():
     Most tests validate handler logic (auth, validation, etc.) and should not
     be affected by rate-limit state accumulated under parallel xdist execution.
     Tests that specifically exercise rate limiting re-enable it explicitly.
+
+    Uses string-based patch target to avoid importlib mode class identity issues
+    where the test's imported _graph_limiter is a different object from the one
+    the handler actually uses.
     """
-    _graph_limiter._buckets.clear()
-    with patch.object(_graph_limiter, "is_allowed", return_value=True):
+    _graph_module._graph_limiter._buckets.clear()
+    with patch(
+        "aragora.server.handlers.debates.graph_debates._graph_limiter.is_allowed",
+        return_value=True,
+    ):
         yield
 
 
@@ -408,19 +417,25 @@ class TestRateLimiting:
 
     @pytest.fixture(autouse=True)
     def reset_rate_limiter(self):
-        """Re-enable real rate limiter for rate limit tests."""
-        _graph_limiter._buckets.clear()
+        """Re-enable real rate limiter for rate limit tests.
+
+        Accesses _graph_limiter through the module reference to ensure we get
+        the same object the handler uses (avoids importlib identity issues).
+        """
+        limiter = _graph_module._graph_limiter
+        limiter._buckets.clear()
         yield
 
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, handler, mock_http_handler, mock_auth_context):
         """Should return 429 when rate limit exceeded."""
+        limiter = _graph_module._graph_limiter
         # Make requests until rate limit is hit
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = mock_auth_context
             with patch.object(handler, "check_permission"):
                 # Pre-fill rate limiter bucket to exceed limit
-                _graph_limiter._buckets["127.0.0.1"] = [time.time()] * _graph_limiter.rpm
+                limiter._buckets["127.0.0.1"] = [time.time()] * limiter.rpm
 
                 result = await handler.handle_post(
                     mock_http_handler,

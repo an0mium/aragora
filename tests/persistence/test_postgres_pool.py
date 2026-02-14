@@ -911,7 +911,8 @@ class TestGlobalPoolManagement:
         )
 
         assert pool is not None
-        assert isinstance(pool, ReplicaAwarePool)
+        # Use type name check to avoid importlib mode class identity issues
+        assert type(pool).__name__ == "ReplicaAwarePool"
         assert pool._primary_dsn == "postgresql://primary:5432/db"
         assert pool._min_size == 5
         assert pool._max_size == 20
@@ -928,7 +929,7 @@ class TestGlobalPoolManagement:
         pool = get_pool()
 
         assert pool is not None
-        assert isinstance(pool, ReplicaAwarePool)
+        assert type(pool).__name__ == "ReplicaAwarePool"
 
     @pytest.mark.asyncio
     async def test_close_pool_closes_global_pool(self, mock_create_pool, mock_asyncpg_pool):
