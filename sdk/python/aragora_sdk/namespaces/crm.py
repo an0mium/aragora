@@ -48,6 +48,17 @@ class CRMAPI:
             data["value"] = value
         return self._client.request("POST", "/api/v1/crm/deals", json=data)
 
+    def get_status(self) -> dict[str, Any]:
+        """
+        Get CRM circuit breaker status.
+
+        GET /api/v1/crm/status
+
+        Returns:
+            Dict with CRM status information
+        """
+        return self._client.request("GET", "/api/v1/crm/status")
+
 
 class AsyncCRMAPI:
     """Asynchronous CRM API."""
@@ -86,3 +97,7 @@ class AsyncCRMAPI:
         if value is not None:
             data["value"] = value
         return await self._client.request("POST", "/api/v1/crm/deals", json=data)
+
+    async def get_status(self) -> dict[str, Any]:
+        """Get CRM circuit breaker status. GET /api/v1/crm/status"""
+        return await self._client.request("GET", "/api/v1/crm/status")

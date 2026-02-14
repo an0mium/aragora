@@ -154,7 +154,7 @@ class TestValidatePassword:
 
     def test_exact_min_length_password_is_valid(self):
         """Password at exact minimum length is valid."""
-        exact = "a" * MIN_PASSWORD_LENGTH
+        exact = "Aa1!" + "a" * (MIN_PASSWORD_LENGTH - 4)
         valid, err = validate_password(exact)
         assert valid is True
         assert err == ""
@@ -168,19 +168,19 @@ class TestValidatePassword:
 
     def test_exact_max_length_password_is_valid(self):
         """Password at exact maximum length is valid."""
-        exact = "a" * MAX_PASSWORD_LENGTH
+        exact = "Aa1!" + "a" * (MAX_PASSWORD_LENGTH - 4)
         valid, err = validate_password(exact)
         assert valid is True
         assert err == ""
 
     def test_password_with_spaces_is_valid(self):
         """Password with spaces is allowed."""
-        valid, err = validate_password("pass word 123!")
+        valid, err = validate_password("Pass word 123!")
         assert valid is True
 
     def test_password_with_unicode_is_valid(self):
         """Password with unicode characters is allowed."""
-        valid, err = validate_password("pässwörd123!")
+        valid, err = validate_password("Pässwörd123!")
         assert valid is True
 
 

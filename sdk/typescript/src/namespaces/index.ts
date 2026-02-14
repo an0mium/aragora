@@ -49,7 +49,7 @@ export { ExplainabilityAPI, type ExplainabilityResult, type ExplanationFactor, t
 // Enterprise APIs
 export { WebhooksAPI, type Webhook, type WebhookEvent, type WebhookDelivery, type WebhookSLOStatus, type CreateWebhookRequest, type UpdateWebhookRequest } from './webhooks';
 export { PluginsAPI, type Plugin, type PluginListing, type PluginSubmission, type PluginConfigSchema, type InstallPluginRequest, type PluginQueryRequest, type PluginValidateRequest } from './plugins';
-export { WorkspacesAPI, type Workspace, type WorkspaceSettings, type WorkspaceMember, type WorkspaceProfile, type CreateWorkspaceRequest, type UpdateWorkspaceRequest, type AddMemberRequest, type UpdateMemberRequest } from './workspaces';
+export { WorkspacesAPI, type Workspace, type WorkspaceSettings, type CreateWorkspaceRequest } from './workspaces';
 export {
   IntegrationsAPI,
   type Integration,
@@ -892,15 +892,8 @@ export {
   type AdminUser,
   type AdminUserList,
   type PlatformStats,
-  type SystemMetrics,
   type RevenueData,
-  type ImpersonationToken,
   type NomicStatus,
-  type CircuitBreaker,
-  type CircuitBreakerList,
-  type CreditAccount,
-  type CreditTransaction,
-  type CreditTransactionList,
   type SecurityStatus,
   type SecurityKey,
 } from './admin';
