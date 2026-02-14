@@ -120,6 +120,8 @@ def normalize_route(route: str) -> str:
     route = re.sub(r"^/api/v\d+/", "/api/", route)
     # Convert * wildcards to {param}
     route = route.replace("/*", "/{param}")
+    # Convert Express-style :param segments to {param}
+    route = re.sub(r":([a-zA-Z_][a-zA-Z0-9_]*)", "{param}", route)
     # Normalize all named path parameters ({session_id}, {finding_id}, etc.) to {param}
     route = re.sub(r"\{[^}]+\}", "{param}", route)
     return route.lower().rstrip("/")
