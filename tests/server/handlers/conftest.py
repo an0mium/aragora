@@ -1058,10 +1058,16 @@ def _reset_rate_limiters():
     if rl_mod is not None:
         rl_mod.clear_all_limiters()
         # Ensure rate limiting is NOT globally disabled.  importlib.reload()
-        # of rate_limit.py in other tests can leave RATE_LIMITING_DISABLED
-        # as True on the module object that existing RateLimiter instances
-        # use via __globals__.
+        # of rate_limit.py creates a new module object, but existing
+        # RateLimiter instances still resolve RATE_LIMITING_DISABLED via
+        # their is_allowed method's __globals__ (the ORIGINAL module dict).
+        # We must patch BOTH the sys.modules entry AND the original dict.
         rl_mod.RATE_LIMITING_DISABLED = False
+        # Also patch the class-level __globals__ which may differ after reload
+        if hasattr(rl_mod, "RateLimiter"):
+            rl_cls = rl_mod.RateLimiter
+            if hasattr(rl_cls, "is_allowed"):
+                rl_cls.is_allowed.__globals__["RATE_LIMITING_DISABLED"] = False
 
     # Also reset the distributed rate limiter singleton so that request
     # counts from prior tests don't cause spurious 429 responses.
