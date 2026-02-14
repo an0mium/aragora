@@ -168,7 +168,7 @@ class TestListApprovals:
             handler, "require_permission_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.approvals_inbox.collect_pending_approvals",
+                "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=mock_approvals,
             ):
                 result = handler.handle("/api/v1/approvals", {}, mock_http_get)
@@ -188,7 +188,7 @@ class TestListApprovals:
             handler, "require_permission_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.approvals_inbox.collect_pending_approvals",
+                "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
             ) as mock_collect:
                 handler.handle("/api/v1/approvals", {"limit": "50"}, mock_http_get)
@@ -203,7 +203,7 @@ class TestListApprovals:
             handler, "require_permission_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.approvals_inbox.collect_pending_approvals",
+                "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
             ) as mock_collect:
                 handler.handle(
@@ -224,7 +224,7 @@ class TestListApprovals:
             handler, "require_permission_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.approvals_inbox.collect_pending_approvals",
+                "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
             ):
                 result = handler.handle("/api/v1/approvals", {}, mock_http_get)
@@ -260,7 +260,7 @@ class TestListApprovals:
             handler, "require_permission_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.approvals_inbox.collect_pending_approvals",
+                "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
             ):
                 result = handler.handle("/api/v1/approvals/pending", {}, mock_http_get)
@@ -285,7 +285,7 @@ class TestErrorHandling:
             handler, "require_permission_or_error", return_value=(mock_user, None)
         ):
             with patch(
-                "aragora.server.handlers.approvals_inbox.collect_pending_approvals",
+                "aragora.approvals.inbox.collect_pending_approvals",
                 side_effect=RuntimeError("DB connection failed"),
             ):
                 result = handler.handle("/api/v1/approvals", {}, mock_http_get)
