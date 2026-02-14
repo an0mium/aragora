@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Install aragora
-COPY pyproject.toml setup.cfg ./
+COPY pyproject.toml ./
 COPY aragora/ aragora/
 COPY scripts/ scripts/
 COPY deploy/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
