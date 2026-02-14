@@ -84,17 +84,17 @@ class MockBaseStep:
         pass
 
 
-# Patch the module before importing openclaw
+# Patch the module before importing openclaw, then immediately restore
 _mock_step_module = MagicMock()
 _mock_step_module.BaseStep = MockBaseStep
 _mock_step_module.WorkflowContext = MockWorkflowContext
 
-# Save originals if they exist so we can restore later
 _original_step = sys.modules.get("aragora.workflow.step")
 _original_workflow = sys.modules.get("aragora.workflow")
+_workflow_was_absent = "aragora.workflow" not in sys.modules
 
 sys.modules["aragora.workflow.step"] = _mock_step_module
-if "aragora.workflow" not in sys.modules:
+if _workflow_was_absent:
     sys.modules["aragora.workflow"] = MagicMock()
 
 from aragora.workflow.nodes.openclaw import (  # noqa: E402
@@ -104,6 +104,16 @@ from aragora.workflow.nodes.openclaw import (  # noqa: E402
     OpenClawSessionStep,
     register_openclaw_steps,
 )
+
+# Immediately restore real modules so other test files are not affected
+if _original_step is not None:
+    sys.modules["aragora.workflow.step"] = _original_step
+elif "aragora.workflow.step" in sys.modules:
+    del sys.modules["aragora.workflow.step"]
+if _original_workflow is not None:
+    sys.modules["aragora.workflow"] = _original_workflow
+elif _workflow_was_absent and "aragora.workflow" in sys.modules:
+    del sys.modules["aragora.workflow"]
 
 
 # ============================================================================

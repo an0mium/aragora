@@ -93,6 +93,11 @@ class ArenaExtensions:
         self._initialized = True
 
     @property
+    def has_explanation(self) -> bool:
+        """Check if auto-explanation is configured."""
+        return self.auto_explain or self.explanation_builder is not None
+
+    @property
     def has_billing(self) -> bool:
         """Check if billing/usage tracking is configured."""
         return self.usage_tracker is not None
@@ -738,10 +743,34 @@ class ArenaExtensions:
         if not self.auto_explain:
             return
 
+        # Need a query/task to explain
+        query = getattr(ctx, "query", "") or ""
+        if not query:
+            env = getattr(ctx, "environment", None)
+            query = getattr(env, "task", "") if env else ""
+        if not query:
+            return
+
+        # Need some answer content to explain
+        answer = getattr(result, "final_answer", "") or ""
+        if not answer:
+            consensus = getattr(result, "consensus", None)
+            if consensus:
+                answer = getattr(consensus, "content", "") or ""
+            if not answer:
+                messages = getattr(result, "messages", []) or []
+                if messages:
+                    answer = getattr(messages[-1], "content", "") or ""
+        if not answer:
+            return
+
         try:
             from aragora.explainability.builder import ExplanationBuilder
 
-            builder = self.explanation_builder or ExplanationBuilder()
+            builder = self.explanation_builder
+            if builder is None:
+                builder = ExplanationBuilder()
+                self.explanation_builder = builder
             decision = builder.build(result, ctx)
             self._last_explanation = decision
             # Attach to result so callers can access it
@@ -753,7 +782,7 @@ class ArenaExtensions:
             )
         except ImportError:
             logger.debug("explanation_skipped: explainability module not available")
-        except (AttributeError, TypeError, ValueError) as e:
+        except Exception as e:
             logger.debug("explanation_failed: %s", e)
 
     def _export_training_data(
@@ -836,6 +865,8 @@ class ExtensionsConfig:
     notification_dispatcher: Any = None
     auto_notify: bool = False
     notify_min_confidence: float = 0.0
+    auto_explain: bool = False
+    explanation_builder: Any = None
 
     def create_extensions(self) -> ArenaExtensions:
         """Create ArenaExtensions from this configuration."""
@@ -860,6 +891,8 @@ class ExtensionsConfig:
             notification_dispatcher=self.notification_dispatcher,
             auto_notify=self.auto_notify,
             notify_min_confidence=self.notify_min_confidence,
+            auto_explain=self.auto_explain,
+            explanation_builder=self.explanation_builder,
         )
 
 

@@ -474,6 +474,9 @@ class ArenaConfig:
         self.stability_agreement_threshold = stability_agreement_threshold
         self.stability_conflict_confidence = stability_conflict_confidence
 
+        # Explainability
+        self.auto_explain = kwargs.pop("auto_explain", False)
+
         # -- Build sub-configs from flat kwargs + explicit sub-config objects --
         # For each sub-config group, collect any flat kwargs that belong to it,
         # then merge with an explicit sub-config object if provided.

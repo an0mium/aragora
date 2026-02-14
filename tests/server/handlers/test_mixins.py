@@ -290,7 +290,7 @@ class TestAuthenticatedHandlerMixin:
         result = obj.require_auth(MagicMock())
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.mixins.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_require_auth_fallback_authenticated(self, mock_extract):
         """Fallback: extracts user from request when no require_auth_or_error."""
         mock_user = MagicMock()
@@ -303,7 +303,7 @@ class TestAuthenticatedHandlerMixin:
         result = mixin.require_auth(MagicMock())
         assert result.user_id == "user-99"
 
-    @patch("aragora.server.handlers.mixins.extract_user_from_request")
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_require_auth_fallback_unauthenticated(self, mock_extract):
         """Fallback: returns 401 error when user is not authenticated."""
         mock_user = MagicMock()

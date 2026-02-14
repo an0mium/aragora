@@ -198,12 +198,12 @@ class BudgetRunwayResult:
     """Result of a budget runway check."""
 
     workspace_id: str
-    days_remaining: int | None  # None if no budget set
-    alert_level: AlertSeverity
-    monthly_budget: Decimal | None
-    current_spend: Decimal
-    daily_burn_rate: Decimal
-    message: str
+    days_remaining: int | None = None  # None if no budget set
+    alert_level: AlertSeverity = AlertSeverity.INFO
+    budget_limit: Decimal | None = None
+    current_spend: Decimal = Decimal("0")
+    daily_burn_rate: Decimal = Decimal("0")
+    message: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -211,7 +211,7 @@ class BudgetRunwayResult:
             "workspace_id": self.workspace_id,
             "days_remaining": self.days_remaining,
             "alert_level": self.alert_level.value,
-            "monthly_budget": str(self.monthly_budget) if self.monthly_budget else None,
+            "budget_limit": str(self.budget_limit) if self.budget_limit else None,
             "current_spend": str(self.current_spend),
             "daily_burn_rate": str(self.daily_burn_rate),
             "message": self.message,
@@ -724,19 +724,25 @@ class CostForecaster:
             ],
         )
 
-    async def check_budget_runway(self, workspace_id: str) -> BudgetRunwayResult:
+    async def check_budget_runway(
+        self,
+        workspace_id: str,
+        warning_threshold_days: int = 7,
+        critical_threshold_days: int = 3,
+    ) -> BudgetRunwayResult:
         """Check how many days until budget is exhausted.
 
-        Returns a BudgetRunwayResult with days remaining and alert level.
+        Args:
+            workspace_id: Workspace to check
+            warning_threshold_days: Days threshold for WARNING alert (default 7)
+            critical_threshold_days: Days threshold for CRITICAL alert (default 3)
+
+        Returns:
+            BudgetRunwayResult with days remaining and alert level.
         """
         if not self._cost_tracker:
             return BudgetRunwayResult(
                 workspace_id=workspace_id,
-                days_remaining=None,
-                alert_level=AlertSeverity.INFO,
-                monthly_budget=None,
-                current_spend=Decimal("0"),
-                daily_burn_rate=Decimal("0"),
                 message="No cost tracker configured",
             )
 
@@ -748,12 +754,7 @@ class CostForecaster:
         if not budget or not getattr(budget, "monthly_limit_usd", None):
             return BudgetRunwayResult(
                 workspace_id=workspace_id,
-                days_remaining=None,
-                alert_level=AlertSeverity.INFO,
-                monthly_budget=None,
-                current_spend=Decimal("0"),
-                daily_burn_rate=Decimal("0"),
-                message="No budget configured",
+                message="No budget limit configured",
             )
 
         monthly_limit = budget.monthly_limit_usd
@@ -769,7 +770,14 @@ class CostForecaster:
             daily_costs = []
 
         if daily_costs and len(daily_costs) > 0:
-            daily_burn = mean([float(c) for c in daily_costs])
+            # daily_costs may be list of (datetime, Decimal) tuples or plain Decimals
+            costs = []
+            for c in daily_costs:
+                if isinstance(c, (tuple, list)):
+                    costs.append(float(c[1]))
+                else:
+                    costs.append(float(c))
+            daily_burn = mean(costs)
         else:
             # Estimate from current spend and days elapsed
             days_elapsed = now.day or 1
@@ -778,29 +786,34 @@ class CostForecaster:
         daily_burn_rate = Decimal(str(round(daily_burn, 2)))
 
         if daily_burn <= 0:
-            days_remaining = None
-            alert_level = AlertSeverity.INFO
-            message = "No significant spending detected"
+            return BudgetRunwayResult(
+                workspace_id=workspace_id,
+                budget_limit=monthly_limit,
+                current_spend=current_spend,
+                daily_burn_rate=daily_burn_rate,
+                message="No significant spending detected",
+            )
+
+        days_remaining = int(float(remaining) / daily_burn)
+        if days_remaining <= 0:
+            days_remaining = 0
+            alert_level = AlertSeverity.CRITICAL
+            message = f"Budget exhausted — spent ${current_spend} of ${monthly_limit}"
+        elif days_remaining <= critical_threshold_days:
+            alert_level = AlertSeverity.CRITICAL
+            message = f"Budget critically low — {days_remaining} days remaining"
+        elif days_remaining <= warning_threshold_days:
+            alert_level = AlertSeverity.WARNING
+            message = f"Budget running low — {days_remaining} days remaining"
         else:
-            days_remaining = int(float(remaining) / daily_burn)
-            if days_remaining <= 0:
-                alert_level = AlertSeverity.CRITICAL
-                message = f"Budget exhausted — spent ${current_spend} of ${monthly_limit}"
-            elif days_remaining <= 3:
-                alert_level = AlertSeverity.CRITICAL
-                message = f"Budget will be exhausted in {days_remaining} days"
-            elif days_remaining <= 7:
-                alert_level = AlertSeverity.WARNING
-                message = f"Budget runway is {days_remaining} days at current burn rate"
-            else:
-                alert_level = AlertSeverity.INFO
-                message = f"Budget healthy — {days_remaining} days remaining"
+            alert_level = AlertSeverity.INFO
+            message = f"Budget healthy — {days_remaining} days remaining"
 
         return BudgetRunwayResult(
             workspace_id=workspace_id,
             days_remaining=days_remaining,
             alert_level=alert_level,
-            monthly_budget=monthly_limit,
+            budget_limit=monthly_limit,
             current_spend=current_spend,
             daily_burn_rate=daily_burn_rate,
             message=message,

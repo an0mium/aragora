@@ -482,6 +482,37 @@ class OrchestrationHandler(SecureHandler):
                     )
                     return validation_error
 
+            # ================================================================
+            # Cost estimation
+            # ================================================================
+            cost_estimate = None
+            try:
+                from aragora.server.handlers.debates.cost_estimation import estimate_debate_cost
+
+                cost_estimate = estimate_debate_cost(
+                    num_agents=len(request.agents) or 3,
+                    num_rounds=request.max_rounds,
+                    model_types=request.agents if request.agents else None,
+                )
+            except Exception:
+                pass  # Cost estimation is best-effort
+
+            # Handle dry_run - return estimate only
+            if request.dry_run:
+                return json_response({
+                    "request_id": request.request_id,
+                    "dry_run": True,
+                    "estimated_cost": cost_estimate,
+                    "agents": request.agents,
+                    "max_rounds": request.max_rounds,
+                    "message": "Dry run — no debate executed",
+                })
+
+            # Extract total cost as float for non-dry-run responses
+            estimated_cost_usd = None
+            if cost_estimate and "total_estimated_cost_usd" in cost_estimate:
+                estimated_cost_usd = float(cost_estimate["total_estimated_cost_usd"])
+
             # Store request
             _orchestration_requests[request.request_id] = request
 
@@ -489,16 +520,22 @@ class OrchestrationHandler(SecureHandler):
                 # Synchronous execution
                 result = run_async(self._execute_deliberation(request))
                 _orchestration_results[request.request_id] = result
-                return json_response(result.to_dict())
+                response_data = result.to_dict()
+                if estimated_cost_usd is not None:
+                    response_data["estimated_cost_usd"] = estimated_cost_usd
+                return json_response(response_data)
             else:
                 # Async execution - queue and return immediately
                 asyncio.create_task(self._execute_and_store(request))
+                response_data = {
+                    "request_id": request.request_id,
+                    "status": "queued",
+                    "message": "Deliberation queued. Check status at /api/v1/orchestration/status/{request_id}",
+                }
+                if estimated_cost_usd is not None:
+                    response_data["estimated_cost_usd"] = estimated_cost_usd
                 return json_response(
-                    {
-                        "request_id": request.request_id,
-                        "status": "queued",
-                        "message": "Deliberation queued. Check status at /api/v1/orchestration/status/{request_id}",
-                    },
+                    response_data,
                     status=202,
                 )
 

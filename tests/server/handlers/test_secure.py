@@ -122,8 +122,8 @@ class TestGetAuthContext:
 class TestCheckPermission:
     """Tests for check_permission."""
 
-    @patch("aragora.server.handlers.secure.get_permission_checker")
-    @patch("aragora.server.handlers.secure.record_rbac_decision")
+    @patch("aragora.rbac.checker.get_permission_checker")
+    @patch("aragora.observability.metrics.security.record_rbac_decision")
     def test_allowed_permission_returns_true(
         self, mock_record, mock_get_checker, handler, auth_context
     ):
@@ -137,8 +137,8 @@ class TestCheckPermission:
         assert result is True
         mock_record.assert_called_once_with("items:read", True)
 
-    @patch("aragora.server.handlers.secure.get_permission_checker")
-    @patch("aragora.server.handlers.secure.record_rbac_decision")
+    @patch("aragora.rbac.checker.get_permission_checker")
+    @patch("aragora.observability.metrics.security.record_rbac_decision")
     def test_denied_permission_raises_forbidden(
         self, mock_record, mock_get_checker, handler, auth_context
     ):
@@ -151,8 +151,8 @@ class TestCheckPermission:
         with pytest.raises(ForbiddenError):
             handler.check_permission(auth_context, "items:write")
 
-    @patch("aragora.server.handlers.secure.get_permission_checker")
-    @patch("aragora.server.handlers.secure.record_rbac_decision")
+    @patch("aragora.rbac.checker.get_permission_checker")
+    @patch("aragora.observability.metrics.security.record_rbac_decision")
     def test_check_with_resource_id(
         self, mock_record, mock_get_checker, handler, auth_context
     ):
@@ -174,29 +174,29 @@ class TestCheckPermission:
 class TestHandleSecurityError:
     """Tests for handle_security_error."""
 
-    @patch("aragora.server.handlers.secure.record_auth_failure")
+    @patch("aragora.observability.metrics.security.record_auth_failure")
     def test_unauthorized_error_returns_401(self, mock_record, handler):
         error = UnauthorizedError("No token")
         result = handler.handle_security_error(error)
         assert result.status_code == 401
         mock_record.assert_called_once()
 
-    @patch("aragora.server.handlers.secure.record_blocked_request")
+    @patch("aragora.observability.metrics.security.record_blocked_request")
     def test_forbidden_error_returns_403(self, mock_record, handler):
         error = ForbiddenError("Denied", permission="items:write")
         result = handler.handle_security_error(error)
         assert result.status_code == 403
         mock_record.assert_called_once()
 
-    @patch("aragora.server.handlers.secure.record_blocked_request")
+    @patch("aragora.observability.metrics.security.record_blocked_request")
     def test_permission_denied_error_returns_403(self, mock_record, handler):
         error = PermissionDeniedError("denied")
         result = handler.handle_security_error(error)
         assert result.status_code == 403
 
-    @patch("aragora.server.handlers.secure.record_blocked_request")
+    @patch("aragora.observability.metrics.security.record_blocked_request")
     def test_role_required_error_returns_403(self, mock_record, handler):
-        error = RoleRequiredError("admin")
+        error = RoleRequiredError("admin role required", {"admin"}, {"viewer"})
         result = handler.handle_security_error(error)
         assert result.status_code == 403
 
@@ -215,7 +215,7 @@ class TestSecureEndpointDecorator:
     """Tests for the secure_endpoint decorator."""
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.secure.record_auth_attempt")
+    @patch("aragora.observability.metrics.security.record_auth_attempt")
     @patch("aragora.server.handlers.secure.get_auth_context")
     async def test_injects_auth_context(self, mock_get_auth, mock_record):
         mock_ctx = MagicMock(spec=AuthorizationContext)
@@ -232,8 +232,8 @@ class TestSecureEndpointDecorator:
         assert result == {"user": "user-1"}
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.secure.track_rbac_evaluation")
-    @patch("aragora.server.handlers.secure.record_auth_attempt")
+    @patch("aragora.observability.metrics.security.track_rbac_evaluation")
+    @patch("aragora.observability.metrics.security.record_auth_attempt")
     @patch("aragora.server.handlers.secure.get_auth_context")
     async def test_checks_permission(self, mock_get_auth, mock_record, mock_track):
         mock_ctx = MagicMock(spec=AuthorizationContext)
@@ -280,7 +280,7 @@ class TestAuditAction:
     """Tests for SecureHandler.audit_action."""
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.secure.get_audit_log")
+    @patch("aragora.observability.immutable_log.get_audit_log")
     async def test_audit_action_calls_audit_log(self, mock_get_log, handler, auth_context):
         mock_log = AsyncMock()
         mock_get_log.return_value = mock_log
@@ -293,7 +293,7 @@ class TestAuditAction:
         mock_log.append.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.secure.get_audit_log")
+    @patch("aragora.observability.immutable_log.get_audit_log")
     async def test_audit_action_extracts_ip_from_request(self, mock_get_log, handler, auth_context):
         mock_log = AsyncMock()
         mock_get_log.return_value = mock_log
@@ -320,14 +320,14 @@ class TestAuditAction:
 class TestEncryptDecrypt:
     """Tests for encrypt_response_fields and decrypt_request_fields."""
 
-    @patch("aragora.server.handlers.secure.encrypt_sensitive")
+    @patch("aragora.storage.encrypted_fields.encrypt_sensitive")
     def test_encrypt_response_fields(self, mock_encrypt, handler):
         mock_encrypt.return_value = {"key": "encrypted"}
         result = handler.encrypt_response_fields({"key": "value"})
         assert result == {"key": "encrypted"}
         mock_encrypt.assert_called_once()
 
-    @patch("aragora.server.handlers.secure.decrypt_sensitive")
+    @patch("aragora.storage.encrypted_fields.decrypt_sensitive")
     def test_decrypt_request_fields(self, mock_decrypt, handler):
         mock_decrypt.return_value = {"key": "decrypted"}
         result = handler.decrypt_request_fields({"key": "encrypted"})
