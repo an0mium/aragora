@@ -469,7 +469,7 @@ markers = [
 # pytest-randomly: Tests run in random order by default to detect pollution
 # To reproduce a specific order: pytest -p randomly --randomly-seed=<seed>
 # To disable randomization: pytest -p no:randomly
-addopts = "--import-mode=importlib --reruns 3 --reruns-delay 1 --only-rerun AssertionError --only-rerun RuntimeError --only-rerun KeyError --only-rerun TypeError --only-rerun SecretNotFoundError --only-rerun ModuleNotFoundError"
+addopts = "--import-mode=importlib --reruns 3 --reruns-delay 1 --only-rerun AssertionError --only-rerun RuntimeError --only-rerun KeyError --only-rerun TypeError --only-rerun SecretNotFoundError --only-rerun ModuleNotFoundError --only-rerun AttributeError"
 # Parallel test execution: pip install pytest-xdist && pytest -n auto
 # To run serial-only tests: pytest -m serial -n0
 

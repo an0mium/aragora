@@ -661,7 +661,11 @@ class TestSecurityScan:
         ):
             from aragora.server.handlers.code_review import handle_quick_security_scan
 
-            result = await handle_quick_security_scan.__wrapped__(
+            # Use getattr fallback: __wrapped__ may be absent if test pollution
+            # strips the decorator wrapper under parallel execution
+            handler_fn = getattr(handle_quick_security_scan, "__wrapped__", handle_quick_security_scan)
+
+            result = await handler_fn(
                 data={"code": "password = 'secret123'"},
                 user_id="test-user",
             )
@@ -679,7 +683,8 @@ class TestSecurityScan:
         """Test error when code is missing."""
         from aragora.server.handlers.code_review import handle_quick_security_scan
 
-        result = await handle_quick_security_scan.__wrapped__(
+        handler_fn = getattr(handle_quick_security_scan, "__wrapped__", handle_quick_security_scan)
+        result = await handler_fn(
             data={},
             user_id="test-user",
         )

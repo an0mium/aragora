@@ -148,7 +148,6 @@ class TestOpenclawContractParity:
     def _unique_endpoints(self, endpoints: list[tuple[str, str]]) -> set[tuple[str, str]]:
         return set(endpoints)
 
-    @pytest.mark.xfail(reason="Python SDK openclaw methods pruned as stale", strict=True)
     def test_python_sdk_covers_all_endpoints(self):
         """Python SDK namespace covers every server OpenClaw endpoint."""
         sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/openclaw.py"
