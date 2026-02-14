@@ -167,10 +167,9 @@ class TestRouting:
         handler._get_overview = AsyncMock(
             return_value=HandlerResult(200, "application/json", b"{}")
         )
-        with patch(_SVP, side_effect=_identity):
-            await handler.handle(
-                "/api/v1/dashboard/gastown/overview", {"refresh": "false"}, MagicMock()
-            )
+        await handler.handle(
+            "/api/v1/dashboard/gastown/overview", {"refresh": "false"}, MagicMock()
+        )
         handler._get_overview.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -178,8 +177,7 @@ class TestRouting:
         """Convoys path dispatches to _get_convoys."""
         _authenticated(handler)
         handler._get_convoys = AsyncMock(return_value=HandlerResult(200, "application/json", b"{}"))
-        with patch(_SVP, side_effect=_identity):
-            await handler.handle("/api/v1/dashboard/gastown/convoys", {}, MagicMock())
+        await handler.handle("/api/v1/dashboard/gastown/convoys", {}, MagicMock())
         handler._get_convoys.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -187,8 +185,7 @@ class TestRouting:
         """Agents path dispatches to _get_agents."""
         _authenticated(handler)
         handler._get_agents = AsyncMock(return_value=HandlerResult(200, "application/json", b"{}"))
-        with patch(_SVP, side_effect=_identity):
-            await handler.handle("/api/v1/dashboard/gastown/agents", {}, MagicMock())
+        await handler.handle("/api/v1/dashboard/gastown/agents", {}, MagicMock())
         handler._get_agents.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -196,8 +193,7 @@ class TestRouting:
         """Beads path dispatches to _get_beads."""
         _authenticated(handler)
         handler._get_beads = AsyncMock(return_value=HandlerResult(200, "application/json", b"{}"))
-        with patch(_SVP, side_effect=_identity):
-            await handler.handle("/api/v1/dashboard/gastown/beads", {}, MagicMock())
+        await handler.handle("/api/v1/dashboard/gastown/beads", {}, MagicMock())
         handler._get_beads.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -205,8 +201,7 @@ class TestRouting:
         """Metrics path dispatches to _get_metrics."""
         _authenticated(handler)
         handler._get_metrics = AsyncMock(return_value=HandlerResult(200, "application/json", b"{}"))
-        with patch(_SVP, side_effect=_identity):
-            await handler.handle("/api/v1/dashboard/gastown/metrics", {}, MagicMock())
+        await handler.handle("/api/v1/dashboard/gastown/metrics", {}, MagicMock())
         handler._get_metrics.assert_awaited_once()
 
 

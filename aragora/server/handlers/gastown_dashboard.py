@@ -148,16 +148,16 @@ class GasTownDashboardHandler(SecureHandler):
 
         path = strip_version_prefix(path)
 
-        # Route to appropriate handler
-        if path == "/api/v1/dashboard/gastown/overview":
+        # Route to appropriate handler (path is normalized, no /v1/)
+        if path == "/api/dashboard/gastown/overview":
             return await self._get_overview(query_params)
-        elif path == "/api/v1/dashboard/gastown/convoys":
+        elif path == "/api/dashboard/gastown/convoys":
             return await self._get_convoys(query_params)
-        elif path == "/api/v1/dashboard/gastown/agents":
+        elif path == "/api/dashboard/gastown/agents":
             return await self._get_agents(query_params)
-        elif path == "/api/v1/dashboard/gastown/beads":
+        elif path == "/api/dashboard/gastown/beads":
             return await self._get_beads(query_params)
-        elif path == "/api/v1/dashboard/gastown/metrics":
+        elif path == "/api/dashboard/gastown/metrics":
             return await self._get_metrics(query_params)
 
         return None
