@@ -828,6 +828,31 @@ export class KnowledgeAPI {
     return this.client.request('POST', '/api/v1/knowledge/mound/culture/promote', { json: { node_id: nodeId, ...options } });
   }
 
+  /**
+   * Get a specific culture entry by ID.
+   */
+  async getCultureEntry(cultureId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/knowledge/mound/culture/${cultureId}`) as Promise<Record<string, unknown>>;
+  }
+
+  // =========================================================================
+  // Revalidation & Sync
+  // =========================================================================
+
+  /**
+   * Revalidate a knowledge mound entry.
+   */
+  async revalidateEntry(entryId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/knowledge/mound/revalidate/${entryId}`) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Sync a knowledge mound entry to a target.
+   */
+  async syncEntry(targetId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/knowledge/mound/sync/${targetId}`) as Promise<Record<string, unknown>>;
+  }
+
   // =========================================================================
   // Dashboard & Metrics
   // =========================================================================

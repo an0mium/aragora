@@ -191,7 +191,7 @@ def extract_sdk_paths_typescript() -> dict[str, set[str]]:
 
     # Match patterns like: request("GET", "/api/v1/...") or request('GET', '/api/v1/...')
     # Also match template literals: `...`
-    path_pattern = re.compile(r'request\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']')
+    path_pattern = re.compile(r'request(?:<[^>]*>)?\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']')
 
     namespace_paths: dict[str, set[str]] = {}
 

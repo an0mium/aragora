@@ -97,6 +97,19 @@ class WorkspacesAPI:
         return self._client.request("POST", "/api/v1/workspaces", json=data)
 
     # ===========================================================================
+    # Invites
+    # ===========================================================================
+
+    def list_invites(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        List workspace invites.
+
+        Returns:
+            Dict with invite entries
+        """
+        return self._client.request("GET", "/api/v1/invites", params=kwargs or None)
+
+    # ===========================================================================
     # Retention Policies
     # ===========================================================================
 
@@ -292,6 +305,14 @@ class AsyncWorkspacesAPI:
             data["settings"] = settings
 
         return await self._client.request("POST", "/api/v1/workspaces", json=data)
+
+    # ===========================================================================
+    # Invites
+    # ===========================================================================
+
+    async def list_invites(self, **kwargs: Any) -> dict[str, Any]:
+        """List workspace invites."""
+        return await self._client.request("GET", "/api/v1/invites", params=kwargs or None)
 
     # ===========================================================================
     # Retention Policies

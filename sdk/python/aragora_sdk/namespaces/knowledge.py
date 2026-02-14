@@ -288,6 +288,22 @@ class KnowledgeAPI:
             "GET", "/api/knowledge/mound/contradictions/stats", params=params
         )
 
+    # =========================================================================
+    # Culture, Revalidation & Sync
+    # =========================================================================
+
+    def get_culture_entry(self, culture_id: str) -> dict[str, Any]:
+        """Get a specific culture entry by ID."""
+        return self._client.request("GET", f"/api/v1/knowledge/mound/culture/{culture_id}")
+
+    def revalidate_entry(self, entry_id: str) -> dict[str, Any]:
+        """Revalidate a knowledge mound entry."""
+        return self._client.request("POST", f"/api/v1/knowledge/mound/revalidate/{entry_id}")
+
+    def sync_entry(self, target_id: str) -> dict[str, Any]:
+        """Sync a knowledge mound entry to a target."""
+        return self._client.request("POST", f"/api/v1/knowledge/mound/sync/{target_id}")
+
 
 class AsyncKnowledgeAPI:
     """Asynchronous Knowledge Base API."""
@@ -651,6 +667,20 @@ class AsyncKnowledgeAPI:
     async def get_culture(self) -> dict[str, Any]:
         """Get organization culture profile."""
         return await self._client.request("GET", "/api/v1/knowledge/mound/culture")
+
+    async def get_culture_entry(self, culture_id: str) -> dict[str, Any]:
+        """Get a specific culture entry by ID."""
+        return await self._client.request("GET", f"/api/v1/knowledge/mound/culture/{culture_id}")
+
+    # ========== Revalidation & Sync ==========
+
+    async def revalidate_entry(self, entry_id: str) -> dict[str, Any]:
+        """Revalidate a knowledge mound entry."""
+        return await self._client.request("POST", f"/api/v1/knowledge/mound/revalidate/{entry_id}")
+
+    async def sync_entry(self, target_id: str) -> dict[str, Any]:
+        """Sync a knowledge mound entry to a target."""
+        return await self._client.request("POST", f"/api/v1/knowledge/mound/sync/{target_id}")
 
     # ========== Dashboard & Metrics ==========
 
