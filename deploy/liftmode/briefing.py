@@ -5,15 +5,15 @@ LiftMode Daily Briefing — Posts operations summary to Slack.
 Queries Aragora's Gmail priority inbox and posts a morning briefing
 to Slack with action items, urgent emails, and daily stats.
 
+Secrets are loaded from AWS Secrets Manager (ARAGORA_API_TOKEN,
+SLACK_WEBHOOK_URL). Falls back to env vars for local testing.
+
 Usage:
     python briefing.py              # Post daily briefing
     python briefing.py --test       # Post test message
     python briefing.py --dry-run    # Print without posting
 
-Schedule via cron (7 AM daily):
-    0 7 * * * cd /path/to/deploy/liftmode && python briefing.py
-
-Or via macOS launchd (see setup.sh for plist generation).
+Scheduled via launchd (see setup.sh) at 7 AM daily.
 """
 
 from __future__ import annotations
@@ -31,16 +31,49 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger("liftmode.briefing")
 
 ARAGORA_URL = os.environ.get("ARAGORA_URL", "http://localhost:8080")
-ARAGORA_TOKEN = os.environ.get("ARAGORA_API_TOKEN", "")
-SLACK_WEBHOOK = os.environ.get("SLACK_WEBHOOK_URL", "")
-SLACK_CHANNEL = os.environ.get("SLACK_CHANNEL", "#ops")
+
+
+def _load_secrets() -> dict[str, str]:
+    """Load secrets from AWS Secrets Manager, falling back to env vars."""
+    secrets: dict[str, str] = {}
+
+    # Try AWS Secrets Manager first
+    use_aws = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() in ("true", "1")
+    if use_aws:
+        try:
+            import boto3
+
+            secret_name = os.environ.get("ARAGORA_SECRET_NAME", "liftmode/production")
+            region = os.environ.get("AWS_REGION", "us-east-1")
+            client = boto3.client("secretsmanager", region_name=region)
+            resp = client.get_secret_value(SecretId=secret_name)
+            secrets = json.loads(resp["SecretString"])
+            logger.info("Loaded secrets from AWS Secrets Manager")
+        except Exception as exc:
+            logger.warning("AWS Secrets Manager unavailable: %s — falling back to env vars", exc)
+
+    return secrets
+
+
+# Load once at module level
+_secrets = _load_secrets()
+
+
+def _get_secret(name: str, default: str = "") -> str:
+    """Get a secret value: AWS SM → env var → default."""
+    return _secrets.get(name, os.environ.get(name, default))
 
 
 def aragora_get(path: str) -> dict:
     """GET request to Aragora API."""
+    token = _get_secret("ARAGORA_API_TOKEN")
+    if not token:
+        logger.error("ARAGORA_API_TOKEN not available")
+        return {}
+
     url = f"{ARAGORA_URL}{path}"
     req = Request(url, headers={
-        "Authorization": f"Bearer {ARAGORA_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     })
     try:
@@ -99,7 +132,7 @@ def build_briefing(inbox: dict) -> list[dict]:
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"• *{subject}*\n  From: {sender}{tag}",
+                    "text": f"\u2022 *{subject}*\n  From: {sender}{tag}",
                 },
             })
 
@@ -139,17 +172,19 @@ def build_briefing(inbox: dict) -> list[dict]:
 
 def post_to_slack(blocks: list[dict], text: str = "LiftMode Daily Briefing") -> bool:
     """Post message to Slack via webhook."""
-    if not SLACK_WEBHOOK:
-        logger.error("SLACK_WEBHOOK_URL not set")
+    webhook_url = _get_secret("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        logger.error("SLACK_WEBHOOK_URL not available in secrets or env")
         return False
 
+    channel = os.environ.get("SLACK_CHANNEL", "#ops")
     payload = json.dumps({
-        "channel": SLACK_CHANNEL,
+        "channel": channel,
         "text": text,
         "blocks": blocks,
     }).encode()
 
-    req = Request(SLACK_WEBHOOK, data=payload, headers={
+    req = Request(webhook_url, data=payload, headers={
         "Content-Type": "application/json",
     })
     try:
@@ -183,7 +218,6 @@ def main() -> int:
     inbox = fetch_priority_inbox()
     if not inbox:
         logger.warning("No inbox data — Aragora may not be running or Gmail not synced")
-        # Post a minimal briefing anyway so Slack shows something
         blocks = [{
             "type": "section",
             "text": {

@@ -1,8 +1,11 @@
 # LiftMode Aragora Deployment — Mac Studio M3 Ultra (96GB)
 # Email triage MVP: backend + Redis + PostgreSQL
 #
+# All secrets loaded from AWS Secrets Manager at runtime.
+# Only non-secret configuration is set here.
+#
 # Usage:
-#   cp .env.template .env   # fill in credentials
+#   cp .env.template .env   # set AWS region + secret name
 #   docker compose up -d
 
 services:
@@ -14,33 +17,30 @@ services:
       - "8080:8080"   # REST API
       - "8765:8765"   # WebSocket
     environment:
-      # --- LLM providers ---
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in .env}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      # --- Auth ---
-      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:?Set ARAGORA_API_TOKEN in .env}
+      # --- Secrets Manager (all API keys, tokens, OAuth creds fetched at runtime) ---
+      - ARAGORA_USE_SECRETS_MANAGER=true
+      - ARAGORA_SECRET_NAME=${ARAGORA_SECRET_NAME:-liftmode/production}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - ARAGORA_SECRET_REGIONS=${ARAGORA_SECRET_REGIONS:-us-east-1,us-east-2}
+      - ARAGORA_SECRETS_STRICT=true
+      # --- Non-secret config ---
+      - ARAGORA_ENV=production
+      - ARAGORA_ENVIRONMENT=production
       - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000
-      # --- Gmail OAuth ---
-      - GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID:?Set GMAIL_CLIENT_ID in .env}
-      - GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET:?Set GMAIL_CLIENT_SECRET in .env}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-${GMAIL_CLIENT_ID}}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-${GMAIL_CLIENT_SECRET}}
       - GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8080/api/auth/oauth/google/callback
-      # --- Storage ---
+      # --- Storage (internal docker network, not secrets) ---
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://aragora:${POSTGRES_PASSWORD:-aragora_prod}@postgres:5432/aragora
       - ARAGORA_POSTGRES_DSN=postgresql://aragora:${POSTGRES_PASSWORD:-aragora_prod}@postgres:5432/aragora
       - ARAGORA_DB_BACKEND=auto
       - ARAGORA_CANONICAL_STORE_PERSIST=1
       - ARAGORA_STORE_DIR=/app/data/.aragora_beads
-      # --- Environment ---
-      - ARAGORA_ENV=production
-      - ARAGORA_ENVIRONMENT=production
     volumes:
       - aragora-data:/app/data
       - aragora-knowledge:/app/knowledge
       - aragora-logs:/app/logs
+      # Mount AWS credentials for local Secrets Manager access
+      - ${HOME}/.aws:/home/aragora/.aws:ro
     depends_on:
       redis:
         condition: service_healthy

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # LiftMode Aragora Setup — Mac Studio M3 Ultra
-# One-time bootstrap: checks prerequisites, configures .env, starts services,
+# One-time bootstrap: configures AWS Secrets Manager, starts services,
 # and guides through Gmail OAuth.
+#
+# All secrets are stored in AWS Secrets Manager, NOT in .env files.
 #
 # Usage:
 #   chmod +x setup.sh
@@ -21,6 +23,9 @@ info()  { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!!]${NC} $1"; }
 fail()  { echo -e "${RED}[FAIL]${NC} $1"; exit 1; }
 
+SECRET_NAME="${ARAGORA_SECRET_NAME:-liftmode/production}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
+
 # ── Prerequisites ──────────────────────────────────────────────────────
 echo "=== LiftMode Aragora Setup ==="
 echo ""
@@ -31,35 +36,100 @@ info "Docker found: $(docker --version | head -1)"
 docker compose version >/dev/null 2>&1 || fail "Docker Compose not available. Update Docker Desktop."
 info "Docker Compose found"
 
-# ── Environment ────────────────────────────────────────────────────────
-if [ ! -f .env ]; then
-    cp .env.template .env
-    warn "Created .env from template — you need to fill in credentials"
-    echo ""
-    echo "Required credentials:"
-    echo "  1. ANTHROPIC_API_KEY  — https://console.anthropic.com/settings/keys"
-    echo "  2. ARAGORA_API_TOKEN  — run: openssl rand -hex 32"
-    echo "  3. GMAIL_CLIENT_ID    — https://console.cloud.google.com/apis/credentials"
-    echo "  4. GMAIL_CLIENT_SECRET"
-    echo ""
-    echo "Gmail OAuth setup:"
-    echo "  a) Go to Google Cloud Console → APIs & Services → Credentials"
-    echo "  b) Create OAuth 2.0 Client ID (type: Web application)"
-    echo "  c) Add authorized redirect URI:"
-    echo "     http://localhost:8080/api/auth/oauth/google/callback"
-    echo "  d) Enable Gmail API:"
-    echo "     https://console.cloud.google.com/apis/library/gmail.googleapis.com"
-    echo ""
-    read -rp "Press Enter after editing .env, or Ctrl-C to abort..."
+command -v aws >/dev/null 2>&1 || fail "AWS CLI not installed. Run: brew install awscli"
+info "AWS CLI found"
+
+# ── AWS Credentials ───────────────────────────────────────────────────
+echo ""
+echo "Checking AWS credentials..."
+if aws sts get-caller-identity --region "$AWS_REGION" >/dev/null 2>&1; then
+    ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region "$AWS_REGION")
+    info "AWS authenticated — account $ACCOUNT_ID"
+else
+    fail "AWS credentials not configured. Run: aws configure"
 fi
 
-# Validate required vars
-source .env 2>/dev/null || true
-[ -n "${ANTHROPIC_API_KEY:-}" ] || fail "ANTHROPIC_API_KEY not set in .env"
-[ -n "${ARAGORA_API_TOKEN:-}" ] || fail "ARAGORA_API_TOKEN not set in .env"
-[ -n "${GMAIL_CLIENT_ID:-}" ]   || fail "GMAIL_CLIENT_ID not set in .env"
-[ -n "${GMAIL_CLIENT_SECRET:-}" ] || fail "GMAIL_CLIENT_SECRET not set in .env"
-info "Environment variables validated"
+# ── AWS Secrets Manager Setup ─────────────────────────────────────────
+echo ""
+echo "Checking AWS Secrets Manager..."
+
+if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+    info "Secret '$SECRET_NAME' exists in AWS Secrets Manager"
+else
+    warn "Secret '$SECRET_NAME' not found — creating it now"
+    echo ""
+    echo "You need the following credentials. Have them ready:"
+    echo ""
+    echo "  Required:"
+    echo "    ANTHROPIC_API_KEY     — https://console.anthropic.com/settings/keys"
+    echo "    ARAGORA_API_TOKEN     — generate: openssl rand -hex 32"
+    echo "    GMAIL_CLIENT_ID       — https://console.cloud.google.com/apis/credentials"
+    echo "    GMAIL_CLIENT_SECRET   — (same page as above)"
+    echo ""
+    echo "  Optional:"
+    echo "    OPENAI_API_KEY        — https://platform.openai.com/api-keys"
+    echo "    OPENROUTER_API_KEY    — https://openrouter.ai/keys"
+    echo "    SLACK_WEBHOOK_URL     — https://api.slack.com/messaging/webhooks"
+    echo ""
+    echo "  Gmail OAuth setup:"
+    echo "    a) Google Cloud Console → APIs & Services → Credentials"
+    echo "    b) Create OAuth 2.0 Client ID (type: Web application)"
+    echo "    c) Authorized redirect URI:"
+    echo "       http://localhost:8080/api/auth/oauth/google/callback"
+    echo "    d) Enable Gmail API:"
+    echo "       https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+    echo ""
+
+    read -rp "ANTHROPIC_API_KEY: " ANTHROPIC_API_KEY
+    read -rp "ARAGORA_API_TOKEN (or press Enter to generate): " ARAGORA_API_TOKEN
+    if [ -z "$ARAGORA_API_TOKEN" ]; then
+        ARAGORA_API_TOKEN=$(openssl rand -hex 32)
+        info "Generated ARAGORA_API_TOKEN: ${ARAGORA_API_TOKEN:0:8}..."
+    fi
+    read -rp "GMAIL_CLIENT_ID: " GMAIL_CLIENT_ID
+    read -rsp "GMAIL_CLIENT_SECRET: " GMAIL_CLIENT_SECRET
+    echo ""
+    read -rp "OPENAI_API_KEY (optional, Enter to skip): " OPENAI_API_KEY
+    read -rp "OPENROUTER_API_KEY (optional, Enter to skip): " OPENROUTER_API_KEY
+    read -rp "SLACK_WEBHOOK_URL (optional, Enter to skip): " SLACK_WEBHOOK_URL
+
+    # Build JSON secret
+    SECRET_JSON=$(python3 -c "
+import json, sys
+secret = {
+    'ANTHROPIC_API_KEY': '$ANTHROPIC_API_KEY',
+    'ARAGORA_API_TOKEN': '$ARAGORA_API_TOKEN',
+    'GMAIL_CLIENT_ID': '$GMAIL_CLIENT_ID',
+    'GMAIL_CLIENT_SECRET': '$GMAIL_CLIENT_SECRET',
+    'GOOGLE_CLIENT_ID': '$GMAIL_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET': '$GMAIL_CLIENT_SECRET',
+}
+if '$OPENAI_API_KEY': secret['OPENAI_API_KEY'] = '$OPENAI_API_KEY'
+if '$OPENROUTER_API_KEY': secret['OPENROUTER_API_KEY'] = '$OPENROUTER_API_KEY'
+if '$SLACK_WEBHOOK_URL': secret['SLACK_WEBHOOK_URL'] = '$SLACK_WEBHOOK_URL'
+print(json.dumps(secret))
+")
+
+    aws secretsmanager create-secret \
+        --name "$SECRET_NAME" \
+        --description "LiftMode Aragora production secrets" \
+        --secret-string "$SECRET_JSON" \
+        --region "$AWS_REGION" >/dev/null
+
+    info "Secret '$SECRET_NAME' created in AWS Secrets Manager"
+    echo ""
+    echo "  To update secrets later:"
+    echo "    aws secretsmanager put-secret-value \\"
+    echo "      --secret-id $SECRET_NAME \\"
+    echo "      --secret-string '\$(cat updated-secrets.json)' \\"
+    echo "      --region $AWS_REGION"
+fi
+
+# ── Local .env (non-secret config only) ───────────────────────────────
+if [ ! -f .env ]; then
+    cp .env.template .env
+    info "Created .env with non-secret config (AWS region, DB password)"
+fi
 
 # ── Start Services ─────────────────────────────────────────────────────
 echo ""
@@ -68,8 +138,7 @@ docker compose up -d
 
 echo "Waiting for services to be healthy..."
 for i in $(seq 1 30); do
-    if docker compose ps --format json 2>/dev/null | grep -q '"healthy"' || \
-       curl -sf http://localhost:8080/healthz >/dev/null 2>&1; then
+    if curl -sf http://localhost:8080/healthz >/dev/null 2>&1; then
         break
     fi
     sleep 2
@@ -77,13 +146,11 @@ for i in $(seq 1 30); do
 done
 echo ""
 
-# Health check
 if curl -sf http://localhost:8080/healthz >/dev/null 2>&1; then
     info "Backend healthy at http://localhost:8080"
 else
     warn "Backend not responding yet — check: docker compose logs backend"
-    echo "Services may still be starting. Wait a minute and run:"
-    echo "  curl http://localhost:8080/healthz"
+    echo "Services may still be starting. Wait a minute and retry."
 fi
 
 # ── Gmail OAuth ────────────────────────────────────────────────────────
@@ -94,28 +161,87 @@ echo "Open this URL in your browser to authorize Gmail access:"
 echo ""
 echo "  http://localhost:8080/api/v2/gmail/oauth/authorize"
 echo ""
-echo "After completing the OAuth consent flow, start the initial sync:"
+echo "After completing the consent flow, start initial sync:"
 echo ""
-echo "  curl -H 'Authorization: Bearer ${ARAGORA_API_TOKEN}' \\"
+echo "  curl -H 'Authorization: Bearer <your-token>' \\"
 echo "       -X POST http://localhost:8080/api/v2/gmail/sync/start"
 echo ""
 echo "Check sync status:"
 echo ""
-echo "  curl -H 'Authorization: Bearer ${ARAGORA_API_TOKEN}' \\"
+echo "  curl -H 'Authorization: Bearer <your-token>' \\"
 echo "       http://localhost:8080/api/v2/gmail/sync/status"
 echo ""
 
-# ── Verify ─────────────────────────────────────────────────────────────
+# ── Install Daily Briefing (launchd) ──────────────────────────────────
+echo "=== Daily Briefing Setup ==="
+echo ""
+
+PLIST_DIR="$HOME/Library/LaunchAgents"
+PLIST_PATH="$PLIST_DIR/com.liftmode.aragora-briefing.plist"
+
+mkdir -p "$PLIST_DIR"
+
+cat > "$PLIST_PATH" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.liftmode.aragora-briefing</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>${SCRIPT_DIR}/briefing.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>${SCRIPT_DIR}</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>7</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>${SCRIPT_DIR}/logs/briefing.log</string>
+    <key>StandardErrorPath</key>
+    <string>${SCRIPT_DIR}/logs/briefing-error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>ARAGORA_URL</key>
+        <string>http://localhost:8080</string>
+        <key>ARAGORA_USE_SECRETS_MANAGER</key>
+        <string>true</string>
+        <key>ARAGORA_SECRET_NAME</key>
+        <string>${SECRET_NAME}</string>
+        <key>AWS_REGION</key>
+        <string>${AWS_REGION}</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+
+mkdir -p "${SCRIPT_DIR}/logs"
+launchctl load "$PLIST_PATH" 2>/dev/null || true
+info "Daily briefing scheduled at 7:00 AM via launchd"
+echo "  Plist: $PLIST_PATH"
+echo "  Logs:  ${SCRIPT_DIR}/logs/briefing.log"
+echo "  Test:  python3 briefing.py --dry-run"
+echo ""
+
+# ── Quick Reference ────────────────────────────────────────────────────
 echo "=== Quick Reference ==="
 echo ""
 echo "  Start:    cd $SCRIPT_DIR && docker compose up -d"
 echo "  Stop:     docker compose down"
 echo "  Logs:     docker compose logs -f backend"
 echo "  Status:   docker compose ps"
-echo "  Briefing: python briefing.py --dry-run"
+echo "  Briefing: python3 briefing.py --dry-run"
 echo ""
 echo "  API:      http://localhost:8080"
 echo "  Health:   http://localhost:8080/healthz"
 echo "  Priority: http://localhost:8080/api/v1/gmail/inbox/priority"
+echo ""
+echo "  Secrets:  aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $AWS_REGION"
 echo ""
 info "Setup complete"

@@ -149,10 +149,11 @@ jobs:
       - name: Run Safety check
         id: safety
         run: safety check --full-report
-        continue-on-error: true
+        continue-on-error: true  # Allow pip-audit to also run
 
       - name: Security audit dependencies (pip-audit)
         id: pip-audit
+        if: always()
         run: |
           # Export requirements if uv is available, otherwise audit installed packages
           if uv pip export --format requirements-txt --output-file /tmp/aragora-requirements.txt 2>/dev/null; then

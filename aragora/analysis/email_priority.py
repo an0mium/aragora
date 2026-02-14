@@ -95,6 +95,7 @@ class EmailPriorityAnalyzer:
         user_id: str,
         memory: Any | None = None,
         rlm: Any | None = None,
+        triage_config_path: str | None = None,
     ):
         """
         Initialize analyzer.
@@ -103,11 +104,22 @@ class EmailPriorityAnalyzer:
             user_id: User ID for preference lookups
             memory: ContinuumMemory instance (optional)
             rlm: StreamingRLMQuery instance (optional)
+            triage_config_path: Path to YAML triage rules (optional).
+                When provided, deployment-specific rules boost/demote
+                scores on top of the standard scoring pipeline.
         """
         self.user_id = user_id
         self._memory = memory
         self._rlm = rlm
         self._preferences: UserEmailPreferences | None = None
+        self._triage_engine: Any | None = None
+        if triage_config_path:
+            try:
+                from aragora.analysis.email_triage import TriageRuleEngine
+
+                self._triage_engine = TriageRuleEngine.from_yaml(triage_config_path)
+            except (ImportError, OSError) as e:
+                logger.warning("[EmailPriority] Failed to load triage config: %s", e)
 
     async def _get_memory(self) -> Any:
         """Get or create ContinuumMemory instance."""
@@ -309,6 +321,17 @@ class EmailPriorityAnalyzer:
             + content_score * 0.20
             + thread_score * 0.10
         )
+
+        # Apply triage rule boost if configured
+        if self._triage_engine:
+            triage = self._triage_engine.apply_rules(subject, from_address, snippet, labels)
+            if triage.priority != "none":
+                total_score += triage.score_boost
+                factors["triage_rule"] = triage.score_boost
+                factors["triage_label"] = triage.matched_rule  # type: ignore[assignment]
+            if triage.should_escalate:
+                total_score = max(total_score, 0.9)
+                factors["escalated"] = 1.0
 
         # Clamp to 0.0-1.0
         total_score = max(0.0, min(1.0, total_score))
