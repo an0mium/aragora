@@ -133,7 +133,7 @@ export class GauntletAPI {
   /**
    * Get gauntlet heatmap in the specified format.
    */
-  async getHeatmap(gauntletId: string, format: string): Promise<Record<string, unknown>> {
+  async getHeatmap(gauntletId: string, format?: 'json' | 'svg'): Promise<GauntletHeatmapExtended> {
     return this.client.getGauntletHeatmap(gauntletId, format);
   }
 

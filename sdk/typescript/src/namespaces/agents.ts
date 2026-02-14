@@ -603,7 +603,7 @@ export class AgentsAPI {
     taskType: string,
     teamSize: number,
     strategy: 'balanced' | 'diverse' | 'competitive' | 'specialized' = 'balanced'
-  ): Promise<Record<string, unknown>> {
+  ): Promise<TeamSelection> {
     const weights: Record<string, { diversity: number; quality: number }> = {
       balanced: { diversity: 0.5, quality: 0.5 },
       diverse: { diversity: 0.8, quality: 0.2 },
