@@ -256,7 +256,9 @@ def cmd_receipt_verify(args: argparse.Namespace) -> None:
             checks_passed += 1
         else:
             expected = receipt._calculate_hash()
-            print(f"  [FAIL] hash mismatch: stored={stored_hash[:16]}..., expected={expected[:16]}...")
+            print(
+                f"  [FAIL] hash mismatch: stored={stored_hash[:16]}..., expected={expected[:16]}..."
+            )
     except ImportError:
         # Fallback: manual hash check
         import hashlib
@@ -277,7 +279,9 @@ def cmd_receipt_verify(args: argparse.Namespace) -> None:
             print("  [PASS] hash recomputed and matches")
             checks_passed += 1
         else:
-            print(f"  [FAIL] hash mismatch: stored={stored_hash[:16]}..., expected={expected[:16]}...")
+            print(
+                f"  [FAIL] hash mismatch: stored={stored_hash[:16]}..., expected={expected[:16]}..."
+            )
 
     # Check 3: Required fields present
     checks_total += 1

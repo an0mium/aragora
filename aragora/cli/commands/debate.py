@@ -268,7 +268,9 @@ def _maybe_add_vertical_specialist_local(
         try:
             specialist.system_prompt = specialist.build_system_prompt()
         except (AttributeError, TypeError, ValueError):
-            logger.debug("Failed to build system prompt for specialist %s", resolved_vertical, exc_info=True)
+            logger.debug(
+                "Failed to build system prompt for specialist %s", resolved_vertical, exc_info=True
+            )
         agents.append(specialist)
         print(f"[verticals] Injected specialist: {resolved_vertical}")
     except Exception as e:

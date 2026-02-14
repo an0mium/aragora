@@ -445,7 +445,9 @@ def _cmd_scan(args: argparse.Namespace) -> None:
             "findings_count": len(result.findings),
             "findings": [
                 {
-                    "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                    "severity": f.severity.value
+                    if hasattr(f.severity, "value")
+                    else str(f.severity),
                     "description": f.description,
                     "pattern_matched": f.pattern_matched[:100] if f.pattern_matched else None,
                     "category": f.category,
@@ -469,7 +471,11 @@ def _cmd_scan(args: argparse.Namespace) -> None:
         if result.findings:
             print(f"\nFindings ({len(result.findings)}):")
             for i, finding in enumerate(result.findings, 1):
-                severity = finding.severity.value if hasattr(finding.severity, "value") else str(finding.severity)
+                severity = (
+                    finding.severity.value
+                    if hasattr(finding.severity, "value")
+                    else str(finding.severity)
+                )
                 print(f"  {i}. [{severity}] {finding.description}")
                 if finding.pattern_matched:
                     preview = finding.pattern_matched[:80].replace("\n", " ")
