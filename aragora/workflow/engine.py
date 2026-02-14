@@ -278,7 +278,11 @@ class WorkflowEngine:
         event_type: StreamEventType | str,
         payload: dict[str, Any],
     ) -> None:
-        """Emit workflow event to per-execution and configured callbacks."""
+        """Emit workflow event to per-execution and configured callbacks.
+
+        Also dispatches lifecycle events (start, step_complete, complete, failed)
+        to the webhook event dispatcher for external delivery.
+        """
         event_name = event_type.value if isinstance(event_type, StreamEventType) else str(event_type)
 
         if context.event_callback:
@@ -292,6 +296,35 @@ class WorkflowEngine:
                 self._config.trace_callback(event_name, payload)
             except Exception as exc:
                 logger.debug(f"Workflow trace callback failed: {exc}")
+
+        # Bridge to webhook event dispatcher for external delivery
+        self._dispatch_to_event_system(event_name, payload)
+
+    def _dispatch_to_event_system(
+        self,
+        event_name: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Dispatch workflow lifecycle events to the webhook event system.
+
+        Only dispatches key lifecycle events to avoid flooding webhooks.
+        Gracefully degrades if the event dispatcher is unavailable.
+        """
+        _DISPATCHED_EVENTS = {
+            "workflow_start",
+            "workflow_step_complete",
+            "workflow_complete",
+            "workflow_failed",
+        }
+        if event_name not in _DISPATCHED_EVENTS:
+            return
+
+        try:
+            from aragora.events.dispatcher import dispatch_event
+
+            dispatch_event(event_name, payload)
+        except (ImportError, Exception) as exc:
+            logger.debug(f"Workflow event dispatch skipped: {exc}")
 
     # =========================================================================
     # Main Execution
