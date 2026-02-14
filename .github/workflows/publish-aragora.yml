@@ -78,11 +78,11 @@ jobs:
       - name: Check with twine
         run: twine check dist/*
 
-      - name: Publish to PyPI
+      - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
+          attestations: false
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
