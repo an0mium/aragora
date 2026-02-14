@@ -35,6 +35,66 @@ class ReceiptsAPI:
         self._client = client
 
     # =========================================================================
+    # General Receipts
+    # =========================================================================
+
+    def list(
+        self,
+        verdict: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        List decision receipts.
+
+        Args:
+            verdict: Filter by verdict (e.g. APPROVED, REJECTED).
+            limit: Maximum results.
+            offset: Pagination offset.
+
+        Returns:
+            List of receipts.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset, **kwargs}
+        if verdict:
+            params["verdict"] = verdict
+        return self._client.request("GET", "/api/v2/receipts", params=params)
+
+    def verify(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Verify a receipt's integrity.
+
+        Args:
+            receipt_id: Receipt identifier.
+
+        Returns:
+            Verification result.
+        """
+        return self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify")
+
+    def export(
+        self,
+        receipt_id: str,
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """
+        Export a receipt in the specified format.
+
+        Args:
+            receipt_id: Receipt identifier.
+            format: Export format.
+
+        Returns:
+            Exported receipt data.
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v2/receipts/{receipt_id}/export",
+            params={"format": format},
+        )
+
+    # =========================================================================
     # Gauntlet Receipts / Results
     # =========================================================================
 
@@ -157,6 +217,39 @@ class AsyncReceiptsAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    # =========================================================================
+    # General Receipts
+    # =========================================================================
+
+    async def list(
+        self,
+        verdict: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """List decision receipts."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset, **kwargs}
+        if verdict:
+            params["verdict"] = verdict
+        return await self._client.request("GET", "/api/v2/receipts", params=params)
+
+    async def verify(self, receipt_id: str) -> dict[str, Any]:
+        """Verify a receipt's integrity."""
+        return await self._client.request("POST", f"/api/v2/receipts/{receipt_id}/verify")
+
+    async def export(
+        self,
+        receipt_id: str,
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """Export a receipt in the specified format."""
+        return await self._client.request(
+            "GET",
+            f"/api/v2/receipts/{receipt_id}/export",
+            params={"format": format},
+        )
 
     # =========================================================================
     # Gauntlet Receipts / Results
