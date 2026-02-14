@@ -306,16 +306,14 @@ class ComplianceMonitor:
             Summary dict of relevant audit findings, or None
         """
         try:
-            from aragora.audit.document_auditor import FindingSeverity
-
-            # Try to get the audit store for recent findings
+            # Try to get the audit log for recent findings
             try:
-                from aragora.audit.log import get_audit_store
+                from aragora.audit.log import AuditQuery, get_audit_log
             except ImportError:
                 return None
 
-            store = get_audit_store()
-            if not store:
+            audit_log = get_audit_log()
+            if not audit_log:
                 return None
 
             # Query recent audit entries that overlap with compliance scope
@@ -323,10 +321,8 @@ class ComplianceMonitor:
             if not frameworks:
                 return None
 
-            recent_entries = store.query(
-                limit=20,
-                event_type="audit_finding",
-            )
+            query = AuditQuery(limit=20)
+            recent_entries = audit_log.query(query)
             if not recent_entries:
                 return None
 
@@ -334,12 +330,14 @@ class ComplianceMonitor:
             severity_counts: dict[str, int] = {}
             relevant_count = 0
             for entry in recent_entries:
-                entry_data = entry if isinstance(entry, dict) else getattr(entry, "data", {})
-                category = entry_data.get("category", "")
-                # Check if any framework name appears in the category
+                # AuditEvent has action (str) and details (dict)
+                action = getattr(entry, "action", "")
+                details = getattr(entry, "details", {})
+                # Check if any framework name appears in action or details
+                searchable = f"{action} {details.get('framework', '')} {details.get('category', '')}".lower()
                 for fw in frameworks:
-                    if fw.lower() in category.lower():
-                        severity = entry_data.get("severity", "info")
+                    if fw.lower() in searchable:
+                        severity = details.get("severity", "info")
                         severity_counts[severity] = severity_counts.get(severity, 0) + 1
                         relevant_count += 1
                         break

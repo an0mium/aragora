@@ -378,15 +378,12 @@ class TestBackendFallbackCascade:
     def test_tfidf_fallback_when_sentence_transformer_unavailable(self):
         """Test TFIDF fallback when SentenceTransformer is unavailable."""
         with patch.dict(os.environ, {"ARAGORA_SIMILARITY_BACKEND": "tfidf"}):
-            try:
-                backend = TFIDFBackend()
-                sim = backend.compute_similarity(
-                    "The system requires caching",
-                    "Caching is needed for the system",
-                )
-                assert 0 <= sim <= 1
-            except ImportError:
-                pytest.skip("scikit-learn not available")
+            backend = TFIDFBackend()
+            sim = backend.compute_similarity(
+                "The system requires caching",
+                "Caching is needed for the system",
+            )
+            assert 0 <= sim <= 1
 
     def test_auto_selection_fallback(self):
         """Test auto-selection falls through the cascade correctly."""
