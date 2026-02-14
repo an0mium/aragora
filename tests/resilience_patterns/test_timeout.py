@@ -264,10 +264,6 @@ class TestWithTimeoutAsync:
 class TestWithTimeoutSync:
     """Test with_timeout_sync decorator."""
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_success_passthrough(self):
         """Test that successful operations pass through."""
 
@@ -278,10 +274,6 @@ class TestWithTimeoutSync:
         result = fast_operation()
         assert result == "success"
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_timeout_triggers(self):
         """Test that timeout triggers correctly."""
         import time
@@ -297,10 +289,6 @@ class TestWithTimeoutSync:
         assert exc_info.value.timeout_seconds == 0.1
         assert exc_info.value.operation == "slow_operation"
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_callback_invoked_on_timeout(self):
         """Test that callback is invoked on timeout."""
         import time
@@ -330,10 +318,6 @@ class TestWithTimeoutSync:
         result = operation()
         assert result == "completed"
 
-    @pytest.mark.skipif(
-        not hasattr(signal, "SIGALRM"),
-        reason="SIGALRM not available on this platform",
-    )
     def test_signal_handler_cleanup(self):
         """Test that signal handler is properly cleaned up after success."""
         import time
