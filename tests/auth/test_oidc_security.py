@@ -415,13 +415,24 @@ class TestFallbackWarningLoggedInDevelopment:
             mock_userinfo_response.raise_for_status = MagicMock()
             mock_client.get = AsyncMock(return_value=mock_userinfo_response)
 
+            # The production code calls jwt.decode twice in the fallback path:
+            # 1st call: with signature verification → raises InvalidSignatureError
+            # 2nd call: without signature verification → should succeed with claims
+            call_count = 0
+            original_error = jwt.exceptions.InvalidSignatureError(
+                "Signature verification failed"
+            )
+
+            def jwt_decode_side_effect(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise original_error
+                # Fallback decode (verify_signature=False): return valid claims
+                return {"sub": "user-123", "email": "test@example.com"}
+
             with patch.object(provider, "_jwks_client", mock_jwks_client):
-                with patch(
-                    "jwt.decode",
-                    side_effect=jwt.exceptions.InvalidSignatureError(
-                        "Signature verification failed"
-                    ),
-                ):
+                with patch("jwt.decode", side_effect=jwt_decode_side_effect):
                     with patch(
                         "aragora.server.http_client_pool.get_http_pool", return_value=mock_pool
                     ):
@@ -498,13 +509,18 @@ class TestAuditEventEmittedOnFallback:
             # Mock the audit function
             mock_audit = MagicMock()
 
+            # jwt.decode is called twice: 1st with verification (fails), 2nd without (succeeds)
+            call_count = 0
+
+            def jwt_decode_side_effect(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise jwt.exceptions.InvalidSignatureError("Signature verification failed")
+                return {"sub": "user-123", "email": "test@example.com"}
+
             with patch.object(provider, "_jwks_client", mock_jwks_client):
-                with patch(
-                    "jwt.decode",
-                    side_effect=jwt.exceptions.InvalidSignatureError(
-                        "Signature verification failed"
-                    ),
-                ):
+                with patch("jwt.decode", side_effect=jwt_decode_side_effect):
                     with patch(
                         "aragora.server.http_client_pool.get_http_pool", return_value=mock_pool
                     ):
@@ -569,13 +585,18 @@ class TestAuditEventEmittedOnFallback:
             mock_userinfo_response.raise_for_status = MagicMock()
             mock_client.get = AsyncMock(return_value=mock_userinfo_response)
 
+            # jwt.decode is called twice: 1st with verification (fails), 2nd without (succeeds)
+            call_count = 0
+
+            def jwt_decode_side_effect(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise jwt.exceptions.InvalidSignatureError("Signature verification failed")
+                return {"sub": "user-123", "email": "test@example.com"}
+
             with patch.object(provider, "_jwks_client", mock_jwks_client):
-                with patch(
-                    "jwt.decode",
-                    side_effect=jwt.exceptions.InvalidSignatureError(
-                        "Signature verification failed"
-                    ),
-                ):
+                with patch("jwt.decode", side_effect=jwt_decode_side_effect):
                     with patch(
                         "aragora.server.http_client_pool.get_http_pool", return_value=mock_pool
                     ):

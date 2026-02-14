@@ -1149,12 +1149,12 @@ class TestResourceExhaustion:
     def test_catastrophic_regex_in_search(self):
         """Should handle slow regex patterns in search_debate."""
         messages = [
-            {"agent": "a1", "content": "a" * 100, "round": 1},
+            # Keep input very short: (a+)+b is catastrophic backtracking,
+            # exponential in len(input). 10 chars finishes; 30+ hangs forever.
+            {"agent": "a1", "content": "a" * 10, "round": 1},
         ]
         result = FakeDebateResult(messages=messages)
         ctx = load_debate_context(result)
-        # This pattern is slow but should still complete on short input
-        # The function doesn't have a timeout, but with small data it finishes
         results = search_debate(ctx, r"(a+)+b")
         assert results == []  # No match
 

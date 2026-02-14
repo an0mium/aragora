@@ -80,7 +80,8 @@ jobs:
       matrix:
         python-version: ["3.11"]
         test-group:
-          - "tests/debate tests/agents tests/rlm tests/reasoning tests/workflow"
+          - "tests/debate"
+          - "tests/agents tests/rlm tests/reasoning tests/workflow"
           - "tests/server tests/handlers"
           - "tests/knowledge tests/evidence tests/memory"
           - "tests/storage tests/ranking tests/persistence"

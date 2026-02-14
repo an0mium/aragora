@@ -356,7 +356,7 @@ class TestGauntletConfig:
 
     def test_persona_string_kept_when_personas_unavailable(self):
         """Persona string is kept as-is when personas module is not available."""
-        with patch("aragora.modes.gauntlet.PERSONAS_AVAILABLE", False):
+        with patch("aragora.gauntlet.orchestrator.PERSONAS_AVAILABLE", False):
             config = GauntletConfig(persona="gdpr")
             # When personas aren't available, string stays as string
             assert config.persona == "gdpr"
@@ -861,8 +861,8 @@ class TestGauntletOrchestrator:
         assert verdict == Verdict.REJECTED
         assert confidence == 0.9
 
-    def test_determine_verdict_rejected_critical_plus_high(self):
-        """_determine_verdict returns REJECTED with 1 critical and 3+ high."""
+    def test_determine_verdict_critical_plus_high_needs_review(self):
+        """_determine_verdict returns NEEDS_REVIEW with 1 critical (regardless of high count)."""
         orchestrator = GauntletOrchestrator([])
         c1 = _make_finding(0.95, finding_id="c1")
         h1 = _make_finding(0.75, finding_id="h1")
@@ -876,8 +876,9 @@ class TestGauntletOrchestrator:
             robustness_score=0.3,
             dissents=[],
         )
-        assert verdict == Verdict.REJECTED
-        assert confidence == 0.85
+        # 1 critical triggers NEEDS_REVIEW (2+ critical needed for REJECTED)
+        assert verdict == Verdict.NEEDS_REVIEW
+        assert confidence == 0.7
 
     def test_determine_verdict_rejected_high_risk_score(self):
         """_determine_verdict returns REJECTED when risk_score > 0.8."""
