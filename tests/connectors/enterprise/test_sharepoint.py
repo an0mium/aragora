@@ -432,7 +432,7 @@ class TestSiteRetrieval:
         with patch.object(
             sharepoint_connector,
             "_graph_request",
-            side_effect=Exception("API Error"),
+            side_effect=ConnectionError("API Error"),
         ):
             subsites = await sharepoint_connector._get_subsites("site-123")
             assert subsites == []
@@ -641,7 +641,7 @@ class TestFileContent:
 
         with patch("httpx.AsyncClient") as MockClient:
             mock_client = AsyncMock()
-            mock_client.get.side_effect = Exception("Download failed")
+            mock_client.get.side_effect = ConnectionError("Download failed")
             MockClient.return_value.__aenter__.return_value = mock_client
 
             content = await sharepoint_connector._get_file_content("drive-001", "item-001")
@@ -846,7 +846,7 @@ class TestSearch:
         with patch.object(
             sharepoint_connector,
             "_graph_request",
-            side_effect=Exception("Search API Error"),
+            side_effect=ConnectionError("Search API Error"),
         ):
             results = await sharepoint_connector.search("test query")
             assert results == []
@@ -959,7 +959,7 @@ class TestFetch:
             elif "/drives" in endpoint and "/items/" not in endpoint:
                 return {"value": drives_data}
             elif "/items/" in endpoint:
-                raise Exception("Item not found")
+                raise ConnectionError("Item not found")
             return sample_site
 
         with patch.object(sharepoint_connector, "_graph_request", side_effect=mock_graph_request):

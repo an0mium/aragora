@@ -6138,6 +6138,111 @@ export class AragoraClient {
     return this.request<{ keys: import('./namespaces/admin').SecurityKey[] }>('GET', '/api/v1/admin/security/keys');
   }
 
+  /**
+   * Get an organization by ID (admin only).
+   */
+  async getAdminOrganization(orgId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/admin/organizations/${orgId}`);
+  }
+
+  /**
+   * Update an organization (admin only).
+   */
+  async updateAdminOrganization(orgId: string, updates: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('PUT', `/api/v1/admin/organizations/${orgId}`, { body: updates });
+  }
+
+  /**
+   * Get a user by ID (admin only).
+   */
+  async getAdminUser(userId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/admin/users/${userId}`);
+  }
+
+  /**
+   * Suspend a user (admin only).
+   */
+  async suspendAdminUser(userId: string, reason: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/users/${userId}/suspend`, { body: { reason } });
+  }
+
+  /**
+   * Activate a user (admin only).
+   */
+  async activateAdminUser(userId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/users/${userId}/activate`);
+  }
+
+  /**
+   * Impersonate a user (admin only).
+   */
+  async impersonateUser(userId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/users/${userId}/impersonate`);
+  }
+
+  /**
+   * Get system metrics (admin only).
+   */
+  async getAdminSystemMetrics(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/admin/system/metrics');
+  }
+
+  /**
+   * Get circuit breaker states (admin only).
+   */
+  async getAdminCircuitBreakers(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/admin/circuit-breakers');
+  }
+
+  /**
+   * Reset all circuit breakers (admin only).
+   */
+  async resetAdminCircuitBreakers(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', '/api/v1/admin/circuit-breakers/reset');
+  }
+
+  /**
+   * Issue credits to an organization (admin only).
+   */
+  async issueCredits(orgId: string, data: { amount: number; reason: string; expires_at?: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/organizations/${orgId}/credits`, { body: data });
+  }
+
+  /**
+   * Get credit account for an organization (admin only).
+   */
+  async getCreditAccount(orgId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/admin/organizations/${orgId}/credits`);
+  }
+
+  /**
+   * List credit transactions for an organization (admin only).
+   */
+  async listCreditTransactions(orgId: string, params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/admin/organizations/${orgId}/credits/transactions`, { params });
+  }
+
+  /**
+   * Adjust credit balance for an organization (admin only).
+   */
+  async adjustCreditBalance(orgId: string, data: { amount: number; reason: string }): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/organizations/${orgId}/credits/adjust`, { body: data });
+  }
+
+  /**
+   * Get expiring credits for an organization (admin only).
+   */
+  async getExpiringCredits(orgId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/admin/organizations/${orgId}/credits/expiring`);
+  }
+
+  /**
+   * Rotate a security key (admin only).
+   */
+  async rotateSecurityKey(keyType: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('POST', `/api/v1/admin/security/keys/${keyType}/rotate`);
+  }
+
   // ===========================================================================
   // Billing
   // ===========================================================================

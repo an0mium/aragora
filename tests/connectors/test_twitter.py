@@ -517,7 +517,9 @@ class TestTwitterFetch:
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 404
-            mock_response.raise_for_status.side_effect = Exception("Not Found")
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "Not Found", request=MagicMock(), response=mock_response
+            )
 
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
@@ -603,7 +605,9 @@ class TestTwitterUserTweets:
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 401
-            mock_response.raise_for_status.side_effect = Exception("Unauthorized")
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "Unauthorized", request=MagicMock(), response=mock_response
+            )
 
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)

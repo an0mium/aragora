@@ -339,7 +339,7 @@ class TestAuthentication:
             with patch("httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(401, {"error": "invalid_grant"})
+                    side_effect=ConnectionError("invalid_grant")
                 )
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock()
@@ -1208,7 +1208,7 @@ class TestErrorHandling:
     async def test_fetch_error_returns_none(self, authenticated_connector):
         """Test fetch returns None on error."""
         with patch.object(
-            authenticated_connector, "get_message", side_effect=Exception("API Error")
+            authenticated_connector, "get_message", side_effect=ConnectionError("API Error")
         ):
             result = await authenticated_connector.fetch("msg_123")
             assert result is None
@@ -1218,7 +1218,7 @@ class TestErrorHandling:
         """Test send message raises on API error."""
         with patch.object(authenticated_connector, "check_circuit_breaker", return_value=True):
             with patch.object(
-                authenticated_connector, "_api_request", side_effect=Exception("Send failed")
+                authenticated_connector, "_api_request", side_effect=ConnectionError("Send failed")
             ):
                 with pytest.raises(RuntimeError, match="Failed to send email"):
                     await authenticated_connector.send_message(
@@ -1232,7 +1232,7 @@ class TestErrorHandling:
         """Test reply raises on API error."""
         with patch.object(authenticated_connector, "check_circuit_breaker", return_value=True):
             with patch.object(
-                authenticated_connector, "_api_request", side_effect=Exception("Reply failed")
+                authenticated_connector, "_api_request", side_effect=ConnectionError("Reply failed")
             ):
                 with pytest.raises(RuntimeError, match="Failed to send reply"):
                     await authenticated_connector.reply_to_message(

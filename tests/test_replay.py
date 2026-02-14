@@ -490,9 +490,10 @@ class TestReplayReader:
 
         reader = ReplayReader(str(session_dir))
         events = list(reader.iter_events())
-        # Reader stops at corrupted line (ValueError caught by outer handler)
-        assert len(events) == 1
+        # Reader skips corrupted lines and returns remaining valid events
+        assert len(events) == 2
         assert events[0].event_id == "e1"
+        assert events[1].event_id == "e2"
 
     def test_to_bundle_with_error(self, temp_dir):
         """Bundle includes error when load failed."""

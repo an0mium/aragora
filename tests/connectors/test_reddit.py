@@ -310,7 +310,7 @@ class TestRedditSearch:
         """Search should handle API errors gracefully."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = AsyncMock()
-            mock_instance.get.side_effect = Exception("Connection failed")
+            mock_instance.get.side_effect = ConnectionError("Connection failed")
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -460,7 +460,7 @@ class TestRedditFetch:
         """Fetch should return None for non-existent posts."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = AsyncMock()
-            mock_instance.get.side_effect = Exception("Not found")
+            mock_instance.get.side_effect = ConnectionError("Not found")
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -566,7 +566,7 @@ class TestRedditSubreddit:
         """get_subreddit should handle errors gracefully."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = AsyncMock()
-            mock_instance.get.side_effect = Exception("Subreddit not found")
+            mock_instance.get.side_effect = ConnectionError("Subreddit not found")
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance

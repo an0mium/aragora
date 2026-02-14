@@ -756,7 +756,7 @@ class TestTextExtraction:
             gdrive_connector,
             "_download_file",
             new_callable=AsyncMock,
-            side_effect=Exception("Download failed"),
+            side_effect=ConnectionError("Download failed"),
         ):
             text = await gdrive_connector._extract_text(file)
             assert text == ""
@@ -929,7 +929,7 @@ class TestSearch:
 
         with patch("httpx.AsyncClient") as MockClient:
             mock_client = AsyncMock()
-            mock_client.request.side_effect = Exception("API Error")
+            mock_client.request.side_effect = ConnectionError("API Error")
             MockClient.return_value.__aenter__.return_value = mock_client
 
             results = await gdrive_connector.search("test")
@@ -1023,7 +1023,7 @@ class TestFetch:
 
         with patch("httpx.AsyncClient") as MockClient:
             mock_client = AsyncMock()
-            mock_client.request.side_effect = Exception("Not found")
+            mock_client.request.side_effect = ConnectionError("Not found")
             MockClient.return_value.__aenter__.return_value = mock_client
 
             evidence = await gdrive_connector.fetch("nonexistent")
