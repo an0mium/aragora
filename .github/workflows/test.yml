@@ -974,7 +974,7 @@ jobs:
             --reruns=2 \
             --junit-xml=test-results.xml \
             -v \
-            --tb=short || true
+            --tb=short
 
       - name: Analyze test results
         id: analyze

@@ -118,7 +118,6 @@ jobs:
         id: security-scan
         run: |
           python scripts/security_scan.py --json --quiet
-        continue-on-error: true
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
@@ -126,12 +125,6 @@ jobs:
         with:
           name: aragora-security-report
           path: security-report.json
-
-      - name: Check scan result
-        if: steps.security-scan.outcome == 'failure'
-        run: |
-          echo "::error::Aragora Security Scanner found critical vulnerabilities. Review security-report.json artifact."
-          exit 1
 
   dependency-check:
     name: Dependency Vulnerability Check
