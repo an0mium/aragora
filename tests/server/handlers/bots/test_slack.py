@@ -58,7 +58,14 @@ def _reset_slack_integration_state():
     get_slack_integration() checks two sources: the __init__ module attribute
     and the state module's global.  Both must be cleared to prevent cross-test
     pollution from cached integrations.
+
+    The setup-phase reset is critical: when tests from other files run first
+    (e.g. under randomized ordering) they may leave _slack_state._slack_integration
+    set to a non-None value.  Without a setup-phase reset the cached singleton
+    would leak into every test in this file.
     """
+    slack._slack_integration = None
+    _slack_state._slack_integration = None
     yield
     slack._slack_integration = None
     _slack_state._slack_integration = None
@@ -1204,8 +1211,11 @@ class TestSlackHelperFunctions:
     def test_get_slack_integration_not_configured(self):
         """Should return None when Slack is not configured."""
         with patch.dict(os.environ, {"SLACK_WEBHOOK_URL": ""}, clear=False):
-            # Reset cached integration
+            # Reset cached integration in both the package and the state module.
+            # get_slack_integration() checks the state module's global first
+            # (after the __init__ override check), so both must be None.
             slack._slack_integration = None
+            _slack_state._slack_integration = None
             result = get_slack_integration()
             assert result is None
 

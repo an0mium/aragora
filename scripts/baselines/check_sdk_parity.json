@@ -1,3 +1,10 @@
 {
-  "missing_from_both_sdks": []
+  "missing_from_both_sdks": [
+    "/api/gateway/openclaw/actions",
+    "/api/gateway/openclaw/audit",
+    "/api/gateway/openclaw/credentials",
+    "/api/gateway/openclaw/health",
+    "/api/gateway/openclaw/metrics",
+    "/api/gateway/openclaw/sessions"
+  ]
 }

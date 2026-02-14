@@ -356,6 +356,129 @@ class GatewayAPI:
         """
         return self._client.request("GET", f"/api/v1/gateway/routing/{route_id}")
 
+    # =========================================================================
+    # OpenClaw Gateway (legacy /api/gateway/openclaw/ paths)
+    # =========================================================================
+
+    def openclaw_sessions(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List OpenClaw sessions via the gateway path.
+
+        Args:
+            skip: Number of records to skip.
+            limit: Maximum records to return.
+            status: Optional session status filter.
+
+        Returns:
+            Dict with sessions array and total count.
+        """
+        params: dict[str, Any] = {"skip": skip, "limit": limit}
+        if status is not None:
+            params["status"] = status
+        return self._client.request(
+            "GET", "/api/gateway/openclaw/sessions", params=params
+        )
+
+    def openclaw_create_session(self, **kwargs: Any) -> dict[str, Any]:
+        """Create an OpenClaw session via the gateway path.
+
+        Returns:
+            Dict with session details.
+        """
+        return self._client.request(
+            "POST", "/api/gateway/openclaw/sessions", json=kwargs
+        )
+
+    def openclaw_actions(
+        self,
+        session_id: str,
+        action_type: str,
+        input_data: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Execute an OpenClaw action via the gateway path.
+
+        Args:
+            session_id: Target session ID.
+            action_type: Type of action to execute.
+            input_data: Optional action input payload.
+
+        Returns:
+            Dict with action details.
+        """
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "action_type": action_type,
+            **kwargs,
+        }
+        if input_data is not None:
+            payload["input_data"] = input_data
+        return self._client.request(
+            "POST", "/api/gateway/openclaw/actions", json=payload
+        )
+
+    def openclaw_credentials(self) -> dict[str, Any]:
+        """List OpenClaw credentials via the gateway path.
+
+        Returns:
+            Dict with credentials array (no secret values).
+        """
+        return self._client.request("GET", "/api/gateway/openclaw/credentials")
+
+    def openclaw_store_credential(self, **kwargs: Any) -> dict[str, Any]:
+        """Store an OpenClaw credential via the gateway path.
+
+        Returns:
+            Dict with credential ID and success message.
+        """
+        return self._client.request(
+            "POST", "/api/gateway/openclaw/credentials", json=kwargs
+        )
+
+    def openclaw_health(self) -> dict[str, Any]:
+        """Get OpenClaw gateway health via the gateway path.
+
+        Returns:
+            Dict with health status.
+        """
+        return self._client.request("GET", "/api/gateway/openclaw/health")
+
+    def openclaw_metrics(self) -> dict[str, Any]:
+        """Get OpenClaw gateway metrics via the gateway path.
+
+        Returns:
+            Dict with metrics data.
+        """
+        return self._client.request("GET", "/api/gateway/openclaw/metrics")
+
+    def openclaw_audit(
+        self,
+        event_type: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get OpenClaw audit log via the gateway path.
+
+        Args:
+            event_type: Optional event type filter.
+            user_id: Optional user ID filter.
+
+        Returns:
+            Dict with audit entries.
+        """
+        params: dict[str, str] = {}
+        if event_type is not None:
+            params["event_type"] = event_type
+        if user_id is not None:
+            params["user_id"] = user_id
+        return self._client.request(
+            "GET", "/api/gateway/openclaw/audit", params=params or None
+        )
+
+
 class AsyncGatewayAPI:
     """Asynchronous Gateway API."""
 
@@ -535,4 +658,80 @@ class AsyncGatewayAPI:
         """Get details for a specific routing rule."""
         return await self._client.request(
             "GET", f"/api/v1/gateway/routing/{route_id}"
+        )
+
+    # =========================================================================
+    # OpenClaw Gateway (legacy /api/gateway/openclaw/ paths)
+    # =========================================================================
+
+    async def openclaw_sessions(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List OpenClaw sessions via the gateway path."""
+        params: dict[str, Any] = {"skip": skip, "limit": limit}
+        if status is not None:
+            params["status"] = status
+        return await self._client.request(
+            "GET", "/api/gateway/openclaw/sessions", params=params
+        )
+
+    async def openclaw_create_session(self, **kwargs: Any) -> dict[str, Any]:
+        """Create an OpenClaw session via the gateway path."""
+        return await self._client.request(
+            "POST", "/api/gateway/openclaw/sessions", json=kwargs
+        )
+
+    async def openclaw_actions(
+        self,
+        session_id: str,
+        action_type: str,
+        input_data: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Execute an OpenClaw action via the gateway path."""
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "action_type": action_type,
+            **kwargs,
+        }
+        if input_data is not None:
+            payload["input_data"] = input_data
+        return await self._client.request(
+            "POST", "/api/gateway/openclaw/actions", json=payload
+        )
+
+    async def openclaw_credentials(self) -> dict[str, Any]:
+        """List OpenClaw credentials via the gateway path."""
+        return await self._client.request("GET", "/api/gateway/openclaw/credentials")
+
+    async def openclaw_store_credential(self, **kwargs: Any) -> dict[str, Any]:
+        """Store an OpenClaw credential via the gateway path."""
+        return await self._client.request(
+            "POST", "/api/gateway/openclaw/credentials", json=kwargs
+        )
+
+    async def openclaw_health(self) -> dict[str, Any]:
+        """Get OpenClaw gateway health via the gateway path."""
+        return await self._client.request("GET", "/api/gateway/openclaw/health")
+
+    async def openclaw_metrics(self) -> dict[str, Any]:
+        """Get OpenClaw gateway metrics via the gateway path."""
+        return await self._client.request("GET", "/api/gateway/openclaw/metrics")
+
+    async def openclaw_audit(
+        self,
+        event_type: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get OpenClaw audit log via the gateway path."""
+        params: dict[str, str] = {}
+        if event_type is not None:
+            params["event_type"] = event_type
+        if user_id is not None:
+            params["user_id"] = user_id
+        return await self._client.request(
+            "GET", "/api/gateway/openclaw/audit", params=params or None
         )

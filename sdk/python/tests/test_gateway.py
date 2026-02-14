@@ -353,3 +353,213 @@ class TestAsyncGatewayChannels:
 # Async Routing Tests
 # =============================================================================
 
+
+# =============================================================================
+# OpenClaw Gateway Tests (Sync)
+# =============================================================================
+
+
+class TestGatewayOpenclawSessions:
+    """Tests for OpenClaw sessions via gateway path."""
+
+    def test_openclaw_sessions_default(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"sessions": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_sessions()
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/gateway/openclaw/sessions",
+                params={"skip": 0, "limit": 100},
+            )
+            assert result["total"] == 0
+            client.close()
+
+    def test_openclaw_create_session(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"session_id": "s_1"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_create_session(name="test")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/gateway/openclaw/sessions",
+                json={"name": "test"},
+            )
+            assert result["session_id"] == "s_1"
+            client.close()
+
+
+class TestGatewayOpenclawActions:
+    """Tests for OpenClaw actions via gateway path."""
+
+    def test_openclaw_actions(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"action_id": "a_1", "status": "pending"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_actions(
+                session_id="s_1", action_type="click"
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/gateway/openclaw/actions",
+                json={"session_id": "s_1", "action_type": "click"},
+            )
+            assert result["action_id"] == "a_1"
+            client.close()
+
+
+class TestGatewayOpenclawCredentials:
+    """Tests for OpenClaw credentials via gateway path."""
+
+    def test_openclaw_credentials(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"credentials": [], "total": 0}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_credentials()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/credentials"
+            )
+            assert result["total"] == 0
+            client.close()
+
+    def test_openclaw_store_credential(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"credential_id": "c_1"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_store_credential(
+                name="api_key", type="api_key", value="secret"
+            )
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/gateway/openclaw/credentials",
+                json={"name": "api_key", "type": "api_key", "value": "secret"},
+            )
+            assert result["credential_id"] == "c_1"
+            client.close()
+
+
+class TestGatewayOpenclawAdmin:
+    """Tests for OpenClaw admin endpoints via gateway path."""
+
+    def test_openclaw_health(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"status": "healthy"}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_health()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/health"
+            )
+            assert result["status"] == "healthy"
+            client.close()
+
+    def test_openclaw_metrics(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"total_sessions": 10}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_metrics()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/metrics"
+            )
+            assert result["total_sessions"] == 10
+            client.close()
+
+    def test_openclaw_audit(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"entries": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.gateway.openclaw_audit()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/audit", params=None
+            )
+            assert result["entries"] == []
+            client.close()
+
+    def test_openclaw_audit_with_filters(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"entries": []}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.gateway.openclaw_audit(event_type="session_created", user_id="u_1")
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/gateway/openclaw/audit",
+                params={"event_type": "session_created", "user_id": "u_1"},
+            )
+            client.close()
+
+
+# =============================================================================
+# OpenClaw Gateway Tests (Async)
+# =============================================================================
+
+
+class TestAsyncGatewayOpenclawSessions:
+    """Tests for async OpenClaw sessions via gateway path."""
+
+    @pytest.mark.asyncio
+    async def test_openclaw_sessions(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"sessions": [], "total": 0}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.gateway.openclaw_sessions()
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/gateway/openclaw/sessions",
+                params={"skip": 0, "limit": 100},
+            )
+            assert result["total"] == 0
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_openclaw_create_session(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"session_id": "s_async"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.gateway.openclaw_create_session(name="async-test")
+            mock_request.assert_called_once_with(
+                "POST",
+                "/api/gateway/openclaw/sessions",
+                json={"name": "async-test"},
+            )
+            assert result["session_id"] == "s_async"
+            await client.close()
+
+
+class TestAsyncGatewayOpenclawAdmin:
+    """Tests for async OpenClaw admin via gateway path."""
+
+    @pytest.mark.asyncio
+    async def test_openclaw_health(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"status": "healthy"}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.gateway.openclaw_health()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/health"
+            )
+            assert result["status"] == "healthy"
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_openclaw_metrics(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"total_sessions": 5}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.gateway.openclaw_metrics()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/metrics"
+            )
+            assert result["total_sessions"] == 5
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_openclaw_audit(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"entries": []}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            result = await client.gateway.openclaw_audit()
+            mock_request.assert_called_once_with(
+                "GET", "/api/gateway/openclaw/audit", params=None
+            )
+            assert result["entries"] == []
+            await client.close()
+

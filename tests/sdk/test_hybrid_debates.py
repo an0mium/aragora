@@ -11,6 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+pytest.importorskip("aragora_sdk")
+
 from aragora_sdk.namespaces.hybrid_debates import (
     AsyncHybridDebatesAPI,
     HybridDebatesAPI,

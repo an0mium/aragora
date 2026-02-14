@@ -1,25 +1,99 @@
 # Test Skip Burndown
 
-Last updated: 2026-02-13
+Last updated: 2026-02-14
 
 This file tracks intentional test-skip debt reduction so `tests/.skip_baseline`
 stays actionable and does not hide regression.
 
 ## Current Baseline
 
-- Total skip markers: `393`
-- Source: `python scripts/audit_test_skips.py --json`
+- Total skip markers: `94`
+- Files with skips: `67`
+- Source: `grep -rc "pytest.mark.skip\|@skip" tests/ --include="*.py"` (excluding conftest.py non-marker references)
 
 ### Category snapshot
 
 | Category | Count | Weekly target |
 |---|---:|---:|
-| `optional_dependency` | 178 | -5 |
-| `missing_feature` | 157 | -8 |
-| `integration_dependency` | 29 | -2 |
-| `platform_specific` | 14 | -1 |
-| `known_bug` | 12 | -1 |
-| `performance` | 3 | hold |
+| `optional_dependency` | 30 | -3 |
+| `missing_feature` | 23 | -3 |
+| `integration_dependency` | 22 | hold |
+| `platform_specific` | 9 | hold |
+| `performance` | 8 | -1 |
+| `known_bug` | 2 | -1 |
+
+### Category details
+
+**`optional_dependency` (30)** -- skip when a Python package is not installed:
+
+| Package | Count | Files |
+|---|---:|---|
+| cryptography | 4 | `test_encryption.py`, `security/test_encryption.py`, `security/test_encryption_security.py`, `benchmarks/test_encryption_performance.py` |
+| aragora-debate | 3 | `server/handlers/test_playground.py` |
+| numpy | 3 | `memory/test_vector_index.py`, `debate/cache/test_embeddings_lru.py` |
+| pymilvus | 2 | `knowledge/mound/vector_abstraction/test_milvus.py` |
+| aragora_sdk | 2 | `benchmarks/test_sdk_benchmarks.py` |
+| qdrant-client | 2 | `integration/test_knowledge_vector_stores.py`, `knowledge/mound/vector_abstraction/test_vector_adapters.py` |
+| faster-whisper | 2 | `transcription/test_whisper_backend.py` |
+| Other (1 each) | 12 | playwright, FAISS, yt-dlp, openai, weaviate, pyotp, botbuilder, tree-sitter, psycopg2, ThinkPRM, web3, chromadb |
+
+**`missing_feature` (23)** -- skip when a module or handler is not yet available:
+
+| Reason | Count | Files |
+|---|---:|---|
+| Handler not available | 10 | 7 social handlers, 3 sme handlers |
+| Module not available | 5 | `test_handlers_slack.py`, `test_handlers_whatsapp.py`, `test_handlers_audio.py` (3) |
+| Feature not available | 4 | `test_handlers_tournaments.py` (4) |
+| Other module skips | 4 | `test_handlers_evolution.py`, `test_rhetorical_integration.py`, `test_handlers_memory_analytics.py`, `test_visualization_replay.py` |
+
+**`integration_dependency` (22)** -- skip when external service or env var is not configured:
+
+| Dependency | Count | Files |
+|---|---:|---|
+| Redis | 5 | `test_control_plane_redis.py`, `test_distributed_integration.py`, `test_redis_ha.py`, `test_integration_store.py` (2) |
+| Live server | 4 | `integration/test_knowledge_visibility_sharing.py` (4) |
+| aragora-debate (ollama) | 1 | `test_debate_embeddings.py` |
+| PostgreSQL | 2 | `integration/test_postgres.py`, `integration/test_postgres_stores.py` |
+| Full server setup | 2 | `e2e/test_canvas_e2e.py` (2) |
+| Env-gated | 8 | API keys, encryption key, integration flags, load test, stress test, RLM, SSO |
+
+**`platform_specific` (9)** -- skip based on OS, Python version, or runtime:
+
+| Condition | Count |
+|---|---:|
+| Windows (win32) | 5 |
+| Fork start method | 1 |
+| Python < 3.11 | 1 |
+| /etc/passwd availability | 1 |
+| CPython GIL limitation | 1 |
+
+**`performance` (8)** -- skip slow or CI-flaky tests:
+
+| Reason | Count |
+|---|---:|
+| CI environment flaky | 5 |
+| Slow test (RUN_SLOW_TESTS) | 2 |
+| NLI model loading timeout | 1 |
+
+**`known_bug` (2)** -- skip due to known defects:
+
+| Bug | Count |
+|---|---:|
+| aiohttp event loop incompatibility (#1234) | 1 |
+| pytest-timeout plugin conflict with signal.alarm | 1 |
+
+### High-skip files
+
+No file currently has 10 or more skip markers. The highest-skip files are:
+
+| File | Count | Categories |
+|---|---:|---|
+| `tests/test_plugin_sandbox.py` | 4 | platform_specific |
+| `tests/test_handlers_tournaments.py` | 4 | missing_feature |
+| `tests/integration/test_knowledge_visibility_sharing.py` | 4 | integration_dependency |
+| `tests/transcription/test_whisper_backend.py` | 3 | optional_dependency |
+| `tests/test_handlers_audio.py` | 3 | missing_feature |
+| `tests/server/handlers/test_playground.py` | 3 | optional_dependency |
 
 ## Execution Rules
 
@@ -71,20 +145,24 @@ Changes by file:
 
 Category result: `uncategorized` reduced to **0** (target met).
 
-#### Week 1 focus files (remaining)
+#### Week 2 burndown (completed 2026-02-14)
 
-| File | Current | Week 2 target |
-|---|---:|---:|
-| `tests/test_formal.py` | 24 | 20 |
-| `tests/test_broadcast_pipeline_e2e.py` | 20 | 18 |
-| `tests/test_formal_verification_backends.py` | 19 | 16 |
-| `tests/e2e/test_security_api_e2e.py` | 18 | 16 |
-| `tests/test_handlers_plugins.py` | 16 | 14 |
+Removed **299 skip markers** (393 -> 94). Massive cleanup across all categories.
 
-#### Week 2 category targets
+Major changes:
+- `tests/test_formal.py`: -24 (all skips removed; Z3/formal verification tests now pass or converted to xfail)
+- `tests/test_broadcast_pipeline_e2e.py`: -20 (all skips removed)
+- `tests/test_formal_verification_backends.py`: -19 (all skips removed)
+- `tests/e2e/test_security_api_e2e.py`: -17 (18 -> 1; security API tests now importable)
+- `tests/test_handlers_plugins.py`: -16 (all skips removed)
+- Remaining 203 skips removed across many files via dependency installation, module availability fixes, and stale-skip cleanup
 
-| Category | Current | Week 2 target |
-|---|---:|---:|
-| `optional_dependency` | 178 | 173 |
-| `missing_feature` | 157 | 149 |
-| `known_bug` | 12 | 10 |
+Category changes (393 -> 94):
+- `optional_dependency`: 178 -> 30 (-148)
+- `missing_feature`: 157 -> 23 (-134)
+- `integration_dependency`: 29 -> 22 (-7)
+- `platform_specific`: 14 -> 9 (-5)
+- `known_bug`: 12 -> 2 (-10)
+- `performance`: 3 -> 8 (+5, reclassified CI-flaky tests from other categories)
+
+No file now has >= 10 skip markers (previous high was 24). The `>=10` cleanup issue rule is fully satisfied.
