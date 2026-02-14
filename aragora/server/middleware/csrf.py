@@ -100,8 +100,9 @@ class CSRFConfig:
     enabled: bool = field(
         default_factory=lambda: os.getenv(
             "ARAGORA_CSRF_ENABLED",
-            # Default: enabled in production, disabled in development
-            "true" if os.getenv("ARAGORA_ENV", "development").lower() == "production" else "false",
+            # SECURITY: Enabled by default — only disable for explicit dev/test environments
+            "false" if os.getenv("ARAGORA_ENV", "production").lower()
+            in ("development", "dev", "test", "local") else "true",
         ).lower()
         in ("true", "1", "yes")
     )
@@ -129,7 +130,9 @@ class CSRFConfig:
     cookie_secure: bool = field(
         default_factory=lambda: os.getenv(
             "ARAGORA_CSRF_COOKIE_SECURE",
-            "true" if os.getenv("ARAGORA_ENV", "development").lower() == "production" else "false",
+            # SECURITY: Secure by default — only disable for explicit dev/test environments
+            "false" if os.getenv("ARAGORA_ENV", "production").lower()
+            in ("development", "dev", "test", "local") else "true",
         ).lower()
         in ("true", "1", "yes")
     )

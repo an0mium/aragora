@@ -307,6 +307,7 @@ class User:
     api_key_prefix: str | None = None  # First 12 chars for identification (ara_xxxx...)
     api_key_created_at: datetime | None = None
     api_key_expires_at: datetime | None = None  # Expiration time
+    api_key_bound_ips: str | None = None  # Comma-separated IPs/CIDRs for IP binding
 
     # MFA/2FA fields
     mfa_secret: str | None = None  # TOTP secret (encrypted)
@@ -364,7 +365,7 @@ class User:
         logger.info(f"Password hash upgraded for user {self.id}")
         return True
 
-    def generate_api_key(self, expires_days: int = 365) -> str:
+    def generate_api_key(self, expires_days: int = 365, bound_ips: str | None = None) -> str:
         """
         Generate a new API key for this user.
 
@@ -373,6 +374,7 @@ class User:
 
         Args:
             expires_days: Days until key expires (default 365)
+            bound_ips: Optional comma-separated IPs/CIDRs to restrict key usage
 
         Returns:
             The plaintext API key (only returned once, never stored)
@@ -384,21 +386,23 @@ class User:
         self.api_key_prefix = api_key[:12]  # "ara_" + 8 chars for identification
         self.api_key_created_at = datetime.now(timezone.utc)
         self.api_key_expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
+        self.api_key_bound_ips = bound_ips
         self.updated_at = datetime.now(timezone.utc)
 
         return api_key  # Returned to user once, never stored
 
-    def verify_api_key(self, api_key: str) -> bool:
+    def verify_api_key(self, api_key: str, client_ip: str | None = None) -> bool:
         """
         Verify an API key against stored hash.
 
-        Checks both hash match and expiration.
+        Checks hash match, expiration, and optional IP binding.
 
         Args:
             api_key: The plaintext API key to verify
+            client_ip: Optional client IP to check against bound IPs
 
         Returns:
-            True if key is valid and not expired
+            True if key is valid, not expired, and IP allowed
         """
         if not self.api_key_hash:
             return False
@@ -410,7 +414,38 @@ class User:
 
         # Verify hash
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        return secrets.compare_digest(key_hash, self.api_key_hash)
+        if not secrets.compare_digest(key_hash, self.api_key_hash):
+            return False
+
+        # Check IP binding if configured
+        if self.api_key_bound_ips and client_ip:
+            import ipaddress
+
+            try:
+                client = ipaddress.ip_address(client_ip)
+                allowed = False
+                for entry in self.api_key_bound_ips.split(","):
+                    entry = entry.strip()
+                    if not entry:
+                        continue
+                    if "/" in entry:
+                        if client in ipaddress.ip_network(entry, strict=False):
+                            allowed = True
+                            break
+                    elif client == ipaddress.ip_address(entry):
+                        allowed = True
+                        break
+                if not allowed:
+                    logger.warning(
+                        f"API key IP binding rejected: client_ip={client_ip} "
+                        f"not in bound_ips for user {self.id}"
+                    )
+                    return False
+            except ValueError:
+                logger.warning(f"Invalid IP in binding check: {client_ip}")
+                return False
+
+        return True
 
     def is_api_key_expired(self) -> bool:
         """Check if API key is expired."""
@@ -424,6 +459,7 @@ class User:
         self.api_key_prefix = None
         self.api_key_created_at = None
         self.api_key_expires_at = None
+        self.api_key_bound_ips = None
         self.updated_at = datetime.now(timezone.utc)
 
     def promote_to_admin(self, new_role: str = "admin") -> None:

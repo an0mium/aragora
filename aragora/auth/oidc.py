@@ -737,6 +737,38 @@ class OIDCProvider(SSOProvider):
                     )
 
                 # At this point: NOT production AND fallback explicitly allowed
+                # SECURITY: Even in dev fallback, validate token structure and expiry
+                # to reject completely forged or expired tokens
+                if id_token:
+                    try:
+                        fallback_claims = jwt.decode(
+                            id_token,
+                            options={
+                                "verify_signature": False,
+                                "verify_exp": True,
+                            },
+                            algorithms=self.config.allowed_algorithms,
+                        )
+                        # Require minimal identity claims
+                        if not fallback_claims.get("sub") and not fallback_claims.get("email"):
+                            raise SSOAuthenticationError(
+                                "ID token missing required identity claims (sub or email) "
+                                "even in dev fallback mode",
+                                {"code": "MISSING_IDENTITY_CLAIMS"},
+                            )
+                        # Use decoded claims as baseline
+                        claims = fallback_claims
+                    except jwt.exceptions.ExpiredSignatureError:
+                        raise SSOAuthenticationError(
+                            "ID token is expired — rejected even in dev fallback mode",
+                            {"code": "TOKEN_EXPIRED"},
+                        )
+                    except jwt.exceptions.DecodeError:
+                        raise SSOAuthenticationError(
+                            "ID token has invalid structure — rejected even in dev fallback mode",
+                            {"code": "INVALID_TOKEN_STRUCTURE"},
+                        )
+
                 logger.warning(
                     f"ID token validation failed, using userinfo fallback (dev mode): {e}. "
                     "This is INSECURE - do not use in production!"

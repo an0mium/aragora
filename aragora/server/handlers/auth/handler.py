@@ -47,7 +47,7 @@ from ..base import (
     json_response,
     log_request,
 )
-from ..utils.rate_limit import rate_limit
+from ..utils.rate_limit import auth_rate_limit, rate_limit
 from ..secure import SecureHandler
 from aragora.auth import lockout as _lockout_module
 from aragora.auth.lockout import get_lockout_tracker  # noqa: F401
@@ -438,7 +438,7 @@ class AuthHandler(SecureHandler):
     # Token Management - Kept in handler.py
     # =========================================================================
 
-    @rate_limit(requests_per_minute=20, limiter_name="auth_refresh")
+    @auth_rate_limit(requests_per_minute=10, endpoint_name="token refresh")
     @handle_errors("token refresh")
     def _handle_refresh(self, handler: Any) -> HandlerResult:
         """Handle token refresh."""
