@@ -313,10 +313,6 @@ class NomicAPI:
                 return proposal
         return None
 
-    def get_proposal_detail(self, proposal_id: str) -> dict[str, Any]:
-        """Get proposal detail."""
-        return self._client.request("POST", f"/api/v1/nomic/proposals/{proposal_id}")
-
 
 class AsyncNomicAPI:
     """
@@ -475,7 +471,3 @@ class AsyncNomicAPI:
             if proposal.get("id") == proposal_id:
                 return proposal
         return None
-
-    async def get_proposal_detail(self, proposal_id: str) -> dict[str, Any]:
-        """Get proposal detail."""
-        return await self._client.request("POST", f"/api/v1/nomic/proposals/{proposal_id}")

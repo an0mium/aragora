@@ -257,26 +257,6 @@ class WorkspacesAPI:
         """
         return self._client.request("GET", "/api/v1/audit/verify")
 
-    def get(self, workspace_id: str) -> dict[str, Any]:
-        """Get a workspace by ID."""
-        return self._client.request("GET", f"/api/v1/workspaces/{workspace_id}")
-
-    def delete(self, workspace_id: str) -> dict[str, Any]:
-        """Delete a workspace."""
-        return self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}")
-
-    def get_roles(self, workspace_id: str) -> dict[str, Any]:
-        """Get workspace roles."""
-        return self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/roles")
-
-    def add_member(self, workspace_id: str) -> dict[str, Any]:
-        """Add a member to a workspace."""
-        return self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/members")
-
-    def update_member_role(self, workspace_id: str, member_id: str) -> dict[str, Any]:
-        """Update a member's role."""
-        return self._client.request("PUT", f"/api/v1/workspaces/{workspace_id}/members/{member_id}/role")
-
 
 class AsyncWorkspacesAPI:
     """
@@ -422,23 +402,3 @@ class AsyncWorkspacesAPI:
     async def verify_audit_integrity(self) -> dict[str, Any]:
         """Verify audit log integrity."""
         return await self._client.request("GET", "/api/v1/audit/verify")
-
-    async def get(self, workspace_id: str) -> dict[str, Any]:
-        """Get a workspace by ID."""
-        return await self._client.request("GET", f"/api/v1/workspaces/{workspace_id}")
-
-    async def delete(self, workspace_id: str) -> dict[str, Any]:
-        """Delete a workspace."""
-        return await self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}")
-
-    async def get_roles(self, workspace_id: str) -> dict[str, Any]:
-        """Get workspace roles."""
-        return await self._client.request("GET", f"/api/v1/workspaces/{workspace_id}/roles")
-
-    async def add_member(self, workspace_id: str) -> dict[str, Any]:
-        """Add a member to a workspace."""
-        return await self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/members")
-
-    async def update_member_role(self, workspace_id: str, member_id: str) -> dict[str, Any]:
-        """Update a member's role."""
-        return await self._client.request("PUT", f"/api/v1/workspaces/{workspace_id}/members/{member_id}/role")

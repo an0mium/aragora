@@ -136,10 +136,6 @@ class GauntletAPI:
             time.sleep(poll_interval)
         return self.get_result(gauntlet_id)
 
-    def list(self) -> dict[str, Any]:
-        """List gauntlet runs."""
-        return self._client.request("GET", "/api/v1/gauntlet")
-
     def list_heatmaps(self) -> dict[str, Any]:
         """List gauntlet heatmaps."""
         return self._client.request("GET", "/api/v1/gauntlet/heatmaps")
@@ -259,10 +255,6 @@ class AsyncGauntletAPI:
                 return status
             await asyncio.sleep(poll_interval)
         return await self.get_result(gauntlet_id)
-
-    async def list(self) -> dict[str, Any]:
-        """List gauntlet runs."""
-        return await self._client.request("GET", "/api/v1/gauntlet")
 
     async def list_heatmaps(self) -> dict[str, Any]:
         """List gauntlet heatmaps."""

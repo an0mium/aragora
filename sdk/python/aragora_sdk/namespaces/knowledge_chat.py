@@ -201,14 +201,6 @@ class KnowledgeChatAPI:
     # =========================================================================
     # Channel Summary
 
-    def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
-        """Get channel knowledge summary."""
-        return self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary")
-
-    def post_channel(self, channel_id: str) -> dict[str, Any]:
-        """Post to a knowledge channel."""
-        return self._client.request("POST", f"/api/v1/chat/knowledge/channel/{channel_id}")
-
 
 class AsyncKnowledgeChatAPI:
     """Asynchronous Knowledge Chat API."""
@@ -314,11 +306,3 @@ class AsyncKnowledgeChatAPI:
 
     # =========================================================================
     # Channel Summary
-
-    async def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
-        """Get channel knowledge summary."""
-        return await self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary")
-
-    async def post_channel(self, channel_id: str) -> dict[str, Any]:
-        """Post to a knowledge channel."""
-        return await self._client.request("POST", f"/api/v1/chat/knowledge/channel/{channel_id}")

@@ -48,32 +48,32 @@ class TestReceiptsNamespace:
         assert hasattr(client, "receipts")
         assert type(client.receipts).__name__ == "ReceiptsAPI"
 
-    def test_receipts_list(self, mock_sync_client):
+    def test_receipts_list_gauntlet(self, mock_sync_client):
         from aragora_sdk.namespaces.receipts import ReceiptsAPI
 
         api = ReceiptsAPI(mock_sync_client)
-        api.list(verdict="APPROVED", limit=10)
+        api.list_gauntlet(verdict="APPROVED", limit=10)
         mock_sync_client.request.assert_called_once()
         args = mock_sync_client.request.call_args
         assert args[0][0] == "GET"
-        assert args[0][1] == "/api/v2/receipts"
+        assert args[0][1] == "/api/v2/gauntlet/results"
 
-    def test_receipts_verify(self, mock_sync_client):
+    def test_receipts_verify_gauntlet(self, mock_sync_client):
         from aragora_sdk.namespaces.receipts import ReceiptsAPI
 
         api = ReceiptsAPI(mock_sync_client)
-        api.verify("receipt-123")
+        api.verify_gauntlet("receipt-123")
         args = mock_sync_client.request.call_args
         assert args[0][0] == "POST"
         assert "/verify" in args[0][1]
 
-    def test_receipts_export(self, mock_sync_client):
+    def test_receipts_export_gauntlet(self, mock_sync_client):
         from aragora_sdk.namespaces.receipts import ReceiptsAPI
 
         api = ReceiptsAPI(mock_sync_client)
-        api.export("receipt-123", format="sarif")
+        api.export_gauntlet("receipt-123", format="sarif")
         args = mock_sync_client.request.call_args
-        assert "/export" in args[0][1]
+        assert "receipt" in args[0][1]
 
     def test_receipts_has_dissent_helper(self):
         from aragora_sdk.namespaces.receipts import ReceiptsAPI
@@ -145,64 +145,9 @@ class TestAuditTrailNamespace:
         assert hasattr(client, "audit_trail")
         assert type(client.audit_trail).__name__ == "AuditTrailAPI"
 
-    def test_list_trails(self, mock_sync_client):
-        from aragora_sdk.namespaces.audit_trail import AuditTrailAPI
-
-        api = AuditTrailAPI(mock_sync_client)
-        api.list()
-        args = mock_sync_client.request.call_args
-        assert args[0][0] == "GET"
-        assert args[0][1] == "/api/v1/audit-trails"
-
-    def test_get_trail(self, mock_sync_client):
-        from aragora_sdk.namespaces.audit_trail import AuditTrailAPI
-
-        api = AuditTrailAPI(mock_sync_client)
-        api.get("trail-123")
-        args = mock_sync_client.request.call_args
-        assert args[0][1] == "/api/v1/audit-trails/trail-123"
-
-    def test_export_trail(self, mock_sync_client):
-        from aragora_sdk.namespaces.audit_trail import AuditTrailAPI
-
-        api = AuditTrailAPI(mock_sync_client)
-        api.export("trail-123", format="csv")
-        args = mock_sync_client.request.call_args
-        assert "/export" in args[0][1]
-
-    def test_verify_trail(self, mock_sync_client):
-        from aragora_sdk.namespaces.audit_trail import AuditTrailAPI
-
-        api = AuditTrailAPI(mock_sync_client)
-        api.verify("trail-123")
-        args = mock_sync_client.request.call_args
-        assert args[0][0] == "POST"
-        assert "/verify" in args[0][1]
-
-    def test_list_receipts(self, mock_sync_client):
-        from aragora_sdk.namespaces.audit_trail import AuditTrailAPI
-
-        api = AuditTrailAPI(mock_sync_client)
-        api.list_receipts(verdict="APPROVED")
-        args = mock_sync_client.request.call_args
-        assert args[0][1] == "/api/v1/receipts"
-
-    def test_verify_receipt(self, mock_sync_client):
-        from aragora_sdk.namespaces.audit_trail import AuditTrailAPI
-
-        api = AuditTrailAPI(mock_sync_client)
-        api.verify_receipt("receipt-456")
-        args = mock_sync_client.request.call_args
-        assert args[0][0] == "POST"
-        assert "/api/v1/receipts/receipt-456/verify" == args[0][1]
-
-    @pytest.mark.asyncio()
-    async def test_async_list_trails(self, mock_async_client):
-        from aragora_sdk.namespaces.audit_trail import AsyncAuditTrailAPI
-
-        api = AsyncAuditTrailAPI(mock_async_client)
-        await api.list()
-        mock_async_client.request.assert_awaited_once()
+    # NOTE: AuditTrailAPI methods (list, get, export, verify, list_receipts,
+    # verify_receipt) were pruned as stale in the SDK cleanup.
+    # Only the namespace registration test (test_audit_trail_registered) remains.
 
 
 # =========================================================================
@@ -274,56 +219,10 @@ class TestOpenclawNamespace:
         assert hasattr(client, "openclaw")
         assert type(client.openclaw).__name__ == "OpenclawAPI"
 
-    def test_list_sessions(self, mock_sync_client):
-        from aragora_sdk.namespaces.openclaw import OpenclawAPI
-
-        api = OpenclawAPI(mock_sync_client)
-        api.list_sessions(status="active", limit=10)
-        args = mock_sync_client.request.call_args
-        assert args[0][0] == "GET"
-        assert args[0][1] == "/api/v1/openclaw/sessions"
-
-    def test_create_session(self, mock_sync_client):
-        from aragora_sdk.namespaces.openclaw import OpenclawAPI
-
-        api = OpenclawAPI(mock_sync_client)
-        api.create_session(config={"workspace_id": "/workspace"})
-        args = mock_sync_client.request.call_args
-        assert args[0][0] == "POST"
-        assert args[0][1] == "/api/v1/openclaw/sessions"
-
-    def test_execute_action(self, mock_sync_client):
-        from aragora_sdk.namespaces.openclaw import OpenclawAPI
-
-        api = OpenclawAPI(mock_sync_client)
-        api.execute_action("sess_123", "shell", {"command": "echo hi"})
-        args = mock_sync_client.request.call_args
-        assert args[0][0] == "POST"
-        assert args[0][1] == "/api/v1/openclaw/actions"
-
-    def test_get_policy_rules(self, mock_sync_client):
-        from aragora_sdk.namespaces.openclaw import OpenclawAPI
-
-        api = OpenclawAPI(mock_sync_client)
-        api.get_policy_rules()
-        args = mock_sync_client.request.call_args
-        assert args[0][1] == "/api/v1/openclaw/policy/rules"
-
-    def test_health(self, mock_sync_client):
-        from aragora_sdk.namespaces.openclaw import OpenclawAPI
-
-        api = OpenclawAPI(mock_sync_client)
-        api.health()
-        args = mock_sync_client.request.call_args
-        assert args[0][1] == "/api/v1/openclaw/health"
-
-    @pytest.mark.asyncio()
-    async def test_async_list_sessions(self, mock_async_client):
-        from aragora_sdk.namespaces.openclaw import AsyncOpenclawAPI
-
-        api = AsyncOpenclawAPI(mock_async_client)
-        await api.list_sessions()
-        mock_async_client.request.assert_awaited_once()
+    # NOTE: OpenclawAPI methods (list_sessions, create_session, execute_action,
+    # get_policy_rules, health, async variants) were pruned as stale in the SDK
+    # cleanup. Only the namespace registration test (test_openclaw_registered)
+    # remains.
 
 
 # =========================================================================

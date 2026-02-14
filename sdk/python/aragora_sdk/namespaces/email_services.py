@@ -161,34 +161,6 @@ class EmailServicesAPI:
 
         return self._client.request("POST", "/api/v1/email/categories/learn", json=data)
 
-    def get_context(self, email_id: str) -> dict[str, Any]:
-        """Get email context."""
-        return self._client.request("GET", f"/api/v1/email/context/{email_id}")
-
-    def delete_followup(self, followup_id: str) -> dict[str, Any]:
-        """DELETE a followup."""
-        return self._client.request("DELETE", f"/api/v1/email/followups/{followup_id}")
-
-    def delete_email(self, email_id: str) -> dict[str, Any]:
-        """DELETE an email."""
-        return self._client.request("DELETE", f"/api/v1/email/{email_id}")
-
-    def get_followup(self, followup_id: str) -> dict[str, Any]:
-        """GET a followup."""
-        return self._client.request("GET", f"/api/v1/email/followups/{followup_id}")
-
-    def get_email(self, email_id: str) -> dict[str, Any]:
-        """GET an email."""
-        return self._client.request("GET", f"/api/v1/email/{email_id}")
-
-    def post_followup(self, followup_id: str) -> dict[str, Any]:
-        """POST a followup."""
-        return self._client.request("POST", f"/api/v1/email/followups/{followup_id}")
-
-    def post_email(self, email_id: str) -> dict[str, Any]:
-        """POST an email."""
-        return self._client.request("POST", f"/api/v1/email/{email_id}")
-
 
 class AsyncEmailServicesAPI:
     """
@@ -279,31 +251,3 @@ class AsyncEmailServicesAPI:
             data["correct_category"] = correct_category
 
         return await self._client.request("POST", "/api/v1/email/categories/learn", json=data)
-
-    async def get_context(self, email_id: str) -> dict[str, Any]:
-        """Get email context."""
-        return await self._client.request("GET", f"/api/v1/email/context/{email_id}")
-
-    async def delete_followup(self, followup_id: str) -> dict[str, Any]:
-        """DELETE a followup."""
-        return await self._client.request("DELETE", f"/api/v1/email/followups/{followup_id}")
-
-    async def delete_email(self, email_id: str) -> dict[str, Any]:
-        """DELETE an email."""
-        return await self._client.request("DELETE", f"/api/v1/email/{email_id}")
-
-    async def get_followup(self, followup_id: str) -> dict[str, Any]:
-        """GET a followup."""
-        return await self._client.request("GET", f"/api/v1/email/followups/{followup_id}")
-
-    async def get_email(self, email_id: str) -> dict[str, Any]:
-        """GET an email."""
-        return await self._client.request("GET", f"/api/v1/email/{email_id}")
-
-    async def post_followup(self, followup_id: str) -> dict[str, Any]:
-        """POST a followup."""
-        return await self._client.request("POST", f"/api/v1/email/followups/{followup_id}")
-
-    async def post_email(self, email_id: str) -> dict[str, Any]:
-        """POST an email."""
-        return await self._client.request("POST", f"/api/v1/email/{email_id}")

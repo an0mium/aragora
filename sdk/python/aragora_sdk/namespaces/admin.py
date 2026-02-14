@@ -198,10 +198,6 @@ class AdminAPI:
         """
         return self._client.request("GET", "/api/v1/diagnostics/handlers")
 
-    def impersonate(self, user_id: str) -> dict[str, Any]:
-        """Impersonate a user."""
-        return self._client.request("POST", f"/api/v1/admin/impersonate/{user_id}")
-
 
 class AsyncAdminAPI:
     """
@@ -300,7 +296,3 @@ class AsyncAdminAPI:
     async def get_handler_diagnostics(self) -> dict[str, Any]:
         """Get handler diagnostics information. GET /api/v1/diagnostics/handlers"""
         return await self._client.request("GET", "/api/v1/diagnostics/handlers")
-
-    async def impersonate(self, user_id: str) -> dict[str, Any]:
-        """Impersonate a user."""
-        return await self._client.request("POST", f"/api/v1/admin/impersonate/{user_id}")

@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sdk.python.aragora_sdk.namespaces.hybrid_debates import (
+from aragora_sdk.namespaces.hybrid_debates import (
     AsyncHybridDebatesAPI,
     HybridDebatesAPI,
 )
@@ -479,7 +479,7 @@ class TestHybridDebatesImports:
 
     def test_import_from_namespaces_package(self) -> None:
         """HybridDebatesAPI and AsyncHybridDebatesAPI are importable from the package."""
-        from sdk.python.aragora_sdk.namespaces import (
+        from aragora_sdk.namespaces import (
             AsyncHybridDebatesAPI,
             HybridDebatesAPI,
         )

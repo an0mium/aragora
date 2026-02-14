@@ -11,7 +11,7 @@ import inspect
 
 import pytest
 
-from sdk.python.aragora_sdk.namespaces.batch import AsyncBatchAPI, BatchAPI
+from aragora_sdk.namespaces.batch import AsyncBatchAPI, BatchAPI
 
 
 class TestBatchPayloadConsistency:

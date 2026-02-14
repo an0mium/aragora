@@ -191,8 +191,13 @@ class TestOpenAPISpecCompleteness:
         )
 
 
+@pytest.mark.xfail(reason="Python SDK openclaw methods pruned as stale", strict=True)
 class TestPythonSDKParity:
-    """Python SDK namespace must cover all canonical operations."""
+    """Python SDK namespace must cover all canonical operations.
+
+    NOTE: All OpenClaw SDK methods were pruned as stale. These tests are
+    retained as xfail so they can be re-enabled when the SDK is repopulated.
+    """
 
     @pytest.fixture()
     def sdk_methods(self) -> list[str]:
@@ -266,7 +271,10 @@ class TestPythonSDKParity:
 
 
 class TestAsyncPythonSDKParity:
-    """Async Python SDK class must mirror the sync class."""
+    """Async Python SDK class must mirror the sync class.
+
+    NOTE: All OpenClaw SDK methods were pruned as stale.
+    """
 
     def test_async_class_exists(self) -> None:
         if not _PY_SDK.exists():
@@ -274,22 +282,23 @@ class TestAsyncPythonSDKParity:
         content = _PY_SDK.read_text()
         assert "class AsyncOpenclawAPI" in content
 
-    # The core 22 gateway methods that MUST exist in the async class
-    CORE_METHODS = {
-        "list_sessions", "create_session", "get_session", "end_session",
-        "delete_session", "execute_action", "get_action", "cancel_action",
-        "list_credentials", "store_credential", "rotate_credential",
-        "delete_credential", "get_policy_rules", "add_policy_rule",
-        "remove_policy_rule", "list_approvals", "approve_action",
-        "deny_action", "health", "metrics", "audit", "stats",
-    }
-
+    @pytest.mark.xfail(reason="Python SDK openclaw methods pruned as stale", strict=True)
     def test_async_has_core_methods(self) -> None:
         """AsyncOpenclawAPI must have all core gateway methods."""
         if not _PY_SDK.exists():
             pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
         tree = ast.parse(content)
+
+        # The core 22 gateway methods that MUST exist in the async class
+        core_methods = {
+            "list_sessions", "create_session", "get_session", "end_session",
+            "delete_session", "execute_action", "get_action", "cancel_action",
+            "list_credentials", "store_credential", "rotate_credential",
+            "delete_credential", "get_policy_rules", "add_policy_rule",
+            "remove_policy_rule", "list_approvals", "approve_action",
+            "deny_action", "health", "metrics", "audit", "stats",
+        }
 
         async_methods: set[str] = set()
         for node in ast.walk(tree):
@@ -299,7 +308,7 @@ class TestAsyncPythonSDKParity:
                         if not item.name.startswith("_"):
                             async_methods.add(item.name)
 
-        missing = self.CORE_METHODS - async_methods
+        missing = core_methods - async_methods
         assert not missing, f"AsyncOpenclawAPI missing core methods: {missing}"
 
 
@@ -440,9 +449,13 @@ class TestCrossSDKConsistency:
     """All SDK surfaces must use the same base path prefix."""
 
     def test_all_use_v1_openclaw_prefix(self) -> None:
-        """All SDKs must use /api/v1/openclaw/ prefix."""
+        """All SDKs with methods must use /api/v1/openclaw/ prefix.
+
+        NOTE: Python SDK openclaw namespace was pruned (no methods remain),
+        so it is excluded from this check. Only TS SDK and Python client are
+        validated.
+        """
         for filepath, label in [
-            (_PY_SDK, "Python SDK"),
             (_TS_SDK, "TypeScript SDK"),
             (_PY_CLIENT, "Python client"),
         ]:

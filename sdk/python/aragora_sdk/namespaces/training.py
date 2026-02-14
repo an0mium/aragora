@@ -35,30 +35,6 @@ class TrainingAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
 
-    def export_sft(self) -> dict[str, Any]:
-        """Export SFT data."""
-        return self._client.request("GET", "/api/v1/training/export/sft")
-
-    def export_dpo(self) -> dict[str, Any]:
-        """Export DPO data."""
-        return self._client.request("GET", "/api/v1/training/export/dpo")
-
-    def export_gauntlet(self) -> dict[str, Any]:
-        """Export gauntlet data."""
-        return self._client.request("GET", "/api/v1/training/export/gauntlet")
-
-    def get_formats(self) -> dict[str, Any]:
-        """Get training formats."""
-        return self._client.request("GET", "/api/v1/training/formats")
-
-    def list_jobs(self) -> dict[str, Any]:
-        """List training jobs."""
-        return self._client.request("GET", "/api/v1/training/jobs")
-
-    def get_stats(self) -> dict[str, Any]:
-        """Get training stats."""
-        return self._client.request("GET", "/api/v1/training/stats")
-
 
 class AsyncTrainingAPI:
     """
@@ -72,27 +48,3 @@ class AsyncTrainingAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
-
-    async def export_sft(self) -> dict[str, Any]:
-        """Export SFT data."""
-        return await self._client.request("GET", "/api/v1/training/export/sft")
-
-    async def export_dpo(self) -> dict[str, Any]:
-        """Export DPO data."""
-        return await self._client.request("GET", "/api/v1/training/export/dpo")
-
-    async def export_gauntlet(self) -> dict[str, Any]:
-        """Export gauntlet data."""
-        return await self._client.request("GET", "/api/v1/training/export/gauntlet")
-
-    async def get_formats(self) -> dict[str, Any]:
-        """Get training formats."""
-        return await self._client.request("GET", "/api/v1/training/formats")
-
-    async def list_jobs(self) -> dict[str, Any]:
-        """List training jobs."""
-        return await self._client.request("GET", "/api/v1/training/jobs")
-
-    async def get_stats(self) -> dict[str, Any]:
-        """Get training stats."""
-        return await self._client.request("GET", "/api/v1/training/stats")

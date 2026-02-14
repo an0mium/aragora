@@ -194,18 +194,6 @@ class DevicesAPI:
         """
         return self._client.request("POST", "/api/v1/devices/google/webhook", json=request)
 
-    def list(self) -> dict[str, Any]:
-        """List all registered devices."""
-        return self._client.request("GET", "/api/v1/devices")
-
-    def get(self, device_id: str) -> dict[str, Any]:
-        """Get a device by ID."""
-        return self._client.request("GET", f"/api/v1/devices/{device_id}")
-
-    def delete(self, device_id: str) -> dict[str, Any]:
-        """Delete a device."""
-        return self._client.request("DELETE", f"/api/v1/devices/{device_id}")
-
 
 class AsyncDevicesAPI:
     """Asynchronous Devices API."""
@@ -260,15 +248,3 @@ class AsyncDevicesAPI:
     async def handle_google_webhook(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle Google Actions webhook request."""
         return await self._client.request("POST", "/api/v1/devices/google/webhook", json=request)
-
-    async def list(self) -> dict[str, Any]:
-        """List all registered devices."""
-        return await self._client.request("GET", "/api/v1/devices")
-
-    async def get(self, device_id: str) -> dict[str, Any]:
-        """Get a device by ID."""
-        return await self._client.request("GET", f"/api/v1/devices/{device_id}")
-
-    async def delete(self, device_id: str) -> dict[str, Any]:
-        """Delete a device."""
-        return await self._client.request("DELETE", f"/api/v1/devices/{device_id}")

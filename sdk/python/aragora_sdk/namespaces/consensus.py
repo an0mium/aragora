@@ -90,10 +90,6 @@ class ConsensusAPI:
         """Seed demo consensus data (requires auth)."""
         return self._client.request("POST", "/api/v1/consensus/seed-demo")
 
-    def list_domains(self) -> dict[str, Any]:
-        """List consensus domains."""
-        return self._client.request("GET", "/api/v1/consensus/domain")
-
 
 class AsyncConsensusAPI:
     """Asynchronous Consensus API."""
@@ -166,7 +162,3 @@ class AsyncConsensusAPI:
 
     async def seed_demo(self) -> dict[str, Any]:
         return await self._client.request("POST", "/api/v1/consensus/seed-demo")
-
-    async def list_domains(self) -> dict[str, Any]:
-        """List consensus domains."""
-        return await self._client.request("GET", "/api/v1/consensus/domain")

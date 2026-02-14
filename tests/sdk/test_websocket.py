@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sdk.python.aragora_sdk.websocket import (
+from aragora_sdk.websocket import (
     EVENT_TYPES,
     AragoraWebSocket,
     WebSocketEvent,
@@ -472,14 +472,14 @@ class TestClientIntegration:
     """Tests for WebSocket integration with AragoraAsyncClient."""
 
     def test_stream_property_returns_websocket(self):
-        from sdk.python.aragora_sdk import AragoraAsyncClient
+        from aragora_sdk import AragoraAsyncClient
 
         client = AragoraAsyncClient(base_url="http://localhost:8080", api_key="key")
         stream = client.stream
         assert isinstance(stream, AragoraWebSocket)
 
     def test_stream_property_is_lazy(self):
-        from sdk.python.aragora_sdk import AragoraAsyncClient
+        from aragora_sdk import AragoraAsyncClient
 
         client = AragoraAsyncClient(base_url="http://localhost:8080")
         assert client._stream is None
@@ -487,7 +487,7 @@ class TestClientIntegration:
         assert client._stream is not None
 
     def test_stream_property_is_cached(self):
-        from sdk.python.aragora_sdk import AragoraAsyncClient
+        from aragora_sdk import AragoraAsyncClient
 
         client = AragoraAsyncClient(base_url="http://localhost:8080")
         s1 = client.stream
@@ -495,7 +495,7 @@ class TestClientIntegration:
         assert s1 is s2
 
     def test_stream_uses_client_config(self):
-        from sdk.python.aragora_sdk import AragoraAsyncClient
+        from aragora_sdk import AragoraAsyncClient
 
         client = AragoraAsyncClient(
             base_url="http://localhost:8080",
@@ -509,7 +509,7 @@ class TestClientIntegration:
 
     @pytest.mark.asyncio
     async def test_close_clears_stream(self):
-        from sdk.python.aragora_sdk import AragoraAsyncClient
+        from aragora_sdk import AragoraAsyncClient
 
         client = AragoraAsyncClient(base_url="http://localhost:8080")
         _ = client.stream
@@ -518,7 +518,7 @@ class TestClientIntegration:
         assert client._stream is None
 
     def test_ws_url_parameter_stored(self):
-        from sdk.python.aragora_sdk import AragoraAsyncClient
+        from aragora_sdk import AragoraAsyncClient
 
         client = AragoraAsyncClient(
             base_url="http://localhost",
@@ -536,7 +536,7 @@ class TestExports:
     """Tests for module-level exports."""
 
     def test_websocket_module_exports(self):
-        from sdk.python.aragora_sdk import websocket
+        from aragora_sdk import websocket
 
         assert hasattr(websocket, "AragoraWebSocket")
         assert hasattr(websocket, "WebSocketEvent")

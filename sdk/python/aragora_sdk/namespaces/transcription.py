@@ -158,10 +158,6 @@ class TranscriptionAPI:
         """
         return self._client.request("GET", f"/api/v1/transcription/status/{job_id}")
 
-    def check_status(self) -> dict[str, Any]:
-        """Check transcription status."""
-        return self._client.request("POST", "/api/v1/transcription/status")
-
 
 class AsyncTranscriptionAPI:
     """
@@ -234,7 +230,3 @@ class AsyncTranscriptionAPI:
     async def get_status(self, job_id: str) -> dict[str, Any]:
         """Get transcription job status."""
         return await self._client.request("GET", f"/api/v1/transcription/status/{job_id}")
-
-    async def check_status(self) -> dict[str, Any]:
-        """Check transcription status."""
-        return await self._client.request("POST", "/api/v1/transcription/status")

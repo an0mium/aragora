@@ -128,10 +128,6 @@ class AudioAPI:
         """
         return self._client.request("GET", f"/audio/{audio_path}")
 
-    def get_audio_root(self) -> dict[str, Any]:
-        """Get audio endpoint root."""
-        return self._client.request("GET", "/audio")
-
 
 class AsyncAudioAPI:
     """
@@ -193,7 +189,3 @@ class AsyncAudioAPI:
     async def serve_audio(self, audio_path: str) -> dict[str, Any]:
         """Serve audio file by path. GET /audio/:path"""
         return await self._client.request("GET", f"/audio/{audio_path}")
-
-    async def get_audio_root(self) -> dict[str, Any]:
-        """Get audio endpoint root."""
-        return await self._client.request("GET", "/audio")
