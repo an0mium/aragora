@@ -106,7 +106,7 @@ def _should_use_knowledge_mound() -> bool:
         from aragora.config import get_settings
 
         return bool(get_settings().integration.knowledge_mound_enabled)
-    except Exception:
+    except (ImportError, AttributeError):
         logger.debug("Settings unavailable for KM check, using env fallback", exc_info=True)
         import os
 

@@ -430,7 +430,7 @@ class GraphRAGRetriever:
                 node = await self.graph_store.get_node(node_id)
                 content = node.content if node else ""
                 metadata = node.metadata if node else {}
-            except Exception:
+            except (KeyError, OSError, RuntimeError):
                 logger.warning("Failed to retrieve node %s from graph store", node_id, exc_info=True)
                 content = ""
                 metadata = {}
@@ -474,7 +474,7 @@ class GraphRAGRetriever:
                         if rel_weight >= config.community_coherence_threshold:
                             adjacency[node_id].add(neighbor_id)
                             adjacency[neighbor_id].add(node_id)
-            except Exception:
+            except (KeyError, OSError, RuntimeError):
                 logger.debug("Failed to process relationships for node %s", node_id, exc_info=True)
                 continue
 

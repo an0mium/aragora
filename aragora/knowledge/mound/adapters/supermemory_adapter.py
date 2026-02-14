@@ -146,7 +146,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
             if importlib.util.find_spec("supermemory") is None:
                 logger.debug("supermemory package not installed; client unavailable")
                 return None
-        except Exception:
+        except (ImportError, ValueError, AttributeError):
             logger.debug("Unable to probe supermemory package; client unavailable")
             return None
 

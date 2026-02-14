@@ -120,7 +120,7 @@ class TransactionManager:
         await conn.execute(f"SAVEPOINT {name}")
         try:
             yield
-        except Exception:
+        except Exception:  # noqa: BLE001 - Intentional: rollback savepoint before re-raising any error
             await conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
             raise
 
