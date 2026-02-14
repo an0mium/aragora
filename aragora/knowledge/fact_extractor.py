@@ -282,7 +282,7 @@ class FactExtractor:
         try:
             response = await agent.generate(prompt)
             return self._parse_extraction_response(response, chunk_id, filename)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Agent extraction failed: {e}")
             return []
 
@@ -314,7 +314,7 @@ class FactExtractor:
             response = await agent.generate(prompt)
             verified = self._parse_verification_response(response, facts)
             return verified
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.warning(f"Verification failed: {e}")
             # Return original facts if verification fails
             return facts

@@ -55,7 +55,7 @@ class NotificationHandlersMixin:
             self.stats.setdefault("plan_notification", {"events": 0, "errors": 0})
             self.stats["plan_notification"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("Plan completion notification failed: %s", e)
             self.stats.setdefault("plan_notification", {"events": 0, "errors": 0})
             self.stats["plan_notification"]["errors"] += 1
@@ -85,7 +85,7 @@ class NotificationHandlersMixin:
             self.stats.setdefault("plan_notification", {"events": 0, "errors": 0})
             self.stats["plan_notification"]["events"] += 1
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("Plan failure notification failed: %s", e)
             self.stats.setdefault("plan_notification", {"events": 0, "errors": 0})
             self.stats["plan_notification"]["errors"] += 1

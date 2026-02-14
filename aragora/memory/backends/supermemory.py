@@ -201,7 +201,7 @@ class SupermemoryBackend:
             else:
                 logger.warning(f"Failed to sync entry {entry.id}: {result.error}")
                 return False
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error syncing to Supermemory: {e}")
             return False
 
@@ -358,7 +358,7 @@ class SupermemoryBackend:
                 container_tag=container_tag,
             )
             return [(result.content, result.similarity) for result in response.results]
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error searching Supermemory: {e}")
             return []
 
@@ -465,7 +465,7 @@ class SupermemoryBackend:
                         error=f"External degraded: {external_health.get('error')}",
                         details=details,
                     )
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 details["external_error"] = str(e)
 
         return BackendHealth(

@@ -35,7 +35,7 @@ def _emit_metrics(circuit_name: str, state: int) -> None:
     if _metrics_callback:
         try:
             _metrics_callback(circuit_name, state)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics emission must never break callers
             logger.debug(f"Error emitting circuit breaker metrics: {e}")
 
 
@@ -513,7 +513,7 @@ class CircuitBreaker:
         except asyncio.CancelledError:
             # Task cancellation is not a service failure - don't record
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
             # Record all other exceptions as failures
             logger.debug(f"Circuit breaker recorded failure for {name}: {type(e).__name__}: {e}")
             self.record_failure(entity)
@@ -550,7 +550,7 @@ class CircuitBreaker:
         try:
             yield
             self.record_success(entity)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
             # Record all exceptions as failures
             logger.debug(
                 f"Circuit breaker (sync) recorded failure for {name}: {type(e).__name__}: {e}"

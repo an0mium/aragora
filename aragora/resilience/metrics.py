@@ -41,7 +41,7 @@ def emit_metrics(circuit_name: str, state: int) -> None:
     if _metrics_callback:
         try:
             _metrics_callback(circuit_name, state)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - metrics emission must never break callers
             logger.debug(f"Error emitting circuit breaker metrics: {e}")
 
 

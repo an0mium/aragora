@@ -181,7 +181,7 @@ class KnowledgeMoundOperations:
             logger.info(f"  [knowledge_mound] Retrieved {len(items)} items for context")
             return "\n".join(lines)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, KeyError) as e:
             success = False
             error_msg = str(e)
             logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")
@@ -279,7 +279,7 @@ class KnowledgeMoundOperations:
                         },
                     )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, KeyError) as e:
             error_msg = str(e)
             logger.warning(f"  [knowledge_mound] Failed to ingest outcome: {e}")
 

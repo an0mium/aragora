@@ -310,7 +310,7 @@ async def make_resilient_request(
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - HTTP retry must catch all to classify errors
             last_exception = e
 
             # Determine if this is a retryable error

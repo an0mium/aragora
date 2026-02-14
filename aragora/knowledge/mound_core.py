@@ -127,7 +127,7 @@ class KnowledgeMound:
                 logger.info("Knowledge Mound initialized with Weaviate vector store")
             except ImportError:
                 logger.warning("Weaviate not available - using SQLite-only mode")
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Failed to connect to Weaviate: {e} - using SQLite-only mode")
 
         self._initialized = True
@@ -190,7 +190,7 @@ class KnowledgeMound:
                     },
                     namespace=node.workspace_id,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Failed to save embedding to vector store: {e}")
 
         logger.debug(f"Added knowledge node: {node.id} ({node.node_type})")
@@ -307,7 +307,7 @@ class KnowledgeMound:
                     query=query,
                     processing_time_ms=elapsed_ms,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Vector search failed, falling back to keyword: {e}")
 
         # Fall back to keyword-based search
@@ -453,7 +453,7 @@ class KnowledgeMound:
         if self._vector_store:
             try:
                 await self._vector_store.delete(node_id)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Failed to delete node from vector store: {e}")
 
         return self._meta_store.delete_node(node_id)
@@ -747,7 +747,7 @@ class KnowledgeMound:
         if self._vector_store:
             try:
                 await self._vector_store.close()
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.debug(f"Error closing vector store: {e}")
         self._initialized = False
 

@@ -134,7 +134,7 @@ class TemplateLoader:
         except yaml.YAMLError as e:
             logger.error(f"YAML error in {yaml_file}: {e}")
             return None
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error(f"Failed to load template {yaml_file}: {e}")
             return None
 

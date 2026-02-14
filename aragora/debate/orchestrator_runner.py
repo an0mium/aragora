@@ -155,7 +155,7 @@ async def _run_think_prm_verification(
         # Override debate_id from context
         result.debate_id = getattr(ctx, "debate_id", "unknown")
         return result
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, OSError) as e:
         logger.warning(f"think_prm_verification_failed: {e}")
         return None
 
@@ -205,7 +205,7 @@ async def _populate_result_cost(
         if budget_limit is not None:
             result.budget_limit_usd = budget_limit
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.debug(f"cost_population_failed (non-critical): {e}")
 
 

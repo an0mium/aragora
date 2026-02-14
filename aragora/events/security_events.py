@@ -362,7 +362,7 @@ class SecurityEventEmitter:
 
             return debate_id
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Failed to trigger security debate: {e}")
             return None
 

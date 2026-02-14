@@ -684,7 +684,7 @@ def with_retry(
                     # Record success with circuit breaker
                     config.record_success()
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - retry wrapper must catch all to decide retry
                     last_exception = e
 
                     # Check if this exception type should be retried
@@ -784,7 +784,7 @@ def with_retry_sync(
                     result = func(*args, **kwargs)
                     config.record_success()
                     return result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - retry wrapper must catch all to decide retry
                     last_exception = e
 
                     if not isinstance(e, config.retryable_exceptions):
