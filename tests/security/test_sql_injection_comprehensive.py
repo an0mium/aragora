@@ -12,6 +12,7 @@ Run with: pytest tests/security/test_sql_injection_comprehensive.py -v
 import pytest
 import sqlite3
 import re
+from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from typing import Any
 
@@ -313,7 +314,7 @@ class TestTableColumnInjection:
         import os
         import ast
 
-        handlers_dir = "aragora/server/handlers"
+        handlers_dir = str(Path(__file__).resolve().parents[2] / "aragora" / "server" / "handlers")
 
         for filename in os.listdir(handlers_dir):
             if not filename.endswith(".py"):
@@ -346,7 +347,7 @@ class TestTableColumnInjection:
         """
         import os
 
-        handlers_dir = "aragora/server/handlers"
+        handlers_dir = str(Path(__file__).resolve().parents[2] / "aragora" / "server" / "handlers")
 
         # Files with known-safe dynamic GROUP BY (date_format is hardcoded from conditional)
         safe_files = {"analytics_dashboard.py"}
@@ -615,7 +616,7 @@ class TestRegressionSafety:
         """Ensure no f-string or .format() SQL construction."""
         import os
 
-        handlers_dir = "aragora/server/handlers"
+        handlers_dir = str(Path(__file__).resolve().parents[2] / "aragora" / "server" / "handlers")
         violations = []
 
         for root, dirs, files in os.walk(handlers_dir):
@@ -647,7 +648,7 @@ class TestRegressionSafety:
         """
         import os
 
-        handlers_dir = "aragora/server/handlers"
+        handlers_dir = str(Path(__file__).resolve().parents[2] / "aragora" / "server" / "handlers")
         # Count different query patterns
         safe_patterns = 0
         total_with_where = 0

@@ -34,15 +34,15 @@ def _load_manifest(path: Path) -> set[Endpoint]:
 
 
 def test_stability_manifest_matches_sdk_coverage() -> None:
-    manifest_path = Path("aragora/server/openapi/stability_manifest.json")
+    manifest_path = PROJECT_ROOT / "aragora" / "server" / "openapi" / "stability_manifest.json"
     assert manifest_path.exists(), "Stability manifest missing"
 
     stable = _load_manifest(manifest_path)
     assert stable, "Stability manifest is empty"
 
-    openapi, _deprecated_count = load_openapi(Path("docs/api/openapi.json"))
-    ts_sdk = parse_ts_sdk(iter_files(Path("sdk/typescript/src"), ".ts"))
-    py_sdk = parse_python_sdk(iter_files(Path("sdk/python/aragora_sdk/namespaces"), ".py"))
+    openapi, _deprecated_count = load_openapi(PROJECT_ROOT / "docs" / "api" / "openapi.json")
+    ts_sdk = parse_ts_sdk(iter_files(PROJECT_ROOT / "sdk" / "typescript" / "src", ".ts"))
+    py_sdk = parse_python_sdk(iter_files(PROJECT_ROOT / "sdk" / "python" / "aragora_sdk" / "namespaces", ".py"))
 
     assert stable.issubset(openapi), "Stability manifest includes endpoints not in OpenAPI"
     assert stable.issubset(ts_sdk), "Stability manifest includes endpoints missing in TS SDK"
