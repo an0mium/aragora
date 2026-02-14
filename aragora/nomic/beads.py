@@ -756,5 +756,5 @@ def reset_bead_store() -> None:
 BeadSpec: Any = None
 try:
     from aragora.nomic.stores.specs import BeadSpec  # noqa: F401
-except Exception:  # pragma: no cover - best-effort compatibility
+except (ImportError, AttributeError):  # pragma: no cover - best-effort compatibility
     pass

@@ -313,7 +313,7 @@ class ApprovalRequired(Exception):
         else:
             try:
                 normalized_gate_type = GateType(gate_type)
-            except Exception:
+            except (ValueError, KeyError):
                 normalized_gate_type = GateType.COMMIT
 
         self.gate_type = normalized_gate_type

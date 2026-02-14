@@ -666,5 +666,5 @@ def reset_convoy_manager() -> None:
 ConvoySpec: Any = None
 try:
     from aragora.nomic.stores.specs import ConvoySpec  # noqa: F401
-except Exception:  # pragma: no cover - best-effort compatibility
+except (ImportError, AttributeError):  # pragma: no cover - best-effort compatibility
     pass

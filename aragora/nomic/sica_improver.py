@@ -526,7 +526,7 @@ class SICAImprover:
 
             try:
                 content = file_path.read_text()
-            except Exception:
+            except OSError:
                 logger.debug("Failed to read %s, skipping", file_path)
                 continue
 
@@ -1132,7 +1132,7 @@ Preserve all existing functionality while fixing the issue."""
         except ValueError:
             logger.warning("Tool command validation failed", exc_info=True)
             return False
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             logger.warning("Test suite execution failed", exc_info=True)
             return False
 
