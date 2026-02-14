@@ -119,28 +119,36 @@ jobs:
           role-session-name: github-actions-deploy-${{ github.run_id }}
           aws-region: us-east-2
 
-      - name: Get staging instance ID
+      - name: Get staging instance IDs
         id: get-instance
         run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
+          # Get ALL staging instances (not just the first one)
+          INSTANCE_IDS=$(aws ec2 describe-instances \
             --filters "Name=tag:Environment,Values=staging" "Name=tag:Application,Values=aragora" "Name=instance-state-name,Values=running" \
-            --query 'Reservations[0].Instances[0].InstanceId' \
+            --query 'Reservations[].Instances[].InstanceId' \
             --output text)
 
-          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
-            echo "::error::No staging instance found with tags Environment=staging, Application=aragora"
+          if [ -z "$INSTANCE_IDS" ] || [ "$INSTANCE_IDS" == "None" ]; then
+            echo "::error::No staging instances found with tags Environment=staging, Application=aragora"
             exit 1
           fi
 
-          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-          echo "Found staging instance: $INSTANCE_ID"
+          # Convert whitespace-separated IDs to comma-separated for SSM
+          INSTANCE_IDS_CSV=$(echo "$INSTANCE_IDS" | tr '\t\n' ',' | sed 's/,$//')
+          FIRST_ID=$(echo "$INSTANCE_IDS" | awk '{print $1}')
+          COUNT=$(echo "$INSTANCE_IDS" | wc -w | tr -d ' ')
+
+          echo "instance_id=$FIRST_ID" >> $GITHUB_OUTPUT
+          echo "instance_ids=$INSTANCE_IDS_CSV" >> $GITHUB_OUTPUT
+          echo "Found $COUNT staging instance(s): $INSTANCE_IDS_CSV"
 
       - name: Deploy via SSM
         id: deploy
         run: |
-          # Send deployment command via SSM Run Command
+          # Send deployment command via SSM Run Command to ALL staging instances
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --instance-ids "${IDS[@]}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy aragora from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
@@ -166,6 +174,7 @@ jobs:
               "echo \"Environment=ARAGORA_SECRET_NAME=aragora/staging\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_ENV=staging\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_SECRETS_STRICT=false\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "sudo systemctl daemon-reload",
               "echo \"Initializing PostgreSQL stores...\"",
               "export ARAGORA_USE_SECRETS_MANAGER=true",
@@ -346,25 +355,35 @@ jobs:
           role-session-name: github-actions-deploy-prod-${{ github.run_id }}
           aws-region: us-east-2
 
-      - name: Get production instance ID
+      - name: Get production instance IDs
         id: get-instance
         run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
+          # Get ALL production instances (not just the first one)
+          INSTANCE_IDS=$(aws ec2 describe-instances \
             --filters "Name=tag:Environment,Values=production" "Name=tag:Application,Values=aragora" "Name=instance-state-name,Values=running" \
-            --query 'Reservations[0].Instances[0].InstanceId' \
+            --query 'Reservations[].Instances[].InstanceId' \
             --output text)
 
-          if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
-            echo "::error::No production instance found"
+          if [ -z "$INSTANCE_IDS" ] || [ "$INSTANCE_IDS" == "None" ]; then
+            echo "::error::No production instances found"
             exit 1
           fi
 
-          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          # Convert whitespace-separated IDs to comma-separated for SSM
+          INSTANCE_IDS_CSV=$(echo "$INSTANCE_IDS" | tr '\t\n' ',' | sed 's/,$//')
+          FIRST_ID=$(echo "$INSTANCE_IDS" | awk '{print $1}')
+          COUNT=$(echo "$INSTANCE_IDS" | wc -w | tr -d ' ')
+
+          echo "instance_id=$FIRST_ID" >> $GITHUB_OUTPUT
+          echo "instance_ids=$INSTANCE_IDS_CSV" >> $GITHUB_OUTPUT
+          echo "Found $COUNT production instance(s): $INSTANCE_IDS_CSV"
 
       - name: Deploy via SSM
         run: |
+          # Deploy to ALL production instances
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
           COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --instance-ids "${IDS[@]}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy aragora PRODUCTION from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
@@ -390,6 +409,7 @@ jobs:
               "echo \"Environment=ARAGORA_SECRET_NAME=aragora/production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_DB_BACKEND=postgres\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "echo \"Environment=ARAGORA_ENV=production\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
+              "echo \"Environment=ARAGORA_SECRETS_STRICT=false\" | sudo tee -a /etc/systemd/system/aragora.service.d/secrets.conf",
               "sudo systemctl daemon-reload",
               "echo \"Initializing PostgreSQL stores...\"",
               "export ARAGORA_USE_SECRETS_MANAGER=true",
