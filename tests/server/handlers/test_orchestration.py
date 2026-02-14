@@ -2280,7 +2280,7 @@ class TestHandlerPostMethod:
         ):
             with patch.object(handler, "check_permission", return_value=True):
                 with patch(
-                    "aragora.server.http_utils.run_async",
+                    "aragora.server.handlers.orchestration.handler.run_async",
                     return_value=OrchestrationResult(
                         request_id="sync-123",
                         success=True,
