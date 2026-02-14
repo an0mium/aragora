@@ -51,10 +51,14 @@ def mock_auth_context():
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    """Reset rate limiter before each test."""
+    """Reset rate limiter and bypass it by default.
+
+    Most tests validate handler logic (auth, validation, etc.) and should not
+    be affected by rate-limit state accumulated under parallel xdist execution.
+    Tests that specifically exercise rate limiting re-enable it explicitly.
+    """
     _graph_limiter._buckets.clear()
-    # Ensure rate limiting is enabled for tests
-    with patch("aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False):
+    with patch.object(_graph_limiter, "is_allowed", return_value=True):
         yield
 
 
@@ -401,6 +405,12 @@ class TestHandlePost:
 
 class TestRateLimiting:
     """Tests for rate limiting."""
+
+    @pytest.fixture(autouse=True)
+    def reset_rate_limiter(self):
+        """Re-enable real rate limiter for rate limit tests."""
+        _graph_limiter._buckets.clear()
+        yield
 
     @pytest.mark.asyncio
     async def test_rate_limit_exceeded(self, handler, mock_http_handler, mock_auth_context):
