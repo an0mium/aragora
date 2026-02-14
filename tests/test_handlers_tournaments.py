@@ -11,15 +11,39 @@ from aragora.server.handlers.tournaments import TournamentHandler, TOURNAMENT_AV
 @pytest.fixture(autouse=True)
 def _bypass_rbac(monkeypatch):
     """Bypass RBAC for tournament handler tests."""
-    from aragora.server.handlers.utils import decorators as handler_decorators
+    from aragora.rbac.models import AuthorizationContext
 
-    mock_ctx = MagicMock()
-    mock_ctx.is_authenticated = True
-    mock_ctx.user_id = "test_user"
-    mock_ctx.role = "admin"
-    monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_ctx)
-    yield
-    monkeypatch.setattr(handler_decorators, "_test_user_context_override", None)
+    mock_auth_ctx = AuthorizationContext(
+        user_id="test-user-001",
+        user_email="test@example.com",
+        org_id="test-org-001",
+        roles={"admin", "owner"},
+        permissions={"*"},
+    )
+
+    # Bypass v1 @require_permission (server.handlers.utils.decorators)
+    try:
+        from aragora.server.handlers.utils import decorators as handler_decorators
+
+        monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_auth_ctx)
+    except (ImportError, AttributeError):
+        pass
+
+    # Bypass v2 @require_permission (rbac.decorators)
+    try:
+        from aragora.rbac import decorators
+
+        original_get_context = decorators._get_context_from_args
+
+        def patched_get_context_from_args(args, kwargs, context_param):
+            result = original_get_context(args, kwargs, context_param)
+            if result is None:
+                return mock_auth_ctx
+            return result
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context_from_args)
+    except (ImportError, AttributeError):
+        pass
 
 
 class MockStanding:
