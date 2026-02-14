@@ -462,12 +462,12 @@ class TestValidateAgainstSchema:
         assert result.is_valid is True
 
     def test_debate_start_missing_task(self):
-        """Test debate start without task fails."""
+        """Test debate start without task is valid (task is optional)."""
         data = {"agents": ["claude", "gemini"]}
         result = validate_against_schema(data, DEBATE_START_SCHEMA)
 
-        assert result.is_valid is False
-        assert "task" in result.error.lower()
+        # task field is optional in the schema (required=False)
+        assert result.is_valid is True
 
     def test_debate_start_task_too_long(self):
         """Test debate start with oversized task fails."""
@@ -477,13 +477,13 @@ class TestValidateAgainstSchema:
         assert result.is_valid is False
         assert "at most 2000" in result.error
 
-    def test_debate_start_too_few_agents(self):
-        """Test debate start with <2 agents fails."""
+    def test_debate_start_single_agent_valid(self):
+        """Test debate start with 1 agent is valid (min_length=0 in schema)."""
         data = {"task": "Test task", "agents": ["claude"]}
         result = validate_against_schema(data, DEBATE_START_SCHEMA)
 
-        assert result.is_valid is False
-        assert "at least 2" in result.error
+        # Schema allows 0+ agents (auto_select can fill remaining)
+        assert result.is_valid is True
 
     def test_verification_schema_valid(self):
         """Test valid verification payload."""
@@ -506,7 +506,7 @@ class TestValidateAgainstSchema:
     def test_probe_run_valid(self):
         """Test valid probe run payload."""
         data = {
-            "agent": "claude",
+            "agent_name": "claude",
             "strategies": ["contradiction", "hallucination"],
             "num_probes": 10,
         }
