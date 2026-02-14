@@ -1208,6 +1208,8 @@ class TestRegisterKMAdaptersDeep:
     def test_register_adapters_handles_registration_error(self):
         """Test _register_km_adapters handles adapter registration failure."""
         mock_km_coord = Mock()
+        # adapter_count is used in a %d format string, must be a real number
+        mock_km_coord.adapter_count = 0
 
         # Disable all auto-inits to isolate the test from module-level state
         # that prior tests may have modified (SDPO imports, bridge factories, etc.)
@@ -1221,6 +1223,7 @@ class TestRegisterKMAdaptersDeep:
 
         # Reset mock to clear any calls from __post_init__ auto-init side effects
         mock_km_coord.reset_mock()
+        mock_km_coord.adapter_count = 0
 
         # Now set up the error side_effect and call manually
         mock_km_coord.register_adapter.side_effect = RuntimeError("Registration failed")
