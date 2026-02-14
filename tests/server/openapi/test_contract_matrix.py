@@ -43,7 +43,15 @@ TS_DIRECT_RE = re.compile(
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    # Try __file__ first, fall back to CWD if the expected marker doesn't exist
+    root = Path(__file__).resolve().parents[3]
+    if (root / "pyproject.toml").exists():
+        return root
+    # Fallback: CWD should be the repo root in CI
+    cwd = Path.cwd()
+    if (cwd / "pyproject.toml").exists():
+        return cwd
+    return root
 
 
 def _normalize_path(path: str) -> str:

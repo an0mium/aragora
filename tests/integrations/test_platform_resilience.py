@@ -128,7 +128,14 @@ class TestDistributedRateLimiter:
 
 
 class TestPlatformCircuitBreaker:
-    """Tests for platform-level circuit breakers."""
+    """Tests for platform-level circuit breakers.
+
+    Each test uses a unique platform name to avoid sharing circuit breaker
+    state through the global registry (aragora.resilience.registry._circuit_breakers).
+    The PlatformCircuitBreaker.__post_init__ calls get_circuit_breaker("platform:<name>")
+    which returns a cached instance if the name already exists, so reusing "test"
+    across tests causes ordering-dependent failures.
+    """
 
     def test_circuit_starts_closed(self):
         """Circuit should start in closed state."""
@@ -137,7 +144,7 @@ class TestPlatformCircuitBreaker:
             PlatformStatus,
         )
 
-        circuit = PlatformCircuitBreaker(platform="test", failure_threshold=3)
+        circuit = PlatformCircuitBreaker(platform="test-starts-closed", failure_threshold=3)
         assert circuit.can_proceed()
         health = circuit.get_health()
         assert health.status == PlatformStatus.HEALTHY
@@ -151,7 +158,7 @@ class TestPlatformCircuitBreaker:
         )
 
         circuit = PlatformCircuitBreaker(
-            platform="test",
+            platform="test-opens-after-failures",
             failure_threshold=3,
             cooldown_seconds=60.0,
         )
@@ -174,7 +181,7 @@ class TestPlatformCircuitBreaker:
         """Circuit should track latency metrics."""
         from aragora.integrations.platform_resilience import PlatformCircuitBreaker
 
-        circuit = PlatformCircuitBreaker(platform="test")
+        circuit = PlatformCircuitBreaker(platform="test-records-latency")
 
         circuit.record_success(latency_ms=100)
         circuit.record_success(latency_ms=200)
@@ -188,11 +195,11 @@ class TestPlatformCircuitBreaker:
         """Same platform should return same circuit."""
         from aragora.integrations.platform_resilience import get_platform_circuit
 
-        circuit1 = get_platform_circuit("slack")
-        circuit2 = get_platform_circuit("slack")
+        circuit1 = get_platform_circuit("test-singleton-slack")
+        circuit2 = get_platform_circuit("test-singleton-slack")
         assert circuit1 is circuit2
 
-        circuit3 = get_platform_circuit("discord")
+        circuit3 = get_platform_circuit("test-singleton-discord")
         assert circuit1 is not circuit3
 
 

@@ -504,11 +504,16 @@ class TestIntegration:
     def test_preserves_async_function(self):
         """Test that async functions remain async."""
         import asyncio
+        import inspect
 
         @api_endpoint(path="/api/async", method="GET", summary="Async", tags=["Test"])
         async def async_handler():
             return "async result"
 
-        # Should be able to run as async
-        result = asyncio.get_event_loop().run_until_complete(async_handler())
+        # Verify it's still a coroutine function
+        assert inspect.iscoroutinefunction(async_handler)
+
+        # Use asyncio.run() instead of get_event_loop() to avoid
+        # RuntimeError when no event loop exists in the thread
+        result = asyncio.run(async_handler())
         assert result == "async result"
