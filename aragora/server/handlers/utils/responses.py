@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import warnings
 from dataclasses import dataclass
 from typing import Any
 
@@ -414,12 +413,6 @@ def success_response(
         return success_response(items, message="Found 5 items")
         # -> {"success": true, "data": items, "message": "Found 5 items"}
     """
-    warnings.warn(
-        "success_response() is deprecated. Use json_response(data) instead, "
-        "or json_response({'success': True, 'data': data}) if you need the wrapped format.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     payload: dict[str, Any] = {"success": True, "data": data}
     if message:
         payload["message"] = message

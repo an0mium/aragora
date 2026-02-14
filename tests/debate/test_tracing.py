@@ -620,7 +620,7 @@ class TestWithDebateContextDecorator:
         async def my_async():
             return get_debate_id()
 
-        result = asyncio.get_event_loop().run_until_complete(my_async())
+        result = asyncio.run(my_async())
         assert result == "async-debate"
 
     def test_preserves_return_value_sync(self):
@@ -635,7 +635,7 @@ class TestWithDebateContextDecorator:
         async def mul(a, b):
             return a * b
 
-        result = asyncio.get_event_loop().run_until_complete(mul(4, 5))
+        result = asyncio.run(mul(4, 5))
         assert result == 20
 
 
@@ -677,7 +677,7 @@ class TestTraceAgentCallDecorator:
                 return "async-result"
 
         svc = Service()
-        result = asyncio.get_event_loop().run_until_complete(svc.run(FakeAgent()))
+        result = asyncio.run(svc.run(FakeAgent()))
         assert result == "async-result"
         assert len(recorder.spans) == 1
         s = recorder.spans[0]
@@ -713,7 +713,7 @@ class TestTraceAgentCallDecorator:
 
         svc = Service()
         with pytest.raises(ValueError, match="async agent failed"):
-            asyncio.get_event_loop().run_until_complete(svc.run(FakeAgent()))
+            asyncio.run(svc.run(FakeAgent()))
         assert len(recorder.spans) == 1
         assert recorder.spans[0].attributes["success"] is False
 

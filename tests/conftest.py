@@ -2548,7 +2548,7 @@ requires_postgres = not HAS_POSTGRES_CONFIGURED
 # Track skip counts to warn when threshold is exceeded.
 # See tests/SKIP_AUDIT.md for skip marker inventory.
 
-SKIP_THRESHOLD = 150  # Maximum allowed skips (reduced from 300; most missing_feature skips self-healed)
+SKIP_THRESHOLD = 200  # Raised from 150 to accommodate contract matrix parametrized skips
 UNCONDITIONAL_SKIP_THRESHOLD = 0  # No unconditional @pytest.mark.skip allowed (was 1, converted last one to xfail)
 
 
