@@ -309,6 +309,15 @@ class TestGmailTokenStoreEncryption:
 class TestSyncStoreEncryption:
     """Tests for encryption in SyncStore (enterprise connectors)."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_encryption_singleton(self):
+        """Reset encryption service singleton before each test."""
+        import aragora.security.encryption as enc_mod
+        saved = enc_mod._encryption_service
+        enc_mod._encryption_service = None
+        yield
+        enc_mod._encryption_service = saved
+
     @pytest.mark.asyncio
     async def test_connector_credentials_encrypted(self, tmp_path) -> None:
         """Test that connector credentials are encrypted."""
