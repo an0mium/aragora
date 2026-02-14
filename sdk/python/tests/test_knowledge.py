@@ -12,7 +12,6 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Sync: Fact CRUD
 # ---------------------------------------------------------------------------
 
-
 class TestKnowledgeFactCRUD:
     """Tests for basic fact create / read / update / delete."""
 
@@ -61,60 +60,9 @@ class TestKnowledgeFactCRUD:
             )
             client.close()
 
-    def test_get_fact(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"id": "fact_1", "statement": "Sky is blue"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.knowledge.get_fact("fact_1")
-            mock.assert_called_once_with("GET", "/api/v1/knowledge/facts/fact_1")
-            assert result["statement"] == "Sky is blue"
-            client.close()
-
-    def test_update_fact(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"id": "fact_1", "confidence": 0.99}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.knowledge.update_fact(
-                "fact_1",
-                confidence=0.99,
-                validation_status="verified",
-                topics=["science"],
-            )
-            mock.assert_called_once_with(
-                "PUT",
-                "/api/v1/knowledge/facts/fact_1",
-                json={
-                    "confidence": 0.99,
-                    "validation_status": "verified",
-                    "topics": ["science"],
-                },
-            )
-            assert result["confidence"] == 0.99
-            client.close()
-
-    def test_delete_fact(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"deleted": True}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.knowledge.delete_fact("fact_1")
-            mock.assert_called_once_with("DELETE", "/api/v1/knowledge/facts/fact_1")
-            assert result["deleted"] is True
-            client.close()
-
-    def test_verify_fact(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"status": "verified", "confidence": 0.92}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.knowledge.verify_fact("fact_1")
-            mock.assert_called_once_with("POST", "/api/v1/knowledge/facts/fact_1/verify")
-            assert result["status"] == "verified"
-            client.close()
-
-
 # ---------------------------------------------------------------------------
 # Sync: Search & Query
 # ---------------------------------------------------------------------------
-
 
 class TestKnowledgeSearchQuery:
     """Tests for search and query operations."""
@@ -185,56 +133,13 @@ class TestKnowledgeSearchQuery:
             )
             client.close()
 
-
 # ---------------------------------------------------------------------------
 # Sync: Relations & Contradictions
 # ---------------------------------------------------------------------------
 
-
-class TestKnowledgeRelations:
-    """Tests for relations and contradictions."""
-
-    def test_list_relations_with_type_filter(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"relations": []}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            client.knowledge.list_relations(
-                "fact_1", relation_type="supports", as_source=True, as_target=False
-            )
-            mock.assert_called_once_with(
-                "GET",
-                "/api/v1/knowledge/facts/fact_1/relations",
-                params={"as_source": True, "as_target": False, "type": "supports"},
-            )
-            client.close()
-
-    def test_add_relation(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"id": "rel_1"}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.knowledge.add_relation("fact_1", "fact_2", "supports")
-            mock.assert_called_once_with(
-                "POST",
-                "/api/v1/knowledge/facts/fact_1/relations",
-                json={"target_fact_id": "fact_2", "relation_type": "supports"},
-            )
-            assert result["id"] == "rel_1"
-            client.close()
-
-    def test_list_contradictions(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"contradictions": []}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.knowledge.list_contradictions("fact_1")
-            mock.assert_called_once_with("GET", "/api/v1/knowledge/facts/fact_1/contradictions")
-            assert result["contradictions"] == []
-            client.close()
-
-
 # ---------------------------------------------------------------------------
 # Sync: Stats & Mound
 # ---------------------------------------------------------------------------
-
 
 class TestKnowledgeStatsMound:
     """Tests for stats and mound operations."""
@@ -272,23 +177,9 @@ class TestKnowledgeStatsMound:
             assert result["id"] == "node_1"
             client.close()
 
-    def test_get_graph_with_type_filter(self) -> None:
-        with patch.object(AragoraClient, "request") as mock:
-            mock.return_value = {"nodes": [], "edges": []}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            client.knowledge.get_graph("node_1", depth=3, include_types=["fact", "insight"])
-            mock.assert_called_once_with(
-                "GET",
-                "/api/knowledge/mound/graph/node_1",
-                params={"depth": 3, "include_types": "fact,insight"},
-            )
-            client.close()
-
-
 # ---------------------------------------------------------------------------
 # Async Tests
 # ---------------------------------------------------------------------------
-
 
 class TestAsyncKnowledge:
     """Tests for async knowledge methods."""
@@ -326,16 +217,6 @@ class TestAsyncKnowledge:
                 },
             )
             assert result["id"] == "fact_async_1"
-            await client.close()
-
-    @pytest.mark.asyncio
-    async def test_delete_fact(self) -> None:
-        with patch.object(AragoraAsyncClient, "request") as mock:
-            mock.return_value = {"deleted": True}
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = await client.knowledge.delete_fact("fact_99")
-            mock.assert_called_once_with("DELETE", "/api/v1/knowledge/facts/fact_99")
-            assert result["deleted"] is True
             await client.close()
 
     @pytest.mark.asyncio

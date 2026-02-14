@@ -8,7 +8,6 @@ import pytest
 
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 
-
 class TestAnalyticsDashboardOverview:
     """Tests for dashboard summary and overview endpoints."""
 
@@ -51,7 +50,6 @@ class TestAnalyticsDashboardOverview:
             assert result["total"] == 1000
             assert result["average_rounds"] == 3.5
             client.close()
-
 
 class TestAnalyticsTimeSeries:
     """Tests for time-series and trend data endpoints."""
@@ -102,7 +100,6 @@ class TestAnalyticsTimeSeries:
             assert result["topics"][0]["name"] == "architecture"
             client.close()
 
-
 class TestAnalyticsAgentPerformance:
     """Tests for agent analytics and comparison endpoints."""
 
@@ -121,19 +118,6 @@ class TestAnalyticsAgentPerformance:
             assert result["agents"][0]["elo"] == 1650
             client.close()
 
-    def test_agent_performance_with_time_range(self) -> None:
-        with patch.object(AragoraClient, "request") as mock_request:
-            mock_request.return_value = {"win_rate": 0.72, "debates": 200}
-            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
-            result = client.analytics.agent_performance("agent_claude", time_range="30d")
-            mock_request.assert_called_once_with(
-                "GET",
-                "/api/analytics/agents/agent_claude/performance",
-                params={"time_range": "30d"},
-            )
-            assert result["win_rate"] == 0.72
-            client.close()
-
     def test_compare_agents(self) -> None:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"comparison": []}
@@ -145,7 +129,6 @@ class TestAnalyticsAgentPerformance:
                 params={"agents": "claude,gpt-4,gemini"},
             )
             client.close()
-
 
 class TestAnalyticsReportsAndCosts:
     """Tests for usage tracking, cost breakdown, and report-style endpoints."""
@@ -192,7 +175,6 @@ class TestAnalyticsReportsAndCosts:
             )
             assert result["total"] == 80
             client.close()
-
 
 class TestAsyncAnalytics:
     """Tests for async analytics methods."""

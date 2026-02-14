@@ -1057,35 +1057,30 @@ class TestEncryptionError:
 class TestGlobalService:
     """Tests for global encryption service management."""
 
-    def test_init_encryption_service(self):
-        """init_encryption_service should create and return service."""
+    @pytest.fixture(autouse=True)
+    def _reset_encryption_singleton(self):
+        """Reset global encryption service before/after each test."""
         import aragora.security.encryption as enc_module
 
-        # Reset singleton
+        enc_module._encryption_service = None
+        yield
         enc_module._encryption_service = None
 
+    def test_init_encryption_service(self):
+        """init_encryption_service should create and return service."""
         master_key = os.urandom(32)
         service = init_encryption_service(master_key=master_key)
 
         assert service is not None
         assert service.get_active_key_id() == "master"
 
-        # Clean up
-        enc_module._encryption_service = None
-
     def test_init_encryption_service_with_config(self):
         """init_encryption_service should accept config."""
-        import aragora.security.encryption as enc_module
-
-        enc_module._encryption_service = None
-
         config = EncryptionConfig(default_key_ttl_days=30)
         master_key = os.urandom(32)
         service = init_encryption_service(config=config, master_key=master_key)
 
         assert service.config.default_key_ttl_days == 30
-
-        enc_module._encryption_service = None
 
 
 # ============================================================================
