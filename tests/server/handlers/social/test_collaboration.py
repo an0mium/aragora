@@ -41,16 +41,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Try to import the handler module
-try:
-    from aragora.server.handlers.social.collaboration import CollaborationHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    CollaborationHandler = None
-
-pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="CollaborationHandler not available")
+from aragora.server.handlers.social.collaboration import CollaborationHandler
 
 
 # ===========================================================================

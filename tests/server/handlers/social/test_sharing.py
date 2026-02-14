@@ -40,16 +40,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Try to import the handler module
-try:
-    from aragora.server.handlers.social.sharing import SharingHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    SharingHandler = None
-
-pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="SharingHandler not available")
+from aragora.server.handlers.social.sharing import SharingHandler
 
 
 # ===========================================================================

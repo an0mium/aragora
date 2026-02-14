@@ -115,6 +115,9 @@ class TournamentHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for tournament endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        if not path.startswith("/api/tournaments"):
+            return None
+
         if path == "/api/tournaments":
             return self._list_tournaments()
 
@@ -123,6 +126,10 @@ class TournamentHandler(BaseHandler):
 
         if not tournament_id:
             return error_response("Tournament ID required", 400)
+
+        # Validate tournament ID to prevent path traversal
+        if ".." in tournament_id or "/" in tournament_id or ";" in tournament_id:
+            return error_response("Invalid tournament ID", 400)
 
         # /api/tournaments/{id}
         if len(parts) == 4:
@@ -173,6 +180,10 @@ class TournamentHandler(BaseHandler):
 
         if not tournament_id:
             return error_response("Tournament ID required", 400)
+
+        # Validate tournament ID to prevent path traversal
+        if ".." in tournament_id or "/" in tournament_id or ";" in tournament_id:
+            return error_response("Invalid tournament ID", 400)
 
         # POST /api/tournaments/{id}/advance - Advance round
         if len(parts) == 5 and parts[4] == "advance":

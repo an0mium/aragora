@@ -40,16 +40,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Try to import the handler module
-try:
-    from aragora.server.handlers.sme.slack_workspace import SlackWorkspaceHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    SlackWorkspaceHandler = None
-
-pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="SlackWorkspaceHandler not available")
+from aragora.server.handlers.sme.slack_workspace import SlackWorkspaceHandler
 
 
 # ===========================================================================

@@ -37,16 +37,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Try to import the module
-try:
-    from aragora.server.handlers.social import chat_events
-
-    MODULE_AVAILABLE = True
-except ImportError:
-    MODULE_AVAILABLE = False
-    chat_events = None
-
-pytestmark = pytest.mark.skipif(not MODULE_AVAILABLE, reason="chat_events module not available")
+from aragora.server.handlers.social import chat_events
 
 
 # ===========================================================================

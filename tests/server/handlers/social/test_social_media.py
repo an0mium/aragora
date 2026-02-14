@@ -41,16 +41,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Try to import the handler module
-try:
-    from aragora.server.handlers.social.social_media import SocialMediaHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    SocialMediaHandler = None
-
-pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="SocialMediaHandler not available")
+from aragora.server.handlers.social.social_media import SocialMediaHandler
 
 
 # ===========================================================================

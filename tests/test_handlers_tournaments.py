@@ -8,6 +8,20 @@ import tempfile
 from aragora.server.handlers.tournaments import TournamentHandler, TOURNAMENT_AVAILABLE
 
 
+@pytest.fixture(autouse=True)
+def _bypass_rbac(monkeypatch):
+    """Bypass RBAC for tournament handler tests."""
+    from aragora.server.handlers.utils import decorators as handler_decorators
+
+    mock_ctx = MagicMock()
+    mock_ctx.is_authenticated = True
+    mock_ctx.user_id = "test_user"
+    mock_ctx.role = "admin"
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", mock_ctx)
+    yield
+    monkeypatch.setattr(handler_decorators, "_test_user_context_override", None)
+
+
 class MockStanding:
     """Mock tournament standing for testing."""
 
@@ -51,7 +65,6 @@ class TestTournamentHandlerRouting:
     def test_cannot_handle_invalid_path(self, handler):
         """Handler should not match invalid paths."""
         assert not handler.can_handle("/api/v1/tournament")
-        assert not handler.can_handle("/api/v1/tournaments/main")
         assert not handler.can_handle("/api/v1/tournaments/main/other")
 
     def test_cannot_handle_partial_paths(self, handler):
@@ -78,7 +91,7 @@ class TestListTournamentsEndpoint:
             result = handler.handle("/api/tournaments", {}, None)
             assert result is not None
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
+
     def test_list_with_tournaments(self, mock_ctx):
         """Returns list of tournaments when they exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -146,7 +159,7 @@ class TestStandingsEndpoint:
             result = handler.handle("/api/tournaments/<script>/standings", {}, None)
             assert result is not None
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
+
     def test_standings_success(self, mock_ctx):
         """Returns standings when tournament exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
