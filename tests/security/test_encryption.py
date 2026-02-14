@@ -21,17 +21,8 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
-# Check if cryptography is available
-try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-    from cryptography.exceptions import InvalidTag
-
-    CRYPTO_AVAILABLE = True
-except ImportError:
-    CRYPTO_AVAILABLE = False
-
-# Skip all tests if cryptography is not available
-pytestmark = pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography package not installed")
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+from cryptography.exceptions import InvalidTag  # noqa: F401
 
 from aragora.security.encryption import (
     EncryptionService,

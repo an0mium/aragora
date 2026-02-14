@@ -399,19 +399,22 @@ class TestIntegration:
 
             rate_limit_mod = sys.modules["aragora.server.handlers.utils.rate_limit"]
 
-        # Save the _limiters dict and _limiters_lock before reload.
-        # importlib.reload() re-executes module-level code, creating a new
-        # _limiters dict. This orphans RateLimiter objects captured in decorator
-        # closures, making clear_all_limiters() unable to reset them.
+        # Save state before reload.  importlib.reload() re-executes
+        # module-level code, creating new _limiters dict and re-evaluating
+        # RATE_LIMITING_DISABLED.  We must restore these on the NEW module
+        # so that existing RateLimiter objects (whose __globals__ points to
+        # the OLD module dict) and new code all see consistent state.
         saved_limiters = dict(rate_limit_mod._limiters)
         saved_lock = rate_limit_mod._limiters_lock
+        saved_disabled = rate_limit_mod.RATE_LIMITING_DISABLED
 
         # Re-import to ensure validation runs
         importlib.reload(rate_limit_mod)
 
-        # Restore saved limiters into the new dict so they're not orphaned
+        # Restore saved state into the reloaded module
         rate_limit_mod._limiters.update(saved_limiters)
         rate_limit_mod._limiters_lock = saved_lock
+        rate_limit_mod.RATE_LIMITING_DISABLED = saved_disabled
 
         # If we get here without error, validation passed
         assert True

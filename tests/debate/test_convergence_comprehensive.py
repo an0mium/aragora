@@ -482,19 +482,16 @@ class TestMultipleBackends:
 
     def test_tfidf_backend_available(self):
         """Test TF-IDF backend if scikit-learn is available."""
-        try:
-            backend = TFIDFBackend()
+        backend = TFIDFBackend()
 
-            text1 = "machine learning algorithms for data science"
-            text2 = "machine learning techniques for data analysis"
+        text1 = "machine learning algorithms for data science"
+        text2 = "machine learning techniques for data analysis"
 
-            similarity = backend.compute_similarity(text1, text2)
+        similarity = backend.compute_similarity(text1, text2)
 
-            # Should have high similarity due to semantic overlap
-            assert similarity > 0.5
-            assert similarity <= 1.0
-        except ImportError:
-            pytest.skip("scikit-learn not available")
+        # Should have high similarity due to semantic overlap
+        assert similarity > 0.5
+        assert similarity <= 1.0
 
     def test_backend_selection_auto(self):
         """Test automatic backend selection."""
@@ -1438,20 +1435,14 @@ class TestTFIDFBackendConvergence:
     @pytest.fixture
     def tfidf_detector(self):
         """Create detector with TF-IDF backend if available."""
-        try:
-            from aragora.debate.similarity.backends import TFIDFBackend
+        from aragora.debate.similarity.backends import TFIDFBackend
 
-            TFIDFBackend()  # Test if it can be created
-            return ConvergenceDetector()  # Will select TFIDF if sklearn available
-        except ImportError:
-            pytest.skip("scikit-learn not available")
+        TFIDFBackend()  # Test if it can be created
+        return ConvergenceDetector()  # Will select TFIDF if sklearn available
 
     def test_tfidf_within_round_convergence(self, clean_cache_state):
         """Test within-round convergence with TF-IDF backend."""
-        try:
-            backend = TFIDFBackend()
-        except ImportError:
-            pytest.skip("scikit-learn not available")
+        backend = TFIDFBackend()
 
         # Create detector with TF-IDF backend
         detector = ConvergenceDetector()
@@ -1473,10 +1464,7 @@ class TestTFIDFBackendConvergence:
 
     def test_tfidf_analyzer_diversity(self, clean_cache_state):
         """Test analyzer diversity computation with TF-IDF backend."""
-        try:
-            backend = TFIDFBackend()
-        except ImportError:
-            pytest.skip("scikit-learn not available")
+        backend = TFIDFBackend()
 
         analyzer = AdvancedConvergenceAnalyzer(
             similarity_backend=backend,

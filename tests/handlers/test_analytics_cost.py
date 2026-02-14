@@ -57,6 +57,13 @@ def _make_mixin_instance():
     return TestHandler()
 
 
+def _mock_handler():
+    """Create a mock HTTP handler with headers for auth bypass."""
+    h = MagicMock()
+    h.headers = {"Authorization": "Bearer test-token"}
+    return h
+
+
 def _parse_body(result) -> dict:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body)
