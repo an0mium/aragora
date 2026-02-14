@@ -54,7 +54,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.listAvailable();
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/integrations/available');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/available');
       expect(result.integrations).toHaveLength(3);
     });
 
@@ -72,7 +72,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.getConfigSchema('slack');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/integrations/config/slack');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/config/slack');
       expect(result.type).toBe('slack');
     });
   });
@@ -94,7 +94,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.list();
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/integrations');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations');
       expect(result.integrations).toHaveLength(2);
     });
 
@@ -110,7 +110,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.get('i1');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/integrations/i1');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/i1');
       expect(result.status).toBe('connected');
     });
 
@@ -129,7 +129,7 @@ describe('IntegrationsAPI Namespace', () => {
         config: { workspace_id: 'T123456' },
       });
 
-      expect(mockClient.post).toHaveBeenCalledWith('/api/integrations', {
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/integrations', {
         type: 'slack',
         name: 'My Slack',
         config: { workspace_id: 'T123456' },
@@ -143,7 +143,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.update('i1', { name: 'Updated Name', enabled: false });
 
-      expect(mockClient.put).toHaveBeenCalledWith('/api/integrations/i1', {
+      expect(mockClient.put).toHaveBeenCalledWith('/api/v1/integrations/i1', {
         name: 'Updated Name',
         enabled: false,
       });
@@ -154,7 +154,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.delete('i1');
 
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/integrations/i1');
+      expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/integrations/i1');
       expect(result.deleted).toBe(true);
     });
   });
@@ -169,7 +169,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.test('i1');
 
-      expect(mockClient.post).toHaveBeenCalledWith('/api/integrations/i1/test');
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/integrations/i1/test');
       expect(result.success).toBe(true);
     });
 
@@ -183,7 +183,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.sync('i1');
 
-      expect(mockClient.post).toHaveBeenCalledWith('/api/integrations/i1/sync');
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/integrations/i1/sync');
       expect(result.status).toBe('syncing');
     });
 
@@ -198,7 +198,7 @@ describe('IntegrationsAPI Namespace', () => {
 
       const result = await api.getSyncStatus('i1');
 
-      expect(mockClient.get).toHaveBeenCalledWith('/api/integrations/i1/sync');
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/integrations/i1/sync');
       expect(result.items_synced).toBe(1500);
     });
   });

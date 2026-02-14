@@ -207,7 +207,7 @@ class IntegrationsAPI:
 
     def get_slack_status(self) -> dict[str, Any]:
         """Get Slack bot connection status."""
-        return self._client.request("GET", "/api/v1/bots/slack/status")
+        return self._client.request("GET", "/api/v1/integrations/slack/status")
 
     def get_telegram_status(self) -> dict[str, Any]:
         """Get Telegram bot connection status."""
