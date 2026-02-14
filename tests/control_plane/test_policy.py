@@ -1130,7 +1130,7 @@ class TestRedisPolicyCache:
             result = await cache.get("task", "agent", "region")
             assert result is None
 
-        asyncio.get_event_loop().run_until_complete(test())
+        asyncio.run(test())
 
     def test_cache_key_generation(self, cache):
         """Test cache key generation is deterministic."""
@@ -1325,7 +1325,7 @@ class TestPolicySyncScheduler:
             await scheduler.sync_now()
             assert scheduler.get_status()["sync_count"] == 2
 
-        asyncio.get_event_loop().run_until_complete(run_test())
+        asyncio.run(run_test())
 
 
 class TestGovernanceIntegration:

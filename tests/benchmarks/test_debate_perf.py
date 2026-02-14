@@ -35,7 +35,7 @@ def _timed_runs(fn: Any, iterations: int) -> list[float]:
         start = time.perf_counter()
         result = fn()
         if asyncio.iscoroutine(result):
-            asyncio.get_event_loop().run_until_complete(result)
+            asyncio.run(result)
         elapsed = (time.perf_counter() - start) * 1000
         times.append(elapsed)
     return times

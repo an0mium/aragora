@@ -147,15 +147,13 @@ class TestGenericInMemoryStore:
 
     def test_filter_by(self, store):
         """Should filter items by field value."""
-        asyncio.get_event_loop().run_until_complete(
-            store.save({"item_id": "1", "status": "active"})
-        )
-        asyncio.get_event_loop().run_until_complete(
-            store.save({"item_id": "2", "status": "inactive"})
-        )
-        asyncio.get_event_loop().run_until_complete(
-            store.save({"item_id": "3", "status": "active"})
-        )
+
+        async def _setup():
+            await store.save({"item_id": "1", "status": "active"})
+            await store.save({"item_id": "2", "status": "inactive"})
+            await store.save({"item_id": "3", "status": "active"})
+
+        asyncio.run(_setup())
         result = store._filter_by("status", "active")
         assert len(result) == 2
 

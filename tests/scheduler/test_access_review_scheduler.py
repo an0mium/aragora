@@ -36,6 +36,14 @@ from aragora.scheduler.access_review_scheduler import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_storage_conn():
+    """Reset AccessReviewStorage context-local connection between tests."""
+    AccessReviewStorage._conn_var.set(None)
+    yield
+    AccessReviewStorage._conn_var.set(None)
+
+
 # =============================================================================
 # Enum Tests
 # =============================================================================

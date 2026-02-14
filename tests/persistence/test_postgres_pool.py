@@ -274,7 +274,7 @@ class TestPoolInitialization:
         )
 
         # Run initialization
-        asyncio.get_event_loop().run_until_complete(pool.initialize())
+        asyncio.run(pool.initialize())
 
         # Verify create_pool was called for primary
         mock_create_pool.assert_called_once_with(
@@ -288,7 +288,7 @@ class TestPoolInitialization:
         assert pool._initialized is True
 
         # Cleanup
-        asyncio.get_event_loop().run_until_complete(pool.close())
+        asyncio.run(pool.close())
 
     def test_pool_initialization_with_replicas(self, mock_create_pool, mock_asyncpg_pool):
         """Verify replica pools are created during initialization."""
@@ -303,7 +303,7 @@ class TestPoolInitialization:
         )
 
         # Run initialization
-        asyncio.get_event_loop().run_until_complete(pool.initialize())
+        asyncio.run(pool.initialize())
 
         # Verify create_pool was called for primary and both replicas
         assert mock_create_pool.call_count == 3
@@ -320,7 +320,7 @@ class TestPoolInitialization:
         assert pool._health_task is not None
 
         # Cleanup
-        asyncio.get_event_loop().run_until_complete(pool.close())
+        asyncio.run(pool.close())
 
     def test_initialization_is_idempotent(self, mock_create_pool, mock_asyncpg_pool):
         """Multiple initialize calls only create pools once."""
@@ -329,14 +329,14 @@ class TestPoolInitialization:
         )
 
         # Initialize twice
-        asyncio.get_event_loop().run_until_complete(pool.initialize())
-        asyncio.get_event_loop().run_until_complete(pool.initialize())
+        asyncio.run(pool.initialize())
+        asyncio.run(pool.initialize())
 
         # Should only call create_pool once
         assert mock_create_pool.call_count == 1
 
         # Cleanup
-        asyncio.get_event_loop().run_until_complete(pool.close())
+        asyncio.run(pool.close())
 
     def test_initialization_without_asyncpg(self):
         """Initialization handles missing asyncpg gracefully."""
@@ -347,7 +347,7 @@ class TestPoolInitialization:
         with patch.dict("sys.modules", {"asyncpg": None}):
             with patch("builtins.__import__", side_effect=ImportError("No module named 'asyncpg'")):
                 # Should not raise, just log warning
-                asyncio.get_event_loop().run_until_complete(pool.initialize())
+                asyncio.run(pool.initialize())
 
         # Pool should not be initialized
         assert pool._primary_pool is None
@@ -374,7 +374,7 @@ class TestPoolInitialization:
         )
 
         # Should not raise
-        asyncio.get_event_loop().run_until_complete(pool.initialize())
+        asyncio.run(pool.initialize())
 
         # Primary should work
         assert pool._primary_pool is not None
@@ -383,7 +383,7 @@ class TestPoolInitialization:
         assert len(pool._replica_pools) == 1
 
         # Cleanup
-        asyncio.get_event_loop().run_until_complete(pool.close())
+        asyncio.run(pool.close())
 
 
 # ===========================================================================
@@ -701,11 +701,11 @@ class TestConnectionWrapper:
         initial_write = pool._stats.write_queries
 
         # Execute various operations
-        asyncio.get_event_loop().run_until_complete(wrapper.fetch("SELECT 1"))
-        asyncio.get_event_loop().run_until_complete(wrapper.fetchrow("SELECT 1"))
-        asyncio.get_event_loop().run_until_complete(wrapper.fetchval("SELECT 1"))
-        asyncio.get_event_loop().run_until_complete(wrapper.execute("INSERT INTO x"))
-        asyncio.get_event_loop().run_until_complete(wrapper.executemany("INSERT INTO x", []))
+        asyncio.run(wrapper.fetch("SELECT 1"))
+        asyncio.run(wrapper.fetchrow("SELECT 1"))
+        asyncio.run(wrapper.fetchval("SELECT 1"))
+        asyncio.run(wrapper.execute("INSERT INTO x"))
+        asyncio.run(wrapper.executemany("INSERT INTO x", []))
 
         # Verify metrics
         assert pool._stats.total_queries == initial_total + 5
@@ -721,9 +721,9 @@ class TestConnectionWrapper:
         initial_read = pool._stats.read_queries
 
         # Execute fetch operations on replica
-        asyncio.get_event_loop().run_until_complete(wrapper.fetch("SELECT 1"))
-        asyncio.get_event_loop().run_until_complete(wrapper.fetchrow("SELECT 1"))
-        asyncio.get_event_loop().run_until_complete(wrapper.fetchval("SELECT 1"))
+        asyncio.run(wrapper.fetch("SELECT 1"))
+        asyncio.run(wrapper.fetchrow("SELECT 1"))
+        asyncio.run(wrapper.fetchval("SELECT 1"))
 
         # Should count as read queries
         assert pool._stats.read_queries == initial_read + 3

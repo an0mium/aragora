@@ -485,7 +485,7 @@ class TestDRDrillScheduler:
         # First execute a drill
         import asyncio
 
-        drill = asyncio.get_event_loop().run_until_complete(
+        drill = asyncio.run(
             scheduler.execute_drill(
                 drill_type=DrillType.BACKUP_RESTORATION,
                 components=[ComponentType.DATABASE],
@@ -507,7 +507,7 @@ class TestDRDrillScheduler:
         """Gets compliance report."""
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             scheduler.execute_drill(
                 drill_type=DrillType.BACKUP_RESTORATION,
                 components=[ComponentType.DATABASE],
