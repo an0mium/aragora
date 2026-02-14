@@ -934,16 +934,31 @@ class TestDebateQueueWebhook:
             webhook_url="https://example.com/webhook",
         )
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_client.post.return_value = mock_response
 
+        mock_pool = MagicMock()
+        mock_pool.get_session = MagicMock()
+        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_pool.get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ),
+            patch(
+                "aragora.server.debate_queue.validate_webhook_url",
+                return_value=(True, ""),
+            ),
+        ):
             await queue.submit_batch(batch)
             await asyncio.sleep(0.5)
             await queue.shutdown()
 
-            mock_session.return_value.__aenter__.return_value.post.assert_called_once()
+            mock_client.post.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_webhook_skipped_invalid_url(self):
@@ -958,12 +973,17 @@ class TestDebateQueueWebhook:
             webhook_url="http://169.254.169.254/metadata",  # Blocked
         )
 
-        with patch("aiohttp.ClientSession") as mock_session:
+        mock_pool = MagicMock()
+
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await queue.submit_batch(batch)
             await asyncio.sleep(0.5)
             await queue.shutdown()
 
-            mock_session.return_value.__aenter__.return_value.post.assert_not_called()
+            mock_pool.get_session.assert_not_called()
 
 
 class TestDebateQueueCleanup:

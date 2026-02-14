@@ -19,6 +19,7 @@ Security Model:
 
 from __future__ import annotations
 
+import copy
 import logging
 import re
 from dataclasses import dataclass, field
@@ -191,7 +192,9 @@ class OutputFilter:
         self._patterns: list[SensitivePattern] = []
 
         if enable_default_patterns:
-            self._patterns.extend(DEFAULT_PATTERNS)
+            # Deep copy so enable/disable_pattern doesn't mutate the shared
+            # DEFAULT_PATTERNS list (which would leak state across instances).
+            self._patterns.extend(copy.copy(p) for p in DEFAULT_PATTERNS)
 
         if patterns:
             self._patterns.extend(patterns)

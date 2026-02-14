@@ -494,6 +494,7 @@ class TestValidateStorageConfig:
                 "ARAGORA_DB_BACKEND": "postgres",
                 "ARAGORA_ENV": "production",
                 "ARAGORA_POSTGRES_DSN": "postgres://user:pass@localhost/db",
+                "ARAGORA_SECRETS_STRICT": "false",
             },
         ):
             result = validate_storage_config()
