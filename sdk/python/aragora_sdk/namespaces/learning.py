@@ -18,9 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 SessionStatus = Literal["active", "completed", "failed"]
-
 
 class LearningAPI:
     """
@@ -40,21 +38,6 @@ class LearningAPI:
 
     def __init__(self, client: AragoraClient):
         self._client = client
-
-    def get_stats(self) -> dict[str, Any]:
-        """
-        Get meta-learning statistics across all agents.
-
-        Returns:
-            Dict with:
-            - total_sessions: Total learning sessions
-            - active_sessions: Currently active sessions
-            - completed_sessions: Completed sessions
-            - average_accuracy_improvement: Average improvement
-            - top_learning_agents: Best performing agents
-            - learning_trends: Trends over time
-        """
-        return self._client.request("GET", "/api/v1/learning/stats")
 
     def list_sessions(
         self,
@@ -128,31 +111,6 @@ class LearningAPI:
             "GET", "/api/v1/learning/patterns", params=params if params else None
         )
 
-    def get_efficiency(
-        self,
-        agent_name: str,
-        domain: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get learning efficiency metrics for an agent.
-
-        Args:
-            agent_name: The agent name
-            domain: Optional domain to filter by
-
-        Returns:
-            Efficiency metrics with:
-            - examples_per_insight
-            - time_to_improvement
-            - retention_score
-            - transfer_capability
-        """
-        params = {"domain": domain} if domain else None
-        return self._client.request(
-            "GET", f"/api/v1/learning/efficiency/{agent_name}", params=params
-        )
-
-
 class AsyncLearningAPI:
     """
     Asynchronous Learning API.
@@ -165,10 +123,6 @@ class AsyncLearningAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
-
-    async def get_stats(self) -> dict[str, Any]:
-        """Get meta-learning statistics across all agents."""
-        return await self._client.request("GET", "/api/v1/learning/stats")
 
     async def list_sessions(
         self,
@@ -213,13 +167,3 @@ class AsyncLearningAPI:
             "GET", "/api/v1/learning/patterns", params=params if params else None
         )
 
-    async def get_efficiency(
-        self,
-        agent_name: str,
-        domain: str | None = None,
-    ) -> dict[str, Any]:
-        """Get learning efficiency metrics for an agent."""
-        params = {"domain": domain} if domain else None
-        return await self._client.request(
-            "GET", f"/api/v1/learning/efficiency/{agent_name}", params=params
-        )

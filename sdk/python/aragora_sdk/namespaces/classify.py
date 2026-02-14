@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class ClassifyAPI:
     """Synchronous Classify API for content classification."""
 
@@ -40,18 +39,6 @@ class ClassifyAPI:
         if threshold is not None:
             body["threshold"] = threshold
         return self._client.request("POST", "/api/v1/classify", json=body)
-
-    def get_policy(self, level: str) -> dict[str, Any]:
-        """Get classification policy for a level.
-
-        Args:
-            level: Policy level identifier.
-
-        Returns:
-            Policy configuration.
-        """
-        return self._client.request("GET", f"/api/v1/classify/policy/{level}")
-
 
 class AsyncClassifyAPI:
     """Asynchronous Classify API for content classification."""
@@ -82,13 +69,3 @@ class AsyncClassifyAPI:
             body["threshold"] = threshold
         return await self._client.request("POST", "/api/v1/classify", json=body)
 
-    async def get_policy(self, level: str) -> dict[str, Any]:
-        """Get classification policy for a level.
-
-        Args:
-            level: Policy level identifier.
-
-        Returns:
-            Policy configuration.
-        """
-        return await self._client.request("GET", f"/api/v1/classify/policy/{level}")

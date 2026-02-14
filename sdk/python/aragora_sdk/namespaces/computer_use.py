@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 TaskStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
 
-
 class ComputerUseAPI:
     """
     Synchronous Computer Use API.
@@ -109,35 +108,6 @@ class ComputerUseAPI:
         """
         return self._client.request("GET", f"/api/v1/computer-use/tasks/{task_id}")
 
-    def cancel_task(self, task_id: str) -> dict[str, Any]:
-        """
-        Cancel a running task.
-
-        Args:
-            task_id: Task ID.
-
-        Returns:
-            Dict with success message.
-        """
-        return self._client.request("POST", f"/api/v1/computer-use/tasks/{task_id}/cancel")
-
-    # =========================================================================
-    # Actions
-    # =========================================================================
-
-    def get_action_stats(self) -> dict[str, Any]:
-        """
-        Get action statistics.
-
-        Returns:
-            Dict with stats by action type (click, type, screenshot, etc.).
-        """
-        return self._client.request("GET", "/api/v1/computer-use/actions/stats")
-
-    # =========================================================================
-    # Policies
-    # =========================================================================
-
     def list_policies(self) -> dict[str, Any]:
         """
         List active policies.
@@ -175,7 +145,6 @@ class ComputerUseAPI:
             data["blocked_domains"] = blocked_domains
 
         return self._client.request("POST", "/api/v1/computer-use/policies", json=data)
-
 
 class AsyncComputerUseAPI:
     """Asynchronous Computer Use API."""
@@ -215,22 +184,6 @@ class AsyncComputerUseAPI:
     async def get_task(self, task_id: str) -> dict[str, Any]:
         """Get task status and details."""
         return await self._client.request("GET", f"/api/v1/computer-use/tasks/{task_id}")
-
-    async def cancel_task(self, task_id: str) -> dict[str, Any]:
-        """Cancel a running task."""
-        return await self._client.request("POST", f"/api/v1/computer-use/tasks/{task_id}/cancel")
-
-    # =========================================================================
-    # Actions
-    # =========================================================================
-
-    async def get_action_stats(self) -> dict[str, Any]:
-        """Get action statistics."""
-        return await self._client.request("GET", "/api/v1/computer-use/actions/stats")
-
-    # =========================================================================
-    # Policies
-    # =========================================================================
 
     async def list_policies(self) -> dict[str, Any]:
         """List active policies."""

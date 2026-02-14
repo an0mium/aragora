@@ -19,7 +19,6 @@ AuditDepth = Literal["shallow", "standard", "deep"]
 AttackIntensity = Literal["low", "medium", "high"]
 Severity = Literal["low", "medium", "high", "critical"]
 
-
 class AuditingAPI:
     """
     Synchronous Auditing API.
@@ -89,34 +88,6 @@ class AuditingAPI:
 
         return self._client.request("POST", "/api/v1/debates/deep-audit", json=data)
 
-    def red_team(
-        self,
-        debate_id: str,
-        attack_types: list[str] | None = None,
-        intensity: AttackIntensity = "medium",
-        config: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Run red team analysis on a debate.
-
-        Args:
-            debate_id: The debate to analyze
-            attack_types: Optional list of attack types to use
-            intensity: Attack intensity (low, medium, high)
-            config: Optional configuration
-
-        Returns:
-            Red team result including attacks_run, vulnerabilities_found,
-            findings, and summary
-        """
-        data: dict[str, Any] = {"intensity": intensity}
-        if attack_types:
-            data["attack_types"] = attack_types
-        if config:
-            data["config"] = config
-
-        return self._client.request("POST", f"/api/v1/debates/{debate_id}/red-team", json=data)
-
     def get_attack_types(self) -> dict[str, Any]:
         """
         Get available red team attack types.
@@ -126,7 +97,6 @@ class AuditingAPI:
             with their id, name, description, and category
         """
         return self._client.request("GET", "/api/v1/redteam/attack-types")
-
 
 class AsyncAuditingAPI:
     """
@@ -196,36 +166,6 @@ class AsyncAuditingAPI:
             data["config"] = config
 
         return await self._client.request("POST", "/api/v1/debates/deep-audit", json=data)
-
-    async def red_team(
-        self,
-        debate_id: str,
-        attack_types: list[str] | None = None,
-        intensity: AttackIntensity = "medium",
-        config: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Run red team analysis on a debate.
-
-        Args:
-            debate_id: The debate to analyze
-            attack_types: Optional list of attack types to use
-            intensity: Attack intensity (low, medium, high)
-            config: Optional configuration
-
-        Returns:
-            Red team result including attacks_run, vulnerabilities_found,
-            findings, and summary
-        """
-        data: dict[str, Any] = {"intensity": intensity}
-        if attack_types:
-            data["attack_types"] = attack_types
-        if config:
-            data["config"] = config
-
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/red-team", json=data
-        )
 
     async def get_attack_types(self) -> dict[str, Any]:
         """

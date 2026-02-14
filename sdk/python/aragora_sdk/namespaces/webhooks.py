@@ -14,9 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 _List = list  # Preserve builtin list for type annotations
-
 
 class WebhooksAPI:
     """
@@ -58,18 +56,6 @@ class WebhooksAPI:
         }
         return self._client.request("GET", "/api/v1/webhooks", params=params)
 
-    def get(self, webhook_id: str) -> dict[str, Any]:
-        """
-        Get a webhook by ID.
-
-        Args:
-            webhook_id: Webhook ID
-
-        Returns:
-            Webhook details
-        """
-        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}")
-
     def create(
         self,
         url: str,
@@ -101,141 +87,6 @@ class WebhooksAPI:
 
         return self._client.request("POST", "/api/v1/webhooks", json=data)
 
-    def update(
-        self,
-        webhook_id: str,
-        url: str | None = None,
-        events: _List[str] | None = None,
-        active: bool | None = None,
-        description: str | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Update a webhook.
-
-        Args:
-            webhook_id: Webhook ID
-            url: New endpoint URL
-            events: New event list
-            active: Active status
-            description: New description
-            headers: New custom headers
-
-        Returns:
-            Updated webhook
-        """
-        data: dict[str, Any] = {}
-        if url is not None:
-            data["url"] = url
-        if events is not None:
-            data["events"] = events
-        if active is not None:
-            data["active"] = active
-        if description is not None:
-            data["description"] = description
-        if headers is not None:
-            data["headers"] = headers
-
-        return self._client.request("PUT", f"/api/v1/webhooks/{webhook_id}", json=data)
-
-    def delete(self, webhook_id: str) -> dict[str, Any]:
-        """
-        Delete a webhook.
-
-        Args:
-            webhook_id: Webhook ID
-
-        Returns:
-            Deletion result
-        """
-        return self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}")
-
-    def rotate_secret(self, webhook_id: str) -> dict[str, Any]:
-        """
-        Rotate webhook signing secret.
-
-        Args:
-            webhook_id: Webhook ID
-
-        Returns:
-            New webhook secret
-        """
-        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/rotate-secret")
-
-    def get_deliveries(
-        self,
-        webhook_id: str,
-        status: str | None = None,
-        limit: int = 20,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """
-        Get webhook delivery history.
-
-        Args:
-            webhook_id: Webhook ID
-            status: Filter by status (success, failed, pending)
-            limit: Maximum results
-            offset: Pagination offset
-
-        Returns:
-            List of delivery attempts
-        """
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
-        if status:
-            params["status"] = status
-
-        return self._client.request(
-            "GET", f"/api/v1/webhooks/{webhook_id}/deliveries", params=params
-        )
-
-    def get_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
-        """
-        Get a specific delivery.
-
-        Args:
-            webhook_id: Webhook ID
-            delivery_id: Delivery ID
-
-        Returns:
-            Delivery details including request/response
-        """
-        return self._client.request(
-            "GET", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}"
-        )
-
-    def retry_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
-        """
-        Retry a failed delivery.
-
-        Args:
-            webhook_id: Webhook ID
-            delivery_id: Delivery ID
-
-        Returns:
-            Retry result
-        """
-        return self._client.request(
-            "POST", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/retry"
-        )
-
-    def test(self, webhook_id: str, event_type: str | None = None) -> dict[str, Any]:
-        """
-        Send a test event to webhook.
-
-        Args:
-            webhook_id: Webhook ID
-            event_type: Event type to simulate (uses first subscribed event if not specified)
-
-        Returns:
-            Test result with response details
-        """
-        data: dict[str, Any] = {}
-        if event_type:
-            data["event_type"] = event_type
-
-        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/test", json=data)
-
     def get_events(self) -> dict[str, Any]:
         """
         Get available webhook event types.
@@ -244,7 +95,6 @@ class WebhooksAPI:
             List of event types with descriptions
         """
         return self._client.request("GET", "/api/v1/webhooks/events")
-
 
 class AsyncWebhooksAPI:
     """
@@ -275,10 +125,6 @@ class AsyncWebhooksAPI:
         }
         return await self._client.request("GET", "/api/v1/webhooks", params=params)
 
-    async def get(self, webhook_id: str) -> dict[str, Any]:
-        """Get a webhook by ID."""
-        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}")
-
     async def create(
         self,
         url: str,
@@ -297,74 +143,6 @@ class AsyncWebhooksAPI:
             data["headers"] = headers
 
         return await self._client.request("POST", "/api/v1/webhooks", json=data)
-
-    async def update(
-        self,
-        webhook_id: str,
-        url: str | None = None,
-        events: _List[str] | None = None,
-        active: bool | None = None,
-        description: str | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
-        """Update a webhook."""
-        data: dict[str, Any] = {}
-        if url is not None:
-            data["url"] = url
-        if events is not None:
-            data["events"] = events
-        if active is not None:
-            data["active"] = active
-        if description is not None:
-            data["description"] = description
-        if headers is not None:
-            data["headers"] = headers
-
-        return await self._client.request("PUT", f"/api/v1/webhooks/{webhook_id}", json=data)
-
-    async def delete(self, webhook_id: str) -> dict[str, Any]:
-        """Delete a webhook."""
-        return await self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}")
-
-    async def rotate_secret(self, webhook_id: str) -> dict[str, Any]:
-        """Rotate webhook signing secret."""
-        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/rotate-secret")
-
-    async def get_deliveries(
-        self,
-        webhook_id: str,
-        status: str | None = None,
-        limit: int = 20,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """Get webhook delivery history."""
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
-        if status:
-            params["status"] = status
-
-        return await self._client.request(
-            "GET", f"/api/v1/webhooks/{webhook_id}/deliveries", params=params
-        )
-
-    async def get_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
-        """Get a specific delivery."""
-        return await self._client.request(
-            "GET", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}"
-        )
-
-    async def retry_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
-        """Retry a failed delivery."""
-        return await self._client.request(
-            "POST", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/retry"
-        )
-
-    async def test(self, webhook_id: str, event_type: str | None = None) -> dict[str, Any]:
-        """Send a test event to webhook."""
-        data: dict[str, Any] = {}
-        if event_type:
-            data["event_type"] = event_type
-
-        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/test", json=data)
 
     async def get_events(self) -> dict[str, Any]:
         """Get available webhook event types."""

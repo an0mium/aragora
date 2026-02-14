@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class CrossPollinationAPI:
     """
     Synchronous Cross-Pollination API.
@@ -66,47 +65,6 @@ class CrossPollinationAPI:
             Dict with subscribers array
         """
         return self._client.request("GET", "/api/v1/cross-pollination/subscribers")
-
-    def subscribe(
-        self,
-        debate_id: str,
-        topics: list[str] | None = None,
-        min_confidence: float | None = None,
-    ) -> dict[str, Any]:
-        """
-        Subscribe a debate to cross-pollination.
-
-        Args:
-            debate_id: Debate ID to subscribe
-            topics: Topics to subscribe to (all if not specified)
-            min_confidence: Minimum confidence threshold
-
-        Returns:
-            Subscription result
-        """
-        data: dict[str, Any] = {"debate_id": debate_id}
-        if topics:
-            data["topics"] = topics
-        if min_confidence is not None:
-            data["min_confidence"] = min_confidence
-
-        return self._client.request("POST", "/api/v1/cross-pollination/subscribe", json=data)
-
-    def unsubscribe(self, debate_id: str) -> dict[str, Any]:
-        """
-        Unsubscribe a debate from cross-pollination.
-
-        Args:
-            debate_id: Debate ID to unsubscribe
-
-        Returns:
-            Unsubscription result
-        """
-        return self._client.request("DELETE", f"/api/v1/cross-pollination/subscribers/{debate_id}")
-
-    # ===========================================================================
-    # Bridge Configuration
-    # ===========================================================================
 
     def get_bridge(self) -> dict[str, Any]:
         """
@@ -197,7 +155,6 @@ class CrossPollinationAPI:
             "GET", "/api/v1/laboratory/cross-pollinations/suggest", params=params
         )
 
-
 class AsyncCrossPollinationAPI:
     """
     Asynchronous Cross-Pollination API.
@@ -224,28 +181,6 @@ class AsyncCrossPollinationAPI:
         """List cross-pollination subscribers."""
         return await self._client.request("GET", "/api/v1/cross-pollination/subscribers")
 
-    async def subscribe(
-        self,
-        debate_id: str,
-        topics: list[str] | None = None,
-        min_confidence: float | None = None,
-    ) -> dict[str, Any]:
-        """Subscribe a debate to cross-pollination."""
-        data: dict[str, Any] = {"debate_id": debate_id}
-        if topics:
-            data["topics"] = topics
-        if min_confidence is not None:
-            data["min_confidence"] = min_confidence
-
-        return await self._client.request("POST", "/api/v1/cross-pollination/subscribe", json=data)
-
-    async def unsubscribe(self, debate_id: str) -> dict[str, Any]:
-        """Unsubscribe a debate from cross-pollination."""
-        return await self._client.request(
-            "DELETE", f"/api/v1/cross-pollination/subscribers/{debate_id}"
-        )
-
-    # Bridge Configuration
     async def get_bridge(self) -> dict[str, Any]:
         """Get bridge configuration."""
         return await self._client.request("GET", "/api/v1/cross-pollination/bridge")

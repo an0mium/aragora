@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class AuthAPI:
     """
     Synchronous Auth API.
@@ -115,19 +114,6 @@ class AuthAPI:
             Dict with success status
         """
         return self._client.request("POST", "/api/v1/auth/logout")
-
-    def logout_all(self) -> dict[str, Any]:
-        """
-        Logout from all sessions.
-
-        Returns:
-            Dict with logged_out status and sessions_revoked count
-        """
-        return self._client.request("POST", "/api/v1/auth/logout/all")
-
-    # ===========================================================================
-    # User Profile
-    # ===========================================================================
 
     def get_current_user(self) -> dict[str, Any]:
         """
@@ -493,63 +479,6 @@ class AuthAPI:
 
         return self._client.request("POST", "/api/v1/auth/invite", json=data)
 
-    def check_invite(self, token: str) -> dict[str, Any]:
-        """
-        Check if an invitation token is valid.
-
-        Args:
-            token: Invitation token
-
-        Returns:
-            Dict with valid, email, organization_id, role, expires_at
-        """
-        return self._client.request(
-            "GET",
-            "/api/v1/auth/invite/check",
-            params={"token": token},
-        )
-
-    def accept_invite(self, token: str) -> dict[str, Any]:
-        """
-        Accept a team invitation.
-
-        Args:
-            token: Invitation token
-
-        Returns:
-            Dict with organization_id and role
-        """
-        return self._client.request(
-            "POST",
-            "/api/v1/auth/invite/accept",
-            json={"token": token},
-        )
-
-    def list_pending_invites(self) -> dict[str, Any]:
-        """
-        List pending invitations for the organization.
-
-        Returns:
-            Dict with invites array
-        """
-        return self._client.request("GET", "/api/v1/auth/invites")
-
-    def revoke_invite(self, invite_id: str) -> dict[str, Any]:
-        """
-        Revoke a pending invitation.
-
-        Args:
-            invite_id: Invitation ID
-
-        Returns:
-            Dict with success status
-        """
-        return self._client.request("DELETE", f"/api/v1/auth/invites/{invite_id}")
-
-    # ===========================================================================
-    # Auth Health
-    # ===========================================================================
-
     def health(self) -> dict[str, Any]:
         """
         Check authentication service health.
@@ -801,7 +730,6 @@ class AuthAPI:
             "POST", "/api/auth/setup-organization", json=data
         )
 
-
 class AsyncAuthAPI:
     """
     Asynchronous Auth API.
@@ -856,14 +784,6 @@ class AsyncAuthAPI:
     async def logout(self) -> dict[str, Any]:
         """Logout and invalidate current token."""
         return await self._client.request("POST", "/api/v1/auth/logout")
-
-    async def logout_all(self) -> dict[str, Any]:
-        """Logout from all sessions."""
-        return await self._client.request("POST", "/api/v1/auth/logout/all")
-
-    # ===========================================================================
-    # User Profile
-    # ===========================================================================
 
     async def get_current_user(self) -> dict[str, Any]:
         """Get the current authenticated user."""
@@ -1067,34 +987,6 @@ class AsyncAuthAPI:
             data["role"] = role
 
         return await self._client.request("POST", "/api/v1/auth/invite", json=data)
-
-    async def check_invite(self, token: str) -> dict[str, Any]:
-        """Check if an invitation token is valid."""
-        return await self._client.request(
-            "GET",
-            "/api/v1/auth/invite/check",
-            params={"token": token},
-        )
-
-    async def accept_invite(self, token: str) -> dict[str, Any]:
-        """Accept a team invitation."""
-        return await self._client.request(
-            "POST",
-            "/api/v1/auth/invite/accept",
-            json={"token": token},
-        )
-
-    async def list_pending_invites(self) -> dict[str, Any]:
-        """List pending invitations for the organization."""
-        return await self._client.request("GET", "/api/v1/auth/invites")
-
-    async def revoke_invite(self, invite_id: str) -> dict[str, Any]:
-        """Revoke a pending invitation."""
-        return await self._client.request("DELETE", f"/api/v1/auth/invites/{invite_id}")
-
-    # ===========================================================================
-    # Auth Health
-    # ===========================================================================
 
     async def health(self) -> dict[str, Any]:
         """Check authentication service health."""

@@ -17,9 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 RetentionAction = Literal["archive", "delete", "anonymize"]
-
 
 class RetentionAPI:
     """
@@ -56,34 +54,6 @@ class RetentionAPI:
         """
         return self._client.request("GET", "/api/v1/retention/policies")
 
-    def execute_policy(
-        self,
-        policy_id: str,
-        dry_run: bool = False,
-    ) -> dict[str, Any]:
-        """
-        Execute a retention policy manually.
-
-        Args:
-            policy_id: The policy ID
-            dry_run: If True, simulate without making changes
-
-        Returns:
-            Dict with execution results:
-            - policy_id: Executed policy
-            - executed_at: Execution timestamp
-            - items_processed: Total items
-            - items_archived: Archived count
-            - items_deleted: Deleted count
-            - items_anonymized: Anonymized count
-            - errors: Any errors
-        """
-        return self._client.request(
-            "POST",
-            f"/api/v1/retention/policies/{policy_id}/execute",
-            json={"dry_run": dry_run} if dry_run else None,
-        )
-
     def get_expiring(
         self,
         days: int | None = None,
@@ -110,7 +80,6 @@ class RetentionAPI:
             "GET", "/api/v1/retention/expiring", params=params if params else None
         )
 
-
 class AsyncRetentionAPI:
     """
     Asynchronous Retention API.
@@ -127,18 +96,6 @@ class AsyncRetentionAPI:
     async def list_policies(self) -> dict[str, Any]:
         """List retention policies."""
         return await self._client.request("GET", "/api/v1/retention/policies")
-
-    async def execute_policy(
-        self,
-        policy_id: str,
-        dry_run: bool = False,
-    ) -> dict[str, Any]:
-        """Execute a retention policy manually."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/retention/policies/{policy_id}/execute",
-            json={"dry_run": dry_run} if dry_run else None,
-        )
 
     async def get_expiring(
         self,

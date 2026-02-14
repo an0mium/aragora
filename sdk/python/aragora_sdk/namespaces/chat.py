@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class ChatAPI:
     """Synchronous Chat API for knowledge operations."""
 
@@ -80,18 +79,6 @@ class ChatAPI:
         if metadata:
             body["metadata"] = metadata
         return self._client.request("POST", "/api/v1/chat/knowledge/store", json=body)
-
-    def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
-        """Get knowledge summary for a channel.
-
-        Args:
-            channel_id: Channel identifier.
-
-        Returns:
-            Channel knowledge summary.
-        """
-        return self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary")
-
 
 class AsyncChatAPI:
     """Asynchronous Chat API for knowledge operations."""
@@ -162,15 +149,3 @@ class AsyncChatAPI:
             body["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/chat/knowledge/store", json=body)
 
-    async def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
-        """Get knowledge summary for a channel.
-
-        Args:
-            channel_id: Channel identifier.
-
-        Returns:
-            Channel knowledge summary.
-        """
-        return await self._client.request(
-            "GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary"
-        )

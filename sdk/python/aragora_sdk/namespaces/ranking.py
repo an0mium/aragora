@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 _List = list  # Preserve builtin list for type annotations
-
 
 class RankingAPI:
     """Synchronous Ranking API for agent performance rankings."""
@@ -56,19 +54,6 @@ class RankingAPI:
 
         response = self._client.request("GET", "/api/v1/rankings", params=params)
         result: list[dict[str, Any]] = response.get("rankings", [])
-        return result
-
-    def get(self, agent_name: str) -> dict[str, Any]:
-        """Get a specific agent's ranking.
-
-        Args:
-            agent_name: The agent name.
-
-        Returns:
-            Agent ranking entry.
-        """
-        response = self._client.request("GET", f"/api/v1/rankings/{agent_name}")
-        result: dict[str, Any] = response.get("ranking", response)
         return result
 
     def get_stats(self) -> dict[str, Any]:
@@ -133,28 +118,6 @@ class RankingAPI:
             params["domain"] = domain
         return self._client.request("GET", "/api/v1/leaderboard", params=params)
 
-    def get_history(
-        self,
-        agent_name: str,
-        days: int = 30,
-    ) -> _List[dict[str, Any]]:
-        """Get ELO history for an agent.
-
-        Args:
-            agent_name: The agent name.
-            days: Number of days of history.
-
-        Returns:
-            List of historical ELO data points.
-        """
-        params: dict[str, Any] = {"days": days}
-        response = self._client.request(
-            "GET", f"/api/v1/rankings/{agent_name}/history", params=params
-        )
-        result: list[dict[str, Any]] = response.get("history", [])
-        return result
-
-
 class AsyncRankingAPI:
     """Asynchronous Ranking API for agent performance rankings."""
 
@@ -186,12 +149,6 @@ class AsyncRankingAPI:
         result: list[dict[str, Any]] = response.get("rankings", [])
         return result
 
-    async def get(self, agent_name: str) -> dict[str, Any]:
-        """Get a specific agent's ranking."""
-        response = await self._client.request("GET", f"/api/v1/rankings/{agent_name}")
-        result: dict[str, Any] = response.get("ranking", response)
-        return result
-
     async def get_stats(self) -> dict[str, Any]:
         """Get aggregate ranking statistics."""
         return await self._client.request("GET", "/api/v1/ranking/stats")
@@ -220,15 +177,3 @@ class AsyncRankingAPI:
             params["domain"] = domain
         return await self._client.request("GET", "/api/v1/leaderboard", params=params)
 
-    async def get_history(
-        self,
-        agent_name: str,
-        days: int = 30,
-    ) -> _List[dict[str, Any]]:
-        """Get ELO history for an agent."""
-        params: dict[str, Any] = {"days": days}
-        response = await self._client.request(
-            "GET", f"/api/v1/rankings/{agent_name}/history", params=params
-        )
-        result: list[dict[str, Any]] = response.get("history", [])
-        return result

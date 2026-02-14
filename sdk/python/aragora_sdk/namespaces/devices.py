@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 DeviceType = Literal["android", "ios", "web", "alexa", "google_home"]
 NotificationStatus = Literal["sent", "delivered", "failed", "pending"]
 
-
 class Device(TypedDict, total=False):
     """Registered device."""
 
@@ -31,7 +30,6 @@ class Device(TypedDict, total=False):
     notification_count: int
     created_at: str
 
-
 class NotificationMessage(TypedDict, total=False):
     """Push notification message."""
 
@@ -43,7 +41,6 @@ class NotificationMessage(TypedDict, total=False):
     badge: int | None
     sound: str | None
 
-
 class NotificationResult(TypedDict, total=False):
     """Notification delivery result."""
 
@@ -52,7 +49,6 @@ class NotificationResult(TypedDict, total=False):
     message_id: str | None
     status: str
     error: str | None
-
 
 class ConnectorHealth(TypedDict, total=False):
     """Device connector health status."""
@@ -64,7 +60,6 @@ class ConnectorHealth(TypedDict, total=False):
     alexa: dict[str, Any] | None
     google_home: dict[str, Any] | None
     error: str | None
-
 
 class DevicesAPI:
     """
@@ -154,131 +149,6 @@ class DevicesAPI:
             data["app_bundle_id"] = app_bundle_id
         return self._client.request("POST", "/api/v1/devices/register", json=data)
 
-    def unregister(self, device_id: str) -> dict[str, Any]:
-        """
-        Unregister a device.
-
-        Args:
-            device_id: Device ID to unregister.
-
-        Returns:
-            Confirmation with deleted_at timestamp.
-        """
-        return self._client.request("DELETE", f"/api/v1/devices/{device_id}")
-
-    def get(self, device_id: str) -> dict[str, Any]:
-        """
-        Get device information.
-
-        Args:
-            device_id: Device ID.
-
-        Returns:
-            Device details.
-        """
-        result: dict[str, Any] = self._client.request("GET", f"/api/v1/devices/{device_id}")
-        return result
-
-    def list_by_user(self, user_id: str) -> dict[str, Any]:
-        """
-        List all devices for a user.
-
-        Args:
-            user_id: User ID.
-
-        Returns:
-            Dict with device_count and devices list.
-        """
-        return self._client.request("GET", f"/api/v1/devices/user/{user_id}")
-
-    # =========================================================================
-    # Push Notifications
-    # =========================================================================
-
-    def notify(
-        self,
-        device_id: str,
-        title: str,
-        body: str,
-        data: dict[str, Any] | None = None,
-        image_url: str | None = None,
-        action_url: str | None = None,
-        badge: int | None = None,
-        sound: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Send notification to a specific device.
-
-        Args:
-            device_id: Target device ID.
-            title: Notification title.
-            body: Notification body text.
-            data: Custom data payload.
-            image_url: Image to display.
-            action_url: URL to open on tap.
-            badge: Badge count (iOS).
-            sound: Sound to play.
-
-        Returns:
-            Delivery result with status.
-        """
-        message: dict[str, Any] = {"title": title, "body": body}
-        if data:
-            message["data"] = data
-        if image_url:
-            message["image_url"] = image_url
-        if action_url:
-            message["action_url"] = action_url
-        if badge is not None:
-            message["badge"] = badge
-        if sound:
-            message["sound"] = sound
-        return self._client.request("POST", f"/api/v1/devices/{device_id}/notify", json=message)
-
-    def notify_user(
-        self,
-        user_id: str,
-        title: str,
-        body: str,
-        data: dict[str, Any] | None = None,
-        image_url: str | None = None,
-        action_url: str | None = None,
-        badge: int | None = None,
-        sound: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Send notification to all devices for a user.
-
-        Args:
-            user_id: Target user ID.
-            title: Notification title.
-            body: Notification body text.
-            data: Custom data payload.
-            image_url: Image to display.
-            action_url: URL to open on tap.
-            badge: Badge count (iOS).
-            sound: Sound to play.
-
-        Returns:
-            Delivery results for all devices.
-        """
-        message: dict[str, Any] = {"title": title, "body": body}
-        if data:
-            message["data"] = data
-        if image_url:
-            message["image_url"] = image_url
-        if action_url:
-            message["action_url"] = action_url
-        if badge is not None:
-            message["badge"] = badge
-        if sound:
-            message["sound"] = sound
-        return self._client.request("POST", f"/api/v1/devices/user/{user_id}/notify", json=message)
-
-    # =========================================================================
-    # Health Monitoring
-    # =========================================================================
-
     def get_health(self) -> dict[str, Any]:
         """
         Get device connector health status.
@@ -324,7 +194,6 @@ class DevicesAPI:
         """
         return self._client.request("POST", "/api/v1/devices/google/webhook", json=request)
 
-
 class AsyncDevicesAPI:
     """Asynchronous Devices API."""
 
@@ -366,72 +235,6 @@ class AsyncDevicesAPI:
         if app_bundle_id:
             data["app_bundle_id"] = app_bundle_id
         return await self._client.request("POST", "/api/v1/devices/register", json=data)
-
-    async def unregister(self, device_id: str) -> dict[str, Any]:
-        """Unregister a device."""
-        return await self._client.request("DELETE", f"/api/v1/devices/{device_id}")
-
-    async def get(self, device_id: str) -> dict[str, Any]:
-        """Get device information."""
-        return await self._client.request("GET", f"/api/v1/devices/{device_id}")
-
-    async def list_by_user(self, user_id: str) -> dict[str, Any]:
-        """List all devices for a user."""
-        return await self._client.request("GET", f"/api/v1/devices/user/{user_id}")
-
-    async def notify(
-        self,
-        device_id: str,
-        title: str,
-        body: str,
-        data: dict[str, Any] | None = None,
-        image_url: str | None = None,
-        action_url: str | None = None,
-        badge: int | None = None,
-        sound: str | None = None,
-    ) -> dict[str, Any]:
-        """Send notification to a specific device."""
-        message: dict[str, Any] = {"title": title, "body": body}
-        if data:
-            message["data"] = data
-        if image_url:
-            message["image_url"] = image_url
-        if action_url:
-            message["action_url"] = action_url
-        if badge is not None:
-            message["badge"] = badge
-        if sound:
-            message["sound"] = sound
-        return await self._client.request(
-            "POST", f"/api/v1/devices/{device_id}/notify", json=message
-        )
-
-    async def notify_user(
-        self,
-        user_id: str,
-        title: str,
-        body: str,
-        data: dict[str, Any] | None = None,
-        image_url: str | None = None,
-        action_url: str | None = None,
-        badge: int | None = None,
-        sound: str | None = None,
-    ) -> dict[str, Any]:
-        """Send notification to all devices for a user."""
-        message: dict[str, Any] = {"title": title, "body": body}
-        if data:
-            message["data"] = data
-        if image_url:
-            message["image_url"] = image_url
-        if action_url:
-            message["action_url"] = action_url
-        if badge is not None:
-            message["badge"] = badge
-        if sound:
-            message["sound"] = sound
-        return await self._client.request(
-            "POST", f"/api/v1/devices/user/{user_id}/notify", json=message
-        )
 
     async def get_health(self) -> dict[str, Any]:
         """Get device connector health status."""

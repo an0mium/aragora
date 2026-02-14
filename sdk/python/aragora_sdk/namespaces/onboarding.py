@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 QuickStartProfile = Literal["developer", "security", "executive", "product", "compliance", "sme"]
 FlowAction = Literal["next", "previous", "complete", "skip"]
 
-
 class OnboardingAPI:
     """
     Synchronous Onboarding API.
@@ -85,30 +84,6 @@ class OnboardingAPI:
         if skip_to_step:
             data["skip_to_step"] = skip_to_step
         return self._client.request("POST", "/api/v1/onboarding/flow", json=data or None)
-
-    def update_step(
-        self,
-        action: FlowAction,
-        step_data: dict[str, Any] | None = None,
-        jump_to_step: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Update onboarding step progress.
-
-        Args:
-            action: The action to take (next, previous, complete, skip)
-            step_data: Optional data for the current step
-            jump_to_step: Optional step to jump to
-
-        Returns:
-            Updated flow state with next_step
-        """
-        data: dict[str, Any] = {"action": action}
-        if step_data:
-            data["step_data"] = step_data
-        if jump_to_step:
-            data["jump_to_step"] = jump_to_step
-        return self._client.request("PUT", "/api/v1/onboarding/flow/step", json=data)
 
     def skip(self) -> dict[str, Any]:
         """Skip the onboarding flow."""
@@ -241,7 +216,6 @@ class OnboardingAPI:
             params["organization_id"] = organization_id
         return self._client.request("GET", "/api/v1/onboarding/analytics", params=params or None)
 
-
 class AsyncOnboardingAPI:
     """
     Asynchronous Onboarding API.
@@ -282,20 +256,6 @@ class AsyncOnboardingAPI:
         if skip_to_step:
             data["skip_to_step"] = skip_to_step
         return await self._client.request("POST", "/api/v1/onboarding/flow", json=data or None)
-
-    async def update_step(
-        self,
-        action: FlowAction,
-        step_data: dict[str, Any] | None = None,
-        jump_to_step: str | None = None,
-    ) -> dict[str, Any]:
-        """Update onboarding step progress."""
-        data: dict[str, Any] = {"action": action}
-        if step_data:
-            data["step_data"] = step_data
-        if jump_to_step:
-            data["jump_to_step"] = jump_to_step
-        return await self._client.request("PUT", "/api/v1/onboarding/flow/step", json=data)
 
     async def skip(self) -> dict[str, Any]:
         """Skip the onboarding flow."""

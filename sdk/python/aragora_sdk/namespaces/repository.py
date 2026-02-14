@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class RepositoryAPI:
     """
     Synchronous Repository API.
@@ -219,24 +218,6 @@ class RepositoryAPI:
         """
         return self._client.request("GET", f"/api/v1/repository/{index_id}/graph")
 
-    def get_entity(self, index_id: str, entity_id: str) -> dict[str, Any]:
-        """
-        Get a specific entity by ID.
-
-        Args:
-            index_id: ID of the index
-            entity_id: ID of the entity
-
-        Returns:
-            Dict with entity details (id, type, name, qualified_name, file_path,
-            line_start, line_end, language, docstring, signature, visibility, metadata)
-        """
-        return self._client.request("GET", f"/api/v1/repository/{index_id}/entities/{entity_id}")
-
-    # ===========================================================================
-    # Convenience Methods
-    # ===========================================================================
-
     def wait_for_index(
         self,
         index_id: str,
@@ -323,7 +304,6 @@ class RepositoryAPI:
             poll_interval_ms=poll_interval_ms,
             timeout_ms=timeout_ms,
         )
-
 
 class AsyncRepositoryAPI:
     """
@@ -514,26 +494,6 @@ class AsyncRepositoryAPI:
             Dict with nodes (entities), edges (relationships), and statistics
         """
         return await self._client.request("GET", f"/api/v1/repository/{index_id}/graph")
-
-    async def get_entity(self, index_id: str, entity_id: str) -> dict[str, Any]:
-        """
-        Get a specific entity by ID.
-
-        Args:
-            index_id: ID of the index
-            entity_id: ID of the entity
-
-        Returns:
-            Dict with entity details (id, type, name, qualified_name, file_path,
-            line_start, line_end, language, docstring, signature, visibility, metadata)
-        """
-        return await self._client.request(
-            "GET", f"/api/v1/repository/{index_id}/entities/{entity_id}"
-        )
-
-    # ===========================================================================
-    # Convenience Methods
-    # ===========================================================================
 
     async def wait_for_index(
         self,

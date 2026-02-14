@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class EmailServicesAPI:
     """
     Synchronous Email Services API.
@@ -86,31 +85,6 @@ class EmailServicesAPI:
             params={"limit": limit, "offset": offset},
         )
 
-    def resolve_followup(
-        self,
-        followup_id: str,
-        resolution: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Resolve a follow-up.
-
-        Args:
-            followup_id: ID of the follow-up to resolve
-            resolution: Optional resolution notes
-
-        Returns:
-            Dict with success status
-        """
-        data = {}
-        if resolution:
-            data["resolution"] = resolution
-
-        return self._client.request(
-            "POST",
-            f"/api/v1/email/followups/{followup_id}/resolve",
-            json=data,
-        )
-
     def check_replies(self) -> dict[str, Any]:
         """
         Check for replies to tracked emails.
@@ -123,53 +97,6 @@ class EmailServicesAPI:
     # ===========================================================================
     # Snooze Management
     # ===========================================================================
-
-    def get_snooze_suggestions(self, email_id: str) -> dict[str, Any]:
-        """
-        Get snooze recommendations for an email.
-
-        Args:
-            email_id: ID of the email
-
-        Returns:
-            Dict with suggested snooze times and reasons
-        """
-        return self._client.request("GET", f"/api/v1/email/{email_id}/snooze-suggestions")
-
-    def snooze_email(
-        self,
-        email_id: str,
-        snooze_until: str,
-        reason: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Apply snooze to an email.
-
-        Args:
-            email_id: ID of the email to snooze
-            snooze_until: ISO datetime when snooze ends
-            reason: Optional reason for snoozing
-
-        Returns:
-            Dict with snooze_id and scheduled_unsnooze
-        """
-        data: dict[str, Any] = {"snooze_until": snooze_until}
-        if reason:
-            data["reason"] = reason
-
-        return self._client.request("POST", f"/api/v1/email/{email_id}/snooze", json=data)
-
-    def cancel_snooze(self, email_id: str) -> dict[str, Any]:
-        """
-        Cancel a snooze on an email.
-
-        Args:
-            email_id: ID of the snoozed email
-
-        Returns:
-            Dict with success status
-        """
-        return self._client.request("DELETE", f"/api/v1/email/{email_id}/snooze")
 
     def list_snoozed(
         self,
@@ -234,7 +161,6 @@ class EmailServicesAPI:
 
         return self._client.request("POST", "/api/v1/email/categories/learn", json=data)
 
-
 class AsyncEmailServicesAPI:
     """
     Asynchronous Email Services API.
@@ -279,22 +205,6 @@ class AsyncEmailServicesAPI:
             params={"limit": limit, "offset": offset},
         )
 
-    async def resolve_followup(
-        self,
-        followup_id: str,
-        resolution: str | None = None,
-    ) -> dict[str, Any]:
-        """Resolve a follow-up."""
-        data = {}
-        if resolution:
-            data["resolution"] = resolution
-
-        return await self._client.request(
-            "POST",
-            f"/api/v1/email/followups/{followup_id}/resolve",
-            json=data,
-        )
-
     async def check_replies(self) -> dict[str, Any]:
         """Check for replies to tracked emails."""
         return await self._client.request("POST", "/api/v1/email/followups/check-replies")
@@ -302,27 +212,6 @@ class AsyncEmailServicesAPI:
     # ===========================================================================
     # Snooze Management
     # ===========================================================================
-
-    async def get_snooze_suggestions(self, email_id: str) -> dict[str, Any]:
-        """Get snooze recommendations for an email."""
-        return await self._client.request("GET", f"/api/v1/email/{email_id}/snooze-suggestions")
-
-    async def snooze_email(
-        self,
-        email_id: str,
-        snooze_until: str,
-        reason: str | None = None,
-    ) -> dict[str, Any]:
-        """Apply snooze to an email."""
-        data: dict[str, Any] = {"snooze_until": snooze_until}
-        if reason:
-            data["reason"] = reason
-
-        return await self._client.request("POST", f"/api/v1/email/{email_id}/snooze", json=data)
-
-    async def cancel_snooze(self, email_id: str) -> dict[str, Any]:
-        """Cancel a snooze on an email."""
-        return await self._client.request("DELETE", f"/api/v1/email/{email_id}/snooze")
 
     async def list_snoozed(
         self,

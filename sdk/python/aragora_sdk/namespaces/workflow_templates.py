@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class WorkflowTemplatesAPI:
     """
     Synchronous Workflow Templates API.
@@ -101,45 +100,6 @@ class WorkflowTemplatesAPI:
             - examples: Usage examples with sample inputs
         """
         return self._client.request("GET", f"/api/v1/workflow/templates/{template_id}/package")
-
-    def run(
-        self,
-        template_id: str,
-        inputs: dict[str, Any] | None = None,
-        config: dict[str, Any] | None = None,
-        workspace_id: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Run a workflow template with the given inputs.
-
-        Args:
-            template_id: The template to run
-            inputs: Input values for the workflow
-            config: Optional runtime configuration
-            workspace_id: Optional workspace to run in
-
-        Returns:
-            Execution result including:
-            - execution_id: ID to track the execution
-            - status: Current status (started, running, completed, failed)
-            - template_id: The template that was run
-            - started_at: Timestamp when execution started
-            - result: Output data (when completed)
-        """
-        data: dict[str, Any] = {}
-        if inputs:
-            data["inputs"] = inputs
-        if config:
-            data["config"] = config
-        if workspace_id:
-            data["workspace_id"] = workspace_id
-
-        return self._client.request(
-            "POST",
-            f"/api/v1/workflow/templates/{template_id}/run",
-            json=data if data else None,
-        )
-
 
 class AsyncWorkflowTemplatesAPI:
     """
@@ -229,40 +189,3 @@ class AsyncWorkflowTemplatesAPI:
             "GET", f"/api/v1/workflow/templates/{template_id}/package"
         )
 
-    async def run(
-        self,
-        template_id: str,
-        inputs: dict[str, Any] | None = None,
-        config: dict[str, Any] | None = None,
-        workspace_id: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Run a workflow template with the given inputs.
-
-        Args:
-            template_id: The template to run
-            inputs: Input values for the workflow
-            config: Optional runtime configuration
-            workspace_id: Optional workspace to run in
-
-        Returns:
-            Execution result including:
-            - execution_id: ID to track the execution
-            - status: Current status (started, running, completed, failed)
-            - template_id: The template that was run
-            - started_at: Timestamp when execution started
-            - result: Output data (when completed)
-        """
-        data: dict[str, Any] = {}
-        if inputs:
-            data["inputs"] = inputs
-        if config:
-            data["config"] = config
-        if workspace_id:
-            data["workspace_id"] = workspace_id
-
-        return await self._client.request(
-            "POST",
-            f"/api/v1/workflow/templates/{template_id}/run",
-            json=data if data else None,
-        )

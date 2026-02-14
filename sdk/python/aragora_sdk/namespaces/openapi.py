@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class OpenApiAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
@@ -57,272 +56,10 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("DELETE", f"/api/v1/a2a/tasks/{task_id}", params=params)
 
-    def request_post_api_v1_a2a_tasks_by_task_id_stream(
-        self, task_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/a2a/tasks/{task_id}/stream", json=body, params=params
-        )
-
-    def request_delete_api_v1_accounting_expenses(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/accounting/expenses", params=params)
-
-    def request_get_api_v1_accounting_expenses(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses", params=params)
-
-    def request_post_api_v1_accounting_expenses(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/accounting/expenses", json=body, params=params)
-
-    def request_put_api_v1_accounting_expenses(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("PUT", "/api/v1/accounting/expenses", json=body, params=params)
-
-    def request_delete_api_v1_accounting_expenses_categorize(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/categorize", params=params
-        )
-
-    def request_get_api_v1_accounting_expenses_categorize(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses/categorize", params=params)
-
-    def request_post_api_v1_accounting_expenses_categorize(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/expenses/categorize", json=body, params=params
-        )
-
-    def request_put_api_v1_accounting_expenses_categorize(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", "/api/v1/accounting/expenses/categorize", json=body, params=params
-        )
-
-    def request_delete_api_v1_accounting_expenses_export(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/accounting/expenses/export", params=params)
-
-    def request_get_api_v1_accounting_expenses_export(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses/export", params=params)
-
-    def request_post_api_v1_accounting_expenses_export(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/expenses/export", json=body, params=params
-        )
-
-    def request_put_api_v1_accounting_expenses_export(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", "/api/v1/accounting/expenses/export", json=body, params=params
-        )
-
-    def request_delete_api_v1_accounting_expenses_pending(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/accounting/expenses/pending", params=params)
-
-    def request_get_api_v1_accounting_expenses_pending(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses/pending", params=params)
-
-    def request_post_api_v1_accounting_expenses_pending(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/expenses/pending", json=body, params=params
-        )
-
-    def request_put_api_v1_accounting_expenses_pending(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", "/api/v1/accounting/expenses/pending", json=body, params=params
-        )
-
-    def request_delete_api_v1_accounting_expenses_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/accounting/expenses/stats", params=params)
-
-    def request_get_api_v1_accounting_expenses_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses/stats", params=params)
-
-    def request_post_api_v1_accounting_expenses_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/expenses/stats", json=body, params=params
-        )
-
-    def request_put_api_v1_accounting_expenses_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", "/api/v1/accounting/expenses/stats", json=body, params=params
-        )
-
-    def request_delete_api_v1_accounting_expenses_sync(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/accounting/expenses/sync", params=params)
-
-    def request_get_api_v1_accounting_expenses_sync(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses/sync", params=params)
-
-    def request_post_api_v1_accounting_expenses_sync(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/expenses/sync", json=body, params=params
-        )
-
-    def request_put_api_v1_accounting_expenses_sync(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", "/api/v1/accounting/expenses/sync", json=body, params=params
-        )
-
-    def request_delete_api_v1_accounting_expenses_upload(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/accounting/expenses/upload", params=params)
-
-    def request_get_api_v1_accounting_expenses_upload(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/expenses/upload", params=params)
-
-    def request_post_api_v1_accounting_expenses_upload(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/expenses/upload", json=body, params=params
-        )
-
-    def request_put_api_v1_accounting_expenses_upload(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", "/api/v1/accounting/expenses/upload", json=body, params=params
-        )
-
-    def request_get_api_v1_accounting_invoices(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/invoices", params=params)
-
-    def request_post_api_v1_accounting_invoices(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/accounting/invoices", json=body, params=params)
-
-    def request_get_api_v1_accounting_invoices_overdue(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/invoices/overdue", params=params)
-
-    def request_post_api_v1_accounting_invoices_overdue(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/invoices/overdue", json=body, params=params
-        )
-
-    def request_get_api_v1_accounting_invoices_pending(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/invoices/pending", params=params)
-
-    def request_post_api_v1_accounting_invoices_pending(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/invoices/pending", json=body, params=params
-        )
-
-    def request_get_api_v1_accounting_invoices_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/invoices/stats", params=params)
-
-    def request_post_api_v1_accounting_invoices_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/invoices/stats", json=body, params=params
-        )
-
-    def request_get_api_v1_accounting_invoices_upload(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/invoices/upload", params=params)
-
-    def request_post_api_v1_accounting_invoices_upload(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/invoices/upload", json=body, params=params
-        )
-
-    def request_get_api_v1_accounting_payments_scheduled(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/payments/scheduled", params=params)
-
-    def request_post_api_v1_accounting_payments_scheduled(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/payments/scheduled", json=body, params=params
-        )
-
-    def request_get_api_v1_accounting_purchase_orders(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/accounting/purchase-orders", params=params)
-
-    def request_post_api_v1_accounting_purchase_orders(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/accounting/purchase-orders", json=body, params=params
-        )
-
     def request_get_api_v1_admin_impersonate(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/admin/impersonate", params=params)
-
-    def request_post_api_v1_admin_impersonate_by_user_id(
-        self, user_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/admin/impersonate/{user_id}", json=body, params=params
-        )
 
     def request_get_api_v1_admin_nomic_circuit_breakers(
         self, params: dict[str, Any] | None = None
@@ -565,20 +302,10 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/agent/{name}/profile", params=params)
 
-    def request_get_api_v1_agent_by_name_reputation(
-        self, name, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/agent/{name}/reputation", params=params)
-
     def request_get_api_v1_agent_by_name_rivals(
         self, name, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/agent/{name}/rivals", params=params)
-
-    def request_get_api_v1_agent_by_param_head_to_head(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/agent/{param}/head-to-head", params=params)
 
     def request_get_api_v1_agent_by_param_introspect(
         self, param, params: dict[str, Any] | None = None
@@ -589,13 +316,6 @@ class OpenApiAPI:
         self, param, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/agent/{param}/metadata", params=params)
-
-    def request_get_api_v1_agent_by_param_opponent_briefing(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/agent/{param}/opponent-briefing", params=params
-        )
 
     def request_get_api_v1_agent_by_param_positions(
         self, param, params: dict[str, Any] | None = None
@@ -1574,13 +1294,6 @@ class OpenApiAPI:
             "POST", "/api/v1/bots/telegram/webhook", json=body, params=params
         )
 
-    def request_post_api_v1_bots_telegram_webhook_by_token(
-        self, token, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/bots/telegram/webhook/{token}", json=body, params=params
-        )
-
     def request_get_api_v1_bots_whatsapp_status(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -1648,42 +1361,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("DELETE", f"/api/v1/budgets/{budget_id}", params=params)
 
-    def request_get_api_v1_budgets_by_budget_id_alerts(
-        self, budget_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/budgets/{budget_id}/alerts", params=params)
-
-    def request_post_api_v1_budgets_by_budget_id_alerts_by_alert_id_acknowledge(
-        self, budget_id, alert_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST",
-            f"/api/v1/budgets/{budget_id}/alerts/{alert_id}/acknowledge",
-            json=body,
-            params=params,
-        )
-
-    def request_post_api_v1_budgets_by_budget_id_override(
-        self, budget_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/budgets/{budget_id}/override", json=body, params=params
-        )
-
-    def request_delete_api_v1_budgets_by_budget_id_override_by_user_id(
-        self, budget_id, user_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "DELETE", f"/api/v1/budgets/{budget_id}/override/{user_id}", params=params
-        )
-
-    def request_post_api_v1_budgets_by_budget_id_reset(
-        self, budget_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/budgets/{budget_id}/reset", json=body, params=params
-        )
-
     def request_get_api_v1_calibration_leaderboard(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -1693,20 +1370,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/calibration/visualization", params=params)
-
-    def request_get_api_v1_chat_knowledge_channel_by_channel_id_summary(
-        self, channel_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary", params=params
-        )
-
-    def request_post_api_v1_chat_knowledge_channel_by_param(
-        self, param, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/chat/knowledge/channel/{param}", json=body, params=params
-        )
 
     def request_post_api_v1_chat_knowledge_inject(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -1748,11 +1411,6 @@ class OpenApiAPI:
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/classify", json=body, params=params)
-
-    def request_get_api_v1_classify_policy_by_level(
-        self, level, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/classify/policy/{level}", params=params)
 
     def request_post_api_v1_cloud_dropbox_auth_callback(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -1957,185 +1615,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/codebase/understand", params=params)
 
-    def request_post_api_v1_codebase_by_repo_analyze(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/analyze", json=body, params=params
-        )
-
-    def request_post_api_v1_codebase_by_repo_audit(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/audit", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_audit_by_audit_id(
-        self, repo, audit_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/audit/{audit_id}", params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_callgraph(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/callgraph", params=params)
-
-    def request_get_api_v1_codebase_by_repo_deadcode(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/deadcode", params=params)
-
-    def request_get_api_v1_codebase_by_repo_duplicates(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/duplicates", params=params)
-
-    def request_get_api_v1_codebase_by_repo_hotspots(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/hotspots", params=params)
-
-    def request_post_api_v1_codebase_by_repo_impact(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/impact", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_metrics(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/metrics", params=params)
-
-    def request_post_api_v1_codebase_by_repo_metrics_analyze(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/metrics/analyze", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_metrics_file_by_file_path(
-        self, repo, file_path, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/metrics/file/{file_path}", params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_metrics_history(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/metrics/history", params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_metrics_by_analysis_id(
-        self, repo, analysis_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/metrics/{analysis_id}", params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_sast_findings(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/sast/findings", params=params)
-
-    def request_get_api_v1_codebase_by_repo_sast_owasp_summary(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/sast/owasp-summary", params=params
-        )
-
-    def request_post_api_v1_codebase_by_repo_scan(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/scan", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_scan_latest(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/scan/latest", params=params)
-
-    def request_post_api_v1_codebase_by_repo_scan_sast(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/scan/sast", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_scan_sast_by_scan_id(
-        self, repo, scan_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/sast/{scan_id}", params=params
-        )
-
-    def request_post_api_v1_codebase_by_repo_scan_secrets(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/scan/secrets", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_scan_secrets_latest(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/secrets/latest", params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_scan_secrets_by_scan_id(
-        self, repo, scan_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/secrets/{scan_id}", params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_scan_by_scan_id(
-        self, repo, scan_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/scan/{scan_id}", params=params)
-
-    def request_get_api_v1_codebase_by_repo_scans(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/scans", params=params)
-
-    def request_get_api_v1_codebase_by_repo_scans_secrets(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/scans/secrets", params=params)
-
-    def request_get_api_v1_codebase_by_repo_secrets(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/secrets", params=params)
-
-    def request_get_api_v1_codebase_by_repo_symbols(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/symbols", params=params)
-
-    def request_post_api_v1_codebase_by_repo_understand(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/understand", json=body, params=params
-        )
-
-    def request_get_api_v1_codebase_by_repo_vulnerabilities(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/vulnerabilities", params=params
-        )
-
     def request_get_api_v1_compliance_check(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -2205,11 +1684,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/consensus/dissents", params=params)
-
-    def request_get_api_v1_consensus_domain(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/consensus/domain", params=params)
 
     def request_get_api_v1_consensus_domain_by_domain(
         self, domain, params: dict[str, Any] | None = None
@@ -2539,11 +2013,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/debates/slug", json=body, params=params)
 
-    def request_get_api_v1_debates_slug_by_slug(
-        self, slug, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/debates/slug/{slug}", params=params)
-
     def request_post_api_v1_debates_by_debate_id_compress(
         self, debate_id, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -2603,11 +2072,6 @@ class OpenApiAPI:
             "GET", f"/api/v1/debates/{debate_id}/votes/pivots", params=params
         )
 
-    def request_get_api_v1_debates_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/debates/{id}", params=params)
-
     def request_post_api_v1_debates_by_id_broadcast(
         self, id, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -2630,20 +2094,10 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/debates/{id}/evidence", params=params)
 
-    def request_get_api_v1_debates_by_id_export_by_format(
-        self, id, format, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/debates/{id}/export/{format}", params=params)
-
     def request_post_api_v1_debates_by_id_fork(
         self, id, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("POST", f"/api/v1/debates/{id}/fork", json=body, params=params)
-
-    def request_get_api_v1_debates_by_id_graph_stats(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/debates/{id}/graph/stats", params=params)
 
     def request_get_api_v1_debates_by_id_impasse(
         self, id, params: dict[str, Any] | None = None
@@ -2654,11 +2108,6 @@ class OpenApiAPI:
         self, id, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/debates/{id}/messages", params=params)
-
-    def request_get_api_v1_debates_by_id_meta_critique(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/debates/{id}/meta-critique", params=params)
 
     def request_post_api_v1_debates_by_id_publish_twitter(
         self, id, body: Any | None = None, params: dict[str, Any] | None = None
@@ -2673,11 +2122,6 @@ class OpenApiAPI:
         return self._client.request(
             "POST", f"/api/v1/debates/{id}/publish/youtube", json=body, params=params
         )
-
-    def request_get_api_v1_debates_by_id_red_team(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/debates/{id}/red-team", params=params)
 
     def request_post_api_v1_debates_by_param_broadcast_full(
         self, param, body: Any | None = None, params: dict[str, Any] | None = None
@@ -2805,11 +2249,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/decisions/{request_id}/explain", params=params)
 
-    def request_get_api_v1_decisions_by_request_id_status(
-        self, request_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/decisions/{request_id}/status", params=params)
-
     def request_get_api_v1_deliberations_active(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -2831,9 +2270,6 @@ class OpenApiAPI:
         return self._client.request(
             "GET", f"/api/v1/deliberations/{deliberation_id}", params=params
         )
-
-    def request_get_api_v1_devices(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/devices", params=params)
 
     def request_post_api_v1_devices_alexa_webhook(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -2858,16 +2294,6 @@ class OpenApiAPI:
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/devices/register", json=body, params=params)
-
-    def request_get_api_v1_devices_by_device_id(
-        self, device_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/devices/{device_id}", params=params)
-
-    def request_delete_api_v1_devices_by_device_id(
-        self, device_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/devices/{device_id}", params=params)
 
     def request_get_api_v1_devops_status(
         self, params: dict[str, Any] | None = None
@@ -3107,11 +2533,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/email/context/boost", params=params)
 
-    def request_get_api_v1_email_context_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/email/context/{param}", params=params)
-
     def request_get_api_v1_email_feedback(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -3192,23 +2613,6 @@ class OpenApiAPI:
             "POST", "/api/v1/email/followups/pending", json=body, params=params
         )
 
-    def request_delete_api_v1_email_followups_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/email/followups/{param}", params=params)
-
-    def request_get_api_v1_email_followups_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/email/followups/{param}", params=params)
-
-    def request_post_api_v1_email_followups_by_param(
-        self, param, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/email/followups/{param}", json=body, params=params
-        )
-
     def request_get_api_v1_email_gmail_oauth_callback(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -3273,21 +2677,6 @@ class OpenApiAPI:
 
     def request_get_api_v1_email_vip(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/email/vip", params=params)
-
-    def request_delete_api_v1_email_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/email/{param}", params=params)
-
-    def request_get_api_v1_email_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/email/{param}", params=params)
-
-    def request_post_api_v1_email_by_param(
-        self, param, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", f"/api/v1/email/{param}", json=body, params=params)
 
     def request_post_api_v1_evaluate(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -3379,9 +2768,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/evolution/{param}/prompt", params=params)
 
-    def request_get_api_v1_explain(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/explain", params=params)
-
     def request_post_api_v1_explainability_batch(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -3408,44 +2794,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/explainability/compare", params=params)
 
-    def request_get_api_v1_features(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features", params=params)
-
-    def request_get_api_v1_features_all(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features/all", params=params)
-
-    def request_get_api_v1_features_available(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features/available", params=params)
-
-    def request_get_api_v1_features_config(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features/config", params=params)
-
-    def request_get_api_v1_features_discover(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features/discover", params=params)
-
-    def request_get_api_v1_features_endpoints(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features/endpoints", params=params)
-
-    def request_get_api_v1_features_handlers(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/features/handlers", params=params)
-
-    def request_get_api_v1_features_by_feature_id(
-        self, feature_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/features/{feature_id}", params=params)
-
     def request_post_api_v1_findings_batch_evidence(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -3466,61 +2814,10 @@ class OpenApiAPI:
     def request_get_api_v1_gallery(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/gallery", params=params)
 
-    def request_get_api_v1_gauntlet(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/gauntlet", params=params)
-
-    def request_get_api_v1_gauntlet_heatmaps(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/gauntlet/heatmaps", params=params)
-
-    def request_get_api_v1_gauntlet_heatmaps_by_heatmap_id(
-        self, heatmap_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}", params=params)
-
-    def request_get_api_v1_gauntlet_heatmaps_by_heatmap_id_export(
-        self, heatmap_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export", params=params
-        )
-
     def request_get_api_v1_gauntlet_personas(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/gauntlet/personas", params=params)
-
-    def request_get_api_v1_gauntlet_receipts(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/gauntlet/receipts", params=params)
-
-    def request_post_api_v1_gauntlet_receipts_export_bundle(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/gauntlet/receipts/export/bundle", json=body, params=params
-        )
-
-    def request_get_api_v1_gauntlet_receipts_by_receipt_id(
-        self, receipt_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}", params=params)
-
-    def request_get_api_v1_gauntlet_receipts_by_receipt_id_export(
-        self, receipt_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params=params
-        )
-
-    def request_get_api_v1_gauntlet_receipts_by_receipt_id_stream(
-        self, receipt_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream", params=params
-        )
 
     def request_get_api_v1_gauntlet_results(
         self, params: dict[str, Any] | None = None
@@ -3531,11 +2828,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/gauntlet/run", params=params)
-
-    def request_get_api_v1_gauntlet_by_param_compare(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/gauntlet/{param}/compare", params=params)
 
     def request_get_api_v1_gauntlet_by_param_export(
         self, param, params: dict[str, Any] | None = None
@@ -3559,11 +2851,6 @@ class OpenApiAPI:
             "GET", f"/api/v1/gauntlet/{param}/receipt/verify", params=params
         )
 
-    def request_get_api_v1_genesis_descendants(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/genesis/descendants", params=params)
-
     def request_get_api_v1_genesis_events(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -3579,11 +2866,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/genesis/genomes/top", params=params)
 
-    def request_get_api_v1_genesis_lineage(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/genesis/lineage", params=params)
-
     def request_get_api_v1_genesis_lineage_by_agent(
         self, agent, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -3598,11 +2880,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/genesis/stats", params=params)
-
-    def request_get_api_v1_genesis_tree(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/genesis/tree", params=params)
 
     def request_get_api_v1_genesis_tree_by_agent(
         self, agent, params: dict[str, Any] | None = None
@@ -3647,48 +2924,6 @@ class OpenApiAPI:
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/gmail/messages", json=body, params=params)
-
-    def request_post_api_v1_gmail_messages_by_message_id_archive(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/archive", json=body, params=params
-        )
-
-    def request_get_api_v1_gmail_messages_by_message_id_attachments_by_attachment_id(
-        self, message_id, attachment_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/gmail/messages/{message_id}/attachments/{attachment_id}", params=params
-        )
-
-    def request_post_api_v1_gmail_messages_by_message_id_labels(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/labels", json=body, params=params
-        )
-
-    def request_post_api_v1_gmail_messages_by_message_id_read(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/read", json=body, params=params
-        )
-
-    def request_post_api_v1_gmail_messages_by_message_id_star(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/star", json=body, params=params
-        )
-
-    def request_post_api_v1_gmail_messages_by_message_id_trash(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/trash", json=body, params=params
-        )
 
     def request_post_api_v1_gmail_query(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -3881,37 +3116,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", f"/api/v1/incidents/{incident_id}", params=params)
 
-    def request_get_api_v1_incidents_by_incident_id_acknowledge(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/acknowledge", params=params
-        )
-
-    def request_get_api_v1_incidents_by_incident_id_merge(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/incidents/{incident_id}/merge", params=params)
-
-    def request_get_api_v1_incidents_by_incident_id_notes(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/incidents/{incident_id}/notes", params=params)
-
-    def request_get_api_v1_incidents_by_incident_id_reassign(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/reassign", params=params
-        )
-
-    def request_get_api_v1_incidents_by_incident_id_resolve(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/resolve", params=params
-        )
-
     def request_post_api_v1_insights_extract_detailed(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -4043,58 +3247,6 @@ class OpenApiAPI:
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/knowledge/facts", json=body, params=params)
-
-    def request_post_api_v1_knowledge_facts_relations(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/knowledge/facts/relations", json=body, params=params
-        )
-
-    def request_get_api_v1_knowledge_facts_by_fact_id(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}", params=params)
-
-    def request_put_api_v1_knowledge_facts_by_fact_id(
-        self, fact_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT", f"/api/v1/knowledge/facts/{fact_id}", json=body, params=params
-        )
-
-    def request_delete_api_v1_knowledge_facts_by_fact_id(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/knowledge/facts/{fact_id}", params=params)
-
-    def request_get_api_v1_knowledge_facts_by_fact_id_contradictions(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions", params=params
-        )
-
-    def request_get_api_v1_knowledge_facts_by_fact_id_relations(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/knowledge/facts/{fact_id}/relations", params=params
-        )
-
-    def request_post_api_v1_knowledge_facts_by_fact_id_relations(
-        self, fact_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/knowledge/facts/{fact_id}/relations", json=body, params=params
-        )
-
-    def request_post_api_v1_knowledge_facts_by_fact_id_verify(
-        self, fact_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/knowledge/facts/{fact_id}/verify", json=body, params=params
-        )
 
     def request_delete_api_v1_knowledge_jobs(
         self, params: dict[str, Any] | None = None
@@ -4337,25 +3489,11 @@ class OpenApiAPI:
             "GET", "/api/v1/knowledge/mound/governance/audit", params=params
         )
 
-    def request_get_api_v1_knowledge_mound_governance_audit_user(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", "/api/v1/knowledge/mound/governance/audit/user", params=params
-        )
-
     def request_get_api_v1_knowledge_mound_governance_audit_user_by_user_id(
         self, user_id, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request(
             "GET", f"/api/v1/knowledge/mound/governance/audit/user/{user_id}", params=params
-        )
-
-    def request_get_api_v1_knowledge_mound_governance_permissions(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", "/api/v1/knowledge/mound/governance/permissions", params=params
         )
 
     def request_post_api_v1_knowledge_mound_governance_permissions_check(
@@ -4459,11 +3597,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/knowledge/mound/relationships", params=params)
 
-    def request_get_api_v1_knowledge_mound_revalidate(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/knowledge/mound/revalidate", params=params)
-
     def request_get_api_v1_knowledge_mound_schedule_revalidation(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -4480,11 +3613,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/knowledge/mound/stats", params=params)
-
-    def request_get_api_v1_knowledge_mound_sync(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/knowledge/mound/sync", params=params)
 
     def request_post_api_v1_knowledge_query(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -4866,11 +3994,6 @@ class OpenApiAPI:
     def request_get_api_v1_modes(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/modes", params=params)
 
-    def request_get_api_v1_moments_by_type(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/moments/by-type", params=params)
-
     def request_get_api_v1_moments_by_type_by_type(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -4957,13 +4080,6 @@ class OpenApiAPI:
             "POST", "/api/v1/nomic/proposals/reject", json=body, params=params
         )
 
-    def request_post_api_v1_nomic_proposals_by_id(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/nomic/proposals/{id}", json=body, params=params
-        )
-
     def request_get_api_v1_nomic_risk_register(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -4981,11 +4097,6 @@ class OpenApiAPI:
 
     def request_get_api_v1_oncall(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/oncall", params=params)
-
-    def request_get_api_v1_oncall_services_by_service_id(
-        self, service_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/oncall/services/{service_id}", params=params)
 
     def request_get_api_v1_openapi(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/openapi", params=params)
@@ -5423,14 +4534,6 @@ class OpenApiAPI:
     def request_get_api_v1_replays(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/replays", params=params)
 
-    def request_get_api_v1_replays_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/replays/{id}", params=params)
-
-    def request_get_api_v1_repository(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/repository", params=params)
-
     def request_get_api_v1_repository_batch(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -5481,90 +4584,13 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/retention/policies", json=body, params=params)
 
-    def request_post_api_v1_retention_policies_by_policy_id_execute(
-        self, policy_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/retention/policies/{policy_id}/execute", json=body, params=params
-        )
-
     def request_get_api_v1_reviews(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/reviews", params=params)
-
-    def request_delete_api_v1_rlm_compress(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/compress", params=params)
-
-    def request_post_api_v1_rlm_compress(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/compress", json=body, params=params)
-
-    def request_delete_api_v1_rlm_contexts(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/contexts", params=params)
-
-    def request_post_api_v1_rlm_contexts(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/contexts", json=body, params=params)
-
-    def request_delete_api_v1_rlm_query(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/query", params=params)
-
-    def request_post_api_v1_rlm_query(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/query", json=body, params=params)
-
-    def request_delete_api_v1_rlm_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/stats", params=params)
-
-    def request_post_api_v1_rlm_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/stats", json=body, params=params)
 
     def request_post_api_v1_rlm_status(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/rlm/status", json=body, params=params)
-
-    def request_delete_api_v1_rlm_strategies(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/strategies", params=params)
-
-    def request_post_api_v1_rlm_strategies(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/strategies", json=body, params=params)
-
-    def request_delete_api_v1_rlm_stream(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/stream", params=params)
-
-    def request_post_api_v1_rlm_stream(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/stream", json=body, params=params)
-
-    def request_delete_api_v1_rlm_stream_modes(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", "/api/v1/rlm/stream/modes", params=params)
-
-    def request_post_api_v1_rlm_stream_modes(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/rlm/stream/modes", json=body, params=params)
 
     def request_get_api_v1_routing_rules(
         self, params: dict[str, Any] | None = None
@@ -5855,36 +4881,6 @@ class OpenApiAPI:
             params=params,
         )
 
-    def request_get_api_v1_training_export_dpo(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/training/export/dpo", params=params)
-
-    def request_get_api_v1_training_export_gauntlet(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/training/export/gauntlet", params=params)
-
-    def request_get_api_v1_training_export_sft(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/training/export/sft", params=params)
-
-    def request_get_api_v1_training_formats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/training/formats", params=params)
-
-    def request_get_api_v1_training_jobs(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/training/jobs", params=params)
-
-    def request_get_api_v1_training_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/training/stats", params=params)
-
     def request_post_api_v1_transcribe_audio(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -5907,13 +4903,6 @@ class OpenApiAPI:
             "POST", "/api/v1/transcription/config", json=body, params=params
         )
 
-    def request_post_api_v1_transcription_status(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", "/api/v1/transcription/status", json=body, params=params
-        )
-
     def request_post_api_v1_transcription_video(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -5932,16 +4921,6 @@ class OpenApiAPI:
         return self._client.request(
             "POST", "/api/v1/transcription/youtube/info", json=body, params=params
         )
-
-    def request_get_api_v1_uncertainty_agent(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/uncertainty/agent", params=params)
-
-    def request_get_api_v1_uncertainty_debate(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/uncertainty/debate", params=params)
 
     def request_get_api_v1_uncertainty_estimate(
         self, params: dict[str, Any] | None = None
@@ -6089,23 +5068,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/webhooks/dead-letter", params=params)
 
-    def request_get_api_v1_webhooks_dead_letter_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/webhooks/dead-letter/{id}", params=params)
-
-    def request_delete_api_v1_webhooks_dead_letter_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/webhooks/dead-letter/{id}", params=params)
-
-    def request_post_api_v1_webhooks_dead_letter_by_id_retry(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/webhooks/dead-letter/{id}/retry", json=body, params=params
-        )
-
     def request_get_api_v1_webhooks_events(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -6146,11 +5108,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/webhooks/slo/status", params=params)
 
-    def request_post_api_v1_webhooks_slo_test(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", "/api/v1/webhooks/slo/test", json=body, params=params)
-
     def request_get_api_v1_webhooks_status(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -6170,26 +5127,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/webhooks/unsubscribe", params=params)
-
-    def request_get_api_v1_webhooks_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/webhooks/{id}", params=params)
-
-    def request_patch_api_v1_webhooks_by_id(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("PATCH", f"/api/v1/webhooks/{id}", json=body, params=params)
-
-    def request_delete_api_v1_webhooks_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/webhooks/{id}", params=params)
-
-    def request_post_api_v1_webhooks_by_id_test(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("POST", f"/api/v1/webhooks/{id}/test", json=body, params=params)
 
     def request_get_api_v1_workflow_approvals(
         self, params: dict[str, Any] | None = None
@@ -6227,13 +5164,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/workflow-templates", params=params)
 
-    def request_get_api_v1_workflow_templates_by_template_id(
-        self, template_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/workflow-templates/{template_id}", params=params
-        )
-
     def request_get_api_v1_workflow_categories(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -6248,13 +5178,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/workflow/patterns", params=params)
-
-    def request_post_api_v1_workflow_patterns_by_pattern_id_instantiate(
-        self, pattern_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/workflow/patterns/{pattern_id}/instantiate", json=body, params=params
-        )
 
     def request_get_api_v1_workflow_namespace_templates(
         self, params: dict[str, Any] | None = None
@@ -6273,13 +5196,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request(
             "GET", f"/api/v1/workflow/templates/{template_id}/package", params=params
-        )
-
-    def request_post_api_v1_workflow_templates_by_template_id_run(
-        self, template_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/workflow/templates/{template_id}/run", json=body, params=params
         )
 
     def request_get_api_v1_workflows(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -6307,20 +5223,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("DELETE", f"/api/v1/workflows/{workflow_id}", params=params)
 
-    def request_post_api_v1_workflows_by_workflow_id_execute(
-        self, workflow_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/workflows/{workflow_id}/execute", json=body, params=params
-        )
-
-    def request_get_api_v1_workflows_by_workflow_id_versions(
-        self, workflow_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/workflows/{workflow_id}/versions", params=params
-        )
-
     def request_get_api_v1_workspaces(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/workspaces", params=params)
 
@@ -6333,40 +5235,6 @@ class OpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/workspaces/profiles", params=params)
-
-    def request_get_api_v1_workspaces_by_workspace_id(
-        self, workspace_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/workspaces/{workspace_id}", params=params)
-
-    def request_delete_api_v1_workspaces_by_workspace_id(
-        self, workspace_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}", params=params)
-
-    def request_post_api_v1_workspaces_by_workspace_id_members(
-        self, workspace_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "POST", f"/api/v1/workspaces/{workspace_id}/members", json=body, params=params
-        )
-
-    def request_put_api_v1_workspaces_by_workspace_id_members_by_user_id_role(
-        self, workspace_id, user_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "PUT",
-            f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
-            json=body,
-            params=params,
-        )
-
-    def request_get_api_v1_workspaces_by_workspace_id_roles(
-        self, workspace_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request(
-            "GET", f"/api/v1/workspaces/{workspace_id}/roles", params=params
-        )
 
     def request_get_api_v1_youtube_auth(
         self, params: dict[str, Any] | None = None
@@ -6398,11 +5266,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("DELETE", f"/api/v1/integrations/{type}", params=params)
 
-    def request_get_api_v2_integrations_by_type_health(
-        self, type, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", f"/api/v1/integrations/{type}/health", params=params)
-
     def request_post_api_v2_integrations_by_type_test(
         self, type, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -6423,9 +5286,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/users/me/export", params=params)
 
-    def request_get_audio(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._client.request("GET", "/audio", params=params)
-
     def request_get_healthz(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/healthz", params=params)
 
@@ -6442,7 +5302,6 @@ class OpenApiAPI:
 
     def request_get_status(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/status", params=params)
-
 
 class AsyncOpenApiAPI:
     def __init__(self, client: AragoraAsyncClient):
@@ -6493,306 +5352,10 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("DELETE", f"/api/v1/a2a/tasks/{task_id}", params=params)
 
-    async def request_post_api_v1_a2a_tasks_by_task_id_stream(
-        self, task_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/a2a/tasks/{task_id}/stream", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/accounting/expenses", params=params)
-
-    async def request_get_api_v1_accounting_expenses(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/accounting/expenses", params=params)
-
-    async def request_post_api_v1_accounting_expenses(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses_categorize(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/categorize", params=params
-        )
-
-    async def request_get_api_v1_accounting_expenses_categorize(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/expenses/categorize", params=params
-        )
-
-    async def request_post_api_v1_accounting_expenses_categorize(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses/categorize", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses_categorize(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses/categorize", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses_export(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/export", params=params
-        )
-
-    async def request_get_api_v1_accounting_expenses_export(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/expenses/export", params=params
-        )
-
-    async def request_post_api_v1_accounting_expenses_export(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses/export", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses_export(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses/export", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses_pending(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/pending", params=params
-        )
-
-    async def request_get_api_v1_accounting_expenses_pending(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/expenses/pending", params=params
-        )
-
-    async def request_post_api_v1_accounting_expenses_pending(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses/pending", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses_pending(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses/pending", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/stats", params=params
-        )
-
-    async def request_get_api_v1_accounting_expenses_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/accounting/expenses/stats", params=params)
-
-    async def request_post_api_v1_accounting_expenses_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses/stats", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses/stats", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses_sync(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/sync", params=params
-        )
-
-    async def request_get_api_v1_accounting_expenses_sync(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/accounting/expenses/sync", params=params)
-
-    async def request_post_api_v1_accounting_expenses_sync(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses/sync", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses_sync(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses/sync", json=body, params=params
-        )
-
-    async def request_delete_api_v1_accounting_expenses_upload(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", "/api/v1/accounting/expenses/upload", params=params
-        )
-
-    async def request_get_api_v1_accounting_expenses_upload(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/expenses/upload", params=params
-        )
-
-    async def request_post_api_v1_accounting_expenses_upload(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/expenses/upload", json=body, params=params
-        )
-
-    async def request_put_api_v1_accounting_expenses_upload(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", "/api/v1/accounting/expenses/upload", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_invoices(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/accounting/invoices", params=params)
-
-    async def request_post_api_v1_accounting_invoices(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/invoices", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_invoices_overdue(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/invoices/overdue", params=params
-        )
-
-    async def request_post_api_v1_accounting_invoices_overdue(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/invoices/overdue", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_invoices_pending(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/invoices/pending", params=params
-        )
-
-    async def request_post_api_v1_accounting_invoices_pending(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/invoices/pending", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_invoices_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/accounting/invoices/stats", params=params)
-
-    async def request_post_api_v1_accounting_invoices_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/invoices/stats", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_invoices_upload(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/invoices/upload", params=params
-        )
-
-    async def request_post_api_v1_accounting_invoices_upload(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/invoices/upload", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_payments_scheduled(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/payments/scheduled", params=params
-        )
-
-    async def request_post_api_v1_accounting_payments_scheduled(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/payments/scheduled", json=body, params=params
-        )
-
-    async def request_get_api_v1_accounting_purchase_orders(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/accounting/purchase-orders", params=params
-        )
-
-    async def request_post_api_v1_accounting_purchase_orders(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/accounting/purchase-orders", json=body, params=params
-        )
-
     async def request_get_api_v1_admin_impersonate(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/admin/impersonate", params=params)
-
-    async def request_post_api_v1_admin_impersonate_by_user_id(
-        self, user_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/admin/impersonate/{user_id}", json=body, params=params
-        )
 
     async def request_get_api_v1_admin_nomic_circuit_breakers(
         self, params: dict[str, Any] | None = None
@@ -7055,22 +5618,10 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/agent/{name}/profile", params=params)
 
-    async def request_get_api_v1_agent_by_name_reputation(
-        self, name, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/agent/{name}/reputation", params=params)
-
     async def request_get_api_v1_agent_by_name_rivals(
         self, name, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/agent/{name}/rivals", params=params)
-
-    async def request_get_api_v1_agent_by_param_head_to_head(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/agent/{param}/head-to-head", params=params
-        )
 
     async def request_get_api_v1_agent_by_param_introspect(
         self, param, params: dict[str, Any] | None = None
@@ -7081,13 +5632,6 @@ class AsyncOpenApiAPI:
         self, param, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/agent/{param}/metadata", params=params)
-
-    async def request_get_api_v1_agent_by_param_opponent_briefing(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/agent/{param}/opponent-briefing", params=params
-        )
 
     async def request_get_api_v1_agent_by_param_positions(
         self, param, params: dict[str, Any] | None = None
@@ -8162,13 +6706,6 @@ class AsyncOpenApiAPI:
             "POST", "/api/v1/bots/telegram/webhook", json=body, params=params
         )
 
-    async def request_post_api_v1_bots_telegram_webhook_by_token(
-        self, token, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/bots/telegram/webhook/{token}", json=body, params=params
-        )
-
     async def request_get_api_v1_bots_whatsapp_status(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -8242,44 +6779,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("DELETE", f"/api/v1/budgets/{budget_id}", params=params)
 
-    async def request_get_api_v1_budgets_by_budget_id_alerts(
-        self, budget_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/budgets/{budget_id}/alerts", params=params
-        )
-
-    async def request_post_api_v1_budgets_by_budget_id_alerts_by_alert_id_acknowledge(
-        self, budget_id, alert_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST",
-            f"/api/v1/budgets/{budget_id}/alerts/{alert_id}/acknowledge",
-            json=body,
-            params=params,
-        )
-
-    async def request_post_api_v1_budgets_by_budget_id_override(
-        self, budget_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/budgets/{budget_id}/override", json=body, params=params
-        )
-
-    async def request_delete_api_v1_budgets_by_budget_id_override_by_user_id(
-        self, budget_id, user_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", f"/api/v1/budgets/{budget_id}/override/{user_id}", params=params
-        )
-
-    async def request_post_api_v1_budgets_by_budget_id_reset(
-        self, budget_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/budgets/{budget_id}/reset", json=body, params=params
-        )
-
     async def request_get_api_v1_calibration_leaderboard(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -8289,20 +6788,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/calibration/visualization", params=params)
-
-    async def request_get_api_v1_chat_knowledge_channel_by_channel_id_summary(
-        self, channel_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary", params=params
-        )
-
-    async def request_post_api_v1_chat_knowledge_channel_by_param(
-        self, param, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/chat/knowledge/channel/{param}", json=body, params=params
-        )
 
     async def request_post_api_v1_chat_knowledge_inject(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -8346,11 +6831,6 @@ class AsyncOpenApiAPI:
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("POST", "/api/v1/classify", json=body, params=params)
-
-    async def request_get_api_v1_classify_policy_by_level(
-        self, level, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/classify/policy/{level}", params=params)
 
     async def request_post_api_v1_cloud_dropbox_auth_callback(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -8557,197 +7037,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/codebase/understand", params=params)
 
-    async def request_post_api_v1_codebase_by_repo_analyze(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/analyze", json=body, params=params
-        )
-
-    async def request_post_api_v1_codebase_by_repo_audit(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/audit", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_audit_by_audit_id(
-        self, repo, audit_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/audit/{audit_id}", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_callgraph(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/callgraph", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_deadcode(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/deadcode", params=params)
-
-    async def request_get_api_v1_codebase_by_repo_duplicates(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/duplicates", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_hotspots(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/hotspots", params=params)
-
-    async def request_post_api_v1_codebase_by_repo_impact(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/impact", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_metrics(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/metrics", params=params)
-
-    async def request_post_api_v1_codebase_by_repo_metrics_analyze(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/metrics/analyze", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_metrics_file_by_file_path(
-        self, repo, file_path, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/metrics/file/{file_path}", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_metrics_history(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/metrics/history", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_metrics_by_analysis_id(
-        self, repo, analysis_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/metrics/{analysis_id}", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_sast_findings(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/sast/findings", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_sast_owasp_summary(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/sast/owasp-summary", params=params
-        )
-
-    async def request_post_api_v1_codebase_by_repo_scan(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/scan", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_scan_latest(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/latest", params=params
-        )
-
-    async def request_post_api_v1_codebase_by_repo_scan_sast(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/scan/sast", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_scan_sast_by_scan_id(
-        self, repo, scan_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/sast/{scan_id}", params=params
-        )
-
-    async def request_post_api_v1_codebase_by_repo_scan_secrets(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/scan/secrets", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_scan_secrets_latest(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/secrets/latest", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_scan_secrets_by_scan_id(
-        self, repo, scan_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/secrets/{scan_id}", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_scan_by_scan_id(
-        self, repo, scan_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scan/{scan_id}", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_scans(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/scans", params=params)
-
-    async def request_get_api_v1_codebase_by_repo_scans_secrets(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/scans/secrets", params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_secrets(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/secrets", params=params)
-
-    async def request_get_api_v1_codebase_by_repo_symbols(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/symbols", params=params)
-
-    async def request_post_api_v1_codebase_by_repo_understand(
-        self, repo, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/codebase/{repo}/understand", json=body, params=params
-        )
-
-    async def request_get_api_v1_codebase_by_repo_vulnerabilities(
-        self, repo, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/codebase/{repo}/vulnerabilities", params=params
-        )
-
     async def request_get_api_v1_compliance_check(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -8825,11 +7114,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/consensus/dissents", params=params)
-
-    async def request_get_api_v1_consensus_domain(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/consensus/domain", params=params)
 
     async def request_get_api_v1_consensus_domain_by_domain(
         self, domain, params: dict[str, Any] | None = None
@@ -9183,11 +7467,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("POST", "/api/v1/debates/slug", json=body, params=params)
 
-    async def request_get_api_v1_debates_slug_by_slug(
-        self, slug, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/debates/slug/{slug}", params=params)
-
     async def request_post_api_v1_debates_by_debate_id_compress(
         self, debate_id, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -9251,11 +7530,6 @@ class AsyncOpenApiAPI:
             "GET", f"/api/v1/debates/{debate_id}/votes/pivots", params=params
         )
 
-    async def request_get_api_v1_debates_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/debates/{id}", params=params)
-
     async def request_post_api_v1_debates_by_id_broadcast(
         self, id, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -9278,24 +7552,12 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/debates/{id}/evidence", params=params)
 
-    async def request_get_api_v1_debates_by_id_export_by_format(
-        self, id, format, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{id}/export/{format}", params=params
-        )
-
     async def request_post_api_v1_debates_by_id_fork(
         self, id, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request(
             "POST", f"/api/v1/debates/{id}/fork", json=body, params=params
         )
-
-    async def request_get_api_v1_debates_by_id_graph_stats(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/debates/{id}/graph/stats", params=params)
 
     async def request_get_api_v1_debates_by_id_impasse(
         self, id, params: dict[str, Any] | None = None
@@ -9306,13 +7568,6 @@ class AsyncOpenApiAPI:
         self, id, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/debates/{id}/messages", params=params)
-
-    async def request_get_api_v1_debates_by_id_meta_critique(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{id}/meta-critique", params=params
-        )
 
     async def request_post_api_v1_debates_by_id_publish_twitter(
         self, id, body: Any | None = None, params: dict[str, Any] | None = None
@@ -9327,11 +7582,6 @@ class AsyncOpenApiAPI:
         return await self._client.request(
             "POST", f"/api/v1/debates/{id}/publish/youtube", json=body, params=params
         )
-
-    async def request_get_api_v1_debates_by_id_red_team(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/debates/{id}/red-team", params=params)
 
     async def request_post_api_v1_debates_by_param_broadcast_full(
         self, param, body: Any | None = None, params: dict[str, Any] | None = None
@@ -9465,13 +7715,6 @@ class AsyncOpenApiAPI:
             "GET", f"/api/v1/decisions/{request_id}/explain", params=params
         )
 
-    async def request_get_api_v1_decisions_by_request_id_status(
-        self, request_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/decisions/{request_id}/status", params=params
-        )
-
     async def request_get_api_v1_deliberations_active(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -9493,11 +7736,6 @@ class AsyncOpenApiAPI:
         return await self._client.request(
             "GET", f"/api/v1/deliberations/{deliberation_id}", params=params
         )
-
-    async def request_get_api_v1_devices(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/devices", params=params)
 
     async def request_post_api_v1_devices_alexa_webhook(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -9524,16 +7762,6 @@ class AsyncOpenApiAPI:
         return await self._client.request(
             "POST", "/api/v1/devices/register", json=body, params=params
         )
-
-    async def request_get_api_v1_devices_by_device_id(
-        self, device_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/devices/{device_id}", params=params)
-
-    async def request_delete_api_v1_devices_by_device_id(
-        self, device_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", f"/api/v1/devices/{device_id}", params=params)
 
     async def request_get_api_v1_devops_status(
         self, params: dict[str, Any] | None = None
@@ -9801,11 +8029,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/email/context/boost", params=params)
 
-    async def request_get_api_v1_email_context_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/email/context/{param}", params=params)
-
     async def request_get_api_v1_email_feedback(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -9894,25 +8117,6 @@ class AsyncOpenApiAPI:
             "POST", "/api/v1/email/followups/pending", json=body, params=params
         )
 
-    async def request_delete_api_v1_email_followups_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", f"/api/v1/email/followups/{param}", params=params
-        )
-
-    async def request_get_api_v1_email_followups_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/email/followups/{param}", params=params)
-
-    async def request_post_api_v1_email_followups_by_param(
-        self, param, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/email/followups/{param}", json=body, params=params
-        )
-
     async def request_get_api_v1_email_gmail_oauth_callback(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -9983,23 +8187,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/email/vip", params=params)
-
-    async def request_delete_api_v1_email_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", f"/api/v1/email/{param}", params=params)
-
-    async def request_get_api_v1_email_by_param(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/email/{param}", params=params)
-
-    async def request_post_api_v1_email_by_param(
-        self, param, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/email/{param}", json=body, params=params
-        )
 
     async def request_post_api_v1_evaluate(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -10107,11 +8294,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/evolution/{param}/prompt", params=params)
 
-    async def request_get_api_v1_explain(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/explain", params=params)
-
     async def request_post_api_v1_explainability_batch(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -10138,46 +8320,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/explainability/compare", params=params)
 
-    async def request_get_api_v1_features(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features", params=params)
-
-    async def request_get_api_v1_features_all(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features/all", params=params)
-
-    async def request_get_api_v1_features_available(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features/available", params=params)
-
-    async def request_get_api_v1_features_config(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features/config", params=params)
-
-    async def request_get_api_v1_features_discover(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features/discover", params=params)
-
-    async def request_get_api_v1_features_endpoints(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features/endpoints", params=params)
-
-    async def request_get_api_v1_features_handlers(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/features/handlers", params=params)
-
-    async def request_get_api_v1_features_by_feature_id(
-        self, feature_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/features/{feature_id}", params=params)
-
     async def request_post_api_v1_findings_batch_evidence(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -10200,67 +8342,10 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/gallery", params=params)
 
-    async def request_get_api_v1_gauntlet(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/gauntlet", params=params)
-
-    async def request_get_api_v1_gauntlet_heatmaps(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/gauntlet/heatmaps", params=params)
-
-    async def request_get_api_v1_gauntlet_heatmaps_by_heatmap_id(
-        self, heatmap_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}", params=params
-        )
-
-    async def request_get_api_v1_gauntlet_heatmaps_by_heatmap_id_export(
-        self, heatmap_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export", params=params
-        )
-
     async def request_get_api_v1_gauntlet_personas(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/gauntlet/personas", params=params)
-
-    async def request_get_api_v1_gauntlet_receipts(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/gauntlet/receipts", params=params)
-
-    async def request_post_api_v1_gauntlet_receipts_export_bundle(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/gauntlet/receipts/export/bundle", json=body, params=params
-        )
-
-    async def request_get_api_v1_gauntlet_receipts_by_receipt_id(
-        self, receipt_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}", params=params
-        )
-
-    async def request_get_api_v1_gauntlet_receipts_by_receipt_id_export(
-        self, receipt_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params=params
-        )
-
-    async def request_get_api_v1_gauntlet_receipts_by_receipt_id_stream(
-        self, receipt_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream", params=params
-        )
 
     async def request_get_api_v1_gauntlet_results(
         self, params: dict[str, Any] | None = None
@@ -10271,11 +8356,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/gauntlet/run", params=params)
-
-    async def request_get_api_v1_gauntlet_by_param_compare(
-        self, param, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/gauntlet/{param}/compare", params=params)
 
     async def request_get_api_v1_gauntlet_by_param_export(
         self, param, params: dict[str, Any] | None = None
@@ -10299,11 +8379,6 @@ class AsyncOpenApiAPI:
             "GET", f"/api/v1/gauntlet/{param}/receipt/verify", params=params
         )
 
-    async def request_get_api_v1_genesis_descendants(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/genesis/descendants", params=params)
-
     async def request_get_api_v1_genesis_events(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -10319,11 +8394,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/genesis/genomes/top", params=params)
 
-    async def request_get_api_v1_genesis_lineage(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/genesis/lineage", params=params)
-
     async def request_get_api_v1_genesis_lineage_by_agent(
         self, agent, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -10338,11 +8408,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/genesis/stats", params=params)
-
-    async def request_get_api_v1_genesis_tree(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/genesis/tree", params=params)
 
     async def request_get_api_v1_genesis_tree_by_agent(
         self, agent, params: dict[str, Any] | None = None
@@ -10394,48 +8459,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request(
             "POST", "/api/v1/gmail/messages", json=body, params=params
-        )
-
-    async def request_post_api_v1_gmail_messages_by_message_id_archive(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/archive", json=body, params=params
-        )
-
-    async def request_get_api_v1_gmail_messages_by_message_id_attachments_by_attachment_id(
-        self, message_id, attachment_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/gmail/messages/{message_id}/attachments/{attachment_id}", params=params
-        )
-
-    async def request_post_api_v1_gmail_messages_by_message_id_labels(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/labels", json=body, params=params
-        )
-
-    async def request_post_api_v1_gmail_messages_by_message_id_read(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/read", json=body, params=params
-        )
-
-    async def request_post_api_v1_gmail_messages_by_message_id_star(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/star", json=body, params=params
-        )
-
-    async def request_post_api_v1_gmail_messages_by_message_id_trash(
-        self, message_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/gmail/messages/{message_id}/trash", json=body, params=params
         )
 
     async def request_post_api_v1_gmail_query(
@@ -10643,41 +8666,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", f"/api/v1/incidents/{incident_id}", params=params)
 
-    async def request_get_api_v1_incidents_by_incident_id_acknowledge(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/acknowledge", params=params
-        )
-
-    async def request_get_api_v1_incidents_by_incident_id_merge(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/merge", params=params
-        )
-
-    async def request_get_api_v1_incidents_by_incident_id_notes(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/notes", params=params
-        )
-
-    async def request_get_api_v1_incidents_by_incident_id_reassign(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/reassign", params=params
-        )
-
-    async def request_get_api_v1_incidents_by_incident_id_resolve(
-        self, incident_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/incidents/{incident_id}/resolve", params=params
-        )
-
     async def request_post_api_v1_insights_extract_detailed(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -10814,62 +8802,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request(
             "POST", "/api/v1/knowledge/facts", json=body, params=params
-        )
-
-    async def request_post_api_v1_knowledge_facts_relations(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/knowledge/facts/relations", json=body, params=params
-        )
-
-    async def request_get_api_v1_knowledge_facts_by_fact_id(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/knowledge/facts/{fact_id}", params=params
-        )
-
-    async def request_put_api_v1_knowledge_facts_by_fact_id(
-        self, fact_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT", f"/api/v1/knowledge/facts/{fact_id}", json=body, params=params
-        )
-
-    async def request_delete_api_v1_knowledge_facts_by_fact_id(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", f"/api/v1/knowledge/facts/{fact_id}", params=params
-        )
-
-    async def request_get_api_v1_knowledge_facts_by_fact_id_contradictions(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions", params=params
-        )
-
-    async def request_get_api_v1_knowledge_facts_by_fact_id_relations(
-        self, fact_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/knowledge/facts/{fact_id}/relations", params=params
-        )
-
-    async def request_post_api_v1_knowledge_facts_by_fact_id_relations(
-        self, fact_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/knowledge/facts/{fact_id}/relations", json=body, params=params
-        )
-
-    async def request_post_api_v1_knowledge_facts_by_fact_id_verify(
-        self, fact_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/knowledge/facts/{fact_id}/verify", json=body, params=params
         )
 
     async def request_delete_api_v1_knowledge_jobs(
@@ -11139,25 +9071,11 @@ class AsyncOpenApiAPI:
             "GET", "/api/v1/knowledge/mound/governance/audit", params=params
         )
 
-    async def request_get_api_v1_knowledge_mound_governance_audit_user(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/knowledge/mound/governance/audit/user", params=params
-        )
-
     async def request_get_api_v1_knowledge_mound_governance_audit_user_by_user_id(
         self, user_id, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request(
             "GET", f"/api/v1/knowledge/mound/governance/audit/user/{user_id}", params=params
-        )
-
-    async def request_get_api_v1_knowledge_mound_governance_permissions(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/knowledge/mound/governance/permissions", params=params
         )
 
     async def request_post_api_v1_knowledge_mound_governance_permissions_check(
@@ -11275,13 +9193,6 @@ class AsyncOpenApiAPI:
             "GET", "/api/v1/knowledge/mound/relationships", params=params
         )
 
-    async def request_get_api_v1_knowledge_mound_revalidate(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", "/api/v1/knowledge/mound/revalidate", params=params
-        )
-
     async def request_get_api_v1_knowledge_mound_schedule_revalidation(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -11298,11 +9209,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/knowledge/mound/stats", params=params)
-
-    async def request_get_api_v1_knowledge_mound_sync(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/knowledge/mound/sync", params=params)
 
     async def request_post_api_v1_knowledge_query(
         self, body: Any | None = None, params: dict[str, Any] | None = None
@@ -11708,11 +9614,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/modes", params=params)
 
-    async def request_get_api_v1_moments_by_type(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/moments/by-type", params=params)
-
     async def request_get_api_v1_moments_by_type_by_type(
         self, type, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -11807,13 +9708,6 @@ class AsyncOpenApiAPI:
             "POST", "/api/v1/nomic/proposals/reject", json=body, params=params
         )
 
-    async def request_post_api_v1_nomic_proposals_by_id(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/nomic/proposals/{id}", json=body, params=params
-        )
-
     async def request_get_api_v1_nomic_risk_register(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -11833,13 +9727,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/oncall", params=params)
-
-    async def request_get_api_v1_oncall_services_by_service_id(
-        self, service_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/oncall/services/{service_id}", params=params
-        )
 
     async def request_get_api_v1_openapi(
         self, params: dict[str, Any] | None = None
@@ -12327,16 +10214,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/replays", params=params)
 
-    async def request_get_api_v1_replays_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/replays/{id}", params=params)
-
-    async def request_get_api_v1_repository(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/repository", params=params)
-
     async def request_get_api_v1_repository_batch(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -12393,96 +10270,15 @@ class AsyncOpenApiAPI:
             "POST", "/api/v1/retention/policies", json=body, params=params
         )
 
-    async def request_post_api_v1_retention_policies_by_policy_id_execute(
-        self, policy_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/retention/policies/{policy_id}/execute", json=body, params=params
-        )
-
     async def request_get_api_v1_reviews(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/reviews", params=params)
 
-    async def request_delete_api_v1_rlm_compress(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/compress", params=params)
-
-    async def request_post_api_v1_rlm_compress(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("POST", "/api/v1/rlm/compress", json=body, params=params)
-
-    async def request_delete_api_v1_rlm_contexts(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/contexts", params=params)
-
-    async def request_post_api_v1_rlm_contexts(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("POST", "/api/v1/rlm/contexts", json=body, params=params)
-
-    async def request_delete_api_v1_rlm_query(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/query", params=params)
-
-    async def request_post_api_v1_rlm_query(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("POST", "/api/v1/rlm/query", json=body, params=params)
-
-    async def request_delete_api_v1_rlm_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/stats", params=params)
-
-    async def request_post_api_v1_rlm_stats(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("POST", "/api/v1/rlm/stats", json=body, params=params)
-
     async def request_post_api_v1_rlm_status(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("POST", "/api/v1/rlm/status", json=body, params=params)
-
-    async def request_delete_api_v1_rlm_strategies(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/strategies", params=params)
-
-    async def request_post_api_v1_rlm_strategies(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/rlm/strategies", json=body, params=params
-        )
-
-    async def request_delete_api_v1_rlm_stream(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/stream", params=params)
-
-    async def request_post_api_v1_rlm_stream(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("POST", "/api/v1/rlm/stream", json=body, params=params)
-
-    async def request_delete_api_v1_rlm_stream_modes(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", "/api/v1/rlm/stream/modes", params=params)
-
-    async def request_post_api_v1_rlm_stream_modes(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/rlm/stream/modes", json=body, params=params
-        )
 
     async def request_get_api_v1_routing_rules(
         self, params: dict[str, Any] | None = None
@@ -12797,36 +10593,6 @@ class AsyncOpenApiAPI:
             params=params,
         )
 
-    async def request_get_api_v1_training_export_dpo(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/training/export/dpo", params=params)
-
-    async def request_get_api_v1_training_export_gauntlet(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/training/export/gauntlet", params=params)
-
-    async def request_get_api_v1_training_export_sft(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/training/export/sft", params=params)
-
-    async def request_get_api_v1_training_formats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/training/formats", params=params)
-
-    async def request_get_api_v1_training_jobs(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/training/jobs", params=params)
-
-    async def request_get_api_v1_training_stats(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/training/stats", params=params)
-
     async def request_post_api_v1_transcribe_audio(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -12855,13 +10621,6 @@ class AsyncOpenApiAPI:
             "POST", "/api/v1/transcription/config", json=body, params=params
         )
 
-    async def request_post_api_v1_transcription_status(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/transcription/status", json=body, params=params
-        )
-
     async def request_post_api_v1_transcription_video(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -12882,16 +10641,6 @@ class AsyncOpenApiAPI:
         return await self._client.request(
             "POST", "/api/v1/transcription/youtube/info", json=body, params=params
         )
-
-    async def request_get_api_v1_uncertainty_agent(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/uncertainty/agent", params=params)
-
-    async def request_get_api_v1_uncertainty_debate(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/uncertainty/debate", params=params)
 
     async def request_get_api_v1_uncertainty_estimate(
         self, params: dict[str, Any] | None = None
@@ -13047,27 +10796,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/webhooks/dead-letter", params=params)
 
-    async def request_get_api_v1_webhooks_dead_letter_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/webhooks/dead-letter/{id}", params=params
-        )
-
-    async def request_delete_api_v1_webhooks_dead_letter_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", f"/api/v1/webhooks/dead-letter/{id}", params=params
-        )
-
-    async def request_post_api_v1_webhooks_dead_letter_by_id_retry(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/webhooks/dead-letter/{id}/retry", json=body, params=params
-        )
-
     async def request_get_api_v1_webhooks_events(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -13108,13 +10836,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/webhooks/slo/status", params=params)
 
-    async def request_post_api_v1_webhooks_slo_test(
-        self, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", "/api/v1/webhooks/slo/test", json=body, params=params
-        )
-
     async def request_get_api_v1_webhooks_status(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -13134,30 +10855,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/webhooks/unsubscribe", params=params)
-
-    async def request_get_api_v1_webhooks_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", f"/api/v1/webhooks/{id}", params=params)
-
-    async def request_patch_api_v1_webhooks_by_id(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PATCH", f"/api/v1/webhooks/{id}", json=body, params=params
-        )
-
-    async def request_delete_api_v1_webhooks_by_id(
-        self, id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("DELETE", f"/api/v1/webhooks/{id}", params=params)
-
-    async def request_post_api_v1_webhooks_by_id_test(
-        self, id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/webhooks/{id}/test", json=body, params=params
-        )
 
     async def request_get_api_v1_workflow_approvals(
         self, params: dict[str, Any] | None = None
@@ -13195,13 +10892,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/workflow-templates", params=params)
 
-    async def request_get_api_v1_workflow_templates_by_template_id(
-        self, template_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/workflow-templates/{template_id}", params=params
-        )
-
     async def request_get_api_v1_workflow_categories(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -13218,13 +10908,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/workflow/patterns", params=params)
-
-    async def request_post_api_v1_workflow_patterns_by_pattern_id_instantiate(
-        self, pattern_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/workflow/patterns/{pattern_id}/instantiate", json=body, params=params
-        )
 
     async def request_get_api_v1_workflow_namespace_templates(
         self, params: dict[str, Any] | None = None
@@ -13243,13 +10926,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request(
             "GET", f"/api/v1/workflow/templates/{template_id}/package", params=params
-        )
-
-    async def request_post_api_v1_workflow_templates_by_template_id_run(
-        self, template_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/workflow/templates/{template_id}/run", json=body, params=params
         )
 
     async def request_get_api_v1_workflows(
@@ -13281,20 +10957,6 @@ class AsyncOpenApiAPI:
             "DELETE", f"/api/v1/workflows/{workflow_id}", params=params
         )
 
-    async def request_post_api_v1_workflows_by_workflow_id_execute(
-        self, workflow_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/workflows/{workflow_id}/execute", json=body, params=params
-        )
-
-    async def request_get_api_v1_workflows_by_workflow_id_versions(
-        self, workflow_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/workflows/{workflow_id}/versions", params=params
-        )
-
     async def request_get_api_v1_workspaces(
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -13309,44 +10971,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/workspaces/profiles", params=params)
-
-    async def request_get_api_v1_workspaces_by_workspace_id(
-        self, workspace_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/workspaces/{workspace_id}", params=params
-        )
-
-    async def request_delete_api_v1_workspaces_by_workspace_id(
-        self, workspace_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "DELETE", f"/api/v1/workspaces/{workspace_id}", params=params
-        )
-
-    async def request_post_api_v1_workspaces_by_workspace_id_members(
-        self, workspace_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/workspaces/{workspace_id}/members", json=body, params=params
-        )
-
-    async def request_put_api_v1_workspaces_by_workspace_id_members_by_user_id_role(
-        self, workspace_id, user_id, body: Any | None = None, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "PUT",
-            f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role",
-            json=body,
-            params=params,
-        )
-
-    async def request_get_api_v1_workspaces_by_workspace_id_roles(
-        self, workspace_id, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/workspaces/{workspace_id}/roles", params=params
-        )
 
     async def request_get_api_v1_youtube_auth(
         self, params: dict[str, Any] | None = None
@@ -13378,13 +11002,6 @@ class AsyncOpenApiAPI:
     ) -> dict[str, Any]:
         return await self._client.request("DELETE", f"/api/v1/integrations/{type}", params=params)
 
-    async def request_get_api_v2_integrations_by_type_health(
-        self, type, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request(
-            "GET", f"/api/v1/integrations/{type}/health", params=params
-        )
-
     async def request_post_api_v2_integrations_by_type_test(
         self, type, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -13406,9 +11023,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/users/me/export", params=params)
-
-    async def request_get_audio(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return await self._client.request("GET", "/audio", params=params)
 
     async def request_get_healthz(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._client.request("GET", "/healthz", params=params)

@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class A2AAPI:
     """
     Synchronous A2A (Agent-to-Agent) API.
@@ -123,28 +122,6 @@ class A2AAPI:
         """
         return self._client.request("GET", f"/api/v1/a2a/tasks/{task_id}")
 
-    def stream_task(
-        self,
-        task_id: str,
-        from_sequence: int | None = None,
-    ) -> dict[str, Any]:
-        """
-        Stream task output (for long-running tasks).
-
-        Args:
-            task_id: Task ID
-            from_sequence: Start from this sequence number
-
-        Returns:
-            Streaming endpoint information
-        """
-        data: dict[str, Any] = {}
-        if from_sequence is not None:
-            data["from_sequence"] = from_sequence
-
-        return self._client.request("POST", f"/api/v1/a2a/tasks/{task_id}/stream", json=data)
-
-
 class AsyncA2AAPI:
     """
     Asynchronous A2A (Agent-to-Agent) API.
@@ -207,14 +184,3 @@ class AsyncA2AAPI:
         """Get the status and result of a task."""
         return await self._client.request("GET", f"/api/v1/a2a/tasks/{task_id}")
 
-    async def stream_task(
-        self,
-        task_id: str,
-        from_sequence: int | None = None,
-    ) -> dict[str, Any]:
-        """Stream task output (for long-running tasks)."""
-        data: dict[str, Any] = {}
-        if from_sequence is not None:
-            data["from_sequence"] = from_sequence
-
-        return await self._client.request("POST", f"/api/v1/a2a/tasks/{task_id}/stream", json=data)

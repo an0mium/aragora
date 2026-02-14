@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class HealthAPI:
     """
     Synchronous Health API.
@@ -46,30 +45,6 @@ class HealthAPI:
         """
         return self._client.request("GET", "/api/v1/health")
 
-    def liveness(self) -> dict[str, Any]:
-        """
-        Liveness probe - check if service is running.
-
-        Used by Kubernetes/orchestrators to know if the process is alive.
-        Returns 200 if alive, regardless of dependency health.
-
-        Returns:
-            Dict with status ('alive' or 'dead')
-        """
-        return self._client.request("GET", "/api/v1/health/liveness")
-
-    def readiness(self) -> dict[str, Any]:
-        """
-        Readiness probe - check if service can handle requests.
-
-        Used by load balancers to know if traffic can be routed.
-        Checks all critical dependencies.
-
-        Returns:
-            Dict with status ('ready' or 'not_ready') and dependency states
-        """
-        return self._client.request("GET", "/api/v1/health/readiness")
-
     def components(self) -> dict[str, Any]:
         """
         Get detailed health status of all components.
@@ -78,28 +53,6 @@ class HealthAPI:
             Dict with components map containing individual statuses
         """
         return self._client.request("GET", "/api/v1/health/components")
-
-    def component(self, name: str) -> dict[str, Any]:
-        """
-        Get health status of a specific component.
-
-        Args:
-            name: Component name (database, redis, elasticsearch, etc.)
-
-        Returns:
-            Dict with component status, latency, and details
-        """
-        return self._client.request("GET", f"/api/v1/health/components/{name}")
-
-    def metrics(self) -> dict[str, Any]:
-        """
-        Get health metrics.
-
-        Returns:
-            Dict with request_rate, error_rate, latency_p50, latency_p99, etc.
-        """
-        return self._client.request("GET", "/api/v1/health/metrics")
-
 
 class AsyncHealthAPI:
     """
@@ -118,22 +71,7 @@ class AsyncHealthAPI:
         """Get overall health status."""
         return await self._client.request("GET", "/api/v1/health")
 
-    async def liveness(self) -> dict[str, Any]:
-        """Liveness probe - check if service is running."""
-        return await self._client.request("GET", "/api/v1/health/liveness")
-
-    async def readiness(self) -> dict[str, Any]:
-        """Readiness probe - check if service can handle requests."""
-        return await self._client.request("GET", "/api/v1/health/readiness")
-
     async def components(self) -> dict[str, Any]:
         """Get detailed health status of all components."""
         return await self._client.request("GET", "/api/v1/health/components")
 
-    async def component(self, name: str) -> dict[str, Any]:
-        """Get health status of a specific component."""
-        return await self._client.request("GET", f"/api/v1/health/components/{name}")
-
-    async def metrics(self) -> dict[str, Any]:
-        """Get health metrics."""
-        return await self._client.request("GET", "/api/v1/health/metrics")

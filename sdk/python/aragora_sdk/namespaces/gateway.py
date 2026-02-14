@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 DeviceStatus = Literal["online", "offline", "unknown"]
 
-
 class GatewayAPI:
     """
     Synchronous Gateway API.
@@ -142,22 +141,6 @@ class GatewayAPI:
         """
         return self._client.request("DELETE", f"/api/v1/gateway/devices/{device_id}")
 
-    def heartbeat(self, device_id: str) -> dict[str, Any]:
-        """
-        Send device heartbeat.
-
-        Args:
-            device_id: Device ID.
-
-        Returns:
-            Dict with status.
-        """
-        return self._client.request("POST", f"/api/v1/gateway/devices/{device_id}/heartbeat")
-
-    # =========================================================================
-    # Channels
-    # =========================================================================
-
     def list_channels(self) -> dict[str, Any]:
         """
         List active channels.
@@ -169,53 +152,6 @@ class GatewayAPI:
 
     # =========================================================================
     # Routing
-    # =========================================================================
-
-    def get_routing_stats(self) -> dict[str, Any]:
-        """
-        Get routing statistics.
-
-        Returns:
-            Dict with routing stats.
-        """
-        return self._client.request("GET", "/api/v1/gateway/routing/stats")
-
-    def list_routing_rules(self) -> dict[str, Any]:
-        """
-        List routing rules.
-
-        Returns:
-            Dict with rules array and total count.
-        """
-        return self._client.request("GET", "/api/v1/gateway/routing/rules")
-
-    # =========================================================================
-    # Messages
-    # =========================================================================
-
-    def route_message(
-        self,
-        channel: str,
-        content: str,
-    ) -> dict[str, Any]:
-        """
-        Route a message through the gateway.
-
-        Args:
-            channel: Target channel.
-            content: Message content.
-
-        Returns:
-            Dict with routed status, agent_id, rule_id.
-        """
-        return self._client.request(
-            "POST",
-            "/api/v1/gateway/messages/route",
-            json={"channel": channel, "content": content},
-        )
-
-    # =========================================================================
-    # Gateway Health
     # =========================================================================
 
     def health(self) -> dict[str, Any]:
@@ -420,7 +356,6 @@ class GatewayAPI:
         """
         return self._client.request("GET", f"/api/v1/gateway/routing/{route_id}")
 
-
 class AsyncGatewayAPI:
     """Asynchronous Gateway API."""
 
@@ -475,48 +410,12 @@ class AsyncGatewayAPI:
         """Unregister a device."""
         return await self._client.request("DELETE", f"/api/v1/gateway/devices/{device_id}")
 
-    async def heartbeat(self, device_id: str) -> dict[str, Any]:
-        """Send device heartbeat."""
-        return await self._client.request("POST", f"/api/v1/gateway/devices/{device_id}/heartbeat")
-
-    # =========================================================================
-    # Channels
-    # =========================================================================
-
     async def list_channels(self) -> dict[str, Any]:
         """List active channels."""
         return await self._client.request("GET", "/api/v1/gateway/channels")
 
     # =========================================================================
     # Routing
-    # =========================================================================
-
-    async def get_routing_stats(self) -> dict[str, Any]:
-        """Get routing statistics."""
-        return await self._client.request("GET", "/api/v1/gateway/routing/stats")
-
-    async def list_routing_rules(self) -> dict[str, Any]:
-        """List routing rules."""
-        return await self._client.request("GET", "/api/v1/gateway/routing/rules")
-
-    # =========================================================================
-    # Messages
-    # =========================================================================
-
-    async def route_message(
-        self,
-        channel: str,
-        content: str,
-    ) -> dict[str, Any]:
-        """Route a message through the gateway."""
-        return await self._client.request(
-            "POST",
-            "/api/v1/gateway/messages/route",
-            json={"channel": channel, "content": content},
-        )
-
-    # =========================================================================
-    # Gateway Health
     # =========================================================================
 
     async def health(self) -> dict[str, Any]:

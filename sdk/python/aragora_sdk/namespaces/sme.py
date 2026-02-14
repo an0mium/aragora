@@ -17,7 +17,6 @@ ReportPeriod = Literal["daily", "weekly", "monthly", "quarterly"]
 ReportFormat = Literal["pdf", "excel", "html", "json"]
 FollowupType = Literal["post_sale", "check_in", "renewal", "feedback"]
 
-
 class SMEAPI:
     """
     Synchronous SME API.
@@ -38,120 +37,6 @@ class SMEAPI:
 
     # ===========================================================================
     # SME Workflows
-    # ===========================================================================
-
-    def list_workflows(
-        self,
-        category: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """
-        List available SME workflow templates.
-
-        SME workflows are pre-built templates for common small business tasks:
-        - invoice: Generate and send invoices
-        - followup: Customer follow-up campaigns
-        - inventory: Stock level monitoring and alerts
-        - report: Automated business reports
-
-        Args:
-            category: Filter by category
-            limit: Maximum results
-            offset: Pagination offset
-
-        Returns:
-            List of workflow templates
-        """
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
-        if category:
-            params["category"] = category
-
-        return self._client.request("GET", "/api/v1/sme/workflows", params=params)
-
-    def get_workflow(self, workflow_id: str) -> dict[str, Any]:
-        """
-        Get details of a specific SME workflow template.
-
-        Args:
-            workflow_id: Workflow identifier (e.g., "invoice", "inventory")
-
-        Returns:
-            Workflow template details
-        """
-        return self._client.request("GET", f"/api/v1/sme/workflows/{workflow_id}")
-
-    def execute_workflow(
-        self,
-        workflow_id: str,
-        inputs: dict[str, Any] | None = None,
-        context: dict[str, Any] | None = None,
-        execute: bool = True,
-        tenant_id: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Execute an SME workflow template with inputs.
-
-        Args:
-            workflow_id: Workflow identifier
-            inputs: Workflow input parameters
-            context: Additional context
-            execute: Whether to execute immediately
-            tenant_id: Tenant ID for multi-tenant setups
-
-        Returns:
-            Execution result with execution_id
-        """
-        data: dict[str, Any] = {"execute": execute}
-        if inputs:
-            data["inputs"] = inputs
-        if context:
-            data["context"] = context
-        if tenant_id:
-            data["tenant_id"] = tenant_id
-
-        return self._client.request(
-            "POST", f"/api/v1/sme/workflows/{workflow_id}/execute", json=data
-        )
-
-    # ===========================================================================
-    # Onboarding
-    # ===========================================================================
-
-    def get_onboarding_status(self) -> dict[str, Any]:
-        """
-        Get current onboarding status.
-
-        Returns:
-            Onboarding progress and status
-        """
-        return self._client.request("GET", "/api/v1/sme/onboarding/status")
-
-    def complete_onboarding(
-        self,
-        first_debate_id: str | None = None,
-        template_used: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Mark onboarding as complete.
-
-        Args:
-            first_debate_id: ID of the first debate created during onboarding
-            template_used: Name of the template used
-
-        Returns:
-            Completion confirmation
-        """
-        data: dict[str, Any] = {}
-        if first_debate_id:
-            data["first_debate_id"] = first_debate_id
-        if template_used:
-            data["template_used"] = template_used
-
-        return self._client.request("POST", "/api/v1/sme/onboarding/complete", json=data)
-
-    # ===========================================================================
-    # Quick Start Helpers
     # ===========================================================================
 
     def quick_invoice(
@@ -287,7 +172,6 @@ class SMEAPI:
 
         return self.execute_workflow("followup", inputs=inputs)
 
-
 class AsyncSMEAPI:
     """
     Asynchronous SME API.
@@ -302,70 +186,6 @@ class AsyncSMEAPI:
 
     # ===========================================================================
     # SME Workflows
-    # ===========================================================================
-
-    async def list_workflows(
-        self,
-        category: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """List available SME workflow templates."""
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
-        if category:
-            params["category"] = category
-
-        return await self._client.request("GET", "/api/v1/sme/workflows", params=params)
-
-    async def get_workflow(self, workflow_id: str) -> dict[str, Any]:
-        """Get details of a specific SME workflow template."""
-        return await self._client.request("GET", f"/api/v1/sme/workflows/{workflow_id}")
-
-    async def execute_workflow(
-        self,
-        workflow_id: str,
-        inputs: dict[str, Any] | None = None,
-        context: dict[str, Any] | None = None,
-        execute: bool = True,
-        tenant_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Execute an SME workflow template with inputs."""
-        data: dict[str, Any] = {"execute": execute}
-        if inputs:
-            data["inputs"] = inputs
-        if context:
-            data["context"] = context
-        if tenant_id:
-            data["tenant_id"] = tenant_id
-
-        return await self._client.request(
-            "POST", f"/api/v1/sme/workflows/{workflow_id}/execute", json=data
-        )
-
-    # ===========================================================================
-    # Onboarding
-    # ===========================================================================
-
-    async def get_onboarding_status(self) -> dict[str, Any]:
-        """Get current onboarding status."""
-        return await self._client.request("GET", "/api/v1/sme/onboarding/status")
-
-    async def complete_onboarding(
-        self,
-        first_debate_id: str | None = None,
-        template_used: str | None = None,
-    ) -> dict[str, Any]:
-        """Mark onboarding as complete."""
-        data: dict[str, Any] = {}
-        if first_debate_id:
-            data["first_debate_id"] = first_debate_id
-        if template_used:
-            data["template_used"] = template_used
-
-        return await self._client.request("POST", "/api/v1/sme/onboarding/complete", json=data)
-
-    # ===========================================================================
-    # Quick Start Helpers
     # ===========================================================================
 
     async def quick_invoice(

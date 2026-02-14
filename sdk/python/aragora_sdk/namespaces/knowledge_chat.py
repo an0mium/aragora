@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 SearchScope = Literal["workspace", "channel", "user", "global"]
 SearchStrategy = Literal["hybrid", "semantic", "keyword", "exact"]
 
-
 class KnowledgeChatAPI:
     """
     Synchronous Knowledge Chat API.
@@ -201,35 +200,6 @@ class KnowledgeChatAPI:
 
     # =========================================================================
     # Channel Summary
-    # =========================================================================
-
-    def get_channel_summary(
-        self,
-        channel_id: str,
-        workspace_id: str = "default",
-        max_items: int = 10,
-    ) -> dict[str, Any]:
-        """
-        Get a summary of knowledge related to a channel.
-
-        Args:
-            channel_id: Channel ID.
-            workspace_id: Workspace ID.
-            max_items: Maximum items in summary.
-
-        Returns:
-            Dict with channel knowledge summary.
-        """
-        params: dict[str, Any] = {"workspace_id": workspace_id}
-        if max_items != 10:
-            params["max_items"] = max_items
-
-        return self._client.request(
-            "GET",
-            f"/api/v1/chat/knowledge/channel/{channel_id}/summary",
-            params=params,
-        )
-
 
 class AsyncKnowledgeChatAPI:
     """Asynchronous Knowledge Chat API."""
@@ -335,21 +305,4 @@ class AsyncKnowledgeChatAPI:
 
     # =========================================================================
     # Channel Summary
-    # =========================================================================
 
-    async def get_channel_summary(
-        self,
-        channel_id: str,
-        workspace_id: str = "default",
-        max_items: int = 10,
-    ) -> dict[str, Any]:
-        """Get a summary of knowledge related to a channel."""
-        params: dict[str, Any] = {"workspace_id": workspace_id}
-        if max_items != 10:
-            params["max_items"] = max_items
-
-        return await self._client.request(
-            "GET",
-            f"/api/v1/chat/knowledge/channel/{channel_id}/summary",
-            params=params,
-        )

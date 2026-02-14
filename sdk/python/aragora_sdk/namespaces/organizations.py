@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class OrganizationsAPI:
     """
     Synchronous Organizations API.
@@ -118,22 +117,6 @@ class OrganizationsAPI:
         return self._client.request(
             "POST", "/api/v1/user/organizations/default", json={"org_id": org_id}
         )
-
-    def leave_organization(self, org_id: str) -> dict[str, Any]:
-        """
-        Leave an organization.
-
-        Args:
-            org_id: Organization ID to leave
-
-        Returns:
-            Dict with success status
-        """
-        return self._client.request("DELETE", f"/api/v1/user/organizations/{org_id}")
-
-    # ===========================================================================
-    # Members
-    # ===========================================================================
 
     def list_members(self, org_id: str) -> dict[str, Any]:
         """
@@ -242,7 +225,6 @@ class OrganizationsAPI:
         """
         return self._client.request("POST", f"/api/v1/invitations/{token}/accept")
 
-
 class AsyncOrganizationsAPI:
     """
     Asynchronous Organizations API.
@@ -298,14 +280,6 @@ class AsyncOrganizationsAPI:
         return await self._client.request(
             "POST", "/api/v1/user/organizations/default", json={"org_id": org_id}
         )
-
-    async def leave_organization(self, org_id: str) -> dict[str, Any]:
-        """Leave an organization."""
-        return await self._client.request("DELETE", f"/api/v1/user/organizations/{org_id}")
-
-    # ===========================================================================
-    # Members
-    # ===========================================================================
 
     async def list_members(self, org_id: str) -> dict[str, Any]:
         """List organization members."""

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class BlockchainAPI:
     """Synchronous Blockchain API."""
 
@@ -57,34 +56,6 @@ class BlockchainAPI:
     def get_agent(self, token_id: int) -> dict[str, Any]:
         """Get on-chain agent identity by token ID."""
         return self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}")
-
-    def get_reputation(
-        self,
-        token_id: int,
-        tag1: str | None = None,
-        tag2: str | None = None,
-    ) -> dict[str, Any]:
-        """Get reputation summary for an agent token."""
-        params: dict[str, Any] = {}
-        if tag1:
-            params["tag1"] = tag1
-        if tag2:
-            params["tag2"] = tag2
-        return self._client.request(
-            "GET",
-            f"/api/v1/blockchain/agents/{token_id}/reputation",
-            params=params or None,
-        )
-
-    def get_validations(self, token_id: int, tag: str | None = None) -> dict[str, Any]:
-        """Get validation summary for an agent token."""
-        params = {"tag": tag} if tag else None
-        return self._client.request(
-            "GET",
-            f"/api/v1/blockchain/agents/{token_id}/validations",
-            params=params,
-        )
-
 
 class AsyncBlockchainAPI:
     """Asynchronous Blockchain API."""
@@ -136,29 +107,3 @@ class AsyncBlockchainAPI:
         """Get on-chain agent identity by token ID."""
         return await self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}")
 
-    async def get_reputation(
-        self,
-        token_id: int,
-        tag1: str | None = None,
-        tag2: str | None = None,
-    ) -> dict[str, Any]:
-        """Get reputation summary for an agent token."""
-        params: dict[str, Any] = {}
-        if tag1:
-            params["tag1"] = tag1
-        if tag2:
-            params["tag2"] = tag2
-        return await self._client.request(
-            "GET",
-            f"/api/v1/blockchain/agents/{token_id}/reputation",
-            params=params or None,
-        )
-
-    async def get_validations(self, token_id: int, tag: str | None = None) -> dict[str, Any]:
-        """Get validation summary for an agent token."""
-        params = {"tag": tag} if tag else None
-        return await self._client.request(
-            "GET",
-            f"/api/v1/blockchain/agents/{token_id}/validations",
-            params=params,
-        )

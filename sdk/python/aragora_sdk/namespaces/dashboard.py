@@ -19,7 +19,6 @@ PeriodType = Literal["day", "week", "month"]
 PriorityType = Literal["critical", "high", "medium", "low"]
 ChangeType = Literal["increase", "decrease", "neutral"]
 
-
 class DashboardAPI:
     """
     Synchronous Dashboard API.
@@ -117,32 +116,6 @@ class DashboardAPI:
         """
         return self._client.request("GET", "/api/v1/dashboard/quick-actions")
 
-    def execute_quick_action(
-        self,
-        action_id: str,
-        confirm: bool = True,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Execute a quick action.
-
-        Args:
-            action_id: Action ID to execute.
-            confirm: Confirm execution.
-            options: Action-specific options.
-
-        Returns:
-            Quick action execution result.
-        """
-        data: dict[str, Any] = {"confirm": confirm}
-        if options:
-            data["options"] = options
-        return self._client.request(
-            "POST", f"/api/v1/dashboard/quick-actions/{action_id}", json=data
-        )
-
-    # --- Debates ---
-
     def list_debates(
         self,
         status: str | None = None,
@@ -166,12 +139,6 @@ class DashboardAPI:
         return self._client.request(
             "GET", "/api/v1/dashboard/debates", params=params if params else None
         )
-
-    def get_debate(self, debate_id: str) -> dict[str, Any]:
-        """Get a specific debate from the dashboard."""
-        return self._client.request("GET", f"/api/v1/dashboard/debates/{debate_id}")
-
-    # --- Stat Cards ---
 
     def get_stat_cards(self) -> dict[str, Any]:
         """Get dashboard stat cards."""
@@ -202,12 +169,6 @@ class DashboardAPI:
         return self._client.request(
             "GET", "/api/v1/dashboard/team-performance", params=params if params else None
         )
-
-    def get_team_by_id(self, team_id: str) -> dict[str, Any]:
-        """Get team performance by ID."""
-        return self._client.request("GET", f"/api/v1/dashboard/team-performance/{team_id}")
-
-    # --- Email Analytics ---
 
     def get_top_senders(
         self,
@@ -276,25 +237,6 @@ class DashboardAPI:
             "GET", "/api/v1/dashboard/pending-actions", params=params if params else None
         )
 
-    def dismiss_urgent_item(self, item_id: str) -> dict[str, Any]:
-        """Dismiss an urgent item."""
-        return self._client.request("POST", f"/api/v1/dashboard/urgent/{item_id}/dismiss")
-
-    def complete_action(
-        self, action_id: str, result: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        """Complete a pending action."""
-        data: dict[str, Any] = {}
-        if result:
-            data["result"] = result
-        return self._client.request(
-            "POST",
-            f"/api/v1/dashboard/pending-actions/{action_id}/complete",
-            json=data if data else None,
-        )
-
-    # --- Search & Export ---
-
     def search(
         self,
         query: str,
@@ -331,7 +273,6 @@ class DashboardAPI:
     def get_recent_activity(self, limit: int = 20) -> dict[str, Any]:
         """Get recent activity (convenience wrapper)."""
         return self.get_activity(limit=limit)
-
 
 class AsyncDashboardAPI:
     """Asynchronous Dashboard API."""
@@ -380,20 +321,6 @@ class AsyncDashboardAPI:
         """Get available quick actions."""
         return await self._client.request("GET", "/api/v1/dashboard/quick-actions")
 
-    async def execute_quick_action(
-        self,
-        action_id: str,
-        confirm: bool = True,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Execute a quick action."""
-        data: dict[str, Any] = {"confirm": confirm}
-        if options:
-            data["options"] = options
-        return await self._client.request(
-            "POST", f"/api/v1/dashboard/quick-actions/{action_id}", json=data
-        )
-
     async def list_debates(
         self,
         status: str | None = None,
@@ -417,10 +344,6 @@ class AsyncDashboardAPI:
         return await self._client.request(
             "GET", "/api/v1/dashboard/debates", params=params if params else None
         )
-
-    async def get_debate(self, debate_id: str) -> dict[str, Any]:
-        """Get a specific debate from the dashboard."""
-        return await self._client.request("GET", f"/api/v1/dashboard/debates/{debate_id}")
 
     async def get_stat_cards(self) -> dict[str, Any]:
         """Get dashboard stat cards."""
@@ -449,10 +372,6 @@ class AsyncDashboardAPI:
         return await self._client.request(
             "GET", "/api/v1/dashboard/team-performance", params=params if params else None
         )
-
-    async def get_team_by_id(self, team_id: str) -> dict[str, Any]:
-        """Get team performance by ID."""
-        return await self._client.request("GET", f"/api/v1/dashboard/team-performance/{team_id}")
 
     async def get_top_senders(
         self,
@@ -517,23 +436,6 @@ class AsyncDashboardAPI:
             params["offset"] = offset
         return await self._client.request(
             "GET", "/api/v1/dashboard/pending-actions", params=params if params else None
-        )
-
-    async def dismiss_urgent_item(self, item_id: str) -> dict[str, Any]:
-        """Dismiss an urgent item."""
-        return await self._client.request("POST", f"/api/v1/dashboard/urgent/{item_id}/dismiss")
-
-    async def complete_action(
-        self, action_id: str, result: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        """Complete a pending action."""
-        data: dict[str, Any] = {}
-        if result:
-            data["result"] = result
-        return await self._client.request(
-            "POST",
-            f"/api/v1/dashboard/pending-actions/{action_id}/complete",
-            json=data if data else None,
         )
 
     async def search(

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 class BotsAPI:
     """Synchronous bots API."""
 
@@ -33,9 +32,6 @@ class BotsAPI:
 
     def telegram_webhook(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._client.request("POST", "/api/v1/bots/telegram/webhook", json=payload)
-
-    def telegram_webhook_token(self, token: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return self._client.request("POST", f"/api/v1/bots/telegram/webhook/{token}", json=payload)
 
     def telegram_status(self) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/bots/telegram/status")
@@ -58,7 +54,6 @@ class BotsAPI:
     def zoom_status(self) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/bots/zoom/status")
 
-
 class AsyncBotsAPI:
     """Asynchronous bots API."""
 
@@ -79,11 +74,6 @@ class AsyncBotsAPI:
 
     async def telegram_webhook(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._client.request("POST", "/api/v1/bots/telegram/webhook", json=payload)
-
-    async def telegram_webhook_token(self, token: str, payload: dict[str, Any]) -> dict[str, Any]:
-        return await self._client.request(
-            "POST", f"/api/v1/bots/telegram/webhook/{token}", json=payload
-        )
 
     async def telegram_status(self) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/bots/telegram/status")

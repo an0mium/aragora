@@ -18,9 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 FeedbackType = Literal["feature_request", "bug_report", "general", "debate_quality"]
-
 
 class FeedbackAPI:
     """
@@ -45,99 +43,6 @@ class FeedbackAPI:
     # ===========================================================================
     # NPS (Net Promoter Score)
     # ===========================================================================
-
-    def submit_nps(
-        self,
-        score: int,
-        comment: str | None = None,
-        context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Submit NPS (Net Promoter Score) feedback.
-
-        Args:
-            score: NPS score from 0-10
-                   - 0-6: Detractor
-                   - 7-8: Passive
-                   - 9-10: Promoter
-            comment: Optional comment explaining the score
-            context: Optional metadata (e.g., feature being used)
-
-        Returns:
-            Dict with success status and feedback_id
-
-        Raises:
-            ValidationError: If score is not 0-10
-        """
-        data: dict[str, Any] = {"score": score}
-        if comment:
-            data["comment"] = comment
-        if context:
-            data["context"] = context
-
-        return self._client.request("POST", "/api/v1/feedback/nps", json=data)
-
-    def get_nps_summary(self, days: int = 30) -> dict[str, Any]:
-        """
-        Get NPS summary analytics (admin only).
-
-        Args:
-            days: Number of days to include in summary (default: 30)
-
-        Returns:
-            Dict with:
-            - nps_score: Overall NPS (-100 to 100)
-            - total_responses: Number of responses
-            - promoters: Count of 9-10 scores
-            - passives: Count of 7-8 scores
-            - detractors: Count of 0-6 scores
-            - period_days: Period covered
-
-        Requires: feedback.update permission (admin)
-        """
-        return self._client.request(
-            "GET",
-            "/api/v1/feedback/nps/summary",
-            params={"days": days},
-        )
-
-    # ===========================================================================
-    # General Feedback
-    # ===========================================================================
-
-    def submit_feedback(
-        self,
-        comment: str,
-        feedback_type: FeedbackType = "general",
-        score: int | None = None,
-        context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Submit general feedback.
-
-        Args:
-            comment: Feedback content (required)
-            feedback_type: Type of feedback:
-                - "feature_request": New feature idea
-                - "bug_report": Bug or issue
-                - "general": General feedback
-                - "debate_quality": Feedback on debate quality
-            score: Optional rating score
-            context: Optional metadata
-
-        Returns:
-            Dict with success status and feedback_id
-        """
-        data: dict[str, Any] = {
-            "type": feedback_type,
-            "comment": comment,
-        }
-        if score is not None:
-            data["score"] = score
-        if context:
-            data["context"] = context
-
-        return self._client.request("POST", "/api/v1/feedback/general", json=data)
 
     def submit_feature_request(
         self,
@@ -213,19 +118,6 @@ class FeedbackAPI:
 
     # ===========================================================================
     # Feedback Prompts
-    # ===========================================================================
-
-    def get_prompts(self) -> dict[str, Any]:
-        """
-        Get active feedback prompts for the user.
-
-        Returns prompts based on user activity and timing.
-
-        Returns:
-            Dict with prompts array containing question configs
-        """
-        return self._client.request("GET", "/api/v1/feedback/prompts")
-
 
 class AsyncFeedbackAPI:
     """
@@ -243,52 +135,6 @@ class AsyncFeedbackAPI:
     # ===========================================================================
     # NPS (Net Promoter Score)
     # ===========================================================================
-
-    async def submit_nps(
-        self,
-        score: int,
-        comment: str | None = None,
-        context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Submit NPS (Net Promoter Score) feedback."""
-        data: dict[str, Any] = {"score": score}
-        if comment:
-            data["comment"] = comment
-        if context:
-            data["context"] = context
-
-        return await self._client.request("POST", "/api/v1/feedback/nps", json=data)
-
-    async def get_nps_summary(self, days: int = 30) -> dict[str, Any]:
-        """Get NPS summary analytics (admin only)."""
-        return await self._client.request(
-            "GET",
-            "/api/v1/feedback/nps/summary",
-            params={"days": days},
-        )
-
-    # ===========================================================================
-    # General Feedback
-    # ===========================================================================
-
-    async def submit_feedback(
-        self,
-        comment: str,
-        feedback_type: FeedbackType = "general",
-        score: int | None = None,
-        context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Submit general feedback."""
-        data: dict[str, Any] = {
-            "type": feedback_type,
-            "comment": comment,
-        }
-        if score is not None:
-            data["score"] = score
-        if context:
-            data["context"] = context
-
-        return await self._client.request("POST", "/api/v1/feedback/general", json=data)
 
     async def submit_feature_request(
         self,
@@ -330,8 +176,4 @@ class AsyncFeedbackAPI:
 
     # ===========================================================================
     # Feedback Prompts
-    # ===========================================================================
 
-    async def get_prompts(self) -> dict[str, Any]:
-        """Get active feedback prompts for the user."""
-        return await self._client.request("GET", "/api/v1/feedback/prompts")

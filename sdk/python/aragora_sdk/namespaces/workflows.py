@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 _List = list  # Preserve builtin list for type annotations
-
 
 class WorkflowsAPI:
     """
@@ -118,27 +116,6 @@ class WorkflowsAPI:
         """
         return self._client.request("DELETE", f"/api/v1/workflows/{workflow_id}")
 
-    def execute(
-        self,
-        workflow_id: str,
-        inputs: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Execute a workflow.
-
-        Args:
-            workflow_id: The workflow ID
-            inputs: Input data for the workflow
-
-        Returns:
-            Execution result with execution_id
-        """
-        return self._client.request(
-            "POST",
-            f"/api/v1/workflows/{workflow_id}/execute",
-            json={"inputs": inputs or {}},
-        )
-
     def get_execution(self, execution_id: str) -> dict[str, Any]:
         """
         Get workflow execution status.
@@ -202,29 +179,6 @@ class WorkflowsAPI:
         """
         return self._client.request("GET", "/api/v1/workflow-templates")
 
-    def create_from_template(
-        self,
-        template_id: str,
-        name: str,
-        **overrides: Any,
-    ) -> dict[str, Any]:
-        """
-        Create a workflow from a template.
-
-        Args:
-            template_id: The template ID
-            name: Name for the new workflow
-            **overrides: Override template defaults
-
-        Returns:
-            Created workflow
-        """
-        return self._client.request(
-            "POST",
-            f"/api/v1/workflow-templates/{template_id}/create",
-            json={"name": name, **overrides},
-        )
-
     def list_library_templates(self, **params: Any) -> dict[str, Any]:
         """List workflow library templates (/api/v1/workflow/templates)."""
         return self._client.request("GET", "/api/v1/workflow/templates", params=params)
@@ -236,15 +190,6 @@ class WorkflowsAPI:
     def get_library_package(self, template_id: str) -> dict[str, Any]:
         """Get a workflow library template package."""
         return self._client.request("GET", f"/api/v1/workflow/templates/{template_id}/package")
-
-    def run_library_template(
-        self, template_id: str, inputs: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        """Run a workflow library template."""
-        payload = {"inputs": inputs or {}}
-        return self._client.request(
-            "POST", f"/api/v1/workflow/templates/{template_id}/run", json=payload
-        )
 
     def list_template_categories(self) -> dict[str, Any]:
         """List workflow template categories."""
@@ -261,7 +206,6 @@ class WorkflowsAPI:
     def get_pattern_template(self, template_id: str) -> dict[str, Any]:
         """Get a workflow pattern template by ID."""
         return self._client.request("GET", f"/api/v1/workflow/pattern-templates/{template_id}")
-
 
 class AsyncWorkflowsAPI:
     """
@@ -321,18 +265,6 @@ class AsyncWorkflowsAPI:
         """Delete a workflow."""
         return await self._client.request("DELETE", f"/api/v1/workflows/{workflow_id}")
 
-    async def execute(
-        self,
-        workflow_id: str,
-        inputs: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Execute a workflow."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/workflows/{workflow_id}/execute",
-            json={"inputs": inputs or {}},
-        )
-
     async def get_execution(self, execution_id: str) -> dict[str, Any]:
         """Get workflow execution status."""
         return await self._client.request("GET", f"/api/v1/workflow-executions/{execution_id}")
@@ -365,19 +297,6 @@ class AsyncWorkflowsAPI:
         """List available workflow templates."""
         return await self._client.request("GET", "/api/v1/workflow-templates")
 
-    async def create_from_template(
-        self,
-        template_id: str,
-        name: str,
-        **overrides: Any,
-    ) -> dict[str, Any]:
-        """Create a workflow from a template."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/workflow-templates/{template_id}/create",
-            json={"name": name, **overrides},
-        )
-
     async def list_library_templates(self, **params: Any) -> dict[str, Any]:
         """List workflow library templates (/api/v1/workflow/templates)."""
         return await self._client.request("GET", "/api/v1/workflow/templates", params=params)
@@ -390,15 +309,6 @@ class AsyncWorkflowsAPI:
         """Get a workflow library template package."""
         return await self._client.request(
             "GET", f"/api/v1/workflow/templates/{template_id}/package"
-        )
-
-    async def run_library_template(
-        self, template_id: str, inputs: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        """Run a workflow library template."""
-        payload = {"inputs": inputs or {}}
-        return await self._client.request(
-            "POST", f"/api/v1/workflow/templates/{template_id}/run", json=payload
         )
 
     async def list_template_categories(self) -> dict[str, Any]:

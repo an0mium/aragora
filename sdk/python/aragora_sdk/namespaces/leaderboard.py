@@ -17,11 +17,9 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 PerformancePeriod = Literal["7d", "30d", "90d", "all"]
 MoverPeriod = Literal["24h", "7d", "30d"]
 MoverDirection = Literal["up", "down", "both"]
-
 
 class LeaderboardAPI:
     """
@@ -81,130 +79,6 @@ class LeaderboardAPI:
         """
         return self._client.request("GET", "/api/leaderboard-view")
 
-    def get_domain_rankings(
-        self,
-        domain: str,
-        limit: int | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get rankings for a specific domain.
-
-        Args:
-            domain: Domain name
-            limit: Maximum entries
-
-        Returns:
-            Dict with domain leaderboard
-        """
-        params = {"limit": limit} if limit else None
-        return self._client.request("GET", f"/api/leaderboard/domain/{domain}", params=params)
-
-    def get_agent_performance(
-        self,
-        agent_name: str,
-        period: PerformancePeriod | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get detailed performance metrics for an agent.
-
-        Args:
-            agent_name: The agent name
-            period: Time period for metrics
-
-        Returns:
-            Dict with:
-            - agent_name: Agent name
-            - elo: Current ELO
-            - elo_history: ELO over time
-            - debates_by_domain: Domain breakdown
-            - win_rate_by_domain: Win rates
-            - average_proposal_quality: Proposal score
-            - critique_effectiveness: Critique score
-            - consensus_contribution: Consensus score
-        """
-        params = {"period": period} if period else None
-        return self._client.request("GET", f"/api/leaderboard/agent/{agent_name}", params=params)
-
-    def compare_agents(self, agent_a: str, agent_b: str) -> dict[str, Any]:
-        """
-        Compare two agents head-to-head.
-
-        Args:
-            agent_a: First agent name
-            agent_b: Second agent name
-
-        Returns:
-            Dict with:
-            - agent_a/agent_b: Agent names
-            - agent_a_wins/agent_b_wins: Win counts
-            - draws: Draw count
-            - total_matchups: Total matches
-            - domains: Domains they've competed in
-        """
-        return self._client.request(
-            "GET",
-            "/api/leaderboard/compare",
-            params={"agent_a": agent_a, "agent_b": agent_b},
-        )
-
-    def get_elo_history(
-        self,
-        agent_name: str,
-        period: PerformancePeriod | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get ELO history for an agent.
-
-        Args:
-            agent_name: The agent name
-            period: Time period
-
-        Returns:
-            Dict with history of ELO changes
-        """
-        params = {"period": period} if period else None
-        return self._client.request(
-            "GET", f"/api/leaderboard/agent/{agent_name}/elo-history", params=params
-        )
-
-    def get_movers(
-        self,
-        period: MoverPeriod | None = None,
-        direction: MoverDirection | None = None,
-        limit: int | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get agents that have moved the most in rankings recently.
-
-        Args:
-            period: Time period
-            direction: Movement direction filter
-            limit: Maximum entries
-
-        Returns:
-            Dict with movers list
-        """
-        params: dict[str, Any] = {}
-        if period:
-            params["period"] = period
-        if direction:
-            params["direction"] = direction
-        if limit:
-            params["limit"] = limit
-        return self._client.request(
-            "GET", "/api/leaderboard/movers", params=params if params else None
-        )
-
-    def get_domains(self) -> dict[str, Any]:
-        """
-        Get list of domains with active leaderboards.
-
-        Returns:
-            Dict with domains and their stats
-        """
-        return self._client.request("GET", "/api/leaderboard/domains")
-
-
 class AsyncLeaderboardAPI:
     """
     Asynchronous Leaderboard API.
@@ -240,63 +114,3 @@ class AsyncLeaderboardAPI:
         """Get full leaderboard view."""
         return await self._client.request("GET", "/api/leaderboard-view")
 
-    async def get_domain_rankings(
-        self,
-        domain: str,
-        limit: int | None = None,
-    ) -> dict[str, Any]:
-        """Get rankings for a specific domain."""
-        params = {"limit": limit} if limit else None
-        return await self._client.request("GET", f"/api/leaderboard/domain/{domain}", params=params)
-
-    async def get_agent_performance(
-        self,
-        agent_name: str,
-        period: PerformancePeriod | None = None,
-    ) -> dict[str, Any]:
-        """Get detailed performance metrics for an agent."""
-        params = {"period": period} if period else None
-        return await self._client.request(
-            "GET", f"/api/leaderboard/agent/{agent_name}", params=params
-        )
-
-    async def compare_agents(self, agent_a: str, agent_b: str) -> dict[str, Any]:
-        """Compare two agents head-to-head."""
-        return await self._client.request(
-            "GET",
-            "/api/leaderboard/compare",
-            params={"agent_a": agent_a, "agent_b": agent_b},
-        )
-
-    async def get_elo_history(
-        self,
-        agent_name: str,
-        period: PerformancePeriod | None = None,
-    ) -> dict[str, Any]:
-        """Get ELO history for an agent."""
-        params = {"period": period} if period else None
-        return await self._client.request(
-            "GET", f"/api/leaderboard/agent/{agent_name}/elo-history", params=params
-        )
-
-    async def get_movers(
-        self,
-        period: MoverPeriod | None = None,
-        direction: MoverDirection | None = None,
-        limit: int | None = None,
-    ) -> dict[str, Any]:
-        """Get agents that have moved the most in rankings recently."""
-        params: dict[str, Any] = {}
-        if period:
-            params["period"] = period
-        if direction:
-            params["direction"] = direction
-        if limit:
-            params["limit"] = limit
-        return await self._client.request(
-            "GET", "/api/leaderboard/movers", params=params if params else None
-        )
-
-    async def get_domains(self) -> dict[str, Any]:
-        """Get list of domains with active leaderboards."""
-        return await self._client.request("GET", "/api/leaderboard/domains")

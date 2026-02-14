@@ -17,10 +17,8 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 ConnectorType = Literal["github_enterprise", "s3", "postgresql", "mongodb", "fhir"]
 SyncFrequency = Literal["hourly", "daily", "weekly", "manual"]
-
 
 class ConnectorsAPI:
     """
@@ -179,84 +177,6 @@ class ConnectorsAPI:
             json={"full_sync": full_sync},
         )
 
-    def get_sync_status(self, connector_id: str, sync_id: str) -> dict[str, Any]:
-        """
-        Get status of a sync operation.
-
-        Args:
-            connector_id: Connector ID
-            sync_id: Sync operation ID
-
-        Returns:
-            Dict with sync status and progress
-        """
-        return self._client.request("GET", f"/api/v1/connectors/{connector_id}/syncs/{sync_id}")
-
-    def list_syncs(
-        self,
-        connector_id: str,
-        limit: int = 20,
-    ) -> dict[str, Any]:
-        """
-        List recent sync operations for a connector.
-
-        Args:
-            connector_id: Connector ID
-            limit: Maximum number of results
-
-        Returns:
-            Dict with syncs array
-        """
-        return self._client.request(
-            "GET",
-            f"/api/v1/connectors/{connector_id}/syncs",
-            params={"limit": limit},
-        )
-
-    def cancel_sync(self, connector_id: str, sync_id: str) -> dict[str, Any]:
-        """
-        Cancel a running sync operation.
-
-        Args:
-            connector_id: Connector ID
-            sync_id: Sync operation ID
-
-        Returns:
-            Dict with success status
-        """
-        return self._client.request(
-            "POST", f"/api/v1/connectors/{connector_id}/syncs/{sync_id}/cancel"
-        )
-
-    # ===========================================================================
-    # Health and Monitoring
-    # ===========================================================================
-
-    def test_connection(self, connector_id: str) -> dict[str, Any]:
-        """
-        Test connectivity for a connector.
-
-        Args:
-            connector_id: Connector ID
-
-        Returns:
-            Dict with connection_ok and latency_ms
-        """
-        return self._client.request("POST", f"/api/v1/connectors/{connector_id}/test")
-
-    def get_health(self, connector_id: str) -> dict[str, Any]:
-        """
-        Get health status of a connector.
-
-        Args:
-            connector_id: Connector ID
-
-        Returns:
-            Dict with health status, last_sync, and error info
-        """
-        return self._client.request("GET", f"/api/v1/connectors/{connector_id}/health")
-
-
 class AsyncConnectorsAPI:
     """
     Asynchronous Connectors API.
@@ -351,38 +271,3 @@ class AsyncConnectorsAPI:
             json={"full_sync": full_sync},
         )
 
-    async def get_sync_status(self, connector_id: str, sync_id: str) -> dict[str, Any]:
-        """Get status of a sync operation."""
-        return await self._client.request(
-            "GET", f"/api/v1/connectors/{connector_id}/syncs/{sync_id}"
-        )
-
-    async def list_syncs(
-        self,
-        connector_id: str,
-        limit: int = 20,
-    ) -> dict[str, Any]:
-        """List recent sync operations for a connector."""
-        return await self._client.request(
-            "GET",
-            f"/api/v1/connectors/{connector_id}/syncs",
-            params={"limit": limit},
-        )
-
-    async def cancel_sync(self, connector_id: str, sync_id: str) -> dict[str, Any]:
-        """Cancel a running sync operation."""
-        return await self._client.request(
-            "POST", f"/api/v1/connectors/{connector_id}/syncs/{sync_id}/cancel"
-        )
-
-    # ===========================================================================
-    # Health and Monitoring
-    # ===========================================================================
-
-    async def test_connection(self, connector_id: str) -> dict[str, Any]:
-        """Test connectivity for a connector."""
-        return await self._client.request("POST", f"/api/v1/connectors/{connector_id}/test")
-
-    async def get_health(self, connector_id: str) -> dict[str, Any]:
-        """Get health status of a connector."""
-        return await self._client.request("GET", f"/api/v1/connectors/{connector_id}/health")

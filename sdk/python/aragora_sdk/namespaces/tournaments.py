@@ -17,7 +17,6 @@ _List = list  # Preserve builtin list for type annotations
 TournamentFormat = Literal["single_elimination", "double_elimination", "round_robin", "swiss"]
 TournamentStatus = Literal["pending", "active", "completed", "cancelled"]
 
-
 class TournamentsAPI:
     """
     Synchronous Tournaments API.
@@ -156,21 +155,6 @@ class TournamentsAPI:
             "GET", f"/api/v1/tournaments/{tournament_id}/matches", params=params
         )
 
-    def get_match(self, tournament_id: str, match_id: str) -> dict[str, Any]:
-        """
-        Get a specific match.
-
-        Args:
-            tournament_id: Tournament identifier
-            match_id: Match identifier
-
-        Returns:
-            Match details
-        """
-        return self._client.request(
-            "GET", f"/api/v1/tournaments/{tournament_id}/matches/{match_id}"
-        )
-
     def submit_result(
         self,
         tournament_id: str,
@@ -217,38 +201,6 @@ class TournamentsAPI:
             Advancement result with next round info
         """
         return self._client.request("POST", f"/api/v1/tournaments/{tournament_id}/advance")
-
-    def start(self, tournament_id: str) -> dict[str, Any]:
-        """
-        Start a pending tournament.
-
-        Args:
-            tournament_id: Tournament identifier
-
-        Returns:
-            Updated tournament status
-        """
-        return self._client.request("POST", f"/api/v1/tournaments/{tournament_id}/start")
-
-    def cancel(self, tournament_id: str, reason: str | None = None) -> dict[str, Any]:
-        """
-        Cancel a tournament.
-
-        Args:
-            tournament_id: Tournament identifier
-            reason: Cancellation reason
-
-        Returns:
-            Cancellation confirmation
-        """
-        data: dict[str, Any] = {}
-        if reason:
-            data["reason"] = reason
-
-        return self._client.request(
-            "POST", f"/api/v1/tournaments/{tournament_id}/cancel", json=data
-        )
-
 
 class AsyncTournamentsAPI:
     """
@@ -321,12 +273,6 @@ class AsyncTournamentsAPI:
             "GET", f"/api/v1/tournaments/{tournament_id}/matches", params=params
         )
 
-    async def get_match(self, tournament_id: str, match_id: str) -> dict[str, Any]:
-        """Get a specific match."""
-        return await self._client.request(
-            "GET", f"/api/v1/tournaments/{tournament_id}/matches/{match_id}"
-        )
-
     async def submit_result(
         self,
         tournament_id: str,
@@ -353,16 +299,3 @@ class AsyncTournamentsAPI:
         """Advance the tournament to the next round."""
         return await self._client.request("POST", f"/api/v1/tournaments/{tournament_id}/advance")
 
-    async def start(self, tournament_id: str) -> dict[str, Any]:
-        """Start a pending tournament."""
-        return await self._client.request("POST", f"/api/v1/tournaments/{tournament_id}/start")
-
-    async def cancel(self, tournament_id: str, reason: str | None = None) -> dict[str, Any]:
-        """Cancel a tournament."""
-        data: dict[str, Any] = {}
-        if reason:
-            data["reason"] = reason
-
-        return await self._client.request(
-            "POST", f"/api/v1/tournaments/{tournament_id}/cancel", json=data
-        )

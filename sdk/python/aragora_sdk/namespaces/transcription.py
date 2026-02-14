@@ -20,11 +20,9 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 TranscriptionStatus = Literal["pending", "processing", "completed", "failed"]
 TranscriptionBackend = Literal["openai", "faster-whisper", "whisper-cpp"]
 WhisperModel = Literal["tiny", "base", "small", "medium", "large"]
-
 
 class TranscriptionAPI:
     """
@@ -59,15 +57,6 @@ class TranscriptionAPI:
             - youtube_enabled: YouTube support
         """
         return self._client.request("GET", "/api/v1/transcription/config")
-
-    def get_formats(self) -> dict[str, Any]:
-        """
-        Get supported audio/video formats.
-
-        Returns:
-            Dict with audio/video format lists and limits
-        """
-        return self._client.request("GET", "/api/v1/transcription/formats")
 
     def transcribe_audio(
         self,
@@ -169,60 +158,6 @@ class TranscriptionAPI:
         """
         return self._client.request("GET", f"/api/v1/transcription/status/{job_id}")
 
-    def get_job(self, job_id: str) -> dict[str, Any]:
-        """
-        Get transcription job details.
-
-        Args:
-            job_id: The job ID
-
-        Returns:
-            Dict with full job details
-        """
-        return self._client.request("GET", f"/api/v1/transcription/{job_id}")
-
-    def get_segments(self, job_id: str) -> dict[str, Any]:
-        """
-        Get timestamped segments for a completed transcription.
-
-        Args:
-            job_id: The job ID
-
-        Returns:
-            Dict with segments list
-        """
-        return self._client.request("GET", f"/api/v1/transcription/{job_id}/segments")
-
-    def upload(self, file_data: str, filename: str) -> dict[str, Any]:
-        """
-        Upload and queue audio/video for async transcription.
-
-        Args:
-            file_data: Base64-encoded file data
-            filename: Original filename
-
-        Returns:
-            Dict with job_id and upload status
-        """
-        return self._client.request(
-            "POST",
-            "/api/v1/transcription/upload",
-            json={"file_data": file_data, "filename": filename},
-        )
-
-    def delete_job(self, job_id: str) -> dict[str, Any]:
-        """
-        Delete a transcription job.
-
-        Args:
-            job_id: The job ID
-
-        Returns:
-            Dict with success status
-        """
-        return self._client.request("DELETE", f"/api/v1/transcription/{job_id}")
-
-
 class AsyncTranscriptionAPI:
     """
     Asynchronous Transcription API.
@@ -239,10 +174,6 @@ class AsyncTranscriptionAPI:
     async def get_config(self) -> dict[str, Any]:
         """Get transcription service configuration."""
         return await self._client.request("GET", "/api/v1/transcription/config")
-
-    async def get_formats(self) -> dict[str, Any]:
-        """Get supported audio/video formats."""
-        return await self._client.request("GET", "/api/v1/transcription/formats")
 
     async def transcribe_audio(
         self,
@@ -299,22 +230,3 @@ class AsyncTranscriptionAPI:
         """Get transcription job status."""
         return await self._client.request("GET", f"/api/v1/transcription/status/{job_id}")
 
-    async def get_job(self, job_id: str) -> dict[str, Any]:
-        """Get transcription job details."""
-        return await self._client.request("GET", f"/api/v1/transcription/{job_id}")
-
-    async def get_segments(self, job_id: str) -> dict[str, Any]:
-        """Get timestamped segments for a completed transcription."""
-        return await self._client.request("GET", f"/api/v1/transcription/{job_id}/segments")
-
-    async def upload(self, file_data: str, filename: str) -> dict[str, Any]:
-        """Upload and queue audio/video for async transcription."""
-        return await self._client.request(
-            "POST",
-            "/api/v1/transcription/upload",
-            json={"file_data": file_data, "filename": filename},
-        )
-
-    async def delete_job(self, job_id: str) -> dict[str, Any]:
-        """Delete a transcription job."""
-        return await self._client.request("DELETE", f"/api/v1/transcription/{job_id}")

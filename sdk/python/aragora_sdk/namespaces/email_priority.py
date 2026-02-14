@@ -21,14 +21,12 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
-
 ScoringTier = Literal["tier_1_rules", "tier_2_ml", "tier_3_llm"]
 UserAction = Literal["read", "archived", "deleted", "replied", "starred", "important", "snoozed"]
 EmailCategory = Literal[
     "invoices", "receipts", "newsletters", "promotions", "personal", "work", "other"
 ]
 GmailScopes = Literal["readonly", "full"]
-
 
 class EmailPriorityAPI:
     """
@@ -361,18 +359,6 @@ class EmailPriorityAPI:
     # Cross-Channel Context
     # =========================================================================
 
-    def get_context(self, email_address: str) -> dict[str, Any]:
-        """
-        Get cross-channel context for an email address.
-
-        Args:
-            email_address: Email to look up
-
-        Returns:
-            Dict with Slack, calendar, drive activity
-        """
-        return self._client.request("GET", f"/api/v1/email/context/{email_address}")
-
     def get_context_boost(self, email: dict[str, Any]) -> dict[str, Any]:
         """
         Get context-based priority boosts for an email.
@@ -384,7 +370,6 @@ class EmailPriorityAPI:
             Dict with boost factors from various signals
         """
         return self._client.request("POST", "/api/v1/email/context/boost", json={"email": email})
-
 
 class AsyncEmailPriorityAPI:
     """
@@ -553,10 +538,6 @@ class AsyncEmailPriorityAPI:
     async def get_gmail_status(self) -> dict[str, Any]:
         """Check Gmail connection status."""
         return await self._client.request("GET", "/api/v1/email/gmail/status")
-
-    async def get_context(self, email_address: str) -> dict[str, Any]:
-        """Get cross-channel context for an email address."""
-        return await self._client.request("GET", f"/api/v1/email/context/{email_address}")
 
     async def get_context_boost(self, email: dict[str, Any]) -> dict[str, Any]:
         """Get context-based priority boosts for an email."""
