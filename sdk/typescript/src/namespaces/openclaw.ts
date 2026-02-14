@@ -9,8 +9,6 @@
  * - Health, metrics, and audit
  */
 
-import type { AragoraClient } from '../client';
-
 /** OpenClaw session status */
 export type SessionStatus = 'active' | 'idle' | 'closing' | 'closed' | 'error';
 
