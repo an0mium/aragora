@@ -449,7 +449,6 @@ class TestSunsetHeaders:
             assert "Deprecation" in result.headers
             assert result.headers["Deprecation"] == "true"
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_versioned_path_no_sunset_header(self, plugins_handler, mock_registry):
         """Versioned paths should NOT include Sunset header."""
         import aragora.server.handlers.features.plugins as mod
@@ -463,7 +462,6 @@ class TestSunsetHeaders:
             if result.headers:
                 assert "Sunset" not in result.headers
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_legacy_plugin_details_has_sunset(self, plugins_handler, mock_registry):
         """Legacy plugin details path should include Sunset header."""
         import aragora.server.handlers.features.plugins as mod
@@ -475,7 +473,6 @@ class TestSunsetHeaders:
             assert result.headers is not None
             assert "Sunset" in result.headers
 
-    @pytest.mark.skipif(not _plugins_available(), reason=REQUIRES_PLUGINS)
     def test_versioned_plugin_details_no_sunset(self, plugins_handler, mock_registry):
         """Versioned plugin details path should NOT include Sunset header."""
         import aragora.server.handlers.features.plugins as mod
