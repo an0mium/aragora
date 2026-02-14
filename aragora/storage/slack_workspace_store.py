@@ -338,12 +338,12 @@ class SlackWorkspaceStore:
         if not ENCRYPTION_KEY:
             return encrypted
 
-        # Check if it looks like an unencrypted token
-        if encrypted.startswith("xoxb-") or encrypted.startswith("xoxp-"):
+        # Check if it looks like an unencrypted or revoked token
+        if encrypted.startswith(("xoxb-", "xoxp-", "[REVOKED")):
             return encrypted  # Not encrypted
 
         try:
-            from cryptography.fernet import Fernet
+            from cryptography.fernet import Fernet, InvalidToken
 
             # Check for version prefix
             if encrypted.startswith("v2:"):
@@ -359,7 +359,7 @@ class SlackWorkspaceStore:
             return f.decrypt(ciphertext.encode()).decode()
         except ImportError:
             return encrypted
-        except (ValueError, TypeError, UnicodeDecodeError) as e:
+        except (ValueError, TypeError, UnicodeDecodeError, InvalidToken) as e:
             logger.error("Token decryption failed: %s", e)
             return encrypted
 
