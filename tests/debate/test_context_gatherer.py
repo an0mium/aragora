@@ -2386,6 +2386,12 @@ class TestEdgeCases:
                 new_callable=AsyncMock,
                 return_value=None,
             ),
+            patch.object(
+                gatherer,
+                "_gather_evidence_with_timeout",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
             result = await gatherer.gather_all("test task")
 
