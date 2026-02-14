@@ -91,78 +91,99 @@ def _init_metrics() -> bool:
         return False
 
     try:
-        from prometheus_client import Counter, Gauge, Histogram, Summary
+        from prometheus_client import Counter, Gauge, Histogram, Summary, REGISTRY
+
+        def _get_or_create(metric_cls, name, description, labels, **kwargs):
+            """Get existing metric or create new one (handles test reruns)."""
+            try:
+                return metric_cls(name, description, labels, **kwargs)
+            except ValueError:
+                # Already registered — retrieve from registry
+                for collector in list(REGISTRY._names_to_collectors.values()):
+                    if hasattr(collector, '_name') and collector._name == name:
+                        return collector
+                # Fallback: unregister and recreate
+                try:
+                    REGISTRY.unregister(REGISTRY._names_to_collectors.get(name))
+                except Exception:
+                    pass
+                return metric_cls(name, description, labels, **kwargs)
 
         # Request metrics
-        DECISION_REQUESTS = Counter(
+        DECISION_REQUESTS = _get_or_create(
+            Counter,
             "aragora_decision_requests_total",
             "Total decision requests received",
             ["decision_type", "source", "priority"],
         )
 
-        DECISION_RESULTS = Counter(
+        DECISION_RESULTS = _get_or_create(
+            Counter,
             "aragora_decision_results_total",
             "Total decision results by outcome",
             ["decision_type", "source", "success", "consensus_reached"],
         )
 
-        # Latency histogram with buckets for different decision types
-        DECISION_LATENCY = Histogram(
+        DECISION_LATENCY = _get_or_create(
+            Histogram,
             "aragora_decision_latency_seconds",
             "Decision processing latency",
             ["decision_type", "source"],
             buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
         )
 
-        # Confidence distribution
-        DECISION_CONFIDENCE = Histogram(
+        DECISION_CONFIDENCE = _get_or_create(
+            Histogram,
             "aragora_decision_confidence",
             "Decision confidence score distribution",
             ["decision_type"],
             buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         )
 
-        # Cache metrics
-        DECISION_CACHE_HITS = Counter(
+        DECISION_CACHE_HITS = _get_or_create(
+            Counter,
             "aragora_decision_cache_hits_total",
             "Total decision cache hits",
             ["decision_type"],
         )
 
-        DECISION_CACHE_MISSES = Counter(
+        DECISION_CACHE_MISSES = _get_or_create(
+            Counter,
             "aragora_decision_cache_misses_total",
             "Total decision cache misses",
             ["decision_type"],
         )
 
-        DECISION_DEDUP_HITS = Counter(
+        DECISION_DEDUP_HITS = _get_or_create(
+            Counter,
             "aragora_decision_dedup_hits_total",
             "Total deduplication hits (waited for in-flight request)",
             ["decision_type"],
         )
 
-        # Active decisions gauge
-        DECISION_ACTIVE = Gauge(
+        DECISION_ACTIVE = _get_or_create(
+            Gauge,
             "aragora_decision_active",
             "Number of currently active decision requests",
             ["decision_type"],
         )
 
-        # Error tracking
-        DECISION_ERRORS = Counter(
+        DECISION_ERRORS = _get_or_create(
+            Counter,
             "aragora_decision_errors_total",
             "Total decision errors by type",
             ["decision_type", "error_type"],
         )
 
-        # Consensus rate (for debates)
-        DECISION_CONSENSUS_RATE = Summary(
+        DECISION_CONSENSUS_RATE = _get_or_create(
+            Summary,
             "aragora_decision_consensus_rate",
             "Rate of consensus achieved in debates",
+            [],
         )
 
-        # Agents used per decision
-        DECISION_AGENTS_USED = Histogram(
+        DECISION_AGENTS_USED = _get_or_create(
+            Histogram,
             "aragora_decision_agents_used",
             "Number of agents used per decision",
             ["decision_type"],
