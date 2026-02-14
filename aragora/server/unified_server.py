@@ -395,7 +395,8 @@ class UnifiedHandler(  # type: ignore[misc]
                 # Fallback: send minimal response bypassing _send_json entirely
                 try:
                     err = _json.dumps({"error": f"Debug endpoint error: {type(e).__name__}: {e}"}).encode()
-                except Exception:
+                except Exception as json_err:
+                    logger.debug("Failed to serialize error response: %s", json_err)
                     err = b'{"error": "Debug endpoint critically failed"}'
                 try:
                     self.send_response(500)
@@ -403,8 +404,8 @@ class UnifiedHandler(  # type: ignore[misc]
                     self.send_header("Content-Length", str(len(err)))
                     self.end_headers()
                     self.wfile.write(err)
-                except Exception:
-                    pass  # Response already started, nothing we can do
+                except Exception as send_err:
+                    logger.debug("Failed to send error response: %s", send_err)
             return
 
         # Route all /api/* requests through modular handlers

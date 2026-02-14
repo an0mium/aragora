@@ -142,14 +142,16 @@ class PlanExecutor:
                 from aragora.memory.continuum import get_continuum_memory
 
                 continuum_memory = get_continuum_memory()
-            except Exception:
+            except Exception as e:
+                logger.debug("Could not initialize continuum_memory: %s", e)
                 continuum_memory = None
         if knowledge_mound is None:
             try:
                 from aragora.knowledge.mound import get_knowledge_mound
 
                 knowledge_mound = get_knowledge_mound()
-            except Exception:
+            except Exception as e:
+                logger.debug("Could not initialize knowledge_mound: %s", e)
                 knowledge_mound = None
 
         self._continuum_memory = continuum_memory

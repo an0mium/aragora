@@ -87,7 +87,7 @@ aragora serve --api-port 8080 --ws-port 8765
 Then open `http://localhost:8080` for the web UI, or call the API:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/debates \
+curl -X POST http://localhost:8080/api/debates \
   -H "Content-Type: application/json" \
   -d '{"task": "Should we adopt Kubernetes?", "rounds": 3}'
 ```
