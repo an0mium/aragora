@@ -48,6 +48,11 @@ Endpoints:
     POST /api/v2/compliance/hipaa/baa            - Register new BAA
     GET  /api/v2/compliance/hipaa/security-report - Security Rule compliance report
 
+    # EU AI Act
+    POST /api/v2/compliance/eu-ai-act/classify         - Classify AI use case risk level
+    POST /api/v2/compliance/eu-ai-act/audit            - Generate conformity report
+    POST /api/v2/compliance/eu-ai-act/generate-bundle  - Generate full artifact bundle
+
 These endpoints support enterprise compliance requirements.
 """
 
@@ -68,6 +73,7 @@ from .ccpa import CCPAMixin
 from .hipaa import HIPAAMixin
 from .legal_hold import LegalHoldMixin
 from .audit_verify import AuditVerifyMixin, parse_timestamp
+from .eu_ai_act import EUAIActMixin
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +86,7 @@ class ComplianceHandler(
     HIPAAMixin,
     LegalHoldMixin,
     AuditVerifyMixin,
+    EUAIActMixin,
 ):
     """
     HTTP handler for compliance and audit operations.
@@ -94,6 +101,7 @@ class ComplianceHandler(
     - HIPAAMixin: HIPAA PHI access logging, breach assessment, BAA management
     - LegalHoldMixin: Legal hold creation, listing, and release
     - AuditVerifyMixin: Audit trail verification and SIEM event export
+    - EUAIActMixin: EU AI Act risk classification, conformity reports, artifact bundles
     """
 
     ROUTES = [
@@ -243,6 +251,22 @@ class ComplianceHandler(
             # HIPAA Security Rule Report
             if path == "/api/v2/compliance/hipaa/security-report" and method == "GET":
                 return await self._hipaa_security_report(query_params)
+
+            # =================================================================
+            # EU AI Act Endpoints
+            # =================================================================
+
+            # EU AI Act Risk Classification
+            if path == "/api/v2/compliance/eu-ai-act/classify" and method == "POST":
+                return await self._eu_ai_act_classify(body)
+
+            # EU AI Act Conformity Report (audit)
+            if path == "/api/v2/compliance/eu-ai-act/audit" and method == "POST":
+                return await self._eu_ai_act_audit(body)
+
+            # EU AI Act Full Artifact Bundle Generation
+            if path == "/api/v2/compliance/eu-ai-act/generate-bundle" and method == "POST":
+                return await self._eu_ai_act_generate_bundle(body)
 
             return error_response("Not found", 404)
 

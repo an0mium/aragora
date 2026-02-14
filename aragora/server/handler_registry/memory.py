@@ -31,6 +31,11 @@ KMCheckpointHandler = _safe_import(
     "aragora.server.handlers.knowledge.checkpoints", "KMCheckpointHandler"
 )
 
+# KM adapter status handler
+KMAdapterStatusHandler = _safe_import(
+    "aragora.server.handlers.knowledge.adapters", "KMAdapterStatusHandler"
+)
+
 # =============================================================================
 # Knowledge Handler Imports
 # =============================================================================
@@ -125,6 +130,7 @@ MEMORY_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_checkpoint_handler", CheckpointHandler),
     ("_coordinator_handler", CoordinatorHandler),
     ("_km_checkpoint_handler", KMCheckpointHandler),
+    ("_km_adapter_status_handler", KMAdapterStatusHandler),
     ("_knowledge_handler", KnowledgeHandler),
     ("_knowledge_mound_handler", KnowledgeMoundHandler),
     ("_knowledge_chat_handler", KnowledgeChatHandler),
@@ -161,6 +167,7 @@ __all__ = [
     "CheckpointHandler",
     "CoordinatorHandler",
     "KMCheckpointHandler",
+    "KMAdapterStatusHandler",
     # Knowledge handlers
     "KnowledgeHandler",
     "KnowledgeMoundHandler",

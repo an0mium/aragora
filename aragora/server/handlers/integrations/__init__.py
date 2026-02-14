@@ -13,12 +13,14 @@ from aragora.server.handlers.integrations.email_webhook import (
     EmailWebhookHandler,
     register_email_webhook_routes,
 )
+from aragora.server.handlers.integrations.health import IntegrationHealthHandler
 
 # Re-export IntegrationsHandler from the renamed module for backward compatibility
 from aragora.server.handlers.integration_management import IntegrationsHandler
 
 __all__ = [
     "AutomationHandler",
+    "IntegrationHealthHandler",
     "IntegrationsHandler",
     "EmailWebhookHandler",
     "register_email_webhook_routes",

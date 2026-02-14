@@ -107,6 +107,9 @@ ERC8004Handler = _safe_import("aragora.server.handlers.erc8004", "ERC8004Handler
 ExternalIntegrationsHandler = _safe_import(
     "aragora.server.handlers.external_integrations", "ExternalIntegrationsHandler"
 )
+IntegrationHealthHandler = _safe_import(
+    "aragora.server.handlers.integrations.health", "IntegrationHealthHandler"
+)
 IntegrationManagementHandler = _safe_import(
     "aragora.server.handlers.integration_management", "IntegrationsHandler"
 )
@@ -391,6 +394,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_connectors_handler", ConnectorsHandler),
     ("_streaming_connector_handler", StreamingConnectorHandler),
     ("_marketplace_handler", MarketplaceHandler),
+    ("_integration_health_handler", IntegrationHealthHandler),
     ("_automation_handler", AutomationHandler),
     # Workflow
     ("_workflow_handler", WorkflowHandler),
@@ -533,6 +537,7 @@ __all__ = [
     "IntegrationManagementHandler",
     "FeatureIntegrationsHandler",
     "ConnectorsHandler",
+    "IntegrationHealthHandler",
     "StreamingConnectorHandler",
     "MarketplaceHandler",
     "AutomationHandler",

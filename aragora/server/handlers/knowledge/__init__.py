@@ -7,12 +7,14 @@ Provides handlers for:
 - Checkpoints: KM state backup and restore
 """
 
+from .adapters import KMAdapterStatusHandler
 from .analytics import AnalyticsHandler
 from .sharing_notifications import SharingNotificationsHandler
 from .checkpoints import KMCheckpointHandler
 
 __all__ = [
     "AnalyticsHandler",
+    "KMAdapterStatusHandler",
     "SharingNotificationsHandler",
     "KMCheckpointHandler",
 ]
