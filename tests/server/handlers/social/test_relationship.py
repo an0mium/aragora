@@ -26,22 +26,7 @@ from aragora.server.handlers.social.relationship import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Try importing the handler (may fail if optional deps missing)
-# ---------------------------------------------------------------------------
-
-try:
-    from aragora.server.handlers.social.relationship import RelationshipHandler
-
-    HANDLER_AVAILABLE = True
-except ImportError:
-    HANDLER_AVAILABLE = False
-    RelationshipHandler = None  # type: ignore[assignment,misc]
-
-
-pytestmark_handler = pytest.mark.skipif(
-    not HANDLER_AVAILABLE, reason="RelationshipHandler not available"
-)
+from aragora.server.handlers.social.relationship import RelationshipHandler
 
 
 # ===========================================================================
@@ -281,7 +266,7 @@ def mock_tracker():
 # ---- can_handle tests ----
 
 
-@pytestmark_handler
+
 class TestCanHandle:
     def test_summary_route(self, handler):
         assert handler.can_handle("/api/v1/relationships/summary") is True
@@ -312,7 +297,7 @@ class TestCanHandle:
 # ---- Rate limiting ----
 
 
-@pytestmark_handler
+
 class TestRateLimiting:
     def test_rate_limit_exceeded(self, handler):
         """Verify 429 is returned when rate limit is exceeded."""
@@ -346,7 +331,7 @@ class TestRateLimiting:
 # ---- RBAC permission checks ----
 
 
-@pytestmark_handler
+
 class TestRBACPermission:
     @pytest.mark.no_auto_auth
     def test_handle_requires_relationships_read(self):
@@ -364,7 +349,7 @@ class TestRBACPermission:
 # ---- GET /api/v1/relationships/summary ----
 
 
-@pytestmark_handler
+
 class TestGetSummary:
     def _call_summary(self, handler, db_path):
         """Helper: call _get_summary with a real DB via a mock tracker."""
@@ -444,7 +429,7 @@ class TestGetSummary:
 # ---- GET /api/v1/relationships/graph ----
 
 
-@pytestmark_handler
+
 class TestGetGraph:
     def _call_graph(self, handler, db_path, min_debates=3, min_score=0.0):
         mock_tracker = MagicMock()
@@ -525,7 +510,7 @@ class TestGetGraph:
 # ---- GET /api/v1/relationships/stats ----
 
 
-@pytestmark_handler
+
 class TestGetStats:
     def _call_stats(self, handler, db_path):
         mock_tracker = MagicMock()
@@ -594,7 +579,7 @@ class TestGetStats:
 # ---- GET /api/v1/relationship/{agent_a}/{agent_b} ----
 
 
-@pytestmark_handler
+
 class TestGetPairDetail:
     def _call_pair(self, handler, tracker, agent_a, agent_b):
         wrapped = handler._get_pair_detail.__wrapped__
@@ -670,7 +655,7 @@ class TestGetPairDetail:
 # ---- Input validation (agent name patterns via handle routing) ----
 
 
-@pytestmark_handler
+
 class TestInputValidation:
     """Test path parameter extraction and SAFE_AGENT_PATTERN validation.
 
@@ -778,7 +763,7 @@ class TestInputValidation:
 # ---- require_tracker decorator ----
 
 
-@pytestmark_handler
+
 class TestRequireTracker:
     def test_tracker_not_available(self, handler):
         """When RELATIONSHIP_TRACKER_AVAILABLE is False, return 503."""
@@ -806,7 +791,7 @@ class TestRequireTracker:
 # ---- _get_tracker method ----
 
 
-@pytestmark_handler
+
 class TestGetTracker:
     def test_no_tracker_available(self, handler):
         with patch(
@@ -886,7 +871,7 @@ class TestGetTracker:
 # ---- _empty_stats_response ----
 
 
-@pytestmark_handler
+
 class TestEmptyStatsResponse:
     def test_returns_correct_structure(self, handler):
         result = handler._empty_stats_response()
@@ -903,7 +888,7 @@ class TestEmptyStatsResponse:
 # ---- _fetch_relationships ----
 
 
-@pytestmark_handler
+
 class TestFetchRelationships:
     def test_no_table(self, handler):
         """Returns empty list when table doesn't exist."""
@@ -942,7 +927,7 @@ class TestFetchRelationships:
 # ---- handle() routing ----
 
 
-@pytestmark_handler
+
 class TestHandleRouting:
     """Test that handle() dispatches to correct internal methods."""
 

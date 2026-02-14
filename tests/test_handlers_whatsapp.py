@@ -17,19 +17,7 @@ from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 
-# Skip all tests if the handler module doesn't exist
-try:
-    from aragora.server.handlers.bots.whatsapp import WhatsAppHandler
-
-    WHATSAPP_MODULE_AVAILABLE = True
-except ImportError:
-    WHATSAPP_MODULE_AVAILABLE = False
-    WhatsAppHandler = None
-
-pytestmark = pytest.mark.skipif(
-    not WHATSAPP_MODULE_AVAILABLE,
-    reason="WhatsApp handler module not available",
-)
+from aragora.server.handlers.bots.whatsapp import WhatsAppHandler
 
 
 class MockHandler:
