@@ -130,7 +130,7 @@ export class LearningAPI {
     limit?: number;
     offset?: number;
   }): Promise<{ sessions: Record<string, unknown>[]; pagination: Record<string, unknown> }> {
-    return this.client.request('GET', '/api/v1/learning/sessions', {
+    return this.client.request('POST', '/api/v1/learning/sessions', {
       params: params as Record<string, unknown>,
     });
   }
@@ -175,7 +175,7 @@ export class LearningAPI {
     agent_id?: string;
     limit?: number;
   }): Promise<{ metrics: Record<string, unknown>[]; count: number }> {
-    return this.client.request('GET', '/api/v1/learning/metrics', {
+    return this.client.request('POST', '/api/v1/learning/metrics', {
       params: params as Record<string, unknown>,
     });
   }
@@ -243,7 +243,7 @@ export class LearningAPI {
     source_type?: string;
     limit?: number;
   }): Promise<{ knowledge: Record<string, unknown>[]; count: number }> {
-    return this.client.request('GET', '/api/v1/learning/knowledge', {
+    return this.client.request('POST', '/api/v1/learning/knowledge', {
       params: params as Record<string, unknown>,
     });
   }
@@ -279,7 +279,7 @@ export class LearningAPI {
   async getRecommendations(params?: {
     limit?: number;
   }): Promise<{ recommendations: Record<string, unknown>[]; count: number }> {
-    return this.client.request('GET', '/api/v1/learning/recommendations', {
+    return this.client.request('POST', '/api/v1/learning/recommendations', {
       params: params as Record<string, unknown>,
     });
   }
@@ -288,7 +288,7 @@ export class LearningAPI {
    * Get model performance statistics.
    */
   async getPerformance(): Promise<{ performance: Record<string, unknown> }> {
-    return this.client.request('GET', '/api/v1/learning/performance');
+    return this.client.request('POST', '/api/v1/learning/performance');
   }
 
   /**

@@ -86,9 +86,7 @@ export class CRMNamespace {
 
   /** Create a contact. */
   async createContact(request: CreateContactRequest): Promise<Contact> {
-    return this.client.request<Contact>(
-      'POST',
-      '/api/v1/crm/contacts',
+    return this.client.request<Contact>('GET', '/api/v1/crm/contacts',
       { body: request }
     );
   }

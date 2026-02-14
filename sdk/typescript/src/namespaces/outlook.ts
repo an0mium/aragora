@@ -235,7 +235,7 @@ export class OutlookAPI {
    * @returns OAuth URL and state parameter.
    */
   async getOAuthUrl(redirectUri: string): Promise<OutlookOAuthResponse> {
-    return this.client.request('POST', '/api/v1/outlook/oauth/url', {
+    return this.client.request('GET', '/api/v1/outlook/oauth/url', {
       json: { redirect_uri: redirectUri },
     });
   }
@@ -248,7 +248,7 @@ export class OutlookAPI {
    * @param redirectUri - Optional redirect URI.
    */
   async completeOAuth(code: string, state: string, redirectUri?: string): Promise<OutlookAuthResult> {
-    return this.client.request('POST', '/api/v1/outlook/oauth/callback', {
+    return this.client.request('GET', '/api/v1/outlook/oauth/callback', {
       json: { code, state, redirect_uri: redirectUri },
     });
   }

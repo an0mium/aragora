@@ -134,9 +134,7 @@ export class ExternalAgentsAPI {
    * including their names, descriptions, and configuration classes.
    */
   async listAdapters(): Promise<AdapterListResponse> {
-    return this.client.request(
-      'GET',
-      '/api/v1/external-agents/adapters',
+    return this.client.request('POST', '/api/v1/external-agents/adapters',
     ) as Promise<AdapterListResponse>;
   }
 
@@ -153,9 +151,7 @@ export class ExternalAgentsAPI {
     if (adapterName !== undefined) {
       params.adapter = adapterName;
     }
-    return this.client.request(
-      'GET',
-      '/api/v1/external-agents/health',
+    return this.client.request('POST', '/api/v1/external-agents/health',
       { params },
     ) as Promise<HealthResponse>;
   }
@@ -217,9 +213,7 @@ export class ExternalAgentsAPI {
    * @param taskId - The ID of the task to cancel.
    */
   async cancelTask(taskId: string): Promise<CancelResponse> {
-    return this.client.request(
-      'DELETE',
-      `/api/v1/external-agents/tasks/${taskId}`,
+    return this.client.request('GET', `/api/v1/external-agents/tasks/${taskId}`,
     ) as Promise<CancelResponse>;
   }
 }

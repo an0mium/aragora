@@ -207,7 +207,7 @@ export class RepositoryAPI {
    * Get index status.
    */
   async getStatus(indexId: string): Promise<IndexStatus> {
-    return this.client.request<IndexStatus>('GET', `/api/v1/repository/${indexId}/status`);
+    return this.client.request<IndexStatus>('POST', `/api/v1/repository/${indexId}/status`);
   }
 
   /**
@@ -228,7 +228,7 @@ export class RepositoryAPI {
    * Get the relationship graph for an indexed repository.
    */
   async getGraph(indexId: string): Promise<RepositoryGraph> {
-    return this.client.request<RepositoryGraph>('GET', `/api/v1/repository/${indexId}/graph`);
+    return this.client.request<RepositoryGraph>('POST', `/api/v1/repository/${indexId}/graph`);
   }
 
   /**
@@ -288,7 +288,7 @@ export class RepositoryAPI {
    * @returns Deletion result
    */
   async deleteRepository(repositoryId: string): Promise<{ deleted: boolean }> {
-    return this.client.request('DELETE', `/api/v1/repository/${encodeURIComponent(repositoryId)}`);
+    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(repositoryId)}`);
   }
 }
 

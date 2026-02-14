@@ -53,6 +53,11 @@ export interface ExecutionResult {
 interface RetentionClientInterface {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -98,10 +103,8 @@ export class RetentionAPI {
    * Get data items that are expiring soon.
    */
   async getExpiring(options?: { days?: number; limit?: number }): Promise<{ items: ExpiringItem[]; total: number }> {
-    const params = new URLSearchParams();
-    if (options?.days) params.set('days', options.days.toString());
-    if (options?.limit) params.set('limit', options.limit.toString());
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.client.get(`/api/v1/retention/expiring${query}`);
+    return this.client.request('GET', '/api/v1/retention/expiring', {
+      params: options as Record<string, unknown> | undefined,
+    });
   }
 }

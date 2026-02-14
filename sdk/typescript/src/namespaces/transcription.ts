@@ -205,7 +205,7 @@ export class TranscriptionAPI {
    * Get transcription service configuration.
    */
   async getConfig(): Promise<TranscriptionConfig> {
-    return this.client.request('GET', '/api/v1/transcription/config');
+    return this.client.request('POST', '/api/v1/transcription/config');
   }
 
   /**

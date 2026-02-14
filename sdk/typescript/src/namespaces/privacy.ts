@@ -172,7 +172,7 @@ export class PrivacyAPI {
   async updatePreferences(
     preferences: Partial<PrivacyPreferences>
   ): Promise<{ message: string; preferences: PrivacyPreferences }> {
-    return this.client.request('POST', '/api/v1/privacy/preferences', {
+    return this.client.request('GET', '/api/v1/privacy/preferences', {
       json: preferences as Record<string, unknown>,
     });
   }
@@ -185,7 +185,7 @@ export class PrivacyAPI {
   async deleteAccount(
     request: AccountDeletionRequest
   ): Promise<AccountDeletionResponse> {
-    return this.client.request('DELETE', '/api/v1/privacy/account', {
+    return this.client.request('GET', '/api/v1/privacy/account', {
       json: request as unknown as Record<string, unknown>,
     });
   }

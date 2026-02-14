@@ -754,14 +754,14 @@ export class KnowledgeAPI {
    * Merge a specific duplicate cluster.
    */
   async mergeDuplicateCluster(clusterId: string, options?: { primary_id?: string; strategy?: 'newest' | 'highest_confidence' | 'manual' }): Promise<{ merged_id: string; removed_count: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/dedup/merge', { json: { cluster_id: clusterId, ...options } });
+    return this.client.request('GET', '/api/v1/knowledge/mound/dedup/merge', { json: { cluster_id: clusterId, ...options } });
   }
 
   /**
    * Automatically merge exact duplicates.
    */
   async autoMergeExactDuplicates(options?: { dry_run?: boolean }): Promise<{ merged: number; clusters_processed: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/dedup/auto-merge', { json: options });
+    return this.client.request('GET', '/api/v1/knowledge/mound/dedup/auto-merge', { json: options });
   }
 
   // =========================================================================
@@ -779,14 +779,14 @@ export class KnowledgeAPI {
    * Prune specified items (archive or delete).
    */
   async executePrune(nodeIds: string[], options?: { action?: 'archive' | 'delete' }): Promise<{ pruned: number; archived: number; deleted: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/pruning/execute', { json: { node_ids: nodeIds, ...options } });
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/execute', { json: { node_ids: nodeIds, ...options } });
   }
 
   /**
    * Run auto-prune with policy.
    */
   async autoPrune(options?: { policy?: 'conservative' | 'moderate' | 'aggressive'; dry_run?: boolean }): Promise<{ pruned: number; archived: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/pruning/auto', { json: options });
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/auto', { json: options });
   }
 
   /**
@@ -800,7 +800,7 @@ export class KnowledgeAPI {
    * Restore an archived item.
    */
   async restorePrunedItem(nodeId: string): Promise<{ restored: boolean }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/pruning/restore', { json: { node_id: nodeId } });
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/restore', { json: { node_id: nodeId } });
   }
 
   // =========================================================================
@@ -875,7 +875,7 @@ export class KnowledgeAPI {
    * Reset metrics counters.
    */
   async resetDashboardMetrics(): Promise<{ reset: boolean }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/dashboard/metrics/reset');
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/metrics/reset');
   }
 
   /**
@@ -893,7 +893,7 @@ export class KnowledgeAPI {
    * Trigger contradiction detection scan.
    */
   async detectContradictions(options?: { scope?: 'workspace' | 'all' }): Promise<{ detected: number; scan_id: string }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/contradictions/detect', { json: options });
+    return this.client.request('GET', '/api/v1/knowledge/mound/contradictions/detect', { json: options });
   }
 
   /**
@@ -907,7 +907,7 @@ export class KnowledgeAPI {
    * Resolve a contradiction.
    */
   async resolveContradiction(contradictionId: string, resolution: { strategy: 'keep_first' | 'keep_second' | 'merge' | 'invalidate_both'; notes?: string }): Promise<{ resolved: boolean }> {
-    return this.client.request('POST', `/api/v1/knowledge/mound/contradictions/${contradictionId}/resolve`, { json: resolution });
+    return this.client.request('GET', `/api/v1/knowledge/mound/contradictions/${contradictionId}/resolve`, { json: resolution });
   }
 
   /**
@@ -992,14 +992,14 @@ export class KnowledgeAPI {
    * Record a usage event.
    */
   async recordUsageEvent(event: { node_id: string; event_type: 'query' | 'view' | 'cite' | 'share' | 'export'; metadata?: Record<string, unknown> }): Promise<{ recorded: boolean }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/analytics/usage/record', { json: event });
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/usage/record', { json: event });
   }
 
   /**
    * Capture quality metrics snapshot.
    */
   async captureQualitySnapshot(): Promise<{ snapshot_id: string; metrics: unknown }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/analytics/quality/snapshot');
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/quality/snapshot');
   }
 
   /**
@@ -1017,14 +1017,14 @@ export class KnowledgeAPI {
    * Extract claims/knowledge from a debate.
    */
   async extractFromDebate(debateId: string, options?: { confidence_threshold?: number; auto_promote?: boolean }): Promise<{ extracted: number; claims: unknown[] }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/extraction/debate', { json: { debate_id: debateId, ...options } });
+    return this.client.request('GET', '/api/v1/knowledge/mound/extraction/debate', { json: { debate_id: debateId, ...options } });
   }
 
   /**
    * Promote extracted claims to main knowledge.
    */
   async promoteExtracted(claimIds: string[], options?: { target_tier?: string }): Promise<{ promoted: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/extraction/promote', { json: { claim_ids: claimIds, ...options } });
+    return this.client.request('GET', '/api/v1/knowledge/mound/extraction/promote', { json: { claim_ids: claimIds, ...options } });
   }
 
   // =========================================================================
@@ -1035,14 +1035,14 @@ export class KnowledgeAPI {
    * Apply confidence decay to workspace knowledge.
    */
   async applyConfidenceDecay(options?: { scope?: 'workspace' | 'all'; decay_rate?: number }): Promise<{ affected: number; average_decay: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/confidence/decay', { json: options });
+    return this.client.request('GET', '/api/v1/knowledge/mound/confidence/decay', { json: options });
   }
 
   /**
    * Record a confidence-affecting event.
    */
   async recordConfidenceEvent(nodeId: string, event: { type: 'validation' | 'contradiction' | 'citation' | 'correction'; impact: number; notes?: string }): Promise<{ new_confidence: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/confidence/event', { json: { node_id: nodeId, ...event } });
+    return this.client.request('GET', '/api/v1/knowledge/mound/confidence/event', { json: { node_id: nodeId, ...event } });
   }
 
   /**
@@ -1092,7 +1092,7 @@ export class KnowledgeAPI {
    * Set curation policy.
    */
   async setCurationPolicy(policy: { auto_promote?: boolean; auto_archive_days?: number; quality_threshold?: number }): Promise<{ updated: boolean }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/curation/policy', { json: policy });
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/policy', { json: policy });
   }
 
   /**
@@ -1106,7 +1106,7 @@ export class KnowledgeAPI {
    * Trigger a curation run.
    */
   async runCuration(options?: { dry_run?: boolean }): Promise<{ actions_taken: number; promoted: number; archived: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/curation/run', { json: options });
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/run', { json: options });
   }
 
   /**
@@ -1138,20 +1138,23 @@ export class KnowledgeAPI {
    * Sync knowledge from ContinuumMemory.
    */
   async syncFromContinuum(options?: { since?: string; limit?: number }): Promise<{ synced: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/sync/continuum', { json: options });
+    const adapterName = 'continuum';
+    return this.client.request('POST', `/api/v1/knowledge/mound/sync/${adapterName}`, { json: options });
   }
 
   /**
    * Sync from ConsensusMemory debate outcomes.
    */
   async syncFromConsensus(options?: { since?: string; limit?: number }): Promise<{ synced: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/sync/consensus', { json: options });
+    const adapterName = 'consensus';
+    return this.client.request('POST', `/api/v1/knowledge/mound/sync/${adapterName}`, { json: options });
   }
 
   /**
    * Sync from FactStore.
    */
   async syncFromFacts(options?: { since?: string; limit?: number }): Promise<{ synced: number }> {
-    return this.client.request('POST', '/api/v1/knowledge/mound/sync/facts', { json: options });
+    const adapterName = 'facts';
+    return this.client.request('POST', `/api/v1/knowledge/mound/sync/${adapterName}`, { json: options });
   }
 }

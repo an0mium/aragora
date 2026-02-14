@@ -385,7 +385,7 @@ export class CrossPollinationAPI {
     if (options.confidenceThreshold !== undefined) {
       json.confidence_threshold = options.confidenceThreshold;
     }
-    return this.client.put('/api/v1/cross-pollination/bridge', json);
+    return this.client.request('GET', '/api/v1/cross-pollination/bridge', { params: json });
   }
 
   // ===========================================================================

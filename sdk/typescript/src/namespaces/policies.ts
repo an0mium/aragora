@@ -186,7 +186,7 @@ export class PoliciesAPI {
    * Create a new policy.
    */
   async create(policy: CreatePolicyRequest): Promise<Policy> {
-    return this.client.request('POST', '/api/policies', {
+    return this.client.request('GET', '/api/policies', {
       json: policy as unknown as Record<string, unknown>,
     });
   }
@@ -195,7 +195,7 @@ export class PoliciesAPI {
    * Update an existing policy.
    */
   async update(policyId: string, updates: UpdatePolicyRequest): Promise<Policy> {
-    return this.client.request('PATCH', `/api/policies/${policyId}`, {
+    return this.client.request('GET', `/api/policies/${policyId}`, {
       json: updates as unknown as Record<string, unknown>,
     });
   }
@@ -211,7 +211,7 @@ export class PoliciesAPI {
    * Toggle a policy's enabled status.
    */
   async toggle(policyId: string): Promise<{ enabled: boolean }> {
-    return this.client.request('POST', `/api/policies/${policyId}/toggle`);
+    return this.client.request('GET', `/api/policies/${policyId}/toggle`);
   }
 
   /**

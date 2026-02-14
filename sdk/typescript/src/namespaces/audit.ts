@@ -1000,9 +1000,7 @@ export class AuditAPI {
     findingId: string,
     assigneeId: string
   ): Promise<{ assigned: boolean }> {
-    return this.client.request<{ assigned: boolean }>(
-      'POST',
-      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/assign`,
+    return this.client.request<{ assigned: boolean }>('GET', `/api/v1/audit/findings/${encodeURIComponent(findingId)}/assign`,
       { body: { assignee_id: assigneeId } }
     );
   }
@@ -1022,9 +1020,7 @@ export class AuditAPI {
    * ```
    */
   async unassignFinding(findingId: string): Promise<{ unassigned: boolean }> {
-    return this.client.request<{ unassigned: boolean }>(
-      'POST',
-      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/unassign`
+    return this.client.request<{ unassigned: boolean }>('GET', `/api/v1/audit/findings/${encodeURIComponent(findingId)}/unassign`
     );
   }
 
@@ -1053,9 +1049,7 @@ export class AuditAPI {
     const body: Record<string, unknown> = { status };
     if (resolutionNotes) body.resolution_notes = resolutionNotes;
 
-    return this.client.request<AuditFinding>(
-      'PATCH',
-      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/status`,
+    return this.client.request<AuditFinding>('GET', `/api/v1/audit/findings/${encodeURIComponent(findingId)}/status`,
       { body }
     );
   }
@@ -1076,9 +1070,7 @@ export class AuditAPI {
     findingId: string,
     priority: string
   ): Promise<AuditFinding> {
-    return this.client.request<AuditFinding>(
-      'PATCH',
-      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/priority`,
+    return this.client.request<AuditFinding>('GET', `/api/v1/audit/findings/${encodeURIComponent(findingId)}/priority`,
       { body: { priority } }
     );
   }
@@ -1102,9 +1094,7 @@ export class AuditAPI {
     findingId: string,
     content: string
   ): Promise<{ id: string; content: string; created_at: string; author_id: string }> {
-    return this.client.request<{ id: string; content: string; created_at: string; author_id: string }>(
-      'POST',
-      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/comments`,
+    return this.client.request<{ id: string; content: string; created_at: string; author_id: string }>('GET', `/api/v1/audit/findings/${encodeURIComponent(findingId)}/comments`,
       { body: { content } }
     );
   }
@@ -1137,7 +1127,7 @@ export class AuditAPI {
    * @route GET /api/v1/audit/security/debate
    */
   async listSecurityDebates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/audit/security/debate', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('POST', '/api/v1/audit/security/debate', { params }) as Promise<Record<string, unknown>>;
   }
 
   /**

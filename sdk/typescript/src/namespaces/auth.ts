@@ -591,7 +591,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/forgot-password
    */
   async forgotPasswordAlt(body: { email: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/forgot-password', { json: body });
+    return this.client.request('GET', '/api/auth/forgot-password', { json: body });
   }
 
   /**
@@ -599,7 +599,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/reset-password
    */
   async resetPasswordAlt(body: { token: string; new_password: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/reset-password', { json: body });
+    return this.client.request('GET', '/api/auth/reset-password', { json: body });
   }
 
   /**
@@ -631,7 +631,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/mfa
    */
   async mfa(body: { action: string; code?: string; method?: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/mfa', { json: body });
+    return this.client.request('GET', '/api/auth/mfa', { json: body });
   }
 
   /**
@@ -639,7 +639,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/verify-email
    */
   async verifyEmail(body: { token: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/verify-email', { json: body });
+    return this.client.request('GET', '/api/auth/verify-email', { json: body });
   }
 
   /**
@@ -647,7 +647,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/verify-email/resend
    */
   async resendVerification(): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/verify-email/resend');
+    return this.client.request('GET', '/api/auth/verify-email/resend');
   }
 
   /**
@@ -655,7 +655,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/resend-verification
    */
   async resendVerificationAlt(body?: { email?: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/resend-verification', { json: body });
+    return this.client.request('GET', '/api/auth/resend-verification', { json: body });
   }
 
   /**
@@ -663,7 +663,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/setup-organization
    */
   async setupOrganization(body: { name: string; slug?: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/setup-organization', { json: body });
+    return this.client.request('GET', '/api/auth/setup-organization', { json: body });
   }
 
   /**
@@ -671,7 +671,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/invite
    */
   async invite(body: { email: string; role?: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/invite', { json: body });
+    return this.client.request('GET', '/api/auth/invite', { json: body });
   }
 
   /**
@@ -687,7 +687,7 @@ export class AuthRoutesAPI {
    * @route POST /api/auth/accept-invite
    */
   async acceptInvite(body: { token: string }): Promise<unknown> {
-    return this.client.request('POST', '/api/auth/accept-invite', { json: body });
+    return this.client.request('GET', '/api/auth/accept-invite', { json: body });
   }
 
   /**

@@ -1751,7 +1751,7 @@ export class OpenApiAPI {
   }
 
   async requestPatchApiV1DebatesBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('PATCH', '/api/v1/debates/batch', { body, params });
+    return this.client.request('POST', '/api/v1/debates/batch', { body, params });
   }
 
   async requestPostApiV1DebatesBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1759,11 +1759,11 @@ export class OpenApiAPI {
   }
 
   async requestPatchApiV1DebatesBatchByParamStatus(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('PATCH', `/api/v1/debates/batch/${encodeURIComponent(param)}/status`, { body, params });
+    return this.client.request('GET', `/api/v1/debates/batch/${encodeURIComponent(param)}/status`, { body, params });
   }
 
   async requestPostApiV1DebatesBatchByParamStatus(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', `/api/v1/debates/batch/${encodeURIComponent(param)}/status`, { body, params });
+    return this.client.request('GET', `/api/v1/debates/batch/${encodeURIComponent(param)}/status`, { body, params });
   }
 
   async requestPostApiV1DebatesCapabilityProbe(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1823,11 +1823,11 @@ export class OpenApiAPI {
   }
 
   async requestPatchApiV1DebatesQueueStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('PATCH', '/api/v1/debates/queue/status', { body, params });
+    return this.client.request('GET', '/api/v1/debates/queue/status', { body, params });
   }
 
   async requestPostApiV1DebatesQueueStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', '/api/v1/debates/queue/status', { body, params });
+    return this.client.request('GET', '/api/v1/debates/queue/status', { body, params });
   }
 
   async requestPatchApiV1DebatesSlug(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1939,7 +1939,7 @@ export class OpenApiAPI {
   }
 
   async requestPatchApiV1DebatesByParamCancel(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/cancel`, { body, params });
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/cancel`, { body, params });
   }
 
   async requestPostApiV1DebatesByParamCancel(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1959,7 +1959,7 @@ export class OpenApiAPI {
   }
 
   async requestPatchApiV1DebatesByParamFollowup(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/followup`, { body, params });
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/followup`, { body, params });
   }
 
   async requestPostApiV1DebatesByParamFollowup(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1987,11 +1987,11 @@ export class OpenApiAPI {
   }
 
   async requestPatchApiV1DebatesByParamVerificationReport(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/verification-report`, { body, params });
+    return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(param)}/verification-report`, { body, params });
   }
 
   async requestPostApiV1DebatesByParamVerificationReport(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/verification-report`, { body, params });
+    return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(param)}/verification-report`, { body, params });
   }
 
   async requestPostApiV1DebugTest(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -3407,27 +3407,27 @@ export class OpenApiAPI {
   }
 
   async requestDeleteApiV1MemoryCritiques(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('DELETE', '/api/v1/memory/critiques', { params });
+    return this.client.request('GET', '/api/v1/memory/critiques', { params });
   }
 
   async requestPostApiV1MemoryCritiques(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', '/api/v1/memory/critiques', { body, params });
+    return this.client.request('GET', '/api/v1/memory/critiques', { body, params });
   }
 
   async requestDeleteApiV1MemoryPressure(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('DELETE', '/api/v1/memory/pressure', { params });
+    return this.client.request('GET', '/api/v1/memory/pressure', { params });
   }
 
   async requestPostApiV1MemoryPressure(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', '/api/v1/memory/pressure', { body, params });
+    return this.client.request('GET', '/api/v1/memory/pressure', { body, params });
   }
 
   async requestDeleteApiV1MemorySearch(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('DELETE', '/api/v1/memory/search', { params });
+    return this.client.request('GET', '/api/v1/memory/search', { params });
   }
 
   async requestPostApiV1MemorySearch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', '/api/v1/memory/search', { body, params });
+    return this.client.request('GET', '/api/v1/memory/search', { body, params });
   }
 
   async requestGetApiV1MemoryStats(params?: Record<string, unknown>): Promise<unknown> {
@@ -3439,11 +3439,11 @@ export class OpenApiAPI {
   }
 
   async requestDeleteApiV1MemoryTiers(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('DELETE', '/api/v1/memory/tiers', { params });
+    return this.client.request('GET', '/api/v1/memory/tiers', { params });
   }
 
   async requestPostApiV1MemoryTiers(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', '/api/v1/memory/tiers', { body, params });
+    return this.client.request('GET', '/api/v1/memory/tiers', { body, params });
   }
 
   async requestGetApiV1MetaLearningStats(params?: Record<string, unknown>): Promise<unknown> {
@@ -3947,31 +3947,31 @@ export class OpenApiAPI {
   }
 
   async requestGetApiV1Repository(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/repository', { params });
+    return this.client.request('POST', '/api/v1/repository', { params });
   }
 
   async requestGetApiV1RepositoryBatch(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/repository/batch', { params });
+    return this.client.request('POST', '/api/v1/repository/batch', { params });
   }
 
   async requestGetApiV1RepositoryIncremental(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/repository/incremental', { params });
+    return this.client.request('POST', '/api/v1/repository/incremental', { params });
   }
 
   async requestGetApiV1RepositoryIndex(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/repository/index', { params });
+    return this.client.request('POST', '/api/v1/repository/index', { params });
   }
 
   async requestGetApiV1RepositoryByParamEntities(param: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(param)}/entities`, { params });
+    return this.client.request('POST', `/api/v1/repository/${encodeURIComponent(param)}/entities`, { params });
   }
 
   async requestGetApiV1RepositoryByParamGraph(param: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(param)}/graph`, { params });
+    return this.client.request('POST', `/api/v1/repository/${encodeURIComponent(param)}/graph`, { params });
   }
 
   async requestGetApiV1RepositoryByParamStatus(param: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(param)}/status`, { params });
+    return this.client.request('POST', `/api/v1/repository/${encodeURIComponent(param)}/status`, { params });
   }
 
   async requestGetApiV1ReputationAll(params?: Record<string, unknown>): Promise<unknown> {
@@ -4331,19 +4331,19 @@ export class OpenApiAPI {
   }
 
   async requestGetApiV1UncertaintyAgent(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/uncertainty/agent', { params });
+    return this.client.request('POST', '/api/v1/uncertainty/agent', { params });
   }
 
   async requestGetApiV1UncertaintyDebate(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/uncertainty/debate', { params });
+    return this.client.request('POST', '/api/v1/uncertainty/debate', { params });
   }
 
   async requestGetApiV1UncertaintyEstimate(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/uncertainty/estimate', { params });
+    return this.client.request('POST', '/api/v1/uncertainty/estimate', { params });
   }
 
   async requestGetApiV1UncertaintyFollowups(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/uncertainty/followups', { params });
+    return this.client.request('POST', '/api/v1/uncertainty/followups', { params });
   }
 
   async requestPostApiV1UploadBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {

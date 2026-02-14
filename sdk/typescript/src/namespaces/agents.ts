@@ -803,13 +803,13 @@ export class AgentsAPI {
    * @param configName - Name of the configuration to instantiate
    */
   async createFromConfig(configName: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/agents/configs/${encodeURIComponent(configName)}/create`);
+    return this.client.request('GET', `/api/v1/agents/configs/${encodeURIComponent(configName)}/create`);
   }
 
   /**
    * Reload all agent configurations from disk. Requires admin role.
    */
   async reloadConfigs(): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/agents/configs/reload');
+    return this.client.request('GET', '/api/v1/agents/configs/reload');
   }
 }

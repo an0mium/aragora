@@ -327,9 +327,7 @@ export class TournamentsAPI {
       metadata?: Record<string, unknown>;
     }
   ): Promise<Tournament> {
-    return this.client.request<Tournament>(
-      'PATCH',
-      `/api/v1/tournaments/${encodeURIComponent(tournamentId)}`,
+    return this.client.request<Tournament>('GET', `/api/v1/tournaments/${encodeURIComponent(tournamentId)}`,
       { body: updates }
     );
   }

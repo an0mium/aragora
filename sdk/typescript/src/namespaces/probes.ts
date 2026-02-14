@@ -56,7 +56,7 @@ export class ProbesAPI {
     offset?: number;
     agent?: string;
   }): Promise<{ reports: ProbeReport[]; total?: number }> {
-    return this.client.request('GET', '/api/v1/probes/reports', {
+    return this.client.request('POST', '/api/v1/probes/reports', {
       params: params as Record<string, unknown>,
     });
   }

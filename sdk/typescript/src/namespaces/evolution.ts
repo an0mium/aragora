@@ -123,7 +123,7 @@ export class EvolutionAPI {
     limit?: number;
     status?: string;
   }): Promise<{ tests: ABTest[]; total?: number }> {
-    return this.client.request('GET', '/api/v1/evolution/ab-tests', {
+    return this.client.request('POST', '/api/v1/evolution/ab-tests', {
       params: params as Record<string, unknown>,
     });
   }

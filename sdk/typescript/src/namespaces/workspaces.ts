@@ -333,7 +333,7 @@ export class WorkspacesAPI {
    * @returns Invite entries
    */
   async listInvites(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/invites', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('POST', '/api/v1/invites', { params }) as Promise<Record<string, unknown>>;
   }
 
   // ===========================================================================

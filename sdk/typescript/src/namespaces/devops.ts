@@ -99,9 +99,7 @@ export class DevOpsNamespace {
 
   /** Create an incident. */
   async createIncident(request: CreateIncidentRequest): Promise<Incident> {
-    const response = await this.client.request<{ incident: Incident }>(
-      'POST',
-      '/api/v1/incidents',
+    const response = await this.client.request<{ incident: Incident }>('GET', '/api/v1/incidents',
       { body: request }
     );
     return response.incident;

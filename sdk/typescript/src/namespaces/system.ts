@@ -190,7 +190,7 @@ export class SystemAPI {
    * Useful for verifying API connectivity.
    */
   async debugTest(): Promise<DebugTestResponse> {
-    return this.client.request<DebugTestResponse>('GET', '/api/debug/test');
+    return this.client.request<DebugTestResponse>('POST', '/api/debug/test');
   }
 
   /**
@@ -260,7 +260,7 @@ export class SystemAPI {
    * Get authentication statistics.
    */
   async getAuthStats(): Promise<AuthStats> {
-    return this.client.request<AuthStats>('GET', '/api/auth/stats');
+    return this.client.request<AuthStats>('POST', '/api/auth/stats');
   }
 
   /**
@@ -278,7 +278,7 @@ export class SystemAPI {
    * Returns status and metrics for all circuit breakers.
    */
   async getCircuitBreakers(): Promise<CircuitBreakersResponse> {
-    return this.client.request<CircuitBreakersResponse>('GET', '/api/circuit-breakers');
+    return this.client.request<CircuitBreakersResponse>('POST', '/api/circuit-breakers');
   }
 
   /**

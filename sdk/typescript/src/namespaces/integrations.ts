@@ -411,7 +411,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/available
    */
   async listAvailable(): Promise<{ integrations: AvailableIntegration[] }> {
-    return this.client.request('GET', '/api/v1/integrations/available');
+    return this.client.request('POST', '/api/v1/integrations/available');
   }
 
   /**
@@ -427,7 +427,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/config
    */
   async getConfig(): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/integrations/config');
+    return this.client.request('POST', '/api/v1/integrations/config');
   }
 
   /**
@@ -501,7 +501,7 @@ export class IntegrationsAPI {
    * @route GET /api/v1/integrations/{id}/sync
    */
   async getSyncStatus(id: string): Promise<IntegrationSyncStatus> {
-    return this.client.request('GET', `/api/v1/integrations/${id}/sync`);
+    return this.client.request('POST', `/api/v1/integrations/${id}/sync`);
   }
 
   // ===========================================================================
@@ -565,14 +565,14 @@ export class IntegrationsAPI {
    * Install Microsoft Teams app.
    */
   async installTeams(tenantId: string): Promise<{ installed: boolean; bot_id: string }> {
-    return this.client.request('POST', '/api/integrations/teams/install', { json: { tenant_id: tenantId } });
+    return this.client.request('GET', '/api/integrations/teams/install', { json: { tenant_id: tenantId } });
   }
 
   /**
    * Handle Teams OAuth callback.
    */
   async teamsCallback(code: string, state: string): Promise<{ success: boolean }> {
-    return this.client.request('POST', '/api/integrations/teams/callback', { json: { code, state } });
+    return this.client.request('GET', '/api/integrations/teams/callback', { json: { code, state } });
   }
 
   /**
@@ -597,14 +597,14 @@ export class IntegrationsAPI {
    * Install Discord bot.
    */
   async installDiscord(guildId: string): Promise<{ installed: boolean; bot_id: string }> {
-    return this.client.request('POST', '/api/integrations/discord/install', { json: { guild_id: guildId } });
+    return this.client.request('GET', '/api/integrations/discord/install', { json: { guild_id: guildId } });
   }
 
   /**
    * Handle Discord OAuth callback.
    */
   async discordCallback(code: string, state: string): Promise<{ success: boolean }> {
-    return this.client.request('POST', '/api/integrations/discord/callback', { json: { code, state } });
+    return this.client.request('GET', '/api/integrations/discord/callback', { json: { code, state } });
   }
 
   /**
@@ -817,7 +817,7 @@ export class IntegrationsAPI {
    * Start integration wizard.
    */
   async startWizard(integrationType: string): Promise<{ session_id: string; steps: string[] }> {
-    return this.client.request('POST', '/api/v2/integrations/wizard', { json: { type: integrationType } });
+    return this.client.request('GET', '/api/v2/integrations/wizard', { json: { type: integrationType } });
   }
 
   /**

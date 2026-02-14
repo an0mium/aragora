@@ -188,7 +188,7 @@ export class RBACAPI {
    */
   async assignRole(userId: string, roleId: string, scope?: string): Promise<{ assigned: boolean }> {
     if (scope) {
-      return this.client.request('POST', '/api/v1/rbac/assignments', {
+      return this.client.request('GET', '/api/v1/rbac/assignments', {
         json: { user_id: userId, role_id: roleId, scope }
       });
     }
@@ -227,7 +227,7 @@ export class RBACAPI {
    */
   async checkPermission(userId: string, permission: string, resourceId?: string): Promise<{ allowed: boolean }> {
     if (resourceId) {
-      return this.client.request('POST', '/api/v1/rbac/check', {
+      return this.client.request('GET', '/api/v1/rbac/check', {
         json: { user_id: userId, permission, resource_id: resourceId }
       });
     }
@@ -490,7 +490,7 @@ export class RBACAPI {
    * @returns Revocation result
    */
   async revokeApiKey(keyId: string): Promise<{ revoked: boolean }> {
-    return this.client.request('DELETE', `/api/keys/${keyId}`);
+    return this.client.request('GET', `/api/keys/${keyId}`);
   }
 
   // =========================================================================
@@ -624,7 +624,7 @@ export class RBACAPI {
    * @returns Deletion result
    */
   async deleteAssignment(assignmentId: string): Promise<{ deleted: boolean }> {
-    return this.client.request('DELETE', `/api/v1/rbac/assignments/${encodeURIComponent(assignmentId)}`);
+    return this.client.request('GET', `/api/v1/rbac/assignments/${encodeURIComponent(assignmentId)}`);
   }
 
 }

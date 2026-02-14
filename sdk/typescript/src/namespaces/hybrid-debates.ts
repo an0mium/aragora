@@ -216,7 +216,7 @@ export class HybridDebatesAPI {
       params.limit = options.limit;
     }
 
-    return this.client.request('GET', '/api/v1/debates/hybrid', {
+    return this.client.request('POST', '/api/v1/debates/hybrid', {
       params: Object.keys(params).length > 0 ? params : undefined,
     });
   }

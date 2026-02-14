@@ -203,7 +203,7 @@ export class BillingRoutesAPI {
    * @route POST /api/v1/billing/trial/start
    */
   async startTrial(): Promise<unknown> {
-    return this.client.request('POST', '/api/v1/billing/trial/start');
+    return this.client.request('GET', '/api/v1/billing/trial/start');
   }
 
   /**

@@ -401,7 +401,7 @@ export class MLAPI {
     capabilities: string[];
     models: MLModel[];
   }> {
-    return this.client.request('GET', '/api/v1/ml/models');
+    return this.client.request('POST', '/api/v1/ml/models');
   }
 
   /**
@@ -410,6 +410,6 @@ export class MLAPI {
    * @returns ML system statistics
    */
   async getStats(): Promise<MLStats> {
-    return this.client.request('GET', '/api/v1/ml/stats');
+    return this.client.request('POST', '/api/v1/ml/stats');
   }
 }

@@ -72,18 +72,14 @@ export class ServicesNamespace {
 
   /** Register a new service. */
   async register(request: RegisterServiceRequest): Promise<Service> {
-    return this.client.request<Service>(
-      'POST',
-      '/api/v1/services',
+    return this.client.request<Service>('GET', '/api/v1/services',
       { body: request }
     );
   }
 
   /** Deregister a service. */
   async deregister(serviceId: string): Promise<{ success: boolean }> {
-    return this.client.request<{ success: boolean }>(
-      'DELETE',
-      `/api/v1/services/${encodeURIComponent(serviceId)}`
+    return this.client.request<{ success: boolean }>('GET', `/api/v1/services/${encodeURIComponent(serviceId)}`
     );
   }
 

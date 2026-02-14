@@ -183,7 +183,7 @@ export class OrganizationsAPI {
    * Invite member to org.
    */
   async inviteMember(orgId: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/org/${orgId}/invite`) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', `/api/v1/org/${orgId}/invite`) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -211,7 +211,7 @@ export class OrganizationsAPI {
    * Switch active organization.
    */
   async switchOrganization(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/user/organizations/switch', { json: data }) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', '/api/v1/user/organizations/switch', { json: data }) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -232,14 +232,14 @@ export class OrganizationsAPI {
    * Update a member's role in an organization.
    */
   async setMemberRole(orgId: string, memberId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', `/api/v1/org/${orgId}/members/${memberId}/role`, { json: data }) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', `/api/v1/org/${orgId}/members/${memberId}/role`, { json: data }) as Promise<Record<string, unknown>>;
   }
 
   /**
    * Accept an invitation.
    */
   async acceptInvite(invitationId: string): Promise<Record<string, unknown>> {
-    return this.client.request('POST', `/api/v1/invitations/${invitationId}/accept`) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', `/api/v1/invitations/${invitationId}/accept`) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -258,7 +258,7 @@ export class OrganizationsAPI {
    * @param userId - User ID to remove
    */
   async removeMemberDirect(orgId: string, userId: string): Promise<void> {
-    return this.client.request('DELETE', `/api/v1/org/${orgId}/members/${userId}`);
+    return this.client.request('GET', `/api/v1/org/${orgId}/members/${userId}`);
   }
 
   /**
@@ -268,7 +268,7 @@ export class OrganizationsAPI {
    * @param invitationId - Invitation ID to revoke
    */
   async revokeInvitationDirect(orgId: string, invitationId: string): Promise<void> {
-    return this.client.request('DELETE', `/api/v1/org/${orgId}/invitations/${invitationId}`);
+    return this.client.request('GET', `/api/v1/org/${orgId}/invitations/${invitationId}`);
   }
 
 }

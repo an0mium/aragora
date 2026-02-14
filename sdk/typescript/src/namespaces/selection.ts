@@ -116,6 +116,6 @@ export class SelectionNamespace {
    * Get team selection.
    */
   async teamSelection(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/team-selection', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('POST', '/api/v1/team-selection', { params }) as Promise<Record<string, unknown>>;
   }
 }

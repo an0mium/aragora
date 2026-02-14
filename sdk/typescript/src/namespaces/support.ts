@@ -85,9 +85,7 @@ export class SupportNamespace {
 
   /** Create a support ticket. */
   async createTicket(request: CreateTicketRequest): Promise<Ticket> {
-    return this.client.request<Ticket>(
-      'POST',
-      '/api/v1/support/tickets',
+    return this.client.request<Ticket>('GET', '/api/v1/support/tickets',
       { body: request }
     );
   }

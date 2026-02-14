@@ -325,14 +325,14 @@ export class AgentSelectionAPI {
    * List all available selection plugins.
    */
   async listPlugins(): Promise<ListPluginsResponse> {
-    return this.client.request<ListPluginsResponse>('GET', '/api/v1/agent-selection/plugins');
+    return this.client.request<ListPluginsResponse>('POST', '/api/v1/agent-selection/plugins');
   }
 
   /**
    * Get default plugin configuration.
    */
   async getDefaults(): Promise<DefaultPluginConfig> {
-    return this.client.request<DefaultPluginConfig>('GET', '/api/v1/agent-selection/defaults');
+    return this.client.request<DefaultPluginConfig>('POST', '/api/v1/agent-selection/defaults');
   }
 
   // ===========================================================================
@@ -423,7 +423,7 @@ export class AgentSelectionAPI {
     if (options?.limit !== undefined) params.limit = options.limit;
     if (options?.since !== undefined) params.since = options.since;
 
-    return this.client.request<SelectionHistoryResponse>('GET', '/api/v1/agent-selection/history', {
+    return this.client.request<SelectionHistoryResponse>('POST', '/api/v1/agent-selection/history', {
       params,
     });
   }

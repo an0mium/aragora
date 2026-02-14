@@ -180,7 +180,7 @@ export class MonitoringAPI {
    * Automatically checks for anomalies.
    */
   async record(options: RecordMetricOptions): Promise<RecordMetricResponse> {
-    return this.client.request<RecordMetricResponse>('POST', '/api/v1/autonomous/monitoring/record', {
+    return this.client.request<RecordMetricResponse>('GET', '/api/v1/autonomous/monitoring/record', {
       body: {
         metric_name: options.metric_name,
         value: options.value,

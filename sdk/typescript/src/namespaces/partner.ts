@@ -212,7 +212,7 @@ export class PartnerAPI {
     if (options?.scopes) data.scopes = options.scopes;
     if (options?.expiresInDays) data.expires_in_days = options.expiresInDays;
 
-    return this.client.request('POST', '/api/v1/partners/keys', {
+    return this.client.request('GET', '/api/v1/partners/keys', {
       json: data,
     });
   }
@@ -273,7 +273,7 @@ export class PartnerAPI {
     webhook_url: string;
     webhook_secret: string;
   }> {
-    return this.client.request('POST', '/api/v1/partners/webhooks', {
+    return this.client.request('GET', '/api/v1/partners/webhooks', {
       json: { url },
     });
   }

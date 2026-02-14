@@ -267,9 +267,7 @@ export class VerticalsAPI {
     verticalId: VerticalId,
     request: CreateVerticalAgentRequest
   ): Promise<CreateVerticalAgentResponse> {
-    return this.client.request(
-      'POST',
-      `/api/verticals/${encodeURIComponent(verticalId)}/agent`,
+    return this.client.request('GET', `/api/verticals/${encodeURIComponent(verticalId)}/agent`,
       {
         json: request as unknown as Record<string, unknown>,
       }
@@ -283,9 +281,7 @@ export class VerticalsAPI {
     verticalId: VerticalId,
     request: CreateVerticalDebateRequest
   ): Promise<CreateVerticalDebateResponse> {
-    return this.client.request(
-      'POST',
-      `/api/verticals/${encodeURIComponent(verticalId)}/debate`,
+    return this.client.request('GET', `/api/verticals/${encodeURIComponent(verticalId)}/debate`,
       {
         json: request as unknown as Record<string, unknown>,
       }
@@ -299,9 +295,7 @@ export class VerticalsAPI {
     verticalId: VerticalId,
     updates: UpdateVerticalConfigRequest
   ): Promise<VerticalDetails> {
-    return this.client.request(
-      'PUT',
-      `/api/verticals/${encodeURIComponent(verticalId)}/config`,
+    return this.client.request('GET', `/api/verticals/${encodeURIComponent(verticalId)}/config`,
       {
         json: updates as unknown as Record<string, unknown>,
       }

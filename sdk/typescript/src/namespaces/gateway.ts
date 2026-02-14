@@ -439,7 +439,7 @@ export class GatewayAPI {
     agents: GatewayAgent[];
     total: number;
   }> {
-    return this.client.request('GET', '/api/v1/gateway/agents');
+    return this.client.request('POST', '/api/v1/gateway/agents');
   }
 
   /**
@@ -482,7 +482,7 @@ export class GatewayAPI {
     credentials: GatewayCredential[];
     total: number;
   }> {
-    return this.client.request('GET', '/api/v1/gateway/credentials');
+    return this.client.request('POST', '/api/v1/gateway/credentials');
   }
 
   /**
@@ -517,7 +517,7 @@ export class GatewayAPI {
     success: boolean;
     message: string;
   }> {
-    return this.client.request('DELETE', `/api/v1/gateway/credentials/${credentialId}`);
+    return this.client.request('GET', `/api/v1/gateway/credentials/${credentialId}`);
   }
 
   // =========================================================================

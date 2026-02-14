@@ -53,6 +53,11 @@ export interface SystemIntrospection {
  */
 interface IntrospectionClientInterface {
   get<T>(path: string): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -92,8 +97,9 @@ export class IntrospectionAPI {
    * Get agent leaderboard.
    */
   async getLeaderboard(options?: { limit?: number }): Promise<{ leaderboard: LeaderboardEntry[] }> {
-    const params = options?.limit ? `?limit=${options.limit}` : '';
-    return this.client.get(`/api/v1/introspection/leaderboard${params}`);
+    return this.client.request('GET', '/api/v1/introspection/leaderboard', {
+      params: options as Record<string, unknown> | undefined,
+    });
   }
 
   /**

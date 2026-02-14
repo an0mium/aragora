@@ -1309,9 +1309,7 @@ export class DebatesAPI {
     offset?: number;
     status?: string;
   }): Promise<BatchStatus[]> {
-    const response = await this.client.request<{ batches: BatchStatus[] }>(
-      'GET',
-      '/api/v1/debates/batch',
+    const response = await this.client.request<{ batches: BatchStatus[] }>('POST', '/api/v1/debates/batch',
       { params: options as Record<string, unknown> }
     );
     return response.batches;
@@ -2577,7 +2575,7 @@ export class DebatesAPI {
       key_topics: string[];
     }>;
   }> {
-    return this.client.request('GET', `/api/v1/debates/${debateId}/context/${level}`);
+    return this.client.request('POST', `/api/v1/debates/${debateId}/context/${level}`);
   }
 
   /**
@@ -2645,7 +2643,7 @@ export class DebatesAPI {
     cached_contexts: number;
     status: string;
   }> {
-    return this.client.request('GET', `/api/v1/debates/${debateId}/refinement-status`);
+    return this.client.request('POST', `/api/v1/debates/${debateId}/refinement-status`);
   }
 
   // ===========================================================================
@@ -2673,7 +2671,7 @@ export class DebatesAPI {
     receipt: Record<string, unknown>;
     implementation_plan: Record<string, unknown>;
   }> {
-    return this.client.request('GET', `/api/v1/debates/${debateId}/decision-integrity`);
+    return this.client.request('POST', `/api/v1/debates/${debateId}/decision-integrity`);
   }
 
   // ===========================================================================
@@ -2865,7 +2863,7 @@ export class DebatesAPI {
     new_threshold: number;
     message: string;
   }> {
-    return this.client.request('PUT', `/api/v1/debates/${debateId}/intervention/threshold`, {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/intervention/threshold`, {
       body: { threshold },
     });
   }
@@ -2898,7 +2896,7 @@ export class DebatesAPI {
     new_weight: number;
     message: string;
   }> {
-    return this.client.request('PUT', `/api/v1/debates/${debateId}/intervention/weights`, {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/intervention/weights`, {
       body: { agent, weight },
     });
   }
@@ -2907,6 +2905,6 @@ export class DebatesAPI {
    * List debates.
    */
   async listDebates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/debate', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('POST', '/api/v1/debate', { params }) as Promise<Record<string, unknown>>;
   }
 }

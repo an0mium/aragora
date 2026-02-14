@@ -99,7 +99,7 @@ export class WorkflowTemplatesAPI {
    * List workflow executions.
    */
   async listExecutions(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflows/executions', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('POST', '/api/v1/workflows/executions', { params }) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -113,7 +113,7 @@ export class WorkflowTemplatesAPI {
    * List workflow templates.
    */
   async listTemplates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/workflows/templates', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('POST', '/api/v1/workflows/templates', { params }) as Promise<Record<string, unknown>>;
   }
 
   /**

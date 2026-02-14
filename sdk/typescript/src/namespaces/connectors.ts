@@ -185,7 +185,7 @@ export class ConnectorsAPI {
     config: Record<string, unknown>,
     schedule: SyncFrequency = 'daily'
   ): Promise<Connector> {
-    return this.client.request('POST', '/api/v1/connectors', {
+    return this.client.request('GET', '/api/v1/connectors', {
       json: {
         name,
         type: connectorType,
@@ -228,7 +228,7 @@ export class ConnectorsAPI {
       data.enabled = options.enabled;
     }
 
-    return this.client.request('PATCH', `/api/v1/connectors/${connectorId}`, { json: data });
+    return this.client.request('GET', `/api/v1/connectors/${connectorId}`, { json: data });
   }
 
   /**
@@ -237,7 +237,7 @@ export class ConnectorsAPI {
    * @param connectorId - Connector ID
    */
   async delete(connectorId: string): Promise<{ deleted: boolean; message: string }> {
-    return this.client.request('DELETE', `/api/v1/connectors/${connectorId}`);
+    return this.client.request('GET', `/api/v1/connectors/${connectorId}`);
   }
 
   // ===========================================================================
@@ -254,7 +254,7 @@ export class ConnectorsAPI {
     connectorId: string,
     fullSync = false
   ): Promise<{ sync_id: string; status: SyncStatus; message: string }> {
-    return this.client.request('POST', `/api/v1/connectors/${connectorId}/sync`, {
+    return this.client.request('GET', `/api/v1/connectors/${connectorId}/sync`, {
       json: { full_sync: fullSync },
     });
   }

@@ -360,7 +360,7 @@ export class RoutingAPI {
   async getDomainLeaderboard(
     options?: { domain?: string; limit?: number }
   ): Promise<{ leaderboard: DomainLeaderboardEntry[] }> {
-    return this.client.request('GET', '/api/routing/domain-leaderboard', {
+    return this.client.request('POST', '/api/routing/domain-leaderboard', {
       params: options as unknown as Record<string, unknown>,
     });
   }
@@ -384,7 +384,7 @@ export class RoutingAPI {
    * Create a routing rule.
    */
   async createRule(request: CreateRuleRequest): Promise<RoutingRule> {
-    return this.client.request('POST', '/api/v1/routing-rules', {
+    return this.client.request('GET', '/api/v1/routing-rules', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -403,9 +403,7 @@ export class RoutingAPI {
    * Update a routing rule.
    */
   async updateRule(ruleId: string, updates: UpdateRuleRequest): Promise<RoutingRule> {
-    return this.client.request(
-      'PUT',
-      `/api/v1/routing-rules/${encodeURIComponent(ruleId)}`,
+    return this.client.request('GET', `/api/v1/routing-rules/${encodeURIComponent(ruleId)}`,
       {
         json: updates as unknown as Record<string, unknown>,
       }
@@ -416,9 +414,7 @@ export class RoutingAPI {
    * Delete a routing rule.
    */
   async deleteRule(ruleId: string): Promise<{ success: boolean; message: string }> {
-    return this.client.request(
-      'DELETE',
-      `/api/v1/routing-rules/${encodeURIComponent(ruleId)}`
+    return this.client.request('GET', `/api/v1/routing-rules/${encodeURIComponent(ruleId)}`
     );
   }
 
@@ -429,9 +425,7 @@ export class RoutingAPI {
     ruleId: string,
     enabled: boolean
   ): Promise<{ rule_id: string; enabled: boolean }> {
-    return this.client.request(
-      'POST',
-      `/api/v1/routing-rules/${encodeURIComponent(ruleId)}/toggle`,
+    return this.client.request('GET', `/api/v1/routing-rules/${encodeURIComponent(ruleId)}/toggle`,
       {
         json: { enabled },
       }
@@ -444,7 +438,7 @@ export class RoutingAPI {
   async evaluateRules(
     request: EvaluateRulesRequest
   ): Promise<{ results: RuleEvaluationResult[]; matched_count: number }> {
-    return this.client.request('POST', '/api/v1/routing-rules/evaluate', {
+    return this.client.request('GET', '/api/v1/routing-rules/evaluate', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -503,6 +497,6 @@ export class RoutingAPI {
    * @param bindingId - Binding ID to delete
    */
   async deleteBinding(bindingId: string): Promise<Record<string, unknown>> {
-    return this.client.request('DELETE', `/api/v1/bindings/${encodeURIComponent(bindingId)}`);
+    return this.client.request('GET', `/api/v1/bindings/${encodeURIComponent(bindingId)}`);
   }
 }

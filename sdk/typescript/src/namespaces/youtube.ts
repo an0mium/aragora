@@ -130,6 +130,6 @@ export class YouTubeNamespace {
    * Revoke YouTube OAuth access.
    */
   async revokeAuth(): Promise<{ success: boolean }> {
-    return this.client.request<{ success: boolean }>('DELETE', '/api/v1/youtube/auth');
+    return this.client.request<{ success: boolean }>('GET', '/api/v1/youtube/auth');
   }
 }

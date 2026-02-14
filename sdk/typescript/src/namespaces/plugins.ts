@@ -188,7 +188,7 @@ export class PluginsAPI {
    * Uninstall a plugin.
    */
   async uninstall(name: string): Promise<{ uninstalled: boolean }> {
-    return this.client.delete(`/api/v1/plugins/${name}`);
+    return this.client.get(`/api/v1/plugins/${name}`);
   }
 
   /**

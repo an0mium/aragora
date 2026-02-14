@@ -349,7 +349,7 @@ export class FactsAPI {
    * ```
    */
   async createFact(fact: CreateFactRequest): Promise<Fact> {
-    return this.client.request('POST', '/api/v1/facts', { json: fact });
+    return this.client.request('GET', '/api/v1/facts', { json: fact });
   }
 
   /**

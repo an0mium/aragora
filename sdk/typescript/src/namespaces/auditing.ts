@@ -95,7 +95,7 @@ export class AuditingAPI {
    * Run red team analysis on a debate.
    */
   async redTeam(debateId: string, body?: RedTeamRequest): Promise<RedTeamResult> {
-    return this.client.request('POST', `/api/v1/debates/${debateId}/red-team`, { body });
+    return this.client.request('GET', `/api/v1/debates/${debateId}/red-team`, { body });
   }
 
   /**

@@ -54,6 +54,11 @@ export interface TrendingMoments {
  */
 interface MomentsClientInterface {
   get<T>(path: string): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -86,27 +91,27 @@ export class MomentsAPI {
    * Get moment summary for debates.
    */
   async getSummary(debateId?: string): Promise<MomentsSummary> {
-    const params = debateId ? `?debate_id=${debateId}` : '';
-    return this.client.get(`/api/v1/moments/summary${params}`);
+    return this.client.request('GET', '/api/v1/moments/summary', {
+      params: debateId ? { debate_id: debateId } : undefined,
+    });
   }
 
   /**
    * Get moment timeline for a debate.
    */
   async getTimeline(debateId?: string): Promise<MomentsTimeline> {
-    const params = debateId ? `?debate_id=${debateId}` : '';
-    return this.client.get(`/api/v1/moments/timeline${params}`);
+    return this.client.request('GET', '/api/v1/moments/timeline', {
+      params: debateId ? { debate_id: debateId } : undefined,
+    });
   }
 
   /**
    * Get trending moments across debates.
    */
   async getTrending(options?: { period?: string; limit?: number }): Promise<TrendingMoments> {
-    const params = new URLSearchParams();
-    if (options?.period) params.set('period', options.period);
-    if (options?.limit) params.set('limit', options.limit.toString());
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.client.get(`/api/v1/moments/trending${query}`);
+    return this.client.request('GET', '/api/v1/moments/trending', {
+      params: options as Record<string, unknown> | undefined,
+    });
   }
 
   /**
@@ -116,10 +121,8 @@ export class MomentsAPI {
     type: 'breakthrough' | 'conflict' | 'consensus' | 'insight' | 'question' | 'evidence',
     options?: { limit?: number; offset?: number }
   ): Promise<{ moments: Moment[]; total: number }> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.set('limit', options.limit.toString());
-    if (options?.offset) params.set('offset', options.offset.toString());
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.client.get(`/api/v1/moments/by-type/${type}${query}`);
+    return this.client.request('GET', `/api/v1/moments/by-type/${type}`, {
+      params: options as Record<string, unknown> | undefined,
+    });
   }
 }

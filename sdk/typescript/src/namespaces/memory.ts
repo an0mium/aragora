@@ -1252,7 +1252,7 @@ export class MemoryAPI {
     };
     if (options?.start_time) params.start_time = options.start_time;
     if (options?.end_time) params.end_time = options.end_time;
-    return this.client.request('GET', '/api/v1/memory/analytics', { params });
+    return this.client.request('POST', '/api/v1/memory/analytics', { params });
   }
 
   // ===========================================================================
@@ -1341,7 +1341,7 @@ export class MemoryAPI {
     if (options?.target_agent) body.target_agent = options.target_agent;
     if (options?.score !== undefined) body.score = options.score;
     if (options?.metadata) body.metadata = options.metadata;
-    return this.client.request('POST', '/api/v1/memory/critiques', { body });
+    return this.client.request('GET', '/api/v1/memory/critiques', { body });
   }
 
   /**

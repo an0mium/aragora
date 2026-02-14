@@ -45,6 +45,11 @@ export interface UploadResult {
 interface DocumentsClientInterface {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -80,12 +85,9 @@ export class DocumentsAPI {
    * List documents.
    */
   async list(options?: { debate_id?: string; limit?: number; offset?: number }): Promise<{ documents: Document[]; total: number }> {
-    const params = new URLSearchParams();
-    if (options?.debate_id) params.set('debate_id', options.debate_id);
-    if (options?.limit) params.set('limit', options.limit.toString());
-    if (options?.offset) params.set('offset', options.offset.toString());
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.client.get(`/api/v1/documents${query}`);
+    return this.client.request('GET', '/api/v1/documents', {
+      params: options as Record<string, unknown> | undefined,
+    });
   }
 
   /**
