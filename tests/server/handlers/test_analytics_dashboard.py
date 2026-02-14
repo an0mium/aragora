@@ -256,8 +256,8 @@ class TestCanHandle:
         assert not handler.can_handle("")
 
     def test_routes_list_has_expected_count(self, handler):
-        """ROUTES list contains all 18 endpoints."""
-        assert len(handler.ROUTES) == 18
+        """ROUTES list contains all 19 endpoints."""
+        assert len(handler.ROUTES) == 19
 
 
 # ===========================================================================

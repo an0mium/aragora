@@ -494,7 +494,8 @@ class TestAnthropicAgentInitialization:
         """Test that fallback is disabled by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
         from aragora.agents.api_agents import AnthropicAPIAgent
 
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}), \
+             patch("aragora.agents.fallback.get_default_fallback_enabled", return_value=False):
             agent = AnthropicAPIAgent(name="test")
             assert agent.enable_fallback is False
 
