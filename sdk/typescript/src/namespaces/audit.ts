@@ -1131,4 +1131,21 @@ export class AuditAPI {
       `/api/v1/audit/findings/${encodeURIComponent(findingId)}/comments`
     );
   }
+
+  /**
+   * List security audit debates.
+   * @route GET /api/v1/audit/security/debate
+   */
+  async listSecurityDebates(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/audit/security/debate', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a specific security audit debate.
+   * @route GET /api/v1/audit/security/debate/:id
+   */
+  async getSecurityDebate(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/audit/security/debate/${debateId}`) as Promise<Record<string, unknown>>;
+  }
+
 }
