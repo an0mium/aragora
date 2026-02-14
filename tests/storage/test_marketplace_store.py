@@ -1438,43 +1438,53 @@ class TestPostgresMarketplaceStoreSyncWrappers:
         pool = MagicMock()
         return pool
 
-    def test_sync_create_template(self, mock_pool):
+    def test_sync_create_template(self, mock_pool, monkeypatch):
         """Sync create_template should call async version."""
+        import aragora.storage.marketplace_store_postgres as pg_mod
+
         store = PostgresMarketplaceStore(mock_pool)
 
+        expected = StoredTemplate(
+            id="tpl-123",
+            name="Test",
+            description="Desc",
+            author_id="user-1",
+            author_name="Author",
+            category="security",
+            pattern="adversarial",
+        )
+
         with patch.object(store, "create_template_async") as mock_async:
-            mock_async.return_value = StoredTemplate(
-                id="tpl-123",
+            mock_async.return_value = expected
+
+            mock_run = MagicMock(return_value=expected)
+            monkeypatch.setattr(pg_mod._marketplace_mod, "run_async", mock_run)
+
+            result = store.create_template(
                 name="Test",
                 description="Desc",
                 author_id="user-1",
                 author_name="Author",
                 category="security",
                 pattern="adversarial",
+                workflow_definition={},
             )
 
-            with patch("aragora.storage.marketplace_store.run_async") as mock_run:
-                mock_run.return_value = mock_async.return_value
-                result = store.create_template(
-                    name="Test",
-                    description="Desc",
-                    author_id="user-1",
-                    author_name="Author",
-                    category="security",
-                    pattern="adversarial",
-                    workflow_definition={},
-                )
+            assert result.name == "Test"
+            mock_run.assert_called_once()
 
-                assert result.name == "Test"
-
-    def test_sync_get_template(self, mock_pool):
+    def test_sync_get_template(self, mock_pool, monkeypatch):
         """Sync get_template should call async version."""
+        import aragora.storage.marketplace_store_postgres as pg_mod
+
         store = PostgresMarketplaceStore(mock_pool)
 
-        with patch("aragora.storage.marketplace_store.run_async") as mock_run:
-            mock_run.return_value = None
-            result = store.get_template("tpl-123")
-            assert result is None
+        mock_run = MagicMock(return_value=None)
+        monkeypatch.setattr(pg_mod._marketplace_mod, "run_async", mock_run)
+
+        result = store.get_template("tpl-123")
+        assert result is None
+        mock_run.assert_called_once()
 
 
 # ============================================================================

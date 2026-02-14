@@ -288,12 +288,22 @@ def billing_handler():
 
 @pytest.fixture(autouse=True)
 def clear_rate_limiters():
-    """Clear rate limiters before each test."""
+    """Clear rate limiters before each test.
+
+    The module-level ``_billing_limiter`` in billing.py is a standalone
+    RateLimiter instance that is NOT registered in the global ``_limiters``
+    dict, so ``clear_all_limiters()`` does not reach it.  We must clear it
+    explicitly to prevent rate-limit exhaustion from prior tests.
+    """
     from aragora.server.handlers.utils.rate_limit import _limiters
+
+    # Clear the billing handler's own module-level limiter
+    billing_module._billing_limiter.clear()
 
     for limiter in _limiters.values():
         limiter.clear()
     yield
+    billing_module._billing_limiter.clear()
     for limiter in _limiters.values():
         limiter.clear()
 

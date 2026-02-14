@@ -760,14 +760,25 @@ class TestGetPromptVersion:
 
 
 class TestGetSummary:
-    """Test the _get_summary method with mocked DB connection."""
+    """Test the _get_summary method with mocked DB connection.
 
-    def _build_mock_evolver(self, mod, cursor_fetchone, cursor_fetchall):
-        """Build a mock PromptEvolver with a fake connection/cursor."""
-        mock_cls = _enable_evolution(mod)
+    Uses ``patch`` context managers to isolate EVOLUTION_AVAILABLE and
+    PromptEvolver from cross-test pollution instead of direct module
+    global mutation with try/finally.
+    """
+
+    @staticmethod
+    def _make_mock_evolver(cursor_fetchone, cursor_fetchall):
+        """Build a mock PromptEvolver class with a fake connection/cursor.
+
+        Returns the mock class (to be used as the ``PromptEvolver`` patch
+        value).  Does NOT mutate any module globals -- callers use
+        ``patch`` to install the mock.
+        """
+        mock_cls = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = cursor_fetchone
-        mock_cursor.fetchall.side_effect = cursor_fetchall
+        mock_cursor.fetchone.side_effect = list(cursor_fetchone)
+        mock_cursor.fetchall.side_effect = [list(r) for r in cursor_fetchall]
 
         mock_conn = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
@@ -777,109 +788,106 @@ class TestGetSummary:
         mock_inst = MagicMock()
         mock_inst.connection.return_value = mock_conn
         mock_cls.return_value = mock_inst
-        return mock_cls, mock_inst, mock_cursor
+        return mock_cls
 
-    def test_returns_full_summary(self, handler, mod):
-        orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
-        try:
-            self._build_mock_evolver(
-                mod,
-                cursor_fetchone=[(5,), (2,), (8,)],
-                cursor_fetchall=[
-                    [("strategy", 5), ("structure", 3)],
-                    [("claude", 0.9, 3), ("gpt4", 0.8, 2)],
-                    [("claude", "mutation", "2025-01-01")],
-                ],
-            )
+    def test_returns_full_summary(self, handler):
+        mock_cls = self._make_mock_evolver(
+            cursor_fetchone=[(5,), (2,), (8,)],
+            cursor_fetchall=[
+                [("strategy", 5), ("structure", 3)],
+                [("claude", 0.9, 3), ("gpt4", 0.8, 2)],
+                [("claude", "mutation", "2025-01-01")],
+            ],
+        )
 
-            with patch(
-                "aragora.server.handlers.evolution.handler.get_db_path",
-                return_value="/tmp/test.db",
-            ):
-                result = handler._get_summary()
+        with patch(
+            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
+        ), patch(
+            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
+        ), patch(
+            "aragora.server.handlers.evolution.handler.get_db_path",
+            return_value="/tmp/test.db",
+        ):
+            result = handler._get_summary()
 
-            status, body = _status_body(result)
-            assert status == 200
-            assert body["total_prompt_versions"] == 5
-            assert body["total_agents"] == 2
-            assert body["total_patterns"] == 8
-            assert body["pattern_distribution"] == {"strategy": 5, "structure": 3}
-            assert len(body["top_agents"]) == 2
-            assert body["top_agents"][0]["agent"] == "claude"
-            assert body["top_agents"][0]["best_score"] == 0.9
-            assert body["top_agents"][0]["latest_version"] == 3
-            assert len(body["recent_activity"]) == 1
-            assert body["recent_activity"][0]["strategy"] == "mutation"
-        finally:
-            mod.EVOLUTION_AVAILABLE, mod.PromptEvolver = orig
+        status, body = _status_body(result)
+        assert status == 200
+        assert body["total_prompt_versions"] == 5
+        assert body["total_agents"] == 2
+        assert body["total_patterns"] == 8
+        assert body["pattern_distribution"] == {"strategy": 5, "structure": 3}
+        assert len(body["top_agents"]) == 2
+        assert body["top_agents"][0]["agent"] == "claude"
+        assert body["top_agents"][0]["best_score"] == 0.9
+        assert body["top_agents"][0]["latest_version"] == 3
+        assert len(body["recent_activity"]) == 1
+        assert body["recent_activity"][0]["strategy"] == "mutation"
 
-    def test_empty_database_summary(self, handler, mod):
+    def test_empty_database_summary(self, handler):
         """Summary with zero rows in all tables."""
-        orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
-        try:
-            self._build_mock_evolver(
-                mod,
-                cursor_fetchone=[(0,), (0,), (0,)],
-                cursor_fetchall=[[], [], []],
-            )
+        mock_cls = self._make_mock_evolver(
+            cursor_fetchone=[(0,), (0,), (0,)],
+            cursor_fetchall=[[], [], []],
+        )
 
-            with patch(
-                "aragora.server.handlers.evolution.handler.get_db_path",
-                return_value="/tmp/test.db",
-            ):
-                result = handler._get_summary()
+        with patch(
+            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
+        ), patch(
+            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
+        ), patch(
+            "aragora.server.handlers.evolution.handler.get_db_path",
+            return_value="/tmp/test.db",
+        ):
+            result = handler._get_summary()
 
-            status, body = _status_body(result)
-            assert status == 200
-            assert body["total_prompt_versions"] == 0
-            assert body["total_agents"] == 0
-            assert body["total_patterns"] == 0
-            assert body["pattern_distribution"] == {}
-            assert body["top_agents"] == []
-            assert body["recent_activity"] == []
-        finally:
-            mod.EVOLUTION_AVAILABLE, mod.PromptEvolver = orig
+        status, body = _status_body(result)
+        assert status == 200
+        assert body["total_prompt_versions"] == 0
+        assert body["total_agents"] == 0
+        assert body["total_patterns"] == 0
+        assert body["pattern_distribution"] == {}
+        assert body["top_agents"] == []
+        assert body["recent_activity"] == []
 
-    def test_db_error_returns_500(self, handler, mod):
-        orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
-        try:
-            mock_cls = _enable_evolution(mod)
-            mock_cls.side_effect = Exception("db crash")
+    def test_db_error_returns_500(self, handler):
+        mock_cls = MagicMock(side_effect=Exception("db crash"))
 
-            with patch(
-                "aragora.server.handlers.evolution.handler.get_db_path",
-                return_value="/tmp/test.db",
-            ):
-                result = handler._get_summary()
+        with patch(
+            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
+        ), patch(
+            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
+        ), patch(
+            "aragora.server.handlers.evolution.handler.get_db_path",
+            return_value="/tmp/test.db",
+        ):
+            result = handler._get_summary()
 
-            status, body = _status_body(result)
-            assert status == 500
-            assert "Failed" in body["error"]
-        finally:
-            mod.EVOLUTION_AVAILABLE, mod.PromptEvolver = orig
+        status, body = _status_body(result)
+        assert status == 500
+        assert "Failed" in body["error"]
 
-    def test_connection_context_manager_error(self, handler, mod):
+    def test_connection_context_manager_error(self, handler):
         """Error inside the with evolver.connection() block."""
-        orig = (mod.EVOLUTION_AVAILABLE, mod.PromptEvolver)
-        try:
-            mock_cls = _enable_evolution(mod)
-            mock_inst = MagicMock()
-            mock_conn = MagicMock()
-            mock_conn.__enter__ = MagicMock(side_effect=Exception("connection refused"))
-            mock_conn.__exit__ = MagicMock(return_value=False)
-            mock_inst.connection.return_value = mock_conn
-            mock_cls.return_value = mock_inst
+        mock_cls = MagicMock()
+        mock_inst = MagicMock()
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(side_effect=Exception("connection refused"))
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_inst.connection.return_value = mock_conn
+        mock_cls.return_value = mock_inst
 
-            with patch(
-                "aragora.server.handlers.evolution.handler.get_db_path",
-                return_value="/tmp/test.db",
-            ):
-                result = handler._get_summary()
+        with patch(
+            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
+        ), patch(
+            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
+        ), patch(
+            "aragora.server.handlers.evolution.handler.get_db_path",
+            return_value="/tmp/test.db",
+        ):
+            result = handler._get_summary()
 
-            status, body = _status_body(result)
-            assert status == 500
-        finally:
-            mod.EVOLUTION_AVAILABLE, mod.PromptEvolver = orig
+        status, body = _status_body(result)
+        assert status == 500
 
 
 # ============================================================================

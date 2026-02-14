@@ -7,14 +7,14 @@ description: Connector Catalog
 
 This catalog is generated from the codebase. Do not edit by hand.
 
-_Generated: 2026-02-04T02:14:35.432706+00:00_
+_Generated: 2026-02-13T16:45:30.079589+00:00_
 
 ## Summary
 
-- Total connectors: 100
+- Total connectors: 116
 - Enterprise connectors: 29
-- Evidence connectors: 16
-- Operational connectors: 55
+- Evidence connectors: 24
+- Operational connectors: 63
 
 ## Enterprise connectors
 
@@ -83,14 +83,22 @@ _Generated: 2026-02-04T02:14:35.432706+00:00_
 ### evidence
 
 - `ArXivConnector` — `aragora.connectors.arxiv`
+- `ClinicalTablesConnector` — `aragora.connectors.clinical_tables`
+- `CourtListenerConnector` — `aragora.connectors.courtlistener`
+- `CrossRefConnector` — `aragora.connectors.crossref`
 - `GitHubConnector` — `aragora.connectors.github`
+- `GovInfoConnector` — `aragora.connectors.govinfo`
 - `HackerNewsConnector` — `aragora.connectors.hackernews`
 - `LocalDocsConnector` — `aragora.connectors.local_docs`
+- `NICEGuidanceConnector` — `aragora.connectors.nice_guidance`
 - `NewsAPIConnector` — `aragora.connectors.newsapi`
+- `PubMedConnector` — `aragora.connectors.pubmed`
 - `RedditConnector` — `aragora.connectors.reddit`
 - `RepositoryCrawler` — `aragora.connectors.repository_crawler`
+- `RxNavConnector` — `aragora.connectors.rxnav`
 - `SECConnector` — `aragora.connectors.sec`
 - `SQLConnector` — `aragora.connectors.sql`
+- `SemanticScholarConnector` — `aragora.connectors.semantic_scholar`
 - `TwitterConnector` — `aragora.connectors.twitter`
 - `WebConnector` — `aragora.connectors.web`
 - `WhisperConnector` — `aragora.connectors.whisper`
@@ -105,7 +113,9 @@ _Generated: 2026-02-04T02:14:35.432706+00:00_
 
 ### accounting
 
+- `FASBConnector` — `aragora.connectors.accounting.gaap`
 - `GustoConnector` — `aragora.connectors.accounting.gusto`
+- `IRSConnector` — `aragora.connectors.accounting.irs`
 - `PlaidConnector` — `aragora.connectors.accounting.plaid`
 - `QuickBooksConnector` — `aragora.connectors.accounting.qbo`
 - `XeroConnector` — `aragora.connectors.accounting.xero`
@@ -174,8 +184,10 @@ _Generated: 2026-02-04T02:14:35.432706+00:00_
 ### ecommerce
 
 - `AmazonConnector` — `aragora.connectors.ecommerce.amazon`
+- `AmazonConnector` — `aragora.connectors.ecommerce.amazon.client`
 - `ShipStationConnector` — `aragora.connectors.ecommerce.shipstation`
 - `ShopifyConnector` — `aragora.connectors.ecommerce.shopify`
+- `ShopifyConnector` — `aragora.connectors.ecommerce.shopify.client`
 - `WooCommerceConnector` — `aragora.connectors.ecommerce.woocommerce.client`
 
 ### email
@@ -186,6 +198,8 @@ _Generated: 2026-02-04T02:14:35.432706+00:00_
 ### legal
 
 - `DocuSignConnector` — `aragora.connectors.legal.docusign`
+- `LexisConnector` — `aragora.connectors.legal.lexis`
+- `WestlawConnector` — `aragora.connectors.legal.westlaw`
 
 ### lowcode
 
@@ -207,6 +221,7 @@ _Generated: 2026-02-04T02:14:35.432706+00:00_
 
 ### misc
 
+- `ConversationIngestorConnector` — `aragora.connectors.conversation_ingestor`
 - `TwitterPosterConnector` — `aragora.connectors.twitter_poster`
 
 ### payments
@@ -220,3 +235,7 @@ _Generated: 2026-02-04T02:14:35.432706+00:00_
 - `HelpScoutConnector` — `aragora.connectors.support.helpscout`
 - `IntercomConnector` — `aragora.connectors.support.intercom`
 - `ZendeskConnector` — `aragora.connectors.support.zendesk`
+
+### tax
+
+- `GenericTaxConnector` — `aragora.connectors.tax.generic`

@@ -1379,6 +1379,17 @@ try:
 except ImportError:
     _real_run_async = None
 
+# Capture real BaseHandler methods at import time for reliable restoration.
+_real_extract_path_param = None
+_real_extract_path_params = None
+try:
+    from aragora.server.handlers.base import BaseHandler as _BaseHandler
+
+    _real_extract_path_param = getattr(_BaseHandler, "extract_path_param", None)
+    _real_extract_path_params = getattr(_BaseHandler, "extract_path_params", None)
+except ImportError:
+    _BaseHandler = None
+
 
 @pytest.fixture(autouse=True)
 def _restore_module_level_functions():
@@ -1423,6 +1434,9 @@ def _restore_module_level_functions():
         for mod_name in [
             "aragora.server.handlers.control_plane",
             "aragora.server.handlers.control_plane.__init__",
+            "aragora.server.handlers.control_plane.agents",
+            "aragora.server.handlers.control_plane.tasks",
+            "aragora.server.handlers.control_plane.health",
             "aragora.server.http_utils",
         ]:
             mod = sys.modules.get(mod_name)
@@ -1477,6 +1491,21 @@ def _restore_module_level_functions():
                 if current is not _real_run_async:
                     setattr(mod, "run_async", _real_run_async)
 
+        # Also restore _run_async alias in control_plane submodules
+        for mod_name in [
+            "aragora.server.handlers.control_plane",
+            "aragora.server.handlers.control_plane.__init__",
+            "aragora.server.handlers.control_plane.agents",
+            "aragora.server.handlers.control_plane.tasks",
+            "aragora.server.handlers.control_plane.health",
+            "aragora.server.http_utils",
+        ]:
+            mod = sys.modules.get(mod_name)
+            if mod is not None:
+                current = getattr(mod, "_run_async", None)
+                if current is not _real_run_async:
+                    setattr(mod, "_run_async", _real_run_async)
+
     try:
         import aragora.server.handlers.control_plane.health as _cp_health
 
@@ -1490,36 +1519,32 @@ def _restore_module_level_functions():
 def _restore_base_handler_methods():
     """Restore BaseHandler class methods that may be replaced by mocks.
 
-    Some tests set ``handler.extract_path_param = MagicMock(...)`` on
-    instances, which is fine.  However, if ``patch.object(Handler, 'method')``
-    is used at the class level and leaks, all new instances see the mock.
-    This fixture saves and restores the real class-level methods.
+    Uses references captured at import time (before any test can pollute them)
+    to reliably restore methods even after cascading pollution.
     """
-    from unittest.mock import MagicMock
-
-    saved = {}
-    try:
-        from aragora.server.handlers.base import BaseHandler
-
-        for attr_name in ("extract_path_param", "extract_path_params"):
-            val = getattr(BaseHandler, attr_name, None)
-            if val is not None:
-                saved[(BaseHandler, attr_name)] = val
-                if isinstance(val, MagicMock):
-                    # Already polluted from a prior test; can't save the mock
-                    # as the "real" value.  We'll restore from the class dict
-                    # or just skip.
-                    saved.pop((BaseHandler, attr_name), None)
-    except ImportError:
-        pass
+    # Pre-test: restore if already polluted
+    if _BaseHandler is not None:
+        if _real_extract_path_param is not None:
+            current = getattr(_BaseHandler, "extract_path_param", None)
+            if current is not _real_extract_path_param:
+                setattr(_BaseHandler, "extract_path_param", _real_extract_path_param)
+        if _real_extract_path_params is not None:
+            current = getattr(_BaseHandler, "extract_path_params", None)
+            if current is not _real_extract_path_params:
+                setattr(_BaseHandler, "extract_path_params", _real_extract_path_params)
 
     yield
 
-    # Restore any methods that were replaced
-    for (cls, attr_name), real_val in saved.items():
-        current = getattr(cls, attr_name, None)
-        if current is not real_val:
-            setattr(cls, attr_name, real_val)
+    # Post-test: restore if this test polluted
+    if _BaseHandler is not None:
+        if _real_extract_path_param is not None:
+            current = getattr(_BaseHandler, "extract_path_param", None)
+            if current is not _real_extract_path_param:
+                setattr(_BaseHandler, "extract_path_param", _real_extract_path_param)
+        if _real_extract_path_params is not None:
+            current = getattr(_BaseHandler, "extract_path_params", None)
+            if current is not _real_extract_path_params:
+                setattr(_BaseHandler, "extract_path_params", _real_extract_path_params)
 
 
 # ============================================================================

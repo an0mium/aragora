@@ -14,7 +14,7 @@ for multi-agent vetted decisionmaking across organizational knowledge and channe
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
-\12.7.0\3
+| TypeScript (`@aragora/sdk`) | 2.6.3 | 380 async | Full API (79 namespaces) |
 | Python (`aragora`) | 2.6.3 | 220 async + 420 sync | Full API |
 
 Versions reflect the current repo tags (see `pyproject.toml` and

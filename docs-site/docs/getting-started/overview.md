@@ -5,363 +5,603 @@ description: Getting Started with Aragora
 
 # Getting Started with Aragora
 
-Run your first adversarial AI debate in under 5 minutes.
+> **Last Updated:** 2026-01-27
+
+
+**Aragora** is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
+
+**Choose your path:**
+- [Quick Start](#quick-start) - Get running in 5 minutes
+- [CLI User Guide](#cli-user-guide) - Run debates from the terminal
+- [API Integrator Guide](#api-integrator-guide) - Build on Aragora's API
+- [Live Dashboard Dev](../contributing/frontend-development) - Build the Next.js UI
+- [TypeScript SDK](../guides/sdk-typescript) - Use the JS client library
+- [Gauntlet Guide](#gauntlet-guide) - Stress-test documents and policies
+- [Troubleshooting](#troubleshooting) - Fix common issues
 
 ---
 
-## Prerequisites
+## Quick Start
 
-- **Python 3.10+** (check with `python --version`)
-- **One API key** from any supported provider: [Anthropic](https://console.anthropic.com/), [OpenAI](https://platform.openai.com/), [Mistral](https://console.mistral.ai/), [Google](https://aistudio.google.com/), or [xAI](https://console.x.ai/)
-
-No API key yet? Skip to [Try without API keys](#try-without-api-keys) below.
-
----
-
-## Step 1: Install
-
-### Option A: Standalone debate engine (lightweight)
-
-```bash
-pip install aragora-debate
-```
-
-Add your preferred LLM provider:
-
-```bash
-pip install aragora-debate[anthropic]    # Claude
-pip install aragora-debate[openai]       # GPT
-pip install aragora-debate[mistral]      # Mistral
-pip install aragora-debate[all]          # All providers
-```
-
-### Option B: Full platform (server + CLI + connectors + SDKs)
-
-```bash
-pip install aragora
-```
-
-Or from source:
+### 1. Install
 
 ```bash
 git clone https://github.com/an0mium/aragora.git
-cd aragora && pip install -e .
+cd aragora
+pip install -e .
+```
+
+### 2. Configure (Choose One)
+
+#### Option A: Interactive Setup Wizard (Recommended)
+
+The easiest way to configure Aragora:
+
+```bash
+aragora setup
+```
+
+The wizard guides you through:
+- API key configuration with validation
+- Server port settings
+- Database selection (SQLite/PostgreSQL)
+- Optional integrations (Slack, GitHub, Telegram)
+
+See the [Developer Quickstart](DEVELOPER_QUICKSTART.md) for detailed local setup options.
+
+#### Option B: Manual Configuration
+
+Create a `.env` file with at least one AI provider key:
+
+```bash
+cp .env.starter .env
+```
+
+Edit `.env` (or use `.env.example` for the full template):
+```bash
+# Required: At least one of these
+ANTHROPIC_API_KEY=sk-ant-xxx     # Claude (recommended)
+OPENAI_API_KEY=sk-xxx            # GPT-4
+GEMINI_API_KEY=AIzaSy...         # Gemini
+XAI_API_KEY=xai-xxx              # Grok
+MISTRAL_API_KEY=xxx              # Mistral (optional)
+OPENROUTER_API_KEY=sk-or-xxx     # OpenRouter (optional)
+```
+
+Optional but recommended: keep runtime data out of the repo root.
+```bash
+ARAGORA_DATA_DIR=.nomic
+```
+
+### 3. Verify Setup
+
+```bash
+aragora doctor
+```
+
+Expected output:
+```
+Aragora Health Check
+====================
+API Keys:
+  Anthropic: OK
+  OpenAI: OK
+  Gemini: Not configured
+  Grok: Not configured
+
+Environment:
+  Python: 3.10.13
+  aragora: 2.6.3
+
+Status: Ready
+```
+
+Optional: run the golden-path harness (offline, demo agents).
+
+```bash
+python scripts/golden_paths.py --mode fast
+python scripts/golden_paths.py --mode fast --enable-trending  # optional network context
+```
+
+Sample artifacts live in `examples/golden_paths/demo`.
+
+### 4. Run Your First Stress-Test
+
+```bash
+aragora ask "Should we use microservices or monolith?" \
+  --agents anthropic-api,openai-api
+```
+
+Expected output:
+```
+DEBATE: Should we use microservices or monolith?
+Agents: anthropic-api, openai-api
+Round 1/3...
+  [anthropic-api] Proposing...
+  [openai-api] Critiquing...
+...
+CONSENSUS REACHED (75% agreement)
+Final Answer: [synthesized recommendation]
 ```
 
 ---
 
-## Step 2: Run your first debate
+## CLI User Guide
 
-Set your API key:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-export OPENAI_API_KEY=sk-...
-```
-
-Create a file called `first_debate.py`:
-
-```python
-import asyncio
-from aragora_debate import Debate, create_agent
-
-async def main():
-    # Define the question
-    debate = Debate("Should we use microservices or a monolith?")
-
-    # Add agents from different LLM providers
-    debate.add_agent(create_agent("anthropic", name="analyst"))
-    debate.add_agent(create_agent("openai", name="challenger"))
-
-    # Run the debate
-    result = await debate.run()
-
-    # Print the decision receipt
-    print(result.receipt.to_markdown())
-
-asyncio.run(main())
-```
-
-Run it:
+### Basic Usage
 
 ```bash
-python first_debate.py
+aragora ask "<your question>" --agents <agent1>,<agent2>
 ```
 
-That is it. Two models just debated your question across multiple rounds of proposals, critiques, and votes, then produced an auditable decision receipt.
+Note: the CLI default is `codex,claude` (local CLI agents). If you only have API keys,
+use `--agents anthropic-api,openai-api` or another API-backed set.
 
----
+### Available Agents
 
-## Step 3: Read the decision receipt
+| Agent | Provider | API Key Required |
+|-------|----------|------------------|
+| `anthropic-api` | Claude (Anthropic) | `ANTHROPIC_API_KEY` |
+| `openai-api` | OpenAI | `OPENAI_API_KEY` |
+| `gemini` | Google Gemini | `GEMINI_API_KEY` |
+| `grok` | xAI Grok | `XAI_API_KEY` |
+| `mistral-api` | Mistral (direct) | `MISTRAL_API_KEY` |
+| `codestral` | Mistral (code) | `MISTRAL_API_KEY` |
+| `deepseek` | OpenRouter | `OPENROUTER_API_KEY` |
+| `qwen` / `qwen-max` | OpenRouter | `OPENROUTER_API_KEY` |
+| `kimi` | Moonshot (Kimi) | `KIMI_API_KEY` |
+| `ollama` | Local models | None (local) |
 
-Every debate produces a `DecisionReceipt` -- a structured record of what was decided, who agreed, who dissented, and why:
+Note: OpenRouter agents require `OPENROUTER_API_KEY`. Full catalog is in [AGENTS.md](../core-concepts/agents).
 
-```
-# Decision Receipt DR-20260212-b7e4a1
-
-**Question:** Should we use microservices or a monolith?
-**Verdict:** Approved With Conditions
-**Confidence:** 82%
-**Consensus:** Reached (supermajority, 78% agreement)
-**Agents:** analyst (Claude), challenger (GPT-4o)
-
-## Conditions
-- Start with a modular monolith; extract services only at proven boundaries
-- Require team size > 15 before splitting into independent services
-
-## Dissenting Views
-
-**challenger:**
-- Network latency and operational complexity underestimated
-  > "A modular monolith achieves 80% of the benefits with 20% of the
-  > risk for teams under 20 engineers."
-```
-
-Export in multiple formats:
-
-```python
-from aragora_debate import ReceiptBuilder
-
-# JSON (for programmatic access)
-print(ReceiptBuilder.to_json(result.receipt))
-
-# HTML (for dashboards or reports)
-with open("receipt.html", "w") as f:
-    f.write(ReceiptBuilder.to_html(result.receipt))
-
-# Sign for tamper detection (audit compliance)
-ReceiptBuilder.sign_hmac(result.receipt, key="your-signing-key")
-```
-
----
-
-## Try without API keys
-
-Use mock agents to explore the debate flow immediately:
-
-```python
-import asyncio
-from aragora_debate import Debate, create_agent
-
-async def main():
-    debate = Debate("Should we use microservices or a monolith?")
-    debate.add_agent(create_agent("mock", name="analyst"))
-    debate.add_agent(create_agent("mock", name="challenger"))
-    result = await debate.run()
-    print(result.receipt.to_markdown())
-
-asyncio.run(main())
-```
-
-Mock agents return synthetic responses. They are useful for understanding the debate structure before connecting real models.
-
-If you installed the full platform, you can also use demo mode from the CLI:
+### Common Options
 
 ```bash
+# More rounds (deeper debate)
+aragora ask "..." --rounds 5
+
+# Consensus mode
+aragora ask "..." --consensus majority    # 60% agreement (default)
+aragora ask "..." --consensus unanimous   # All agents agree
+aragora ask "..." --consensus judge       # One agent decides
+
+# Add context
+aragora ask "..." --context "Consider latency and cost"
+
+# Verbose output
+aragora ask "..." --verbose
+```
+
+### Example Debates
+
+```bash
+# Architecture decision
+aragora ask "Design a caching strategy for 10M users" \
+  --agents anthropic-api,openai-api,gemini --rounds 4
+
+# Code review
+aragora ask "Review this code for security issues: $(cat myfile.py)" \
+  --agents anthropic-api,openai-api --consensus unanimous
+
+# Framework comparison
+aragora ask "React vs Vue vs Svelte for our new project" \
+  --agents anthropic-api,openai-api,gemini,grok
+```
+
+### Code Review
+
+Review pull requests with unanimous AI consensus:
+
+```bash
+# Review local changes
+git diff main | aragora review
+
+# Review GitHub PR
+aragora review https://github.com/owner/repo/pull/123
+
+# Demo mode (no API keys)
 aragora review --demo
 ```
 
----
+### Vertical Specialists
 
-## How debates work
-
-Each debate runs multiple rounds. Every round has three phases:
-
-```
-Round 1                Round 2                Round 3
-+------------------+   +------------------+   +------------------+
-| 1. PROPOSE       |   | 1. PROPOSE       |   | 1. PROPOSE       |
-|    Each agent     |   |    Address prior  |   |    Final         |
-|    responds       |   |    critiques      |   |    positions     |
-+------------------+   +------------------+   +------------------+
-| 2. CRITIQUE      |   | 2. CRITIQUE      |   | 2. CRITIQUE      |
-|    Challenge each |   |    Deeper         |   |    Last          |
-|    other's logic  |   |    analysis       |   |    challenges    |
-+------------------+   +------------------+   +------------------+
-| 3. VOTE          |   | 3. VOTE          |   | 3. VOTE          |
-|    Weighted vote  |   |    May stop early |   |    Final tally   |
-+------------------+   +------------------+   +------------------+
-                                                       |
-                                               +-------v--------+
-                                               | DECISION       |
-                                               | RECEIPT        |
-                                               +----------------+
-```
-
-Early stopping kicks in when agents reach consensus before all rounds complete. Different models with different training data surface genuinely different failure modes -- when they converge after adversarial challenge, that convergence is meaningful.
-
----
-
-## Customize the debate
-
-```python
-from aragora_debate import Debate, DebateConfig, create_agent
-
-debate = Debate(
-    "Should we adopt GraphQL?",
-    config=DebateConfig(
-        rounds=3,                          # Number of debate rounds
-        consensus_method="supermajority",  # How consensus is determined
-        early_stopping=True,               # Stop when consensus is reached early
-        require_reasoning=True,            # Agents must explain their votes
-        timeout_seconds=300,               # Overall timeout
-    ),
-)
-debate.add_agent(create_agent("anthropic", name="analyst"))
-debate.add_agent(create_agent("openai", name="critic"))
-debate.add_agent(create_agent("mistral", name="synthesizer"))
-result = await debate.run()
-```
-
-### Consensus methods
-
-| Method | Threshold | Best for |
-|--------|-----------|----------|
-| `majority` | >50% | General decisions |
-| `supermajority` | >66.7% | Important decisions |
-| `unanimous` | 100% | Safety-critical decisions |
-| `weighted` | Configurable | When agent reliability varies |
-| `judge` | N/A | One agent decides after hearing the debate |
-
----
-
-## Detect hollow consensus
-
-Models sometimes agree without substantive evidence. Enable the Trickster to automatically challenge this:
-
-```python
-debate = Debate(
-    "Should we adopt Kubernetes?",
-    enable_trickster=True,          # Challenge hollow consensus
-    enable_convergence=True,        # Track how proposals converge
-    trickster_sensitivity=0.7,      # Higher = more interventions
-)
-debate.add_agent(create_agent("anthropic", name="analyst"))
-debate.add_agent(create_agent("openai", name="critic"))
-result = await debate.run()
-print(f"Trickster interventions: {result.trickster_interventions}")
-```
-
----
-
-## Monitor debates in real time
-
-```python
-from aragora_debate import Debate, create_agent
-
-def on_event(event):
-    print(f"[{event.event_type.value}] round={event.round_num} {event.data}")
-
-debate = Debate("Should we use Kafka or RabbitMQ?", on_event=on_event)
-debate.add_agent(create_agent("mock", name="analyst"))
-debate.add_agent(create_agent("mock", name="critic"))
-# Events: debate_start, round_start, proposal, critique, vote,
-#         consensus_check, convergence_detected, trickster_intervention,
-#         round_end, debate_end
-```
-
----
-
-## Full platform: CLI and server
-
-If you installed the full `aragora` package, you get a CLI and API server:
+Industry-specific debate templates with pre-configured agents, tools, and compliance frameworks:
 
 ```bash
-# AI code review (demo mode, no API keys needed)
-git diff main | aragora review --demo
+# List available verticals
+aragora verticals list
 
-# Stress-test a specification with adversarial agents
-aragora gauntlet spec.md --profile thorough --output receipt.html
+# Filter by keyword
+aragora verticals list --keyword healthcare
 
-# Run a debate from the command line
-aragora ask "Should we adopt microservices?" --agents anthropic-api,openai-api --rounds 3
+# Get vertical configuration
+aragora verticals get healthcare
 
-# Start the API server (2,000+ operations)
+# List tools for a vertical
+aragora verticals tools fintech
+
+# Show compliance frameworks
+aragora verticals compliance healthcare
+
+# Suggest vertical for a task
+aragora verticals suggest --task "Analyze HIPAA compliance for patient portal"
+```
+
+Available verticals include: `healthcare`, `fintech`, `legal`, `devops`, `security`, and more.
+
+### Memory Operations
+
+Inspect and manage the multi-tier memory system:
+
+```bash
+# Query memories by prefix
+aragora memory query "debate:arch:"
+
+# Store a memory entry
+aragora memory store "custom:key" "value data" --tier medium
+
+# View memory statistics
+aragora memory stats
+
+# Promote memory to a longer-lived tier
+aragora memory promote "key" --to slow
+```
+
+Memory tiers: `fast` (1 min TTL), `medium` (1 hour), `slow` (1 day), `glacial` (1 week).
+
+### Knowledge Mound
+
+Query and manage the unified knowledge store:
+
+```bash
+# Query knowledge by prefix
+aragora km query "consensus:"
+
+# Store knowledge entry
+aragora km store "insights:arch:caching" '{"pattern": "write-through"}'
+
+# View knowledge statistics
+aragora km stats
+
+# List knowledge by category
+aragora km query "evidence:" --limit 10
+```
+
+### Start Dashboard
+
+```bash
+aragora serve
+# Open http://localhost:8080
+```
+
+---
+
+## API Integrator Guide
+
+### Start the Server
+
+```bash
 aragora serve --api-port 8080 --ws-port 8765
 ```
 
-### Connect with the SDK
+### Core Endpoints
 
-```python
-import asyncio
-from aragora_sdk import AragoraClient
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/debates` | POST | Start a new debate |
+| `/api/debates/\{id\}` | GET | Get debate status/results |
+| `/api/debates` | GET | List recent debates |
+| `/api/agents` | GET | List available agents |
+| `/api/health` | GET | Health check |
 
-async def main():
-    client = AragoraClient("http://localhost:8080")
-    debate = await client.debates.run(
-        task="Should we use microservices?",
-        agents=["anthropic-api", "openai-api"],
-    )
-    print(f"Consensus: {debate.consensus.conclusion}")
+### Start a Debate
 
-asyncio.run(main())
+```bash
+curl -X POST http://localhost:8080/api/debates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Should we use microservices or monolith?",
+    "agents": ["anthropic-api", "openai-api"],
+    "rounds": 3,
+    "consensus": "majority"
+  }'
 ```
+
+Response:
+```json
+{
+  "debate_id": "debate-20260111-abc123",
+  "status": "running",
+  "task": "Should we use microservices or monolith?"
+}
+```
+
+### Get Debate Results
+
+```bash
+curl http://localhost:8080/api/debates/debate-20260111-abc123
+```
+
+Response:
+```json
+{
+  "debate_id": "debate-20260111-abc123",
+  "status": "completed",
+  "task": "Should we use microservices or monolith?",
+  "consensus": {
+    "reached": true,
+    "agreement": 0.75,
+    "final_answer": "..."
+  },
+  "rounds": [...],
+  "participants": ["anthropic-api", "openai-api"]
+}
+```
+
+### WebSocket Streaming
+
+For real-time debate updates:
+
+```javascript
+const ws = new WebSocket('ws://localhost:8765/ws');
+const loopId = 'debate-20260111-abc123';
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (['connection_info', 'loop_list', 'sync'].includes(data.type)) return;
+
+  const eventLoopId = data.loop_id || data.data?.debate_id || data.data?.loop_id;
+  if (eventLoopId && eventLoopId !== loopId) return;
+
+  console.log(data.type, data.data);
+  // Types: debate_start, agent_message, critique, vote, consensus, debate_end
+};
+```
+
+### Authentication
+
+For protected endpoints, use Bearer token:
+
+```bash
+curl http://localhost:8080/api/protected \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+Generate a token:
+```bash
+curl -X POST http://localhost:8080/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username": "user", "password": "pass"}'
+```
+
+### Full API Reference
+
+See [API_REFERENCE.md](../api/reference) for the full endpoint catalog.
 
 ---
 
-## Next steps
+## Gauntlet Guide
 
-| What you want to do | Where to go |
-|----------------------|-------------|
-| Install-to-receipt quickstart (2 min) | [SDK_QUICKSTART.md](../guides/sdk-quickstart) |
-| Learn the full Python and TypeScript SDKs | [SDK_GUIDE.md](../guides/sdk) |
-| Explore the REST API | [api/API_REFERENCE.md](../api/reference) |
-| Stress-test specs with the Gauntlet | [GAUNTLET.md](../guides/gauntlet) |
-| Set up Slack, Teams, or Discord connectors | [INTEGRATIONS.md](../guides/integrations) |
-| Deploy to production | [DEPLOYMENT.md](../deployment/overview) |
-| Add SSO, RBAC, and multi-tenancy | [enterprise/ENTERPRISE_FEATURES.md](../enterprise/features) |
-| Generate EU AI Act compliance artifacts | [compliance/EU_AI_ACT_GUIDE.md](../security/eu-ai-act-guide) |
-| Understand pricing and plans | [PRICING.md](../enterprise/pricing) |
-| Learn why adversarial debate works | [WHY_ARAGORA.md](../enterprise/why-aragora) |
+The **Gauntlet** stress-tests documents, policies, and code using 12+ AI agents simulating hackers, regulators, and critics.
+
+### Quick Demo
+
+Run with simulated agents (no API keys needed):
+
+```bash
+python examples/gauntlet_demo.py
+```
+
+### Stress-Test Your Documents
+
+```bash
+# CLI usage
+aragora gauntlet my_policy.md --persona gdpr
+
+# With specific profile
+aragora gauntlet my_spec.md --profile thorough
+
+# Code security review
+aragora gauntlet src/auth.py --profile code
+```
+
+### Gauntlet Profiles
+
+| Profile | Duration | Best For |
+|---------|----------|----------|
+| `quick` | 2 min | Fast validation |
+| `default` | 5 min | Balanced analysis |
+| `thorough` | 15 min | Comprehensive review |
+| `code` | 10 min | Security-focused code |
+| `policy` | 10 min | Compliance-focused |
+
+### Regulatory Personas
+
+| Persona | Focus |
+|---------|-------|
+| `gdpr` | GDPR compliance (consent, data rights, transfers) |
+| `hipaa` | HIPAA compliance (PHI, safeguards, breach) |
+| `ai_act` | EU AI Act (risk levels, transparency, bias) |
+| `security` | Security vulnerabilities (injection, auth, crypto) |
+| `soc2` | SOC 2 controls (security, availability) |
+| `pci_dss` | PCI DSS (cardholder data, encryption) |
+
+### Gauntlet via API
+
+```bash
+# Start a gauntlet run
+curl -X POST http://localhost:8080/api/gauntlet/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input_content": "Your policy content here...",
+    "input_type": "policy",
+    "persona": "gdpr",
+    "profile": "default"
+  }'
+
+# Get status
+curl http://localhost:8080/api/gauntlet/\{id\}
+
+# Get Decision Receipt
+curl http://localhost:8080/api/gauntlet/\{id\}/receipt?format=html
+
+# Get Risk Heatmap
+curl http://localhost:8080/api/gauntlet/\{id\}/heatmap?format=svg
+```
+
+### Understanding Results
+
+The Decision Receipt contains:
+- **Verdict**: APPROVED, APPROVED_WITH_CONDITIONS, NEEDS_REVIEW, or REJECTED
+- **Risk Score**: 0-100% risk assessment
+- **Findings**: Issues categorized by severity (Critical, High, Medium, Low)
+- **Mitigations**: Recommended fixes for each finding
+- **Audit Trail**: Full evidence chain for compliance
 
 ---
 
 ## Troubleshooting
 
-### "No ANTHROPIC_API_KEY configured"
+### "No API key found"
 
-Set at least one LLM provider API key:
+**Error**: `No API key configured for anthropic-api`
 
+**Solution**: Set at least one key in `.env` or environment:
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+export ANTHROPIC_API_KEY=your-key
+# Or add to .env file
 ```
 
-Or use mock agents (`create_agent("mock", ...)`) to run without API keys.
+**Verify**: Run `aragora doctor` to check configuration.
 
-### "Connection refused" on localhost:8080
+### "Agent timed out"
 
-The Aragora server is not running. Start it with:
+**Error**: `Agent anthropic-api timed out after 60s`
 
+**Cause**: API provider is slow or overloaded.
+
+**Solutions**:
+1. Increase timeout:
+   ```bash
+   export ARAGORA_DEBATE_TIMEOUT=1200  # seconds
+   ```
+2. Use fewer agents
+3. Try a different provider
+
+### "Rate limit exceeded"
+
+**Error**: `Rate limit exceeded for openai-api`
+
+**Solutions**:
+1. Wait 60 seconds and retry
+2. Use fewer agents
+3. Use fallback providers:
+   ```bash
+   # OpenRouter provides fallback access
+   export OPENROUTER_API_KEY=sk-or-xxx
+   ```
+
+### "Connection refused on port 8080"
+
+**Error**: `Connection refused on localhost:8080`
+
+**Cause**: Server not running or port in use.
+
+**Solutions**:
+1. Start the server:
+   ```bash
+   aragora serve
+   ```
+2. Use a different port:
+   ```bash
+   aragora serve --api-port 8081
+   ```
+3. Check what's using the port:
+   ```bash
+   lsof -i :8080
+   ```
+
+### "Invalid API key"
+
+**Error**: `Invalid API key for anthropic-api`
+
+**Cause**: API key is malformed or expired.
+
+**Solutions**:
+1. Verify the key format:
+   - Anthropic: `sk-ant-api03-...`
+   - OpenAI: `sk-...`
+   - Gemini: `AIzaSy...`
+2. Regenerate the key in your provider dashboard
+3. Check for extra whitespace in `.env`
+
+### "Module not found"
+
+**Error**: `ModuleNotFoundError: No module named 'aragora'`
+
+**Solution**: Install in development mode:
 ```bash
-aragora serve --api-port 8080 --ws-port 8765
+pip install -e .
 ```
 
-Or use `--offline` for a zero-dependency start with SQLite:
+### Still stuck?
 
-```bash
-python -m aragora.server --http-port 8080 --ws-port 8765 --offline
-```
-
-### Import errors
-
-Make sure you are using the correct package:
-
-```python
-# For standalone debates (aragora-debate package):
-from aragora_debate import Debate, create_agent
-
-# For the full platform (aragora package):
-from aragora import Arena, Environment, DebateProtocol
-
-# For the API client (aragora-sdk package):
-from aragora_sdk import AragoraClient
-```
+1. Run diagnostics: `aragora doctor`
+2. Check logs: `tail -f ~/.aragora/logs/aragora.log`
+3. File an issue: https://github.com/an0mium/aragora/issues
 
 ---
 
-## Getting help
+## Next Steps
 
-- **GitHub Issues:** [github.com/an0mium/aragora/issues](https://github.com/an0mium/aragora/issues)
-- **Documentation:** [github.com/an0mium/aragora/tree/main/docs](https://github.com/an0mium/aragora/tree/main/docs)
-- **Sales:** sales@aragora.ai
-- **Support:** support@aragora.ai
+- **Deep Dive**: [Architecture Guide](../core-concepts/architecture)
+- **All Options**: [Environment Variables](./environment)
+- **Full API**: [API Reference](../api/reference)
+- **Gauntlet Details**: [Gauntlet Guide](../guides/gauntlet)
+- **Self-Improvement**: [Nomic Loop](../admin/nomic-loop)
+- **Custom Agents**: [Custom Agents Guide](../guides/custom-agents)
+
+---
+
+## Quick Reference
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `aragora ask "..."` | Run a debate |
+| `aragora review` | Review code/PR |
+| `aragora gauntlet` | Stress-test documents |
+| `aragora serve` | Start dashboard |
+| `aragora doctor` | Check health |
+| `aragora status` | Show environment |
+| `aragora config` | Manage settings |
+| `aragora verticals` | Industry-specific debate templates |
+| `aragora memory` | Memory tier operations |
+| `aragora km` | Knowledge Mound operations |
+
+### Environment Variables
+
+**Quick Reference** (see [ENVIRONMENT.md](./environment) for complete reference):
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ANTHROPIC_API_KEY` | Claude API key | At least one |
+| `OPENAI_API_KEY` | GPT-4 API key | At least one |
+| `GEMINI_API_KEY` | Gemini API key | Optional |
+| `XAI_API_KEY` | Grok API key | Optional |
+| `MISTRAL_API_KEY` | Mistral API key | Optional |
+| `OPENROUTER_API_KEY` | Fallback provider | Recommended |
+
+**Configuration Templates:**
+- `.env.starter` - Minimal config to get started
+- `.env.example` - Full configuration reference
+
+### Health Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/healthz` | Kubernetes liveness probe |
+| `/readyz` | Kubernetes readiness probe |
+| `/api/health` | Comprehensive health check |
+| `/api/health/detailed` | Detailed component status |
