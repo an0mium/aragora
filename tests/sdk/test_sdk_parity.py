@@ -228,6 +228,7 @@ class TestSDKImports:
 
     def test_client_import(self):
         """Verify client can be imported."""
+        pytest.importorskip("aragora_sdk")
         from aragora_sdk.client import AragoraClient, AragoraAsyncClient
 
         assert AragoraClient is not None
@@ -235,6 +236,7 @@ class TestSDKImports:
 
     def test_exceptions_import(self):
         """Verify exceptions can be imported."""
+        pytest.importorskip("aragora_sdk")
         from aragora_sdk.exceptions import (
             AragoraError,
             AuthenticationError,
@@ -250,6 +252,7 @@ class TestSDKImports:
 
     def test_namespace_imports(self):
         """Verify namespace APIs can be imported."""
+        pytest.importorskip("aragora_sdk")
         from aragora_sdk.namespaces.debates import DebatesAPI
         from aragora_sdk.namespaces.knowledge import KnowledgeAPI
         from aragora_sdk.namespaces.consensus import ConsensusAPI

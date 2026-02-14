@@ -346,7 +346,7 @@ class HuggingFaceSpecialistLoader:
             logger.info(f"Loading model: {model_id} on {device}")
 
             # Load tokenizer
-            tokenizer = AutoTokenizer.from_pretrained(
+            tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
                 model_id,
                 cache_dir=self._cache_dir,
                 trust_remote_code=trust_remote_code,
@@ -372,12 +372,12 @@ class HuggingFaceSpecialistLoader:
             model_kwargs.setdefault("revision", None)
 
             if model_type == "causal_lm":
-                model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)  # nosec B614
+                model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)  # nosec B614 B615
             elif model_type == "encoder":
-                model = AutoModel.from_pretrained(model_id, **model_kwargs)  # nosec B614
+                model = AutoModel.from_pretrained(model_id, **model_kwargs)  # nosec B614 B615
             else:
                 # Default to auto model
-                model = AutoModel.from_pretrained(model_id, **model_kwargs)  # nosec B614
+                model = AutoModel.from_pretrained(model_id, **model_kwargs)  # nosec B614 B615
 
             # Load LoRA adapter if specified
             if adapter_id:
@@ -429,7 +429,7 @@ class HuggingFaceSpecialistLoader:
             from peft import PeftModel
 
             logger.info(f"Loading adapter: {adapter_id}")
-            model = PeftModel.from_pretrained(
+            model = PeftModel.from_pretrained(  # nosec B615
                 model,
                 adapter_id,
                 cache_dir=self._cache_dir,

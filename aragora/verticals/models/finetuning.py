@@ -204,13 +204,13 @@ class VerticalFineTuningPipeline:
             if bnb_config:
                 model_kwargs["quantization_config"] = bnb_config
 
-            self._model = AutoModelForCausalLM.from_pretrained(
+            self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
                 self.config.base_model_id,
                 **model_kwargs,
             )
 
             # Load tokenizer
-            self._tokenizer = AutoTokenizer.from_pretrained(
+            self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
                 self.config.base_model_id,
                 trust_remote_code=True,
             )

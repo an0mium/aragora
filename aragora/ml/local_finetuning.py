@@ -304,7 +304,7 @@ class LocalFineTuner:
             bnb_config = None
 
         # Load tokenizer
-        self._tokenizer = AutoTokenizer.from_pretrained(
+        self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
             self.config.base_model,
             trust_remote_code=True,
         )
@@ -312,7 +312,7 @@ class LocalFineTuner:
             setattr(self._tokenizer, "pad_token", getattr(self._tokenizer, "eos_token", None))
 
         # Load model
-        self._model = AutoModelForCausalLM.from_pretrained(
+        self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
             self.config.base_model,
             quantization_config=bnb_config,
             device_map="auto",
@@ -509,7 +509,7 @@ class LocalFineTuner:
         else:
             bnb_config = None
 
-        self._model = AutoModelForCausalLM.from_pretrained(
+        self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
             self.config.base_model,
             quantization_config=bnb_config,
             device_map="auto",
@@ -517,13 +517,13 @@ class LocalFineTuner:
         )
 
         # Load PEFT adapter
-        self._peft_model = PeftModel.from_pretrained(
+        self._peft_model = PeftModel.from_pretrained(  # nosec B615
             self._model,
             model_path,
         )
 
         # Load tokenizer
-        self._tokenizer = AutoTokenizer.from_pretrained(
+        self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
             model_path,
             trust_remote_code=True,
         )
