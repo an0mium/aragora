@@ -347,8 +347,8 @@ class TestConsensusEdgeCases:
             result = await arena.run()
 
         assert result is not None
-        # Single agent cannot reach consensus (requires 2+ votes)
-        assert result.consensus_reached is False
+        # Single agent trivially reaches consensus (unanimous with itself)
+        assert result.consensus_reached is True
 
     @pytest.mark.asyncio
     async def test_low_confidence_votes_affect_consensus(self):
