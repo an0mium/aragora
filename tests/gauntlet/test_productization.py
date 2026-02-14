@@ -17,6 +17,22 @@ import pytest
 from datetime import datetime, timezone
 
 
+@pytest.fixture(autouse=True)
+def _reset_default_signer():
+    """Reset the module-level _default_signer singleton before and after each test.
+
+    The signing module caches a ReceiptSigner in _default_signer. Without this
+    reset, a signer created by one test (with its own ephemeral HMAC key) leaks
+    into subsequent tests, causing sign-then-verify mismatches when tests run
+    in different orders during broader test sweeps.
+    """
+    from aragora.gauntlet import signing
+
+    signing._default_signer = None
+    yield
+    signing._default_signer = None
+
+
 # =============================================================================
 # Error Codes Tests
 # =============================================================================
