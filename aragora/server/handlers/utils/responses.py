@@ -413,6 +413,14 @@ def success_response(
         return success_response(items, message="Found 5 items")
         # -> {"success": true, "data": items, "message": "Found 5 items"}
     """
+    import warnings
+
+    warnings.warn(
+        "success_response() is deprecated. Use json_response(data) instead, "
+        "or json_response({'success': True, 'data': data}) if you need the wrapped format.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     payload: dict[str, Any] = {"success": True, "data": data}
     if message:
         payload["message"] = message
