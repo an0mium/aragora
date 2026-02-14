@@ -271,11 +271,12 @@ class PlanExecutor:
         store_plan(plan)
 
         # Emit PLAN_EXECUTING event
+        _exec_mode = execution_mode or self._execution_mode
         self._emit_plan_event("PLAN_EXECUTING", {
             "plan_id": plan.id,
             "debate_id": plan.debate_id,
             "workspace_id": (plan.metadata or {}).get("workspace_id", ""),
-            "execution_mode": mode if isinstance(mode, str) else str(mode),
+            "execution_mode": _exec_mode if isinstance(_exec_mode, str) else str(_exec_mode),
             "task": plan.task[:200],
         })
 
