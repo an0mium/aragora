@@ -549,9 +549,9 @@ class PRReviewRunner:
 
             debate_result = await run_review_debate(
                 diff=diff,
-                agents=self.agents.split(","),
+                agents_str=self.agents,
                 rounds=self.rounds,
-                focus=["security", "quality", "performance"],
+                focus_areas=["security", "quality", "performance"],
             )
             findings = extract_review_findings(debate_result)
             return findings, None
@@ -569,7 +569,7 @@ class PRReviewRunner:
         """Fallback: run review via aragora CLI subprocess."""
         cmd = [
             "aragora", "review",
-            "--format", "json",
+            "--output-format", "json",
             "--agents", self.agents,
             "--rounds", str(self.rounds),
         ]
