@@ -105,7 +105,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest ${{ matrix.test-group }} -v --timeout=30 --maxfail=5 --tb=short -n auto --dist=loadfile
+          pytest ${{ matrix.test-group }} -v --timeout=30 --maxfail=5 --tb=short -n auto
         env:
           PYTHONPATH: .
 

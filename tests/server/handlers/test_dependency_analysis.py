@@ -913,15 +913,20 @@ class TestDependencyAnalyzerSingleton:
     def test_get_dependency_analyzer_returns_same_instance(self):
         """Get dependency analyzer returns singleton."""
         with patch("aragora.server.handlers.dependency_analysis._dependency_analyzer", None):
-            with patch("aragora.audit.dependency_analyzer.DependencyAnalyzer") as mock_class:
-                mock_instance = MagicMock()
-                mock_class.return_value = mock_instance
+            # Reset circuit breaker so it doesn't block creation
+            with patch(
+                "aragora.server.handlers.dependency_analysis.get_dependency_circuit_breaker"
+            ) as mock_cb:
+                mock_cb.return_value.can_execute.return_value = True
+                with patch("aragora.audit.dependency_analyzer.DependencyAnalyzer") as mock_class:
+                    mock_instance = MagicMock()
+                    mock_class.return_value = mock_instance
 
-                # First call creates instance
-                analyzer1 = get_dependency_analyzer()
+                    # First call creates instance
+                    analyzer1 = get_dependency_analyzer()
 
-                # Verify mock was called
-                assert analyzer1 is not None
+                    # Verify mock was called
+                    assert analyzer1 is not None
 
 
 # =============================================================================
