@@ -78,7 +78,9 @@ class SynthesisGenerator:
                 "No proposals were generated. One or more agents may have failed to respond."
             )
             ctx.result.synthesis = synthesis
-            ctx.result.final_answer = synthesis
+            # Only set final_answer if the consensus phase didn't already set one
+            if not ctx.result.final_answer:
+                ctx.result.final_answer = synthesis
             self._emit_synthesis_events(ctx, synthesis, "fallback")
             self._generate_export_links(ctx)
             return True
@@ -100,7 +102,9 @@ class SynthesisGenerator:
         if synthesis:
             # Store synthesis in result
             ctx.result.synthesis = synthesis
-            ctx.result.final_answer = synthesis
+            # Only set final_answer if the consensus phase didn't already set one
+            if not ctx.result.final_answer:
+                ctx.result.final_answer = synthesis
 
             # Emit explicit synthesis event (guaranteed delivery)
             self._emit_synthesis_events(ctx, synthesis, synthesis_source)
@@ -168,7 +172,9 @@ class SynthesisGenerator:
 
         # Store synthesis in result
         ctx.result.synthesis = synthesis
-        ctx.result.final_answer = synthesis
+        # Only set final_answer if the consensus phase didn't already set one
+        if not ctx.result.final_answer:
+            ctx.result.final_answer = synthesis
 
         # Emit explicit synthesis event (guaranteed delivery)
         self._emit_synthesis_events(ctx, synthesis, synthesis_source)

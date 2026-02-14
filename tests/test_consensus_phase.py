@@ -714,7 +714,8 @@ class TestEdgeCases:
 
         await phase.execute(ctx)
 
-        assert ctx.result.final_answer == ""
+        # With no proposals, the consensus phase sets a descriptive fallback message
+        assert "No proposals" in ctx.result.final_answer
 
     @pytest.mark.asyncio
     async def test_unknown_consensus_mode(self):
@@ -932,6 +933,8 @@ class TestPhase11CEdgeCases:
     async def test_extremely_high_consensus_threshold(self):
         """Threshold of 0.99 - nearly impossible to reach."""
         protocol = MockProtocol(consensus="majority", consensus_threshold=0.99)
+        # Disable RLM early termination so all 10 agents vote
+        protocol.enable_rlm_early_termination = False
 
         vote_idx = [0]
 
@@ -1000,6 +1003,8 @@ class TestPhase11CEdgeCases:
         import asyncio
 
         protocol = MockProtocol(consensus="majority")
+        # Disable RLM early termination so all 5 agents complete voting
+        protocol.enable_rlm_early_termination = False
 
         async def slow_vote(agent, proposals, task):
             await asyncio.sleep(0.01)  # Simulate network delay

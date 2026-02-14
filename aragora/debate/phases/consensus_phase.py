@@ -264,6 +264,11 @@ class ConsensusPhase:
                 self.protocol, "position_shuffling_permutations", 3
             )
 
+            # RLM early termination can be disabled via protocol
+            enable_rlm_early_termination = getattr(
+                self.protocol, "enable_rlm_early_termination", True
+            )
+
             config = VoteCollectorConfig(
                 vote_with_agent=self._vote_with_agent,
                 with_timeout=self._with_timeout,
@@ -277,6 +282,8 @@ class ConsensusPhase:
                 # Agent-as-a-Judge position bias mitigation
                 enable_position_shuffling=enable_position_shuffling,
                 position_shuffling_permutations=position_shuffling_permutations,
+                # RLM early termination
+                enable_rlm_early_termination=enable_rlm_early_termination,
             )
             self._vote_collector_instance = VoteCollector(config)
         return self._vote_collector_instance
@@ -1153,7 +1160,7 @@ class ConsensusPhase:
     def _required_participation(self, total_agents: int) -> int:
         """Compute minimum required votes to proceed with consensus."""
         min_ratio = getattr(self.protocol, "min_participation_ratio", 0.5)
-        min_count = getattr(self.protocol, "min_participation_count", 2)
+        min_count = getattr(self.protocol, "min_participation_count", 1)
         required = max(min_count, math.ceil(total_agents * min_ratio))
         # Never require more votes than agents available
         return min(required, max(total_agents, 1))

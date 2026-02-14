@@ -1275,6 +1275,102 @@ class TestReceiptsHandlerGetShared:
         # Verify store was updated
         assert mock_share_store.shares["count-token"]["access_count"] > initial_count
 
+    @pytest.mark.asyncio
+    async def test_get_shared_html_format(
+        self, handler_with_share_store, mock_receipt_store, mock_share_store
+    ):
+        """Test shared receipt returns HTML when Accept header requests it."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+        future_time = datetime.now(timezone.utc).timestamp() + 86400
+        mock_share_store.shares["html-token"] = {
+            "token": "html-token",
+            "receipt_id": "r1",
+            "expires_at": future_time,
+            "max_accesses": None,
+            "access_count": 0,
+        }
+
+        # Add to_html to the stored receipt
+        receipt = mock_receipt_store.get("r1")
+        receipt.to_html = lambda: "<html>test</html>"
+        receipt.input_summary = "Test decision"
+        receipt.findings = []
+        receipt.agents_involved = ["agent-1"]
+        receipt.robustness_score = 0.9
+        receipt.coverage_score = 0.85
+        receipt.verification_coverage = 0.8
+
+        result = await handler_with_share_store.handle(
+            "GET",
+            "/api/v2/receipts/share/html-token",
+            headers={"Accept": "text/html"},
+        )
+
+        assert result.status_code == 200
+        assert "text/html" in result.content_type
+        body = result.body.decode("utf-8")
+        assert "Aragora" in body
+        assert "og:title" in body
+        assert "APPROVED" in body
+
+    @pytest.mark.asyncio
+    async def test_get_shared_html_query_param(
+        self, handler_with_share_store, mock_receipt_store, mock_share_store
+    ):
+        """Test shared receipt returns HTML with ?format=html query param."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+        future_time = datetime.now(timezone.utc).timestamp() + 86400
+        mock_share_store.shares["qp-token"] = {
+            "token": "qp-token",
+            "receipt_id": "r1",
+            "expires_at": future_time,
+            "max_accesses": None,
+            "access_count": 0,
+        }
+
+        receipt = mock_receipt_store.get("r1")
+        receipt.to_html = lambda: "<html>test</html>"
+        receipt.input_summary = "Test decision"
+        receipt.findings = []
+        receipt.agents_involved = []
+        receipt.robustness_score = 0.5
+        receipt.coverage_score = 0.5
+        receipt.verification_coverage = 0.5
+
+        result = await handler_with_share_store.handle(
+            "GET",
+            "/api/v2/receipts/share/qp-token",
+            query_params={"format": "html"},
+        )
+
+        assert result.status_code == 200
+        assert "text/html" in result.content_type
+
+    @pytest.mark.asyncio
+    async def test_get_shared_json_default_for_api(
+        self, handler_with_share_store, mock_receipt_store, mock_share_store
+    ):
+        """Test shared receipt returns JSON by default for API clients."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+        future_time = datetime.now(timezone.utc).timestamp() + 86400
+        mock_share_store.shares["api-token"] = {
+            "token": "api-token",
+            "receipt_id": "r1",
+            "expires_at": future_time,
+            "max_accesses": None,
+            "access_count": 0,
+        }
+
+        result = await handler_with_share_store.handle(
+            "GET",
+            "/api/v2/receipts/share/api-token",
+            headers={"Accept": "application/json"},
+        )
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["shared"] is True
+
 
 # ===========================================================================
 # Batch Signing Tests

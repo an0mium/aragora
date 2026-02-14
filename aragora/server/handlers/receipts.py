@@ -58,6 +58,133 @@ from aragora.server.validation.query_params import safe_query_int
 logger = logging.getLogger(__name__)
 
 
+def _render_shared_receipt_html(receipt: Any, token: str) -> str:
+    """Render a shared receipt as a self-contained HTML page with OG meta tags."""
+    import html as html_mod
+
+    esc = html_mod.escape
+    receipt_id = getattr(receipt, "receipt_id", "unknown")
+    verdict = getattr(receipt, "verdict", "UNKNOWN")
+    confidence = getattr(receipt, "confidence", 0.0)
+    risk_level = getattr(receipt, "risk_level", "unknown")
+    input_summary = getattr(receipt, "input_summary", "Decision receipt")
+    timestamp = getattr(receipt, "timestamp", "")
+    agents = getattr(receipt, "agents_involved", [])
+    findings = getattr(receipt, "findings", [])
+    checksum = getattr(receipt, "checksum", "")
+
+    verdict_colors = {
+        "APPROVED": "#28a745",
+        "APPROVED_WITH_CONDITIONS": "#ffc107",
+        "NEEDS_REVIEW": "#fd7e14",
+        "REJECTED": "#dc3545",
+    }
+    verdict_color = verdict_colors.get(verdict.upper() if verdict else "", "#6c757d")
+
+    findings_html = ""
+    for f in findings:
+        sev = getattr(f, "severity", "UNKNOWN")
+        title = getattr(f, "title", "")
+        desc = getattr(f, "description", "")
+        mit = getattr(f, "mitigation", "")
+        sev_color = {"CRITICAL": "#dc3545", "HIGH": "#fd7e14", "MEDIUM": "#ffc107", "LOW": "#28a745"}.get(sev, "#6c757d")
+        findings_html += f"""
+        <div style="border-left: 4px solid {sev_color}; padding: 12px 16px; margin: 12px 0; background: #f8f9fa; border-radius: 0 6px 6px 0;">
+            <strong style="color: {sev_color};">[{esc(sev)}]</strong> {esc(title)}
+            <p style="margin: 6px 0 0; color: #555;">{esc(desc)}</p>
+            {f'<p style="margin: 6px 0 0; font-style: italic; color: #666;">Mitigation: {esc(mit)}</p>' if mit else ""}
+        </div>"""
+
+    og_description = f"Verdict: {verdict} | Confidence: {confidence:.0%} | Risk: {risk_level}"
+    if findings:
+        og_description += f" | {len(findings)} finding(s)"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Receipt - {esc(receipt_id[:16])}</title>
+    <meta property="og:title" content="Aragora Decision Receipt">
+    <meta property="og:description" content="{esc(og_description)}">
+    <meta property="og:type" content="article">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Aragora Decision Receipt">
+    <meta name="twitter:description" content="{esc(og_description)}">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }}
+        .container {{ max-width: 800px; margin: 0 auto; padding: 24px 16px; }}
+        .header {{ text-align: center; padding: 24px 0 16px; }}
+        .header h1 {{ font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #666; margin-bottom: 4px; }}
+        .header .brand {{ font-size: 24px; font-weight: 700; color: #1a1a2e; }}
+        .card {{ background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 32px; margin-bottom: 16px; }}
+        .verdict-card {{ text-align: center; }}
+        .verdict-label {{ font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #888; }}
+        .verdict-value {{ font-size: 36px; font-weight: 800; color: {verdict_color}; margin: 8px 0; }}
+        .verdict-meta {{ font-size: 15px; color: #666; }}
+        .scores {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0 0; }}
+        .score {{ text-align: center; padding: 16px 8px; background: #f8f9fa; border-radius: 8px; }}
+        .score-val {{ font-size: 28px; font-weight: 700; color: #333; }}
+        .score-lbl {{ font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }}
+        .section-title {{ font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #1a1a2e; }}
+        .meta-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }}
+        .meta-row:last-child {{ border-bottom: none; }}
+        .meta-key {{ color: #888; }}
+        .meta-val {{ color: #333; font-weight: 500; font-family: monospace; }}
+        .footer {{ text-align: center; padding: 16px; color: #aaa; font-size: 12px; }}
+        .footer code {{ background: #f0f2f5; padding: 2px 6px; border-radius: 4px; font-size: 11px; }}
+        .badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Decision Receipt</h1>
+            <div class="brand">Aragora</div>
+        </div>
+
+        <div class="card verdict-card">
+            <div class="verdict-label">Verdict</div>
+            <div class="verdict-value">{esc(verdict)}</div>
+            <div class="verdict-meta">
+                Confidence: {confidence:.0%} &middot; Risk: {esc(risk_level)}
+            </div>
+            <div class="scores">
+                <div class="score">
+                    <div class="score-val">{getattr(receipt, 'robustness_score', 0):.0%}</div>
+                    <div class="score-lbl">Robustness</div>
+                </div>
+                <div class="score">
+                    <div class="score-val">{getattr(receipt, 'coverage_score', 0):.0%}</div>
+                    <div class="score-lbl">Coverage</div>
+                </div>
+                <div class="score">
+                    <div class="score-val">{getattr(receipt, 'verification_coverage', 0):.0%}</div>
+                    <div class="score-lbl">Verification</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Decision Details</div>
+            <div class="meta-row"><span class="meta-key">Input</span><span class="meta-val">{esc(str(input_summary)[:100])}</span></div>
+            <div class="meta-row"><span class="meta-key">Timestamp</span><span class="meta-val">{esc(str(timestamp))}</span></div>
+            <div class="meta-row"><span class="meta-key">Agents</span><span class="meta-val">{esc(', '.join(agents[:5]))}{' ...' if len(agents) > 5 else ''}</span></div>
+            <div class="meta-row"><span class="meta-key">Receipt ID</span><span class="meta-val">{esc(receipt_id[:24])}</span></div>
+        </div>
+
+        {"<div class='card'><div class='section-title'>Findings (" + str(len(findings)) + ")</div>" + findings_html + "</div>" if findings else ""}
+
+        <div class="footer">
+            <p>Integrity: <code>{esc(checksum[:32])}...</code></p>
+            <p style="margin-top: 8px;">Generated by <strong>Aragora</strong> &middot; Decision Integrity Platform</p>
+        </div>
+    </div>
+</body>
+</html>"""
+
+
 class ReceiptsHandler(BaseHandler):
     """
     HTTP handler for decision receipt operations.
@@ -156,7 +283,7 @@ class ReceiptsHandler(BaseHandler):
             # Access shared receipt (public endpoint)
             if path.startswith("/api/v2/receipts/share/") and method == "GET":
                 token = path.split("/api/v2/receipts/share/")[1].rstrip("/")
-                return await self._get_shared_receipt(token)
+                return await self._get_shared_receipt(token, query_params, headers)
 
             # List receipts
             if path == "/api/v2/receipts" and method == "GET":
@@ -1086,12 +1213,20 @@ class ReceiptsHandler(BaseHandler):
             }
         )
 
-    async def _get_shared_receipt(self, token: str) -> HandlerResult:
+    async def _get_shared_receipt(
+        self,
+        token: str,
+        query_params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> HandlerResult:
         """
         Access a receipt via share token.
 
         This is a public endpoint - no authentication required.
+        Returns HTML by default for browsers, JSON for API clients.
         """
+        query_params = query_params or {}
+        headers = headers or {}
         share_store = self._get_share_store()
         share_info = share_store.get_by_token(token)
 
@@ -1119,6 +1254,19 @@ class ReceiptsHandler(BaseHandler):
 
         if not receipt:
             return error_response("Receipt not found", 404)
+
+        # Determine format: HTML for browsers, JSON for API clients
+        fmt = query_params.get("format", "").lower()
+        accept = headers.get("Accept", headers.get("accept", ""))
+        wants_html = fmt == "html" or (not fmt and "text/html" in accept)
+
+        if wants_html and hasattr(receipt, "to_html"):
+            html_content = _render_shared_receipt_html(receipt, token)
+            return HandlerResult(
+                status_code=200,
+                body=html_content.encode("utf-8"),
+                content_type="text/html; charset=utf-8",
+            )
 
         return json_response(
             {
