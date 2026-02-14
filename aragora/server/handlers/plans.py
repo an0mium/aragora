@@ -129,6 +129,13 @@ class PlansHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle GET requests."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "plans:read")
+        if perm_err:
+            return perm_err
+
         self.set_request_context(handler, query_params)
         result = self._get_dispatcher.dispatch(path, query_params)
         if result is not None:
@@ -140,6 +147,13 @@ class PlansHandler(BaseHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Handle POST requests."""
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
+        _, perm_err = self.require_permission_or_error(handler, "plans:write")
+        if perm_err:
+            return perm_err
+
         self.set_request_context(handler, query_params)
         result = self._post_dispatcher.dispatch(path, query_params)
         if result is not None:
