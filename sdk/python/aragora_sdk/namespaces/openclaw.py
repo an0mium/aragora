@@ -24,11 +24,14 @@ class OpenclawAPI:
 
     # -- Session management ---------------------------------------------------
 
-    def list_sessions(self, skip: int = 0, limit: int = 100) -> dict[str, Any]:
+    def list_sessions(
+        self, skip: int = 0, limit: int = 100, status: str | None = None
+    ) -> dict[str, Any]:
         """List active OpenClaw sessions."""
-        return self._client.request(
-            "GET", "/api/v1/openclaw/sessions", params={"skip": skip, "limit": limit}
-        )
+        params: dict[str, Any] = {"skip": skip, "limit": limit}
+        if status is not None:
+            params["status"] = status
+        return self._client.request("GET", "/api/v1/openclaw/sessions", params=params)
 
     def create_session(self, **kwargs: Any) -> dict[str, Any]:
         """Create a new OpenClaw session."""
@@ -50,12 +53,17 @@ class OpenclawAPI:
 
     def execute_action(
         self,
+        session_id: str,
         action_type: str,
         input_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Submit a new action for execution."""
-        payload: dict[str, Any] = {"action_type": action_type, **kwargs}
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "action_type": action_type,
+            **kwargs,
+        }
         if input_data is not None:
             payload["input_data"] = input_data
         return self._client.request("POST", "/api/v1/openclaw/actions", json=payload)
@@ -166,11 +174,14 @@ class AsyncOpenclawAPI:
 
     # -- Session management ---------------------------------------------------
 
-    async def list_sessions(self, skip: int = 0, limit: int = 100) -> dict[str, Any]:
+    async def list_sessions(
+        self, skip: int = 0, limit: int = 100, status: str | None = None
+    ) -> dict[str, Any]:
         """List active OpenClaw sessions."""
-        return await self._client.request(
-            "GET", "/api/v1/openclaw/sessions", params={"skip": skip, "limit": limit}
-        )
+        params: dict[str, Any] = {"skip": skip, "limit": limit}
+        if status is not None:
+            params["status"] = status
+        return await self._client.request("GET", "/api/v1/openclaw/sessions", params=params)
 
     async def create_session(self, **kwargs: Any) -> dict[str, Any]:
         """Create a new OpenClaw session."""
@@ -192,12 +203,17 @@ class AsyncOpenclawAPI:
 
     async def execute_action(
         self,
+        session_id: str,
         action_type: str,
         input_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Submit a new action for execution."""
-        payload: dict[str, Any] = {"action_type": action_type, **kwargs}
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "action_type": action_type,
+            **kwargs,
+        }
         if input_data is not None:
             payload["input_data"] = input_data
         return await self._client.request("POST", "/api/v1/openclaw/actions", json=payload)
