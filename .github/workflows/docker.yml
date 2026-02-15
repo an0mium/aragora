@@ -184,7 +184,6 @@ jobs:
 
       - name: Run Trivy vulnerability scanner (operator)
         uses: aquasecurity/trivy-action@0.28.0
-        continue-on-error: true
         with:
           image-ref: 'test-operator:latest'
           format: 'sarif'

@@ -121,6 +121,7 @@ Examples:
     _add_agent_parser(subparsers)
     _add_analytics_parser(subparsers)
     _add_starter_parser(subparsers)
+    _add_handlers_parser(subparsers)
 
     return parser
 
@@ -1618,3 +1619,10 @@ def _add_starter_parser(subparsers) -> None:
     from aragora.cli.commands.starter import add_starter_parser
 
     add_starter_parser(subparsers)
+
+
+def _add_handlers_parser(subparsers) -> None:
+    """Add the 'handlers' subcommand parser for handler inventory."""
+    from aragora.cli.commands.handlers import add_handlers_parser
+
+    add_handlers_parser(subparsers)

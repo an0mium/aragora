@@ -101,6 +101,29 @@ def readiness_probe_fast(handler: Any) -> HandlerResult:
     except ImportError:
         checks["degraded_mode"] = True  # Module not available = not degraded
 
+    # Check server startup completed (in-memory, no I/O)
+    try:
+        from aragora.server.unified_server import is_server_ready
+
+        startup_complete = is_server_ready()
+        checks["startup_complete"] = startup_complete
+        if not startup_complete:
+            ready = False
+    except ImportError:
+        checks["startup_complete"] = True  # Module not available = skip check
+
+    # Check handler route index has been populated (in-memory, no I/O)
+    try:
+        from aragora.server.handler_registry.core import get_route_index
+
+        route_index = get_route_index()
+        has_routes = bool(route_index._exact_routes)
+        checks["handlers_initialized"] = has_routes
+        if not has_routes:
+            ready = False
+    except ImportError:
+        checks["handlers_initialized"] = True  # Module not available = skip check
+
     # Check storage initialization (fast - no DB queries)
     try:
         storage = handler.get_storage()

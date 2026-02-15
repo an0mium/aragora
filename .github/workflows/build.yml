@@ -99,6 +99,10 @@ jobs:
 
       - name: Sign container image
         if: github.event_name != 'pull_request'
+        # Non-blocking: Cosign keyless signing depends on Sigstore/Fulcio OIDC infrastructure
+        # which can have transient outages. The image is already pushed at this point.
+        # TODO: Make blocking once Sigstore infrastructure proves stable in our CI (track failures for 30 days)
+        continue-on-error: true
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
@@ -106,13 +110,14 @@ jobs:
           for tag in ${TAGS}; do
             cosign sign --yes "${tag}"
           done
-        continue-on-error: true
 
       - name: Attest SBOM
         if: github.event_name != 'pull_request'
+        # Non-blocking: Same as signing -- depends on Sigstore OIDC infrastructure availability
+        # TODO: Make blocking once Sigstore infrastructure proves stable in our CI (track failures for 30 days)
+        continue-on-error: true
         run: |
           cosign attest --yes --predicate sbom.spdx.json --type spdx ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        continue-on-error: true
 
   security-scan:
     needs: build
@@ -151,7 +156,6 @@ jobs:
           output: 'trivy-config-results.sarif'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
-        continue-on-error: true  # Findings uploaded to GitHub Security tab via SARIF
 
       - name: Run Trivy vulnerability scanner (Image)
         if: github.event_name != 'pull_request'
@@ -163,16 +167,19 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy config scan results
+        # Non-blocking: SARIF upload to GitHub Security tab is informational.
+        # The scan itself (above) is blocking; this step just pushes results to the Security tab.
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-config-results.sarif'
           category: 'trivy-config'
-        continue-on-error: true
 
       - name: Upload Trivy image scan results
         if: github.event_name != 'pull_request'
+        # Non-blocking: SARIF upload to GitHub Security tab is informational.
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-image-results.sarif'
           category: 'trivy-image'
-        continue-on-error: true
