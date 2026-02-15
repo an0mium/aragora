@@ -14,6 +14,14 @@ from pathlib import Path
 
 def cmd_serve(args: argparse.Namespace) -> None:
     """Handle 'serve' command - run live debate server."""
+    import os
+
+    # Demo mode: no API keys needed, uses SQLite, loads seed data
+    if getattr(args, "demo", False):
+        os.environ.setdefault("ARAGORA_OFFLINE", "true")
+        os.environ.setdefault("ARAGORA_DEMO_MODE", "true")
+        os.environ.setdefault("ARAGORA_DB_BACKEND", "sqlite")
+        os.environ.setdefault("ARAGORA_ENV", "development")
 
     try:
         from aragora.server.unified_server import run_unified_server
@@ -42,8 +50,10 @@ def cmd_serve(args: argparse.Namespace) -> None:
     workers = getattr(args, "workers", 1)
     workers = max(1, workers)
 
+    is_demo = getattr(args, "demo", False)
+
     print("\n" + "=" * 60)
-    print("ARAGORA LIVE DEBATE SERVER")
+    print("ARAGORA LIVE DEBATE SERVER" + (" [DEMO MODE]" if is_demo else ""))
     print("=" * 60)
 
     if workers == 1:

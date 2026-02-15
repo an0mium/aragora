@@ -661,6 +661,11 @@ Production deployment:
         default=1,
         help="Number of worker processes (default: 1). For production, use 2-4x CPU cores.",
     )
+    serve_parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Start in demo mode with seed data (no API keys needed, uses SQLite)",
+    )
     serve_parser.set_defaults(func=_lazy("aragora.cli.commands.server", "cmd_serve"))
 
 
