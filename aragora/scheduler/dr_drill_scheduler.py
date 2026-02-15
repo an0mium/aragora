@@ -921,7 +921,8 @@ class DRDrillScheduler:
                 result = handler()
                 return result
             except (OSError, RuntimeError, ValueError) as e:
-                return {"success": False, "error": str(e)}
+                logger.warning("Drill step handler failed: %s", e)
+                return {"success": False, "error": "Step execution failed"}
 
         # Default: simulate if no handler
         return await self._simulate_step(step)
