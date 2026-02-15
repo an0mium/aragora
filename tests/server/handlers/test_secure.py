@@ -27,6 +27,13 @@ from aragora.server.handlers.secure import (
 )
 from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
 
+# All tests in this module explicitly test security behavior (auth, permissions,
+# error handling).  They must control their own mocks for get_auth_context,
+# get_permission_checker, etc.  The conftest autouse fixtures that bypass RBAC
+# would conflict with the explicit @patch decorators used here, so we opt out
+# of auto-auth for the entire module.
+pytestmark = pytest.mark.no_auto_auth
+
 
 # ===========================================================================
 # Fixtures

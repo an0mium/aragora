@@ -263,6 +263,7 @@ class TestCachedHandlerMixin:
 # ===========================================================================
 
 
+@pytest.mark.no_auto_auth
 class TestAuthenticatedHandlerMixin:
     """Tests for AuthenticatedHandlerMixin."""
 
