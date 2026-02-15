@@ -1730,6 +1730,14 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/cross-pollination/subscribers', { params });
   }
 
+  async requestGetApiV1CostsAgents(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/costs/agents', { params });
+  }
+
+  async requestGetApiV1CostsAnomalies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/costs/anomalies', { params });
+  }
+
   async requestGetApiV1DashboardDebates(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/dashboard/debates', { params });
   }
@@ -1852,6 +1860,10 @@ export class OpenApiAPI {
 
   async requestGetApiV1DebatesByDebateIdCounterfactuals(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(debate_id)}/counterfactuals`, { params });
+  }
+
+  async requestGetApiV1DebatesByDebateIdCruxes(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(debate_id)}/cruxes`, { params });
   }
 
   async requestGetApiV1DebatesByDebateIdEvidence(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -3752,6 +3764,10 @@ export class OpenApiAPI {
 
   async requestPostApiV1PulseDebateTopic(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/pulse/debate-topic', { body, params });
+  }
+
+  async requestGetApiV1PulseSchedulerAnalytics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/pulse/scheduler/analytics', { params });
   }
 
   async requestPatchApiV1PulseSchedulerConfig(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {

@@ -255,4 +255,21 @@ export class BeliefNetworkAPI {
   async export(debateId: string, format: ExportFormat = 'json'): Promise<ExportResponse> {
     return this.client.request('GET', `/api/v1/belief-network/${debateId}/export`, { params: { format } });
   }
+
+  /**
+   * Get advanced crux analysis for a debate.
+   *
+   * Uses influence, disagreement, uncertainty, and centrality scores
+   * to identify debate-pivotal claims via the CruxDetector.
+   *
+   * @param debateId - The debate ID
+   * @param options.limit - Maximum cruxes to return (1-20, default: 5)
+   */
+  async getCruxAnalysis(debateId: string, options?: { limit?: number }): Promise<{
+    debate_id: string;
+    cruxes: Array<Record<string, unknown>>;
+    count: number;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/cruxes`, { params: options });
+  }
 }

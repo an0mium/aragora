@@ -22,6 +22,23 @@
 /**
  * Interface for belief client methods.
  */
+/**
+ * Crux analysis result from CruxDetector.
+ */
+export interface CruxAnalysis {
+  debate_id: string;
+  cruxes: Array<{
+    claim_id: string;
+    statement: string;
+    influence_score: number;
+    disagreement_score: number;
+    uncertainty_score: number;
+    centrality_score: number;
+    composite_score: number;
+  }>;
+  count: number;
+}
+
 interface BeliefClientInterface {
   getBeliefCruxes(debateId: string, params?: { top_k?: number }): Promise<BeliefCruxes>;
   getLoadBearingClaims(debateId: string, params?: { limit?: number }): Promise<LoadBearingClaims>;
@@ -29,6 +46,7 @@ interface BeliefClientInterface {
   exportBeliefNetwork(debateId: string, params?: { format?: ExportFormat }): Promise<BeliefExport>;
   getClaimSupport(debateId: string, claimId: string): Promise<ClaimSupport>;
   getClaimProvenance(debateId: string, claimId: string): Promise<ClaimProvenance>;
+  getCruxAnalysis(debateId: string, params?: { limit?: number }): Promise<CruxAnalysis>;
 }
 
 /**
@@ -238,5 +256,23 @@ export class BeliefAPI {
    */
   async getClaimProvenance(debateId: string, claimId: string): Promise<ClaimProvenance> {
     return this.client.getClaimProvenance(debateId, claimId);
+  }
+
+  /**
+   * Get advanced crux analysis for a debate.
+   *
+   * Uses influence, disagreement, uncertainty, and centrality scores
+   * to identify debate-pivotal claims via the CruxDetector.
+   *
+   * @param debateId - The debate ID
+   * @param options - Query options
+   * @param options.limit - Maximum cruxes to return (1-20, default: 5)
+   */
+  async getCruxAnalysis(
+    debateId: string,
+    options?: { limit?: number }
+  ): Promise<CruxAnalysis> {
+    const params = options?.limit ? { limit: options.limit } : undefined;
+    return this.client.getCruxAnalysis(debateId, params);
   }
 }

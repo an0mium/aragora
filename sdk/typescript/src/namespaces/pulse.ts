@@ -234,4 +234,17 @@ export class PulseAPI {
   }): Promise<{ debates: ScheduledDebate[]; total: number }> {
     return this.client.request('POST', '/api/pulse/scheduler/history', { params: options });
   }
+
+  /**
+   * Get scheduler runtime metrics and store analytics.
+   *
+   * Returns combined scheduler metrics (polls, debates created/failed,
+   * uptime) and store analytics (by platform, by category, daily counts).
+   */
+  async getSchedulerAnalytics(): Promise<{
+    scheduler_metrics: Record<string, unknown>;
+    store_analytics: Record<string, unknown>;
+  }> {
+    return this.client.request('GET', '/api/v1/pulse/scheduler/analytics');
+  }
 }
