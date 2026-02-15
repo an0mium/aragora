@@ -1340,7 +1340,7 @@ class TestRunBranchDeep:
 
         assert branch.status == CounterfactualStatus.FAILED
         assert "Branch failed" in branch.conclusion
-        assert "Network error" in branch.conclusion
+        assert "RuntimeError" in branch.conclusion
         assert branch.completed_at is not None
 
     @pytest.mark.asyncio

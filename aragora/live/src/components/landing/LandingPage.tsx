@@ -8,6 +8,7 @@ import { DebateProtocolSection } from './DebateProtocolSection';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import { CapabilitiesSection } from './CapabilitiesSection';
 import { TrustSection } from './TrustSection';
+import { PricingSection } from './PricingSection';
 import { Footer } from './Footer';
 
 export function LandingPage() {
@@ -22,6 +23,7 @@ export function LandingPage() {
         <TemplatePicker compact compactLimit={2} />
         <CapabilitiesSection />
         <TrustSection />
+        <PricingSection />
         <Footer />
       </main>
     </>

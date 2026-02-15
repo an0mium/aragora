@@ -495,7 +495,7 @@ class TestDebateSessionLifecycle:
             await session.wait_for_completion()
 
             assert session.state == DebateSessionState.FAILED
-            assert session.error_message == "Agent failure"
+            assert session.error_message == "Session failed: RuntimeError"
 
 
 class TestDebateSessionStateTransitions:
@@ -1553,7 +1553,7 @@ class TestDebateSessionErrorRecovery:
             await session.wait_for_completion()
 
             assert session.state == DebateSessionState.FAILED
-            assert session.error_message == "Execution failed"
+            assert session.error_message == "Session failed: RuntimeError"
 
     @pytest.mark.asyncio
     async def test_execution_error_emits_failed_event(
@@ -1579,7 +1579,7 @@ class TestDebateSessionErrorRecovery:
 
         failed_events = [e for e in events if e.type == SessionEventType.FAILED]
         assert len(failed_events) >= 1
-        assert "Test error" in failed_events[0].data.get("error", "")
+        assert "session_failed:RuntimeError" in failed_events[0].data.get("error", "")
 
     @pytest.mark.asyncio
     async def test_debate_cancelled_exception_handled(

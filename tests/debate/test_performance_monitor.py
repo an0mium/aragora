@@ -699,7 +699,7 @@ class TestTrackPhase:
                     ) as phase_metric:
                         raise RuntimeError("Test error")
 
-        assert phase_metric.error == "Test error"
+        assert phase_metric.error == "phase_error:RuntimeError"
         assert phase_metric.end_time is not None
 
     def test_track_multiple_phases(self):

@@ -340,7 +340,7 @@ class TestPropulsionEnginePropel:
 
         assert len(results) == 1
         assert results[0].success is False
-        assert "Handler error" in results[0].error_message
+        assert "failed: ValueError" in results[0].error_message
 
     @pytest.mark.asyncio
     async def test_propel_expired_payload(self, engine: PropulsionEngine):

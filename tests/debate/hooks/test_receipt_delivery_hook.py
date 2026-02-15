@@ -364,7 +364,7 @@ class TestWebhookDelivery:
             result = await hook._send_to_webhook(receipt, "https://example.com/webhook")
 
         assert result.success is False
-        assert "Connection refused" in result.error
+        assert "delivery_failed:webhook" in result.error
 
 
 # ============================================================================

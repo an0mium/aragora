@@ -1310,7 +1310,7 @@ class TestMatrixDebateRunner:
         assert len(result.results) == 1
         assert result.results[0].confidence == 0.0
         assert result.results[0].consensus_reached is False
-        assert "Timeout" in result.results[0].conclusion
+        assert "timed out" in result.results[0].conclusion
         assert result.results[0].metadata.get("error_type") == "timeout"
 
     @pytest.mark.asyncio
@@ -1346,7 +1346,7 @@ class TestMatrixDebateRunner:
         result = await runner.run_matrix("Error test", matrix)
 
         assert len(result.results) == 1
-        assert "Error: Invalid input" in result.results[0].conclusion
+        assert "data error" in result.results[0].conclusion
         assert result.results[0].metadata.get("error_type") == "data"
 
     @pytest.mark.asyncio
@@ -1364,7 +1364,7 @@ class TestMatrixDebateRunner:
         result = await runner.run_matrix("Unexpected test", matrix)
 
         assert len(result.results) == 1
-        assert "Error:" in result.results[0].conclusion
+        assert "unexpected error" in result.results[0].conclusion
         assert result.results[0].metadata.get("error_type") == "unexpected"
 
     @pytest.mark.asyncio
@@ -1416,7 +1416,7 @@ class TestMatrixDebateRunner:
         # Check failed scenario has error result
         failed = [r for r in result.results if r.confidence == 0]
         assert len(failed) == 1
-        assert "Error" in failed[0].conclusion
+        assert "error" in failed[0].conclusion.lower()
         assert failed[0].metadata.get("error_type") == "unexpected"
 
     @pytest.mark.asyncio

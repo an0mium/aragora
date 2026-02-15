@@ -47,7 +47,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       </div>
 
       <p className="text-acid-cyan font-mono text-xs sm:text-sm text-center mb-10 max-w-xl">
-        Orchestrate AI models across your org knowledge and channels. Get defensible decisions with audit trails.
+        Stop trusting one AI. Make 15+ models debate your decision, stress-test every angle, and deliver an audit-ready receipt.
       </p>
 
       {isDashboardMode ? (

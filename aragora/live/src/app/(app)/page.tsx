@@ -33,6 +33,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { LandingPage } from '@/components/LandingPage';
 import { DebateResultPreview, type DebateResponse } from '@/components/DebateResultPreview';
+import { RecentReceipts } from '@/components/RecentReceipts';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
@@ -420,6 +421,9 @@ export default function Home() {
                 <DebateResultPreview result={pendingDebateResult as unknown as DebateResponse} />
               </div>
             )}
+            <PanelErrorBoundary panelName="Recent Receipts">
+              <RecentReceipts limit={3} />
+            </PanelErrorBoundary>
             <PanelErrorBoundary panelName="Recent Debates">
               <DebateListPanel />
             </PanelErrorBoundary>
@@ -579,6 +583,11 @@ export default function Home() {
 
             {/* Verdict Card (when available) */}
             {hasVerdict && <VerdictCard events={events} />}
+
+            {/* Recent Decision Receipts - surfaced for quick access */}
+            <PanelErrorBoundary panelName="Recent Receipts">
+              <RecentReceipts limit={5} />
+            </PanelErrorBoundary>
           </>
         )}
 
