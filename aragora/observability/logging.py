@@ -457,7 +457,12 @@ def get_logger(name: str) -> StructuredLogger:
         return _loggers[name]
 
     if _log_config is None:
-        _log_config = configure_logging()
+        # Create a default config without configuring the root logger.
+        # Root logger configuration should only happen when configure_logging()
+        # is called explicitly at application startup (e.g., server, CLI).
+        # This prevents import-time side effects that pollute stderr with
+        # DEBUG output for library consumers.
+        _log_config = LogConfig.from_env()
 
     logger = logging.getLogger(name)
     structured = StructuredLogger(logger, _log_config)
