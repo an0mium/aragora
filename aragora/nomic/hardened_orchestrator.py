@@ -91,6 +91,12 @@ class HardenedConfig:
     )
     # Merge gate: maximum time for test run (seconds)
     merge_gate_timeout: int = 300
+    # Rate limiting: max calls per window
+    rate_limit_max_calls: int = 30
+    rate_limit_window_seconds: int = 60
+    # Circuit breaker: failures before opening per agent type
+    circuit_breaker_threshold: int = 3
+    circuit_breaker_timeout: int = 60  # seconds before half-open
 
 
 class HardenedOrchestrator(AutonomousOrchestrator):
@@ -115,6 +121,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         generate_receipts: bool = True,
         spectate_stream: bool = False,
         merge_gate_test_dirs: list[str] | None = None,
+        rate_limit_max_calls: int = 30,
+        rate_limit_window_seconds: int = 60,
+        circuit_breaker_threshold: int = 3,
+        circuit_breaker_timeout: int = 60,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -132,6 +142,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             generate_receipts=generate_receipts,
             spectate_stream=spectate_stream,
             merge_gate_test_dirs=merge_gate_test_dirs or ["tests/"],
+            rate_limit_max_calls=rate_limit_max_calls,
+            rate_limit_window_seconds=rate_limit_window_seconds,
+            circuit_breaker_threshold=circuit_breaker_threshold,
+            circuit_breaker_timeout=circuit_breaker_timeout,
         )
 
         # Budget tracking (simple float counter, legacy)
@@ -154,6 +168,15 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # Generated receipts
         self._receipts: list[Any] = []
+
+        # Rate limiting: sliding window of call timestamps
+        self._rate_limit_semaphore = asyncio.Semaphore(rate_limit_max_calls)
+        self._call_timestamps: collections.deque[float] = collections.deque()
+
+        # Circuit breaker: per-agent-type failure tracking
+        self._agent_circuit_breakers: dict[str, Any] = {}
+        self._agent_failure_counts: dict[str, int] = collections.defaultdict(int)
+        self._agent_open_until: dict[str, float] = {}
 
     def _init_budget_manager(self, config: BudgetEnforcementConfig) -> None:
         """Initialize BudgetManager integration."""

@@ -495,7 +495,8 @@ class WorktreeManager:
 
     def _revert_merge(self, commit_sha: str) -> bool:
         """Revert a merge commit. Returns True if successful."""
-        result = self._run_git("revert", "--no-edit", commit_sha)
+        # Use -m 1 to revert merge commits (select first parent)
+        result = self._run_git("revert", "-m", "1", "--no-edit", commit_sha)
         return result.returncode == 0
 
     async def cleanup_worktree(self, ctx: WorktreeContext) -> bool:

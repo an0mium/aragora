@@ -134,6 +134,28 @@ from aragora.nomic.branch_coordinator import (
     WorktreeInfo,
 )
 
+# Scope guard (track boundary enforcement)
+from aragora.nomic.scope_guard import (
+    DEFAULT_TRACK_SCOPES,
+    PROTECTED_FILES,
+    ScopeGuard,
+    ScopeViolation,
+    TrackScope,
+)
+
+# Session manifest (multi-agent session tracking)
+from aragora.nomic.session_manifest import (
+    SessionEntry,
+    SessionManifest,
+)
+
+# Event bus (cross-worktree IPC)
+from aragora.nomic.event_bus import (
+    VALID_EVENT_TYPES,
+    EventBus,
+    WorktreeEvent,
+)
+
 # Legacy NomicLoop API (compatibility)
 from aragora.nomic.loop import NomicLoop
 
@@ -459,6 +481,19 @@ __all__ = [
     "ConflictReport",
     "MergeResult",
     "CoordinationResult",
+    # Scope guard
+    "ScopeGuard",
+    "ScopeViolation",
+    "TrackScope",
+    "DEFAULT_TRACK_SCOPES",
+    "PROTECTED_FILES",
+    # Session manifest
+    "SessionManifest",
+    "SessionEntry",
+    # Event bus
+    "EventBus",
+    "WorktreeEvent",
+    "VALID_EVENT_TYPES",
     # Cross-cycle learning
     "NomicCycleRecord",
     "AgentContribution",

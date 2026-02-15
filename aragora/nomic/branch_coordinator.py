@@ -941,7 +941,7 @@ class BranchCoordinator:
 
             # Step 5: Auto-revert if post-merge tests fail
             if not post_passed and auto_revert:
-                revert_result = self._run_git("revert", "--no-edit", commit_sha, check=False)
+                revert_result = self._run_git("revert", "-m", "1", "--no-edit", commit_sha, check=False)
                 revert_msg = " (reverted)" if revert_result.returncode == 0 else " (revert failed)"
                 logger.warning(
                     "merge_gate_post_failed source=%s sha=%s%s",
