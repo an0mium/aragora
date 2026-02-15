@@ -754,7 +754,7 @@ class TeamsOAuthHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Tenant store not available: {e}")
             return error_response("Tenant storage not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to list tenants: {e}")
             return error_response("Failed to list tenants", 500)
 

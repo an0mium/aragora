@@ -238,7 +238,7 @@ class DocumentHandler(BaseHandler):
             if doc:
                 return json_response(doc.to_dict())
             return error_response(f"Document not found: {doc_id}", 404)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             return error_response(safe_error_message(e, "get document"), 500)
 
     def _check_upload_rate_limit(self, handler: Any) -> HandlerResult | None:
