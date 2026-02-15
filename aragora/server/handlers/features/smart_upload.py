@@ -895,7 +895,8 @@ async def _expand_archive(
                         }
                     )
         except Exception as e:
-            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
+            logger.warning("Archive expansion failed: %s", e)
+            return error_dict("Archive expansion failed", code="INTERNAL_ERROR", status=500)
 
     elif ext in (".tar", ".gz", ".tgz"):
         try:
@@ -911,7 +912,8 @@ async def _expand_archive(
                         }
                     )
         except Exception as e:
-            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
+            logger.warning("Archive expansion failed: %s", e)
+            return error_dict("Archive expansion failed", code="INTERNAL_ERROR", status=500)
 
     return {
         "expanded": True,

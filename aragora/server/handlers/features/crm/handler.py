@@ -88,7 +88,8 @@ class CRMHandler(
         except UnauthorizedError:
             return self._error_response(401, "Authentication required")
         except ForbiddenError as e:
-            return self._error_response(403, str(e))
+            logger.warning("CRM access denied: %s", e)
+            return self._error_response(403, "Permission denied")
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""

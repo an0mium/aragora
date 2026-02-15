@@ -97,7 +97,7 @@ class GauntletReceiptsMixin:
                     return json_response(body, status=status)
             except (OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Storage lookup failed for {gauntlet_id}: {e}")
-                body, status = gauntlet_error_response("storage_error", {"reason": str(e)})
+                body, status = gauntlet_error_response("storage_error", {"reason": "Storage lookup failed"})
                 return json_response(body, status=status)
 
         # Generate receipt

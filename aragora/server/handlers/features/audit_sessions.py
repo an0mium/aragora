@@ -152,7 +152,7 @@ class AuditSessionsHandler(SecureHandler):
             return self._error_response(401, "Authentication required for audit sessions")
         except ForbiddenError as e:
             logger.warning(f"Audit session access denied: {e}")
-            return self._error_response(403, str(e))
+            return self._error_response(403, "Permission denied")
 
         # Route to appropriate handler
         if path.endswith("/sessions") and method == "POST":

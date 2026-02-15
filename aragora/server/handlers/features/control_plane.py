@@ -154,7 +154,7 @@ class AgentDashboardHandler(SecureHandler):
             return self._error_response(401, "Authentication required for control plane")
         except ForbiddenError as e:
             logger.warning(f"Control plane access denied: {e}")
-            return self._error_response(403, str(e))
+            return self._error_response(403, "Permission denied")
 
         # Parse agent_id from path if present
         agent_id = None

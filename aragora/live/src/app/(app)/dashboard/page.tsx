@@ -8,6 +8,7 @@ import { useRightSidebar } from '@/context/RightSidebarContext';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
+import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
 
 export default function DashboardPage() {
   const [recentDebates, setRecentDebates] = useState<DebateArtifact[]>([]);
@@ -245,6 +246,11 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Cost Overview */}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CostSummaryWidget />
           </div>
 
           {/* Feature Grid */}
