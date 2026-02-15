@@ -260,8 +260,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             try:
                 from aragora.spectate.stream import SpectatorStream
 
-                SpectatorStream.emit(event_type=event_type, data=data)
-            except ImportError:
+                details = " ".join(f"{k}={v}" for k, v in data.items())
+                SpectatorStream.emit(event_type=event_type, details=details)
+            except (ImportError, TypeError):
                 pass
             logger.info(
                 "spectate_event type=%s %s",

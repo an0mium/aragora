@@ -1581,7 +1581,7 @@ class TestAgentPoolManager:
 
     def test_task_to_elo_domain_general(self):
         """Unmatched tasks map to general domain."""
-        sub = _make_subtask(description="Refactor utility module")
+        sub = _make_subtask(title="Refactor utility", description="Clean up helpers")
         assert HardenedOrchestrator._task_to_elo_domain(sub) == "general"
 
     def test_record_agent_outcome_tracks_successes(self):
