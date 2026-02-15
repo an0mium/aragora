@@ -141,7 +141,7 @@ async def handle_get_team_members(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to get team members")
         return error_response(safe_error_message(e, "get team members"), status=500)
 
@@ -240,7 +240,7 @@ async def handle_add_team_member(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to add team member")
         return error_response(safe_error_message(e, "add team member"), status=500)
 
@@ -301,7 +301,7 @@ async def handle_remove_team_member(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to remove team member")
         return error_response(safe_error_message(e, "remove team member"), status=500)
 
@@ -354,7 +354,7 @@ async def handle_start_viewing(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to start viewing")
         return error_response(safe_error_message(e, "start viewing"), status=500)
 
@@ -396,7 +396,7 @@ async def handle_stop_viewing(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to stop viewing")
         return error_response(safe_error_message(e, "stop viewing"), status=500)
 
@@ -441,7 +441,7 @@ async def handle_start_typing(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to start typing")
         return error_response(safe_error_message(e, "start typing"), status=500)
 
@@ -483,7 +483,7 @@ async def handle_stop_typing(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to stop typing")
         return error_response(safe_error_message(e, "stop typing"), status=500)
 
@@ -524,7 +524,7 @@ async def handle_get_notes(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to get notes")
         return error_response(safe_error_message(e, "get notes"), status=500)
 
@@ -582,7 +582,7 @@ async def handle_add_note(
                         inbox_id=inbox_id,
                         context=content[:100],  # First 100 chars as context
                     )
-                except Exception as mention_error:
+                except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as mention_error:
                     logger.warning(f"Failed to create mention for {username}: {mention_error}")
 
         # Persist activity log
@@ -608,7 +608,7 @@ async def handle_add_note(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to add note")
         return error_response(safe_error_message(e, "add note"), status=500)
 
@@ -667,7 +667,7 @@ async def handle_get_mentions(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to get mentions")
         return error_response(safe_error_message(e, "get mentions"), status=500)
 
@@ -719,7 +719,7 @@ async def handle_acknowledge_mention(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to acknowledge mention")
         return error_response(safe_error_message(e, "acknowledge mention"), status=500)
 
@@ -782,7 +782,7 @@ async def handle_get_activity_feed(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.exception("Failed to get activity feed")
         return error_response(safe_error_message(e, "get activity feed"), status=500)
 

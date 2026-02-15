@@ -97,7 +97,7 @@ class DashboardViewsMixin:
                         )
                         row = cursor.fetchone()
                         overview["total_debates_today"] = row[0] if row else 0
-                except Exception as e:
+                except (OSError, ValueError, TypeError) as e:
                     logger.debug("Could not get today's debates count: %s", e)
 
             # Agent performance as stat cards
@@ -106,7 +106,7 @@ class DashboardViewsMixin:
                 {"label": "Total Agents", "value": perf.get("total_agents", 0)},
                 {"label": "Avg ELO", "value": perf.get("avg_elo", 0)},
             ]
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Overview error: %s: %s", type(e).__name__, e)
 
         return json_response(overview)
@@ -198,7 +198,7 @@ class DashboardViewsMixin:
                                 "created_at": row[5],
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dashboard debates error: %s: %s", type(e).__name__, e)
 
         return json_response({"debates": debates, "total": total})
@@ -304,7 +304,7 @@ class DashboardViewsMixin:
                         for row in cursor.fetchall():
                             if row[0]:
                                 stats["debates"]["by_status"][row[0]] = row[1]
-                except Exception as e:
+                except (OSError, ValueError, TypeError) as e:
                     logger.debug("Could not get debate stats: %s", e)
 
             # Agent stats from ELO
@@ -320,7 +320,7 @@ class DashboardViewsMixin:
                 stats["performance"]["error_rate"] = round(
                     1.0 - stats["performance"]["success_rate"], 3
                 )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dashboard stats error: %s: %s", type(e).__name__, e)
 
         return json_response(stats)
@@ -386,7 +386,7 @@ class DashboardViewsMixin:
                     "icon": "award",
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Stat cards error: %s: %s", type(e).__name__, e)
 
         return json_response({"cards": cards})
@@ -441,7 +441,7 @@ class DashboardViewsMixin:
                 )
 
             teams.sort(key=lambda t: t["avg_elo"], reverse=True)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, ZeroDivisionError) as e:
             logger.warning("Team performance error: %s: %s", type(e).__name__, e)
 
         paginated = teams[offset : offset + limit]
@@ -493,7 +493,7 @@ class DashboardViewsMixin:
 
             pm = self._get_performance_metrics()
             detail["avg_response_time_ms"] = pm.get("avg_latency_ms", 0.0)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, ZeroDivisionError) as e:
             logger.warning("Team detail error: %s: %s", type(e).__name__, e)
 
         return json_response(detail)
@@ -533,7 +533,7 @@ class DashboardViewsMixin:
                                 "debate_count": row[1],
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Top senders error: %s: %s", type(e).__name__, e)
 
         return json_response({"senders": senders, "total": len(senders)})
@@ -568,7 +568,7 @@ class DashboardViewsMixin:
                                 "count": row[1],
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Labels error: %s: %s", type(e).__name__, e)
 
         return json_response({"labels": labels})
@@ -618,7 +618,7 @@ class DashboardViewsMixin:
                                 "created_at": row[4],
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Activity feed error: %s: %s", type(e).__name__, e)
 
         return json_response({"activity": activity, "total": total})
@@ -668,9 +668,9 @@ class DashboardViewsMixin:
                         )
                         row = cursor.fetchone()
                         summary["today_count"] = row[0] if row else 0
-                except Exception as e:
+                except (OSError, ValueError, TypeError) as e:
                     logger.debug("Could not get today's inbox count: %s", e)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Inbox summary error: %s: %s", type(e).__name__, e)
 
         return json_response(summary)

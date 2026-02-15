@@ -118,9 +118,7 @@ class TestWorktreeManager:
         mgr._hook_runner = mock_runner
 
         with pytest.raises(RuntimeError, match="branch conflict"):
-            await mgr.create_worktree_for_subtask(
-                _make_subtask(), Track.QA, "codex"
-            )
+            await mgr.create_worktree_for_subtask(_make_subtask(), Track.QA, "codex")
 
     @pytest.mark.asyncio
     async def test_run_tests_no_paths(self, tmp_path):
@@ -153,7 +151,10 @@ class TestWorktreeManager:
         # Mock subprocess to hang
         with patch("aragora.nomic.worktree_manager.asyncio.to_thread") as mock_thread:
             mock_thread.side_effect = asyncio.TimeoutError()
-            with patch("aragora.nomic.worktree_manager.asyncio.wait_for", side_effect=asyncio.TimeoutError()):
+            with patch(
+                "aragora.nomic.worktree_manager.asyncio.wait_for",
+                side_effect=asyncio.TimeoutError(),
+            ):
                 result = await mgr.run_tests_in_worktree(ctx, ["tests/"], timeout=1)
 
         assert result["success"] is False
@@ -393,9 +394,7 @@ class TestPromptInjectionDefense:
         mock_result.findings = [mock_finding]
         mock_result.risk_score = 90
 
-        with patch(
-            "aragora.compat.openclaw.skill_scanner.SkillScanner"
-        ) as MockScanner:
+        with patch("aragora.compat.openclaw.skill_scanner.SkillScanner") as MockScanner:
             MockScanner.return_value.scan_text.return_value = mock_result
 
             with pytest.raises(ValueError, match="prompt injection detected"):
@@ -412,9 +411,7 @@ class TestPromptInjectionDefense:
         mock_result.risk_score = 0
         mock_result.findings = []
 
-        with patch(
-            "aragora.compat.openclaw.skill_scanner.SkillScanner"
-        ) as MockScanner:
+        with patch("aragora.compat.openclaw.skill_scanner.SkillScanner") as MockScanner:
             MockScanner.return_value.scan_text.return_value = mock_result
             # Should not raise
             orch._scan_for_injection("Improve test coverage", None)
@@ -423,9 +420,7 @@ class TestPromptInjectionDefense:
         """When defense is off, no scan is performed."""
         orch = HardenedOrchestrator(enable_prompt_defense=False)
 
-        with patch(
-            "aragora.compat.openclaw.skill_scanner.SkillScanner"
-        ) as MockScanner:
+        with patch("aragora.compat.openclaw.skill_scanner.SkillScanner") as MockScanner:
             orch._scan_for_injection("anything", None)
             MockScanner.assert_not_called()
 
@@ -451,9 +446,7 @@ class TestGauntletValidation:
         mock_result = MagicMock()
         mock_result.findings = [mock_finding]
 
-        with patch(
-            "aragora.gauntlet.runner.GauntletRunner"
-        ) as MockRunner:
+        with patch("aragora.gauntlet.runner.GauntletRunner") as MockRunner:
             runner_instance = MockRunner.return_value
             runner_instance.run = AsyncMock(return_value=mock_result)
 
@@ -473,9 +466,7 @@ class TestGauntletValidation:
         mock_result = MagicMock()
         mock_result.findings = []
 
-        with patch(
-            "aragora.gauntlet.runner.GauntletRunner"
-        ) as MockRunner:
+        with patch("aragora.gauntlet.runner.GauntletRunner") as MockRunner:
             runner_instance = MockRunner.return_value
             runner_instance.run = AsyncMock(return_value=mock_result)
 
@@ -649,9 +640,7 @@ class TestBudgetManagerIntegration:
         mock_bm = MagicMock()
         mock_budget = MagicMock()
         mock_budget.usage_percentage = 0.5
-        mock_budget.can_spend_extended.return_value = MagicMock(
-            allowed=True, message="ok"
-        )
+        mock_budget.can_spend_extended.return_value = MagicMock(allowed=True, message="ok")
         mock_bm.get_budget.return_value = mock_budget
 
         orch = HardenedOrchestrator(budget_limit_usd=10.0)
@@ -697,9 +686,7 @@ class TestBudgetManagerIntegration:
         mock_budget.usage_percentage = 0.5
         mock_budget.spent_usd = 5.0
         mock_budget.amount_usd = 10.0
-        mock_budget.can_spend_extended.return_value = MagicMock(
-            allowed=False, message="over limit"
-        )
+        mock_budget.can_spend_extended.return_value = MagicMock(allowed=False, message="over limit")
         mock_bm.get_budget.return_value = mock_budget
 
         orch = HardenedOrchestrator(budget_limit_usd=10.0)
@@ -785,9 +772,7 @@ class TestBudgetManagerIntegration:
             new_callable=AsyncMock,
         ) as mock_parent:
             mock_parent.return_value = None
-            with patch.object(
-                orch, "_record_budget_spend"
-            ) as mock_record:
+            with patch.object(orch, "_record_budget_spend") as mock_record:
                 await orch._execute_single_assignment(assignment, max_cycles=3)
                 mock_record.assert_called_once_with(assignment)
 
@@ -1006,9 +991,7 @@ class TestWorktreeIsolation:
             agent_type="claude",
         )
         mock_mgr.create_worktree_for_subtask = AsyncMock(return_value=mock_ctx)
-        mock_mgr.merge_worktree = AsyncMock(
-            return_value={"success": False, "error": "conflicts"}
-        )
+        mock_mgr.merge_worktree = AsyncMock(return_value={"success": False, "error": "conflicts"})
         mock_mgr.cleanup_worktree = AsyncMock(return_value=True)
         orch._worktree_manager = mock_mgr
 
@@ -1017,6 +1000,7 @@ class TestWorktreeIsolation:
             "_execute_single_assignment",
             new_callable=AsyncMock,
         ) as mock_parent:
+
             async def set_completed(a, mc):
                 a.status = "completed"
                 a.result = {"workflow_result": "done"}
@@ -1456,3 +1440,75 @@ class TestReviewGate:
 
             result = await orch._run_review_gate(assignment, tmp_path)
             assert result is True
+
+
+class TestSandboxValidation:
+    """Tests for sandbox execution verification before commit."""
+
+    @pytest.mark.asyncio
+    async def test_sandbox_disabled(self, tmp_path):
+        """Passes when disabled."""
+        orch = HardenedOrchestrator(enable_sandbox_validation=False)
+        assignment = _make_assignment(status="completed")
+        result = await orch._run_sandbox_validation(assignment, tmp_path)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_sandbox_no_modified_files(self, tmp_path):
+        """Passes when no Python files are modified."""
+        orch = HardenedOrchestrator(enable_sandbox_validation=True)
+        assignment = _make_assignment(status="completed")
+
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            mock_result = MagicMock()
+            mock_result.stdout = "README.md\npackage.json\n"
+            mock_thread.return_value = mock_result
+
+            result = await orch._run_sandbox_validation(assignment, tmp_path)
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_sandbox_valid_python(self, tmp_path):
+        """Valid Python files pass sandbox validation."""
+        orch = HardenedOrchestrator(enable_sandbox_validation=True)
+        assignment = _make_assignment(status="completed")
+
+        # Create a valid Python file
+        py_file = tmp_path / "valid.py"
+        py_file.write_text("def hello():\n    return 'world'\n")
+
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            # First call: git diff --name-only returns file list
+            mock_git = MagicMock()
+            mock_git.stdout = "valid.py\n"
+            # Second call: py_compile succeeds
+            mock_compile = MagicMock()
+            mock_compile.returncode = 0
+            mock_thread.side_effect = [mock_git, mock_compile]
+
+            # Mock ImportError for SandboxExecutor to use fallback
+            with patch.dict("sys.modules", {"aragora.sandbox.executor": None}):
+                result = await orch._run_sandbox_validation(assignment, tmp_path)
+                assert result is True
+
+    @pytest.mark.asyncio
+    async def test_sandbox_invalid_python_fails(self, tmp_path):
+        """Invalid Python files fail sandbox validation."""
+        orch = HardenedOrchestrator(enable_sandbox_validation=True)
+        assignment = _make_assignment(status="completed")
+
+        # Create an invalid Python file
+        py_file = tmp_path / "broken.py"
+        py_file.write_text("def hello(\n    broken syntax\n")
+
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            mock_git = MagicMock()
+            mock_git.stdout = "broken.py\n"
+            mock_compile = MagicMock()
+            mock_compile.returncode = 1
+            mock_compile.stderr = "SyntaxError: invalid syntax"
+            mock_thread.side_effect = [mock_git, mock_compile]
+
+            with patch.dict("sys.modules", {"aragora.sandbox.executor": None}):
+                result = await orch._run_sandbox_validation(assignment, tmp_path)
+                assert result is False

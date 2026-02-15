@@ -15,6 +15,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
+
 ROOT = Path(__file__).resolve().parents[2]
 
 # =========================================================================

@@ -308,7 +308,7 @@ class EcommerceHandler(SecureHandler):
         """Connect an e-commerce platform with credentials."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Ecommerce connect_platform: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -363,7 +363,7 @@ class EcommerceHandler(SecureHandler):
             connector = await self._get_connector(platform)
             if connector:
                 _platform_connectors[platform] = connector
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.warning(f"Could not initialize {platform} connector: {e}")
 
         logger.info(f"Connected e-commerce platform: {platform}")
@@ -484,7 +484,7 @@ class EcommerceHandler(SecureHandler):
             logger.error(f"Connection error fetching {platform} orders: {e}")
         except ValueError as e:
             logger.error(f"Data error fetching {platform} orders: {e}")
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(f"Unexpected error fetching {platform} orders: {type(e).__name__}: {e}")
 
         return []
@@ -547,7 +547,7 @@ class EcommerceHandler(SecureHandler):
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError as e:
             return self._error_response(400, "Invalid order request")
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
                 f"Error fetching order {order_id} from {platform}: {type(e).__name__}: {e}"
             )
@@ -619,7 +619,7 @@ class EcommerceHandler(SecureHandler):
             logger.error(f"Connection error fetching {platform} products: {e}")
         except ValueError as e:
             logger.error(f"Data error fetching {platform} products: {e}")
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(f"Unexpected error fetching {platform} products: {type(e).__name__}: {e}")
 
         return []
@@ -682,7 +682,7 @@ class EcommerceHandler(SecureHandler):
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError as e:
             return self._error_response(400, "Invalid product request")
-        except Exception as e:
+        except (TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
                 f"Error fetching product {product_id} from {platform}: {type(e).__name__}: {e}"
             )
@@ -731,7 +731,7 @@ class EcommerceHandler(SecureHandler):
                         for i in inv
                     ]
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error fetching {platform} inventory: {e}")
                 inventory[platform] = [{"error": "Failed to fetch inventory"}]
 
@@ -747,7 +747,7 @@ class EcommerceHandler(SecureHandler):
         """Sync inventory across platforms."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Ecommerce sync_inventory: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -808,7 +808,7 @@ class EcommerceHandler(SecureHandler):
                         f"Connection error fetching source inventory from {source_platform} "
                         f"for SKU {sku}: {e}"
                     )
-                except Exception as e:
+                except (ValueError, TypeError, AttributeError, KeyError) as e:
                     logger.error(
                         f"Error fetching source inventory from {source_platform} "
                         f"for SKU {sku}: {type(e).__name__}: {e}"
@@ -843,7 +843,7 @@ class EcommerceHandler(SecureHandler):
                     f"(SKU: {sku}, quantity: {quantity}): {e}"
                 )
                 results[platform] = {"error": f"Platform temporarily unavailable: {e}"}
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
                 logger.error(
                     f"Error syncing inventory to {platform} "
                     f"(SKU: {sku}, quantity: {quantity}): {type(e).__name__}: {e}"
@@ -921,7 +921,7 @@ class EcommerceHandler(SecureHandler):
                             }
                         )
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error fetching {p} fulfillment: {e}")
 
         return self._json_response(
@@ -936,7 +936,7 @@ class EcommerceHandler(SecureHandler):
         """Create a shipment for an order."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Ecommerce create_shipment: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 

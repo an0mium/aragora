@@ -16,8 +16,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
 
-from aragora_sdk.websocket import (
+from aragora_sdk.websocket import (  # noqa: E402
     EVENT_TYPES,
     AragoraWebSocket,
     WebSocketEvent,

@@ -208,7 +208,7 @@ class OAuthWizardHandler(SecureHandler):
         # All wizard endpoints require authentication
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
-        except (UnauthorizedError, Exception) as e:
+        except (UnauthorizedError, PermissionDeniedError, ValueError, RuntimeError) as e:
             logger.debug(f"OAuth wizard auth failed: {e}")
             return error_response("Authentication required", 401)
 
@@ -262,7 +262,7 @@ class OAuthWizardHandler(SecureHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in OAuth wizard handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -533,7 +533,7 @@ class OAuthWizardHandler(SecureHandler):
                 return await self._check_email_connection()
             else:
                 return {"status": "unchecked", "reason": "No health check available"}
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning("Connection check failed for provider: %s", e)
             return {"status": "error", "error": "Connection check failed"}
 
@@ -560,7 +560,7 @@ class OAuthWizardHandler(SecureHandler):
             store = await self._maybe_await(get_slack_workspace_store())
             self._normalize_mock_side_effect(store.list_active)
             workspaces = await self._maybe_await(store.list_active(limit=1))
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
             logger.warning("Slack connection check failed: %s", e)
             return {"status": "error", "error": "Slack connection check failed"}
 
@@ -586,7 +586,7 @@ class OAuthWizardHandler(SecureHandler):
             store = await self._maybe_await(get_teams_tenant_store())
             self._normalize_mock_side_effect(store.list_active)
             workspaces = await self._maybe_await(store.list_active(limit=1))
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
             logger.warning("Teams connection check failed: %s", e)
             return {"status": "error", "error": "Teams connection check failed"}
 
@@ -632,7 +632,7 @@ class OAuthWizardHandler(SecureHandler):
                 return {"status": "connected", "smtp_host": smtp_host, "smtp_port": smtp_port}
             else:
                 return {"status": "unreachable", "smtp_host": smtp_host, "smtp_port": smtp_port}
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Email connection check failed: %s", e)
             return {"status": "error", "error": "SMTP connection check failed"}
 
@@ -662,7 +662,7 @@ class OAuthWizardHandler(SecureHandler):
                     "tested_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Connection test failed for {provider_id}: {e}")
             return json_response(
                 {
@@ -705,7 +705,7 @@ class OAuthWizardHandler(SecureHandler):
                         "team_id": data.get("team_id"),
                     }
                 return {"success": False, "error": data.get("error", "Unknown")}
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
             logger.warning("Slack API test failed: %s", e)
             return {"success": False, "error": "Slack API test failed"}
 

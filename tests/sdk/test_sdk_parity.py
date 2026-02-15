@@ -15,6 +15,8 @@ from typing import Any
 
 import pytest
 
+pytest.importorskip("aragora_sdk", reason="aragora-sdk not installed")
+
 
 def get_sdk_methods() -> dict[str, list[str]]:
     """Extract all public methods from SDK namespace classes."""

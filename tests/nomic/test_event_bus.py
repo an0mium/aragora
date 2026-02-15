@@ -159,6 +159,7 @@ class TestEventBusCleanup:
         old_file.write_text('{"event_type": "old"}')
         # Set modification time to 48 hours ago
         import os
+
         old_time = time.time() - (48 * 3600)
         os.utime(old_file, (old_time, old_time))
 

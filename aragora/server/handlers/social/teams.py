@@ -122,7 +122,7 @@ def get_teams_connector() -> Any | None:
         except ImportError as e:
             logger.warning(f"Teams connector module not available: {e}")
             return None
-        except Exception as e:
+        except (TypeError, ValueError, OSError) as e:
             logger.exception(f"Error initializing Teams connector: {e}")
             return None
     return _teams_connector
@@ -166,7 +166,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 roles={user_info.role} if user_info.role else set(),
                 org_id=user_info.org_id,
             )
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError) as e:
             logger.debug(f"Could not extract auth context: {e}")
             return None
 
@@ -186,7 +186,7 @@ class TeamsIntegrationHandler(BaseHandler):
             if not decision.allowed:
                 logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
                 return error_response(f"Permission denied: {decision.reason}", 403)
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError) as e:
             logger.warning(f"RBAC check failed: {e}")
             return None
 
@@ -331,7 +331,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON", 400)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Teams command error: {e}")
             return error_response("Internal server error", 500)
 
@@ -359,7 +359,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 logger.warning(f"Unknown Teams action: {action}")
                 return json_response({"status": "unknown_action"})
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Teams interactive error: {e}")
             return error_response("Internal server error", 500)
 

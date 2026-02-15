@@ -253,7 +253,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(f"[GmailLabels] List labels failed: {e}")
             return error_response("Failed to list labels", 500)
 
@@ -267,7 +267,7 @@ class GmailLabelsHandler(SecureHandler):
             label = await self._api_create_label(state, name, body)
             return json_response({"label": label, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Create label failed: {e}")
             return error_response("Label creation failed", 500)
 

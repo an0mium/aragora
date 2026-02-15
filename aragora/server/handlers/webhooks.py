@@ -861,7 +861,7 @@ The webhook secret is only returned once on creation - save it securely.""",
                     "active_violations": 0,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, TypeError) as e:
             logger.error(f"Error getting SLO webhook status: {e}")
             return error_response("Failed to retrieve SLO status", 500)
 
@@ -921,7 +921,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         except ImportError:
             return error_response("SLO module not available", 500)
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, TypeError) as e:
             logger.error(f"Error sending test SLO notification: {e}")
             return error_response("Test notification failed", 500)
 

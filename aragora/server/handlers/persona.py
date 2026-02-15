@@ -164,7 +164,7 @@ class PersonaHandler(BaseHandler):
                     "count": len(personas),
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting personas: {e}", exc_info=True)
             return json_response({"error": "Failed to get personas", "personas": []})
 
@@ -193,7 +193,7 @@ class PersonaHandler(BaseHandler):
                 return json_response(
                     {"error": f"No persona found for agent '{agent}'", "persona": None}
                 )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting persona for {agent}: {e}", exc_info=True)
             return error_response("Failed to get persona", 500)
 
@@ -211,7 +211,7 @@ class PersonaHandler(BaseHandler):
                     "performance": summary,
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting performance for {agent}: {e}", exc_info=True)
             return error_response("Failed to get performance", 500)
 
@@ -230,7 +230,7 @@ class PersonaHandler(BaseHandler):
                     "count": len(domains),
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting domains for {agent}: {e}", exc_info=True)
             return error_response("Failed to get domains", 500)
 
@@ -263,7 +263,7 @@ class PersonaHandler(BaseHandler):
                 )
             else:
                 return json_response({"agent": agent, "message": "No grounded persona data"})
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting grounded persona for {agent}: {e}", exc_info=True)
             return error_response("Failed to get grounded persona", 500)
 
@@ -290,7 +290,7 @@ class PersonaHandler(BaseHandler):
                     "sections": include_sections,
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting identity prompt for {agent}: {e}", exc_info=True)
             return error_response("Failed to get identity prompt", 500)
 
@@ -341,7 +341,7 @@ class PersonaHandler(BaseHandler):
                         "message": "No position accuracy data available",
                     }
                 )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error getting accuracy for {agent}: {e}", exc_info=True)
             return error_response("Failed to get accuracy", 500)
 
@@ -425,7 +425,7 @@ class PersonaHandler(BaseHandler):
                     },
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error creating persona: {e}", exc_info=True)
             return error_response("Failed to create persona", 500)
 
@@ -494,7 +494,7 @@ class PersonaHandler(BaseHandler):
                     },
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error updating persona for {agent}: {e}", exc_info=True)
             return error_response("Failed to update persona", 500)
 
@@ -544,6 +544,6 @@ class PersonaHandler(BaseHandler):
                     "message": f"Persona for agent '{agent}' deleted",
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error deleting persona for {agent}: {e}", exc_info=True)
             return error_response("Failed to delete persona", 500)

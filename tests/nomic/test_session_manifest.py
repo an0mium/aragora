@@ -153,6 +153,7 @@ class TestSessionManifestCleanup:
         # Manually set started_at to 48 hours ago
         data = manifest._load()
         from datetime import datetime, timedelta, timezone
+
         old_time = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
         data["sessions"][0]["started_at"] = old_time
         manifest._save(data)
@@ -175,20 +176,24 @@ class TestSessionManifestFallback:
         """Test that manifest works with JSON when YAML unavailable."""
         json_path = tmp_path / ".aragora_sessions.json"
         # Create a manifest with JSON data
-        json_path.write_text(json.dumps({
-            "sessions": [
+        json_path.write_text(
+            json.dumps(
                 {
-                    "track": "core",
-                    "worktree": "/tmp/core",
-                    "agent": "claude",
-                    "current_goal": "Test",
-                    "started_at": "2026-02-15T00:00:00+00:00",
-                    "files_claimed": [],
-                    "status": "active",
-                    "pid": 0,
+                    "sessions": [
+                        {
+                            "track": "core",
+                            "worktree": "/tmp/core",
+                            "agent": "claude",
+                            "current_goal": "Test",
+                            "started_at": "2026-02-15T00:00:00+00:00",
+                            "files_claimed": [],
+                            "status": "active",
+                            "pid": 0,
+                        }
+                    ]
                 }
-            ]
-        }))
+            )
+        )
 
         manifest = SessionManifest(
             manifest_path=tmp_path / ".aragora_sessions.yaml",

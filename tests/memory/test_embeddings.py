@@ -25,15 +25,19 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_secret_cache():
-    """Reset SecretManager singleton to prevent cached API keys from polluting tests.
+    """Prevent SecretManager cached API keys from polluting tests.
 
     When tests in other directories trigger SecretManager initialization with real
-    API keys, those keys get cached and override test-level os.environ patches.
+    API keys, those keys get cached. get_api_key() checks get_secret() BEFORE
+    os.environ, so patch.dict("os.environ", ...) never takes effect if cached
+    keys exist. Patching get_secret to return None forces get_api_key to fall
+    through to os.environ where test patches work correctly.
     """
     from aragora.config.secrets import reset_secret_manager
 
     reset_secret_manager()
-    yield
+    with patch("aragora.config.secrets.get_secret", return_value=None):
+        yield
     reset_secret_manager()
 
 

@@ -145,7 +145,7 @@ class IntrospectionHandler(BaseHandler):
                 agents = [r.agent_name for r in reputations]
                 if agents:
                     return agents
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError) as e:
                 logger.debug(f"Could not fetch agent reputations: {e}")
         return self.DEFAULT_AGENTS
 
@@ -173,7 +173,7 @@ class IntrospectionHandler(BaseHandler):
                             agent_info["total_critiques"] = getattr(
                                 reputation, "total_critiques", 0
                             )
-                    except Exception as e:
+                    except (KeyError, ValueError, OSError, TypeError) as e:
                         logger.debug(f"Failed to get reputation for {agent}: {e}")
 
                 agent_list.append(agent_info)
@@ -187,7 +187,7 @@ class IntrospectionHandler(BaseHandler):
                     "count": len(agent_list),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error listing agents: {e}", exc_info=True)
             return error_response("Failed to list agents", 500)
 
@@ -205,7 +205,7 @@ class IntrospectionHandler(BaseHandler):
             if snapshot is None:
                 return error_response(f"Agent '{agent}' not found", 404)
             return json_response(snapshot.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting introspection for {agent}: {e}", exc_info=True)
             return error_response("Failed to get introspection", 500)
 
@@ -241,7 +241,7 @@ class IntrospectionHandler(BaseHandler):
                     "details": details,
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Error getting agent availability: {e}", exc_info=True)
             return error_response("Failed to determine agent availability", 500)
 
@@ -266,7 +266,7 @@ class IntrospectionHandler(BaseHandler):
                         agent, memory=memory, persona_manager=persona_manager
                     )
                     snapshots[agent] = snapshot.to_dict()
-                except Exception as e:
+                except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
                     logger.debug(f"Error getting introspection for {agent}: {e}")
                     continue
 
@@ -276,7 +276,7 @@ class IntrospectionHandler(BaseHandler):
                     "count": len(snapshots),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting all introspection: {e}", exc_info=True)
             return error_response("Failed to get introspection data", 500)
 
@@ -301,7 +301,7 @@ class IntrospectionHandler(BaseHandler):
                         agent, memory=memory, persona_manager=persona_manager
                     )
                     snapshots.append(snapshot.to_dict())
-                except Exception as e:
+                except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
                     logger.debug(f"Error getting introspection for {agent}: {e}")
                     continue
 
@@ -314,6 +314,6 @@ class IntrospectionHandler(BaseHandler):
                     "total_agents": len(snapshots),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting introspection leaderboard: {e}", exc_info=True)
             return error_response("Failed to get leaderboard", 500)

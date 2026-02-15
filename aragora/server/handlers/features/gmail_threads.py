@@ -275,7 +275,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[GmailThreads] List threads failed: {e}")
             return error_response("Failed to list threads", 500)
 
@@ -381,7 +381,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"[GmailThreads] Get thread failed: {e}")
             return error_response("Failed to retrieve thread", 500)
 
@@ -409,7 +409,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailThreads] Trash thread failed: {e}")
             return error_response("Thread trash failed", 500)
 
@@ -463,7 +463,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailThreads] Modify thread labels failed: {e}")
             return error_response("Thread label modification failed", 500)
 
@@ -513,7 +513,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[GmailThreads] List drafts failed: {e}")
             return error_response("Failed to list drafts", 500)
 
@@ -560,7 +560,7 @@ class GmailThreadsHandler(SecureHandler):
             draft = await self._api_get_draft(state, draft_id)
             return json_response({"draft": draft})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[GmailThreads] Get draft failed: {e}")
             return error_response("Failed to retrieve draft", 500)
 
@@ -595,7 +595,7 @@ class GmailThreadsHandler(SecureHandler):
             )
             return json_response({"draft": draft, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"[GmailThreads] Create draft failed: {e}")
             return error_response("Draft creation failed", 500)
 
@@ -660,7 +660,7 @@ class GmailThreadsHandler(SecureHandler):
             draft = await self._api_update_draft(state, draft_id, to, subject, body_text, html_body)
             return json_response({"draft": draft, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"[GmailThreads] Update draft failed: {e}")
             return error_response("Draft update failed", 500)
 
@@ -712,7 +712,7 @@ class GmailThreadsHandler(SecureHandler):
             await self._api_delete_draft(state, draft_id)
             return json_response({"deleted": draft_id, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailThreads] Delete draft failed: {e}")
             return error_response("Draft deletion failed", 500)
 
@@ -742,7 +742,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailThreads] Send draft failed: {e}")
             return error_response("Draft send failed", 500)
 
@@ -784,7 +784,7 @@ class GmailThreadsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"[GmailThreads] Get attachment failed: {e}")
             return error_response("Failed to retrieve attachment", 500)
 

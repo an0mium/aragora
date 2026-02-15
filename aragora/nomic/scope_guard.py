@@ -172,7 +172,9 @@ class ScopeGuard:
         if branch is None:
             result = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                cwd=self.repo_path,
                 check=False,
             )
             if result.returncode != 0:
@@ -182,7 +184,7 @@ class ScopeGuard:
         # Extract track from branch patterns like dev/core-track, work/security-20240215
         for prefix in ("dev/", "work/", "sprint/"):
             if branch.startswith(prefix):
-                track_part = branch[len(prefix):]
+                track_part = branch[len(prefix) :]
                 # Match against known track names
                 for track_name in self.scopes:
                     # Check exact match or prefix match
@@ -197,14 +199,18 @@ class ScopeGuard:
         """Get files changed in current branch relative to base."""
         result = subprocess.run(
             ["git", "diff", "--name-only", f"{base_branch}...HEAD"],
-            capture_output=True, text=True, cwd=self.repo_path,
+            capture_output=True,
+            text=True,
+            cwd=self.repo_path,
             check=False,
         )
         if result.returncode != 0:
             # Fallback: staged + unstaged changes
             result = subprocess.run(
                 ["git", "diff", "--name-only", "HEAD"],
-                capture_output=True, text=True, cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                cwd=self.repo_path,
                 check=False,
             )
         if result.returncode != 0:
@@ -235,13 +241,15 @@ class ScopeGuard:
         for file_path in files:
             # Check protected files
             if any(file_path == pf or file_path.endswith(f"/{pf}") for pf in PROTECTED_FILES):
-                violations.append(ScopeViolation(
-                    file_path=file_path,
-                    track=track,
-                    violation_type="protected_file",
-                    message=f"Protected file requires explicit approval: {file_path}",
-                    severity="block",
-                ))
+                violations.append(
+                    ScopeViolation(
+                        file_path=file_path,
+                        track=track,
+                        violation_type="protected_file",
+                        message=f"Protected file requires explicit approval: {file_path}",
+                        severity="block",
+                    )
+                )
                 continue
 
             # Check denied paths
@@ -249,16 +257,17 @@ class ScopeGuard:
             if scope.denied_paths:
                 for denied in scope.denied_paths:
                     if file_path.startswith(denied):
-                        violations.append(ScopeViolation(
-                            file_path=file_path,
-                            track=track,
-                            violation_type="outside_scope",
-                            message=(
-                                f"File {file_path} is in denied path {denied} "
-                                f"for track {track}"
-                            ),
-                            severity=self.mode,
-                        ))
+                        violations.append(
+                            ScopeViolation(
+                                file_path=file_path,
+                                track=track,
+                                violation_type="outside_scope",
+                                message=(
+                                    f"File {file_path} is in denied path {denied} for track {track}"
+                                ),
+                                severity=self.mode,
+                            )
+                        )
                         denied_match = True
                         break
 
@@ -267,21 +276,20 @@ class ScopeGuard:
 
             # Check allowed paths (only if there are explicit allowed paths)
             if scope.allowed_paths:
-                in_scope = any(
-                    file_path.startswith(allowed)
-                    for allowed in scope.allowed_paths
-                )
+                in_scope = any(file_path.startswith(allowed) for allowed in scope.allowed_paths)
                 if not in_scope:
-                    violations.append(ScopeViolation(
-                        file_path=file_path,
-                        track=track,
-                        violation_type="outside_scope",
-                        message=(
-                            f"File {file_path} is outside allowed paths "
-                            f"for track {track}: {scope.allowed_paths}"
-                        ),
-                        severity=self.mode,
-                    ))
+                    violations.append(
+                        ScopeViolation(
+                            file_path=file_path,
+                            track=track,
+                            violation_type="outside_scope",
+                            message=(
+                                f"File {file_path} is outside allowed paths "
+                                f"for track {track}: {scope.allowed_paths}"
+                            ),
+                            severity=self.mode,
+                        )
+                    )
 
         return violations
 
@@ -307,16 +315,17 @@ class ScopeGuard:
         violations: list[ScopeViolation] = []
         for file_path, tracks in file_owners.items():
             if len(tracks) > 1:
-                violations.append(ScopeViolation(
-                    file_path=file_path,
-                    track=", ".join(tracks),
-                    violation_type="cross_track",
-                    message=(
-                        f"File {file_path} modified by multiple tracks: "
-                        f"{', '.join(tracks)}"
-                    ),
-                    severity="block" if len(tracks) > 2 else "warn",
-                ))
+                violations.append(
+                    ScopeViolation(
+                        file_path=file_path,
+                        track=", ".join(tracks),
+                        violation_type="cross_track",
+                        message=(
+                            f"File {file_path} modified by multiple tracks: {', '.join(tracks)}"
+                        ),
+                        severity="block" if len(tracks) > 2 else "warn",
+                    )
+                )
 
         return violations
 
@@ -345,27 +354,36 @@ def main() -> int:
         description="Scope guard — enforce track file ownership boundaries"
     )
     parser.add_argument(
-        "--hook", action="store_true",
+        "--hook",
+        action="store_true",
         help="Run as a pre-commit hook",
     )
     parser.add_argument(
-        "--ci", action="store_true",
+        "--ci",
+        action="store_true",
         help="Run as a CI check (exit 1 on block-severity violations)",
     )
     parser.add_argument(
-        "--track", type=str, default=None,
+        "--track",
+        type=str,
+        default=None,
         help="Override track detection (e.g., --track core-track)",
     )
     parser.add_argument(
-        "--base-branch", default="main",
+        "--base-branch",
+        default="main",
         help="Base branch to compare against (default: main)",
     )
     parser.add_argument(
-        "--mode", choices=["warn", "block"], default="warn",
+        "--mode",
+        choices=["warn", "block"],
+        default="warn",
         help="Violation severity mode (default: warn)",
     )
     parser.add_argument(
-        "--files", nargs="*", default=None,
+        "--files",
+        nargs="*",
+        default=None,
         help="Specific files to check (default: auto-detect from git)",
     )
     args = parser.parse_args()

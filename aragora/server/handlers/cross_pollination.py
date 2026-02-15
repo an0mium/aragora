@@ -75,7 +75,7 @@ class CrossPollinationStatsHandler(BaseHandler):
                 "Cross-subscriber module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Failed to get cross-pollination stats: {e}")
             return error_response("Internal server error", status=500)
 
@@ -123,7 +123,7 @@ class CrossPollinationSubscribersHandler(BaseHandler):
                 "Cross-subscriber module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to list subscribers: {e}")
             return error_response("Internal server error", status=500)
 
@@ -165,7 +165,7 @@ class CrossPollinationBridgeHandler(BaseHandler):
                 "Arena bridge module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to get bridge status: {e}")
             return error_response("Internal server error", status=500)
 
@@ -205,7 +205,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
                 "Metrics module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Failed to get metrics: {e}")
             return error_response("Internal server error", status=500)
 

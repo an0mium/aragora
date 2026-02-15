@@ -156,7 +156,9 @@ def _run_self_improve_dry_run(
             skip = " [SKIP]" if track not in allowed_tracks else ""
 
             print(f"  {i}. {subtask.title}{skip}")
-            print(f"     Track: {track.value} | Agent: {agent} | Complexity: {subtask.estimated_complexity}")
+            print(
+                f"     Track: {track.value} | Agent: {agent} | Complexity: {subtask.estimated_complexity}"
+            )
             if subtask.file_scope:
                 files = ", ".join(subtask.file_scope[:3])
                 extra = f" +{len(subtask.file_scope) - 3}" if len(subtask.file_scope) > 3 else ""
@@ -253,6 +255,7 @@ def _run_self_improve_pipeline(
         print(f"\nPipeline failed: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         print("\nClean up worktrees:")
         print("  ./scripts/cleanup_worktrees.sh --all")

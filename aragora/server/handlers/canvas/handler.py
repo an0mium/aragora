@@ -113,7 +113,7 @@ class CanvasHandler(SecureHandler):
             if user:
                 user_id = user.user_id
                 workspace_id = user.org_id  # Use org_id as workspace identifier
-        except Exception as e:
+        except (ValueError, AttributeError, KeyError) as e:
             logger.warning(f"Authentication failed for canvas: {e}")
             return error_response("Authentication required", 401)
 
@@ -276,7 +276,7 @@ class CanvasHandler(SecureHandler):
                     "count": len(canvases),
                 }
             )
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to list canvases: {e}")
             return error_response("Failed to list canvases", 500)
 
@@ -310,7 +310,7 @@ class CanvasHandler(SecureHandler):
             )
 
             return json_response(canvas.to_dict(), status=201)
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to create canvas: {e}")
             return error_response("Canvas creation failed", 500)
 
@@ -333,7 +333,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Canvas not found", 404)
 
             return json_response(canvas.to_dict())
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to get canvas: {e}")
             return error_response("Failed to retrieve canvas", 500)
 
@@ -368,7 +368,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Canvas not found", 404)
 
             return json_response(canvas.to_dict())
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to update canvas: {e}")
             return error_response("Canvas update failed", 500)
 
@@ -391,7 +391,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Canvas not found", 404)
 
             return json_response({"deleted": True, "canvas_id": canvas_id})
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to delete canvas: {e}")
             return error_response("Canvas deletion failed", 500)
 
@@ -448,7 +448,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Canvas not found", 404)
 
             return json_response(node.to_dict(), status=201)
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to add node: {e}")
             return error_response("Node addition failed", 500)
 
@@ -496,7 +496,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Node or canvas not found", 404)
 
             return json_response(node.to_dict())
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to update node: {e}")
             return error_response("Node update failed", 500)
 
@@ -520,7 +520,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Node or canvas not found", 404)
 
             return json_response({"deleted": True, "node_id": node_id})
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to delete node: {e}")
             return error_response("Node deletion failed", 500)
 
@@ -577,7 +577,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Canvas or nodes not found", 404)
 
             return json_response(edge.to_dict(), status=201)
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to add edge: {e}")
             return error_response("Edge addition failed", 500)
 
@@ -601,7 +601,7 @@ class CanvasHandler(SecureHandler):
                 return error_response("Edge or canvas not found", 404)
 
             return json_response({"deleted": True, "edge_id": edge_id})
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to delete edge: {e}")
             return error_response("Edge deletion failed", 500)
 
@@ -649,6 +649,6 @@ class CanvasHandler(SecureHandler):
                     "result": result,
                 }
             )
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Failed to execute action: {e}")
             return error_response("Action execution failed", 500)

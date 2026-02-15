@@ -141,9 +141,7 @@ def cmd_plan(args: argparse.Namespace) -> None:
 
     # Print summary
     print(f"\n{_color('Sprint Plan:', _BOLD)} {args.goal}")
-    print(
-        f"Complexity: {result.complexity_score}/10 ({result.complexity_level})"
-    )
+    print(f"Complexity: {result.complexity_score}/10 ({result.complexity_level})")
     print(f"Subtasks:   {len(result.subtasks)}")
 
     if result.subtasks:
@@ -153,9 +151,7 @@ def cmd_plan(args: argparse.Namespace) -> None:
         print("  " + "-" * 70)
         for st in result.subtasks:
             files = ", ".join(st.file_scope[:3]) if st.file_scope else "(auto)"
-            print(
-                f"  {st.id:<14} {st.title:<30} {st.estimated_complexity:<8} {files}"
-            )
+            print(f"  {st.id:<14} {st.title:<30} {st.estimated_complexity:<8} {files}")
 
     if args.dry_run:
         print(f"\n(dry-run -- manifest not saved)")
@@ -203,10 +199,7 @@ def cmd_setup(args: argparse.Namespace) -> None:
 
         # Check if worktree already exists
         if wt_path.exists():
-            print(
-                f"  {st['id']:<14} {branch:<42} {wt_path}  "
-                f"{_color('(exists)', _YELLOW)}"
-            )
+            print(f"  {st['id']:<14} {branch:<42} {wt_path}  {_color('(exists)', _YELLOW)}")
             worktrees_info[st["id"]] = {
                 "branch": branch,
                 "path": str(wt_path),
@@ -214,19 +207,22 @@ def cmd_setup(args: argparse.Namespace) -> None:
             continue
 
         # Check if branch already exists
-        branch_exists = _run_git(
-            "rev-parse", "--verify", f"refs/heads/{branch}", check=False
-        ).returncode == 0
+        branch_exists = (
+            _run_git("rev-parse", "--verify", f"refs/heads/{branch}", check=False).returncode == 0
+        )
 
         if branch_exists:
             # Add worktree for existing branch
-            result = _run_git(
-                "worktree", "add", str(wt_path), branch, check=False
-            )
+            result = _run_git("worktree", "add", str(wt_path), branch, check=False)
         else:
             # Create new branch with worktree
             result = _run_git(
-                "worktree", "add", "-b", branch, str(wt_path), base_branch,
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                str(wt_path),
+                base_branch,
                 check=False,
             )
 
@@ -283,7 +279,9 @@ def cmd_status(args: argparse.Namespace) -> None:
 
         # Count new commits since base
         log_result = _run_git(
-            "log", "--oneline", f"{base_branch}..{branch}",
+            "log",
+            "--oneline",
+            f"{base_branch}..{branch}",
             check=False,
         )
         if log_result.returncode == 0 and log_result.stdout.strip():
@@ -293,7 +291,9 @@ def cmd_status(args: argparse.Namespace) -> None:
 
         # Count changed files
         diff_result = _run_git(
-            "diff", "--stat", f"{base_branch}...{branch}",
+            "diff",
+            "--stat",
+            f"{base_branch}...{branch}",
             check=False,
         )
         if diff_result.returncode == 0 and diff_result.stdout.strip():
@@ -324,9 +324,7 @@ def cmd_status(args: argparse.Namespace) -> None:
         else:
             status = _color("idle", _YELLOW)
 
-        print(
-            f"  {subtask_id:<14} {branch:<42} {commit_count:<10} {file_count:<8} {status}"
-        )
+        print(f"  {subtask_id:<14} {branch:<42} {commit_count:<10} {file_count:<8} {status}")
 
     print()
 
@@ -355,7 +353,9 @@ def cmd_merge(args: argparse.Namespace) -> None:
         wt_path = info["path"]
 
         log_result = _run_git(
-            "log", "--oneline", f"{base_branch}..{branch}",
+            "log",
+            "--oneline",
+            f"{base_branch}..{branch}",
             check=False,
         )
         if log_result.returncode == 0 and log_result.stdout.strip():
@@ -386,8 +386,14 @@ def cmd_merge(args: argparse.Namespace) -> None:
         print("  Running pre-merge tests...")
         pre_test = subprocess.run(
             [
-                sys.executable, "-m", "pytest",
-                "tests/nomic/", "-x", "-q", "--timeout=120", "--tb=short",
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/nomic/",
+                "-x",
+                "-q",
+                "--timeout=120",
+                "--tb=short",
             ],
             cwd=wt_path,
             capture_output=True,
@@ -396,9 +402,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
         )
 
         if pre_test.returncode != 0:
-            print(
-                f"  {_color('FAIL', _RED)}: pre-merge tests failed in {branch}"
-            )
+            print(f"  {_color('FAIL', _RED)}: pre-merge tests failed in {branch}")
             if pre_test.stdout:
                 # Show last 10 lines of output
                 for line in pre_test.stdout.strip().splitlines()[-10:]:
@@ -410,14 +414,15 @@ def cmd_merge(args: argparse.Namespace) -> None:
 
         # Step 2: Check for conflicts
         merge_check = _run_git(
-            "merge", "--no-commit", "--no-ff", branch,
+            "merge",
+            "--no-commit",
+            "--no-ff",
+            branch,
             check=False,
         )
 
         if merge_check.returncode != 0:
-            print(
-                f"  {_color('FAIL', _RED)}: merge conflict detected"
-            )
+            print(f"  {_color('FAIL', _RED)}: merge conflict detected")
             _run_git("merge", "--abort", check=False)
             failed.append(branch)
             continue
@@ -427,16 +432,16 @@ def cmd_merge(args: argparse.Namespace) -> None:
 
         # Step 3: Actual merge with --no-ff
         merge_result = _run_git(
-            "merge", "--no-ff", "-m",
+            "merge",
+            "--no-ff",
+            "-m",
             f"Merge sprint/{subtask_id}: {branch}",
             branch,
             check=False,
         )
 
         if merge_result.returncode != 0:
-            print(
-                f"  {_color('FAIL', _RED)}: merge failed: {merge_result.stderr.strip()[:80]}"
-            )
+            print(f"  {_color('FAIL', _RED)}: merge failed: {merge_result.stderr.strip()[:80]}")
             _run_git("merge", "--abort", check=False)
             failed.append(branch)
             continue
@@ -445,8 +450,14 @@ def cmd_merge(args: argparse.Namespace) -> None:
         print("  Running post-merge tests...")
         post_test = subprocess.run(
             [
-                sys.executable, "-m", "pytest",
-                "tests/nomic/", "-x", "-q", "--timeout=120", "--tb=short",
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/nomic/",
+                "-x",
+                "-q",
+                "--timeout=120",
+                "--tb=short",
             ],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -455,18 +466,14 @@ def cmd_merge(args: argparse.Namespace) -> None:
         )
 
         if post_test.returncode != 0:
-            print(
-                f"  {_color('FAIL', _RED)}: post-merge tests failed -- reverting merge"
-            )
+            print(f"  {_color('FAIL', _RED)}: post-merge tests failed -- reverting merge")
             # Revert the merge commit
             _run_git("revert", "-m", "1", "HEAD", "--no-edit", check=False)
             failed.append(branch)
             continue
 
         merge_sha = _run_git("rev-parse", "--short", "HEAD").stdout.strip()
-        print(
-            f"  {_color('MERGED', _GREEN)}: {branch} -> {base_branch} ({merge_sha})"
-        )
+        print(f"  {_color('MERGED', _GREEN)}: {branch} -> {base_branch} ({merge_sha})")
         merged.append(branch)
 
     # Summary
@@ -501,7 +508,10 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
 
     # Find which branches are merged into base
     merged_result = _run_git(
-        "branch", "--merged", base_branch, check=False,
+        "branch",
+        "--merged",
+        base_branch,
+        check=False,
     )
     merged_branches = set()
     if merged_result.returncode == 0:
@@ -523,14 +533,20 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
             # Remove worktree
             if wt_path.exists():
                 rm_result = _run_git(
-                    "worktree", "remove", str(wt_path), check=False,
+                    "worktree",
+                    "remove",
+                    str(wt_path),
+                    check=False,
                 )
                 if rm_result.returncode == 0:
                     print(f"  Removed worktree: {wt_path}")
                 else:
                     # Force removal if needed
                     force_result = _run_git(
-                        "worktree", "remove", "--force", str(wt_path),
+                        "worktree",
+                        "remove",
+                        "--force",
+                        str(wt_path),
                         check=False,
                     )
                     if force_result.returncode == 0 or not wt_path.exists():
@@ -561,9 +577,7 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
 
     # Update manifest: remove cleaned-up entries
     remaining = {
-        sid: info
-        for sid, info in worktrees.items()
-        if info["branch"] not in merged_branches
+        sid: info for sid, info in worktrees.items() if info["branch"] not in merged_branches
     }
     manifest["worktrees"] = remaining
     _save_manifest(manifest)
@@ -588,44 +602,52 @@ def main() -> None:
 
     # plan
     plan_parser = subparsers.add_parser(
-        "plan", help="Decompose a goal into sprint tasks",
+        "plan",
+        help="Decompose a goal into sprint tasks",
     )
     plan_parser.add_argument("goal", help="High-level goal to decompose")
     plan_parser.add_argument(
-        "--debate", action="store_true",
+        "--debate",
+        action="store_true",
         help="Use debate-based decomposition (slower, better for abstract goals)",
     )
     plan_parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print plan without saving manifest",
     )
     plan_parser.set_defaults(func=cmd_plan)
 
     # setup
     setup_parser = subparsers.add_parser(
-        "setup", help="Create worktrees from manifest",
+        "setup",
+        help="Create worktrees from manifest",
     )
     setup_parser.set_defaults(func=cmd_setup)
 
     # status
     status_parser = subparsers.add_parser(
-        "status", help="Show sprint progress across worktrees",
+        "status",
+        help="Show sprint progress across worktrees",
     )
     status_parser.set_defaults(func=cmd_status)
 
     # merge
     merge_parser = subparsers.add_parser(
-        "merge", help="Test-gated merge of completed worktrees",
+        "merge",
+        help="Test-gated merge of completed worktrees",
     )
     merge_parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Merge all ready branches without prompting",
     )
     merge_parser.set_defaults(func=cmd_merge)
 
     # cleanup
     cleanup_parser = subparsers.add_parser(
-        "cleanup", help="Remove merged worktrees and branches",
+        "cleanup",
+        help="Remove merged worktrees and branches",
     )
     cleanup_parser.set_defaults(func=cmd_cleanup)
 

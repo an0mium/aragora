@@ -396,7 +396,7 @@ class DeviceHandler(SecureHandler):
                     "circuit_breakers": get_device_circuit_breaker_status(),
                 }
             )
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Error getting device health: {e}")
             return error_response("Health check failed", 500)
 
@@ -491,7 +491,7 @@ class DeviceHandler(SecureHandler):
             try:
                 device_token = await connector.register_device(registration)
                 circuit_breaker.record_success()
-            except Exception as conn_error:
+            except (ConnectionError, TimeoutError, OSError) as conn_error:
                 circuit_breaker.record_failure()
                 logger.error(f"Connector error during registration: {conn_error}")
                 raise
@@ -510,7 +510,7 @@ class DeviceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Device connectors not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Error registering device: {e}")
             return error_response("Error registering device. Please try again later.", 500)
 
@@ -552,7 +552,7 @@ class DeviceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Session store not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error unregistering device: {e}")
             return error_response("Device unregistration failed", 500)
 
@@ -592,7 +592,7 @@ class DeviceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Session store not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error getting device: {e}")
             return error_response("Failed to retrieve device", 500)
 
@@ -634,7 +634,7 @@ class DeviceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Session store not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error listing devices: {e}")
             return error_response("Failed to list devices", 500)
 
@@ -732,7 +732,7 @@ class DeviceHandler(SecureHandler):
             try:
                 result = await connector.send_notification(token, message)
                 circuit_breaker.record_success()
-            except Exception as conn_error:
+            except (ConnectionError, TimeoutError, OSError) as conn_error:
                 circuit_breaker.record_failure()
                 logger.error(f"Connector error during notification: {conn_error}")
                 return error_response(
@@ -763,7 +763,7 @@ class DeviceHandler(SecureHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"Error sending notification: {e}")
             return error_response("Error sending notification. Please try again later.", 500)
 
@@ -885,7 +885,7 @@ class DeviceHandler(SecureHandler):
                 try:
                     result = await connector.send_notification(token, message)
                     circuit_breaker.record_success()
-                except Exception as conn_error:
+                except (ConnectionError, TimeoutError, OSError) as conn_error:
                     circuit_breaker.record_failure()
                     logger.error(f"Connector error during notification: {conn_error}")
                     results.append(
@@ -933,7 +933,7 @@ class DeviceHandler(SecureHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"Error sending notifications: {e}")
             return error_response("Notification delivery failed", 500)
 
@@ -979,7 +979,7 @@ class DeviceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Alexa connector not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"Error handling Alexa webhook: {e}")
             return error_response("Request processing failed", 500)
 
@@ -1052,7 +1052,7 @@ class DeviceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Google Home connector not available", 503)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error(f"Error handling Google webhook: {e}")
             return error_response("Request processing failed", 500)
 

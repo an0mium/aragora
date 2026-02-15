@@ -29,11 +29,13 @@ class TestWorktreeSync:
 
     def test_import_worktree_sync(self):
         import worktree_sync
+
         assert hasattr(worktree_sync, "build_report")
         assert hasattr(worktree_sync, "SyncReport")
 
     def test_parse_worktree_list_empty(self):
         import worktree_sync
+
         with patch.object(worktree_sync, "run_git") as mock_git:
             mock_git.return_value = MagicMock(returncode=0, stdout="")
             result = worktree_sync.parse_worktree_list()
@@ -41,6 +43,7 @@ class TestWorktreeSync:
 
     def test_parse_worktree_list_with_worktrees(self):
         import worktree_sync
+
         porcelain_output = (
             "worktree /repo\n"
             "HEAD abc123\n"
@@ -52,9 +55,7 @@ class TestWorktreeSync:
             "\n"
         )
         with patch.object(worktree_sync, "run_git") as mock_git:
-            mock_git.return_value = MagicMock(
-                returncode=0, stdout=porcelain_output
-            )
+            mock_git.return_value = MagicMock(returncode=0, stdout=porcelain_output)
             result = worktree_sync.parse_worktree_list()
             # Should skip main, include dev/core-track
             assert len(result) == 1
@@ -62,12 +63,17 @@ class TestWorktreeSync:
 
     def test_detect_file_overlaps_none(self):
         import worktree_sync
+
         wt1 = worktree_sync.WorktreeStatus(
-            branch="dev/core", path="/core", track="core",
+            branch="dev/core",
+            path="/core",
+            track="core",
             changed_files=["a.py"],
         )
         wt2 = worktree_sync.WorktreeStatus(
-            branch="dev/qa", path="/qa", track="qa",
+            branch="dev/qa",
+            path="/qa",
+            track="qa",
             changed_files=["b.py"],
         )
         overlaps = worktree_sync.detect_file_overlaps([wt1, wt2])
@@ -75,12 +81,17 @@ class TestWorktreeSync:
 
     def test_detect_file_overlaps_found(self):
         import worktree_sync
+
         wt1 = worktree_sync.WorktreeStatus(
-            branch="dev/core", path="/core", track="core",
+            branch="dev/core",
+            path="/core",
+            track="core",
             changed_files=["shared.py", "a.py"],
         )
         wt2 = worktree_sync.WorktreeStatus(
-            branch="dev/qa", path="/qa", track="qa",
+            branch="dev/qa",
+            path="/qa",
+            track="qa",
             changed_files=["shared.py", "b.py"],
         )
         overlaps = worktree_sync.detect_file_overlaps([wt1, wt2])
@@ -89,15 +100,20 @@ class TestWorktreeSync:
 
     def test_generate_recommendations_behind(self):
         import worktree_sync
+
         wt = worktree_sync.WorktreeStatus(
-            branch="dev/core", path="/core", track="core",
-            behind=10, ahead=3,
+            branch="dev/core",
+            path="/core",
+            track="core",
+            behind=10,
+            ahead=3,
         )
         recs = worktree_sync.generate_recommendations([wt], [])
         assert any("stale" in r.lower() or "rebase" in r.lower() for r in recs)
 
     def test_sync_report_structure(self):
         import worktree_sync
+
         report = worktree_sync.SyncReport(
             timestamp="2026-02-15T00:00:00Z",
             base_branch="main",
@@ -119,11 +135,13 @@ class TestCIGate:
 
     def test_import_ci_gate(self):
         import ci_gate
+
         assert hasattr(ci_gate, "CIStatus")
         assert hasattr(ci_gate, "get_ci_status")
 
     def test_ci_status_dataclass(self):
         import ci_gate
+
         status = ci_gate.CIStatus(
             is_running=True,
             run_id=12345,
@@ -135,21 +153,22 @@ class TestCIGate:
 
     def test_check_gh_unavailable(self):
         import ci_gate
+
         with patch.object(ci_gate, "run_gh") as mock_gh:
             mock_gh.return_value = MagicMock(returncode=1)
             assert ci_gate.check_gh_available() is False
 
     def test_get_ci_status_no_runs(self):
         import ci_gate
+
         with patch.object(ci_gate, "run_gh") as mock_gh:
-            mock_gh.return_value = MagicMock(
-                returncode=0, stdout="[]"
-            )
+            mock_gh.return_value = MagicMock(returncode=0, stdout="[]")
             statuses = ci_gate.get_ci_status("main")
             assert statuses == []
 
     def test_get_ci_status_with_runs(self):
         import ci_gate
+
         runs = [
             {
                 "databaseId": 123,
@@ -171,9 +190,7 @@ class TestCIGate:
             },
         ]
         with patch.object(ci_gate, "run_gh") as mock_gh:
-            mock_gh.return_value = MagicMock(
-                returncode=0, stdout=json.dumps(runs)
-            )
+            mock_gh.return_value = MagicMock(returncode=0, stdout=json.dumps(runs))
             statuses = ci_gate.get_ci_status("main")
             assert len(statuses) == 2
             assert statuses[0].is_running is True
@@ -181,6 +198,7 @@ class TestCIGate:
 
     def test_any_ci_running(self):
         import ci_gate
+
         with patch.object(ci_gate, "get_ci_status") as mock_status:
             mock_status.return_value = [
                 ci_gate.CIStatus(is_running=True, workflow_name="Tests", status="in_progress"),
@@ -191,6 +209,7 @@ class TestCIGate:
 
     def test_any_ci_not_running(self):
         import ci_gate
+
         with patch.object(ci_gate, "get_ci_status") as mock_status:
             mock_status.return_value = [
                 ci_gate.CIStatus(is_running=False, status="completed", conclusion="success"),

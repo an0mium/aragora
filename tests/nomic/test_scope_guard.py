@@ -18,8 +18,14 @@ class TestTrackScope:
     """Tests for TrackScope dataclass."""
 
     def test_default_scopes_have_all_tracks(self):
-        expected = {"sme-track", "developer-track", "qa-track",
-                    "security-track", "core-track", "infra-track"}
+        expected = {
+            "sme-track",
+            "developer-track",
+            "qa-track",
+            "security-track",
+            "core-track",
+            "infra-track",
+        }
         assert set(DEFAULT_TRACK_SCOPES.keys()) == expected
 
     def test_each_scope_has_name(self):
@@ -42,30 +48,22 @@ class TestScopeGuardCheckFiles:
         self.guard = ScopeGuard(mode="warn")
 
     def test_file_in_scope_no_violation(self):
-        violations = self.guard.check_files(
-            ["aragora/debate/consensus.py"], "core-track"
-        )
+        violations = self.guard.check_files(["aragora/debate/consensus.py"], "core-track")
         assert not violations
 
     def test_file_out_of_scope(self):
-        violations = self.guard.check_files(
-            ["aragora/live/src/app.tsx"], "core-track"
-        )
+        violations = self.guard.check_files(["aragora/live/src/app.tsx"], "core-track")
         assert len(violations) == 1
         assert violations[0].violation_type == "outside_scope"
         assert violations[0].track == "core-track"
 
     def test_file_in_denied_path(self):
-        violations = self.guard.check_files(
-            ["aragora/debate/consensus.py"], "sme-track"
-        )
+        violations = self.guard.check_files(["aragora/debate/consensus.py"], "sme-track")
         assert len(violations) == 1
         assert violations[0].violation_type == "outside_scope"
 
     def test_protected_file_always_blocked(self):
-        violations = self.guard.check_files(
-            ["CLAUDE.md"], "core-track"
-        )
+        violations = self.guard.check_files(["CLAUDE.md"], "core-track")
         assert len(violations) == 1
         assert violations[0].violation_type == "protected_file"
         assert violations[0].severity == "block"
@@ -74,7 +72,7 @@ class TestScopeGuardCheckFiles:
         violations = self.guard.check_files(
             [
                 "aragora/memory/coordinator.py",  # in scope for core-track
-                "aragora/live/src/page.tsx",       # out of scope (denied)
+                "aragora/live/src/page.tsx",  # out of scope (denied)
             ],
             "core-track",
         )
@@ -83,59 +81,41 @@ class TestScopeGuardCheckFiles:
         assert "live" in violations[0].file_path
 
     def test_unknown_track_returns_empty(self):
-        violations = self.guard.check_files(
-            ["aragora/debate/orchestrator.py"], "nonexistent-track"
-        )
+        violations = self.guard.check_files(["aragora/debate/orchestrator.py"], "nonexistent-track")
         assert violations == []
 
     def test_qa_track_can_modify_tests(self):
-        violations = self.guard.check_files(
-            ["tests/nomic/test_scope_guard.py"], "qa-track"
-        )
+        violations = self.guard.check_files(["tests/nomic/test_scope_guard.py"], "qa-track")
         assert not violations
 
     def test_qa_track_cannot_modify_source(self):
-        violations = self.guard.check_files(
-            ["aragora/debate/orchestrator.py"], "qa-track"
-        )
+        violations = self.guard.check_files(["aragora/debate/orchestrator.py"], "qa-track")
         assert len(violations) >= 1
 
     def test_infra_track_can_modify_deploy(self):
-        violations = self.guard.check_files(
-            ["deploy/kubernetes/deployment.yaml"], "infra-track"
-        )
+        violations = self.guard.check_files(["deploy/kubernetes/deployment.yaml"], "infra-track")
         assert not violations
 
     def test_infra_track_cannot_modify_frontend(self):
-        violations = self.guard.check_files(
-            ["aragora/live/src/app.tsx"], "infra-track"
-        )
+        violations = self.guard.check_files(["aragora/live/src/app.tsx"], "infra-track")
         assert len(violations) >= 1
 
     def test_developer_track_can_modify_sdk(self):
-        violations = self.guard.check_files(
-            ["sdk/python/aragora_sdk/client.py"], "developer-track"
-        )
+        violations = self.guard.check_files(["sdk/python/aragora_sdk/client.py"], "developer-track")
         assert not violations
 
     def test_security_track_can_modify_rbac(self):
-        violations = self.guard.check_files(
-            ["aragora/rbac/checker.py"], "security-track"
-        )
+        violations = self.guard.check_files(["aragora/rbac/checker.py"], "security-track")
         assert not violations
 
     def test_block_mode_sets_severity(self):
         guard = ScopeGuard(mode="block")
-        violations = guard.check_files(
-            ["aragora/live/src/app.tsx"], "core-track"
-        )
+        violations = guard.check_files(["aragora/live/src/app.tsx"], "core-track")
         assert violations[0].severity == "block"
 
     def test_warn_mode_sets_severity(self):
         guard = ScopeGuard(mode="warn")
-        violations = guard.check_files(
-            ["aragora/live/src/app.tsx"], "core-track"
-        )
+        violations = guard.check_files(["aragora/live/src/app.tsx"], "core-track")
         assert violations[0].severity == "warn"
 
 

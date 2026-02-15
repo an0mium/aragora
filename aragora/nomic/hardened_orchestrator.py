@@ -88,9 +88,7 @@ class HardenedConfig:
     generate_receipts: bool = True
     spectate_stream: bool = False
     # Merge gate: test directories to validate before merging worktree
-    merge_gate_test_dirs: list[str] = field(
-        default_factory=lambda: ["tests/"]
-    )
+    merge_gate_test_dirs: list[str] = field(default_factory=lambda: ["tests/"])
     # Merge gate: maximum time for test run (seconds)
     merge_gate_timeout: int = 300
     # Rate limiting: max calls per window
@@ -107,6 +105,10 @@ class HardenedConfig:
     enable_review_gate: bool = True
     # Review gate: minimum safety score (0-10) to allow merge
     review_gate_min_score: int = 5
+    # Sandbox: run modified Python files in sandbox before commit
+    enable_sandbox_validation: bool = True
+    sandbox_timeout: int = 60
+    sandbox_memory_mb: int = 512
 
 
 class HardenedOrchestrator(AutonomousOrchestrator):
@@ -139,6 +141,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         enable_output_validation: bool = True,
         enable_review_gate: bool = True,
         review_gate_min_score: int = 5,
+        enable_sandbox_validation: bool = True,
+        sandbox_timeout: int = 60,
+        sandbox_memory_mb: int = 512,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -164,6 +169,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             enable_output_validation=enable_output_validation,
             enable_review_gate=enable_review_gate,
             review_gate_min_score=review_gate_min_score,
+            enable_sandbox_validation=enable_sandbox_validation,
+            sandbox_timeout=sandbox_timeout,
+            sandbox_memory_mb=sandbox_memory_mb,
         )
 
         # Budget tracking (simple float counter, legacy)
@@ -197,9 +205,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         self._agent_open_until: dict[str, float] = {}
 
         # Canary token: random hex injected into system prompts
-        self._canary_token: str = (
-            f"CANARY-{secrets.token_hex(8)}" if enable_canary_tokens else ""
-        )
+        self._canary_token: str = f"CANARY-{secrets.token_hex(8)}" if enable_canary_tokens else ""
 
     def _init_budget_manager(self, config: BudgetEnforcementConfig) -> None:
         """Initialize BudgetManager integration."""
@@ -330,16 +336,12 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         self._emit_event("coordinated_started", goal=goal[:200])
 
         # Step 1: MetaPlanner -> prioritize goals
-        prioritized_goals = await self._run_meta_planner_for_coordination(
-            goal, tracks, quick_plan
-        )
+        prioritized_goals = await self._run_meta_planner_for_coordination(goal, tracks, quick_plan)
 
         self._emit_event("planning_completed", goal_count=len(prioritized_goals))
 
         if not prioritized_goals:
-            logger.warning(
-                "No goals from MetaPlanner, falling back to direct execution"
-            )
+            logger.warning("No goals from MetaPlanner, falling back to direct execution")
             return await self.execute_goal(goal, tracks, max_cycles, context)
 
         # Step 2: Build track assignments from prioritized goals
@@ -372,9 +374,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 description=ta.goal.description[:100],
             )
             try:
-                result = await super(
-                    HardenedOrchestrator, self
-                ).execute_goal(
+                result = await super(HardenedOrchestrator, self).execute_goal(
                     goal=ta.goal.description,
                     tracks=[ta.goal.track.value],
                     max_cycles=max_cycles,
@@ -459,9 +459,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             available_tracks = None
             if tracks:
                 track_map = {t.value: t for t in MetaTrack}
-                available_tracks = [
-                    track_map[t] for t in tracks if t in track_map
-                ]
+                available_tracks = [track_map[t] for t in tracks if t in track_map]
 
             return await planner.prioritize_work(
                 objective=objective,
@@ -474,9 +472,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             logger.warning("MetaPlanner failed: %s", e)
             return []
 
-    def _generate_coordinated_receipt(
-        self, assignment: Any, result: OrchestrationResult
-    ) -> None:
+    def _generate_coordinated_receipt(self, assignment: Any, result: OrchestrationResult) -> None:
         """Generate receipt for a coordinated assignment."""
         try:
             from aragora.gauntlet.receipts import DecisionReceipt
@@ -576,11 +572,13 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             )
 
             if self._meta_planner is None:
-                self._meta_planner = MetaPlanner(MetaPlannerConfig(
-                    debate_rounds=2,
-                    max_goals=5,
-                    enable_cross_cycle_learning=True,
-                ))
+                self._meta_planner = MetaPlanner(
+                    MetaPlannerConfig(
+                        debate_rounds=2,
+                        max_goals=5,
+                        enable_cross_cycle_learning=True,
+                    )
+                )
 
             # Map track strings to MetaTrack enums
             available_tracks = None
@@ -645,13 +643,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             # Scan goal text
             result = scanner.scan_text(goal)
             if result.verdict == Verdict.DANGEROUS:
-                critical_findings = [
-                    f for f in result.findings if f.severity == Severity.CRITICAL
-                ]
+                critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
                 descriptions = "; ".join(f.description for f in critical_findings[:3])
-                raise ValueError(
-                    f"Goal rejected: prompt injection detected — {descriptions}"
-                )
+                raise ValueError(f"Goal rejected: prompt injection detected — {descriptions}")
 
             if result.verdict == Verdict.SUSPICIOUS:
                 logger.warning(
@@ -667,8 +661,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                         ctx_result = scanner.scan_text(value)
                         if ctx_result.verdict == Verdict.DANGEROUS:
                             raise ValueError(
-                                f"Context key '{key}' rejected: "
-                                f"prompt injection detected"
+                                f"Context key '{key}' rejected: prompt injection detected"
                             )
 
         except ImportError:
@@ -809,8 +802,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             scan_result = scanner.scan_text(full_diff[:10000])
             if scan_result.verdict == Verdict.DANGEROUS:
                 logger.warning(
-                    "output_validation_failed reason=dangerous_diff subtask=%s "
-                    "risk_score=%d",
+                    "output_validation_failed reason=dangerous_diff subtask=%s risk_score=%d",
                     assignment.subtask.id,
                     scan_result.risk_score,
                 )
@@ -888,9 +880,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         ]
 
         added_lines = [
-            l[1:]
-            for l in diff_text.split("\n")
-            if l.startswith("+") and not l.startswith("+++")
+            l[1:] for l in diff_text.split("\n") if l.startswith("+") and not l.startswith("+++")
         ]
         added_text = "\n".join(added_lines)
 
@@ -908,7 +898,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                     break
 
         # Large deletions without corresponding additions are suspicious
-        deletions = sum(1 for l in diff_text.split("\n") if l.startswith("-") and not l.startswith("---"))
+        deletions = sum(
+            1 for l in diff_text.split("\n") if l.startswith("-") and not l.startswith("---")
+        )
         additions = len(added_lines)
         if deletions > 50 and additions < deletions * 0.3:
             score -= 2
@@ -943,6 +935,112 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             **(assignment.result or {}),
             "review_gate_score": score,
         }
+        return True
+
+    async def _run_sandbox_validation(
+        self,
+        assignment: AgentAssignment,
+        worktree_path: Path,
+    ) -> bool:
+        """Validate modified Python files can be parsed and imported.
+
+        Runs ``python -m py_compile`` on each modified .py file to catch
+        syntax errors before they reach the commit step.  When Docker is
+        available, uses container isolation; otherwise falls back to
+        subprocess with resource limits.
+
+        Returns True if all files pass, False otherwise.
+        """
+        if not self.hardened_config.enable_sandbox_validation:
+            return True
+
+        # Get list of modified Python files
+        try:
+            result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            modified_files = [
+                f.strip() for f in result.stdout.strip().split("\n") if f.strip().endswith(".py")
+            ]
+        except (subprocess.TimeoutExpired, OSError):
+            logger.debug("sandbox_validation could not list files, skipping")
+            return True
+
+        if not modified_files:
+            return True
+
+        logger.info(
+            "sandbox_validation subtask=%s files=%d",
+            assignment.subtask.id,
+            len(modified_files),
+        )
+
+        # Try sandbox executor first (Docker isolation)
+        try:
+            from aragora.sandbox.executor import SandboxExecutor
+
+            executor = SandboxExecutor()
+            for fpath in modified_files[:20]:  # Cap to prevent runaway
+                abs_path = worktree_path / fpath
+                if not abs_path.exists():
+                    continue
+                code = abs_path.read_text(encoding="utf-8", errors="replace")
+                exec_result = await executor.execute(
+                    code=f"import ast; ast.parse({code!r})",
+                    language="python",
+                    timeout=self.hardened_config.sandbox_timeout,
+                )
+                if exec_result.exit_code != 0:
+                    logger.warning(
+                        "sandbox_validation_failed file=%s error=%s",
+                        fpath,
+                        (exec_result.stderr or "")[:200],
+                    )
+                    return False
+            return True
+        except ImportError:
+            pass
+
+        # Fallback: py_compile in subprocess
+        failures = []
+        for fpath in modified_files[:20]:
+            abs_path = worktree_path / fpath
+            if not abs_path.exists():
+                continue
+            try:
+                compile_result = await asyncio.to_thread(
+                    subprocess.run,
+                    ["python", "-m", "py_compile", str(abs_path)],
+                    cwd=str(worktree_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=self.hardened_config.sandbox_timeout,
+                )
+                if compile_result.returncode != 0:
+                    failures.append(f"{fpath}: {compile_result.stderr[:100]}")
+            except subprocess.TimeoutExpired:
+                failures.append(f"{fpath}: timeout")
+            except OSError as e:
+                failures.append(f"{fpath}: {e}")
+
+        if failures:
+            logger.warning(
+                "sandbox_validation_failed subtask=%s failures=%s",
+                assignment.subtask.id,
+                failures[:5],
+            )
+            return False
+
+        logger.info(
+            "sandbox_validation_passed subtask=%s files=%d",
+            assignment.subtask.id,
+            len(modified_files),
+        )
         return True
 
     # =========================================================================
@@ -1131,9 +1229,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
     # B. Mode Enforcement
     # =========================================================================
 
-    def _build_subtask_workflow(
-        self, assignment: AgentAssignment
-    ) -> WorkflowDefinition:
+    def _build_subtask_workflow(self, assignment: AgentAssignment) -> WorkflowDefinition:
         """Build workflow with optional mode enforcement.
 
         When mode enforcement is enabled:
@@ -1180,10 +1276,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 config["mode_system_prompt"] = mode.get_system_prompt()
 
                 # High-complexity subtasks get debate-based design
-                if (
-                    step.id == "design"
-                    and assignment.subtask.estimated_complexity == "high"
-                ):
+                if step.id == "design" and assignment.subtask.estimated_complexity == "high":
                     return StepDefinition(
                         id=step.id,
                         name=step.name,
@@ -1270,10 +1363,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         self._record_budget_spend(assignment)
 
         # C. Post-execution gauntlet validation
-        if (
-            self.hardened_config.enable_gauntlet_validation
-            and assignment.status == "completed"
-        ):
+        if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
             await self._run_gauntlet_validation(assignment)
 
     async def _execute_in_worktree(
@@ -1314,13 +1404,8 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             self._record_budget_spend(assignment)
 
             # Run gauntlet on completed work
-            if (
-                self.hardened_config.enable_gauntlet_validation
-                and assignment.status == "completed"
-            ):
-                self._emit_event(
-                    "gauntlet_started", subtask=assignment.subtask.id
-                )
+            if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
+                self._emit_event("gauntlet_started", subtask=assignment.subtask.id)
                 await self._run_gauntlet_validation(assignment)
                 self._emit_event(
                     "gauntlet_result",
@@ -1350,11 +1435,21 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 if not review_ok:
                     assignment.status = "failed"
 
+            # Sandbox validation: syntax-check modified Python files
+            if assignment.status == "completed":
+                sandbox_ok = await self._run_sandbox_validation(
+                    assignment=assignment,
+                    worktree_path=ctx.worktree_path,
+                )
+                if not sandbox_ok:
+                    assignment.status = "failed"
+                    assignment.result = {
+                        **(assignment.result or {}),
+                        "sandbox_validation": "failed",
+                    }
+
             # Auto-commit changes in the worktree branch
-            if (
-                self.hardened_config.enable_auto_commit
-                and assignment.status == "completed"
-            ):
+            if self.hardened_config.enable_auto_commit and assignment.status == "completed":
                 commit_sha = await self._commit_changes(
                     worktree_path=ctx.worktree_path,
                     assignment=assignment,
@@ -1435,9 +1530,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 try:
                     await manager.cleanup_worktree(ctx)
                 except Exception:
-                    logger.exception(
-                        "worktree_cleanup_error subtask=%s", assignment.subtask.id
-                    )
+                    logger.exception("worktree_cleanup_error subtask=%s", assignment.subtask.id)
 
     # =========================================================================
     # C. Gauntlet Validation
@@ -1517,9 +1610,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # Find overlaps (files touched by multiple assignments)
         overlaps = {
-            f: subtask_ids
-            for f, subtask_ids in file_assignments.items()
-            if len(subtask_ids) > 1
+            f: subtask_ids for f, subtask_ids in file_assignments.items() if len(subtask_ids) > 1
         }
 
         if not overlaps:

@@ -147,7 +147,7 @@ class PartnerHandler(BaseHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error registering partner: {e}")
             return error_response(safe_error_message(e, "registration"), 500)
 
@@ -170,7 +170,7 @@ class PartnerHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting partner profile: {e}")
             return error_response(safe_error_message(e, "profile"), 500)
 
@@ -240,7 +240,7 @@ class PartnerHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error creating API key: {e}")
             return error_response(safe_error_message(e, "key creation"), 500)
 
@@ -294,7 +294,7 @@ class PartnerHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error rotating API key: {e}")
             return error_response(safe_error_message(e, "key rotation"), 500)
 
@@ -320,7 +320,7 @@ class PartnerHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error listing API keys: {e}")
             return error_response(safe_error_message(e, "key listing"), 500)
 
@@ -343,7 +343,7 @@ class PartnerHandler(BaseHandler):
 
             return json_response({"message": "Key revoked successfully", "key_id": key_id})
 
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error revoking API key: {e}")
             return error_response(safe_error_message(e, "key revocation"), 500)
 
@@ -375,7 +375,7 @@ class PartnerHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting usage: {e}")
             return error_response(safe_error_message(e, "usage"), 500)
 
@@ -439,7 +439,7 @@ class PartnerHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error configuring webhook: {e}")
             return error_response(safe_error_message(e, "webhook"), 500)
 

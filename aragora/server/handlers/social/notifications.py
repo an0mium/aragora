@@ -176,7 +176,7 @@ async def get_email_integration_for_org(org_id: str | None = None) -> EmailInteg
                 _org_email_cache.set(org_id, integration)
                 logger.info("Email integration loaded for org %s", org_id)
                 return integration
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError) as e:
                 logger.warning("Failed to create email integration for org %s: %s", org_id, e)
 
     # Fall back to system-wide config from environment
@@ -204,7 +204,7 @@ def _get_system_email_integration() -> EmailIntegration | None:
             )
             _system_email_integration = EmailIntegration(config)
             logger.info("System email integration initialized with host: %s", smtp_host)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning("Failed to initialize system email integration: %s", e)
 
     return _system_email_integration
@@ -248,7 +248,7 @@ async def get_telegram_integration_for_org(
                 _org_telegram_cache.set(org_id, integration)
                 logger.info("Telegram integration loaded for org %s", org_id)
                 return integration
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError) as e:
                 logger.warning("Failed to create telegram integration for org %s: %s", org_id, e)
 
     # Fall back to system-wide config from environment
@@ -269,7 +269,7 @@ def _get_system_telegram_integration() -> TelegramIntegration | None:
             config = TelegramConfig(bot_token=bot_token, chat_id=chat_id)
             _system_telegram_integration = TelegramIntegration(config)
             logger.info("System telegram integration initialized")
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning("Failed to initialize system telegram integration: %s", e)
 
     return _system_telegram_integration
@@ -494,7 +494,7 @@ class NotificationsHandler(SecureHandler):
                     email, telegram = loop.run_until_complete(get_integrations())
                 finally:
                     loop.close()
-        except Exception as e:
+        except (TypeError, ValueError, OSError, RuntimeError) as e:
             logger.warning("Failed to get integrations for org %s: %s", org_id, e)
             email, telegram = None, None
 
@@ -586,7 +586,7 @@ class NotificationsHandler(SecureHandler):
                     recipients = loop.run_until_complete(get_org_recipients())
                 finally:
                     loop.close()
-        except Exception as e:
+        except (TypeError, ValueError, OSError, RuntimeError) as e:
             logger.warning("Failed to get recipients for org %s: %s", org_id, e)
             return json_response({"recipients": [], "error": "Internal server error"})
 
@@ -660,7 +660,7 @@ class NotificationsHandler(SecureHandler):
                             loop.run_until_complete(save_config())
                         finally:
                             loop.close()
-                except Exception as e:
+                except (TypeError, ValueError, OSError, RuntimeError) as e:
                     logger.error("Failed to save email config for org %s: %s", org_id, e)
                     return error_response("Failed to save configuration", 500)
 
@@ -700,7 +700,7 @@ class NotificationsHandler(SecureHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid configuration", 400)
-        except Exception as e:
+        except (TypeError, KeyError, OSError) as e:
             logger.error("Failed to configure email: %s", e)
             return error_response("Failed to configure email", 500)
 
@@ -754,7 +754,7 @@ class NotificationsHandler(SecureHandler):
                             loop.run_until_complete(save_config())
                         finally:
                             loop.close()
-                except Exception as e:
+                except (TypeError, ValueError, OSError, RuntimeError) as e:
                     logger.error("Failed to save telegram config for org %s: %s", org_id, e)
                     return error_response("Failed to save configuration", 500)
 
@@ -786,7 +786,7 @@ class NotificationsHandler(SecureHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid configuration", 400)
-        except Exception as e:
+        except (TypeError, KeyError, OSError) as e:
             logger.error("Failed to configure telegram: %s", e)
             return error_response("Failed to configure telegram", 500)
 
@@ -840,7 +840,7 @@ class NotificationsHandler(SecureHandler):
                         recipients = loop.run_until_complete(save_recipient())
                     finally:
                         loop.close()
-            except Exception as e:
+            except (TypeError, ValueError, OSError, RuntimeError) as e:
                 logger.error("Failed to add recipient for org %s: %s", org_id, e)
                 return error_response("Failed to add recipient", 500)
 
@@ -911,7 +911,7 @@ class NotificationsHandler(SecureHandler):
                         removed, recipients = loop.run_until_complete(remove_recipient())
                     finally:
                         loop.close()
-            except Exception as e:
+            except (TypeError, ValueError, OSError, RuntimeError) as e:
                 logger.error("Failed to remove recipient for org %s: %s", org_id, e)
                 return error_response("Failed to remove recipient", 500)
 
@@ -990,7 +990,7 @@ class NotificationsHandler(SecureHandler):
                             "success": success,
                             "recipient": email.recipients[0].email,
                         }
-                    except Exception as e:
+                    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                         logger.warning("Test email send failed: %s", e)
                         results["email"] = {"success": False, "error": "Internal server error"}
                 else:
@@ -1030,7 +1030,7 @@ class NotificationsHandler(SecureHandler):
                         finally:
                             loop.close()
                     results["telegram"] = {"success": success}
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning("Test telegram send failed: %s", e)
                     results["telegram"] = {"success": False, "error": "Internal server error"}
             else:
@@ -1096,7 +1096,7 @@ class NotificationsHandler(SecureHandler):
                         "sent": sent,
                         "total": len(email.recipients),
                     }
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning("Email send failed: %s", e)
                     results["email"] = {"success": False, "error": "Internal server error"}
             else:
@@ -1134,7 +1134,7 @@ class NotificationsHandler(SecureHandler):
                         finally:
                             loop.close()
                     results["telegram"] = {"success": success}
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning("Telegram send failed: %s", e)
                     results["telegram"] = {"success": False, "error": "Internal server error"}
             else:
@@ -1169,7 +1169,7 @@ async def notify_debate_completed(result: Any) -> dict[str, bool]:
         try:
             sent = await email.send_debate_summary(result)
             results["email"] = sent > 0
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to send email notification: %s", e)
             results["email"] = False
 
@@ -1178,7 +1178,7 @@ async def notify_debate_completed(result: Any) -> dict[str, bool]:
         try:
             success = await telegram.post_debate_summary(result)
             results["telegram"] = success
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to send telegram notification: %s", e)
             results["telegram"] = False
 
@@ -1209,7 +1209,7 @@ async def notify_consensus_reached(
         try:
             sent = await email.send_consensus_alert(debate_id, confidence, winner, task)
             results["email"] = sent > 0
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to send email consensus alert: %s", e)
             results["email"] = False
 
@@ -1218,7 +1218,7 @@ async def notify_consensus_reached(
         try:
             success = await telegram.send_consensus_alert(debate_id, confidence, winner, task)
             results["telegram"] = success
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to send telegram consensus alert: %s", e)
             results["telegram"] = False
 
@@ -1251,7 +1251,7 @@ async def notify_error(
                 error_type, error_message, debate_id, severity
             )
             results["telegram"] = success
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to send telegram error alert: %s", e)
             results["telegram"] = False
 

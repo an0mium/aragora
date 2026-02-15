@@ -111,7 +111,7 @@ class TaskHandlerMixin:
         if method:
             try:
                 _run_async(method(*args, **kwargs))
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, AttributeError, TypeError) as e:
                 logger.warning(f"Stream emission failed for {emit_method}: {e}")
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
@@ -146,7 +146,7 @@ class TaskHandlerMixin:
                 return error_response(f"Task not found: {task_id}", 404)
 
             return json_response(task.to_dict())
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, RuntimeError, OSError) as e:
             return self._handle_coordinator_error(e, f"get_task:{task_id}")
 
     @api_endpoint(
@@ -210,7 +210,7 @@ class TaskHandlerMixin:
             return json_response({"task_id": task_id}, status=201)
         except KeyError:
             return error_response(f"Invalid priority: {priority}", 400)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error submitting task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -266,7 +266,7 @@ class TaskHandlerMixin:
             return json_response({"task_id": task_id}, status=201)
         except KeyError:
             return error_response(f"Invalid priority: {priority}", 400)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error submitting task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -321,7 +321,7 @@ class TaskHandlerMixin:
             )
 
             return json_response({"task": task.to_dict()})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error claiming task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -366,7 +366,7 @@ class TaskHandlerMixin:
             )
 
             return json_response({"task": task.to_dict()})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error claiming task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -422,7 +422,7 @@ class TaskHandlerMixin:
             )
 
             return json_response({"completed": True})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error completing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 

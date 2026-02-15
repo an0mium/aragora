@@ -48,7 +48,7 @@ def _get_decision_router(ctx: dict | None = None):
                 document_store=ctx.get("document_store"),
                 evidence_store=ctx.get("evidence_store"),
             )
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, AttributeError) as e:
             logger.warning(f"DecisionRouter not available: {e}")
     elif ctx:
         # Fill in stores if they were not set initially.
@@ -79,7 +79,7 @@ def _save_result(request_id: str, data: dict[str, Any]) -> None:
         try:
             store.save(request_id, data)
             return
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning(f"Failed to persist result, using fallback: {e}")
     # Fallback to in-memory
     _decision_results_fallback[request_id] = data
@@ -93,7 +93,7 @@ def _get_result(request_id: str) -> dict[str, Any] | None:
             result = store.get(request_id)
             if result:
                 return result
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning(f"Failed to retrieve from store: {e}")
     # Fallback to in-memory
     return _decision_results_fallback.get(request_id)
@@ -232,7 +232,7 @@ class DecisionHandler(BaseHandler):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
-        except Exception as e:
+        except (ImportError, TypeError, KeyError, AttributeError) as e:
             logger.warning(f"Failed to parse decision request: {e}")
             return error_response("Failed to parse request", 400)
 
@@ -262,7 +262,7 @@ class DecisionHandler(BaseHandler):
                     Action.CREATE,
                     ctx,
                 )
-            except Exception as e:
+            except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
                 logger.error(f"RBAC authorization check failed: {e}")
                 return error_response("Authorization service unavailable", 503)
 
@@ -308,7 +308,7 @@ class DecisionHandler(BaseHandler):
             )
             return error_response("Decision request timed out", 408)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Decision routing failed: {e}")
             _save_result(
                 request.request_id,
@@ -334,7 +334,7 @@ class DecisionHandler(BaseHandler):
         if store:
             try:
                 return json_response(store.get_status(request_id))
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError) as e:
                 logger.warning(f"Failed to get status from store: {e}")
 
         # Fallback to in-memory
@@ -369,7 +369,7 @@ class DecisionHandler(BaseHandler):
                         "total": total,
                     }
                 )
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError) as e:
                 logger.warning(f"Failed to list from store: {e}")
 
         # Fallback to in-memory
@@ -506,7 +506,7 @@ class DecisionHandler(BaseHandler):
             request.context.metadata["retried_from"] = request_id
             request.context.metadata["retry_count"] = original_result.get("retry_count", 0) + 1
 
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"Failed to build retry request: {e}")
             return error_response("Retry request creation failed", 400)
 
@@ -552,7 +552,7 @@ class DecisionHandler(BaseHandler):
             )
             return error_response("Decision retry timed out", 408)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Decision retry failed: {e}")
             _save_result(
                 new_request_id,

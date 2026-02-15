@@ -608,7 +608,9 @@ class AutonomousOrchestrator:
         # Delegate to HierarchicalCoordinator if provided
         if self.hierarchical_coordinator is not None:
             h_result = await self.hierarchical_coordinator.coordinate(
-                goal=goal, tracks=tracks, context=context,
+                goal=goal,
+                tracks=tracks,
+                context=context,
             )
             return self._hierarchical_to_orchestration_result(h_result, goal, start_time)
 
@@ -795,9 +797,7 @@ class AutonomousOrchestrator:
                 assignment.started_at = datetime.now(timezone.utc)
                 self._active_assignments.append(assignment)
 
-                task = asyncio.create_task(
-                    self._execute_with_semaphore(assignment, max_cycles)
-                )
+                task = asyncio.create_task(self._execute_with_semaphore(assignment, max_cycles))
                 running.append(task)
 
             if not running:
@@ -879,9 +879,7 @@ class AutonomousOrchestrator:
                 if feedback["action"] == "escalate":
                     assignment.status = "failed"
                     assignment.result = {"error": result.error, "feedback": feedback}
-                    await self._update_bead_status(
-                        subtask.id, "failed", error=result.error
-                    )
+                    await self._update_bead_status(subtask.id, "failed", error=result.error)
                 elif feedback["action"] == "reassign_agent":
                     # Anti-fragile: try a different agent type
                     alt_agent = self._select_alternative_agent(assignment)
@@ -963,9 +961,7 @@ class AutonomousOrchestrator:
         repo_path = self.aragora_path
         if self.branch_coordinator is not None:
             # Look up if this assignment's track has a worktree
-            for branch, wt_path in getattr(
-                self.branch_coordinator, "_worktree_paths", {}
-            ).items():
+            for branch, wt_path in getattr(self.branch_coordinator, "_worktree_paths", {}).items():
                 if assignment.track.value in branch:
                     repo_path = wt_path
                     break
@@ -1029,7 +1025,11 @@ class AutonomousOrchestrator:
             # Pick the first worker agent that matches the track, or fallback to first
             implement_agent = self.hierarchy.worker_agents[0]
             for wa in self.hierarchy.worker_agents:
-                if wa in (config.agent_types if (config := self.track_configs.get(assignment.track)) else []):
+                if wa in (
+                    config.agent_types
+                    if (config := self.track_configs.get(assignment.track))
+                    else []
+                ):
                     implement_agent = wa
                     break
 
@@ -1075,9 +1075,7 @@ class AutonomousOrchestrator:
         # Insert gauntlet adversarial validation step between design and implement
         if self.enable_gauntlet_gate:
             # Use stricter threshold for high-complexity subtasks
-            severity_threshold = (
-                "medium" if subtask.estimated_complexity == "high" else "high"
-            )
+            severity_threshold = "medium" if subtask.estimated_complexity == "high" else "high"
             steps.append(
                 StepDefinition(
                     id="gauntlet",

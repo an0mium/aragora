@@ -306,7 +306,7 @@ class SupportHandler(SecureHandler):
         """Connect a support platform with credentials."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support connect_platform: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -335,7 +335,7 @@ class SupportHandler(SecureHandler):
             connector = await self._get_connector(platform)
             if connector:
                 _platform_connectors[platform] = connector
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.warning(f"Could not initialize {platform} connector: {e}")
 
         logger.info(f"Connected support platform: {platform}")
@@ -435,7 +435,7 @@ class SupportHandler(SecureHandler):
                 conversations = await connector.get_conversations(status=status, limit=limit)
                 return [self._normalize_helpscout_conversation(c) for c in conversations]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(f"Error fetching {platform} tickets: {e}")
 
         return []
@@ -507,7 +507,7 @@ class SupportHandler(SecureHandler):
                     },
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning("Support get_ticket failed for %s/%s: %s", platform, ticket_id, e)
             return self._error_response(404, "Ticket not found")
 
@@ -520,7 +520,7 @@ class SupportHandler(SecureHandler):
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support create_ticket: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -579,7 +579,7 @@ class SupportHandler(SecureHandler):
                     201, self._normalize_helpscout_conversation(conversation)
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             cb.record_failure()
             logger.error("Support create_ticket failed for %s: %s", platform, e, exc_info=True)
             return self._error_response(500, "Failed to create ticket")
@@ -598,7 +598,7 @@ class SupportHandler(SecureHandler):
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support update_ticket: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -655,7 +655,7 @@ class SupportHandler(SecureHandler):
                     200, self._normalize_helpscout_conversation(conversation)
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(
                 "Support update_ticket failed for %s/%s: %s", platform, ticket_id, e, exc_info=True
             )
@@ -675,7 +675,7 @@ class SupportHandler(SecureHandler):
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support reply_to_ticket: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -720,7 +720,7 @@ class SupportHandler(SecureHandler):
                 )
                 return self._json_response(200, {"message": "Reply added successfully"})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(
                 "Support reply_to_ticket failed for %s/%s: %s",
                 platform,
@@ -760,7 +760,7 @@ class SupportHandler(SecureHandler):
                 metrics["totals"]["open_tickets"] += platform_metrics.get("open_tickets", 0)
                 metrics["totals"]["resolved_tickets"] += platform_metrics.get("resolved_tickets", 0)
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
                 metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
@@ -802,7 +802,7 @@ class SupportHandler(SecureHandler):
         """AI-powered ticket triage using multi-agent analysis."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support triage_tickets: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -862,7 +862,7 @@ class SupportHandler(SecureHandler):
         """Generate AI response suggestions for a ticket."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support generate_response: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -890,7 +890,7 @@ class SupportHandler(SecureHandler):
                 ticket_data["history"] = [self._normalize_zendesk_comment(c) for c in comments]
             # Similar for other platforms...
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning(
                 "Support generate_response: ticket not found for %s/%s: %s", platform, ticket_id, e
             )
@@ -936,7 +936,7 @@ class SupportHandler(SecureHandler):
         """Search tickets across platforms."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Support search_tickets: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -963,7 +963,7 @@ class SupportHandler(SecureHandler):
                     tickets = await connector.search_tickets(query, limit=limit)
                     results.extend([self._normalize_freshdesk_ticket(t) for t in tickets])
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error searching {platform}: {e}")
 
         return self._json_response(
@@ -1037,7 +1037,7 @@ class SupportHandler(SecureHandler):
             _platform_connectors[platform] = connector
             return connector
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.error(f"Failed to create {platform} connector: {e}")
             return None
 

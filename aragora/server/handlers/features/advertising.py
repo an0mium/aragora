@@ -456,7 +456,7 @@ class AdvertisingHandler(SecureHandler):
         """Connect an advertising platform with credentials."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -488,7 +488,7 @@ class AdvertisingHandler(SecureHandler):
             connector = await self._get_connector(platform)
             if connector:
                 _platform_connectors[platform] = connector
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.warning(f"Could not initialize {platform} connector: {e}")
 
         logger.info(f"Connected advertising platform: {platform}")
@@ -587,7 +587,7 @@ class AdvertisingHandler(SecureHandler):
                 campaigns = await connector.get_campaigns()
                 return [self._normalize_microsoft_campaign(c) for c in campaigns]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
             logger.error(f"Error fetching {platform} campaigns: {e}")
 
         return []

@@ -288,7 +288,7 @@ class GmailIngestHandler(SecureHandler):
 
             return json_response({"url": url})
 
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
             logger.error(f"[Gmail] Failed to generate auth URL: {e}")
             return error_response("Failed to generate authorization URL", 500)
 
@@ -312,7 +312,7 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
             logger.error(f"[Gmail] Failed to start connect: {e}")
             return error_response("Failed to start connection", 500)
 
@@ -427,7 +427,7 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"[Gmail] OAuth completion failed: {e}")
             return error_response(safe_error_message(e, "Authentication"), 500)
 
@@ -566,7 +566,7 @@ class GmailIngestHandler(SecureHandler):
 
             logger.info(f"[Gmail] Sync completed for {user_id}: {result.items_synced} messages")
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"[Gmail] Sync failed for {user_id}: {e}")
             # Update job status on failure - needs event loop
             loop = asyncio.new_event_loop()

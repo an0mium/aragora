@@ -223,7 +223,7 @@ class GitHubClient:
                 self._connector = GitHubConnector(token=self.token)
                 registry.register(GitHubConnector, self._connector)
                 logger.info("Created and registered GitHubConnector")
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, ValueError) as e:
             logger.debug(f"GitHubConnector not available, using direct API: {e}")
 
     async def get_pr(self, owner: str, repo: str, pr_number: int) -> PRDetails | None:
@@ -234,7 +234,7 @@ class GitHubClient:
         if self._connector:
             try:
                 return await self._get_pr_via_connector(owner, repo, pr_number)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
                 logger.warning(f"Connector failed, falling back to direct API: {e}")
 
         if not self.token:
@@ -284,7 +284,7 @@ class GitHubClient:
                     updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00")),
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.exception(f"Failed to fetch PR: {e}")
             return self._demo_pr(pr_number)
 
@@ -361,7 +361,7 @@ class GitHubClient:
                     error = response.text
                     return {"success": False, "error": error}
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.exception(f"Failed to submit review: {e}")
             return {"success": False, "error": "Internal server error"}
 
@@ -489,7 +489,7 @@ async def handle_trigger_pr_review(
                     f"[PRReview] Completed review {review_id} for {repository}#{pr_number}: {verdict.value}"
                 )
 
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler for async review task
                 logger.exception(f"Review {review_id} failed: {e}")
                 with _storage_lock:
                     result.status = ReviewStatus.FAILED
@@ -514,7 +514,7 @@ async def handle_trigger_pr_review(
             "repository": repository,
         }
 
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.exception(f"Failed to trigger PR review: {e}")
         return {
             "success": False,
@@ -637,7 +637,7 @@ async def _run_bug_detector_analysis(
                                 suggestion=finding.suggested_fix,
                             )
                         )
-                except Exception as pe:
+                except (TypeError, ValueError, KeyError, AttributeError) as pe:
                     logger.debug(f"Pattern {pattern.__class__.__name__} failed: {pe}")
                     continue
 
@@ -645,7 +645,7 @@ async def _run_bug_detector_analysis(
             f"[PRReview] Bug detector found {len(comments)} issues across {len(pr_details.changed_files)} files"
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning(f"Bug detector analysis failed: {e}")
 
     return comments, critical_issues
@@ -689,7 +689,7 @@ async def _perform_review(
                         )
                     return combined_comments, debate_verdict, debate_summary
                 return debate_result
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Debate review failed, falling back to heuristic: {e}")
 
     # Run bug detector analysis first
@@ -869,7 +869,7 @@ Format your response as:
     except ImportError:
         logger.debug("Arena not available for debate review")
         return None
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.warning(f"Debate review error: {e}")
         return None
 
@@ -958,7 +958,7 @@ async def handle_get_pr_details(
             "pr": pr_details.to_dict(),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception(f"Failed to get PR details: {e}")
         return {
             "success": False,

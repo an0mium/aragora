@@ -180,7 +180,7 @@ class AuditAgentFactory:
         try:
             agent = create_agent(model_type, name=agent_name, role=role)
             return agent, None
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.warning(f"Agent creation failed: {type(e).__name__}: {e}")
             return None, error_response("Failed to create agent", 400)
 
@@ -207,7 +207,7 @@ class AuditAgentFactory:
             try:
                 agent = create_agent(model_type, name=name, role="proposer")
                 agents.append(agent)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Failed to create audit agent {name}: {e}")
 
         if len(agents) < 2:
@@ -237,7 +237,7 @@ class AuditResultRecorder:
             )
             # Invalidate leaderboard cache after ELO update
             invalidate_leaderboard_cache()
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning(f"Failed to record ELO result for capability probe: {e}")
 
     @staticmethod
@@ -267,7 +267,7 @@ class AuditResultRecorder:
             date_str = datetime.now().strftime("%Y-%m-%d")
             probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
             probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to save probe report to {nomic_dir}: {e}")
 
     @staticmethod
@@ -330,7 +330,7 @@ class AuditResultRecorder:
                     default=str,
                 )
             )
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
 
 
@@ -426,7 +426,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error getting attack types: {e}")
             return error_response(safe_error_message(e, "get attack types"), 400)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected error getting attack types: {e}")
             return error_response(safe_error_message(e, "get attack types"), 500)
 
@@ -520,7 +520,7 @@ class AuditingHandler(SecureHandler):
                         else:
                             raw_output = target_agent.generate(prompt)
                     return OutputSanitizer.sanitize_agent_output(raw_output, target_agent.name)
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.debug(f"Agent generation failed: {type(e).__name__}: {e}")
                     return "[Agent Error: Generation failed]"
 
@@ -533,7 +533,7 @@ class AuditingHandler(SecureHandler):
                         probes_per_type=parsed["probes_per_type"],
                     )
                 )
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
                 logger.error(
                     "Capability probe execution failed: agent=%s, error=%s",
                     agent_name,
@@ -591,7 +591,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid capability probe request data: {e}")
             return error_response(_safe_error_message(e, "capability_probe"), 400)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected capability probe error: {e}")
             return error_response(_safe_error_message(e, "capability_probe"), 500)
 
@@ -691,7 +691,7 @@ class AuditingHandler(SecureHandler):
             # Run audit
             try:
                 verdict = run_async(DeepAuditOrchestrator(agents, config).run(task, context))
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
                 logger.error(
                     "Deep audit execution failed: audit_id=%s, error=%s",
                     audit_id,
@@ -773,7 +773,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid deep audit request data: {e}")
             return error_response(_safe_error_message(e, "deep_audit"), 400)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected deep audit error: {e}")
             return error_response(_safe_error_message(e, "deep_audit"), 500)
 
@@ -980,7 +980,7 @@ class AuditingHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid red team analysis request data for debate {debate_id}: {e}")
             return error_response(_safe_error_message(e, "red_team_analysis"), 400)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected red team analysis error for debate {debate_id}: {e}")
             return error_response(_safe_error_message(e, "red_team_analysis"), 500)
 

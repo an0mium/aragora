@@ -222,7 +222,7 @@ class GauntletSchemaHandler(GauntletSecureHandler):
             schema = schemas[schema_type]
             return json_response(schema)
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, AttributeError) as e:
             logger.exception(f"Error getting schema: {e}")
             return rfc7807_error(
                 status=500,
@@ -268,7 +268,7 @@ class GauntletAllSchemasHandler(GauntletSecureHandler):
 
             return json_response(response)
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, AttributeError) as e:
             logger.exception(f"Error getting schemas: {e}")
             return rfc7807_error(
                 status=500,
@@ -343,7 +343,7 @@ class GauntletTemplatesListHandler(GauntletSecureHandler):
 
             return json_response(response)
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, AttributeError) as e:
             logger.exception(f"Error listing templates: {e}")
             return rfc7807_error(
                 status=500,
@@ -410,7 +410,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
 
             return json_response(template.to_dict())
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, AttributeError) as e:
             logger.exception(f"Error getting template: {e}")
             return rfc7807_error(
                 status=500,
@@ -635,7 +635,7 @@ class GauntletReceiptExportHandler(GauntletSecureHandler):
                 body=content_bytes,
             )
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Error exporting receipt: {e}")
             return rfc7807_error(
                 status=500,
@@ -758,7 +758,7 @@ class GauntletHeatmapExportHandler(GauntletSecureHandler):
                 body=content_bytes,
             )
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Error exporting heatmap: {e}")
             return rfc7807_error(
                 status=500,
@@ -822,7 +822,7 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
 
             return json_response(response)
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError) as e:
             logger.exception(f"Error validating receipt: {e}")
             return rfc7807_error(
                 status=500,

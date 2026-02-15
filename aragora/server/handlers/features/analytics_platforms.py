@@ -288,7 +288,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Connect an analytics platform with credentials."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -320,7 +320,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
             connector = await self._get_connector(platform)
             if connector:
                 _platform_connectors[platform] = connector
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.warning(f"Could not initialize {platform} connector: {e}")
 
         logger.info(f"Connected analytics platform: {platform}")
@@ -404,7 +404,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 # Mixpanel uses "reports" / "boards"
                 return []
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(f"Error fetching {platform} dashboards: {e}")
 
         return []
@@ -451,7 +451,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     },
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(404, "Dashboard not found")
 
@@ -461,7 +461,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Execute a query on a specific platform."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -532,7 +532,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                         },
                     )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Query execution failed")
 
@@ -600,7 +600,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Generate a custom analytics report."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -630,7 +630,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
             try:
                 data = await self._fetch_report_data(platform, report_type, start_date, end_date)
                 report_data["platforms"][platform] = data
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error fetching {platform} report data: {e}")
                 report_data["platforms"][platform] = {"error": "Failed to fetch report data"}
 
@@ -734,7 +734,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     }
                     metrics["platforms"]["mixpanel"] = mp_metrics
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
                 metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
@@ -776,7 +776,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 },
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to fetch realtime data")
 
@@ -826,7 +826,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     },
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to fetch events")
 
@@ -862,7 +862,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 },
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to fetch funnel")
 
@@ -891,7 +891,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 },
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to fetch retention")
 
@@ -959,7 +959,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
             cb.record_success()
             return connector
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.error(f"Failed to create {platform} connector: {e}")
             cb.record_failure()
             return None

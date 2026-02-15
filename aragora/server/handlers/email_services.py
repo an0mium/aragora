@@ -73,7 +73,7 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> Ha
         if not decision.allowed:
             logger.warning(f"RBAC denied: permission={permission_key} reason={decision.reason}")
             return error_response(f"Permission denied: {decision.reason}", status=403)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, RuntimeError) as e:
         logger.warning(f"RBAC check failed: {e}")
         # Fail closed - deny access if RBAC check fails
         return error_response("Authorization check failed", status=503)
@@ -211,7 +211,7 @@ async def handle_mark_followup(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error marking follow-up")
         return error_response("Follow-up marking failed", status=500)
 
@@ -267,7 +267,7 @@ async def handle_get_pending_followups(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error getting pending follow-ups")
         return error_response("Failed to retrieve follow-ups", status=500)
 
@@ -316,7 +316,7 @@ async def handle_resolve_followup(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error resolving follow-up")
         return error_response("Follow-up resolution failed", status=500)
 
@@ -364,7 +364,7 @@ async def handle_check_replies(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error checking replies")
         return error_response("Reply check failed", status=500)
 
@@ -410,7 +410,7 @@ async def handle_auto_detect_followups(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error auto-detecting follow-ups")
         return error_response("Auto-detection failed", status=500)
 
@@ -516,7 +516,7 @@ async def handle_get_snooze_suggestions(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error getting snooze suggestions")
         return error_response("Failed to retrieve suggestions", status=500)
 
@@ -573,7 +573,7 @@ async def handle_apply_snooze(
                     await gmail.add_label(email_id, f"Snoozed/{label}")
                 if hasattr(gmail, "archive_message"):
                     await gmail.archive_message(email_id)
-        except Exception as gmail_error:
+        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError) as gmail_error:
             logger.warning(f"Could not apply Gmail snooze: {gmail_error}")
 
         return success_response(
@@ -585,7 +585,7 @@ async def handle_apply_snooze(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error applying snooze")
         return error_response("Snooze application failed", status=500)
 
@@ -622,7 +622,7 @@ async def handle_cancel_snooze(
                     await gmail.remove_label(email_id, "Snoozed")
                 if hasattr(gmail, "unarchive_message"):
                     await gmail.unarchive_message(email_id)
-        except Exception as gmail_error:
+        except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError) as gmail_error:
             logger.warning(f"Could not remove Gmail snooze: {gmail_error}")
 
         return success_response(
@@ -632,7 +632,7 @@ async def handle_cancel_snooze(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error canceling snooze")
         return error_response("Snooze cancellation failed", status=500)
 
@@ -678,7 +678,7 @@ async def handle_get_snoozed_emails(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.exception("Error getting snoozed emails")
         return error_response("Failed to retrieve snoozed items", status=500)
 
@@ -723,7 +723,7 @@ async def handle_process_due_snoozes(
                         await gmail.unarchive_message(email_id)
                     if hasattr(gmail, "remove_label"):
                         await gmail.remove_label(email_id, "Snoozed")
-            except Exception as gmail_error:
+            except (ImportError, ConnectionError, TimeoutError, OSError, AttributeError) as gmail_error:
                 logger.warning(f"Could not unsnooze {email_id} in Gmail: {gmail_error}")
 
         return success_response(
@@ -733,7 +733,7 @@ async def handle_process_due_snoozes(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error processing due snoozes")
         return error_response("Snooze processing failed", status=500)
 
@@ -771,7 +771,7 @@ async def handle_get_categories(
 
         return success_response({"categories": categories})
 
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, AttributeError) as e:
         logger.exception("Error getting categories")
         return error_response("Failed to retrieve categories", status=500)
 
@@ -827,7 +827,7 @@ async def handle_category_feedback(
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Error recording category feedback")
         return error_response("Feedback recording failed", status=500)
 

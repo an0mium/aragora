@@ -135,7 +135,7 @@ async def handle_get_oauth_url(
             "state": state,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception("Failed to get OAuth URL: %s", e)
         return {"success": False, "error": "Failed to generate OAuth URL"}
 
@@ -184,7 +184,7 @@ async def handle_oauth_callback(
             try:
                 profile = await connector.get_user_info()
                 email = profile.get("mail") or profile.get("userPrincipalName", "")
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning(f"Could not get user profile: {e}")
                 email = ""
 
@@ -197,7 +197,7 @@ async def handle_oauth_callback(
         else:
             return {"success": False, "error": "Authentication failed"}
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception("OAuth callback failed: %s", e)
         return {"success": False, "error": "OAuth callback failed"}
 
@@ -235,7 +235,7 @@ async def handle_list_folders(
             "total": len(folders),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception("Failed to list folders: %s", e)
         return {"success": False, "error": "Failed to list folders"}
 
@@ -290,7 +290,7 @@ async def handle_list_messages(
                             "is_important": msg.is_important,
                         }
                     )
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                     logger.warning(f"Failed to fetch message {msg_id}: {e}")
                     return None
 
@@ -304,7 +304,7 @@ async def handle_list_messages(
             "next_page_token": next_page,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception("Failed to list messages: %s", e)
         return {"success": False, "error": "Failed to list messages"}
 
@@ -360,7 +360,7 @@ async def handle_get_message(
 
         return {"success": True, "message": result}
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
         logger.exception("Failed to get message: %s", e)
         return {"success": False, "error": "Failed to get message"}
 
@@ -411,7 +411,7 @@ async def handle_get_conversation(
             },
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
         logger.exception("Failed to get conversation: %s", e)
         return {"success": False, "error": "Failed to get conversation"}
 
@@ -461,7 +461,7 @@ async def handle_send_message(
             "message": "Email sent successfully",
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception("Failed to send message: %s", e)
         return {"success": False, "error": "Failed to send message"}
 
@@ -507,7 +507,7 @@ async def handle_reply_message(
             "in_reply_to": message_id,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception("Failed to reply to message: %s", e)
         return {"success": False, "error": "Failed to reply to message"}
 
@@ -548,7 +548,7 @@ async def handle_search_messages(
             "total": len(results),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
         logger.exception("Failed to search messages: %s", e)
         return {"success": False, "error": "Failed to search messages"}
 
@@ -591,7 +591,7 @@ async def handle_mark_read(
             "is_read": is_read,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception("Failed to mark message: %s", e)
         return {"success": False, "error": "Failed to update message read status"}
 
@@ -634,7 +634,7 @@ async def handle_move_message(
             "destination_folder_id": destination_folder_id,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception("Failed to move message: %s", e)
         return {"success": False, "error": "Failed to move message"}
 
@@ -687,7 +687,7 @@ async def handle_delete_message(
             "permanent": permanent,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
         logger.exception("Failed to delete message: %s", e)
         return {"success": False, "error": "Failed to delete message"}
 
@@ -734,7 +734,7 @@ async def handle_get_status(
                 "error": "Token expired or invalid",
             }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception("Failed to get status: %s", e)
         return {"success": False, "error": "Failed to get connection status"}
 

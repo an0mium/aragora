@@ -135,7 +135,7 @@ class NomicAdminMixin:
                 status["current_phase"] = state_data.get("phase")
                 status["cycle_id"] = state_data.get("cycle_id")
                 status["state_machine"] = state_data
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
                 errors.append(f"Failed to read state: {e}")
 
         # Get metrics

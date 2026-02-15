@@ -258,7 +258,7 @@ def _get_ml_component(name: str) -> Any:
                 logger.warning(f"ML component {name} not available: {e}")
                 _ml_components[name] = None
                 circuit_breaker.record_failure()
-            except Exception as e:
+            except (RuntimeError, OSError, TypeError, ValueError, AttributeError) as e:
                 logger.error(f"Error loading ML component {name}: {e}")
                 _ml_components[name] = None
                 circuit_breaker.record_failure()
@@ -414,7 +414,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML routing request: {e}")
             return error_response(safe_error_message(e, "routing"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML routing error: {e}")
             return error_response(safe_error_message(e, "routing"), 500)
 
@@ -468,7 +468,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML scoring request: {e}")
             return error_response(safe_error_message(e, "scoring"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML scoring error: {e}")
             return error_response(safe_error_message(e, "scoring"), 500)
 
@@ -525,7 +525,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML batch scoring request: {e}")
             return error_response(safe_error_message(e, "batch scoring"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML batch scoring error: {e}")
             return error_response(safe_error_message(e, "batch scoring"), 500)
 
@@ -593,7 +593,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML consensus prediction request: {e}")
             return error_response(safe_error_message(e, "prediction"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML consensus prediction error: {e}")
             return error_response(safe_error_message(e, "prediction"), 500)
 
@@ -657,7 +657,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML export request: {e}")
             return error_response(safe_error_message(e, "export"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML export error: {e}")
             return error_response(safe_error_message(e, "export"), 500)
 

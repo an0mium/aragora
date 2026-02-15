@@ -216,7 +216,7 @@ class GitHubAuditClient:
                     error = await error
                 return {"success": False, "error": error}
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Failed to create issue: {e}")
             return {"success": False, "error": "GitHub API request failed"}
 
@@ -263,7 +263,7 @@ class GitHubAuditClient:
                     error = response.text
                     return {"success": False, "error": error}
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Failed to create branch: {e}")
             return {"success": False, "error": "Branch creation failed"}
 
@@ -319,7 +319,7 @@ class GitHubAuditClient:
                     error = response.text
                     return {"success": False, "error": error}
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Failed to create PR: {e}")
             return {"success": False, "error": "Pull request creation failed"}
 
@@ -353,7 +353,7 @@ class GitHubAuditClient:
                     return response.json()
                 return None
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Failed to get issue: {e}")
             return None
 
@@ -388,7 +388,7 @@ class GitHubAuditClient:
                     error = response.text
                     return {"success": False, "error": error}
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Failed to add comment: {e}")
             return {"success": False, "error": "Failed to add issue comment"}
 
@@ -448,10 +448,10 @@ class GitHubAuditClient:
                             logger.debug(f"Created label: {label}")
                         # Ignore errors (label might already exist with different casing)
 
-                    except Exception as e:
+                    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                         logger.warning(f"Could not ensure label {label}: {e}")
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning(f"Failed to ensure labels: {e}")
 
 
@@ -646,7 +646,7 @@ async def handle_create_issue(
         else:
             return result
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception(f"Failed to create issue: {e}")
         return {"success": False, "error": "Issue creation failed"}
 
@@ -877,7 +877,7 @@ async def handle_create_fix_pr(
         else:
             return pr_result
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception(f"Failed to create fix PR: {e}")
         return {"success": False, "error": "Fix PR creation failed"}
 
@@ -999,7 +999,7 @@ async def handle_sync_session(
             "sync": sync_result.to_dict(),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception(f"Failed to sync session: {e}")
         return {"success": False, "error": "Session sync failed"}
 
@@ -1040,7 +1040,7 @@ async def handle_get_sync_status(
                 "total": len(syncs),
             }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get sync status: {e}")
         return {"success": False, "error": "Failed to retrieve sync status"}
 
@@ -1077,7 +1077,7 @@ async def handle_get_finding_issues(
                 "total": len(session_issues),
             }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get finding issues: {e}")
         return {"success": False, "error": "Failed to retrieve finding issues"}
 
