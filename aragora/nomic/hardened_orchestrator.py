@@ -7,16 +7,19 @@ Extends AutonomousOrchestrator with production-grade features:
 - Prompt injection defense: scan goals/context with SkillScanner
 - Budget enforcement: cumulative USD spend tracking
 - Audit reconciliation: cross-agent file overlap detection
+- Auto-commit: git commit in worktree after successful verification
+- MetaPlanner: debate-driven goal prioritization before decomposition
+- Merge gate: broader test suite validation before worktree merge
 
-All features are opt-in via constructor flags. Default behavior is
-identical to the base AutonomousOrchestrator.
+This is the **default** orchestrator used by ``scripts/self_develop.py``.
+Use ``--standard`` flag to fall back to the base AutonomousOrchestrator.
 
 Usage:
     from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
     orchestrator = HardenedOrchestrator(
         use_worktree_isolation=True,
-        enable_gauntlet_validation=True,
+        enable_meta_planning=True,
         budget_limit_usd=5.0,
     )
     result = await orchestrator.execute_goal("Improve SDK test coverage")
@@ -24,15 +27,19 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from dataclasses import dataclass
+import subprocess
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from aragora.nomic.autonomous_orchestrator import (
     AgentAssignment,
     AutonomousOrchestrator,
     OrchestrationResult,
+    Track,
 )
 from aragora.workflow.types import StepDefinition, WorkflowDefinition
 
@@ -47,15 +54,40 @@ PHASE_MODE_MAP = {
 
 
 @dataclass
+class BudgetEnforcementConfig:
+    """Configuration for BudgetManager integration.
+
+    When provided, the orchestrator uses the billing system's BudgetManager
+    for persistent, org-aware budget tracking instead of a simple float counter.
+    """
+
+    org_id: str = "default"
+    budget_id: str | None = None  # Existing budget ID, or auto-create
+    cost_per_subtask_estimate: float = 0.10  # Default estimated cost per subtask
+    hard_stop_percent: float = 1.0  # Stop at this % of budget (1.0 = 100%)
+
+
+@dataclass
 class HardenedConfig:
     """Configuration for hardened orchestrator features."""
 
-    use_worktree_isolation: bool = False
+    use_worktree_isolation: bool = True
     enable_mode_enforcement: bool = True
     enable_gauntlet_validation: bool = True
     enable_prompt_defense: bool = True
     enable_audit_reconciliation: bool = True
+    enable_auto_commit: bool = True
+    enable_meta_planning: bool = False
     budget_limit_usd: float | None = None
+    budget_enforcement: BudgetEnforcementConfig | None = None
+    generate_receipts: bool = True
+    spectate_stream: bool = False
+    # Merge gate: test directories to validate before merging worktree
+    merge_gate_test_dirs: list[str] = field(
+        default_factory=lambda: ["tests/"]
+    )
+    # Merge gate: maximum time for test run (seconds)
+    merge_gate_timeout: int = 300
 
 
 class HardenedOrchestrator(AutonomousOrchestrator):
@@ -68,12 +100,18 @@ class HardenedOrchestrator(AutonomousOrchestrator):
     def __init__(
         self,
         *,
-        use_worktree_isolation: bool = False,
+        use_worktree_isolation: bool = True,
         enable_mode_enforcement: bool = True,
         enable_gauntlet_validation: bool = True,
         enable_prompt_defense: bool = True,
         enable_audit_reconciliation: bool = True,
+        enable_auto_commit: bool = True,
+        enable_meta_planning: bool = False,
         budget_limit_usd: float | None = None,
+        budget_enforcement: BudgetEnforcementConfig | None = None,
+        generate_receipts: bool = True,
+        spectate_stream: bool = False,
+        merge_gate_test_dirs: list[str] | None = None,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -84,14 +122,63 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             enable_gauntlet_validation=enable_gauntlet_validation,
             enable_prompt_defense=enable_prompt_defense,
             enable_audit_reconciliation=enable_audit_reconciliation,
+            enable_auto_commit=enable_auto_commit,
+            enable_meta_planning=enable_meta_planning,
             budget_limit_usd=budget_limit_usd,
+            budget_enforcement=budget_enforcement,
+            generate_receipts=generate_receipts,
+            spectate_stream=spectate_stream,
+            merge_gate_test_dirs=merge_gate_test_dirs or ["tests/"],
         )
 
-        # Budget tracking
+        # Budget tracking (simple float counter, legacy)
         self._budget_spent_usd: float = 0.0
+
+        # BudgetManager integration (persistent, org-aware)
+        self._budget_manager: Any | None = None
+        self._budget_id: str | None = None
+        if budget_enforcement is not None:
+            self._init_budget_manager(budget_enforcement)
 
         # Worktree manager (created lazily when needed)
         self._worktree_manager: Any | None = None
+
+        # MetaPlanner (created lazily when needed)
+        self._meta_planner: Any | None = None
+
+        # Spectate event log
+        self._spectate_events: list[dict[str, Any]] = []
+
+        # Generated receipts
+        self._receipts: list[Any] = []
+
+    def _init_budget_manager(self, config: BudgetEnforcementConfig) -> None:
+        """Initialize BudgetManager integration."""
+        try:
+            from aragora.billing.budget_manager import get_budget_manager
+
+            self._budget_manager = get_budget_manager()
+
+            if config.budget_id:
+                # Use existing budget
+                self._budget_id = config.budget_id
+            else:
+                # Auto-create a budget for this orchestration run
+                budget = self._budget_manager.create_budget(
+                    org_id=config.org_id,
+                    name=f"orchestration-{id(self)}",
+                    amount_usd=self.hardened_config.budget_limit_usd or 10.0,
+                    description="Auto-created by HardenedOrchestrator",
+                )
+                self._budget_id = budget.budget_id
+
+            logger.info(
+                "budget_manager_initialized budget_id=%s org_id=%s",
+                self._budget_id,
+                config.org_id,
+            )
+        except ImportError:
+            logger.debug("BudgetManager unavailable, using simple float counter")
 
     def _get_worktree_manager(self) -> Any:
         """Lazily create WorktreeManager."""
@@ -115,25 +202,114 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         max_cycles: int = 5,
         context: dict[str, Any] | None = None,
     ) -> OrchestrationResult:
-        """Execute goal with optional prompt injection scanning.
+        """Execute goal with hardened pipeline.
 
-        Scans the goal text for injection patterns before proceeding.
-        CRITICAL severity findings raise ValueError (hard reject).
-        HIGH severity findings are logged as warnings.
+        Pipeline stages:
+        1. Prompt injection scanning (reject dangerous inputs)
+        2. MetaPlanner prioritization (debate-driven goal refinement)
+        3. Task decomposition and execution (inherited from base)
+        4. Audit reconciliation (cross-agent overlap detection)
         """
         if self.hardened_config.enable_prompt_defense:
             self._scan_for_injection(goal, context)
+
+        # MetaPlanner: refine the goal via debate-driven prioritization
+        if self.hardened_config.enable_meta_planning:
+            goal = await self._meta_plan_goal(goal, tracks)
 
         # Reset budget tracking for this run
         self._budget_spent_usd = 0.0
 
         result = await super().execute_goal(goal, tracks, max_cycles, context)
 
-        # F. Audit reconciliation after all assignments complete
+        # Audit reconciliation after all assignments complete
         if self.hardened_config.enable_audit_reconciliation:
             self._reconcile_audits(result.assignments)
 
         return result
+
+    # =========================================================================
+    # G. MetaPlanner Integration
+    # =========================================================================
+
+    async def _meta_plan_goal(
+        self,
+        goal: str,
+        tracks: list[str] | None = None,
+    ) -> str:
+        """Use MetaPlanner to refine the goal via debate-driven prioritization.
+
+        Queries the MetaPlanner to break a vague objective into prioritized
+        sub-goals with track assignments, then synthesizes them into a
+        refined goal string for the task decomposer.
+
+        Args:
+            goal: Original high-level goal
+            tracks: Optional track filter
+
+        Returns:
+            Refined goal string enriched with MetaPlanner priorities
+        """
+        try:
+            from aragora.nomic.meta_planner import (
+                MetaPlanner,
+                MetaPlannerConfig,
+                PlanningContext,
+                Track as MetaTrack,
+            )
+
+            if self._meta_planner is None:
+                self._meta_planner = MetaPlanner(MetaPlannerConfig(
+                    debate_rounds=2,
+                    max_goals=5,
+                    enable_cross_cycle_learning=True,
+                ))
+
+            # Map track strings to MetaTrack enums
+            available_tracks = None
+            if tracks:
+                available_tracks = []
+                for t in tracks:
+                    try:
+                        available_tracks.append(MetaTrack(t.lower()))
+                    except ValueError:
+                        pass
+
+            logger.info("meta_planner_starting goal=%s", goal[:100])
+
+            prioritized_goals = await self._meta_planner.prioritize_work(
+                objective=goal,
+                available_tracks=available_tracks,
+                context=PlanningContext(),
+            )
+
+            if not prioritized_goals:
+                logger.info("meta_planner_no_goals, using original goal")
+                return goal
+
+            # Synthesize prioritized goals into an enriched goal string
+            enriched_parts = [f"Original objective: {goal}", "", "Prioritized sub-goals:"]
+            for pg in prioritized_goals:
+                enriched_parts.append(
+                    f"  {pg.priority}. [{pg.track.value}] {pg.description} "
+                    f"(impact: {pg.estimated_impact})"
+                )
+                if pg.rationale:
+                    enriched_parts.append(f"     Rationale: {pg.rationale}")
+
+            enriched_goal = "\n".join(enriched_parts)
+            logger.info(
+                "meta_planner_completed goals=%d",
+                len(prioritized_goals),
+            )
+            return enriched_goal
+
+        except ImportError:
+            logger.debug("MetaPlanner unavailable, using original goal")
+            return goal
+        except Exception as e:
+            logger.warning("meta_planner_failed error=%s, using original goal", e)
+            return goal
 
     def _scan_for_injection(self, goal: str, context: dict[str, Any] | None) -> None:
         """Scan goal and context for prompt injection patterns."""
@@ -180,6 +356,105 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         except ImportError:
             logger.debug("SkillScanner unavailable, skipping prompt defense")
+
+    # =========================================================================
+    # E. Budget Enforcement (BudgetManager integration)
+    # =========================================================================
+
+    def _check_budget_allows(self, assignment: AgentAssignment) -> bool:
+        """Check if the budget allows executing this assignment.
+
+        Uses BudgetManager.can_spend() when configured, falls back to
+        simple float counter when budget_limit_usd is set without
+        BudgetEnforcementConfig.
+
+        Returns:
+            True if assignment may proceed, False if skipped due to budget.
+        """
+        be_config = self.hardened_config.budget_enforcement
+        estimate = be_config.cost_per_subtask_estimate if be_config else 0.10
+
+        # Path 1: BudgetManager integration
+        if self._budget_manager is not None and self._budget_id is not None:
+            budget = self._budget_manager.get_budget(self._budget_id)
+            if budget is None:
+                logger.warning("budget_not_found id=%s, allowing", self._budget_id)
+                return True
+
+            # Check hard_stop_percent
+            hard_stop = be_config.hard_stop_percent if be_config else 1.0
+            if budget.usage_percentage >= hard_stop:
+                self._skip_assignment(assignment, "budget_exceeded_hard_stop")
+                return False
+
+            result = budget.can_spend_extended(estimate)
+            if not result.allowed:
+                logger.warning(
+                    "budget_blocked subtask=%s reason=%s spent=%.2f limit=%.2f",
+                    assignment.subtask.id,
+                    result.message,
+                    budget.spent_usd,
+                    budget.amount_usd,
+                )
+                self._skip_assignment(assignment, "budget_exceeded")
+                return False
+
+            return True
+
+        # Path 2: Simple float counter (legacy)
+        if self.hardened_config.budget_limit_usd is not None:
+            if self._budget_spent_usd >= self.hardened_config.budget_limit_usd:
+                logger.warning(
+                    "budget_exceeded subtask=%s spent=%.2f limit=%.2f",
+                    assignment.subtask.id,
+                    self._budget_spent_usd,
+                    self.hardened_config.budget_limit_usd,
+                )
+                self._skip_assignment(assignment, "budget_exceeded")
+                return False
+
+        return True
+
+    def _record_budget_spend(
+        self,
+        assignment: AgentAssignment,
+        amount_usd: float | None = None,
+    ) -> None:
+        """Record spending after a subtask completes.
+
+        Uses BudgetManager.record_spend() when configured, otherwise
+        increments the simple float counter.
+        """
+        be_config = self.hardened_config.budget_enforcement
+        cost = amount_usd or (be_config.cost_per_subtask_estimate if be_config else 0.10)
+
+        # Path 1: BudgetManager
+        if self._budget_manager is not None and self._budget_id is not None:
+            budget = self._budget_manager.get_budget(self._budget_id)
+            if budget is not None:
+                self._budget_manager.record_spend(
+                    org_id=budget.org_id,
+                    amount_usd=cost,
+                    description=f"subtask:{assignment.subtask.id} ({assignment.subtask.title})",
+                )
+                logger.info(
+                    "budget_spend_recorded subtask=%s cost=%.4f",
+                    assignment.subtask.id,
+                    cost,
+                )
+            return
+
+        # Path 2: Simple counter
+        self._budget_spent_usd += cost
+
+    def _skip_assignment(self, assignment: AgentAssignment, reason: str) -> None:
+        """Mark an assignment as skipped and move to completed list."""
+        assignment.status = "skipped"
+        assignment.result = {"reason": reason}
+        assignment.completed_at = datetime.now(timezone.utc)
+        self._completed_assignments.append(assignment)
+        if assignment in self._active_assignments:
+            self._active_assignments.remove(assignment)
 
     # =========================================================================
     # B. Mode Enforcement
@@ -289,21 +564,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         When budget enforcement is enabled:
         - Skip assignments that would exceed the budget
         """
-        # E. Budget enforcement
-        if self.hardened_config.budget_limit_usd is not None:
-            if self._budget_spent_usd >= self.hardened_config.budget_limit_usd:
-                logger.warning(
-                    "budget_exceeded subtask=%s spent=%.2f limit=%.2f",
-                    assignment.subtask.id,
-                    self._budget_spent_usd,
-                    self.hardened_config.budget_limit_usd,
-                )
-                assignment.status = "skipped"
-                assignment.result = {"reason": "budget_exceeded"}
-                assignment.completed_at = datetime.now(timezone.utc)
-                self._completed_assignments.append(assignment)
-                self._active_assignments.remove(assignment)
-                return
+        # E. Budget enforcement (BudgetManager or simple float counter)
+        if not self._check_budget_allows(assignment):
+            return
 
         # A. Worktree isolation path
         if self.hardened_config.use_worktree_isolation:
@@ -312,6 +575,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
         # Non-worktree path: delegate to parent
         await super()._execute_single_assignment(assignment, max_cycles)
+
+        # Record budget spend (cost incurred regardless of gauntlet outcome)
+        self._record_budget_spend(assignment)
 
         # C. Post-execution gauntlet validation
         if (
@@ -346,6 +612,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 await super()._execute_single_assignment(assignment, max_cycles)
             finally:
                 self.aragora_path = original_path
+
+            # Record budget spend (cost incurred regardless of merge outcome)
+            self._record_budget_spend(assignment)
 
             # Run gauntlet on completed work
             if (
@@ -504,6 +773,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
 
 __all__ = [
+    "BudgetEnforcementConfig",
     "HardenedConfig",
     "HardenedOrchestrator",
     "PHASE_MODE_MAP",

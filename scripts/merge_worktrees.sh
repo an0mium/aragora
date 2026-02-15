@@ -28,21 +28,26 @@ FORCE=false
 REBASE=false
 STATUS_ONLY=false
 SKIP_TESTS=false
+JSON_OUTPUT=false
+TEST_TIMEOUT=60
 MERGED=0
 FAILED=0
 SKIPPED=0
 
-for arg in "$@"; do
-    case "$arg" in
-        --dry-run)     DRY_RUN=true ;;
-        --force)       FORCE=true ;;
-        --rebase)      REBASE=true ;;
-        --status)      STATUS_ONLY=true ;;
-        --skip-tests)  SKIP_TESTS=true ;;
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run)        DRY_RUN=true; shift ;;
+        --force)          FORCE=true; shift ;;
+        --rebase)         REBASE=true; shift ;;
+        --status)         STATUS_ONLY=true; shift ;;
+        --skip-tests)     SKIP_TESTS=true; shift ;;
+        --json)           JSON_OUTPUT=true; shift ;;
+        --test-timeout)   TEST_TIMEOUT="$2"; shift 2 ;;
         --help|-h)
             head -15 "$0" | tail -13
             exit 0
             ;;
+        *)  shift ;;
     esac
 done
 
@@ -144,7 +149,7 @@ for BRANCH in ${BRANCHES}; do
     # Run tests in worktree (subset for speed)
     if ! ${SKIP_TESTS} && [ -n "${TREE_DIR}" ] && [ -d "${TREE_DIR}" ] && ! ${DRY_RUN}; then
         echo "  Running tests..."
-        if python -m pytest "${TREE_DIR}/tests/" -x -q --timeout=60 -p no:randomly \
+        if python -m pytest "${TREE_DIR}/tests/" -x -q --timeout="${TEST_TIMEOUT}" -p no:randomly \
             --ignore="${TREE_DIR}/tests/connectors" \
             --ignore="${TREE_DIR}/tests/integration" \
             --ignore="${TREE_DIR}/tests/benchmarks" \
@@ -185,18 +190,36 @@ for BRANCH in ${BRANCHES}; do
 done
 
 echo ""
-echo "=== Results ==="
-if ${STATUS_ONLY}; then
-    echo "Branches: $(echo "${BRANCHES}" | wc -w | tr -d ' ')"
+if ${JSON_OUTPUT}; then
+    TOTAL=$(echo "${BRANCHES}" | wc -w | tr -d ' ')
+    cat <<ENDJSON
+{
+  "total": ${TOTAL},
+  "merged": ${MERGED},
+  "failed": ${FAILED},
+  "skipped": ${SKIPPED},
+  "success": $([ "${FAILED}" -eq 0 ] && echo "true" || echo "false"),
+  "dry_run": ${DRY_RUN},
+  "status_only": ${STATUS_ONLY}
+}
+ENDJSON
 else
-    echo "Merged:  ${MERGED}"
-    echo "Failed:  ${FAILED}"
-    echo "Skipped: ${SKIPPED}"
+    echo "=== Results ==="
+    if ${STATUS_ONLY}; then
+        echo "Branches: $(echo "${BRANCHES}" | wc -w | tr -d ' ')"
+    else
+        echo "Merged:  ${MERGED}"
+        echo "Failed:  ${FAILED}"
+        echo "Skipped: ${SKIPPED}"
+    fi
+
+    if [ "${FAILED}" -gt 0 ]; then
+        echo ""
+        echo "Failed branches need manual resolution."
+        echo "Use: git merge <branch-name>"
+    fi
 fi
 
 if [ "${FAILED}" -gt 0 ]; then
-    echo ""
-    echo "Failed branches need manual resolution."
-    echo "Use: git merge <branch-name>"
     exit 1
 fi

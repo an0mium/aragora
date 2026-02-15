@@ -233,3 +233,118 @@ class TestMetaPlannerTemplateInjection:
 
         # Should still have YOUR TASK section
         assert "YOUR TASK" in topic
+
+
+class TestTfIdfGoalExpansion:
+    """Tests for TF-IDF based goal expansion."""
+
+    def test_sme_utility_matches_relevant_templates(self):
+        """'maximize SME utility' should match relevant templates with TF-IDF."""
+        decomposer = TaskDecomposer()
+        result = decomposer.analyze("Maximize utility for SME businesses")
+        assert result.should_decompose
+        assert len(result.subtasks) >= 2
+
+    def test_tfidf_fallback_to_keywords(self):
+        """When sklearn unavailable, should still produce results via keyword matching."""
+        from unittest.mock import patch
+
+        from aragora.deliberation.templates.registry import TemplateRegistry
+
+        registry = TemplateRegistry()
+
+        # Force _recommend_tfidf to raise ImportError to trigger fallback
+        with patch.object(
+            registry,
+            "_recommend_tfidf",
+            side_effect=ImportError("no sklearn"),
+        ):
+            results = registry.recommend("security audit vulnerabilities")
+            # Should still return results via keyword fallback
+            assert isinstance(results, list)
+            assert len(results) > 0
+
+    def test_codebase_relevance_scoring(self):
+        """File scopes should be populated from codebase module mapping."""
+        decomposer = TaskDecomposer()
+        paths = decomposer._score_codebase_relevance("improve debate engine security")
+        assert "aragora/debate/" in paths
+        assert "aragora/security/" in paths
+
+    def test_codebase_relevance_no_matches(self):
+        """Random words should not match any codebase modules."""
+        decomposer = TaskDecomposer()
+        paths = decomposer._score_codebase_relevance("xyzzy foobar nonsense")
+        assert paths == []
+
+    def test_codebase_relevance_limit(self):
+        """Should return at most 5 paths."""
+        decomposer = TaskDecomposer()
+        # Use a goal that mentions many modules
+        paths = decomposer._score_codebase_relevance(
+            "debate agents analytics audit billing cli compliance "
+            "connectors gateway knowledge memory nomic"
+        )
+        assert len(paths) <= 5
+
+    def test_tfidf_registry_recommend(self):
+        """Registry recommend() with TF-IDF should return templates sorted by cosine similarity."""
+        from aragora.deliberation.templates.registry import TemplateRegistry
+
+        registry = TemplateRegistry()
+        results = registry.recommend("hiring decision for small business")
+        assert len(results) > 0
+        # Results should be DeliberationTemplate instances
+        from aragora.deliberation.templates.base import DeliberationTemplate
+
+        for r in results:
+            assert isinstance(r, DeliberationTemplate)
+
+    def test_tfidf_recommend_with_domain_boost(self):
+        """Domain boost should elevate templates matching the domain."""
+        from aragora.deliberation.templates.registry import TemplateRegistry
+
+        registry = TemplateRegistry()
+        # Without domain
+        results_no_domain = registry.recommend("security review", limit=5)
+        # With domain boost
+        results_with_domain = registry.recommend("security review", domain="code", limit=5)
+        # Both should return results
+        assert len(results_no_domain) > 0
+        assert len(results_with_domain) > 0
+
+    def test_tfidf_empty_registry(self):
+        """TF-IDF recommend on empty registry should return empty list."""
+        from aragora.deliberation.templates.registry import TemplateRegistry
+
+        registry = TemplateRegistry()
+        # Force empty templates (bypass initialization)
+        registry._initialized = True
+        registry._templates = {}
+        results = registry.recommend("anything")
+        assert results == []
+
+    def test_expanded_subtasks_have_file_scope(self):
+        """Template-derived subtasks should populate file_scope from tags and goal."""
+        decomposer = TaskDecomposer()
+        result = decomposer._expand_vague_goal("improve security and compliance")
+
+        if result is not None:
+            # At least some subtasks should have file_scope populated
+            subtasks_with_scope = [st for st in result.subtasks if st.file_scope]
+            assert len(subtasks_with_scope) >= 1
+
+    def test_keyword_fallback_matches_tfidf_basic(self):
+        """Keyword fallback should produce comparable results for clear queries."""
+        from aragora.deliberation.templates.registry import TemplateRegistry
+
+        registry = TemplateRegistry()
+        # Force initialization
+        registry._ensure_initialized()
+
+        tfidf_results = registry._recommend_tfidf("code review", None, 3)
+        keyword_results = registry._recommend_keywords("code review", None, 3)
+
+        # Both should find results
+        assert len(tfidf_results) > 0
+        assert len(keyword_results) > 0

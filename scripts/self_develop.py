@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Self-Development CLI - Invoke AutonomousOrchestrator with a high-level goal.
+Self-Development CLI - Invoke HardenedOrchestrator with a high-level goal.
 
 This script provides a command-line interface to Aragora's autonomous
 development pipeline, which can:
@@ -8,6 +8,10 @@ development pipeline, which can:
 - Route tasks to appropriate agents by domain
 - Execute improvements across multiple tracks in parallel
 - Handle failures with retry and escalation
+- Optionally use MetaPlanner for debate-driven goal prioritization
+- Enforce mode constraints (architect/coder/reviewer) per phase
+- Scan for prompt injection before execution
+- Track budget and reconcile cross-agent file overlaps
 
 Usage:
     # Dry run with heuristic decomposition (fast, needs concrete goals)
@@ -16,11 +20,17 @@ Usage:
     # Dry run with debate decomposition (slower, works with abstract goals)
     python scripts/self_develop.py --goal "Maximize utility for SME" --dry-run --debate
 
-    # Run with approval gates
+    # Run with approval gates (hardened mode is the default)
     python scripts/self_develop.py --goal "Improve error handling" --require-approval
 
-    # Full autonomous run
-    python scripts/self_develop.py --goal "Enhance SME experience" --tracks sme developer
+    # Full autonomous run with worktree isolation
+    python scripts/self_develop.py --goal "Enhance SME experience" --tracks sme developer --worktree
+
+    # Use MetaPlanner for debate-driven prioritization before execution
+    python scripts/self_develop.py --goal "Maximize utility" --meta-plan --debate
+
+    # Fall back to base orchestrator (no hardening)
+    python scripts/self_develop.py --goal "Simple fix" --standard
 """
 
 from __future__ import annotations
@@ -32,10 +42,10 @@ import sys
 from typing import Any
 
 from aragora.nomic.autonomous_orchestrator import (
-    AutonomousOrchestrator,
     OrchestrationResult,
     Track,
 )
+from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 from aragora.nomic.task_decomposer import TaskDecomposer, TaskDecomposition
 
 logger = logging.getLogger(__name__)
@@ -147,12 +157,18 @@ async def run_orchestration(
     require_approval: bool,
     use_debate: bool = False,
     use_worktree: bool = False,
-    use_hardened: bool = False,
+    use_standard: bool = False,
     use_parallel: bool = False,
     enable_gauntlet: bool = True,
+    enable_meta_plan: bool = False,
     budget_limit: float | None = None,
 ) -> OrchestrationResult:
-    """Run the autonomous orchestration."""
+    """Run the autonomous orchestration.
+
+    Default mode is HARDENED (mode enforcement, prompt defense, gauntlet,
+    audit reconciliation). Use --standard to fall back to the base
+    AutonomousOrchestrator.
+    """
     common_kwargs = {
         "require_human_approval": require_approval,
         "max_parallel_tasks": max_parallel,
@@ -171,18 +187,20 @@ async def run_orchestration(
             **common_kwargs,
         )
         mode_label = "PARALLEL"
-    elif use_hardened or use_worktree:
-        from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
+    elif use_standard:
+        from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
 
+        orchestrator = AutonomousOrchestrator(**common_kwargs)
+        mode_label = "STANDARD"
+    else:
+        # Default: HardenedOrchestrator with production features
         orchestrator = HardenedOrchestrator(
             use_worktree_isolation=use_worktree,
+            enable_meta_planning=enable_meta_plan,
             budget_limit_usd=budget_limit,
             **common_kwargs,
         )
         mode_label = "HARDENED"
-    else:
-        orchestrator = AutonomousOrchestrator(**common_kwargs)
-        mode_label = "STANDARD"
 
     print_header(f"STARTING ORCHESTRATION ({mode_label})")
     print(f"Goal: {goal}")
@@ -194,6 +212,11 @@ async def run_orchestration(
         print(f"Worktree isolation: {use_worktree}")
         print(f"Gauntlet gate: {enable_gauntlet}")
         print(f"Convoy tracking: enabled")
+    elif not use_standard:
+        print(f"Worktree isolation: {use_worktree}")
+        print(f"Meta-planning: {enable_meta_plan}")
+        if budget_limit:
+            print(f"Budget limit: ${budget_limit:.2f}")
 
     result = await orchestrator.execute_goal(
         goal=goal,
@@ -276,14 +299,19 @@ Examples:
         help="Use git worktree isolation for parallel agent execution",
     )
     parser.add_argument(
-        "--hardened",
+        "--standard",
         action="store_true",
-        help="Enable mode enforcement, gauntlet validation, prompt defense, audit reconciliation",
+        help="Use base AutonomousOrchestrator without hardening (no mode enforcement, no prompt defense)",
     )
     parser.add_argument(
         "--parallel",
         action="store_true",
         help="Use ParallelOrchestrator with worktree isolation, gauntlet gate, and convoy tracking",
+    )
+    parser.add_argument(
+        "--meta-plan",
+        action="store_true",
+        help="Use MetaPlanner for debate-driven goal prioritization before decomposition",
     )
     parser.add_argument(
         "--gauntlet",
@@ -355,9 +383,10 @@ Examples:
                 require_approval=args.require_approval,
                 use_debate=args.debate,
                 use_worktree=use_worktree,
-                use_hardened=args.hardened,
+                use_standard=args.standard,
                 use_parallel=args.parallel,
                 enable_gauntlet=enable_gauntlet,
+                enable_meta_plan=args.meta_plan,
                 budget_limit=args.budget_limit,
             )
         )
