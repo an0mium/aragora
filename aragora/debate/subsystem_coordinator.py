@@ -676,6 +676,16 @@ class SubsystemCoordinator:
             logger.debug("SelectionFeedbackLoop auto-init failed: %s", e)
             self._init_errors.append(f"SelectionFeedbackLoop init failed: {e}")
 
+    def _wire_feedback_to_team_selector(self) -> None:
+        """Wire SelectionFeedbackLoop into TeamSelector for feedback-weighted scoring."""
+        try:
+            self.team_selector.feedback_loop = self.selection_feedback_loop
+            if hasattr(self.team_selector, "config"):
+                self.team_selector.config.enable_feedback_weights = True
+            logger.debug("Wired SelectionFeedbackLoop into TeamSelector")
+        except (AttributeError, TypeError) as e:
+            logger.debug("Failed to wire feedback loop to TeamSelector: %s", e)
+
     def _auto_init_novelty_selection_bridge(self) -> None:
         """Auto-initialize NoveltySelectionBridge for novelty-based selection feedback."""
         if self.novelty_tracker is None:

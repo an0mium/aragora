@@ -240,10 +240,28 @@ def cmd_init(args) -> None:
         print("  export OPENAI_API_KEY=your-key")
 
     print("\nAragora project initialized!")
-    print("\nNext steps:")
-    print("  1. Try a code review:  aragora review --demo")
-    print("  2. Run a debate:       aragora ask 'Your question'")
-    print("  3. Start the server:   aragora serve")
+    print("\n" + "=" * 60)
+    print("  GOLDEN PATH: Install -> Demo -> Decision Receipt")
+    print("=" * 60)
+    print()
+    print("  Quick start (no API keys needed):")
+    print("    aragora starter              # Guided onboarding flow")
+    print("    aragora demo                 # Quick offline debate")
+    print("    aragora quickstart --demo    # Zero-to-receipt in 60s")
+    print()
+    if detected:
+        print("  Go live with real agents:")
+        print('    aragora decide "Your question"  # Full decision pipeline')
+        print('    aragora ask "Your question"     # Debate only')
+        print()
+    else:
+        print("  To go live, add API keys then:")
+        print('    aragora decide "Your question"  # Full decision pipeline')
+        print()
+    print("  System check:")
+    print("    aragora doctor               # Environment health")
+    print("    aragora setup                # Interactive setup wizard")
 
     if not getattr(args, "ci", None):
-        print("\n  Add CI integration:    aragora init --ci github")
+        print("\n  CI integration:")
+        print("    aragora init --ci github")

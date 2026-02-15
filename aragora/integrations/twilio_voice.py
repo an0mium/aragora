@@ -451,8 +451,17 @@ class TwilioVoiceIntegration:
             logger.info(f"Outbound call initiated to {to}, SID: {call.sid}")
             return call.sid
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"Twilio outbound call connection error: {type(e).__name__}: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Failed to initiate outbound call: {e}")
+            # Twilio SDK raises its own exception hierarchy (TwilioRestException,
+            # TwilioException) which may not be importable if SDK is not installed.
+            error_name = type(e).__name__
+            if "Twilio" in error_name or "Auth" in error_name:
+                logger.error(f"Twilio API/auth error: {error_name}: {e}")
+            else:
+                logger.error(f"Twilio outbound call error: {error_name}: {e}")
             return None
 
     async def call_with_result(
