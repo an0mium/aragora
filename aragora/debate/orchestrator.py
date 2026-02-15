@@ -95,8 +95,11 @@ from aragora.debate.orchestrator_setup import (
     init_agent_hierarchy as _setup_init_agent_hierarchy,
     init_debate_strategy as _setup_init_debate_strategy,
     init_fabric_integration as _setup_init_fabric_integration,
+    init_cost_tracking as _setup_init_cost_tracking,
     init_grounded_operations as _setup_init_grounded_operations,
+    init_health_registry as _setup_init_health_registry,
     init_knowledge_ops as _setup_init_knowledge_ops,
+    init_selection_feedback as _setup_init_selection_feedback,
     init_post_debate_workflow as _setup_init_post_debate_workflow,
     init_rlm_limiter as _setup_init_rlm_limiter,
     setup_agent_channels as _setup_agent_channels,
@@ -811,6 +814,15 @@ class Arena(ArenaDelegatesMixin):
 
     def _init_knowledge_ops(self) -> None:
         _setup_init_knowledge_ops(self)
+
+    def _init_selection_feedback(self) -> None:
+        _setup_init_selection_feedback(self)
+
+    def _init_cost_tracking(self) -> None:
+        _setup_init_cost_tracking(self)
+
+    def _init_health_registry(self) -> None:
+        _setup_init_health_registry(self)
 
     def _init_prompt_context_builder(self) -> None:
         _context_init_prompt_context_builder(self)

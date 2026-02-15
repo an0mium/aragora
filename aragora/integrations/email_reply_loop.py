@@ -1273,8 +1273,11 @@ async def send_debate_result_email(
         logger.warning("No email provider configured for sending debate results")
         return None
 
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(f"Debate result email connection error: {type(e).__name__}: {e}")
+        return None
     except Exception as e:
-        logger.error(f"Failed to send debate result email: {e}")
+        logger.error(f"Failed to send debate result email: {type(e).__name__}: {e}")
         return None
 
 
