@@ -431,7 +431,7 @@ class TestDispatchAndExecute:
         reports = await coordinator._dispatch_and_execute(decomp)
         assert len(reports) == 1
         assert reports[0].success is False
-        assert "engine crash" in reports[0].error
+        assert "Worker execution failed" in reports[0].error
 
     @pytest.mark.asyncio
     async def test_empty_decomposition(self, coordinator, mock_engine):

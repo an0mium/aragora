@@ -431,7 +431,8 @@ class TestAutomationConnector:
         )
         assert len(results) == 1
         assert results[0].success is False
-        assert "Connection refused" in results[0].error
+        assert results[0].error  # Sanitized error message present
+        assert "failed" in results[0].error.lower()
         assert sub.failure_count == 1
 
     def test_verify_signature(self, connector):

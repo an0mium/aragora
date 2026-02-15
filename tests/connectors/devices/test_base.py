@@ -516,7 +516,8 @@ class TestSendBatch:
         assert result.failure_count == 3
         for r in result.results:
             assert r.success is False
-            assert "Network error" in r.error
+            assert r.error  # Sanitized error message present
+            assert "failed" in r.error.lower()
 
 
 class TestSendToUser:

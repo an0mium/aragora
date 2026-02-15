@@ -1055,7 +1055,8 @@ class TestSyncSchedulerExecution:
             history = scheduler.get_history()
             assert len(history) == 1
             assert history[0].status == SyncStatus.FAILED
-            assert "Connection failed" in history[0].errors[0]
+            assert history[0].errors[0]  # Sanitized error message present
+            assert "failed" in history[0].errors[0].lower()
 
     @pytest.mark.asyncio
     async def test_sync_failure_increments_consecutive_failures(self):
@@ -2189,7 +2190,8 @@ class TestSyncJobNoConnector:
             history = scheduler.get_history()
             assert len(history) == 1
             assert history[0].status == SyncStatus.FAILED
-            assert "No connector registered" in history[0].errors[0]
+            assert history[0].errors[0]  # Sanitized error message present
+            assert "failed" in history[0].errors[0].lower()
 
 
 # =============================================================================

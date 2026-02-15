@@ -282,7 +282,8 @@ class TestFileOpsDefaults:
         """send_voice_message catches RuntimeError from upload_file."""
         result = await connector.send_voice_message("ch1", b"audio")
         assert result.success is False
-        assert "not available" in result.error
+        assert result.error  # Sanitized error message present
+        assert "failed" in result.error.lower() or "not available" in result.error.lower()
 
     @pytest.mark.asyncio
     async def test_upload_file_webhook_failure_raises_runtime(self, connector_with_webhook):

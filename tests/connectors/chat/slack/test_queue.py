@@ -355,7 +355,7 @@ class TestSlackMessageQueue:
         msg = queue._store.get(msg_id)
         assert msg.status == MessageStatus.PENDING
         assert msg.retries == 1
-        assert msg.last_error == "API error"
+        assert msg.last_error  # Sanitized error message present
         assert msg.next_retry_at is not None
 
     @pytest.mark.asyncio

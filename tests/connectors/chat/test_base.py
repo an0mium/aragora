@@ -648,7 +648,8 @@ class TestUtilityMethods:
         c = FailUploadConnector(bot_token="tok")
         result = await c.send_voice_message("ch-1", b"audio")
         assert result.success is False
-        assert "upload boom" in result.error
+        assert result.error  # Sanitized error message present
+        assert "failed" in result.error.lower()
 
 
 # ============================================================================
