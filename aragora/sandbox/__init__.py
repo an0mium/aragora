@@ -14,6 +14,7 @@ from aragora.sandbox.executor import (
     ExecutionResult,
     SandboxConfig,
     SandboxExecutor,
+    build_worktree_docker_args,
 )
 from aragora.sandbox.lifecycle import (
     ContainerSession,
@@ -39,6 +40,7 @@ __all__ = [
     "ExecutionResult",
     "SandboxConfig",
     "SandboxExecutor",
+    "build_worktree_docker_args",
     # Policies
     "ToolPolicy",
     "ToolPolicyChecker",

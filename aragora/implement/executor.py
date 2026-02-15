@@ -116,9 +116,15 @@ class HybridExecutor:
         task_type_router: dict[str, str] | None = None,
         capability_router: dict[str, str] | None = None,
         use_harness: bool = False,
+        sandbox_mode: bool = False,
+        sandbox_image: str = "python:3.11-slim",
+        sandbox_memory_mb: int = 2048,
     ):
         self.repo_path = repo_path
         self.use_harness = use_harness
+        self.sandbox_mode = sandbox_mode
+        self.sandbox_image = sandbox_image
+        self.sandbox_memory_mb = sandbox_memory_mb
 
         # Initialize agents lazily (created on first use)
         self._claude: ClaudeAgent | None = None
@@ -615,6 +621,12 @@ Follow existing code style and tests.""",
         if self.use_harness and attempt == 1 and agent_override is None and not use_fallback:
             return await self._execute_via_harness(task)
 
+        # Delegate to sandbox when enabled (first attempt, no overrides)
+        if self.sandbox_mode and attempt == 1 and agent_override is None and not use_fallback:
+            prompt = self._build_prompt(task, feedback=feedback)
+            timeout = self._get_task_timeout(task)
+            return await self._execute_in_sandbox(task, prompt, timeout)
+
         # Calculate base timeout from task complexity
         base_timeout = self._get_task_timeout(task)
 
@@ -1007,6 +1019,81 @@ Follow existing code style and tests.""",
                     on_task_complete(task.id, task_result)
 
         return results
+
+    def _get_sandbox_docker_args(self) -> list[str]:
+        """Build Docker run arguments for sandbox-mode execution.
+
+        Mounts the repo_path as the workspace (RW) inside the container.
+        Uses the configured sandbox image and memory limit.
+        """
+        from aragora.sandbox.executor import build_worktree_docker_args
+
+        return build_worktree_docker_args(
+            worktree_path=self.repo_path,
+            repo_root=None,
+            image=self.sandbox_image,
+            memory_mb=self.sandbox_memory_mb,
+            network=True,  # Agents need network to call LLM APIs
+        )
+
+    async def _execute_in_sandbox(
+        self,
+        task: ImplementTask,
+        prompt: str,
+        timeout: int,
+    ) -> TaskResult:
+        """Execute an implementation task inside a Docker sandbox.
+
+        The agent CLI (e.g. ``claude``) runs inside the container with the
+        worktree mounted read-write.  This prevents accidental writes to
+        files outside the designated working directory.
+        """
+        docker_args = self._get_sandbox_docker_args()
+        cmd = ["docker", "run", *docker_args, "bash", "-c",
+               f"echo {repr(prompt)} | claude --print"]
+
+        logger.info(
+            "  Executing [%s] %s in sandbox (timeout %ds)...",
+            task.complexity, task.id, timeout,
+        )
+
+        start_time = time.time()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            duration = time.time() - start_time
+
+            diff = self._get_git_diff(files=task.files)
+            success = proc.returncode == 0
+            return TaskResult(
+                task_id=task.id,
+                success=success,
+                diff=diff,
+                model_used="sandbox:claude",
+                duration_seconds=duration,
+                error=stderr.decode()[:500] if not success and stderr else None,
+            )
+        except asyncio.TimeoutError:
+            duration = time.time() - start_time
+            return TaskResult(
+                task_id=task.id,
+                success=False,
+                error=f"Sandbox timeout after {duration:.0f}s",
+                model_used="sandbox:claude",
+                duration_seconds=duration,
+            )
+        except FileNotFoundError:
+            return TaskResult(
+                task_id=task.id,
+                success=False,
+                error="Docker not found. Install Docker or disable sandbox_mode.",
+                model_used="sandbox:claude",
+                duration_seconds=0.0,
+            )
 
     async def review_with_codex(
         self, diff: str, timeout: int = 2400

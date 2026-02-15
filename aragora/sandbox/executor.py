@@ -457,11 +457,57 @@ async def execute_sandboxed(
     return await executor.execute(code, language, timeout)
 
 
+def build_worktree_docker_args(
+    worktree_path: Path,
+    repo_root: Path | None = None,
+    image: str = "python:3.11-slim",
+    memory_mb: int = 2048,
+    network: bool = False,
+) -> list[str]:
+    """Build Docker CLI arguments for running inside a worktree sandbox.
+
+    The worktree directory is mounted read-write so agents can modify files.
+    The repo root (if different) is mounted read-only for reference.
+
+    Args:
+        worktree_path: Path to the git worktree (mounted RW).
+        repo_root: Path to the main repo (mounted RO for reference). Optional.
+        image: Docker image to use.
+        memory_mb: Memory limit in MB.
+        network: Whether to enable network access.
+
+    Returns:
+        List of ``docker run`` arguments (excluding ``docker run`` itself).
+    """
+    args = [
+        "--rm",
+        f"--memory={memory_mb}m",
+        "--security-opt=no-new-privileges",
+        "--pids-limit", "256",
+    ]
+
+    if not network:
+        args.append("--network=none")
+
+    # Worktree is RW
+    args.extend(["-v", f"{worktree_path}:/workspace:rw"])
+
+    # Repo root is RO (if different from worktree)
+    if repo_root and repo_root.resolve() != worktree_path.resolve():
+        args.extend(["-v", f"{repo_root}:/repo:ro"])
+
+    args.extend(["-w", "/workspace"])
+    args.append(image)
+
+    return args
+
+
 __all__ = [
     "ExecutionMode",
     "ExecutionResult",
     "ExecutionStatus",
     "SandboxConfig",
     "SandboxExecutor",
+    "build_worktree_docker_args",
     "execute_sandboxed",
 ]

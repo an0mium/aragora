@@ -57,6 +57,7 @@ class ImplementPhase:
         stream_emit_fn: Callable[..., None] | None = None,
         record_replay_fn: Callable[..., None] | None = None,
         save_state_fn: Callable[[dict], None] | None = None,
+        sandbox_mode: bool = False,
     ):
         """
         Initialize the implement phase.
@@ -74,6 +75,7 @@ class ImplementPhase:
             stream_emit_fn: Function to emit streaming events
             record_replay_fn: Function to record replay events
             save_state_fn: Function to save phase state
+            sandbox_mode: Whether to enable Docker sandbox isolation for execution
         """
         self.aragora_path = aragora_path
         self._plan_generator = plan_generator
@@ -87,6 +89,7 @@ class ImplementPhase:
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
         self._save_state = save_state_fn or (lambda state: None)
+        self.sandbox_mode = sandbox_mode
 
     async def execute(self, design: str) -> ImplementResult:
         """
@@ -202,6 +205,11 @@ class ImplementPhase:
         if not self._executor:
             self._log("  No executor configured, falling back to legacy mode")
             return await self._legacy_implement(design)
+
+        # Propagate sandbox mode to executor if set
+        if self.sandbox_mode and hasattr(self._executor, "sandbox_mode"):
+            self._executor.sandbox_mode = True
+            self._log("  [sandbox] Docker sandbox isolation enabled")
 
         def on_task_complete(task_id: str, result):
             completed.add(task_id)

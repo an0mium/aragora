@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.debate.context import DebateContext
     from aragora.type_protocols import (
+        EloSystemProtocol,
         EventEmitterProtocol,
         PopulationManagerProtocol,
         PromptEvolverProtocol,
@@ -31,16 +32,20 @@ class EvolutionFeedback:
         population_manager: PopulationManagerProtocol | None = None,
         prompt_evolver: PromptEvolverProtocol | None = None,
         event_emitter: EventEmitterProtocol | None = None,
+        elo_system: EloSystemProtocol | None = None,
         loop_id: str | None = None,
         auto_evolve: bool = True,
         breeding_threshold: float = 0.8,
+        elo_baseline: float = 1500.0,
     ):
         self.population_manager = population_manager
         self.prompt_evolver = prompt_evolver
         self.event_emitter = event_emitter
+        self.elo_system = elo_system
         self.loop_id = loop_id
         self.auto_evolve = auto_evolve
         self.breeding_threshold = breeding_threshold
+        self.elo_baseline = elo_baseline
 
     def update_genome_fitness(self, ctx: DebateContext) -> None:
         """Update genome fitness scores based on debate outcome.
@@ -76,11 +81,19 @@ class EvolutionFeedback:
                     prediction_correct=prediction_correct,
                 )
 
+                # Factor ELO performance into genome fitness
+                elo_adj = self._compute_elo_fitness_adjustment(agent.name, ctx.domain)
+                if elo_adj != 0.0:
+                    self.population_manager.update_fitness(
+                        genome_id, fitness_delta=elo_adj,
+                    )
+
                 logger.debug(
-                    "[genesis] Updated fitness for genome %s: win=%s pred=%s",
+                    "[genesis] Updated fitness for genome %s: win=%s pred=%s elo_adj=%+.4f",
                     genome_id[:8],
                     consensus_win,
                     prediction_correct,
+                    elo_adj,
                 )
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
                 logger.debug("Genome fitness update failed for %s: %s", agent.name, e)
@@ -109,6 +122,32 @@ class EvolutionFeedback:
                 return canonical == winner
 
         return False
+
+    def _compute_elo_fitness_adjustment(
+        self,
+        agent_name: str,
+        domain: str | None = None,
+    ) -> float:
+        """Compute a genome fitness adjustment from the agent's ELO rating.
+
+        Queries the ELO system for the agent's current rating, computes the
+        delta from the baseline (default 1500), and converts it to a small
+        fitness adjustment via ``fitness_from_elo``.
+
+        Returns 0.0 when the ELO system is unavailable or on any error.
+        """
+        if not self.elo_system:
+            return 0.0
+
+        try:
+            from aragora.genesis.breeding import fitness_from_elo
+
+            elo_rating = self.elo_system.get_rating(agent_name, domain or "")
+            delta = elo_rating - self.elo_baseline
+            return fitness_from_elo(delta)
+        except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
+            logger.debug("[genesis] ELO fitness lookup failed for %s: %s", agent_name, e)
+            return 0.0
 
     async def maybe_evolve_population(self, ctx: DebateContext) -> None:
         """Trigger population evolution after high-quality debates.

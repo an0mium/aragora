@@ -382,8 +382,18 @@ class PopulationManager:
         consensus_win: bool = False,
         critique_accepted: bool = False,
         prediction_correct: bool = False,
+        fitness_delta: float = 0.0,
+        **kwargs: object,
     ) -> None:
-        """Update genome fitness based on debate outcome."""
+        """Update genome fitness based on debate outcome.
+
+        Args:
+            genome_id: Genome to update.
+            consensus_win: Whether the agent won consensus.
+            critique_accepted: Whether the agent's critique was accepted.
+            prediction_correct: Whether the agent's prediction was correct.
+            fitness_delta: Direct additive fitness adjustment (e.g. from ELO).
+        """
         genome = self.genome_store.get(genome_id)
         if genome:
             genome.update_fitness(
@@ -391,6 +401,8 @@ class PopulationManager:
                 critique_accepted=critique_accepted,
                 prediction_correct=prediction_correct,
             )
+            if fitness_delta != 0.0:
+                genome.fitness_score = max(0.0, min(1.0, genome.fitness_score + fitness_delta))
             self.genome_store.save(genome)
 
     def evolve_population(self, population: Population) -> Population:
