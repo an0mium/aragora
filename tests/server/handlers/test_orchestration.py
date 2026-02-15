@@ -1316,7 +1316,7 @@ class TestKnowledgeContextFetching:
 
         with patch(
             "aragora.connectors.chat.registry.get_connector",
-            side_effect=Exception("Connection failed"),
+            side_effect=ConnectionError("Connection failed"),
         ):
             result = await handler._fetch_chat_context("slack", source)
             assert result is None
@@ -1702,7 +1702,7 @@ class TestEndToEndOrchestration:
             handler,
             "_execute_deliberation",
             new_callable=AsyncMock,
-            side_effect=Exception("Test error"),
+            side_effect=RuntimeError("Test error"),
         ):
             await handler._execute_and_store(request)
 
