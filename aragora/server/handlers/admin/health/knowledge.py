@@ -61,10 +61,11 @@ class KnowledgeMixin:
                 "status": "available",
             }
         except ImportError as e:
+            logger.warning("Knowledge Mound module not available: %s", e)
             components["module"] = {
                 "healthy": False,
                 "status": "not_available",
-                "error": str(e)[:100],
+                "error": "Module not available",
             }
             all_healthy = False
             return json_response(
@@ -100,10 +101,11 @@ class KnowledgeMixin:
                 }
 
         except Exception as e:
+            logger.warning("Knowledge Mound core init failed: %s: %s", type(e).__name__, e)
             components["core"] = {
                 "healthy": False,
                 "status": "initialization_failed",
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Initialization failed",
             }
             all_healthy = False
 
@@ -199,10 +201,11 @@ class KnowledgeMixin:
             return result
 
         except Exception as e:
+            logger.debug("KM storage check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "unknown",
-                "warning": f"{type(e).__name__}: {str(e)[:80]}",
+                "warning": "Health check failed",
             }
 
     def _check_culture_accumulator(self, mound: Any) -> dict[str, Any]:
@@ -239,10 +242,11 @@ class KnowledgeMixin:
                 "status": "not_initialized",
             }
         except Exception as e:
+            logger.debug("Culture accumulator check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_staleness_tracker(self, mound: Any) -> dict[str, Any]:
@@ -265,10 +269,11 @@ class KnowledgeMixin:
                 "status": "not_initialized",
             }
         except Exception as e:
+            logger.debug("Staleness tracker check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_rlm_integration(self) -> dict[str, Any]:
@@ -296,10 +301,11 @@ class KnowledgeMixin:
                 "note": "RLM module not installed",
             }
         except Exception as e:
+            logger.debug("RLM integration check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_debate_integration(self) -> dict[str, Any]:
@@ -332,10 +338,11 @@ class KnowledgeMixin:
                 "note": "knowledge_mound_ops module not available",
             }
         except Exception as e:
+            logger.debug("Debate integration check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_km_redis_cache(self) -> dict[str, Any]:
@@ -365,10 +372,11 @@ class KnowledgeMixin:
                 "note": "Redis cache module not installed",
             }
         except Exception as e:
+            logger.debug("KM Redis cache check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_km_adapters(self) -> dict[str, Any]:
@@ -409,16 +417,18 @@ class KnowledgeMixin:
                 "adapter_list": [name for name, _ in adapter_classes],
             }
         except ImportError as e:
+            logger.debug("Some KM adapters not available: %s", e)
             return {
                 "healthy": True,
                 "status": "partial",
-                "error": f"Some adapters not available: {str(e)[:80]}",
+                "error": "Some adapters not available",
             }
         except Exception as e:
+            logger.debug("KM adapters check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_control_plane_adapter(self) -> dict[str, Any]:
@@ -442,16 +452,18 @@ class KnowledgeMixin:
                 ],
             }
         except ImportError as e:
+            logger.debug("Control plane adapter not available: %s", e)
             return {
                 "healthy": True,
                 "status": "not_available",
-                "error": str(e)[:80],
+                "error": "Module not available",
             }
         except Exception as e:
+            logger.debug("Control plane adapter check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_km_metrics(self) -> dict[str, Any]:
@@ -475,10 +487,11 @@ class KnowledgeMixin:
                 "prometheus_integration": False,
             }
         except Exception as e:
+            logger.debug("KM metrics check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
                 "status": "error",
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
 
     def _check_confidence_decay(self) -> dict[str, Any]:
@@ -553,11 +566,12 @@ class KnowledgeMixin:
                 "warnings": warnings,
             }
         except Exception as e:
+            logger.debug("Confidence decay check error: %s: %s", type(e).__name__, e)
             return {
                 "component": {
                     "healthy": True,
                     "status": "error",
-                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                    "error": "Health check failed",
                 },
                 "warnings": warnings,
             }

@@ -359,8 +359,9 @@ class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
             # SECURITY: Only trust JWT tokens, never trust X-User-ID headers
             context = await get_auth_context(request, require_auth=False)
         except UnauthorizedError as e:
+            logger.warning("Inbox auth failed: %s", e)
             raise web.HTTPUnauthorized(
-                text=str(e),
+                text="Authentication required",
                 content_type="application/json",
             )
         except (ValueError, KeyError, AttributeError) as e:

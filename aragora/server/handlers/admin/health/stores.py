@@ -159,24 +159,24 @@ class StoresMixin:
                     "hint": "Will auto-create on first debate",
                 }, True
         except (sqlite3.Error, OSError) as e:
-            logger.warning(f"Debate storage database error: {type(e).__name__}: {e}")
+            logger.warning("Debate storage database error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Database error",
                 "error_type": "database",
             }, False
         except (KeyError, TypeError, AttributeError) as e:
-            logger.debug(f"Debate storage data access error: {type(e).__name__}: {e}")
+            logger.debug("Debate storage data access error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Data access error",
                 "error_type": "data_access",
             }, False
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "debate_storage", e)
+            logger.warning("Health check failed for %s: %s", "debate_storage", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }, False
 
     def _check_elo_system(self) -> tuple[dict[str, Any], bool]:
@@ -199,24 +199,24 @@ class StoresMixin:
                     "hint": "Run: python scripts/seed_agents.py",
                 }, True
         except (sqlite3.Error, OSError) as e:
-            logger.warning(f"ELO system database error: {type(e).__name__}: {e}")
+            logger.warning("ELO system database error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Database error",
                 "error_type": "database",
             }, False
         except (KeyError, TypeError, AttributeError) as e:
-            logger.debug(f"ELO system data access error: {type(e).__name__}: {e}")
+            logger.debug("ELO system data access error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Data access error",
                 "error_type": "data_access",
             }, False
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "elo_system", e)
+            logger.warning("Health check failed for %s: %s", "elo_system", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }, False
 
     def _check_insight_store(self) -> dict[str, Any]:
@@ -236,10 +236,10 @@ class StoresMixin:
                     "hint": "Will auto-create on first insight",
                 }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "insight_store", e)
+            logger.warning("Health check failed for %s: %s", "insight_store", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_flip_detector(self) -> dict[str, Any]:
@@ -258,10 +258,10 @@ class StoresMixin:
                     "status": "not_initialized",
                 }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "flip_detector", e)
+            logger.warning("Health check failed for %s: %s", "flip_detector", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_user_store(self) -> dict[str, Any]:
@@ -280,10 +280,10 @@ class StoresMixin:
                     "status": "not_initialized",
                 }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "user_store", e)
+            logger.warning("Health check failed for %s: %s", "user_store", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_consensus_memory(self) -> dict[str, Any]:
@@ -317,10 +317,10 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "consensus_memory", e)
+            logger.warning("Health check failed for %s: %s", "consensus_memory", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_agent_metadata(self) -> dict[str, Any]:
@@ -364,10 +364,10 @@ class StoresMixin:
                     "status": "nomic_dir_not_set",
                 }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "agent_metadata", e)
+            logger.warning("Health check failed for %s: %s", "agent_metadata", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_integration_store(self) -> dict[str, Any]:
@@ -394,10 +394,10 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "integration_store", e)
+            logger.warning("Health check failed for %s: %s", "integration_store", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_gmail_token_store(self) -> dict[str, Any]:
@@ -424,10 +424,10 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "gmail_token_store", e)
+            logger.warning("Health check failed for %s: %s", "gmail_token_store", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_sync_store(self) -> dict[str, Any]:
@@ -454,10 +454,10 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "sync_store", e)
+            logger.warning("Health check failed for %s: %s", "sync_store", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
     def _check_decision_result_store(self) -> dict[str, Any]:
@@ -484,10 +484,10 @@ class StoresMixin:
                 "status": "module_not_available",
             }
         except Exception as e:
-            logger.debug("Health check failed for %s: %s", "decision_result_store", e)
+            logger.warning("Health check failed for %s: %s", "decision_result_store", e)
             return {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:100]}",
+                "error": "Health check failed",
             }
 
 

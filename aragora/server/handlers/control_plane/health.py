@@ -73,18 +73,32 @@ class HealthHandlerMixin:
     - Audit logs
     """
 
-    # These methods are expected from the base class
+    # These methods are expected from the base class (ControlPlaneHandler).
+    # Default implementations provide graceful degradation when the mixin
+    # is used without the concrete class overriding them.
     def _get_coordinator(self) -> Any | None:
-        """Get the control plane coordinator."""
-        raise NotImplementedError
+        """Get the control plane coordinator.
+
+        Returns the coordinator instance, or None if not initialized.
+        The concrete ControlPlaneHandler overrides this to pull from
+        the class attribute or server context.
+        """
+        return getattr(self, "ctx", {}).get("control_plane_coordinator")
 
     def _require_coordinator(self) -> tuple[Any | None, HandlerResult | None]:
         """Return coordinator and None, or None and error response if not initialized."""
-        raise NotImplementedError
+        coord = self._get_coordinator()
+        if not coord:
+            return None, error_response("Control plane not initialized", 503)
+        return coord, None
 
     def _handle_coordinator_error(self, error: Exception, operation: str) -> HandlerResult:
         """Unified error handler for coordinator operations."""
-        raise NotImplementedError
+        if isinstance(error, (ValueError, KeyError, AttributeError)):
+            logger.warning(f"Data error in {operation}: {type(error).__name__}: {error}")
+            return error_response(safe_error_message(error, "control plane"), 400)
+        logger.error(f"Error in {operation}: {error}")
+        return error_response(safe_error_message(error, "control plane"), 500)
 
     def require_auth_or_error(self, handler: Any) -> tuple[Any, HandlerResult | None]:
         """Require authentication and return user or error."""

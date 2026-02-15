@@ -43,10 +43,11 @@ def check_knowledge_mound_module() -> tuple[dict[str, Any], bool]:
             "status": "available",
         }, False
     except ImportError as e:
+        logger.warning("Knowledge Mound module not available: %s", e)
         return {
             "healthy": False,
             "status": "not_available",
-            "error": str(e)[:100],
+            "error": "Module not available",
         }, True
 
 
@@ -87,11 +88,11 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], KnowledgeMound | 
         return result, mound
 
     except Exception as e:
-        logger.warning("Knowledge Mound core initialization failed: %s", e)
+        logger.warning("Knowledge Mound core initialization failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
             "status": "initialization_failed",
-            "error": f"{type(e).__name__}: {str(e)[:100]}",
+            "error": "Initialization failed",
         }, None
 
 
@@ -133,11 +134,11 @@ def check_storage_backend(mound: KnowledgeMound | None = None) -> dict[str, Any]
         return result
 
     except Exception as e:
-        logger.debug("Storage backend check error: %s", e)
+        logger.debug("Storage backend check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "unknown",
-            "warning": f"{type(e).__name__}: {str(e)[:80]}",
+            "warning": "Health check failed",
         }
 
 
@@ -183,11 +184,11 @@ def check_culture_accumulator(mound: KnowledgeMound | None = None) -> dict[str, 
         }
 
     except Exception as e:
-        logger.debug("Culture accumulator check error: %s", e)
+        logger.debug("Culture accumulator check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -221,11 +222,11 @@ def check_staleness_tracker(mound: KnowledgeMound | None = None) -> dict[str, An
         }
 
     except Exception as e:
-        logger.debug("Staleness tracker check error: %s", e)
+        logger.debug("Staleness tracker check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -258,11 +259,11 @@ def check_rlm_integration() -> dict[str, Any]:
             "note": "RLM module not installed",
         }
     except Exception as e:
-        logger.debug("RLM integration check error: %s", e)
+        logger.debug("RLM integration check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -300,11 +301,11 @@ def check_debate_integration() -> dict[str, Any]:
             "note": "knowledge_mound_ops module not available",
         }
     except Exception as e:
-        logger.debug("Debate integration check error: %s", e)
+        logger.debug("Debate integration check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -337,11 +338,11 @@ def check_knowledge_mound_redis_cache() -> dict[str, Any]:
             "note": "Redis cache module not installed",
         }
     except Exception as e:
-        logger.debug("Redis cache check error: %s", e)
+        logger.debug("Redis cache check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -378,15 +379,16 @@ def check_codebase_context() -> dict[str, Any]:
                             if part.startswith("lines="):
                                 info["lines"] = int(part.split("=", 1)[1])
             except OSError as exc:
-                info["note"] = f"manifest_read_error: {exc}"
+                logger.debug("Manifest read error: %s", exc)
+                info["note"] = "manifest_read_error"
 
         return info
     except Exception as e:
-        logger.debug("Codebase context check error: %s", e)
+        logger.debug("Codebase context check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -432,17 +434,18 @@ def check_bidirectional_adapters() -> dict[str, Any]:
             "adapter_list": [name for name, _ in adapter_classes],
         }
     except ImportError as e:
+        logger.debug("Some bidirectional adapters not available: %s", e)
         return {
             "healthy": True,
             "status": "partial",
-            "error": f"Some adapters not available: {str(e)[:80]}",
+            "error": "Some adapters not available",
         }
     except Exception as e:
-        logger.debug("Bidirectional adapters check error: %s", e)
+        logger.debug("Bidirectional adapters check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -471,17 +474,18 @@ def check_control_plane_adapter() -> dict[str, Any]:
             ],
         }
     except ImportError as e:
+        logger.debug("Control plane adapter not available: %s", e)
         return {
             "healthy": True,
             "status": "not_available",
-            "error": str(e)[:80],
+            "error": "Module not available",
         }
     except Exception as e:
-        logger.debug("Control plane adapter check error: %s", e)
+        logger.debug("Control plane adapter check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -510,11 +514,11 @@ def check_km_metrics() -> dict[str, Any]:
             "prometheus_integration": False,
         }
     except Exception as e:
-        logger.debug("KM metrics check error: %s", e)
+        logger.debug("KM metrics check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -586,9 +590,9 @@ def check_confidence_decay_scheduler() -> tuple[dict[str, Any], list[str]]:
             "note": "Confidence decay module not installed",
         }, warnings
     except Exception as e:
-        logger.debug("Confidence decay scheduler check error: %s", e)
+        logger.debug("Confidence decay scheduler check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }, warnings

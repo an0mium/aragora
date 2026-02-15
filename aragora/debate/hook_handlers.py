@@ -103,7 +103,7 @@ class HookHandlerRegistry:
             try:
                 unregister_fn()
                 count += 1
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, AttributeError) as e:
                 logger.debug("Error unregistering handler: %s", e)
 
         self._unregister_fns.clear()
@@ -163,7 +163,7 @@ class HookHandlerRegistry:
             def handle_round_complete(ctx: Any = None, round_num: int = 0, **kwargs: Any) -> None:
                 try:
                     analytics.on_round_complete(ctx, round_num)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Analytics round_complete handler failed: %s", e)
 
             if self._register(
@@ -180,7 +180,7 @@ class HookHandlerRegistry:
             def handle_agent_response(agent: Any = None, response: str = "", **kwargs: Any) -> None:
                 try:
                     analytics.on_agent_response(agent, response)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Analytics agent_response handler failed: %s", e)
 
             if self._register(
@@ -197,7 +197,7 @@ class HookHandlerRegistry:
             def handle_debate_complete(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     analytics.on_debate_complete(ctx, result)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Analytics debate_complete handler failed: %s", e)
 
             if self._register(
@@ -234,7 +234,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         continuum.on_debate_end(ctx, result)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("Continuum on_debate_end failed: %s", e)
 
                 if self._register(
@@ -258,7 +258,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         consensus.on_consensus_reached(ctx, consensus_text, confidence)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("Consensus memory on_consensus failed: %s", e)
 
                 if self._register(
@@ -295,7 +295,7 @@ class HookHandlerRegistry:
             def handle_vote(ctx: Any = None, vote: Any = None, **kwargs: Any) -> None:
                 try:
                     calibration.on_vote(ctx, vote)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Calibration on_vote failed: %s", e)
 
             if self._register(
@@ -312,7 +312,7 @@ class HookHandlerRegistry:
             def handle_outcome(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     calibration.on_debate_outcome(ctx, result)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Calibration on_debate_outcome failed: %s", e)
 
             if self._register(
@@ -349,7 +349,7 @@ class HookHandlerRegistry:
             def handle_debate_outcome(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     outcome_tracker.record_outcome(ctx, result)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                     logger.debug("OutcomeTracker record_outcome failed: %s", e)
 
             if self._register(
@@ -366,7 +366,7 @@ class HookHandlerRegistry:
             def handle_convergence(ctx: Any = None, **kwargs: Any) -> None:
                 try:
                     outcome_tracker.on_convergence(ctx)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("OutcomeTracker on_convergence failed: %s", e)
 
             if self._register(
@@ -408,7 +408,7 @@ class HookHandlerRegistry:
             ) -> None:
                 try:
                     performance.record_response(agent, response, latency_ms)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Performance record_response failed: %s", e)
 
             if self._register(
@@ -430,7 +430,7 @@ class HookHandlerRegistry:
             ) -> None:
                 try:
                     performance.record_round(ctx, round_num, duration_ms)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("Performance record_round failed: %s", e)
 
             if self._register(
@@ -467,7 +467,7 @@ class HookHandlerRegistry:
             def handle_feedback(ctx: Any = None, result: Any = None, **kwargs: Any) -> None:
                 try:
                     feedback_loop.record_debate_outcome(ctx, result)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                     logger.debug("SelectionFeedback record_outcome failed: %s", e)
 
             if self._register(
@@ -507,7 +507,7 @@ class HookHandlerRegistry:
                     try:
                         votes = votes or []
                         trickster.check_consensus(ctx, votes)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                         logger.debug("Trickster check_consensus failed: %s", e)
 
                 if self._register(
@@ -532,7 +532,7 @@ class HookHandlerRegistry:
                     try:
                         positions = positions or {}
                         flip_detector.check_positions(ctx, round_num, positions)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError) as e:
                         logger.debug("FlipDetector check_positions failed: %s", e)
 
                 if self._register(
@@ -574,7 +574,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km.on_debate_end(ctx, result)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("KM on_debate_end failed: %s", e)
 
                 if self._register(
@@ -596,7 +596,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km.on_consensus_reached(ctx, consensus_text, confidence)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("KM on_consensus_reached failed: %s", e)
 
                 if self._register(
@@ -617,7 +617,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km.on_outcome_tracked(ctx, outcome)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("KM on_outcome_tracked failed: %s", e)
 
                 if self._register(
@@ -641,7 +641,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km_coordinator.on_debate_complete(ctx, result)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("KM coordinator on_debate_complete failed: %s", e)
 
                 if self._register(
@@ -663,7 +663,7 @@ class HookHandlerRegistry:
                 ) -> None:
                     try:
                         km_coordinator.on_consensus_reached(ctx, consensus_text, confidence)
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                         logger.debug("KM coordinator on_consensus failed: %s", e)
 
                 if self._register(
@@ -762,7 +762,7 @@ class HookHandlerRegistry:
                     # No event loop, create one
                     asyncio.run(deliver_all())
 
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, KeyError, ValueError, RuntimeError, OSError) as e:
                 logger.debug("Webhook debate_end handler failed: %s", e)
 
         if self._register(
@@ -824,7 +824,7 @@ class HookHandlerRegistry:
                 except RuntimeError:
                     asyncio.run(deliver_all())
 
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, KeyError, ValueError, RuntimeError, OSError) as e:
                 logger.debug("Webhook consensus handler failed: %s", e)
 
         if self._register(
@@ -939,7 +939,7 @@ class HookHandlerRegistry:
 
             except ImportError as e:
                 logger.debug("Receipt generation unavailable: %s", e)
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                 logger.warning("Receipt generation failed: %s", e)
 
         if self._register(
@@ -1029,7 +1029,7 @@ class HookHandlerRegistry:
                 except ImportError:
                     logger.debug("Provenance server handlers not available")
 
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                 logger.warning("Provenance persistence failed: %s", e)
 
         if self._register(
@@ -1150,7 +1150,7 @@ class HookHandlerRegistry:
                                 knowledge_mound=None,  # Use global KM
                             )
                             logger.debug("Enriched plan %s with KM historical data", plan.id)
-                    except Exception as enrich_err:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError, ImportError) as enrich_err:
                         logger.debug("Plan KM enrichment failed: %s", enrich_err)
 
                 try:
@@ -1182,7 +1182,7 @@ class HookHandlerRegistry:
                                 "confidence": confidence,
                             },
                         )
-                    except Exception as emit_err:
+                    except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as emit_err:
                         logger.debug("Failed to emit plan_created event: %s", emit_err)
 
                 # Attach plan_id to result for downstream consumers
@@ -1191,7 +1191,7 @@ class HookHandlerRegistry:
 
             except ImportError as e:
                 logger.debug("Decision plan creation unavailable: %s", e)
-            except Exception as e:
+            except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                 logger.warning("Auto decision plan creation failed: %s", e)
 
         if self._register(
@@ -1241,7 +1241,7 @@ class HookHandlerRegistry:
                 """Generate compliance artifacts after debate."""
                 try:
                     hook.on_post_debate(ctx, result)
-                except Exception as e:
+                except (AttributeError, TypeError, ValueError, RuntimeError, KeyError, OSError) as e:
                     logger.debug("Compliance artifact generation failed: %s", e)
 
             if self._register(

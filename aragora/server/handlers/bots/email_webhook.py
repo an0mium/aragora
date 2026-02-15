@@ -208,9 +208,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             logger.error(f"Email reply loop module not available: {e}")
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"SendGrid webhook error: {e}")
+            logger.exception("SendGrid webhook error: %s", e)
             # Return 200 to prevent retries
-            return json_response({"status": "error", "message": str(e)[:100]})
+            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
 
     def _handle_mailgun_webhook(self, handler: Any) -> HandlerResult:
         """
@@ -367,9 +367,9 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             logger.error(f"Email reply loop module not available: {e}")
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"Mailgun webhook error: {e}")
+            logger.exception("Mailgun webhook error: %s", e)
             # Return 200 to prevent retries
-            return json_response({"status": "error", "message": str(e)[:100]})
+            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
 
     def _handle_ses_webhook(self, handler: Any) -> HandlerResult:
         """
@@ -456,8 +456,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             logger.error(f"Email reply loop module not available: {e}")
             return error_response("Email processing not available", 503)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
-            logger.exception(f"SES webhook error: {e}")
-            return json_response({"status": "error", "message": str(e)[:100]})
+            logger.exception("SES webhook error: %s", e)
+            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
 
     def _parse_form_data(self, body: bytes, content_type: str) -> dict[str, Any]:
         """Parse multipart form data or urlencoded data."""

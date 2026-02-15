@@ -253,9 +253,9 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             return json_response({"status": "ok"})
 
         except Exception as e:
-            logger.exception(f"Unexpected WhatsApp webhook error: {e}")
+            logger.exception("Unexpected WhatsApp webhook error: %s", e)
             # Return 200 to prevent retries
-            return json_response({"status": "error", "message": str(e)[:100]})
+            return json_response({"status": "error", "message": "An error occurred processing the webhook"})
 
     def _process_messages(self, value: dict[str, Any]) -> None:
         """Process incoming WhatsApp messages."""
@@ -826,8 +826,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 asyncio.run(execute())
 
             except (RuntimeError, ImportError, ValueError, AttributeError) as e:
-                logger.error(f"Direct debate execution failed: {e}")
-                self._send_message(to_number, f"Debate failed: {str(e)[:100]}")
+                logger.error("Direct debate execution failed: %s", e)
+                self._send_message(to_number, "Sorry, an error occurred while processing your request.")
 
         # Run in background thread to not block webhook response
         thread = threading.Thread(target=run_in_thread, daemon=True)

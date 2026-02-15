@@ -337,12 +337,12 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             logger.error(f"Invalid JSON in Discord interaction: {e}")
             return error_response("Invalid JSON payload", 400)
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error in Discord interaction: {e}")
+            logger.warning("Data error in Discord interaction: %s", e)
             return json_response(
                 {
                     "type": 4,
                     "data": {
-                        "content": f"Invalid request data: {str(e)[:100]}",
+                        "content": "Sorry, an error occurred while processing your request.",
                         "flags": 64,
                     },
                 }

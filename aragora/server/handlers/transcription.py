@@ -929,14 +929,14 @@ class TranscriptionHandler(BaseHandler):
 
             except ValueError as e:
                 # Video too long or other validation error (not a service failure)
+                logger.warning("YouTube transcription validation error: %s", e)
                 _save_job(
                     job_id,
                     {
                         "status": "failed",
-                        "error": str(e),
+                        "error": "Invalid request",
                     },
                 )
-                logger.warning("Handler error: %s", e)
                 return error_response("Invalid request", 400)
             except Exception as transcribe_error:
                 # Service failure - record for circuit breaker

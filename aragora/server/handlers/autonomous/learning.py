@@ -80,13 +80,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting ratings: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting ratings: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error getting ratings: {e}")
+            logger.error("Error getting ratings: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to retrieve ratings"},
                 status=500,
             )
 
@@ -146,13 +148,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting calibration: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting calibration: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error getting calibration: {e}")
+            logger.error("Error getting calibration: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to retrieve calibration data"},
                 status=500,
             )
 
@@ -199,13 +203,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting calibrations: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting calibrations: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error getting calibrations: {e}")
+            logger.error("Error getting calibrations: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to retrieve calibrations"},
                 status=500,
             )
 
@@ -280,13 +286,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized recording debate outcome: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden recording debate outcome: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error recording debate outcome: {e}")
+            logger.error("Error recording debate outcome: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to record debate outcome"},
                 status=500,
             )
 
@@ -355,13 +363,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized recording feedback: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden recording feedback: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error recording feedback: {e}")
+            logger.error("Error recording feedback: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to record feedback"},
                 status=500,
             )
 
@@ -416,13 +426,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting patterns: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting patterns: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error getting patterns: {e}")
+            logger.error("Error getting patterns: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to retrieve patterns"},
                 status=500,
             )
 
@@ -458,13 +470,15 @@ class LearningHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized running periodic learning: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden running periodic learning: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error running periodic learning: {e}")
+            logger.error("Error running periodic learning: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Periodic learning run failed"},
                 status=500,
             )
 

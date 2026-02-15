@@ -96,7 +96,7 @@ class MoundHandlersMixin:
                     tier=MemoryTier.MEDIUM,  # Cross-session memory
                 )
                 logger.debug("Synced KM node %s to memory continuum", node_id)
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("Memory sync unavailable: %s", e)
 
             self.stats["mound_to_memory"]["events"] += 1
@@ -149,7 +149,7 @@ class MoundHandlersMixin:
                     if hasattr(mound, "record_access"):
                         mound.record_access(node_id, access_type=access_type, hit=hit)
                         logger.debug("Recorded KM access for node %s", node_id)
-                except Exception as e:
+                except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                     logger.debug("KM access recording unavailable: %s", e)
 
             self.stats["memory_to_mound"]["events"] += 1
@@ -194,7 +194,7 @@ class MoundHandlersMixin:
                         sources=sources,
                     )
                     logger.debug("Ingested belief %s to KM", claim_id)
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM belief ingestion unavailable: %s", e)
 
             self.stats["belief_to_mound"]["events"] += 1
@@ -231,7 +231,7 @@ class MoundHandlersMixin:
                         logger.debug(
                             "Found %s related claims for debate %s", len(related), debate_id
                         )
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM claim lookup unavailable: %s", e)
 
             self.stats["mound_to_belief"]["events"] += 1
@@ -268,7 +268,7 @@ class MoundHandlersMixin:
                         compression_level=compression_level,
                         retrieval_count=retrieval_count,
                     )
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM RLM metadata update unavailable: %s", e)
 
             self.stats["rlm_to_mound"]["events"] += 1
@@ -301,7 +301,7 @@ class MoundHandlersMixin:
                     hints = mound.get_compression_hints(content_type)
                     if hints:
                         logger.debug("Retrieved compression hints for %s", content_type)
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM compression hints unavailable: %s", e)
 
             self.stats["mound_to_rlm"]["events"] += 1
@@ -341,7 +341,7 @@ class MoundHandlersMixin:
                         domain=domain,
                     )
                     logger.debug("Recorded ELO update for %s in KM", agent_name)
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM ELO recording unavailable: %s", e)
 
             self.stats["elo_to_mound"]["events"] += 1
@@ -376,7 +376,7 @@ class MoundHandlersMixin:
                         history = mound.get_agent_history(agent, task_type=task_type)
                         if history:
                             logger.debug("Retrieved history for %s on %s", agent, task_type)
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM agent history unavailable: %s", e)
 
             self.stats["mound_to_team_selection"]["events"] += 1
@@ -414,7 +414,7 @@ class MoundHandlersMixin:
                         debate_id=debate_id,
                     )
                     logger.debug("Ingested %s insight to KM", insight_type)
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM insight ingestion unavailable: %s", e)
 
             self.stats["insight_to_mound"]["events"] += 1
@@ -455,7 +455,7 @@ class MoundHandlersMixin:
                         reason=reason,
                         debate_id=debate_id,
                     )
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM position flip recording unavailable: %s", e)
 
             self.stats["flip_to_mound"]["events"] += 1
@@ -488,7 +488,7 @@ class MoundHandlersMixin:
                     patterns = mound.get_hollow_consensus_patterns(consensus_topic)
                     if patterns:
                         logger.debug("Found %s hollow consensus patterns for topic", len(patterns))
-            except Exception as e:
+            except (ImportError, AttributeError, TypeError, OSError, ValueError) as e:
                 logger.debug("KM hollow consensus patterns unavailable: %s", e)
 
             self.stats["mound_to_trickster"]["events"] += 1

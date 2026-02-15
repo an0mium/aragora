@@ -556,7 +556,7 @@ async def handle_batch_extract(
                     {
                         "email_id": email.id,
                         "success": False,
-                        "error": str(e),
+                        "error": "Extraction failed for this email",
                     }
                 )
 

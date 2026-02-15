@@ -534,7 +534,8 @@ class OAuthWizardHandler(SecureHandler):
             else:
                 return {"status": "unchecked", "reason": "No health check available"}
         except Exception as e:
-            return {"status": "error", "error": str(e)}
+            logger.warning("Connection check failed for provider: %s", e)
+            return {"status": "error", "error": "Connection check failed"}
 
     async def _maybe_await(self, value: Any) -> Any:
         """Await a value when it is awaitable, otherwise return it."""
@@ -560,7 +561,8 @@ class OAuthWizardHandler(SecureHandler):
             self._normalize_mock_side_effect(store.list_active)
             workspaces = await self._maybe_await(store.list_active(limit=1))
         except Exception as e:
-            return {"status": "error", "error": str(e)}
+            logger.warning("Slack connection check failed: %s", e)
+            return {"status": "error", "error": "Slack connection check failed"}
 
         if workspaces:
             try:
@@ -585,7 +587,8 @@ class OAuthWizardHandler(SecureHandler):
             self._normalize_mock_side_effect(store.list_active)
             workspaces = await self._maybe_await(store.list_active(limit=1))
         except Exception as e:
-            return {"status": "error", "error": str(e)}
+            logger.warning("Teams connection check failed: %s", e)
+            return {"status": "error", "error": "Teams connection check failed"}
 
         if workspaces:
             try:
@@ -630,7 +633,8 @@ class OAuthWizardHandler(SecureHandler):
             else:
                 return {"status": "unreachable", "smtp_host": smtp_host, "smtp_port": smtp_port}
         except Exception as e:
-            return {"status": "error", "error": str(e)}
+            logger.warning("Email connection check failed: %s", e)
+            return {"status": "error", "error": "SMTP connection check failed"}
 
     async def _test_connection(self, provider_id: str) -> HandlerResult:
         """
@@ -663,7 +667,7 @@ class OAuthWizardHandler(SecureHandler):
             return json_response(
                 {
                     "provider": provider_id,
-                    "test_result": {"success": False, "error": str(e)},
+                    "test_result": {"success": False, "error": "Connection test failed"},
                     "tested_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
@@ -702,7 +706,8 @@ class OAuthWizardHandler(SecureHandler):
                     }
                 return {"success": False, "error": data.get("error", "Unknown")}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Slack API test failed: %s", e)
+            return {"success": False, "error": "Slack API test failed"}
 
     async def _test_teams_api(self) -> dict[str, Any]:
         """Test Teams API connectivity with Graph API call."""
@@ -738,7 +743,8 @@ class OAuthWizardHandler(SecureHandler):
                     return {"success": False, "error": "Token expired"}
                 return {"success": False, "error": f"API returned {response.status_code}"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Teams API test failed: %s", e)
+            return {"success": False, "error": "Teams API test failed"}
 
     async def _test_discord_api(self) -> dict[str, Any]:
         """Test Discord API connectivity."""
@@ -761,7 +767,8 @@ class OAuthWizardHandler(SecureHandler):
                     return {"success": True, "bot_name": data.get("username")}
                 return {"success": False, "error": f"API returned {response.status_code}"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("Discord API test failed: %s", e)
+            return {"success": False, "error": "Discord API test failed"}
 
     async def _list_workspaces(self, provider_id: str) -> HandlerResult:
         """

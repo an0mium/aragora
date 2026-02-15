@@ -136,8 +136,8 @@ async def handle_get_oauth_url(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to get OAuth URL: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to get OAuth URL: %s", e)
+        return {"success": False, "error": "Failed to generate OAuth URL"}
 
 
 async def handle_oauth_callback(
@@ -198,8 +198,8 @@ async def handle_oauth_callback(
             return {"success": False, "error": "Authentication failed"}
 
     except Exception as e:
-        logger.exception(f"OAuth callback failed: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("OAuth callback failed: %s", e)
+        return {"success": False, "error": "OAuth callback failed"}
 
 
 @require_permission("connectors:read")
@@ -236,8 +236,8 @@ async def handle_list_folders(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to list folders: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to list folders: %s", e)
+        return {"success": False, "error": "Failed to list folders"}
 
 
 @require_permission("connectors:read")
@@ -305,8 +305,8 @@ async def handle_list_messages(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to list messages: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to list messages: %s", e)
+        return {"success": False, "error": "Failed to list messages"}
 
 
 @require_permission("connectors:read")
@@ -361,8 +361,8 @@ async def handle_get_message(
         return {"success": True, "message": result}
 
     except Exception as e:
-        logger.exception(f"Failed to get message: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to get message: %s", e)
+        return {"success": False, "error": "Failed to get message"}
 
 
 @require_permission("connectors:read")
@@ -412,8 +412,8 @@ async def handle_get_conversation(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to get conversation: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to get conversation: %s", e)
+        return {"success": False, "error": "Failed to get conversation"}
 
 
 @require_permission("connectors:write")
@@ -462,8 +462,8 @@ async def handle_send_message(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to send message: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to send message: %s", e)
+        return {"success": False, "error": "Failed to send message"}
 
 
 @require_permission("connectors:write")
@@ -508,8 +508,8 @@ async def handle_reply_message(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to reply to message: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to reply to message: %s", e)
+        return {"success": False, "error": "Failed to reply to message"}
 
 
 @require_permission("connectors:read")
@@ -549,8 +549,8 @@ async def handle_search_messages(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to search messages: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to search messages: %s", e)
+        return {"success": False, "error": "Failed to search messages"}
 
 
 @require_permission("connectors:write")
@@ -592,8 +592,8 @@ async def handle_mark_read(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to mark message: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to mark message: %s", e)
+        return {"success": False, "error": "Failed to update message read status"}
 
 
 @require_permission("connectors:write")
@@ -635,8 +635,8 @@ async def handle_move_message(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to move message: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to move message: %s", e)
+        return {"success": False, "error": "Failed to move message"}
 
 
 @require_permission("connectors:delete")
@@ -688,8 +688,8 @@ async def handle_delete_message(
         }
 
     except Exception as e:
-        logger.exception(f"Failed to delete message: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to delete message: %s", e)
+        return {"success": False, "error": "Failed to delete message"}
 
 
 @require_permission("connectors:read")
@@ -735,8 +735,8 @@ async def handle_get_status(
             }
 
     except Exception as e:
-        logger.exception(f"Failed to get status: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Failed to get status: %s", e)
+        return {"success": False, "error": "Failed to get connection status"}
 
 
 # =============================================================================

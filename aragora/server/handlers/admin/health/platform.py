@@ -137,12 +137,13 @@ def encryption_health(handler: Any) -> HandlerResult:
         service = get_encryption_service()
         health["encryption_service"] = {"healthy": True, "status": "initialized"}
     except Exception as e:
+        logger.warning("Encryption service health check failed: %s: %s", type(e).__name__, e)
         health["encryption_service"] = {
             "healthy": False,
             "status": "error",
-            "error": str(e)[:100],
+            "error": "Initialization failed",
         }
-        issues.append(f"Encryption service error: {str(e)[:50]}")
+        issues.append("Encryption service initialization failed")
         return json_response(
             {
                 "status": "error",
@@ -187,12 +188,13 @@ def encryption_health(handler: Any) -> HandlerResult:
             health["roundtrip_test"] = {"healthy": False, "status": "data_mismatch"}
             issues.append("Encrypt/decrypt round-trip failed")
     except Exception as e:
+        logger.warning("Encryption roundtrip test failed: %s: %s", type(e).__name__, e)
         health["roundtrip_test"] = {
             "healthy": False,
             "status": "error",
-            "error": str(e)[:100],
+            "error": "Roundtrip test failed",
         }
-        issues.append(f"Encrypt/decrypt error: {str(e)[:50]}")
+        issues.append("Encrypt/decrypt roundtrip test failed")
 
     # Calculate overall status
     response_time_ms = round((time.time() - start_time) * 1000, 2)
@@ -267,10 +269,11 @@ def platform_health(handler: Any) -> HandlerResult:
             "note": "Platform rate limiter module not installed",
         }
     except Exception as e:
+        logger.warning("Platform rate limiters health check failed: %s: %s", type(e).__name__, e)
         components["rate_limiters"] = {
             "healthy": False,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
         all_healthy = False
 
@@ -298,10 +301,11 @@ def platform_health(handler: Any) -> HandlerResult:
             "note": "Platform resilience module not installed",
         }
     except Exception as e:
+        logger.warning("Platform resilience health check failed: %s: %s", type(e).__name__, e)
         components["resilience"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # 3. Check dead letter queue
@@ -333,10 +337,11 @@ def platform_health(handler: Any) -> HandlerResult:
             "note": "DLQ module not installed",
         }
     except Exception as e:
+        logger.warning("DLQ health check failed: %s: %s", type(e).__name__, e)
         components["dead_letter_queue"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # 4. Check platform metrics
@@ -359,10 +364,11 @@ def platform_health(handler: Any) -> HandlerResult:
             "prometheus_enabled": False,
         }
     except Exception as e:
+        logger.warning("Platform metrics health check failed: %s: %s", type(e).__name__, e)
         components["metrics"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # 5. Check individual platform circuit breakers
@@ -382,7 +388,7 @@ def platform_health(handler: Any) -> HandlerResult:
                         "success_count": getattr(cb, "success_count", 0),
                     }
             except Exception as e:
-                logger.debug(f"Error getting circuit breaker for {plat}: {e}")
+                logger.debug("Error getting circuit breaker for %s: %s", plat, e)
                 platform_circuits[plat] = {"state": "not_configured"}
 
         components["platform_circuits"] = {
@@ -404,10 +410,11 @@ def platform_health(handler: Any) -> HandlerResult:
             "note": "Circuit breaker module not available",
         }
     except Exception as e:
+        logger.warning("Platform circuits health check failed: %s: %s", type(e).__name__, e)
         components["platform_circuits"] = {
             "healthy": True,
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # Calculate response time

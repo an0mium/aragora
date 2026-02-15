@@ -537,7 +537,7 @@ class AuditingHandler(SecureHandler):
                 logger.error(
                     "Capability probe execution failed: agent=%s, error=%s",
                     agent_name,
-                    str(e),
+                    e,
                     exc_info=True,
                 )
                 return error_response("Probe execution failed", 500)
@@ -695,7 +695,7 @@ class AuditingHandler(SecureHandler):
                 logger.error(
                     "Deep audit execution failed: audit_id=%s, error=%s",
                     audit_id,
-                    str(e),
+                    e,
                     exc_info=True,
                 )
                 return error_response(safe_error_message(e, "deep audit"), 500)

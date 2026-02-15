@@ -23,7 +23,7 @@ import pytest
 HANDLERS_DIR = Path(__file__).parent.parent.parent / "aragora" / "server" / "handlers"
 
 # Authorization indicators in source code
-RBAC_IMPORTS = {
+RBAC_IMPORTS = frozenset({
     "require_permission",
     "require_role",
     "require_owner",
@@ -34,10 +34,10 @@ RBAC_IMPORTS = {
     "secure_endpoint",
     "require_user_auth",
     "require_auth",
-}
+})
 
 # Base classes that provide built-in authorization
-SECURE_BASE_CLASSES = {
+SECURE_BASE_CLASSES = frozenset({
     "SecureHandler",
     "AuthenticatedHandler",
     "PermissionHandler",
@@ -47,7 +47,7 @@ SECURE_BASE_CLASSES = {
     "SecureEndpointMixin",
     "AuthenticatedHandlerMixin",
     "AuthChecksMixin",
-}
+})
 
 # Modules that are explicitly allowed without RBAC decorators.
 # These are either:
@@ -55,7 +55,7 @@ SECURE_BASE_CLASSES = {
 # - Utility/non-handler modules
 # - Bot integrations (use platform-specific verification)
 # - Infrastructure modules
-ALLOWED_WITHOUT_RBAC = {
+ALLOWED_WITHOUT_RBAC = frozenset({
     # Infrastructure / utilities (non-handler modules)
     "__init__",
     "api_decorators",
@@ -403,17 +403,25 @@ ALLOWED_WITHOUT_RBAC = {
     "notifications/history",
     # Pipeline re-export module (actual handler is in pipeline/plans.py)
     "pipeline/__init__",
-}
+})
 
 
 def _get_handler_modules() -> list[tuple[str, Path]]:
-    """Find all Python handler modules under aragora/server/handlers/."""
+    """Find all Python handler modules under aragora/server/handlers/.
+
+    Re-resolves HANDLERS_DIR each call to avoid stale cached paths
+    and filters out __pycache__ directories.
+    """
+    handlers_dir = Path(__file__).parent.parent.parent / "aragora" / "server" / "handlers"
     modules = []
-    for py_file in HANDLERS_DIR.rglob("*.py"):
+    for py_file in handlers_dir.rglob("*.py"):
+        # Skip __pycache__ and other generated directories
+        if "__pycache__" in py_file.parts:
+            continue
         if py_file.name.startswith("_") and py_file.name != "__init__.py":
             continue
         # Get relative module path
-        rel = py_file.relative_to(HANDLERS_DIR)
+        rel = py_file.relative_to(handlers_dir)
         module_key = str(rel.with_suffix("")).replace(os.sep, "/")
         modules.append((module_key, py_file))
     return sorted(modules)
@@ -565,10 +573,16 @@ class TestHandlerRBACEnforcement:
             "workflows",
         }
 
+        # Use local snapshots of module-level constants to guard against
+        # cross-test pollution of mutable state (e.g. if another test
+        # mutated ALLOWED_WITHOUT_RBAC or SECURE_BASE_CLASSES via import).
+        allowed = frozenset(ALLOWED_WITHOUT_RBAC)
+        secure_bases = frozenset(SECURE_BASE_CLASSES)
+
         weak_handlers = []
 
         for module_key, path in _get_handler_modules():
-            if module_key in ALLOWED_WITHOUT_RBAC:
+            if module_key in allowed:
                 continue
             if module_key in middleware_protected_mutations:
                 continue
@@ -586,7 +600,7 @@ class TestHandlerRBACEnforcement:
                 or "require_auth" in source
                 or "check_permission" in source
                 or "_check_rbac_permission" in source
-                or any(b in source for b in SECURE_BASE_CLASSES)
+                or any(b in source for b in secure_bases)
             )
             if not has_perm:
                 weak_handlers.append(module_key)

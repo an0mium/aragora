@@ -122,10 +122,11 @@ class GauntletSecureHandler(ABC):
                 problem_type=f"{PROBLEM_TYPE_BASE}/unauthorized",
             )
         except ForbiddenError as e:
+            logger.warning("Gauntlet permission denied: %s", e)
             return rfc7807_error(
                 status=403,
                 title="Forbidden",
-                detail=str(e),
+                detail="Insufficient permissions for this operation",
                 problem_type=f"{PROBLEM_TYPE_BASE}/forbidden",
             )
 
@@ -226,7 +227,7 @@ class GauntletSchemaHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Internal Server Error",
-                detail=str(e),
+                detail="Failed to retrieve schema",
             )
 
 
@@ -272,7 +273,7 @@ class GauntletAllSchemasHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Internal Server Error",
-                detail=str(e),
+                detail="Failed to retrieve schemas",
             )
 
 
@@ -347,7 +348,7 @@ class GauntletTemplatesListHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Internal Server Error",
-                detail=str(e),
+                detail="Failed to list templates",
             )
 
 
@@ -414,7 +415,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Internal Server Error",
-                detail=str(e),
+                detail="Failed to retrieve template",
             )
 
 
@@ -639,7 +640,7 @@ class GauntletReceiptExportHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Export Failed",
-                detail=str(e),
+                detail="Receipt export failed",
             )
 
 
@@ -762,7 +763,7 @@ class GauntletHeatmapExportHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Export Failed",
-                detail=str(e),
+                detail="Heatmap export failed",
             )
 
 
@@ -826,7 +827,7 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
             return rfc7807_error(
                 status=500,
                 title="Validation Failed",
-                detail=str(e),
+                detail="Receipt validation failed",
             )
 
 

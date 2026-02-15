@@ -281,9 +281,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             logger.error(f"Invalid JSON in Telegram update: {e}")
             return error_response("Invalid JSON payload", 400)
         except (ValueError, KeyError, TypeError, OSError) as e:
-            logger.exception(f"Unexpected Telegram webhook error: {e}")
+            logger.exception("Unexpected Telegram webhook error: %s", e)
             # Always return 200 to prevent Telegram from retrying
-            return json_response({"ok": False, "error": str(e)[:100]})
+            return json_response({"ok": False, "error": "An error occurred processing the webhook"})
 
     def _handle_message(self, message: dict[str, Any], edited: bool = False) -> HandlerResult:
         """Handle incoming Telegram message."""
@@ -524,9 +524,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             self._answer_callback_query(callback_id, "Vote acknowledged")
             return json_response({"ok": True, "vote_recorded": False})
         except (RuntimeError, ValueError, KeyError, AttributeError) as e:
-            logger.error(f"Failed to record vote: {e}")
+            logger.error("Failed to record vote: %s", e)
             self._answer_callback_query(callback_id, "Error recording vote")
-            return json_response({"ok": False, "error": str(e)[:100]})
+            return json_response({"ok": False, "error": "An error occurred recording the vote"})
 
     def _answer_callback_query(self, callback_id: str, text: str) -> None:
         """Answer a callback query (acknowledge button press)."""
@@ -843,8 +843,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                 asyncio.run(execute())
 
             except (RuntimeError, ImportError, ValueError, AttributeError) as e:
-                logger.error(f"Direct debate execution failed: {e}")
-                self._send_message(chat_id, f"Debate failed: {str(e)[:100]}")
+                logger.error("Direct debate execution failed: %s", e)
+                self._send_message(chat_id, "Sorry, an error occurred while processing your request.")
 
         # Run in background thread to not block webhook response
         thread = threading.Thread(target=run_in_thread, daemon=True)

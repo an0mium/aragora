@@ -163,19 +163,21 @@ class ApprovalHandler:
             )
 
         except UnauthorizedError as e:
+            logger.warning("Unauthorized listing pending approvals: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Authentication required"},
                 status=401,
             )
         except ForbiddenError as e:
+            logger.warning("Forbidden listing pending approvals: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Permission denied"},
                 status=403,
             )
         except Exception as e:
-            logger.error(f"Error listing pending approvals: {e}")
+            logger.error("Error listing pending approvals: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to list pending approvals"},
                 status=500,
             )
 
@@ -251,19 +253,21 @@ class ApprovalHandler:
             )
 
         except UnauthorizedError as e:
+            logger.warning("Unauthorized getting approval request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Authentication required"},
                 status=401,
             )
         except ForbiddenError as e:
+            logger.warning("Forbidden getting approval request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Permission denied"},
                 status=403,
             )
         except Exception as e:
-            logger.error(f"Error getting approval request: {e}")
+            logger.error("Error getting approval request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to retrieve approval request"},
                 status=500,
             )
 
@@ -333,24 +337,27 @@ class ApprovalHandler:
             )
 
         except UnauthorizedError as e:
+            logger.warning("Unauthorized approving request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Authentication required"},
                 status=401,
             )
         except ForbiddenError as e:
+            logger.warning("Forbidden approving request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Permission denied"},
                 status=403,
             )
         except ValueError as e:
+            logger.warning("Approval request not found: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Approval request not found"},
                 status=404,
             )
         except Exception as e:
-            logger.error(f"Error approving request: {e}")
+            logger.error("Error approving request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to approve request"},
                 status=500,
             )
 
@@ -422,24 +429,27 @@ class ApprovalHandler:
             )
 
         except UnauthorizedError as e:
+            logger.warning("Unauthorized rejecting request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Authentication required"},
                 status=401,
             )
         except ForbiddenError as e:
+            logger.warning("Forbidden rejecting request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Permission denied"},
                 status=403,
             )
         except ValueError as e:
+            logger.warning("Approval request not found for rejection: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Approval request not found"},
                 status=404,
             )
         except Exception as e:
-            logger.error(f"Error rejecting request: {e}")
+            logger.error("Error rejecting request: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to reject request"},
                 status=500,
             )
 

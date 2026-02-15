@@ -285,11 +285,11 @@ async def handle_accounting_status(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error getting accounting status: {e}")
+        logger.warning("Error getting accounting status: %s", e)
         return web.json_response(
             {
                 "connected": False,
-                "error": str(e),
+                "error": "Failed to retrieve accounting status",
             },
             status=500,
         )
@@ -329,10 +329,10 @@ async def handle_accounting_connect(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error initiating QBO connection: {e}")
+        logger.warning("Error initiating QBO connection: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to initiate QuickBooks connection",
             },
             status=500,
         )
@@ -397,10 +397,10 @@ async def handle_accounting_callback(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error handling OAuth callback: {e}")
+        logger.warning("Error handling OAuth callback: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to complete OAuth callback",
             },
             status=500,
         )
@@ -439,10 +439,10 @@ async def handle_accounting_disconnect(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error disconnecting QBO: {e}")
+        logger.warning("Error disconnecting QBO: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to disconnect QuickBooks",
             },
             status=500,
         )
@@ -519,10 +519,10 @@ async def handle_accounting_customers(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error listing customers: {e}")
+        logger.warning("Error listing customers: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to list customers",
             },
             status=500,
         )
@@ -633,10 +633,10 @@ async def handle_accounting_transactions(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error listing transactions: {e}")
+        logger.warning("Error listing transactions: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to list transactions",
             },
             status=500,
         )
@@ -712,10 +712,10 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error generating report: {e}")
+        logger.warning("Error generating report: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to generate report",
             },
             status=500,
         )
@@ -864,10 +864,10 @@ async def handle_gusto_status(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error getting Gusto status: {e}")
+        logger.warning("Error getting Gusto status: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to retrieve Gusto status",
             },
             status=500,
         )
@@ -906,10 +906,10 @@ async def handle_gusto_connect(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error initiating Gusto connection: {e}")
+        logger.warning("Error initiating Gusto connection: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to initiate Gusto connection",
             },
             status=500,
         )
@@ -969,10 +969,10 @@ async def handle_gusto_callback(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error handling Gusto OAuth callback: {e}")
+        logger.warning("Error handling Gusto OAuth callback: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to complete Gusto OAuth callback",
             },
             status=500,
         )
@@ -1005,10 +1005,10 @@ async def handle_gusto_disconnect(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error disconnecting Gusto: {e}")
+        logger.warning("Error disconnecting Gusto: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to disconnect Gusto",
             },
             status=500,
         )
@@ -1063,10 +1063,10 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error listing Gusto employees: {e}")
+        logger.warning("Error listing Gusto employees: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to list employees",
             },
             status=500,
         )
@@ -1125,9 +1125,10 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
         )
 
     except ValueError as e:
+        logger.warning("Invalid payroll query parameter: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Invalid query parameter",
             },
             status=400,
         )
@@ -1139,10 +1140,10 @@ async def handle_gusto_payrolls(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error listing Gusto payrolls: {e}")
+        logger.warning("Error listing Gusto payrolls: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to list payrolls",
             },
             status=500,
         )
@@ -1201,10 +1202,10 @@ async def handle_gusto_payroll_detail(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error fetching Gusto payroll: {e}")
+        logger.warning("Error fetching Gusto payroll: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to fetch payroll details",
             },
             status=500,
         )
@@ -1283,10 +1284,10 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
         OSError,
         ConnectionError,
     ) as e:
-        logger.error(f"Error generating Gusto journal entry: {e}")
+        logger.warning("Error generating Gusto journal entry: %s", e)
         return web.json_response(
             {
-                "error": str(e),
+                "error": "Failed to generate journal entry",
             },
             status=500,
         )

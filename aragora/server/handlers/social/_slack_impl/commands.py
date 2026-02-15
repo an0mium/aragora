@@ -241,7 +241,7 @@ class CommandsMixin(BlocksMixin):
                 )
 
             return self._slack_response(
-                f"Error processing command: {str(e)[:100]}",
+                "An error occurred processing the command. Please try again later.",
                 response_type="ephemeral",
             )
 
@@ -320,15 +320,15 @@ class CommandsMixin(BlocksMixin):
                 response_type="ephemeral",
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in status command: {e}")
+            logger.warning("Data error in status command: %s", e)
             return self._slack_response(
-                f"Error getting status: {str(e)[:100]}",
+                "Error getting status. Please try again later.",
                 response_type="ephemeral",
             )
         except Exception as e:
-            logger.exception(f"Unexpected status command error: {e}")
+            logger.exception("Unexpected status command error: %s", e)
             return self._slack_response(
-                f"Error getting status: {str(e)[:100]}",
+                "Error getting status. Please try again later.",
                 response_type="ephemeral",
             )
 
@@ -366,15 +366,15 @@ class CommandsMixin(BlocksMixin):
                 response_type="ephemeral",
             )
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Data error in agents command: {e}")
+            logger.warning("Data error in agents command: %s", e)
             return self._slack_response(
-                f"Error listing agents: {str(e)[:100]}",
+                "Error listing agents. Please try again later.",
                 response_type="ephemeral",
             )
         except Exception as e:
-            logger.exception(f"Unexpected agents command error: {e}")
+            logger.exception("Unexpected agents command error: %s", e)
             return self._slack_response(
-                f"Error listing agents: {str(e)[:100]}",
+                "Error listing agents. Please try again later.",
                 response_type="ephemeral",
             )
 
@@ -547,12 +547,12 @@ class CommandsMixin(BlocksMixin):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"Async question answering failed: {e}", exc_info=True)
+            logger.error("Async question answering failed: %s", e, exc_info=True)
             await self._post_to_response_url(
                 response_url,
                 {
                     "response_type": "in_channel",
-                    "text": f"Failed to answer question: {str(e)[:100]}",
+                    "text": "Failed to answer question. Please try again later.",
                     "replace_original": False,
                 },
             )
@@ -660,9 +660,9 @@ class CommandsMixin(BlocksMixin):
                 response_type="ephemeral",
             )
         except Exception as e:
-            logger.exception(f"Unexpected search error: {e}")
+            logger.exception("Unexpected search error: %s", e)
             return self._slack_response(
-                f"Search failed: {str(e)[:100]}",
+                "Search failed. Please try again later.",
                 response_type="ephemeral",
             )
 
@@ -744,9 +744,9 @@ class CommandsMixin(BlocksMixin):
                 response_type="ephemeral",
             )
         except Exception as e:
-            logger.exception(f"Unexpected leaderboard error: {e}")
+            logger.exception("Unexpected leaderboard error: %s", e)
             return self._slack_response(
-                f"Leaderboard failed: {str(e)[:100]}",
+                "Leaderboard failed. Please try again later.",
                 response_type="ephemeral",
             )
 
@@ -842,9 +842,9 @@ class CommandsMixin(BlocksMixin):
                 response_type="ephemeral",
             )
         except Exception as e:
-            logger.exception(f"Unexpected recent debates error: {e}")
+            logger.exception("Unexpected recent debates error: %s", e)
             return self._slack_response(
-                f"Failed to get recent debates: {str(e)[:100]}",
+                "Failed to get recent debates. Please try again later.",
                 response_type="ephemeral",
             )
 
@@ -1048,12 +1048,12 @@ class CommandsMixin(BlocksMixin):
             ValueError,
             KeyError,
         ) as e:
-            logger.error(f"Async gauntlet failed: {e}", exc_info=True)
+            logger.error("Async gauntlet failed: %s", e, exc_info=True)
             await self._post_to_response_url(
                 response_url,
                 {
                     "response_type": "in_channel",
-                    "text": f"Gauntlet failed: {str(e)[:100]}",
+                    "text": "Gauntlet failed. Please try again later.",
                     "replace_original": False,
                 },
             )
@@ -1403,8 +1403,8 @@ class CommandsMixin(BlocksMixin):
             )
 
         except Exception as e:
-            logger.error(f"Async debate creation failed: {e}", exc_info=True)
-            error_text = f"Debate failed: {str(e)[:100]}"
+            logger.error("Async debate creation failed: %s", e, exc_info=True)
+            error_text = "Debate failed. Please try again later."
 
             # Use Web API with thread_ts for error message when available
             if SLACK_BOT_TOKEN and channel_id and thread_ts:

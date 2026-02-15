@@ -465,12 +465,14 @@ class MonitoringHandler:
             return web.json_response(response)
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized recording metric: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden recording metric: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
             circuit_breaker.record_failure()
-            logger.error(f"Error recording metric: {e}")
+            logger.error("Error recording metric: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
                 status=500,
@@ -559,12 +561,14 @@ class MonitoringHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting trend: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting trend: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
             circuit_breaker.record_failure()
-            logger.error(f"Error getting trend: {e}")
+            logger.error("Error getting trend: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
                 status=500,
@@ -622,12 +626,14 @@ class MonitoringHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting trends: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting trends: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
             circuit_breaker.record_failure()
-            logger.error(f"Error getting trends: {e}")
+            logger.error("Error getting trends: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
                 status=500,
@@ -713,12 +719,14 @@ class MonitoringHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting anomalies: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting anomalies: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
             circuit_breaker.record_failure()
-            logger.error(f"Error getting anomalies: {e}")
+            logger.error("Error getting anomalies: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
                 status=500,
@@ -789,12 +797,14 @@ class MonitoringHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting baseline stats: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting baseline stats: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
             circuit_breaker.record_failure()
-            logger.error(f"Error getting baseline stats: {e}")
+            logger.error("Error getting baseline stats: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
                 status=500,
@@ -832,11 +842,13 @@ class MonitoringHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized getting circuit breaker status: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden getting circuit breaker status: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error getting circuit breaker status: {e}")
+            logger.error("Error getting circuit breaker status: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},
                 status=500,

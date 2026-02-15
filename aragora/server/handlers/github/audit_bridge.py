@@ -218,7 +218,7 @@ class GitHubAuditClient:
 
         except Exception as e:
             logger.exception(f"Failed to create issue: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "GitHub API request failed"}
 
     async def create_branch(
         self,
@@ -265,7 +265,7 @@ class GitHubAuditClient:
 
         except Exception as e:
             logger.exception(f"Failed to create branch: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Branch creation failed"}
 
     async def create_pull_request(
         self,
@@ -321,7 +321,7 @@ class GitHubAuditClient:
 
         except Exception as e:
             logger.exception(f"Failed to create PR: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Pull request creation failed"}
 
     async def get_issue(
         self,
@@ -390,7 +390,7 @@ class GitHubAuditClient:
 
         except Exception as e:
             logger.exception(f"Failed to add comment: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Failed to add issue comment"}
 
     async def ensure_labels_exist(
         self,
@@ -648,7 +648,7 @@ async def handle_create_issue(
 
     except Exception as e:
         logger.exception(f"Failed to create issue: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Issue creation failed"}
 
 
 @require_permission("audit:read")
@@ -879,7 +879,7 @@ async def handle_create_fix_pr(
 
     except Exception as e:
         logger.exception(f"Failed to create fix PR: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Fix PR creation failed"}
 
 
 @require_permission("audit:read")
@@ -1001,7 +1001,7 @@ async def handle_sync_session(
 
     except Exception as e:
         logger.exception(f"Failed to sync session: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Session sync failed"}
 
 
 @require_permission("audit:read")
@@ -1042,7 +1042,7 @@ async def handle_get_sync_status(
 
     except Exception as e:
         logger.exception(f"Failed to get sync status: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Failed to retrieve sync status"}
 
 
 @require_permission("audit:read")
@@ -1079,7 +1079,7 @@ async def handle_get_finding_issues(
 
     except Exception as e:
         logger.exception(f"Failed to get finding issues: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Failed to retrieve finding issues"}
 
 
 # =============================================================================

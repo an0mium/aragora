@@ -197,7 +197,7 @@ async def handle_create_shared_inbox(
         logger.exception(f"Failed to create shared inbox: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -254,7 +254,7 @@ async def handle_list_shared_inboxes(
         logger.exception(f"Failed to list shared inboxes: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -301,7 +301,7 @@ async def handle_get_shared_inbox(
         logger.exception(f"Failed to get shared inbox: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -418,7 +418,7 @@ async def handle_get_inbox_messages(
         logger.exception(f"Failed to get inbox messages: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -502,7 +502,7 @@ async def handle_assign_message(
         logger.exception(f"Failed to assign message: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -584,7 +584,7 @@ async def handle_update_message_status(
         logger.exception(f"Failed to update message status: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -637,7 +637,7 @@ async def handle_add_message_tag(
         logger.exception(f"Failed to add message tag: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 
@@ -719,7 +719,7 @@ async def handle_add_message_to_inbox(
         logger.exception(f"Failed to add message to inbox: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "Internal server error",
         }
 
 

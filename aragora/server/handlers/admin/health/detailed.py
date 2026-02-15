@@ -87,9 +87,10 @@ def health_check(handler) -> HandlerResult:
             }
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as e:
         # Database errors are non-critical - server still functions for debates
+        logger.warning("Database health check failed: %s: %s", type(e).__name__, e)
         checks["database"] = {
             "healthy": True,  # Downgrade to warning
-            "warning": f"{type(e).__name__}: {str(e)[:80]}",
+            "warning": "Database check failed",
             "initialized": False,
         }
 
@@ -109,9 +110,10 @@ def health_check(handler) -> HandlerResult:
             }
     except (OSError, RuntimeError, ValueError, KeyError) as e:
         # ELO errors are non-critical - service still functions
+        logger.warning("ELO system health check failed: %s: %s", type(e).__name__, e)
         checks["elo_system"] = {
             "healthy": True,  # Downgrade to warning
-            "warning": f"{type(e).__name__}: {str(e)[:80]}",
+            "warning": "ELO system check failed",
             "initialized": False,
         }
 
@@ -150,9 +152,10 @@ def health_check(handler) -> HandlerResult:
             client_count = len(getattr(ws_manager, "clients", []))
             checks["websocket"] = {"healthy": True, "active_clients": client_count}
         except (AttributeError, TypeError) as e:
+            logger.warning("WebSocket health check failed: %s: %s", type(e).__name__, e)
             checks["websocket"] = {
                 "healthy": False,
-                "error": f"{type(e).__name__}: {str(e)[:80]}",
+                "error": "Health check failed",
             }
     else:
         # WebSocket runs as separate aiohttp service
@@ -174,10 +177,11 @@ def health_check(handler) -> HandlerResult:
     except ImportError:
         checks["circuit_breakers"] = {"healthy": True, "status": "module_not_available"}
     except (KeyError, TypeError, AttributeError) as e:
-        logger.debug(f"Circuit breaker metrics access error: {type(e).__name__}: {e}")
-        checks["circuit_breakers"] = {"healthy": True, "error": str(e)[:80]}
+        logger.debug("Circuit breaker metrics access error: %s: %s", type(e).__name__, e)
+        checks["circuit_breakers"] = {"healthy": True, "error": "Health check failed"}
     except Exception as e:
-        checks["circuit_breakers"] = {"healthy": True, "error": str(e)[:80]}
+        logger.warning("Circuit breaker health check failed: %s: %s", type(e).__name__, e)
+        checks["circuit_breakers"] = {"healthy": True, "error": "Health check failed"}
 
     # Check rate limiter status
     try:
@@ -193,10 +197,11 @@ def health_check(handler) -> HandlerResult:
     except ImportError:
         checks["rate_limiters"] = {"healthy": True, "status": "module_not_available"}
     except (KeyError, TypeError, AttributeError) as e:
-        logger.debug(f"Rate limiter stats access error: {type(e).__name__}: {e}")
-        checks["rate_limiters"] = {"healthy": True, "error": str(e)[:80]}
+        logger.debug("Rate limiter stats access error: %s: %s", type(e).__name__, e)
+        checks["rate_limiters"] = {"healthy": True, "error": "Health check failed"}
     except Exception as e:
-        checks["rate_limiters"] = {"healthy": True, "error": str(e)[:80]}
+        logger.warning("Rate limiter health check failed: %s: %s", type(e).__name__, e)
+        checks["rate_limiters"] = {"healthy": True, "error": "Health check failed"}
 
     # Check security services
     checks["security_services"] = check_security_services()
@@ -250,8 +255,9 @@ def websocket_health(handler) -> HandlerResult:
         client_count = len(getattr(ws_manager, "clients", []))
         return json_response({"status": "healthy", "clients": client_count}, status=200)
     except Exception as e:
+        logger.warning("WebSocket health check error: %s: %s", type(e).__name__, e)
         return json_response(
-            {"status": "error", "clients": 0, "message": str(e)[:120]},
+            {"status": "error", "clients": 0, "message": "Internal server error"},
             status=503,
         )
 
@@ -312,7 +318,8 @@ def detailed_health_check(handler) -> HandlerResult:
     except ImportError:
         health["observer"] = {"status": "unavailable", "reason": "module not found"}
     except (OSError, ValueError, KeyError, AttributeError) as e:
-        health["observer"] = {"status": "error", "error": f"{type(e).__name__}: {str(e)[:80]}"}
+        logger.warning("Observer health check failed: %s: %s", type(e).__name__, e)
+        health["observer"] = {"status": "error", "error": "Health check failed"}
 
     # Add maintenance stats if available
     try:
@@ -324,7 +331,8 @@ def detailed_health_check(handler) -> HandlerResult:
     except ImportError:
         pass
     except (OSError, RuntimeError) as e:
-        health["maintenance"] = {"error": f"{type(e).__name__}: {str(e)[:80]}"}
+        logger.warning("Maintenance health check failed: %s: %s", type(e).__name__, e)
+        health["maintenance"] = {"error": "Health check failed"}
 
     # Check for SQLite in production (scalability warning)
     import os
@@ -368,7 +376,7 @@ def detailed_health_check(handler) -> HandlerResult:
     except ImportError:
         pass
     except OSError as e:
-        logger.debug(f"Could not get memory stats: {type(e).__name__}: {e}")
+        logger.debug("Could not get memory stats: %s: %s", type(e).__name__, e)
 
     # Add HTTP connector status (for API agent calls)
     try:
@@ -388,9 +396,10 @@ def detailed_health_check(handler) -> HandlerResult:
     except ImportError:
         health["http_connector"] = {"status": "unavailable", "reason": "module not found"}
     except (AttributeError, RuntimeError) as e:
+        logger.warning("HTTP connector health check failed: %s: %s", type(e).__name__, e)
         health["http_connector"] = {
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # Add export cache status
@@ -406,9 +415,10 @@ def detailed_health_check(handler) -> HandlerResult:
     except ImportError:
         health["export_cache"] = {"status": "unavailable"}
     except (RuntimeError, AttributeError) as e:
+        logger.warning("Export cache health check failed: %s: %s", type(e).__name__, e)
         health["export_cache"] = {
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     # Add handler cache status
@@ -423,9 +433,10 @@ def detailed_health_check(handler) -> HandlerResult:
     except ImportError:
         health["handler_cache"] = {"status": "unavailable"}
     except (RuntimeError, AttributeError, KeyError) as e:
+        logger.warning("Handler cache health check failed: %s: %s", type(e).__name__, e)
         health["handler_cache"] = {
             "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
     return json_response(health)
@@ -462,7 +473,8 @@ def deep_health_check(handler) -> HandlerResult:
         else:
             checks["storage"] = {"healthy": True, "status": "not_configured"}
     except Exception as e:
-        checks["storage"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+        logger.warning("Storage health check failed: %s: %s", type(e).__name__, e)
+        checks["storage"] = {"healthy": False, "error": "Health check failed"}
         all_healthy = False
 
     # 2. ELO System
@@ -474,7 +486,8 @@ def deep_health_check(handler) -> HandlerResult:
         else:
             checks["elo_system"] = {"healthy": True, "status": "not_configured"}
     except Exception as e:
-        checks["elo_system"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+        logger.warning("ELO system health check failed: %s: %s", type(e).__name__, e)
+        checks["elo_system"] = {"healthy": False, "error": "Health check failed"}
         all_healthy = False
 
     # 3. Supabase
@@ -496,9 +509,9 @@ def deep_health_check(handler) -> HandlerResult:
     except ImportError:
         checks["supabase"] = {"healthy": True, "status": "module_not_available"}
     except Exception as e:
-        error_msg = str(e)[:80]
-        checks["supabase"] = {"healthy": True, "status": "error", "warning": error_msg}
-        warnings.append(f"Supabase: {error_msg}")
+        logger.warning("Supabase health check failed: %s: %s", type(e).__name__, e)
+        checks["supabase"] = {"healthy": True, "status": "error", "warning": "Health check failed"}
+        warnings.append("Supabase: health check failed")
 
     # 4. User Store
     try:
@@ -512,7 +525,8 @@ def deep_health_check(handler) -> HandlerResult:
         else:
             checks["user_store"] = {"healthy": True, "status": "not_configured"}
     except Exception as e:
-        checks["user_store"] = {"healthy": False, "error": f"{type(e).__name__}: {str(e)[:80]}"}
+        logger.warning("User store health check failed: %s: %s", type(e).__name__, e)
+        checks["user_store"] = {"healthy": False, "error": "Health check failed"}
         all_healthy = False
 
     # 5. Billing System
@@ -527,7 +541,8 @@ def deep_health_check(handler) -> HandlerResult:
     except ImportError:
         checks["billing"] = {"healthy": True, "status": "module_not_available"}
     except Exception as e:
-        checks["billing"] = {"healthy": True, "status": "error", "warning": str(e)[:80]}
+        logger.warning("Billing health check failed: %s: %s", type(e).__name__, e)
+        checks["billing"] = {"healthy": True, "status": "error", "warning": "Health check failed"}
 
     # 6. Redis
     checks["redis"] = check_redis_health()
@@ -592,7 +607,8 @@ def deep_health_check(handler) -> HandlerResult:
     except ImportError:
         checks["system_resources"] = {"healthy": True, "status": "psutil_not_available"}
     except Exception as e:
-        checks["system_resources"] = {"healthy": True, "warning": str(e)[:80]}
+        logger.warning("System resources health check failed: %s: %s", type(e).__name__, e)
+        checks["system_resources"] = {"healthy": True, "warning": "Health check failed"}
 
     # 10. Email Services (follow-up tracker, snooze recommender)
     try:
@@ -607,12 +623,13 @@ def deep_health_check(handler) -> HandlerResult:
         _recommender = SnoozeRecommender()  # noqa: F841
         checks["email_snooze_recommender"] = {"healthy": True, "status": "available"}
 
-    except ImportError as e:
-        checks["email_services"] = {"healthy": True, "status": f"not_available: {e}"}
+    except ImportError:
+        checks["email_services"] = {"healthy": True, "status": "not_available"}
     except Exception as e:
+        logger.warning("Email services health check failed: %s: %s", type(e).__name__, e)
         checks["email_services"] = {
             "healthy": False,
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
         all_healthy = False
 
@@ -624,12 +641,13 @@ def deep_health_check(handler) -> HandlerResult:
         _analyzer = DependencyAnalyzer()  # noqa: F841
         checks["dependency_analyzer"] = {"healthy": True, "status": "available"}
 
-    except ImportError as e:
-        checks["dependency_analyzer"] = {"healthy": True, "status": f"not_available: {e}"}
+    except ImportError:
+        checks["dependency_analyzer"] = {"healthy": True, "status": "not_available"}
     except Exception as e:
+        logger.warning("Dependency analyzer health check failed: %s: %s", type(e).__name__, e)
         checks["dependency_analyzer"] = {
             "healthy": False,
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
         all_healthy = False
 

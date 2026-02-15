@@ -63,7 +63,7 @@ async def web_search_fallback(
 
     try:
         from aragora.connectors.web import DDGS_AVAILABLE, WebConnector
-    except Exception as e:  # pragma: no cover - import failure should be rare
+    except ImportError as e:  # pragma: no cover - import failure should be rare
         logger.warning("Web connector unavailable: %s", e)
         return {"results": [], "error": "web connector unavailable"}
 
@@ -78,7 +78,7 @@ async def web_search_fallback(
     connector = WebConnector()
     try:
         results = await connector.search(search_query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Web fallback search failed: %s", e)
         return {"results": [], "error": f"web search failed: {e}"}
 
@@ -109,7 +109,7 @@ async def arxiv_search(
 
     try:
         from aragora.connectors import ArXivConnector
-    except Exception as e:  # pragma: no cover - import failure should be rare
+    except ImportError as e:  # pragma: no cover - import failure should be rare
         logger.warning("ArXiv connector unavailable: %s", e)
         return {"papers": [], "error": "arXiv connector unavailable"}
 
@@ -125,7 +125,7 @@ async def arxiv_search(
             sort_by=sort_by,
             sort_order=sort_order,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("ArXiv search failed: %s", e)
         return {"papers": [], "error": f"arXiv search failed: {e}"}
 
@@ -152,7 +152,7 @@ async def pubmed_search(
 
     try:
         from aragora.connectors import PubMedConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("PubMed connector unavailable: %s", e)
         return {"articles": [], "error": "pubmed connector unavailable"}
 
@@ -162,7 +162,7 @@ async def pubmed_search(
 
     try:
         results = await connector.search(query=query, limit=limit, sort=sort)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("PubMed search failed: %s", e)
         return {"articles": [], "error": f"pubmed search failed: {e}"}
 
@@ -189,7 +189,7 @@ async def courtlistener_search(
 
     try:
         from aragora.connectors import CourtListenerConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("CourtListener connector unavailable: %s", e)
         return {"cases": [], "error": "courtlistener connector unavailable"}
 
@@ -205,7 +205,7 @@ async def courtlistener_search(
             order_by=order_by,
             court=court,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("CourtListener search failed: %s", e)
         return {"cases": [], "error": f"courtlistener search failed: {e}"}
 
@@ -231,7 +231,7 @@ async def westlaw_search(
 
     try:
         from aragora.connectors import WestlawConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("Westlaw connector unavailable: %s", e)
         return {"cases": [], "error": "westlaw connector unavailable"}
 
@@ -243,7 +243,7 @@ async def westlaw_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Westlaw search failed: %s", e)
         return {"cases": [], "error": f"westlaw search failed: {e}"}
 
@@ -266,7 +266,7 @@ async def lexis_search(
 
     try:
         from aragora.connectors import LexisConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("Lexis connector unavailable: %s", e)
         return {"cases": [], "error": "lexis connector unavailable"}
 
@@ -278,7 +278,7 @@ async def lexis_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Lexis search failed: %s", e)
         return {"cases": [], "error": f"lexis search failed: {e}"}
 
@@ -304,7 +304,7 @@ async def govinfo_search(
 
     try:
         from aragora.connectors import GovInfoConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("GovInfo connector unavailable: %s", e)
         return {"results": [], "error": "govinfo connector unavailable"}
 
@@ -320,7 +320,7 @@ async def govinfo_search(
             sort_field=sort_field,
             sort_order=sort_order,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("GovInfo search failed: %s", e)
         return {"results": [], "error": f"govinfo search failed: {e}"}
 
@@ -344,7 +344,7 @@ async def nice_guidance_search(
 
     try:
         from aragora.connectors import NICEGuidanceConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("NICE guidance connector unavailable: %s", e)
         return {"guidelines": [], "error": "nice guidance connector unavailable"}
 
@@ -354,7 +354,7 @@ async def nice_guidance_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("NICE guidance search failed: %s", e)
         return {"guidelines": [], "error": f"nice guidance search failed: {e}"}
 
@@ -377,7 +377,7 @@ async def semantic_scholar_search(
 
     try:
         from aragora.connectors import SemanticScholarConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("Semantic Scholar connector unavailable: %s", e)
         return {"papers": [], "error": "semantic scholar connector unavailable"}
 
@@ -387,7 +387,7 @@ async def semantic_scholar_search(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Semantic Scholar search failed: %s", e)
         return {"papers": [], "error": f"semantic scholar search failed: {e}"}
 
@@ -412,7 +412,7 @@ async def crossref_lookup(
 
     try:
         from aragora.connectors import CrossRefConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("Crossref connector unavailable: %s", e)
         return {"results": [], "error": "crossref connector unavailable"}
 
@@ -426,7 +426,7 @@ async def crossref_lookup(
             results = [item] if item else []
         else:
             results = await connector.search(query_value, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Crossref lookup failed: %s", e)
         return {"results": [], "error": f"crossref lookup failed: {e}"}
 
@@ -450,7 +450,7 @@ async def icd_lookup(
 
     try:
         from aragora.connectors import ClinicalTablesConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("ClinicalTables connector unavailable: %s", e)
         return {"codes": [], "error": "clinical tables connector unavailable"}
 
@@ -460,7 +460,7 @@ async def icd_lookup(
 
     try:
         results = await connector.search(query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("ICD lookup failed: %s", e)
         return {"codes": [], "error": f"icd lookup failed: {e}"}
 
@@ -480,7 +480,7 @@ async def drug_lookup(
 
     try:
         from aragora.connectors import RxNavConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("RxNav connector unavailable: %s", e)
         return {"drug_info": None, "interactions": [], "error": "rxnav connector unavailable"}
 
@@ -494,7 +494,7 @@ async def drug_lookup(
 
     try:
         results = await connector.search(query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("RxNav lookup failed: %s", e)
         return {"drug_info": None, "interactions": [], "error": f"rxnav lookup failed: {e}"}
 
@@ -528,7 +528,7 @@ async def gaap_lookup(
 
     try:
         from aragora.connectors import FASBConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("FASB connector unavailable: %s", e)
         return {"standards": [], "error": "fasb connector unavailable"}
 
@@ -540,7 +540,7 @@ async def gaap_lookup(
 
     try:
         results = await connector.search(query=query, limit=limit)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("FASB lookup failed: %s", e)
         return {"standards": [], "error": f"fasb lookup failed: {e}"}
 
@@ -568,7 +568,7 @@ async def tax_reference_search(
         from aragora.connectors import resolve_tax_connector
 
         connector = resolve_tax_connector(jurisdiction_norm)
-    except Exception as e:  # pragma: no cover
+    except (ImportError, ValueError, KeyError) as e:  # pragma: no cover
         logger.warning("Tax connector unavailable: %s", e)
         return {"results": [], "error": "tax connector unavailable"}
 
@@ -581,7 +581,7 @@ async def tax_reference_search(
 
     try:
         results = await connector.search(query=query, limit=limit)  # type: ignore[attr-defined]
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Tax reference lookup failed: %s", e)
         return {"results": [], "error": f"tax lookup failed: {e}"}
 
@@ -609,7 +609,7 @@ async def sec_filings_search(
 
     try:
         from aragora.connectors import SECConnector
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.warning("SEC connector unavailable: %s", e)
         return {"filings": [], "error": "SEC connector unavailable"}
 
@@ -625,7 +625,7 @@ async def sec_filings_search(
             date_from=date_from,
             date_to=date_to,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("SEC filings search failed: %s", e)
         return {"filings": [], "error": f"SEC search failed: {e}"}
 
@@ -650,7 +650,7 @@ def _get_vertical_policy_engine():
         from aragora.policy.engine import create_default_engine
 
         _VERTICAL_POLICY_ENGINE = create_default_engine()
-    except Exception as e:  # pragma: no cover
+    except (ImportError, ValueError, TypeError, RuntimeError) as e:  # pragma: no cover
         logger.debug("Policy engine unavailable: %s", e)
         _VERTICAL_POLICY_ENGINE = None
     return _VERTICAL_POLICY_ENGINE
@@ -677,7 +677,7 @@ def ensure_vertical_tool_registered(
     try:
         from aragora.policy.risk import BlastRadius, RiskLevel
         from aragora.policy.tools import Tool, ToolCapability, ToolCategory, get_tool_registry
-    except Exception as e:  # pragma: no cover
+    except ImportError as e:  # pragma: no cover
         logger.debug("Policy tooling unavailable: %s", e)
         return None
 

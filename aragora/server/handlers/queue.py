@@ -377,12 +377,12 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                 }
             )
         except (ConnectionError, OSError, TimeoutError) as e:
-            logger.error(f"Failed to get worker status due to connection error: {e}")
+            logger.error("Failed to get worker status due to connection error: %s", e)
             return json_response(
                 {
                     "workers": [],
                     "total": 0,
-                    "error": str(e),
+                    "error": "Connection error retrieving worker status",
                 }
             )
         except (KeyError, TypeError, AttributeError) as e:
@@ -864,7 +864,8 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
                         await queue.enqueue(job, priority=job.priority)
                         requeued += 1
                     except (ConnectionError, OSError, TimeoutError, AttributeError) as e:
-                        errors.append({"job_id": job.id, "error": str(e)})
+                        logger.warning("Failed to requeue job %s: %s", job.id, e)
+                        errors.append({"job_id": job.id, "error": "Failed to requeue job"})
 
             if requeued > 0:
                 audit_admin(

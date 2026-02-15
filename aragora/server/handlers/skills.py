@@ -395,9 +395,9 @@ class SkillsHandler(BaseHandler):
                 code="TIMEOUT",
             )
         except Exception as e:
-            logger.exception(f"Skill invocation error for {skill_name}")
+            logger.exception("Skill invocation error for %s: %s", skill_name, e)
             return error_response(
-                f"Skill invocation failed: {str(e)}",
+                "Skill invocation failed",
                 500,
                 code="INVOCATION_ERROR",
             )

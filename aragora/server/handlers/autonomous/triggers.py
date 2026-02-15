@@ -124,13 +124,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized listing triggers: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden listing triggers: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error listing triggers: {e}")
+            logger.error("Error listing triggers: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to list triggers"},
                 status=500,
             )
 
@@ -209,13 +211,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized adding trigger: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden adding trigger: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error adding trigger: {e}")
+            logger.error("Error adding trigger: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to create trigger"},
                 status=500,
             )
 
@@ -275,13 +279,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized removing trigger: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden removing trigger: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error removing trigger: {e}")
+            logger.error("Error removing trigger: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to remove trigger"},
                 status=500,
             )
 
@@ -334,13 +340,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized enabling trigger: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden enabling trigger: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error enabling trigger: {e}")
+            logger.error("Error enabling trigger: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to enable trigger"},
                 status=500,
             )
 
@@ -393,13 +401,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized disabling trigger: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden disabling trigger: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error disabling trigger: {e}")
+            logger.error("Error disabling trigger: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to disable trigger"},
                 status=500,
             )
 
@@ -435,13 +445,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized starting scheduler: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden starting scheduler: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error starting scheduler: {e}")
+            logger.error("Error starting scheduler: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to start scheduler"},
                 status=500,
             )
 
@@ -477,13 +489,15 @@ class TriggerHandler:
             )
 
         except UnauthorizedError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=401)
+            logger.warning("Unauthorized stopping scheduler: %s", e)
+            return web.json_response({"success": False, "error": "Authentication required"}, status=401)
         except ForbiddenError as e:
-            return web.json_response({"success": False, "error": str(e)}, status=403)
+            logger.warning("Forbidden stopping scheduler: %s", e)
+            return web.json_response({"success": False, "error": "Permission denied"}, status=403)
         except Exception as e:
-            logger.error(f"Error stopping scheduler: {e}")
+            logger.error("Error stopping scheduler: %s", e)
             return web.json_response(
-                {"success": False, "error": str(e)},
+                {"success": False, "error": "Failed to stop scheduler"},
                 status=500,
             )
 

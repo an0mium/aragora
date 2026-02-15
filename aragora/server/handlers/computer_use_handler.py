@@ -415,13 +415,14 @@ class ComputerUseHandler(BaseHandler):
                 ]
                 storage.save_task(task)
             except Exception as e:
+                logger.warning("Computer use task %s failed: %s", task_id, e)
                 task["status"] = "failed"
                 task["result"] = {
                     "success": False,
-                    "message": str(e),
+                    "message": "Task execution failed",
                     "steps_taken": 0,
                 }
-                task["error"] = str(e)
+                task["error"] = "Task execution failed"
                 storage.save_task(task)
 
         logger.info(f"Created computer use task: {task_id} - {goal}")

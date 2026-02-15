@@ -452,8 +452,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception("Error listing templates")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error listing templates: %s", e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
     @rate_limit(requests_per_minute=60, limiter_name="marketplace.get")
@@ -492,8 +492,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error getting template {template_id}")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error getting template %s: %s", template_id, e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
     @rate_limit(requests_per_minute=20, limiter_name="marketplace.create")
@@ -539,11 +539,12 @@ class MarketplaceHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return self.json_error(str(e), HTTPStatus.BAD_REQUEST)
+            logger.warning("Invalid template data: %s", e)
+            return self.json_error("Invalid template data", HTTPStatus.BAD_REQUEST)
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception("Error creating template")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error creating template: %s", e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:delete")
     @rate_limit(requests_per_minute=20, limiter_name="marketplace.delete")
@@ -583,8 +584,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error deleting template {template_id}")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error deleting template %s: %s", template_id, e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
     @rate_limit(requests_per_minute=20, limiter_name="marketplace.rate")
@@ -648,11 +649,12 @@ class MarketplaceHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return self.json_error(str(e), HTTPStatus.BAD_REQUEST)
+            logger.warning("Invalid rating data for template %s: %s", template_id, e)
+            return self.json_error("Invalid rating data", HTTPStatus.BAD_REQUEST)
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error rating template {template_id}")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error rating template %s: %s", template_id, e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
     @rate_limit(requests_per_minute=60, limiter_name="marketplace.get_ratings")
@@ -697,8 +699,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error getting ratings for {template_id}")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error getting ratings for %s: %s", template_id, e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
     @rate_limit(requests_per_minute=30, limiter_name="marketplace.star")
@@ -735,8 +737,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error starring template {template_id}")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error starring template %s: %s", template_id, e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
     @rate_limit(requests_per_minute=60, limiter_name="marketplace.categories")
@@ -761,8 +763,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception("Error listing categories")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error listing categories: %s", e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:read")
     @rate_limit(requests_per_minute=30, limiter_name="marketplace.export")
@@ -803,8 +805,8 @@ class MarketplaceHandler(BaseHandler):
 
         except Exception as e:
             self._circuit_breaker.record_failure()
-            logger.exception(f"Error exporting template {template_id}")
-            return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+            logger.exception("Error exporting template %s: %s", template_id, e)
+            return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @require_permission("marketplace:write")
     @rate_limit(requests_per_minute=20, limiter_name="marketplace.import")

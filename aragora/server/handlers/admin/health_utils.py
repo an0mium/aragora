@@ -45,9 +45,11 @@ def check_filesystem_health(test_dir: Path | None = None) -> dict[str, Any]:
                 test_file.unlink()
 
     except PermissionError as e:
-        return {"healthy": False, "error": f"Permission denied: {e}"}
+        logger.warning("Filesystem health check permission denied: %s", e)
+        return {"healthy": False, "error": "Permission denied"}
     except OSError as e:
-        return {"healthy": False, "error": f"Filesystem error: {e}"}
+        logger.warning("Filesystem health check error: %s", e)
+        return {"healthy": False, "error": "Filesystem error"}
 
 
 def check_redis_health(redis_url: str | None = None) -> dict[str, Any]:
@@ -81,10 +83,11 @@ def check_redis_health(redis_url: str | None = None) -> dict[str, Any]:
     except ImportError:
         return {"healthy": True, "configured": True, "warning": "redis package not installed"}
     except Exception as e:
+        logger.warning("Redis health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
             "configured": True,
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Connection failed",
         }
 
 
@@ -159,8 +162,9 @@ def check_security_services(is_production: bool | None = None) -> dict[str, Any]
         result["encryption_available"] = False
         result["encryption_warning"] = "Encryption module not available"
     except Exception as e:
+        logger.warning("Encryption service check failed: %s: %s", type(e).__name__, e)
         result["encryption_available"] = False
-        result["encryption_error"] = f"{type(e).__name__}: {str(e)[:80]}"
+        result["encryption_error"] = "Health check failed"
 
     # Check RBAC module
     try:
@@ -181,8 +185,9 @@ def check_security_services(is_production: bool | None = None) -> dict[str, Any]
         result["audit_logger_configured"] = False
         result["audit_warning"] = "Audit logger module not available"
     except Exception as e:
+        logger.warning("Audit logger check failed: %s: %s", type(e).__name__, e)
         result["audit_logger_configured"] = False
-        result["audit_error"] = f"{type(e).__name__}: {str(e)[:80]}"
+        result["audit_error"] = "Health check failed"
 
     # Check JWT auth module
     try:
@@ -240,10 +245,11 @@ def check_database_health(database_url: str | None = None) -> dict[str, Any]:
     except ImportError:
         return {"healthy": True, "configured": True, "status": "check_skipped"}
     except Exception as e:
+        logger.warning("Database health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
             "configured": True,
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Connection failed",
         }
 
 
@@ -308,22 +314,25 @@ def check_stripe_health() -> dict[str, Any]:
     except ImportError:
         return {"healthy": True, "configured": True, "warning": "stripe package not installed"}
     except AuthenticationError as e:
+        logger.warning("Stripe authentication failed: %s", e)
         return {
             "healthy": False,
             "configured": True,
-            "error": f"Authentication failed: {str(e)[:80]}",
+            "error": "Authentication failed",
         }
     except APIConnectionError as e:
+        logger.warning("Stripe connection failed: %s", e)
         return {
             "healthy": False,
             "configured": True,
-            "error": f"Connection failed: {str(e)[:80]}",
+            "error": "Connection failed",
         }
     except Exception as e:
+        logger.warning("Stripe health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
             "configured": True,
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
 
 
@@ -383,8 +392,9 @@ def check_slack_health() -> dict[str, Any]:
             "error": "Request timeout",
         }
     except Exception as e:
+        logger.warning("Slack health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
             "configured": True,
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
+            "error": "Health check failed",
         }
