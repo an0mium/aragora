@@ -280,9 +280,9 @@ async def rotate_secret(
     except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:
         logger.exception(f"Error rotating {secret_id}: {e}")
         result["status"] = "error"
-        result["message"] = str(e)
+        result["message"] = "Secret rotation failed"
 
-        await send_notification(secret_id, "failure", str(e), config)
+        await send_notification(secret_id, "failure", "Secret rotation failed", config)
 
     return result
 

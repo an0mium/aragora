@@ -344,13 +344,12 @@ class SlackTokenRefreshScheduler:
                 )
 
         except Exception as e:
-            error = str(e)
-            logger.error(f"Exception refreshing token for {workspace_name}: {error}")
+            logger.error(f"Exception refreshing token for {workspace_name}: {e}")
             return RefreshResult(
                 workspace_id=workspace_id,
                 workspace_name=workspace_name,
                 success=False,
-                error=error,
+                error="Token refresh failed",
             )
 
     async def refresh_now(self) -> RefreshStats:

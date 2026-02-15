@@ -761,7 +761,7 @@ class DRDrillScheduler:
 
             except (OSError, RuntimeError, ValueError, KeyError) as e:
                 step.status = DrillStatus.FAILED
-                step.error_message = str(e)
+                step.error_message = "Drill step execution failed"
                 failed_steps.append(step)
                 logger.error(f"Step {step.step_name} failed: {e}")
 
