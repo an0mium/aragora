@@ -233,16 +233,45 @@ class StyledMockAgent(Agent):
             # balanced / critical: pick randomly
             choice = random.choice(names)
 
-        confidence = {
+        # Add slight randomness to confidence (±0.05)
+        base_confidence = {
             "supportive": 0.85,
-            "critical": 0.6,
-            "balanced": 0.7,
-            "contrarian": 0.5,
+            "critical": 0.60,
+            "balanced": 0.70,
+            "contrarian": 0.50,
         }.get(self.style, 0.7)
+        confidence = round(
+            max(0.1, min(1.0, base_confidence + random.uniform(-0.05, 0.05))), 2
+        )
+
+        # Topic-aware reasoning (truncate at word boundary)
+        topic_snippet = task[:80] if task else "the proposal"
+        if len(task) > 80:
+            topic_snippet = topic_snippet.rsplit(" ", 1)[0] + "..."
+        topic_snippet = topic_snippet.rstrip(".!? ")
+        reasoning_templates = {
+            "supportive": [
+                f"{choice}'s proposal on '{topic_snippet}' is the strongest -- clear benefits with manageable risks",
+                f"After weighing all arguments on '{topic_snippet}', {choice} presents the most actionable path forward",
+            ],
+            "critical": [
+                f"{choice}'s argument best addresses the risks I raised about '{topic_snippet}'",
+                f"While I remain cautious about '{topic_snippet}', {choice}'s position is the most defensible",
+            ],
+            "balanced": [
+                f"{choice} strikes the right balance between ambition and pragmatism on '{topic_snippet}'",
+                f"On '{topic_snippet}', {choice}'s staged approach manages risk while enabling progress",
+            ],
+            "contrarian": [
+                f"Reluctantly voting for {choice} -- their view on '{topic_snippet}' at least considers the downsides",
+                f"None of the proposals fully satisfy my concerns, but {choice}'s position on '{topic_snippet}' is least risky",
+            ],
+        }
+        reasoning = random.choice(reasoning_templates.get(self.style, [f"Selected {choice}"]))
 
         return Vote(
             agent=self.name,
             choice=choice,
             confidence=confidence,
-            reasoning=f"Selected based on {self.style} evaluation of the arguments",
+            reasoning=reasoning,
         )

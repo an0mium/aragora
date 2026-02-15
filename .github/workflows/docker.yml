@@ -6,15 +6,19 @@ on:
     paths:
       - 'aragora/**'
       - 'aragora-operator/**'
+      - 'Dockerfile'
       - 'deploy/Dockerfile.*'
       - 'deploy/docker-compose.yml'
+      - 'docker-compose*.yml'
       - '.github/workflows/docker.yml'
     tags:
       - 'v*'
   pull_request:
     branches: [main]
     paths:
+      - 'Dockerfile'
       - 'deploy/Dockerfile.*'
+      - 'docker-compose*.yml'
   workflow_dispatch:
     inputs:
       push:

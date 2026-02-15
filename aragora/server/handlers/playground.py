@@ -248,6 +248,28 @@ def _run_inline_mock_debate(
 
     votes: list[dict[str, Any]] = []
     vote_tally: dict[str, float] = {}
+    topic_snippet = topic[:80] if topic else "the proposal"
+    if len(topic) > 80:
+        topic_snippet = topic_snippet.rsplit(" ", 1)[0] + "..."
+    topic_snippet = topic_snippet.rstrip(".!? ")
+    _vote_reasoning: dict[str, list[str]] = {
+        "supportive": [
+            "{choice}'s proposal on '{topic}' is the strongest -- clear benefits with manageable risks",
+            "After weighing all arguments on '{topic}', {choice} presents the most actionable path forward",
+        ],
+        "critical": [
+            "{choice}'s argument best addresses the risks I raised about '{topic}'",
+            "While I remain cautious about '{topic}', {choice}'s position is the most defensible",
+        ],
+        "balanced": [
+            "{choice} strikes the right balance between ambition and pragmatism on '{topic}'",
+            "On '{topic}', {choice}'s staged approach manages risk while enabling progress",
+        ],
+        "contrarian": [
+            "Reluctantly voting for {choice} -- their view on '{topic}' at least considers the downsides",
+            "None of the proposals fully satisfy my concerns, but {choice}'s position on '{topic}' is least risky",
+        ],
+    }
     for name, style in zip(names, styles):
         others = [n for n in names if n != name]
         if style == "supportive":
@@ -256,13 +278,17 @@ def _run_inline_mock_debate(
             choice = others[-1]
         else:
             choice = random.choice(others)
-        conf = _MOCK_CONFIDENCE.get(style, 0.7)
+        base_conf = _MOCK_CONFIDENCE.get(style, 0.7)
+        conf = round(max(0.1, min(1.0, base_conf + random.uniform(-0.05, 0.05))), 2)
+        reasoning = random.choice(_vote_reasoning.get(style, ["{choice}"])).format(
+            choice=choice, topic=topic_snippet
+        )
         votes.append(
             {
                 "agent": name,
                 "choice": choice,
                 "confidence": conf,
-                "reasoning": f"Selected based on {style} evaluation of the arguments",
+                "reasoning": reasoning,
             }
         )
         vote_tally[choice] = vote_tally.get(choice, 0.0) + conf
