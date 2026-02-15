@@ -55,6 +55,21 @@ from .stream import (
 # Configure module logger
 logger = logging.getLogger(__name__)
 
+# Server readiness flag — set after startup sequence completes.
+# K8s /readyz fallback uses this to return 503 until the server is ready.
+_server_ready: bool = False
+
+
+def mark_server_ready() -> None:
+    """Mark the server as ready to accept traffic."""
+    global _server_ready
+    _server_ready = True
+
+
+def is_server_ready() -> bool:
+    """Check whether the server has completed its startup sequence."""
+    return _server_ready
+
 # Import centralized config and error utilities
 
 # Import utilities from extracted modules
@@ -457,7 +472,13 @@ class UnifiedHandler(  # type: ignore[misc]
                 self._send_json({"status": "ok"})
                 return
             elif path in ("/readyz", "/ready"):
-                self._send_json({"status": "ready"})
+                if _server_ready:
+                    self._send_json({"status": "ready"})
+                else:
+                    self._send_json(
+                        {"status": "not_ready", "reason": "startup in progress"},
+                        status=503,
+                    )
                 return
 
         # Static file serving (non-API routes)
@@ -1171,6 +1192,10 @@ class UnifiedServer:
             logger.info(f"  Static dir: {self.static_dir}")
         if self.nomic_dir:
             logger.info(f"  Nomic dir:  {self.nomic_dir}")
+
+        # Mark server as ready to accept traffic (used by /readyz fallback
+        # and readiness_probe_fast to gate K8s traffic routing)
+        mark_server_ready()
 
         # Log security posture
         validation_mode = os.environ.get("ARAGORA_VALIDATION_MODE", "blocking")

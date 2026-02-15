@@ -727,7 +727,6 @@ jobs:
         run: pip install bandit[toml]
 
       - name: Run bandit security scan
-        continue-on-error: true
         run: |
           bandit -c pyproject.toml -r aragora/ -ll -ii --format json --output bandit-report.json || true
           bandit -c pyproject.toml -r aragora/ -ll -ii --format txt

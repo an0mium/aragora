@@ -271,7 +271,18 @@ async def _validate_prerequisites(
 async def _run_migrations(os: Any) -> dict[str, Any]:
     """Phase 2b: Run auto-migrations if enabled."""
     migration_results: dict[str, Any] = {"skipped": True}
-    if os.environ.get("ARAGORA_AUTO_MIGRATE_ON_STARTUP", "").lower() == "true":
+    auto_migrate_env = os.environ.get("ARAGORA_AUTO_MIGRATE_ON_STARTUP", "").lower()
+    if auto_migrate_env == "true":
+        should_migrate = True
+    elif auto_migrate_env == "false":
+        should_migrate = False
+    else:
+        # Unset — auto-migrate in development environments, skip in production
+        env_name = os.environ.get("ARAGORA_ENV", "development").lower()
+        should_migrate = env_name in ("development", "dev", "local", "test")
+        if should_migrate:
+            logger.info("Auto-migrating in %s environment (set ARAGORA_AUTO_MIGRATE_ON_STARTUP=false to disable)", env_name)
+    if should_migrate:
         try:
             from aragora.server.auto_migrations import run_auto_migrations
 

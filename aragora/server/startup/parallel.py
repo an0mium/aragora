@@ -246,6 +246,16 @@ class ParallelInitializer:
                 results=self._results,
             )
 
+        # Gate: check whether required backends from Phase 1 succeeded
+        gate_ok = self._check_connectivity_gate(phase1)
+        if not gate_ok and not self.graceful_degradation:
+            return ParallelInitResult(
+                phases=phases,
+                total_duration_ms=(time.perf_counter() - total_start) * 1000,
+                success=False,
+                results=self._results,
+            )
+
         # Phase 2: Dependent subsystems (parallel)
         phase2 = await self._run_phase2_subsystems()
         phases.append(phase2)
@@ -278,6 +288,65 @@ class ParallelInitializer:
             success=overall_success,
             results=self._results,
         )
+
+    def _check_connectivity_gate(self, phase1: PhaseResult) -> bool:
+        """Check whether required backends from Phase 1 are healthy.
+
+        Inspects ARAGORA_REQUIRE_DATABASE and ARAGORA_REQUIRE_REDIS env vars.
+        If a required backend's init task failed, logs a warning and returns
+        False.  When graceful_degradation is False the caller should abort
+        startup; otherwise it continues in degraded mode.
+        """
+        import os
+
+        require_db = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
+            "true", "1", "yes",
+        )
+        require_redis = os.environ.get("ARAGORA_REQUIRE_REDIS", "").lower() in (
+            "true", "1", "yes",
+        )
+
+        # Also implicitly require Redis when distributed state is needed
+        if not require_redis:
+            try:
+                from aragora.control_plane.leader import is_distributed_state_required
+
+                if is_distributed_state_required():
+                    require_redis = True
+            except ImportError:
+                pass
+
+        failed: list[str] = []
+
+        if require_db:
+            db_task = next((t for t in phase1.tasks if t.name == "postgres_pool"), None)
+            if db_task and db_task.error is not None:
+                failed.append(f"postgres_pool: {db_task.error}")
+
+        if require_redis:
+            redis_task = next((t for t in phase1.tasks if t.name == "redis"), None)
+            if redis_task and redis_task.error is not None:
+                failed.append(f"redis: {redis_task.error}")
+
+        if failed:
+            msg = "; ".join(failed)
+            logger.error(
+                f"[parallel_init] Required backend(s) failed connectivity gate: {msg}"
+            )
+            if self.graceful_degradation:
+                try:
+                    from aragora.server.degraded_mode import DegradedErrorCode, set_degraded
+
+                    set_degraded(
+                        DegradedErrorCode.BACKEND_CONNECTIVITY,
+                        f"Required backend(s) failed: {msg}",
+                        recovery_hint="Check database/Redis connectivity and restart.",
+                    )
+                except ImportError:
+                    pass
+            return False
+
+        return True
 
     async def _run_phase1_connections(self) -> PhaseResult:
         """Phase 1: Initialize external connections in parallel.

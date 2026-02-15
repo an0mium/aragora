@@ -276,7 +276,34 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,200+ Python modules | 137,000+ tests
+**Scale:** 3,200+ Python modules | 140,000+ tests
+
+### Performance and Costs
+
+| Metric | Typical Value |
+|---|---|
+| Debate latency (3 agents, 2 rounds) | 30-90 seconds |
+| Token usage per debate | 8,000-25,000 tokens |
+| Estimated cost per debate | $0.05-$0.30 (depends on models) |
+| Concurrent debates supported | 50+ (configurable) |
+| API response time (cached) | < 200ms |
+| Memory tier lookup (fast tier) | < 10ms |
+
+Costs vary by model mix. Claude Haiku + GPT-4o-mini debates cost ~$0.05; Claude Opus + GPT-4 debates cost ~$0.30. Use `aragora decide --dry-run` to preview costs before execution.
+
+### How Aragora Compares
+
+| Capability | Aragora | LangGraph | CrewAI | AutoGen |
+|---|---|---|---|---|
+| Adversarial debate protocol | Built-in (propose/critique/revise) | Manual | No | No |
+| Decision receipts with audit trail | Cryptographic, SHA-256 | No | No | No |
+| Agent calibration (ELO + Brier) | Built-in | No | No | No |
+| Multi-model consensus | 42 agent types, 10+ providers | Single-provider | Single-provider | Multi-provider |
+| Gauntlet stress testing | Built-in CLI | No | No | No |
+| Enterprise security (SSO, RBAC, encryption) | Production-ready | No | No | No |
+| Self-improvement (Nomic Loop) | Autonomous with safety gates | No | No | No |
+| Knowledge persistence (33 adapters) | 4-tier memory + Knowledge Mound | Custom | Custom | Custom |
+| Channel delivery (Slack, Teams, etc.) | 8 channels built-in | No | No | No |
 
 ---
 
