@@ -120,6 +120,7 @@ Examples:
     _add_autopilot_parser(subparsers)
     _add_agent_parser(subparsers)
     _add_analytics_parser(subparsers)
+    _add_starter_parser(subparsers)
 
     return parser
 
@@ -427,6 +428,11 @@ Examples:
         "--server",
         action="store_true",
         help="Start the server in offline demo mode and show web UI instructions",
+    )
+    demo_parser.add_argument(
+        "--receipt",
+        "-r",
+        help="Save decision receipt to file (.json, .html, or .md)",
     )
     demo_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_demo"))
 
@@ -1580,3 +1586,10 @@ def _add_analytics_parser(subparsers) -> None:
     from aragora.cli.commands.analytics import add_analytics_parser
 
     add_analytics_parser(subparsers)
+
+
+def _add_starter_parser(subparsers) -> None:
+    """Add the 'starter' subcommand parser for SME Starter Pack."""
+    from aragora.cli.commands.starter import add_starter_parser
+
+    add_starter_parser(subparsers)

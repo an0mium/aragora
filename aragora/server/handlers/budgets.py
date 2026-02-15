@@ -233,11 +233,15 @@ class BudgetHandler(BaseHandler):
         "/api/v1/budgets/summary",
         "/api/v1/budgets/check",
         "/api/v1/budgets/*",
+        "/api/v1/costs/agents",
+        "/api/v1/costs/anomalies",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         if path.startswith("/api/v1/budgets"):
+            return True
+        if path.startswith("/api/v1/costs/"):
             return True
         return False
 
@@ -388,6 +392,13 @@ class BudgetHandler(BaseHandler):
             # GET /api/v1/budgets/:id/trends
             if len(parts) == 6 and parts[5] == "trends" and method == "GET":
                 return self._get_budget_trends(budget_id, org_id, handler)
+
+        # Cost analytics endpoints
+        if path == "/api/v1/costs/agents" and method == "GET":
+            return self._get_agent_costs(org_id, handler)
+
+        if path == "/api/v1/costs/anomalies" and method == "GET":
+            return self._get_cost_anomalies(org_id, handler)
 
         return error_response("Not found", 404)
 
@@ -1033,6 +1044,81 @@ class BudgetHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get org trends: {e}")
             return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
+
+    # =========================================================================
+    # Cost Analytics Endpoints
+    # =========================================================================
+
+    def _get_agent_costs(self, org_id: str, handler: Any) -> HandlerResult:
+        """Get per-agent cost breakdown from CostTracker."""
+        try:
+            from aragora.billing.cost_tracker import get_cost_tracker
+
+            tracker = get_cost_tracker()
+
+            # Use org_id as workspace_id for cost lookup
+            workspace_id = org_id
+            if handler:
+                query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
+                from urllib.parse import parse_qs
+
+                params = parse_qs(query_str)
+                workspace_id = params.get("workspace_id", [org_id])[0]
+
+            stats = tracker.get_workspace_stats(workspace_id)
+            agent_costs = stats.get("cost_by_agent", {})
+
+            return json_response({
+                "agents": agent_costs,
+                "workspace_id": workspace_id,
+                "total_cost_usd": stats.get("total_cost_usd", "0"),
+                "count": len(agent_costs),
+            })
+
+        except ImportError:
+            return error_response("Cost tracking module not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to get agent costs: {e}")
+            return error_response(f"Failed to get agent costs: {str(e)[:100]}", 500)
+
+    def _get_cost_anomalies(self, org_id: str, handler: Any) -> HandlerResult:
+        """Get recent cost anomalies with advisory."""
+        try:
+            from aragora.billing.cost_tracker import get_cost_tracker
+            from aragora.server.http_utils import run_async
+
+            tracker = get_cost_tracker()
+
+            workspace_id = org_id
+            if handler:
+                query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
+                from urllib.parse import parse_qs
+
+                params = parse_qs(query_str)
+                workspace_id = params.get("workspace_id", [org_id])[0]
+
+            # detect_and_store_anomalies is async
+            try:
+                anomalies = run_async(tracker.detect_and_store_anomalies(workspace_id))
+            except (RuntimeError, OSError):
+                anomalies = []
+
+            return json_response({
+                "anomalies": anomalies,
+                "workspace_id": workspace_id,
+                "count": len(anomalies),
+                "advisory": (
+                    "Cost anomalies detected. Review spending patterns."
+                    if anomalies
+                    else "No anomalies detected."
+                ),
+            })
+
+        except ImportError:
+            return error_response("Cost tracking module not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to get cost anomalies: {e}")
+            return error_response(f"Failed to get cost anomalies: {str(e)[:100]}", 500)
 
 
 # Handler factory function

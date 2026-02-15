@@ -427,6 +427,10 @@ class SubsystemCoordinator:
         if self.enable_calibration_cost and self.calibration_cost_bridge is None:
             self._auto_init_calibration_cost_bridge()
 
+        # Wire feedback loop into TeamSelector if both available
+        if self.selection_feedback_loop and self.team_selector:
+            self._wire_feedback_to_team_selector()
+
         # =======================================================================
         # Phase 10: Bidirectional Knowledge Mound
         # =======================================================================
@@ -1076,6 +1080,27 @@ class SubsystemCoordinator:
                 )
             except Exception as e:
                 logger.debug("Continuum memory update failed: %s", e)
+
+        # Update selection feedback loop with debate outcome
+        if self.selection_feedback_loop and result:
+            try:
+                participants = [a.name for a in ctx.agents] if ctx.agents else []
+                winner = getattr(result, "winner", None)
+                if isinstance(winner, str):
+                    winner_name = winner
+                else:
+                    winner_name = getattr(winner, "name", None) if winner else None
+                confidence = getattr(result, "consensus_confidence", 0.0)
+
+                self.selection_feedback_loop.process_debate_outcome(
+                    debate_id=ctx.debate_id,
+                    participants=participants,
+                    winner=winner_name,
+                    domain=getattr(ctx, "domain", "general") or "general",
+                    confidence=confidence,
+                )
+            except Exception as e:
+                logger.debug("Selection feedback loop update failed: %s", e)
 
     # ---------------------------------------------------------------------
     # SDPO helpers

@@ -109,6 +109,8 @@ class TeamSelectionConfig:
     elo_baseline: int = 1000
     enable_domain_filtering: bool = True  # Enable domain-based agent filtering
     domain_filter_fallback: bool = True  # Fall back to all agents if no match
+    domain_filter_mode: str = "hard"  # "hard" (filter out), "soft" (penalty), "disabled"
+    domain_soft_penalty: float = 0.3  # Penalty applied to non-preferred agents in "soft" mode
     enable_culture_selection: bool = False  # Enable culture-based agent scoring
     enable_km_expertise: bool = True  # Enable KM-based expertise lookup
     enable_pattern_selection: bool = True  # Enable task pattern-based selection
@@ -190,6 +192,8 @@ class TeamSelector:
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
+        # Agents that don't match domain patterns (populated in soft filter mode)
+        self._domain_non_preferred: set[str] = set()
         # CV cache: agent_id -> (timestamp, AgentCV)
         self._cv_cache: dict[str, tuple[float, AgentCV]] = {}
         # Hierarchy role assignments cache: debate_id -> {agent_name -> RoleAssignment}
@@ -335,6 +339,11 @@ class TeamSelector:
         """Filter agents by domain expertise/capability.
 
         Uses DOMAIN_CAPABILITY_MAP to identify agents that excel in specific domains.
+        Supports three modes via ``domain_filter_mode``:
+        - "hard": Remove non-matching agents (original behavior)
+        - "soft": Keep all agents but tag non-matching for a scoring penalty
+        - "disabled": Skip domain filtering entirely
+
         Falls back to all agents if no matches found (configurable).
 
         Args:
@@ -344,7 +353,16 @@ class TeamSelector:
         Returns:
             Filtered list of agents suited for the domain
         """
+        # Clear previous non-preferred set
+        self._domain_non_preferred = set()
+
         if not self.config.enable_domain_filtering:
+            return agents
+
+        # Resolve effective filter mode — auto-switch to soft when feedback data exists
+        mode = self._resolve_domain_filter_mode(domain)
+
+        if mode == "disabled":
             return agents
 
         # Check custom domain map first, then default
@@ -358,12 +376,27 @@ class TeamSelector:
             logger.debug(f"No domain mapping for '{domain}', using all agents")
             return agents
 
-        # Filter agents whose name or agent_type matches preferred patterns
+        # Classify agents into matching / non-matching
         matching_agents: list[Agent] = []
+        non_matching_agents: list[Agent] = []
         for agent in agents:
             if self._agent_matches_capability(agent, preferred_patterns):
                 matching_agents.append(agent)
+            else:
+                non_matching_agents.append(agent)
 
+        if mode == "soft":
+            # Keep all agents but mark non-matching for scoring penalty
+            self._domain_non_preferred = {a.name for a in non_matching_agents}
+            if self._domain_non_preferred:
+                logger.info(
+                    f"domain_soft_filter domain={domain} "
+                    f"preferred={[a.name for a in matching_agents]} "
+                    f"penalized={[a.name for a in non_matching_agents]}"
+                )
+            return agents
+
+        # Hard mode: filter out non-matching agents
         if not matching_agents:
             if self.config.domain_filter_fallback:
                 logger.info(
@@ -381,6 +414,37 @@ class TeamSelector:
             f"from={[a.name for a in agents]}"
         )
         return matching_agents
+
+    def _resolve_domain_filter_mode(self, domain: str) -> str:
+        """Resolve the effective domain filter mode.
+
+        Auto-switches from "hard" to "soft" when the feedback loop has
+        domain-specific data, allowing ELO/performance to override domain
+        heuristics.
+
+        Args:
+            domain: Current task domain
+
+        Returns:
+            Effective filter mode: "hard", "soft", or "disabled"
+        """
+        mode = self.config.domain_filter_mode
+        if mode == "disabled":
+            return "disabled"
+
+        if mode == "hard" and self.feedback_loop:
+            try:
+                domain_weights = self.feedback_loop.get_domain_weights(domain)
+                if domain_weights:
+                    logger.debug(
+                        f"domain_filter_auto_soft domain={domain} "
+                        f"feedback_agents={len(domain_weights)}"
+                    )
+                    return "soft"
+            except (AttributeError, TypeError):
+                pass
+
+        return mode
 
     def _apply_budget_filter(self, agents: list[Agent]) -> list[Agent]:
         """Apply budget-aware filtering to the agent list.
@@ -1311,6 +1375,10 @@ class TeamSelector:
                 score += adjustment * self.config.feedback_weight
             except (AttributeError, TypeError) as e:
                 logger.debug(f"Feedback adjustment failed for {agent.name}: {e}")
+
+        # Soft domain filter penalty (non-preferred agents get penalized)
+        if agent.name in self._domain_non_preferred:
+            score -= self.config.domain_soft_penalty
 
         return score
 
