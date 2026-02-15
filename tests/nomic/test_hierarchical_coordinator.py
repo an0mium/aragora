@@ -27,6 +27,19 @@ from aragora.nomic.task_decomposer import (
 # =========================================================================
 
 
+@pytest.fixture(autouse=True)
+def _no_api_keys():
+    """Prevent real API calls by making get_secret return None for API keys.
+
+    Without this, the judge phase tries to create real AnthropicAPIAgent
+    instances when API keys are cached in SecretManager from other tests.
+    """
+    with patch(
+        "aragora.config.secrets.get_secret", return_value=None
+    ):
+        yield
+
+
 def _make_subtask(id_: str = "subtask_1", title: str = "Test Task") -> SubTask:
     return SubTask(
         id=id_,
