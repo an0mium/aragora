@@ -489,7 +489,7 @@ class AuthHandler(SecureHandler):
 
         try:
             revoke_token_persistent(refresh_token)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Failed to persist token revocation: {e}")
             return error_response("Token revocation failed, please try again", 500)
 
@@ -649,7 +649,7 @@ class AuthHandler(SecureHandler):
                 "main_loop_running": main_loop.is_running() if main_loop else None,
                 "main_loop_id": id(main_loop) if main_loop else None,
             }
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, RuntimeError, AttributeError) as e:
             logger.warning("Pool info check failed: %s", e)
             info["pool"] = {"error": "Pool status unavailable"}
 
@@ -667,7 +667,7 @@ class AuthHandler(SecureHandler):
                 }
             else:
                 info["jwt"] = {"provided": False}
-        except Exception as e:
+        except (ImportError, ValueError, KeyError, AttributeError) as e:
             logger.warning("JWT check failed: %s", e)
             info["jwt"] = {"error": "JWT validation unavailable"}
 

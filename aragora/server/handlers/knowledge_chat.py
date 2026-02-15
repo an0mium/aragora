@@ -160,7 +160,7 @@ async def handle_knowledge_search(
             **context.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.exception("Knowledge search failed")
         return {
             "success": False,
@@ -233,7 +233,7 @@ async def handle_knowledge_inject(
             "item_count": len(results),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.exception("Knowledge injection failed")
         return {
             "success": False,
@@ -324,7 +324,7 @@ async def handle_store_chat_knowledge(
                 "error": "Failed to store knowledge",
             }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.exception("Store chat knowledge failed")
         return {
             "success": False,
@@ -386,7 +386,7 @@ async def handle_channel_knowledge_summary(
             **summary,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.exception("Channel summary failed")
         return {
             "success": False,

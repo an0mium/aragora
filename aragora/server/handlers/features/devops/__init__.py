@@ -71,7 +71,7 @@ def _clear_devops_components() -> None:
     clear_connector_instances()
     try:
         get_devops_circuit_breaker().reset()
-    except Exception as e:
+    except (RuntimeError, ValueError, AttributeError) as e:
         logger.debug("Failed to reset devops circuit breaker: %s", e)
 
 
@@ -199,7 +199,7 @@ class DevOpsHandler(BaseHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response("Permission denied", 403)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception("Unhandled DevOps handler error: %s", e)
             return error_response("Internal server error", 500)
 
@@ -326,7 +326,7 @@ class DevOpsHandler(BaseHandler):
             else:
                 incidents, has_more = result, False
             cb.record_success()
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             cb.record_failure()
             logger.error("Failed to list incidents: %s", e)
             return error_response("Internal server error", 500)
@@ -393,7 +393,7 @@ class DevOpsHandler(BaseHandler):
                 assignments=assignments,
             )
             incident = await connector.create_incident(request_obj)
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error("Failed to create incident: %s", e)
             return error_response("Internal server error", 500)
 
@@ -413,7 +413,7 @@ class DevOpsHandler(BaseHandler):
         try:
             incident = await connector.get_incident(incident_id)
             return json_response({"data": {"incident": self._incident_to_dict(incident)}})
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to get incident: %s", e)
             return error_response("Internal server error", 500)
 
@@ -438,7 +438,7 @@ class DevOpsHandler(BaseHandler):
                     }
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to acknowledge incident: %s", e)
             return error_response("Internal server error", 500)
 
@@ -473,7 +473,7 @@ class DevOpsHandler(BaseHandler):
                     }
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to resolve incident: %s", e)
             return error_response("Internal server error", 500)
 
@@ -520,7 +520,7 @@ class DevOpsHandler(BaseHandler):
                     }
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.error("Failed to reassign incident: %s", e)
             return error_response("Internal server error", 500)
 
@@ -556,7 +556,7 @@ class DevOpsHandler(BaseHandler):
                     }
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to merge incidents: %s", e)
             return error_response("Internal server error", 500)
 
@@ -575,7 +575,7 @@ class DevOpsHandler(BaseHandler):
             notes = await connector.list_notes(incident_id)
             payload = [self._note_to_dict(n) for n in notes]
             return json_response({"data": {"notes": payload, "count": len(payload)}})
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to list notes: %s", e)
             return error_response("Internal server error", 500)
 
@@ -600,7 +600,7 @@ class DevOpsHandler(BaseHandler):
         try:
             note = await connector.add_note(incident_id, content)
             return json_response({"note": self._note_to_dict(note)}, status=201)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to add note: %s", e)
             return error_response("Internal server error", 500)
 
@@ -616,7 +616,7 @@ class DevOpsHandler(BaseHandler):
             schedules = await connector.get_on_call(schedule_ids=schedule_ids)
             payload = [self._oncall_to_dict(s) for s in schedules]
             return json_response({"data": {"oncall": payload, "count": len(payload)}})
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to get on-call: %s", e)
             return error_response("Internal server error", 500)
 
@@ -637,7 +637,7 @@ class DevOpsHandler(BaseHandler):
             return json_response(
                 {"data": {"service_id": service_id, "oncall": payload, "count": len(payload)}}
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to get on-call for service: %s", e)
             return error_response("Internal server error", 500)
 
@@ -660,7 +660,7 @@ class DevOpsHandler(BaseHandler):
             return json_response(
                 {"data": {"services": payload, "count": len(payload), "has_more": has_more}}
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to list services: %s", e)
             return error_response("Internal server error", 500)
 
@@ -678,7 +678,7 @@ class DevOpsHandler(BaseHandler):
         try:
             service = await connector.get_service(service_id)
             return json_response({"data": {"service": self._service_to_dict(service)}})
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to get service: %s", e)
             return error_response("Internal server error", 500)
 

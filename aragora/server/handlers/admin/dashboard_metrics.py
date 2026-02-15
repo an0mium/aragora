@@ -142,7 +142,7 @@ def get_summary_metrics_sql(storage: Any, domain: str | None) -> dict[str, Any]:
                     summary["consensus_rate"] = round(consensus_count / total, 3)
                 if avg_conf is not None:
                     summary["avg_confidence"] = round(avg_conf, 3)
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
         logger.warning("SQL summary metrics error: %s: %s", type(e).__name__, e)
 
     return summary
@@ -185,7 +185,7 @@ def get_recent_activity_sql(storage: Any, hours: int) -> dict[str, Any]:
             if row:
                 activity["debates_last_period"] = row[0] or 0
                 activity["consensus_last_period"] = row[1] or 0
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
         logger.warning("SQL recent activity error: %s: %s", type(e).__name__, e)
 
     return activity
@@ -225,7 +225,7 @@ def get_summary_metrics_legacy(domain: str | None, debates: list) -> dict[str, A
                 confidences = [d.get("confidence", 0.5) for d in debates if d.get("confidence")]
                 if confidences:
                     summary["avg_confidence"] = round(sum(confidences) / len(confidences), 3)
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.warning("Summary metrics error: %s: %s", type(e).__name__, e)
 
     return summary
@@ -278,7 +278,7 @@ def get_recent_activity_legacy(domain: str | None, hours: int, debates: list) ->
 
             if domain_counts:
                 activity["most_active_domain"] = max(domain_counts, key=lambda k: domain_counts[k])
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.warning("Recent activity error: %s: %s", type(e).__name__, e)
 
     return activity
@@ -415,7 +415,7 @@ def process_debates_single_pass(
         patterns["early_stopping"]["early_stopped"] = early_stopped
         patterns["early_stopping"]["full_duration"] = full_duration
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.warning("Single-pass processing error: %s: %s", type(e).__name__, e)
 
     elapsed = time.perf_counter() - start_time
@@ -479,7 +479,7 @@ def get_debate_patterns(debates: list) -> dict[str, Any]:
             if isinstance(early_stats, dict):
                 early_stats["early_stopped"] = early_stopped
                 early_stats["full_duration"] = full_duration
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.warning("Debate patterns error: %s: %s", type(e).__name__, e)
 
     return patterns

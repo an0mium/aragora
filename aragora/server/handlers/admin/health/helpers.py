@@ -64,7 +64,7 @@ def sync_status(handler: Any) -> HandlerResult:
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning(f"Sync status check failed: {e}")
         return json_response(
             {
@@ -212,7 +212,7 @@ def circuit_breakers_status(handler: Any) -> HandlerResult:
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning(f"Circuit breaker status check failed: {e}")
         return json_response(
             {
@@ -273,7 +273,7 @@ def component_health_status(handler: Any) -> HandlerResult:
                 "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             }
         )
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning(f"Component health status check failed: {e}")
         return json_response(
             {

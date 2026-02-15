@@ -97,7 +97,7 @@ def _get_cost_tracker():
 
             _cost_tracker = get_cost_tracker()
             logger.info("[CostHandler] Connected to CostTracker with persistence")
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError, AttributeError) as e:
             logger.warning(f"[CostHandler] CostTracker unavailable, using fallback: {e}")
             _cost_tracker = None
     return _cost_tracker

@@ -1,27 +1,28 @@
 """
 Parallel Orchestrator - Production-grade multi-agent execution.
 
-Composes BranchCoordinator (worktree isolation) with AutonomousOrchestrator
-(parallel execution, gauntlet gate, convoy tracking) to implement the
-Planner/Worker/Judge hierarchy:
+.. deprecated::
+    Use ``HardenedOrchestrator`` instead, which provides all the same
+    features plus prompt defense, budget enforcement, mode enforcement,
+    and MetaPlanner integration::
 
-- **Planner**: TaskDecomposer.analyze_with_debate() + DecisionPlanFactory
-- **Workers**: HybridExecutor running in isolated git worktrees
-- **Judge**: GauntletRunner via workflow pipeline
+        from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
-Usage:
-    from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
+        orchestrator = HardenedOrchestrator(
+            use_worktree_isolation=True,
+            enable_gauntlet_validation=True,
+        )
+        result = await orchestrator.execute_goal("Improve error handling")
 
-    orchestrator = ParallelOrchestrator()
-    result = await orchestrator.execute_goal(
-        goal="Improve error handling across connectors",
-        tracks=["developer", "qa"],
-    )
+    ``ParallelOrchestrator`` is a thin wrapper around
+    ``AutonomousOrchestrator`` with no unique functionality.
+    It will be removed in a future release.
 """
 
 from __future__ import annotations
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -46,6 +47,11 @@ logger = logging.getLogger(__name__)
 class ParallelOrchestrator:
     """
     Entry point for production-grade parallel multi-agent execution.
+
+    .. deprecated::
+        Use :class:`~aragora.nomic.hardened_orchestrator.HardenedOrchestrator`
+        instead. This class is a thin wrapper around AutonomousOrchestrator
+        with no unique functionality.
 
     Composes worktree isolation, gauntlet validation, decision planning,
     and convoy tracking into a single orchestrator. Each feature can be
@@ -78,6 +84,13 @@ class ParallelOrchestrator:
         enable_curriculum: bool = True,
         budget_limit_usd: float | None = None,
     ):
+        warnings.warn(
+            "ParallelOrchestrator is deprecated. "
+            "Use HardenedOrchestrator instead, which provides all the same "
+            "features plus prompt defense, budget enforcement, and MetaPlanner.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.aragora_path = aragora_path or Path.cwd()
         self._budget_limit_usd = budget_limit_usd
 

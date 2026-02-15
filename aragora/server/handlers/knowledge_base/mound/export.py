@@ -60,7 +60,7 @@ class ExportOperationsMixin:
                     limit=limit,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"D3 graph export failed: {e}")
             return error_response("D3 graph export failed", 500)
 

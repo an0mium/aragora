@@ -31,6 +31,8 @@ from aragora.nomic.branch_coordinator import (
 from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning:aragora.nomic.parallel_orchestrator")
+
 
 @pytest.fixture(autouse=True)
 def reset_singleton():

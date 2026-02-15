@@ -75,7 +75,7 @@ class CultureOperationsMixin:
 
         try:
             culture = _run_async(mound.get_culture_profile(workspace_id))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to get culture profile: {e}")
             return error_response("Failed to get culture profile", 500)
 
@@ -140,7 +140,7 @@ class CultureOperationsMixin:
             )
 
             node_id = _run_async(mound.add_node(node))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, ImportError) as e:
             logger.error(f"Failed to add culture document: {e}")
             return error_response("Failed to add culture document", 500)
 
@@ -194,7 +194,7 @@ class CultureOperationsMixin:
             if not updated:
                 return error_response(f"Node not found: {node_id}", 404)
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, ImportError) as e:
             logger.error(f"Failed to promote to culture: {e}")
             return error_response("Failed to promote to culture", 500)
 

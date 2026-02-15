@@ -53,7 +53,7 @@ class RelationshipOperationsMixin:
         try:
             get_node = getattr(mound, "get_node", None)
             node = _run_async(get_node(node_id)) if get_node else None
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to get node: {e}")
             return error_response("Failed to get node", 500)
 
@@ -79,7 +79,7 @@ class RelationshipOperationsMixin:
                     direction=direction,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to get relationships: {e}")
             return error_response("Failed to get relationships", 500)
 
@@ -160,7 +160,7 @@ class RelationshipOperationsMixin:
                     metadata=data.get("metadata"),
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to create relationship: {e}")
             return error_response("Failed to create relationship", 500)
 

@@ -230,7 +230,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                 trace_id = generate_trace_id()
                 try:
                     return await func(*args, **kwargs)
-                except Exception as e:
+                except Exception as e:  # broad catch: last-resort handler
                     logger.error(
                         f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
                         exc_info=True,
@@ -251,7 +251,7 @@ def handle_errors(context: str, default_status: int = 500) -> Callable[[Callable
                 trace_id = generate_trace_id()
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
+                except Exception as e:  # broad catch: last-resort handler
                     logger.error(
                         f"[{trace_id}] Error in {context}: {type(e).__name__}: {e}",
                         exc_info=True,
@@ -302,7 +302,7 @@ def auto_error_response(
             except ValueError as e:
                 logger.warning(f"Invalid request in {operation}: {e}")
                 return error_response("Invalid request", 400)
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler
                 if log_level == "error":
                     logger.error(
                         f"Failed to {operation}: {e}",
@@ -365,7 +365,7 @@ def log_request(context: str, log_response: bool = False) -> Callable[[Callable]
 
                 return result
 
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler (re-raises)
                 duration_ms = round((time.time() - start_time) * 1000, 2)
                 logger.error(
                     f"[{trace_id}] {context}: failed in {duration_ms}ms - {type(e).__name__}: {e}",
@@ -856,7 +856,7 @@ def safe_fetch(
     """
     try:
         yield
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler (graceful degradation)
         if log_errors:
             logger.warning(f"safe_fetch '{key}' failed: {type(e).__name__}: {e}")
         errors_dict[key] = "Fetch failed"
@@ -885,7 +885,7 @@ def with_error_recovery(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler (graceful degradation)
                 if log_errors:
                     logger.warning(
                         f"with_error_recovery '{func.__name__}' failed: {type(e).__name__}: {e}"

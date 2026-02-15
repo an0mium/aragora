@@ -207,7 +207,7 @@ class UncertaintyHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid data for uncertainty estimation: {e}")
             return error_response("Invalid request data", 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError, OSError) as e:
             logger.exception(f"Unexpected error estimating uncertainty: {e}")
             return error_response("Uncertainty estimation failed", 500)
 

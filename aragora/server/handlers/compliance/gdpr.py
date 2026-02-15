@@ -230,7 +230,7 @@ class GDPRMixin:
 
             return json_response(result)
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.exception(f"RTBF request failed for user {user_id}: {e}")
             result["status"] = "failed"
             result["error"] = "RTBF request processing failed"
@@ -359,7 +359,7 @@ class GDPRMixin:
         except ValueError:
             # Re-raise legal hold errors
             raise
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError, TypeError, AttributeError) as e:
             logger.error(f"Failed to schedule deletion: {e}")
             # Fall back to basic audit logging if scheduler fails
             deletion_record = {
@@ -521,7 +521,7 @@ class GDPRMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError, TypeError) as e:
             logger.exception(f"Error cancelling deletion: {e}")
             return error_response("Deletion cancellation failed", 500)
 
@@ -608,7 +608,7 @@ class GDPRMixin:
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.exception(f"Error executing coordinated deletion: {e}")
             return error_response("Deletion execution failed", 500)
 

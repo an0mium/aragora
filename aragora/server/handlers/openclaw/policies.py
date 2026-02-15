@@ -151,7 +151,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
             logger.info("Removed policy rule %s", rule_name)
             return json_response({"success": removed, "name": rule_name})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error removing policy rule %s: %s", rule_name, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -186,7 +186,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "offset": offset,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error listing approvals: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -227,7 +227,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
             logger.info("Approved action %s by %s", approval_id, approver_id)
             return json_response({"success": success, "approval_id": approval_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error approving action %s: %s", approval_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -267,7 +267,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
             logger.info("Denied action %s by %s", approval_id, approver_id)
             return json_response({"success": success, "approval_id": approval_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error denying action %s: %s", approval_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 

@@ -630,30 +630,30 @@ class MatrixDebateRunner:
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,
-                conclusion=f"Timeout/Cancelled: {str(e)}",
+                conclusion="Scenario debate timed out or was cancelled",
                 confidence=0.0,
                 consensus_reached=False,
-                metadata={"error": str(e), "error_type": "timeout"},
+                metadata={"error": "timeout_or_cancelled", "error_type": "timeout"},
             )
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Scenario {scenario.name} debate data error: {e}")
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,
-                conclusion=f"Error: {str(e)}",
+                conclusion="Scenario debate encountered a data error",
                 confidence=0.0,
                 consensus_reached=False,
-                metadata={"error": str(e), "error_type": "data"},
+                metadata={"error": "data_error", "error_type": "data"},
             )
         except Exception as e:
             logger.exception(f"Unexpected error in scenario {scenario.name} debate: {e}")
             return ScenarioResult(
                 scenario_id=scenario.id,
                 scenario_name=scenario.name,
-                conclusion=f"Error: {str(e)}",
+                conclusion="Scenario debate encountered an unexpected error",
                 confidence=0.0,
                 consensus_reached=False,
-                metadata={"error": str(e), "error_type": "unexpected"},
+                metadata={"error": "internal_error", "error_type": "unexpected"},
             )
 
 

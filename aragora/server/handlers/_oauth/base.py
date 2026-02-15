@@ -441,7 +441,7 @@ class OAuthHandler(
                     )
                 return None
 
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
                 error_name = type(e).__name__
                 # Check for retryable database connection errors
                 is_retryable = error_name in (
@@ -463,7 +463,7 @@ class OAuthHandler(
                 # Try to refresh the pool before retrying
                 try:
                     await self._try_refresh_user_store_pool(user_store)
-                except Exception as refresh_err:
+                except (ImportError, ConnectionError, OSError, RuntimeError, AttributeError) as refresh_err:
                     logger.warning(f"Pool refresh failed: {refresh_err}")
 
                 await asyncio.sleep(delay)

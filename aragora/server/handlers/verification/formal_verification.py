@@ -140,7 +140,7 @@ def _add_to_history(
                 proof_tree=proof_tree,
             )
             logger.debug(f"Persisted verification {entry_id} to GovernanceStore")
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to persist verification to GovernanceStore: {e}")
 
     return entry_id
@@ -285,7 +285,7 @@ class FormalVerificationHandler(BaseHandler):
             if not decision.allowed:
                 return error_response(f"Permission denied: {permission}", 403)
             return None
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"Auth check failed for verification: {e}")
             return error_response("Authentication required", 401)
 
@@ -696,7 +696,7 @@ class FormalVerificationHandler(BaseHandler):
                         "source": "persistent",
                     }
                 )
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
                 logger.warning(
                     f"Failed to load from GovernanceStore, falling back to in-memory: {e}"
                 )
@@ -780,7 +780,7 @@ class FormalVerificationHandler(BaseHandler):
                         )
                         # Cache in memory for future lookups
                         _verification_history[entry_id] = entry
-                except Exception as e:
+                except (OSError, ValueError, TypeError, KeyError, RuntimeError, AttributeError) as e:
                     logger.warning(f"Failed to load verification from store: {e}")
 
         if not entry:

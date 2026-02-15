@@ -67,7 +67,7 @@ class StalenessOperationsMixin:
                     workspace_id=workspace_id,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to get stale knowledge: {e}")
             return error_response("Failed to get stale knowledge", 500)
 
@@ -121,7 +121,7 @@ class StalenessOperationsMixin:
 
         try:
             _run_async(mound.mark_validated(node_id, validator, new_confidence))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to revalidate node: {e}")
             return error_response("Failed to revalidate node", 500)
 
@@ -167,7 +167,7 @@ class StalenessOperationsMixin:
 
         try:
             scheduled = _run_async(mound.schedule_revalidation(node_ids, priority))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to schedule revalidation: {e}")
             return error_response("Failed to schedule revalidation", 500)
 

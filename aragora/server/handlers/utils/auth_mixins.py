@@ -113,7 +113,7 @@ class SecureEndpointMixin:
             return auth_context, None
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"Unexpected auth error: {e}")
             return None, _get_error_response()("Authentication failed", 500)
 
@@ -148,7 +148,7 @@ class SecureEndpointMixin:
         except _ForbiddenError as e:
             logger.warning("Permission denied: %s", e)
             return None, _get_error_response()("Permission denied", 403)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"Unexpected auth error: {e}")
             return None, _get_error_response()("Authorization failed", 500)
 
@@ -196,7 +196,7 @@ class SecureEndpointMixin:
 
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"Unexpected auth error: {e}")
             return None, _get_error_response()("Authorization failed", 500)
 
@@ -239,7 +239,7 @@ class SecureEndpointMixin:
         except _ForbiddenError as e:
             logger.warning("Permission denied: %s", e)
             return None, _get_error_response()("Permission denied", 403)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"Unexpected auth error: {e}")
             return None, _get_error_response()("Authorization failed", 500)
 

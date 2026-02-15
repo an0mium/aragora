@@ -329,7 +329,7 @@ This is an automated message. Please do not reply.
 
         except ImportError as e:
             logger.warning(f"Email integration not available: {e}")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error sending password reset email: {e}")
 
     # Run email sending in background (don't block the response)

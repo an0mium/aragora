@@ -315,7 +315,7 @@ def readiness_dependencies(handler: Any) -> HandlerResult:
                 ready = False
         except (ImportError, RuntimeError):
             pass
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # broad catch: last-resort handler
         logger.warning(f"Redis readiness check failed: {type(e).__name__}: {e}")
         checks["redis"] = {"error": "Redis check failed"}
         # Don't fail readiness for Redis errors unless distributed required

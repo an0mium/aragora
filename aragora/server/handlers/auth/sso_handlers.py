@@ -335,7 +335,7 @@ async def handle_sso_callback(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError, OSError, KeyError, ImportError, AttributeError) as e:
         logger.exception("SSO callback failed")
         return error_response(safe_error_message(e, "SSO authentication"), status=401)
 
@@ -392,7 +392,7 @@ async def handle_sso_refresh(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError, OSError, ImportError, AttributeError) as e:
         logger.exception("SSO refresh failed")
         return error_response(safe_error_message(e, "token refresh"), status=401)
 
@@ -440,7 +440,7 @@ async def handle_sso_logout(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError, OSError, ImportError, AttributeError) as e:
         logger.exception("SSO logout failed")
         return error_response(safe_error_message(e, "logout"), status=500)
 
@@ -510,7 +510,7 @@ async def handle_list_providers(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Failed to list providers")
         return error_response(safe_error_message(e, "list SSO providers"), status=500)
 
@@ -578,7 +578,7 @@ async def handle_get_sso_config(
 
         return success_response(config)
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Failed to get SSO config")
         return error_response(safe_error_message(e, "get SSO config"), status=500)
 

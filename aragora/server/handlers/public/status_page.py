@@ -191,7 +191,7 @@ class StatusPageHandler(BaseHandler):
         if checker:
             try:
                 return checker()
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
                 logger.error(f"Health check failed for {component_id}: {e}")
                 return ComponentHealth(
                     name=component_id,
@@ -270,7 +270,7 @@ class StatusPageHandler(BaseHandler):
                         response_time_ms=response_time,
                         message="Database not yet initialized",
                     )
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.warning(f"Database health check failed: {e}")
 
         return ComponentHealth(
@@ -295,7 +295,7 @@ class StatusPageHandler(BaseHandler):
                         status=ServiceStatus.OPERATIONAL,
                         response_time_ms=response_time,
                     )
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, RuntimeError, TypeError) as e:
             logger.debug(f"Redis health check: {e}")
 
         return ComponentHealth(
@@ -366,7 +366,7 @@ class StatusPageHandler(BaseHandler):
                     response_time_ms=response_time,
                     message=status.get("error", "health check error"),
                 )
-        except Exception as exc:
+        except (ImportError, OSError, RuntimeError, ValueError, AttributeError) as exc:
             logger.debug("Codebase context health check failed: %s", exc)
 
         response_time = (time.perf_counter() - start) * 1000
@@ -493,7 +493,7 @@ class StatusPageHandler(BaseHandler):
             store = get_incident_store()
             active = [i.to_dict() for i in store.get_active_incidents()]
             recent = [i.to_dict() for i in store.get_recent_incidents(days=7)]
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, AttributeError, KeyError) as e:
             logger.debug(f"Incident store unavailable: {e}")
             active = []
             recent = []

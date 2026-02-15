@@ -104,7 +104,7 @@ async def get_auth_context(
 
     except UnauthorizedError:
         raise
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
         logger.warning(f"Error extracting auth context: {e}")
         if require_auth:
             raise UnauthorizedError("Authentication failed")
@@ -137,7 +137,7 @@ def _extract_workspace_id(request: Any, user_id: str | None = None) -> str | Non
     # Authenticated user: validate workspace membership if store is available
     try:
         store = request.app.get("workspace_store")
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError) as e:
         logger.debug("Could not get workspace_store from app: %s", e)
         return workspace_id
 
@@ -162,7 +162,7 @@ def _extract_workspace_id(request: Any, user_id: str | None = None) -> str | Non
             "User %s attempted workspace %s not in memberships", user_id, workspace_id
         )
         return None
-    except Exception as e:
+    except (KeyError, ValueError, AttributeError, TypeError, OSError) as e:
         # Graceful degradation: on store errors, allow header through
         logger.warning("Workspace membership check failed, allowing header: %s", e)
         return workspace_id
@@ -181,7 +181,7 @@ def _get_user_permissions(user_ctx: Any) -> set[str]:
             role_perms = checker.get_role_permissions(role)
             permissions.update(role_perms)
         return permissions
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
         logger.warning(f"Error getting user permissions: {e}")
         return set()
 
@@ -337,7 +337,7 @@ def _extract_user_from_headers(handler: Any) -> tuple[str, str]:
         user_ctx = extract_user_from_request(handler, None)
         if user_ctx.is_authenticated:
             return user_ctx.user_id, user_ctx.email or user_ctx.user_id
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
         logger.debug(f"JWT extraction failed: {e}")
 
     # SECURITY: Do NOT fall back to X-User-ID headers - they can be spoofed

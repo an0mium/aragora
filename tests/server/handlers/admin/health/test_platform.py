@@ -385,7 +385,7 @@ class TestEncryptionHealth:
         ):
             with patch(
                 "aragora.security.encryption.get_encryption_service",
-                side_effect=Exception("Service initialization failed"),
+                side_effect=RuntimeError("Service initialization failed"),
             ):
                 result = encryption_health(handler)
 

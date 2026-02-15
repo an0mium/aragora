@@ -372,7 +372,7 @@ class HIPAAMixin:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"Error fetching PHI access log: {e}")
             return error_response("Failed to retrieve access log", 500)
 
@@ -542,7 +542,7 @@ class HIPAAMixin:
                     "notification_required": assessment["notification_required"],
                 },
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError) as e:
             logger.warning(f"Failed to log breach assessment: {e}")
 
         emit_handler_event(
@@ -639,7 +639,7 @@ class HIPAAMixin:
                 resource_id=baa_id,
                 metadata=baa_record,
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError) as e:
             logger.warning(f"Failed to store BAA: {e}")
 
         emit_handler_event("compliance", CREATED, {"action": "hipaa_baa_created", "baa_id": baa_id})
@@ -793,7 +793,7 @@ class HIPAAMixin:
                     "fields_anonymized": result.fields_anonymized,
                 },
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError) as e:
             logger.warning("Failed to log de-identification audit: %s", e)
 
         emit_handler_event(

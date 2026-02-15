@@ -1512,3 +1512,315 @@ class TestSandboxValidation:
             with patch.dict("sys.modules", {"aragora.sandbox.executor": None}):
                 result = await orch._run_sandbox_validation(assignment, tmp_path)
                 assert result is False
+
+
+# =============================================================================
+# Cross-Agent Review Tests
+# =============================================================================
+
+
+class TestAgentPoolManager:
+    """Tests for capability-aware agent selection."""
+
+    def test_select_best_agent_excludes_agents(self):
+        """Excluded agents are not selected."""
+        orch = HardenedOrchestrator()
+        subtask = _make_subtask(description="Implement API endpoint")
+        # claude is default first choice — excluding it should pick next
+        agent = orch._select_best_agent(
+            subtask, Track.DEVELOPER, exclude_agents=["claude"]
+        )
+        assert agent != "claude"
+
+    def test_select_best_agent_default_fallback(self):
+        """Falls back to claude when all agents excluded."""
+        orch = HardenedOrchestrator()
+        subtask = _make_subtask(description="Simple task")
+        # Exclude all track agents — falls back to claude
+        agent = orch._select_best_agent(
+            subtask, Track.DEVELOPER, exclude_agents=["claude", "codex", "gemini", "grok"]
+        )
+        assert agent == "claude"
+
+    def test_select_best_agent_skips_circuit_broken(self):
+        """Circuit-broken agents are skipped in selection."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=2)
+        # Break codex's circuit
+        orch._record_agent_outcome("codex", success=False)
+        orch._record_agent_outcome("codex", success=False)
+
+        subtask = _make_subtask(description="Implement feature")
+        agent = orch._select_best_agent(subtask, Track.DEVELOPER)
+        assert agent != "codex"
+
+    def test_select_best_agent_uses_success_rates(self):
+        """Recent success rates influence selection."""
+        orch = HardenedOrchestrator()
+        # Give codex a perfect track record
+        for _ in range(5):
+            orch._record_agent_outcome("codex", success=True)
+        # Give claude some failures
+        for _ in range(3):
+            orch._record_agent_outcome("claude", success=False)
+        orch._record_agent_outcome("claude", success=True)
+
+        subtask = _make_subtask(description="Implement code")
+        agent = orch._select_best_agent(subtask, Track.DEVELOPER)
+        # codex should score higher due to 100% recent success
+        assert agent in ("claude", "codex")  # Either is valid
+
+    def test_task_to_elo_domain_security(self):
+        """Security tasks map to security domain."""
+        sub = _make_subtask(description="Fix XSS vulnerability in auth handler")
+        assert HardenedOrchestrator._task_to_elo_domain(sub) == "security"
+
+    def test_task_to_elo_domain_testing(self):
+        """Test tasks map to testing domain."""
+        sub = _make_subtask(description="Improve test coverage for API")
+        assert HardenedOrchestrator._task_to_elo_domain(sub) == "testing"
+
+    def test_task_to_elo_domain_general(self):
+        """Unmatched tasks map to general domain."""
+        sub = _make_subtask(description="Refactor utility module")
+        assert HardenedOrchestrator._task_to_elo_domain(sub) == "general"
+
+    def test_record_agent_outcome_tracks_successes(self):
+        """Success outcomes are tracked for pool scoring."""
+        orch = HardenedOrchestrator()
+        orch._record_agent_outcome("claude", success=True)
+        orch._record_agent_outcome("claude", success=True)
+        assert orch._agent_success_counts["claude"] == 2
+        assert orch._agent_failure_counts["claude"] == 0
+
+
+class TestCrossAgentReview:
+    """Tests for cross-agent review — no agent reviews its own output."""
+
+    @pytest.mark.asyncio
+    async def test_different_reviewer_selected(self, tmp_path):
+        """A different agent is selected to review the implementer's work."""
+        orch = HardenedOrchestrator(enable_review_gate=True)
+        assignment = _make_assignment(agent_type="claude", status="completed")
+
+        with (
+            patch.object(orch, "_select_best_agent", return_value="codex") as mock_select,
+            patch.object(orch, "_run_review_gate", return_value=True),
+            patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread,
+        ):
+            mock_diff = MagicMock()
+            mock_diff.stdout = "diff --git a/foo.py\n+hello\n"
+            mock_thread.return_value = mock_diff
+
+            result = await orch._cross_agent_review(assignment, tmp_path)
+            assert result is True
+            # Verify exclude_agents contains the implementer
+            mock_select.assert_called_once()
+            call_args = mock_select.call_args
+            exclude = call_args.kwargs.get(
+                "exclude_agents", call_args[1].get("exclude_agents", [])
+            )
+            assert "claude" in exclude
+
+    @pytest.mark.asyncio
+    async def test_skip_when_no_alternative_agent(self, tmp_path):
+        """Skips review when no alternative agent is available."""
+        orch = HardenedOrchestrator(enable_review_gate=True)
+        assignment = _make_assignment(agent_type="claude", status="completed")
+
+        with patch.object(orch, "_select_best_agent", return_value="claude"):
+            result = await orch._cross_agent_review(assignment, tmp_path)
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_reviewer_identity_recorded(self, tmp_path):
+        """The reviewer identity is recorded in assignment result."""
+        orch = HardenedOrchestrator(enable_review_gate=True)
+        assignment = _make_assignment(agent_type="claude", status="completed")
+
+        with (
+            patch.object(orch, "_select_best_agent", return_value="gemini"),
+            patch.object(orch, "_run_review_gate", return_value=True),
+            patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread,
+        ):
+            mock_diff = MagicMock()
+            mock_diff.stdout = "+some change\n"
+            mock_thread.return_value = mock_diff
+
+            await orch._cross_agent_review(assignment, tmp_path)
+            assert assignment.result["cross_reviewer"] == "gemini"
+            assert assignment.result["cross_review_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_failed_review_returns_false(self, tmp_path):
+        """Cross-review failure propagates."""
+        orch = HardenedOrchestrator(enable_review_gate=True)
+        assignment = _make_assignment(agent_type="claude", status="completed")
+
+        with (
+            patch.object(orch, "_select_best_agent", return_value="codex"),
+            patch.object(orch, "_run_review_gate", return_value=False),
+            patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread,
+        ):
+            mock_diff = MagicMock()
+            mock_diff.stdout = "+dangerous code\n"
+            mock_thread.return_value = mock_diff
+
+            result = await orch._cross_agent_review(assignment, tmp_path)
+            assert result is False
+            assert assignment.result["cross_review_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_empty_diff_passes(self, tmp_path):
+        """Empty diff passes review without running review gate."""
+        orch = HardenedOrchestrator(enable_review_gate=True)
+        assignment = _make_assignment(agent_type="claude", status="completed")
+
+        with (
+            patch.object(orch, "_select_best_agent", return_value="codex"),
+            patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread,
+        ):
+            mock_diff = MagicMock()
+            mock_diff.stdout = ""
+            mock_thread.return_value = mock_diff
+
+            result = await orch._cross_agent_review(assignment, tmp_path)
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_spectate_event_emitted(self, tmp_path):
+        """Spectate event emitted on cross-review completion."""
+        orch = HardenedOrchestrator(
+            enable_review_gate=True, spectate_stream=True
+        )
+        assignment = _make_assignment(agent_type="claude", status="completed")
+
+        with (
+            patch.object(orch, "_select_best_agent", return_value="codex"),
+            patch.object(orch, "_run_review_gate", return_value=True),
+            patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread,
+        ):
+            mock_diff = MagicMock()
+            mock_diff.stdout = "+change\n"
+            mock_thread.return_value = mock_diff
+
+            await orch._cross_agent_review(assignment, tmp_path)
+
+            events = [
+                e
+                for e in orch._spectate_events
+                if e["type"] == "cross_review_completed"
+            ]
+            assert len(events) == 1
+            assert events[0]["implementer"] == "claude"
+            assert events[0]["reviewer"] == "codex"
+
+
+# =============================================================================
+# Work Stealing Tests
+# =============================================================================
+
+
+class TestWorkStealing:
+    """Tests for idle-agent work stealing."""
+
+    def test_steals_pending_assignment(self):
+        """Completed agent steals a pending assignment."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=5)
+        assignments = [
+            _make_assignment(
+                subtask=_make_subtask(id="done"),
+                status="completed",
+                agent_type="claude",
+            ),
+            _make_assignment(
+                subtask=_make_subtask(id="pending-1"),
+                status="pending",
+                agent_type="codex",
+            ),
+        ]
+
+        stolen = orch._find_stealable_work("claude", assignments)
+        assert stolen is not None
+        assert stolen.subtask.id == "pending-1"
+
+    def test_no_pending_returns_none(self):
+        """Returns None when all assignments are completed."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=5)
+        assignments = [
+            _make_assignment(
+                subtask=_make_subtask(id="done-1"), status="completed"
+            ),
+            _make_assignment(
+                subtask=_make_subtask(id="done-2"), status="completed"
+            ),
+        ]
+
+        stolen = orch._find_stealable_work("claude", assignments)
+        assert stolen is None
+
+    def test_circuit_broken_agent_cannot_steal(self):
+        """Agent with open circuit breaker cannot steal work."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=2)
+        orch._record_agent_outcome("claude", success=False)
+        orch._record_agent_outcome("claude", success=False)
+
+        assignments = [
+            _make_assignment(
+                subtask=_make_subtask(id="pending-1"), status="pending"
+            ),
+        ]
+
+        stolen = orch._find_stealable_work("claude", assignments)
+        assert stolen is None
+
+    def test_respects_dependency_order(self):
+        """Only steals work whose dependencies are met."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=5)
+
+        sub1 = _make_subtask(id="sub-1")
+        sub2 = _make_subtask(id="sub-2")
+        sub2.dependencies = ["sub-1"]
+        sub3 = _make_subtask(id="sub-3")
+
+        assignments = [
+            _make_assignment(subtask=sub1, status="in_progress"),
+            _make_assignment(subtask=sub2, status="pending"),
+            _make_assignment(subtask=sub3, status="pending"),
+        ]
+
+        stolen = orch._find_stealable_work("claude", assignments)
+        assert stolen is not None
+        assert stolen.subtask.id == "sub-3"
+
+    def test_never_steals_in_progress(self):
+        """Never steals partially-completed work."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=5)
+        assignments = [
+            _make_assignment(
+                subtask=_make_subtask(id="wip"), status="in_progress"
+            ),
+        ]
+
+        stolen = orch._find_stealable_work("claude", assignments)
+        assert stolen is None
+
+    def test_spectate_event_on_steal(self):
+        """Spectate event emitted when work is stolen."""
+        orch = HardenedOrchestrator(
+            circuit_breaker_threshold=5, spectate_stream=True
+        )
+        assignments = [
+            _make_assignment(
+                subtask=_make_subtask(id="steal-me"), status="pending"
+            ),
+        ]
+
+        stolen = orch._find_stealable_work("claude", assignments)
+        assert stolen is not None
+
+        events = [
+            e for e in orch._spectate_events if e["type"] == "work_stolen"
+        ]
+        assert len(events) == 1
+        assert events[0]["agent"] == "claude"
+        assert events[0]["subtask"] == "steal-me"

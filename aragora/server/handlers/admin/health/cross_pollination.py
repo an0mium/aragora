@@ -75,7 +75,7 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
                 "status": "not_configured",
                 "note": "ELO system not initialized",
             }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("ELO weighting health check failed: %s", e)
         features["elo_weighting"] = {
             "healthy": False,
@@ -105,7 +105,7 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
                 "status": "not_configured",
                 "note": "Calibration tracker not initialized",
             }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Calibration health check failed: %s", e)
         features["calibration"] = {
             "healthy": False,
@@ -128,7 +128,7 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
                 "status": "not_configured",
                 "note": "Evidence store not initialized",
             }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("Evidence quality health check failed: %s", e)
         features["evidence_quality"] = {
             "healthy": False,
@@ -160,7 +160,7 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
             "status": "not_available",
             "note": "RLM cache module not available",
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning("RLM caching health check failed: %s", e)
         features["rlm_caching"] = {
             "healthy": True,
@@ -193,7 +193,7 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
             "status": "not_available",
             "note": "Knowledge Mound module not available",
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning("Knowledge mound health check failed: %s", e)
         features["knowledge_mound"] = {
             "healthy": True,
@@ -225,7 +225,7 @@ def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
             "status": "not_available",
             "note": "Pulse module not available",
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning("Trending topics health check failed: %s", e)
         features["trending_topics"] = {
             "healthy": True,

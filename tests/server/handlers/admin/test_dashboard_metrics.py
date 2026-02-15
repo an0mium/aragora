@@ -936,7 +936,7 @@ class TestMetricsDashboardMixin:
         mixin._get_user_store.return_value.get_admin_stats.return_value = {}
 
         mock_debate_storage = MagicMock()
-        mock_debate_storage.get_statistics.side_effect = RuntimeError("db down")
+        mock_debate_storage.get_statistics.side_effect = OSError("db down")
         mixin.ctx["debate_storage"] = mock_debate_storage
 
         result = mixin._get_system_metrics(MagicMock())

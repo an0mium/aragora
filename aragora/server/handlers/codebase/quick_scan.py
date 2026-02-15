@@ -64,7 +64,7 @@ async def _check_permission(request: web.Request, permission: str) -> web.Respon
                 status=403,
             )
         return None  # Permission granted
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.warning(f"Permission check failed: {e}")
         return web.json_response(
             {"success": False, "error": "Authentication required"},
@@ -222,7 +222,7 @@ async def run_quick_scan(
         # Return mock result for demo
         result = _generate_mock_result(scan_id, repo_path, start_time)
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception(f"[QuickScan] Scan {scan_id} failed: {e}")
         result["status"] = "failed"
         result["error"] = "Scan failed"
@@ -393,7 +393,7 @@ class QuickScanHandler:
                 }
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
             logger.exception(f"Quick scan failed: {e}")
             return web.json_response(
                 {"success": False, "error": "Quick scan failed"},
@@ -428,7 +428,7 @@ class QuickScanHandler:
 
             return web.json_response({"success": True, **result})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.exception(f"Failed to get scan result: {e}")
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve scan result"},
@@ -453,7 +453,7 @@ class QuickScanHandler:
             result = await list_quick_scans(limit=limit, offset=offset)
             return web.json_response({"success": True, **result})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.exception(f"Failed to list scans: {e}")
             return web.json_response(
                 {"success": False, "error": "Failed to list scans"},
