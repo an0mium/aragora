@@ -17,7 +17,29 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from datetime import datetime
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.features import EvidenceHandler
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_context():
+    """Provide a mock AuthorizationContext for all tests."""
+    ctx = AuthorizationContext(
+        user_id="test-user",
+        org_id="test-org",
+        roles={"admin"},
+        permissions={
+            "evidence:read",
+            "evidence:create",
+            "evidence:delete",
+        },
+    )
+
+    with patch(
+        "aragora.rbac.decorators._get_context_from_args",
+        return_value=ctx,
+    ):
+        yield ctx
 
 
 def parse_body(result):
@@ -214,7 +236,7 @@ class TestListEvidence:
 
     def test_list_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test listing evidence returns paginated results."""
-        result = evidence_handler.handle("/api/evidence", {}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -226,7 +248,7 @@ class TestListEvidence:
     ):
         """Test listing evidence with limit and offset."""
         result = evidence_handler.handle(
-            "/api/evidence", {"limit": "10", "offset": "20"}, mock_handler
+            "/api/v1/evidence", {"limit": "10", "offset": "20"}, mock_handler
         )
 
         assert result is not None
@@ -236,7 +258,7 @@ class TestListEvidence:
         self, evidence_handler, mock_evidence_store, mock_handler
     ):
         """Test listing evidence filtered by source."""
-        result = evidence_handler.handle("/api/evidence", {"source": "article"}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence", {"source": "article"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -245,7 +267,7 @@ class TestListEvidence:
         self, evidence_handler, mock_evidence_store, mock_handler
     ):
         """Test listing evidence filtered by minimum reliability."""
-        result = evidence_handler.handle("/api/evidence", {"min_reliability": "0.7"}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence", {"min_reliability": "0.7"}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -261,7 +283,7 @@ class TestGetEvidence:
 
     def test_get_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test getting evidence by ID."""
-        result = evidence_handler.handle("/api/evidence/ev-123", {}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence/ev-123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -272,7 +294,7 @@ class TestGetEvidence:
         """Test getting non-existent evidence."""
         mock_evidence_store.get_evidence.return_value = None
 
-        result = evidence_handler.handle("/api/evidence/ev-nonexistent", {}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence/ev-nonexistent", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 404
@@ -280,14 +302,13 @@ class TestGetEvidence:
 
     def test_get_evidence_invalid_id(self, evidence_handler, mock_handler):
         """Test getting evidence with invalid ID format."""
-        # IDs with path traversal are not matched by the handler's regex
-        # The handler returns None (meaning "not my route"), which is correct
-        # because the unified_server will return 404 for unhandled paths
-        result = evidence_handler.handle("/api/evidence/../etc/passwd", {}, mock_handler)
+        # Path traversal attempts are caught by the handler's path validation
+        # and return a 400 error because the path has too many segments
+        result = evidence_handler.handle("/api/v1/evidence/../etc/passwd", {}, mock_handler)
 
-        # Handler returns None for paths that don't match its pattern
-        # This is safe - the path traversal is not processed
-        assert result is None
+        # Handler returns 400 for paths that don't match valid evidence ID format
+        assert result is not None
+        assert result.status_code == 400
 
 
 # ============================================================================
@@ -300,7 +321,7 @@ class TestGetStatistics:
 
     def test_get_statistics_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test getting evidence statistics."""
-        result = evidence_handler.handle("/api/evidence/statistics", {}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence/statistics", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -318,7 +339,7 @@ class TestGetDebateEvidence:
 
     def test_get_debate_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test getting evidence for a debate."""
-        result = evidence_handler.handle("/api/evidence/debate/debate-123", {}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence/debate/debate-123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -330,7 +351,7 @@ class TestGetDebateEvidence:
     ):
         """Test getting evidence for a specific debate round."""
         result = evidence_handler.handle(
-            "/api/evidence/debate/debate-123", {"round": "2"}, mock_handler
+            "/api/v1/evidence/debate/debate-123", {"round": "2"}, mock_handler
         )
 
         assert result is not None
@@ -341,7 +362,7 @@ class TestGetDebateEvidence:
         """Test getting evidence for debate with no evidence."""
         mock_evidence_store.get_debate_evidence.return_value = []
 
-        result = evidence_handler.handle("/api/evidence/debate/debate-456", {}, mock_handler)
+        result = evidence_handler.handle("/api/v1/evidence/debate/debate-456", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -356,7 +377,8 @@ class TestGetDebateEvidence:
 class TestSearchEvidence:
     """Tests for POST /api/evidence/search endpoint."""
 
-    def test_search_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
+    @pytest.mark.asyncio
+    async def test_search_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test searching evidence with query."""
         mock_handler.rfile.read.return_value = b'{"query": "climate change"}'
         mock_handler.headers = {"Content-Length": "28", "Content-Type": "application/json"}
@@ -366,24 +388,26 @@ class TestSearchEvidence:
             "read_json_body_validated",
             return_value=({"query": "climate change"}, None),
         ):
-            result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
         assert "results" in parse_body(result)
 
-    def test_search_evidence_empty_query(self, evidence_handler, mock_handler):
+    @pytest.mark.asyncio
+    async def test_search_evidence_empty_query(self, evidence_handler, mock_handler):
         """Test searching with empty query returns error."""
         with patch.object(
             evidence_handler, "read_json_body_validated", return_value=({"query": ""}, None)
         ):
-            result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         assert "required" in parse_body(result).get("error", "").lower()
 
-    def test_search_evidence_with_filters(
+    @pytest.mark.asyncio
+    async def test_search_evidence_with_filters(
         self, evidence_handler, mock_evidence_store, mock_handler
     ):
         """Test searching with source filter and min reliability."""
@@ -394,12 +418,13 @@ class TestSearchEvidence:
             "limit": 5,
         }
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
 
-    def test_search_evidence_with_context(
+    @pytest.mark.asyncio
+    async def test_search_evidence_with_context(
         self, evidence_handler, mock_evidence_store, mock_handler
     ):
         """Test searching with quality context."""
@@ -412,7 +437,7 @@ class TestSearchEvidence:
             },
         }
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/search", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -426,30 +451,33 @@ class TestSearchEvidence:
 class TestCollectEvidence:
     """Tests for POST /api/evidence/collect endpoint."""
 
-    def test_collect_evidence_success(
+    @pytest.mark.asyncio
+    async def test_collect_evidence_success(
         self, evidence_handler, mock_evidence_collector, mock_handler
     ):
         """Test collecting evidence for a topic."""
         body = {"task": "Research quantum computing advances"}
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
         # May return 200 on success or 500 if async collection has issues in test
         assert result.status_code in (200, 500)
 
-    def test_collect_evidence_missing_task(self, evidence_handler, mock_handler):
+    @pytest.mark.asyncio
+    async def test_collect_evidence_missing_task(self, evidence_handler, mock_handler):
         """Test collecting without task returns error."""
         with patch.object(
             evidence_handler, "read_json_body_validated", return_value=({"task": ""}, None)
         ):
-            result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         assert "required" in parse_body(result).get("error", "").lower()
 
-    def test_collect_evidence_with_connectors(
+    @pytest.mark.asyncio
+    async def test_collect_evidence_with_connectors(
         self, evidence_handler, mock_evidence_collector, mock_handler
     ):
         """Test collecting with specific connectors enabled."""
@@ -458,11 +486,12 @@ class TestCollectEvidence:
             "connectors": ["arxiv", "semantic_scholar"],
         }
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
 
-    def test_collect_evidence_with_debate_association(
+    @pytest.mark.asyncio
+    async def test_collect_evidence_with_debate_association(
         self, evidence_handler, mock_evidence_collector, mock_handler
     ):
         """Test collecting and associating with debate."""
@@ -472,7 +501,7 @@ class TestCollectEvidence:
             "round": 1,
         }
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post("/api/evidence/collect", {}, mock_handler)
+            result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
 
@@ -485,24 +514,26 @@ class TestCollectEvidence:
 class TestAssociateEvidence:
     """Tests for POST /api/evidence/debate/:debate_id endpoint."""
 
-    def test_associate_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
+    @pytest.mark.asyncio
+    async def test_associate_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test associating evidence with a debate."""
         body = {"evidence_ids": ["ev-123", "ev-456"]}
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post(
-                "/api/evidence/debate/debate-123", {}, mock_handler
+            result = await evidence_handler.handle_post(
+                "/api/v1/evidence/debate/debate-123", {}, mock_handler
             )
 
         assert result is not None
         # Should return success or appropriate status
         assert result.status_code in (200, 201, 400)
 
-    def test_associate_evidence_empty_list(self, evidence_handler, mock_handler):
+    @pytest.mark.asyncio
+    async def test_associate_evidence_empty_list(self, evidence_handler, mock_handler):
         """Test associating empty evidence list."""
         body = {"evidence_ids": []}
         with patch.object(evidence_handler, "read_json_body_validated", return_value=(body, None)):
-            result = evidence_handler.handle_post(
-                "/api/evidence/debate/debate-123", {}, mock_handler
+            result = await evidence_handler.handle_post(
+                "/api/v1/evidence/debate/debate-123", {}, mock_handler
             )
 
         # May succeed with empty list or return validation error
@@ -519,7 +550,7 @@ class TestDeleteEvidence:
 
     def test_delete_evidence_success(self, evidence_handler, mock_evidence_store, mock_handler):
         """Test deleting evidence."""
-        result = evidence_handler.handle_delete("/api/evidence/ev-123", {}, mock_handler)
+        result = evidence_handler.handle_delete("/api/v1/evidence/ev-123", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -529,20 +560,20 @@ class TestDeleteEvidence:
         """Test deleting non-existent evidence."""
         mock_evidence_store.delete_evidence.return_value = False
 
-        result = evidence_handler.handle_delete("/api/evidence/ev-nonexistent", {}, mock_handler)
+        result = evidence_handler.handle_delete("/api/v1/evidence/ev-nonexistent", {}, mock_handler)
 
         assert result is not None
         # Should return 404 or 200 with failure message
         assert result.status_code in (200, 404)
 
     def test_delete_evidence_invalid_id(self, evidence_handler, mock_handler):
-        """Test deleting with invalid ID."""
-        # Path traversal attempts don't match handler's pattern
-        result = evidence_handler.handle_delete("/api/evidence/../../etc", {}, mock_handler)
+        """Test deleting with invalid ID rejects path traversal."""
+        # Path traversal attempts are explicitly rejected
+        result = evidence_handler.handle_delete("/api/v1/evidence/../../etc", {}, mock_handler)
 
-        # Handler returns None (not my route) which is safe -
-        # unified_server will return 404 for unhandled paths
-        assert result is None
+        # Handler rejects path traversal with 400
+        assert result is not None
+        assert result.status_code == 400
 
 
 # ============================================================================
@@ -577,7 +608,7 @@ class TestEvidenceHandlerIntegration:
 
     def test_routes_constant(self):
         """Test ROUTES constant contains expected paths."""
-        assert "/api/evidence" in EvidenceHandler.ROUTES
-        assert "/api/evidence/statistics" in EvidenceHandler.ROUTES
-        assert "/api/evidence/search" in EvidenceHandler.ROUTES
-        assert "/api/evidence/collect" in EvidenceHandler.ROUTES
+        assert "/api/v1/evidence" in EvidenceHandler.ROUTES
+        assert "/api/v1/evidence/statistics" in EvidenceHandler.ROUTES
+        assert "/api/v1/evidence/search" in EvidenceHandler.ROUTES
+        assert "/api/v1/evidence/collect" in EvidenceHandler.ROUTES

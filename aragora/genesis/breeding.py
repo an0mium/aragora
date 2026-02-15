@@ -533,6 +533,29 @@ class PopulationManager:
             conn.commit()
 
 
+def fitness_from_elo(elo_delta: float, scale: float = 400.0) -> float:
+    """Convert an ELO rating delta into a genome fitness adjustment.
+
+    Maps ELO changes to a [-0.2, +0.2] fitness range using a sigmoid-like
+    transform. This allows ELO performance signals to flow into the
+    Genesis breeding pipeline so that agents who gain ELO are more likely
+    to be selected as parents.
+
+    Args:
+        elo_delta: ELO points gained (positive) or lost (negative).
+        scale: Normalization factor. 400 means +400 ELO maps to ~+0.2.
+
+    Returns:
+        Fitness adjustment value in [-0.2, +0.2].
+    """
+    import math
+
+    # Sigmoid: maps (-inf, +inf) -> (-1, +1), then scale to [-0.2, +0.2]
+    normalized = elo_delta / scale
+    sigmoid = 2.0 / (1.0 + math.exp(-normalized)) - 1.0
+    return round(sigmoid * 0.2, 4)
+
+
 def select_by_fitness(population: list, count: int = 2) -> list:
     """Select top agents from a population based on fitness.
 
