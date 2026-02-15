@@ -293,7 +293,7 @@ class TestPodcastEpisodes:
 class TestPodcastFeed:
     """Test podcast RSS feed generation."""
 
-    @pytest.mark.skipif(not PODCAST_AVAILABLE, reason="Podcast module not available")
+    # PODCAST_AVAILABLE is always True (module is installed)
     def test_get_feed_empty(self, audio_handler):
         """Should return valid RSS feed with no episodes or graceful error."""
         mock_handler = Mock()
@@ -309,7 +309,7 @@ class TestPodcastFeed:
             assert b"<rss" in result.body
             assert b"</rss>" in result.body
 
-    @pytest.mark.skipif(not PODCAST_AVAILABLE, reason="Podcast module not available")
+    # PODCAST_AVAILABLE is always True (module is installed)
     def test_get_feed_with_episodes(self, audio_handler, audio_store, storage):
         """Should include episodes in RSS feed or graceful error."""
         audio_store.add_audio("feed-debate", b"content", {"duration_seconds": 300})
