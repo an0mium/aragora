@@ -209,7 +209,7 @@ export class SCIMAPI {
     };
     if (options?.filter) params.filter = options.filter;
 
-    return this.client.request('POST', '/scim/v2/Users', {
+    return this.client.request('GET', '/scim/v2/Users', {
       params,
     });
   }
@@ -289,7 +289,7 @@ export class SCIMAPI {
     };
     if (options?.filter) params.filter = options.filter;
 
-    return this.client.request('POST', '/scim/v2/Groups', {
+    return this.client.request('GET', '/scim/v2/Groups', {
       params,
     });
   }

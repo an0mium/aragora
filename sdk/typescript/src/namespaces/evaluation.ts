@@ -142,14 +142,14 @@ export class EvaluationAPI {
    * List available evaluation dimensions.
    */
   async listDimensions(): Promise<{ dimensions: EvaluationDimension[] }> {
-    return this.client.request<{ dimensions: EvaluationDimension[] }>('POST', '/api/v1/evaluate/dimensions');
+    return this.client.request<{ dimensions: EvaluationDimension[] }>('GET', '/api/v1/evaluate/dimensions');
   }
 
   /**
    * List available evaluation profiles.
    */
   async listProfiles(): Promise<{ profiles: EvaluationProfile[] }> {
-    return this.client.request<{ profiles: EvaluationProfile[] }>('POST', '/api/v1/evaluate/profiles');
+    return this.client.request<{ profiles: EvaluationProfile[] }>('GET', '/api/v1/evaluate/profiles');
   }
 
   /**

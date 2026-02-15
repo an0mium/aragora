@@ -129,7 +129,7 @@ export class NotificationsAPI {
    * Configure email notification settings.
    */
   async configureEmail(config: EmailConfig): Promise<{ success: boolean; message: string }> {
-    return this.client.request('GET', '/api/notifications/email/config', {
+    return this.client.request('POST', '/api/notifications/email/config', {
       json: config as unknown as Record<string, unknown>,
     });
   }
@@ -138,7 +138,7 @@ export class NotificationsAPI {
    * Configure Telegram notification settings.
    */
   async configureTelegram(config: TelegramConfig): Promise<{ success: boolean; message: string }> {
-    return this.client.request('GET', '/api/notifications/telegram/config', {
+    return this.client.request('POST', '/api/notifications/telegram/config', {
       json: config as unknown as Record<string, unknown>,
     });
   }
@@ -158,7 +158,7 @@ export class NotificationsAPI {
    * Remove an email recipient.
    */
   async removeEmailRecipient(email: string): Promise<{ success: boolean }> {
-    return this.client.request('POST', '/api/notifications/email/recipient', {
+    return this.client.request('DELETE', '/api/notifications/email/recipient', {
       json: { email },
     });
   }

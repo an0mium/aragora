@@ -158,7 +158,7 @@ export class PulseAPI {
     source?: PulseSource;
     period?: '7d' | '30d' | '90d';
   }): Promise<PulseAnalytics> {
-    return this.client.request('POST', '/api/pulse/analytics', { params: options });
+    return this.client.request('GET', '/api/pulse/analytics', { params: options });
   }
 
   /**
@@ -184,7 +184,7 @@ export class PulseAPI {
    * Get the pulse scheduler status.
    */
   async getSchedulerStatus(): Promise<SchedulerStatus> {
-    return this.client.request('POST', '/api/pulse/scheduler/status');
+    return this.client.request('GET', '/api/pulse/scheduler/status');
   }
 
   /**
@@ -232,7 +232,7 @@ export class PulseAPI {
     limit?: number;
     offset?: number;
   }): Promise<{ debates: ScheduledDebate[]; total: number }> {
-    return this.client.request('POST', '/api/pulse/scheduler/history', { params: options });
+    return this.client.request('GET', '/api/pulse/scheduler/history', { params: options });
   }
 
   /**

@@ -426,14 +426,14 @@ export class AnalyticsAPI {
    * Connect a new analytics platform.
    */
   async connectPlatform(platform: string, credentials: Record<string, unknown>): Promise<{ connected: boolean }> {
-    return this.client.request('GET', '/api/v1/analytics/connect', { json: { platform, credentials } });
+    return this.client.request('POST', '/api/v1/analytics/connect', { json: { platform, credentials } });
   }
 
   /**
    * Disconnect an analytics platform.
    */
   async disconnectPlatform(platform: string): Promise<{ disconnected: boolean }> {
-    return this.client.request('GET', `/api/v1/analytics/${platform}`);
+    return this.client.request('DELETE', `/api/v1/analytics/${platform}`);
   }
 
   /**
@@ -461,7 +461,7 @@ export class AnalyticsAPI {
    * Execute unified query across platforms.
    */
   async executeQuery(query: string, options?: { platform?: string; params?: Record<string, unknown> }): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/analytics/query', { json: { query, ...options } });
+    return this.client.request('POST', '/api/v1/analytics/query', { json: { query, ...options } });
   }
 
   /**
@@ -475,7 +475,7 @@ export class AnalyticsAPI {
    * Generate custom analytics report.
    */
   async generateReport(reportType: string, options?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/analytics/reports/generate', { json: { type: reportType, ...options } });
+    return this.client.request('POST', '/api/v1/analytics/reports/generate', { json: { type: reportType, ...options } });
   }
 
   /**
