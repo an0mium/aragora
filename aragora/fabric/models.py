@@ -7,7 +7,7 @@ Defines the core data structures used across the Agent Fabric components.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
@@ -50,7 +50,7 @@ class Task:
     id: str
     type: str
     payload: dict[str, Any]
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     timeout_seconds: float | None = None
     metadata: dict[str, str] = field(default_factory=dict)
     depends_on: list[str] = field(default_factory=list)
@@ -191,7 +191,7 @@ class Usage:
     """Resource usage record."""
 
     agent_id: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     tokens_input: int = 0
     tokens_output: int = 0
     compute_seconds: float = 0.0

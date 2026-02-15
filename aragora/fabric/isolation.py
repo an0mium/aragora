@@ -50,7 +50,7 @@ class ResourceViolation:
     resource_type: str  # "memory", "cpu", "disk", "network"
     limit: float
     actual: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     message: str = ""
 
 

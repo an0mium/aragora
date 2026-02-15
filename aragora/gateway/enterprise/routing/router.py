@@ -242,7 +242,7 @@ class EndpointHealth:
 
     endpoint_url: str
     status: EndpointStatus = EndpointStatus.UNKNOWN
-    last_check: datetime = field(default_factory=datetime.utcnow)
+    last_check: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     consecutive_failures: int = 0
     latency_ms: float = 0.0
     active_connections: int = 0

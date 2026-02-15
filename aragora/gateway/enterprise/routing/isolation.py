@@ -109,7 +109,7 @@ class TenantAccessContext:
     tenant_hash: str
     correlation_id: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================

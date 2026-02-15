@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -139,7 +139,7 @@ class TestCostBreakdown:
 
     def test_default_values(self):
         """Should initialize with empty collections when required fields provided."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         breakdown = CostBreakdown(
             tenant_id="test_tenant",
             period_start=now - timedelta(days=30),
@@ -151,7 +151,7 @@ class TestCostBreakdown:
 
     def test_to_dict(self):
         """Should convert to dictionary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         breakdown = CostBreakdown(
             tenant_id="test_tenant",
             period_start=now - timedelta(days=30),
@@ -176,7 +176,7 @@ class TestInvoice:
 
     def test_create_invoice(self):
         """Should accept all parameters."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         invoice = Invoice(
             tenant_id="tenant_1",
             period_start=now - timedelta(days=30),
@@ -190,7 +190,7 @@ class TestInvoice:
 
     def test_to_dict(self):
         """Should convert to dictionary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         invoice = Invoice(
             tenant_id="tenant_1",
             period_start=now - timedelta(days=30),
@@ -208,7 +208,7 @@ class TestUsageForecast:
 
     def test_default_values(self):
         """Should have sensible defaults when required fields provided."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         forecast = UsageForecast(
             tenant_id="test_tenant",
             forecast_date=now,
@@ -219,7 +219,7 @@ class TestUsageForecast:
 
     def test_to_dict(self):
         """Should convert to dictionary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         forecast = UsageForecast(
             tenant_id="tenant_1",
             forecast_date=now,
@@ -373,7 +373,7 @@ class TestEnterpriseMeter:
     @pytest.mark.asyncio
     async def test_get_cost_breakdown_with_dates(self, meter):
         """Should filter cost breakdown by date range."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         yesterday = now - timedelta(days=1)
         tomorrow = now + timedelta(days=1)
 
@@ -427,7 +427,7 @@ class TestEnterpriseMeter:
         )
         await meter._flush_buffer()
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
         invoice = await meter.generate_invoice(
             tenant_id="invoice_test",
             period=period,
@@ -451,7 +451,7 @@ class TestEnterpriseMeter:
         )
         await meter._flush_buffer()
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
         await meter.generate_invoice(tenant_id="invoices_test", period=period)
 
         invoices = await meter.get_invoices(tenant_id="invoices_test")
@@ -865,7 +865,7 @@ class TestRealtimeUsageQueries:
     @pytest.mark.asyncio
     async def test_query_custom_date_range(self, meter):
         """Should query custom date range."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         last_week = now - timedelta(days=7)
 
         await meter.record_token_usage(
@@ -946,7 +946,7 @@ class TestHistoricalUsageReports:
             )
         await meter._flush_buffer()
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
         invoice = await meter.generate_invoice(
             tenant_id="tenant_invoice_items",
             period=period,
@@ -967,7 +967,7 @@ class TestHistoricalUsageReports:
         )
         await meter._flush_buffer()
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
         invoice = await meter.generate_invoice(
             tenant_id="tenant_tax_disc",
             period=period,
@@ -1015,7 +1015,7 @@ class TestMeterRollups:
         await meter._flush_buffer()
 
         breakdown = await meter.get_cost_breakdown(tenant_id="tenant_rollup")
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         assert today_str in breakdown.cost_by_day
 
     @pytest.mark.asyncio
@@ -1030,7 +1030,7 @@ class TestMeterRollups:
         )
         await meter._flush_buffer()
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
         invoice = await meter.generate_invoice(
             tenant_id="tenant_monthly",
             period=period,
@@ -1205,7 +1205,7 @@ class TestErrorHandling:
         )
         await meter._flush_buffer()
 
-        period = datetime.utcnow().strftime("%Y-%m")
+        period = datetime.now(timezone.utc).strftime("%Y-%m")
         await meter.generate_invoice(
             tenant_id="tenant_filter_status",
             period=period,

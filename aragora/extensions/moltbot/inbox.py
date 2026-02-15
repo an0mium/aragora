@@ -11,7 +11,7 @@ import asyncio
 import os
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, cast
 from collections.abc import Callable
@@ -172,7 +172,7 @@ class InboxManager:
                 return None
 
             channel.status = cast(Literal["active", "paused", "disconnected"], status)
-            channel.updated_at = datetime.utcnow()
+            channel.updated_at = datetime.now(timezone.utc)
             return channel
 
     async def unregister_channel(self, channel_id: str) -> bool:
@@ -252,7 +252,7 @@ class InboxManager:
             self._threads[thread_id].append(message_id)
 
             # Update channel stats
-            channel.last_message_at = datetime.utcnow()
+            channel.last_message_at = datetime.now(timezone.utc)
             channel.message_count += 1
 
             logger.debug(f"Received message {message_id} on channel {channel_id}")
@@ -329,11 +329,11 @@ class InboxManager:
         delivered = await self._deliver_message(message, channel)
         if delivered:
             message.status = InboxMessageStatus.DELIVERED
-            message.delivered_at = datetime.utcnow()
+            message.delivered_at = datetime.now(timezone.utc)
         else:
             message.status = InboxMessageStatus.FAILED
 
-        message.updated_at = datetime.utcnow()
+        message.updated_at = datetime.now(timezone.utc)
 
         logger.debug(f"Sent message {message_id} via channel {channel_id}")
         await self._mirror_to_gateway(message, channel)
@@ -389,8 +389,8 @@ class InboxManager:
                 return None
 
             message.status = InboxMessageStatus.READ
-            message.read_at = datetime.utcnow()
-            message.updated_at = datetime.utcnow()
+            message.read_at = datetime.now(timezone.utc)
+            message.updated_at = datetime.now(timezone.utc)
             if self._gateway_inbox:
                 await self._gateway_inbox.mark_read([message_id])
             return message
@@ -403,7 +403,7 @@ class InboxManager:
                 return None
 
             message.status = InboxMessageStatus.ARCHIVED
-            message.updated_at = datetime.utcnow()
+            message.updated_at = datetime.now(timezone.utc)
             return message
 
     # ========== Message Processing ==========
@@ -425,7 +425,7 @@ class InboxManager:
             message.intent = "general"
 
         message.status = InboxMessageStatus.PROCESSING
-        message.updated_at = datetime.utcnow()
+        message.updated_at = datetime.now(timezone.utc)
 
     async def _deliver_message(
         self,

@@ -107,7 +107,7 @@ class DocumentJob:
     chunks: list[DocumentChunk] = field(default_factory=list)
 
     # Timestamps
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: datetime | None = None
     completed_at: datetime | None = None
 

@@ -69,7 +69,7 @@ class RetentionPolicy:
 
     # Status
     enabled: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_run: datetime | None = None
 
     def is_expired(self, created_at: datetime) -> bool:
@@ -92,7 +92,7 @@ class DeletionRecord:
     resource_id: str
     workspace_id: str
     policy_id: str
-    deleted_at: datetime = field(default_factory=datetime.utcnow)
+    deleted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -101,7 +101,7 @@ class DeletionReport:
     """Report from a retention policy execution."""
 
     policy_id: str
-    executed_at: datetime = field(default_factory=datetime.utcnow)
+    executed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 0.0
 
     # Counts

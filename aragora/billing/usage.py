@@ -117,7 +117,7 @@ class UsageEvent:
 
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def calculate_cost(self) -> Decimal:
         """Calculate and set cost based on tokens."""

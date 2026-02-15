@@ -43,7 +43,7 @@ class TestQuotaStatus:
     """Tests for QuotaStatus dataclass."""
 
     def test_to_dict(self) -> None:
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         reset = datetime(2026, 1, 1, 0, 0, 0)
         s = QuotaStatus(
@@ -69,14 +69,14 @@ class TestQuotaStatus:
         assert d["percentage_used"] == 83.33
 
     def test_defaults(self) -> None:
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         s = QuotaStatus(
             tenant_id="t1",
             used=0,
             remaining=60,
             limit=60,
-            reset_time=datetime.utcnow(),
+            reset_time=datetime.now(timezone.utc),
         )
         assert s.quota_type == "requests_per_minute"
         assert s.is_exceeded is False

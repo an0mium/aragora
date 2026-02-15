@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.connectors.chat.thread_manager import (
@@ -33,7 +33,7 @@ class TestThreadInfo:
 
     def test_create_thread_info(self):
         """Should create ThreadInfo with required fields."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         thread = ThreadInfo(
             id="thread_123",
             channel_id="C12345",
@@ -52,7 +52,7 @@ class TestThreadInfo:
 
     def test_thread_info_to_dict(self):
         """Should serialize ThreadInfo to dictionary."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         thread = ThreadInfo(
             id="thread_123",
             channel_id="C12345",
@@ -79,7 +79,7 @@ class TestThreadStats:
 
     def test_create_thread_stats(self):
         """Should create ThreadStats with required fields."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         stats = ThreadStats(
             thread_id="thread_123",
             message_count=25,
@@ -94,7 +94,7 @@ class TestThreadStats:
 
     def test_thread_stats_with_metrics(self):
         """Should handle response time metrics."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         stats = ThreadStats(
             thread_id="thread_123",
             message_count=25,
@@ -469,7 +469,7 @@ class TestThreadManagerContext:
         thread_manager = SlackThreadManager(mock_connector)
 
         # Mock the methods called by get_thread_context
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         mock_thread = ThreadInfo(
             id="thread_123",
             channel_id="C12345",

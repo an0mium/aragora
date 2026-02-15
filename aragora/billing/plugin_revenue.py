@@ -52,7 +52,7 @@ class PluginRevenueEvent:
     stripe_transfer_id: str = ""  # Transfer to developer's connected account
 
     metadata: dict = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def calculate_split(self, developer_share_percent: int = 70) -> None:
         """Calculate revenue split between platform and developer."""
@@ -89,9 +89,9 @@ class DeveloperPayout:
     currency: str = "USD"
     status: str = "pending"  # pending, processing, completed, failed
     stripe_transfer_id: str = ""
-    period_start: datetime = field(default_factory=datetime.utcnow)
-    period_end: datetime = field(default_factory=datetime.utcnow)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    period_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    period_end: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -118,7 +118,7 @@ class PluginInstall:
     plugin_version: str = ""
     org_id: str = ""
     user_id: str = ""
-    installed_at: datetime = field(default_factory=datetime.utcnow)
+    installed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     trial_ends_at: datetime | None = None
     subscription_active: bool = False
     uninstalled_at: datetime | None = None

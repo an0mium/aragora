@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -69,7 +69,7 @@ async def test_decision_to_action_smoke(tmp_path: Path) -> None:
     """Deterministic end-to-end decision-to-action smoke scenario."""
     artifact: dict = {
         "scenario": "decision_to_action_smoke",
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
         "status": "running",
     }
 
@@ -140,7 +140,7 @@ async def test_decision_to_action_smoke(tmp_path: Path) -> None:
         artifact["final_plan_status"] = final_plan.status.value
         artifact["execution_record"] = execution_records[0]
         artifact["status"] = "passed"
-        artifact["completed_at"] = datetime.utcnow().isoformat()
+        artifact["completed_at"] = datetime.now(timezone.utc).isoformat()
 
         artifact_path = _write_artifact(artifact)
         assert artifact_path.exists()
@@ -152,7 +152,7 @@ async def test_decision_to_action_smoke(tmp_path: Path) -> None:
             "message": str(exc),
             "traceback": traceback.format_exc(),
         }
-        artifact["failed_at"] = datetime.utcnow().isoformat()
+        artifact["failed_at"] = datetime.now(timezone.utc).isoformat()
         artifact_path = _write_artifact(artifact)
         pytest.fail(
             f"Decision-to-action smoke scenario failed. Inspect artifact: {artifact_path}",

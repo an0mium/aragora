@@ -26,7 +26,7 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from collections.abc import Sequence
 
@@ -71,7 +71,7 @@ class EvidenceEnrichment:
     original_confidence: float
     adjusted_confidence: float
     evidence_summary: str
-    collected_at: datetime = field(default_factory=datetime.utcnow)
+    collected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     collection_time_ms: int = 0
 
     @property

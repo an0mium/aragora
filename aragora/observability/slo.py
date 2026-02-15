@@ -84,7 +84,7 @@ class SLOStatus:
     availability: SLOResult
     latency_p99: SLOResult
     debate_success: SLOResult
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     overall_healthy: bool = True
 
     def __post_init__(self) -> None:

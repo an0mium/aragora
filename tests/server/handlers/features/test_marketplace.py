@@ -15,7 +15,7 @@ This file tests:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from http import HTTPStatus
 from io import BytesIO
 from typing import Any
@@ -104,8 +104,8 @@ class MockTemplate:
         self.metadata.version = "1.0.0"
         self.metadata.author = "test-author"
         self.metadata.description = "Test description"
-        self.metadata.created_at = datetime.utcnow()
-        self.metadata.updated_at = datetime.utcnow()
+        self.metadata.created_at = datetime.now(timezone.utc)
+        self.metadata.updated_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -141,7 +141,7 @@ class MockRating:
         self.template_id = template_id
         self.score = score
         self.review = review
-        self.created_at = datetime.utcnow()
+        self.created_at = datetime.now(timezone.utc)
 
 
 class MockRegistry:

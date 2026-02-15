@@ -1,6 +1,6 @@
 """Tests for SupermemoryBackend."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -38,7 +38,7 @@ def sample_entry():
             content="Test memory content",
             tier="medium",
             weight=0.8,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             metadata={"key": "value"},
         )
 
@@ -340,7 +340,7 @@ class TestSupermemoryBackendMaintenance:
     @pytest.mark.asyncio
     async def test_cleanup_expired(self, backend):
         """Test cleaning up expired entries."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired = MemoryEntry(
             id="expired",
             content="Old",

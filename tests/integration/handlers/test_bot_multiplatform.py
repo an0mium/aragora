@@ -11,7 +11,7 @@ import hmac
 import json
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -33,7 +33,7 @@ class MockDebateResult:
 
     def __post_init__(self):
         self.votes = self.votes or {"for": 3, "against": 1}
-        self.created_at = self.created_at or datetime.utcnow()
+        self.created_at = self.created_at or datetime.now(timezone.utc)
 
     def to_dict(self):
         return {

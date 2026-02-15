@@ -18,7 +18,7 @@ Tests the DebateStore persistent storage and analytics system including:
 import sqlite3
 import tempfile
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -49,7 +49,7 @@ def store(temp_db_path):
 def populated_store(store):
     """Store with pre-populated deliberations for testing."""
     org_id = "test_org"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Create 10 deliberations with varying properties
     for i in range(10):
@@ -100,7 +100,7 @@ def populated_store(store):
 @pytest.fixture
 def time_range():
     """Provide a default time range for queries."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     return now - timedelta(hours=1), now + timedelta(hours=1)
 
 
@@ -221,13 +221,13 @@ class TestRecordDeliberation:
 
     def test_record_deliberation_sets_created_at(self, store):
         """Test that created_at is automatically set."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         store.record_deliberation(
             deliberation_id="time_1",
             org_id="org_1",
             question="Time test",
         )
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         with store._connection() as conn:
             row = conn.execute(
@@ -320,7 +320,7 @@ class TestUpdateDeliberationResult:
             question="Complete test",
         )
 
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         store.update_deliberation_result(
             deliberation_id="complete_1",
             status="completed",
@@ -328,7 +328,7 @@ class TestUpdateDeliberationResult:
             rounds=1,
             duration_seconds=10.0,
         )
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         with store._connection() as conn:
             row = conn.execute(
@@ -568,7 +568,7 @@ class TestDeliberationStats:
 
         # Manually set old created_at
         with store._connection() as conn:
-            old_time = (datetime.utcnow() - timedelta(days=30)).isoformat()
+            old_time = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
             conn.execute(
                 "UPDATE deliberations SET created_at = ? WHERE id = ?",
                 (old_time, "old_1"),
@@ -576,7 +576,7 @@ class TestDeliberationStats:
             conn.commit()
 
         # Query with recent time range
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         start = now - timedelta(hours=1)
         end = now + timedelta(hours=1)
 
@@ -1236,8 +1236,8 @@ class TestEdgeCases:
             question="Current",
         )
 
-        future_start = datetime.utcnow() + timedelta(days=1)
-        future_end = datetime.utcnow() + timedelta(days=2)
+        future_start = datetime.now(timezone.utc) + timedelta(days=1)
+        future_end = datetime.now(timezone.utc) + timedelta(days=2)
 
         stats = store.get_deliberation_stats("org_1", future_start, future_end)
 

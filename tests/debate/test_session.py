@@ -281,13 +281,13 @@ class TestDebateSessionCreation:
         self, sample_environment, sample_agents, sample_protocol
     ):
         """Test that session has proper timestamps."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         session = await DebateSession.create(
             env=sample_environment,
             agents=sample_agents,
             protocol=sample_protocol,
         )
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         assert before <= session.created_at <= after
         assert session.started_at is None

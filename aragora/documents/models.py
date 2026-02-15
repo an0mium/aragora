@@ -76,7 +76,7 @@ class DocumentChunk:
     token_model: str = ""  # Model used for counting (e.g., "gpt-4", "claude-3")
 
     # Metadata
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -186,7 +186,7 @@ class IngestedDocument:
     images_count: int = 0
 
     # Timestamps
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     processed_at: datetime | None = None
     indexed_at: datetime | None = None
 

@@ -16,7 +16,7 @@ Tests cover:
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1038,7 +1038,7 @@ class TestExpiration:
     @pytest.mark.asyncio
     async def test_cleanup_removes_expired_entries(self, backend):
         """cleanup_expired() should remove entries past their expires_at."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired = MemoryEntry(
             id="old",
             content="Expired",
@@ -1078,7 +1078,7 @@ class TestExpiration:
     @pytest.mark.asyncio
     async def test_cleanup_multiple_expired(self, backend):
         """cleanup_expired() should remove all expired entries at once."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for i in range(5):
             await backend.store(
                 MemoryEntry(
@@ -1101,7 +1101,7 @@ class TestExpiration:
             id="boundary",
             content="Almost",
             tier="fast",
-            expires_at=datetime.utcnow() + timedelta(seconds=60),
+            expires_at=datetime.now(timezone.utc) + timedelta(seconds=60),
         )
         await backend.store(entry)
 
@@ -1362,7 +1362,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_store_with_expires_at_in_future(self, backend):
         """Entry with future expires_at should survive cleanup."""
-        future = datetime.utcnow() + timedelta(days=30)
+        future = datetime.now(timezone.utc) + timedelta(days=30)
         entry = MemoryEntry(
             id="future",
             content="Future",

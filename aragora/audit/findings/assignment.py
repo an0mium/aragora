@@ -66,7 +66,7 @@ class FindingAssignment:
     # Assignment metadata
     assigned_by: str = ""
     assigned_by_name: str = ""
-    assigned_at: datetime = field(default_factory=datetime.utcnow)
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Priority and scheduling
     priority: AssignmentPriority = AssignmentPriority.MEDIUM

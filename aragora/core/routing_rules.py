@@ -266,8 +266,8 @@ class RoutingRule:
     priority: int = 0
     enabled: bool = True
     description: str = ""
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str | None = None
     match_mode: Literal["all", "any"] = "all"
     stop_processing: bool = False

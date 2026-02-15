@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, cast
 from collections.abc import Callable
@@ -179,7 +179,7 @@ class OnboardingOrchestrator:
             )
 
             flow.steps.append(step)
-            flow.updated_at = datetime.utcnow()
+            flow.updated_at = datetime.now(timezone.utc)
 
             return step
 
@@ -194,7 +194,7 @@ class OnboardingOrchestrator:
                 raise ValueError("Cannot activate flow with no steps")
 
             flow.status = "active"
-            flow.updated_at = datetime.utcnow()
+            flow.updated_at = datetime.now(timezone.utc)
 
             logger.info(f"Activated onboarding flow: {flow.name}")
             return flow
@@ -207,7 +207,7 @@ class OnboardingOrchestrator:
                 return None
 
             flow.status = "archived"
-            flow.updated_at = datetime.utcnow()
+            flow.updated_at = datetime.now(timezone.utc)
 
             return flow
 
@@ -250,7 +250,7 @@ class OnboardingOrchestrator:
                 user_id=user_id,
                 channel_id=channel_id,
                 tenant_id=tenant_id,
-                started_at=datetime.utcnow(),
+                started_at=datetime.now(timezone.utc),
                 collected_data=initial_data or {},
             )
 
@@ -397,7 +397,7 @@ class OnboardingOrchestrator:
             if next_step_id:
                 session.current_step = next_step_id
                 next_step = next((s for s in flow.steps if s.id == next_step_id), None)
-                session.updated_at = datetime.utcnow()
+                session.updated_at = datetime.now(timezone.utc)
 
                 return {
                     "success": True,
@@ -479,8 +479,8 @@ class OnboardingOrchestrator:
     ) -> dict[str, Any]:
         """Complete an onboarding session."""
         session.status = "completed"
-        session.completed_at = datetime.utcnow()
-        session.updated_at = datetime.utcnow()
+        session.completed_at = datetime.now(timezone.utc)
+        session.updated_at = datetime.now(timezone.utc)
         session.current_step = None
 
         flow.completed_count += 1
@@ -506,7 +506,7 @@ class OnboardingOrchestrator:
                 return None
 
             session.status = "abandoned"
-            session.updated_at = datetime.utcnow()
+            session.updated_at = datetime.now(timezone.utc)
             session.metadata["abandon_reason"] = reason
 
             flow = self._flows.get(session.flow_id)
@@ -524,7 +524,7 @@ class OnboardingOrchestrator:
                 return None
 
             session.status = "paused"
-            session.updated_at = datetime.utcnow()
+            session.updated_at = datetime.now(timezone.utc)
 
             return session
 
@@ -539,7 +539,7 @@ class OnboardingOrchestrator:
                 return session
 
             session.status = "in_progress"
-            session.updated_at = datetime.utcnow()
+            session.updated_at = datetime.now(timezone.utc)
 
             return session
 

@@ -21,7 +21,7 @@ import importlib.util
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -330,7 +330,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 "confidence": confidence,
                 "consensus_type": getattr(debate_result, "consensus_type", None),
                 "round_count": round_count,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "source": "aragora",
             }
 
@@ -367,7 +367,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 return SyncOutcomeResult(
                     success=True,
                     memory_id=result.memory_id,
-                    synced_at=datetime.utcnow(),
+                    synced_at=datetime.now(timezone.utc),
                 )
             else:
                 return SyncOutcomeResult(success=False, error=result.error)

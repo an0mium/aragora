@@ -11,7 +11,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -82,7 +82,7 @@ class VoiceCommand:
     wake_event_id: str | None = None
     device_id: str = ""
     user_id: str | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     processing_time_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -98,7 +98,7 @@ class VoiceSession:
     wake_event: WakeWordEvent | None = None
     commands: list[str] = field(default_factory=list)  # Command IDs
     audio_buffer: bytes = b""
-    last_activity: datetime = field(default_factory=datetime.utcnow)
+    last_activity: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -289,7 +289,7 @@ class VoiceWakeManager:
             id=event_id,
             wake_word=word,
             confidence=confidence,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             device_id=device_id,
         )
 
@@ -318,7 +318,7 @@ class VoiceWakeManager:
             id=session_id,
             device_id=device_id,
             state=VoiceActivityState.DETECTING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             wake_event=wake_event,
         )
 
@@ -409,7 +409,7 @@ class VoiceWakeManager:
             self._device_states[session.device_id] = VoiceActivityState.PROCESSING
             await self._notify_state_change(session.device_id, VoiceActivityState.PROCESSING)
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         # Parse intent and entities
         intent, entities = await self._parse_command(transcript)
@@ -422,12 +422,12 @@ class VoiceWakeManager:
             entities=entities,
             wake_event_id=session.wake_event.id if session.wake_event else None,
             device_id=session.device_id,
-            processing_time_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            processing_time_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
         )
 
         self._commands[command.id] = command
         session.commands.append(command.id)
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
 
         await self._notify_command_processed(command)
 

@@ -15,7 +15,7 @@ import logging
 import os
 import subprocess
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -187,7 +187,7 @@ class HookRunner:
             if metadata is not None:
                 hook.metadata.update(metadata)
 
-            hook.updated_at = datetime.utcnow()
+            hook.updated_at = datetime.now(timezone.utc)
             self._save_state()
             return hook
 
@@ -231,9 +231,9 @@ class HookRunner:
             if not hook.enabled:
                 return {"success": False, "error": "Hook is disabled"}
 
-            hook.last_triggered = datetime.utcnow()
+            hook.last_triggered = datetime.now(timezone.utc)
             hook.trigger_count += 1
-            hook.updated_at = datetime.utcnow()
+            hook.updated_at = datetime.now(timezone.utc)
             self._save_state()
 
         # Execute hook script
@@ -323,7 +323,7 @@ class HookRunner:
             "success": True,
             "path": str(state_path),
             "hash": state_hash,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Auto-commit if enabled and in a git repo

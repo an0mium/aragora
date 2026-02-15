@@ -148,7 +148,7 @@ class Role:
     permissions: set[Permission]
     scope: Scope
     is_system: bool = False  # System roles cannot be deleted
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -194,7 +194,7 @@ class RoleAssignment:
     role_id: str
     scope: Scope
     scope_id: str  # org_id or workspace_id depending on scope
-    assigned_at: datetime = field(default_factory=datetime.utcnow)
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     assigned_by: str = ""
     expires_at: datetime | None = None
 
@@ -238,7 +238,7 @@ class IsolationContext:
     # Request metadata
     request_id: str = ""
     correlation_id: str = ""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Cached role assignments (populated by RBACEnforcer)
     _role_assignments: list[RoleAssignment] = field(default_factory=list)

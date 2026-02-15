@@ -18,7 +18,7 @@ import os
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -279,7 +279,7 @@ class ApprovalDecision:
 
     gate_type: GateType
     status: ApprovalStatus
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     approver: str = "unknown"  # human, auto, system
     artifact_hash: str = ""  # Hash of what was approved
     reason: str = ""

@@ -74,7 +74,7 @@ class Event:
 
     event_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     event_type: EventType = EventType.START
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = ""  # Who/what generated this event
     data: dict[str, Any] = field(default_factory=dict)
 

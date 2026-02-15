@@ -12,7 +12,7 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -54,7 +54,7 @@ def _moltbot_device_from_gateway(device: GatewayDeviceNode) -> DeviceNode:
     if status not in {"online", "offline", "error"}:
         status = _gateway_status_to_moltbot(device.status)
 
-    created_at = _parse_dt(metadata.get("created_at")) or datetime.utcnow()
+    created_at = _parse_dt(metadata.get("created_at")) or datetime.now(timezone.utc)
     updated_at = _parse_dt(metadata.get("updated_at")) or created_at
     last_seen = _parse_dt(metadata.get("last_seen"))
     if last_seen is None and device.last_seen:
@@ -349,7 +349,7 @@ class LocalGateway:
             if not device:
                 return None
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # Update status to online if was offline
             was_offline = device.status != "online"
@@ -407,7 +407,7 @@ class LocalGateway:
             else:
                 device.state = state
 
-            device.updated_at = datetime.utcnow()
+            device.updated_at = datetime.now(timezone.utc)
             self._devices[device.id] = device
 
             await self._mirror_registry_device(device)
@@ -552,7 +552,7 @@ class LocalGateway:
             "type": event_type,
             "device_id": device.id,
             "gateway_id": self._gateway_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "device": {
                 "name": device.config.name,
                 "type": device.config.device_type,
@@ -584,7 +584,7 @@ class LocalGateway:
 
     async def _check_heartbeats(self) -> None:
         """Check for stale heartbeats and mark devices offline."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         async with self._lock:
             devices = await self.list_devices()

@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -104,7 +104,7 @@ class VoiceProcessor:
                 user_id=user_id,
                 channel_id=channel_id,
                 tenant_id=tenant_id,
-                started_at=datetime.utcnow(),
+                started_at=datetime.now(timezone.utc),
             )
 
             self._sessions[session_id] = session
@@ -158,8 +158,8 @@ class VoiceProcessor:
                 return None
 
             session.status = "ended"
-            session.ended_at = datetime.utcnow()
-            session.updated_at = datetime.utcnow()
+            session.ended_at = datetime.now(timezone.utc)
+            session.updated_at = datetime.now(timezone.utc)
 
             if session.started_at and session.ended_at:
                 session.duration_seconds = (session.ended_at - session.started_at).total_seconds()
@@ -182,7 +182,7 @@ class VoiceProcessor:
                 return None
 
             session.status = "paused"
-            session.updated_at = datetime.utcnow()
+            session.updated_at = datetime.now(timezone.utc)
 
             logger.debug(f"Paused voice session {session_id}")
             return session
@@ -198,7 +198,7 @@ class VoiceProcessor:
                 return session
 
             session.status = "active"
-            session.updated_at = datetime.utcnow()
+            session.updated_at = datetime.now(timezone.utc)
 
             logger.debug(f"Resumed voice session {session_id}")
             return session
@@ -246,12 +246,12 @@ class VoiceProcessor:
                     {
                         "type": "user",
                         "text": transcript,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )
                 session.words_heard += len(transcript.split())
                 session.turns += 1
-                session.updated_at = datetime.utcnow()
+                session.updated_at = datetime.now(timezone.utc)
 
             # Simple intent detection
             intent = self._detect_intent(transcript)
@@ -323,11 +323,11 @@ class VoiceProcessor:
                     {
                         "type": "system",
                         "text": text,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )
                 session.words_spoken += len(text.split())
-                session.updated_at = datetime.utcnow()
+                session.updated_at = datetime.now(timezone.utc)
 
             return {
                 "success": True,

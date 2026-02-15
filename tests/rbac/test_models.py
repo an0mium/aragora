@@ -906,13 +906,13 @@ class TestAuthorizationDecision:
 
     def test_decision_checked_at_timestamp(self):
         """Decision has checked_at timestamp."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         decision = AuthorizationDecision(
             allowed=True,
             reason="Granted",
             permission_key="debates.read",
         )
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
         assert before <= decision.checked_at <= after
 
 
@@ -1057,7 +1057,7 @@ class TestEdgeCases:
             permission_key="debates.read",
         )
         # checked_at should be close to current UTC time
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         diff = abs((now - decision.checked_at).total_seconds())
         assert diff < 1  # Within 1 second
 
@@ -1077,9 +1077,9 @@ class TestEdgeCases:
 
     def test_context_timestamp_auto_generated(self):
         """Context timestamp is auto-generated."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         ctx = AuthorizationContext(user_id="user-1")
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
         assert before <= ctx.timestamp <= after
 
     def test_empty_role_name_display_name(self):

@@ -210,7 +210,7 @@ class AuditEvent:
 
     # Metadata
     id: str = field(default_factory=lambda: str(uuid4()))
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Integrity
     previous_hash: str = ""

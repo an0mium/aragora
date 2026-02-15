@@ -118,7 +118,7 @@ class TestRetentionPolicy:
 
     def test_create_policy_with_custom_values(self):
         """Test creating a policy with custom values."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         policy = RetentionPolicy(
             id="policy-002",
             name="Custom Policy",
@@ -287,7 +287,7 @@ class TestDeletionRecord:
 
     def test_create_record(self):
         """Test creating a deletion record."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         record = DeletionRecord(
             resource_type="documents",
             resource_id="doc-001",

@@ -91,7 +91,7 @@ class GeneratedReport:
     content: bytes
     filename: str
     size_bytes: int
-    generated_at: datetime = field(default_factory=datetime.utcnow)
+    generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Metadata
     session_id: str = ""

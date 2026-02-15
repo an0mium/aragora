@@ -33,7 +33,7 @@ class RotationResult:
     secret_type: str
     old_version: str | None = None
     new_version: str | None = None
-    rotated_at: datetime = field(default_factory=datetime.utcnow)
+    rotated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     grace_period_ends: datetime | None = None
     error_message: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

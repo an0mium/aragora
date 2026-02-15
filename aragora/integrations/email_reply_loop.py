@@ -83,7 +83,7 @@ class InboundEmail:
     references: list[str] = field(default_factory=list)
     headers: dict[str, str] = field(default_factory=dict)
     attachments: list[dict[str, Any]] = field(default_factory=list)
-    received_at: datetime = field(default_factory=datetime.utcnow)
+    received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     raw_data: bytes | None = None
 
     @property
@@ -165,7 +165,7 @@ class EmailReplyOrigin:
     message_id: str
     recipient_email: str
     recipient_name: str = ""
-    sent_at: datetime = field(default_factory=datetime.utcnow)
+    sent_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     reply_received: bool = False
     reply_received_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

@@ -170,7 +170,7 @@ class EncryptedData:
     key_id: str
     key_version: int
     algorithm: EncryptionAlgorithm
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_bytes(self) -> bytes:
         """Serialize to bytes for storage."""

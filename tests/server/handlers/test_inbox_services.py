@@ -12,7 +12,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -162,7 +162,7 @@ class TestFetchPrioritizedEmails:
         msg.from_address = "sender@test.com"
         msg.subject = "Test Subject"
         msg.snippet = "Hello world"
-        msg.date = datetime.utcnow()
+        msg.date = datetime.now(timezone.utc)
         msg.unread = True
 
         gmail = AsyncMock()

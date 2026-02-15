@@ -10,7 +10,7 @@ Measures throughput and latency for:
 
 import json
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -309,7 +309,7 @@ class TestEvidenceRelevanceBenchmarks:
                     channel=channel,
                     author=user,
                     content=content,
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                 )
             )
 
@@ -370,7 +370,7 @@ class TestSerializationBenchmarks:
                 display_name="Test User",
             ),
             content="This is a test message with some content for benchmarking serialization performance",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             metadata={"key1": "value1", "key2": "value2"},
         )
 

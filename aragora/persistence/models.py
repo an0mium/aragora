@@ -5,7 +5,7 @@ Data models for persistent storage.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import ClassVar
 
 from aragora.serialization import SerializableMixin
@@ -48,7 +48,7 @@ class DebateArtifact(SerializableMixin):
     confidence: float
     winning_proposal: str | None = None
     vote_tally: dict | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
@@ -65,7 +65,7 @@ class StreamEvent(SerializableMixin):
     event_type: str  # cycle_start, phase_start, task_complete, error, etc.
     event_data: dict
     agent: str | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
@@ -89,7 +89,7 @@ class AgentMetrics(SerializableMixin):
     votes_received: int = 0
     consensus_contributions: int = 0
     avg_response_time_ms: float | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
@@ -115,7 +115,7 @@ class NomicRollback(SerializableMixin):
     files_affected: list[str] = field(default_factory=list)
     diff_summary: str = ""  # git diff --stat summary
     error_message: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # to_dict() inherited from SerializableMixin (handles datetime)
 
@@ -137,7 +137,7 @@ class CycleEvolution(SerializableMixin):
     files_changed: list[str] = field(default_factory=list)
     git_commit: str | None = None
     rollback_id: str | None = None  # If this cycle was rolled back
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # to_dict() inherited from SerializableMixin (handles datetime)
 

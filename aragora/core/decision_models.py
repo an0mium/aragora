@@ -103,7 +103,7 @@ class RequestContext:
     workspace_id: str | None = None
 
     # Timing
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     deadline: datetime | None = None  # Hard deadline for response
 
     # Additional context
@@ -604,7 +604,7 @@ class DecisionResult:
 
     # Metadata
     duration_seconds: float = 0.0
-    completed_at: datetime = field(default_factory=datetime.utcnow)
+    completed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Engine-specific results
     debate_id: str | None = None  # ID of associated debate

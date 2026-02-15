@@ -7,7 +7,7 @@ and effectiveness of research integration features.
 
 from dataclasses import dataclass, field
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -61,7 +61,7 @@ class TelemetryEvent:
     """Base telemetry event."""
 
     event_type: TelemetryEventType
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     debate_id: str | None = None
     workspace_id: str | None = None
     round_number: int | None = None

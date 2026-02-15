@@ -55,7 +55,7 @@ class IsolationContext:
     # Request metadata
     request_id: str = ""
     correlation_id: str = ""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Cached permissions (populated by RBAC if available)
     _cached_permissions: set = field(default_factory=set)
@@ -161,7 +161,7 @@ class WorkspaceMember:
 
     user_id: str
     permissions: list[WorkspacePermission]
-    added_at: datetime = field(default_factory=datetime.utcnow)
+    added_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     added_by: str = ""
 
 
@@ -172,7 +172,7 @@ class Workspace:
     id: str
     organization_id: str
     name: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = ""
 
     # Encryption

@@ -88,7 +88,7 @@ class BillingEvent:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Timestamps
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     billing_period: str | None = None
 
     def calculate_cost(self) -> Decimal:

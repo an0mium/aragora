@@ -81,8 +81,8 @@ class Policy:
     level: str = "recommended"  # mandatory, recommended, optional
     enabled: bool = True
     rules: list[PolicyRule] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -150,7 +150,7 @@ class Violation:
     status: str  # open, investigating, resolved, false_positive
     description: str
     source: str  # File/location where violation was detected
-    detected_at: datetime = field(default_factory=datetime.utcnow)
+    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: datetime | None = None
     resolved_by: str | None = None
     resolution_notes: str | None = None

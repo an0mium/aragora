@@ -11,7 +11,7 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 import hashlib
 import hmac
@@ -272,12 +272,12 @@ class TestTeamsOAuthFlow:
         tenant_tokens["tenant_1"] = {
             "access_token": "token_for_tenant_1",
             "tenant_id": "tenant-guid-1",
-            "expires_at": datetime.utcnow() + timedelta(hours=1),
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
         tenant_tokens["tenant_2"] = {
             "access_token": "token_for_tenant_2",
             "tenant_id": "tenant-guid-2",
-            "expires_at": datetime.utcnow() + timedelta(hours=1),
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
         assert len(tenant_tokens) == 2
@@ -292,18 +292,18 @@ class TestTokenRefreshMechanics:
 
         def is_token_expired(expires_at: datetime, buffer_seconds: int = 300) -> bool:
             """Check if token is expired or will expire soon."""
-            return datetime.utcnow() >= (expires_at - timedelta(seconds=buffer_seconds))
+            return datetime.now(timezone.utc) >= (expires_at - timedelta(seconds=buffer_seconds))
 
         # Token expired
-        expired_at = datetime.utcnow() - timedelta(hours=1)
+        expired_at = datetime.now(timezone.utc) - timedelta(hours=1)
         assert is_token_expired(expired_at) is True
 
         # Token expiring soon (within buffer)
-        expiring_soon = datetime.utcnow() + timedelta(seconds=100)
+        expiring_soon = datetime.now(timezone.utc) + timedelta(seconds=100)
         assert is_token_expired(expiring_soon, buffer_seconds=300) is True
 
         # Token still valid
-        valid_until = datetime.utcnow() + timedelta(hours=1)
+        valid_until = datetime.now(timezone.utc) + timedelta(hours=1)
         assert is_token_expired(valid_until) is False
 
     @pytest.mark.asyncio
@@ -312,13 +312,13 @@ class TestTokenRefreshMechanics:
         token_data = {
             "access_token": "current_token",
             "refresh_token": "current_refresh",
-            "expires_at": datetime.utcnow() + timedelta(minutes=4),  # Expiring soon
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=4),  # Expiring soon
         }
 
         # Should trigger refresh when < 5 min remaining
         buffer_seconds = 300  # 5 minutes
         should_refresh = (
-            token_data["expires_at"] - datetime.utcnow()
+            token_data["expires_at"] - datetime.now(timezone.utc)
         ).total_seconds() < buffer_seconds
 
         assert should_refresh is True

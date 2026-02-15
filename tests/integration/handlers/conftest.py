@@ -6,7 +6,7 @@ for cross-platform integration testing.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -32,7 +32,7 @@ class MockMessage:
     channel_id: str
     user_id: str
     text: str
-    timestamp: float = field(default_factory=lambda: datetime.utcnow().timestamp())
+    timestamp: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
     thread_id: str | None = None
     metadata: dict = field(default_factory=dict)
 

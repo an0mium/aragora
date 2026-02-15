@@ -11,7 +11,7 @@ Tests the credential proxy functionality including:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -68,7 +68,7 @@ class TestExternalCredential:
             credential_id="cred-1",
             external_service="slack",
             tenant_id="tenant-a",
-            expires_at=datetime.utcnow() + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
         assert cred.is_expired is False
 
@@ -77,7 +77,7 @@ class TestExternalCredential:
             credential_id="cred-1",
             external_service="slack",
             tenant_id="tenant-a",
-            expires_at=datetime.utcnow() - timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         assert cred.is_expired is True
 
@@ -125,7 +125,7 @@ class TestCredentialUsage:
             external_service="slack",
             operation="send_message",
             scopes_used=["write"],
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             tenant_id="tenant-a",
             user_id="user-1",
             success=True,
@@ -142,7 +142,7 @@ class TestCredentialUsage:
             external_service="slack",
             operation="send_message",
             scopes_used=["write"],
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             tenant_id="tenant-a",
             user_id="user-1",
             success=False,
@@ -152,7 +152,7 @@ class TestCredentialUsage:
         assert usage.error_message == "Rate limit exceeded"
 
     def test_usage_to_dict(self):
-        ts = datetime.utcnow()
+        ts = datetime.now(timezone.utc)
         usage = CredentialUsage(
             credential_id="cred-1",
             external_service="slack",
@@ -355,7 +355,7 @@ class TestCredentialProxy:
             tenant_id="tenant-a",
             api_key="sk-123",
             scopes=["read"],
-            expires_at=datetime.utcnow() - timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         proxy.register_credential(expired_cred)
 
@@ -562,12 +562,12 @@ class TestCredentialProxy:
         )
 
         # Query since future = no results
-        future = datetime.utcnow() + timedelta(hours=1)
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
         history = proxy.get_usage_history(since=future)
         assert len(history) == 0
 
         # Query since past = has results
-        past = datetime.utcnow() - timedelta(hours=1)
+        past = datetime.now(timezone.utc) - timedelta(hours=1)
         history = proxy.get_usage_history(since=past)
         assert len(history) == 1
 
@@ -601,7 +601,7 @@ class TestCredentialProxy:
                 external_service="slack",
                 operation="test",
                 scopes_used=["read"],
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 tenant_id="tenant-a",
                 user_id="user-1",
                 success=True,
@@ -856,7 +856,7 @@ class TestCredentialProxyIntegration:
             oauth_token="old_token",
             refresh_token="refresh_xxx",
             scopes=["read"],
-            expires_at=datetime.utcnow() - timedelta(minutes=1),  # Expired
+            expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),  # Expired
         )
         proxy.register_credential(cred)
 
@@ -884,7 +884,7 @@ class TestCredentialProxyIntegration:
             oauth_token="new_token",
             refresh_token="new_refresh",
             scopes=["read"],
-            expires_at=datetime.utcnow() + timedelta(hours=1),  # Not expired
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),  # Not expired
         )
         proxy.register_credential(new_cred)
 

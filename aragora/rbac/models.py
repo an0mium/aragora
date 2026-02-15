@@ -503,7 +503,7 @@ class RoleAssignment:
     role_id: str
     org_id: str | None = None
     assigned_by: str | None = None
-    assigned_at: datetime = field(default_factory=datetime.utcnow)
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = None
     is_active: bool = True
     conditions: dict[str, Any] = field(default_factory=dict)
@@ -598,7 +598,7 @@ class AuthorizationContext:
     ip_address: str | None = None
     user_agent: str | None = None
     request_id: str = field(default_factory=lambda: str(uuid4()))
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def has_permission(self, permission_key: str) -> bool:
         """Check if context has a permission."""
@@ -647,7 +647,7 @@ class AuthorizationDecision:
     permission_key: str
     resource_id: str | None = None
     context: AuthorizationContext | None = None
-    checked_at: datetime = field(default_factory=datetime.utcnow)
+    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     cached: bool = False
 
     def to_dict(self) -> dict[str, Any]:

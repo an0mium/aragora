@@ -82,7 +82,7 @@ class AuditEvent:
 
     event_type: AuditEventType
     cycle_id: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     phase: str | None = None
     actor: str = "system"  # system, human, agent_name
     artifact_hash: str | None = None

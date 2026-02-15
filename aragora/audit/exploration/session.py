@@ -10,7 +10,7 @@ Tracks the state of an iterative document exploration session, including:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 import uuid
@@ -149,7 +149,7 @@ class ExplorationSession:
     confidence_scores: dict[str, float] = field(default_factory=dict)
 
     # Timing
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
 
     # Convergence tracking

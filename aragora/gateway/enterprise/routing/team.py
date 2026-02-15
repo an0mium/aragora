@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -84,7 +84,7 @@ class TeamMember:
     role: MemberRole = MemberRole.MEMBER
     quota_allocation: float = 0.0  # 0 means equal share
     is_active: bool = True
-    joined_at: datetime = field(default_factory=datetime.utcnow)
+    joined_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass

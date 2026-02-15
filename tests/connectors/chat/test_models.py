@@ -19,7 +19,7 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 
@@ -928,7 +928,7 @@ class TestMetadataCacheEntry:
 
         entry = MetadataCacheEntry(
             data={"timezone": "UTC"},
-            enriched_at=datetime.utcnow(),
+            enriched_at=datetime.now(timezone.utc),
             ttl_seconds=3600,
         )
 
@@ -941,7 +941,7 @@ class TestMetadataCacheEntry:
 
         entry = MetadataCacheEntry(
             data={},
-            enriched_at=datetime.utcnow(),
+            enriched_at=datetime.now(timezone.utc),
             ttl_seconds=3600,
         )
 
@@ -953,7 +953,7 @@ class TestMetadataCacheEntry:
 
         entry = MetadataCacheEntry(
             data={},
-            enriched_at=datetime.utcnow() - timedelta(seconds=3601),
+            enriched_at=datetime.now(timezone.utc) - timedelta(seconds=3601),
             ttl_seconds=3600,
         )
 
@@ -1085,7 +1085,7 @@ class TestMetadataCache:
 
         # Simulate time passing by modifying the entry's enriched_at
         key = "slack:U123"
-        cache._user_cache[key].enriched_at = datetime.utcnow() - timedelta(seconds=2)
+        cache._user_cache[key].enriched_at = datetime.now(timezone.utc) - timedelta(seconds=2)
 
         result = cache.get_user("U123", "slack")
 

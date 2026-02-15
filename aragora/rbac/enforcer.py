@@ -69,7 +69,7 @@ class PermissionCheckResult:
     reason: str
     matching_role: str | None = None
     matching_permission: Permission | None = None
-    checked_at: datetime = field(default_factory=datetime.utcnow)
+    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

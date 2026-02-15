@@ -37,7 +37,7 @@ class UsageSyncRecord:
     subscription_id: str = ""
     sync_type: str = ""  # "tokens_input", "tokens_output", "debates"
     quantity: int = 0
-    synced_at: datetime = field(default_factory=datetime.utcnow)
+    synced_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     stripe_record_id: str = ""
     success: bool = True
     error: str = ""

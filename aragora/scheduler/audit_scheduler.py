@@ -108,7 +108,7 @@ class ScheduledJob:
     last_result: dict | None = None
     run_count: int = 0
     error_count: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

@@ -13,7 +13,7 @@ Tests cover:
 
 import asyncio
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -342,7 +342,7 @@ class TestQuotaStatus:
             used=50,
             remaining=50,
             limit=100,
-            reset_time=datetime.utcnow(),
+            reset_time=datetime.now(timezone.utc),
             quota_type="requests_per_minute",
             is_exceeded=False,
             is_warning=False,
@@ -354,7 +354,7 @@ class TestQuotaStatus:
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
-        reset_time = datetime.utcnow()
+        reset_time = datetime.now(timezone.utc)
         status = QuotaStatus(
             tenant_id="tenant-123",
             used=80,
@@ -1367,12 +1367,12 @@ class TestAuditLogBehavior:
     @pytest.mark.asyncio
     async def test_audit_log_filter_by_since(self, tenant_router):
         """Test filtering audit log by timestamp."""
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
 
         async with TenantContext(tenant_id="test-tenant"):
             await tenant_router.route(tenant_id="test-tenant")
 
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         # Filter by before time should return entries
         entries = await tenant_router.get_audit_log(since=before)

@@ -7,7 +7,7 @@ Defines the core data structures for consumer/device interface.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
@@ -59,8 +59,8 @@ class Channel:
     config: ChannelConfig
     user_id: str
     tenant_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: Literal["active", "paused", "disconnected"] = "active"
     last_message_at: datetime | None = None
     message_count: int = 0
@@ -78,8 +78,8 @@ class InboxMessage:
     content: str
     content_type: str = "text"  # text, image, audio, video, file
     status: InboxMessageStatus = InboxMessageStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     delivered_at: datetime | None = None
     read_at: datetime | None = None
 
@@ -122,8 +122,8 @@ class DeviceNode:
     user_id: str
     gateway_id: str
     tenant_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: Literal["online", "offline", "error"] = "offline"
     last_seen: datetime | None = None
     last_heartbeat: datetime | None = None
@@ -168,8 +168,8 @@ class VoiceSession:
     user_id: str
     channel_id: str
     tenant_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: Literal["active", "paused", "ended"] = "active"
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -217,8 +217,8 @@ class OnboardingFlow:
     name: str
     description: str = ""
     steps: list[OnboardingStep] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: Literal["draft", "active", "archived"] = "draft"
 
     # Targeting
@@ -242,8 +242,8 @@ class OnboardingSession:
     user_id: str
     channel_id: str
     tenant_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: Literal["in_progress", "completed", "abandoned", "paused"] = "in_progress"
     started_at: datetime | None = None
     completed_at: datetime | None = None

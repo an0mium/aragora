@@ -12,7 +12,7 @@ import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, TypeVar, cast
 from collections.abc import Callable, Generator
 import uuid
@@ -69,7 +69,7 @@ class TraceContext:
     parent_span_id: str | None = None
     sampled: bool = True
     baggage: dict[str, str] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_w3c_traceparent(self) -> str:
         """Generate W3C traceparent header value."""

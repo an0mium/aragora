@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -726,7 +726,7 @@ class TestTenantRouterAudit:
         for i in range(10):
             await router._log_audit(
                 RoutingAuditEntry(
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                     tenant_id="t1",
                     event_type=RoutingEventType.ROUTE_SUCCESS,
                 )
@@ -752,7 +752,7 @@ class TestTenantRouterAudit:
         router = TenantRouter(event_handlers=[handler], enable_audit=True)
         await router._log_audit(
             RoutingAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 tenant_id="t1",
                 event_type=RoutingEventType.ROUTE_SUCCESS,
             )
@@ -766,7 +766,7 @@ class TestTenantRouterAudit:
         # Should not raise
         await router._log_audit(
             RoutingAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 tenant_id="t1",
                 event_type=RoutingEventType.ROUTE_SUCCESS,
             )

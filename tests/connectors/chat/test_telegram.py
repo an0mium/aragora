@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -535,7 +535,7 @@ class TestDebateInitiation:
             channel=channel,
             author=author,
             content="We should use microservices architecture for scalability",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         evidence = await connector.extract_evidence(message)

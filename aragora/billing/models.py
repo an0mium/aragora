@@ -298,8 +298,8 @@ class User:
     role: str = "member"  # owner, admin, member
     is_active: bool = True
     email_verified: bool = False
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_login_at: datetime | None = None
 
     # API access (secure storage: hash + prefix for identification)
@@ -912,7 +912,7 @@ class Subscription:
     stripe_price_id: str | None = None
 
     # Billing period
-    current_period_start: datetime = field(default_factory=datetime.utcnow)
+    current_period_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     current_period_end: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30)
     )
@@ -922,8 +922,8 @@ class Subscription:
     trial_start: datetime | None = None
     trial_end: datetime | None = None
 
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def is_active(self) -> bool:
@@ -1010,7 +1010,7 @@ class OrganizationInvitation:
     token: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     invited_by: str | None = None  # User ID of inviter
     status: str = "pending"  # pending, accepted, expired, revoked
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7)
     )

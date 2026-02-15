@@ -33,8 +33,8 @@ class StoredInsight:
     tier: MemoryTier
     importance: float
     access_count: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     session_ids: list[str] = field(default_factory=list)
     document_ids: list[str] = field(default_factory=list)
     embedding: list[float] | None = None

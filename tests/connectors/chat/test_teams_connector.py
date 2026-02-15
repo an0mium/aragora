@@ -691,7 +691,7 @@ class TestTeamsEvidenceCollection:
         """Should collect evidence from channel messages."""
         from aragora.connectors.chat.teams import TeamsConnector
         from aragora.connectors.chat.models import ChatMessage, ChatChannel, ChatUser
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         connector = TeamsConnector(
             app_id="app-123",
@@ -710,7 +710,7 @@ class TestTeamsEvidenceCollection:
                 channel=channel,
                 author=user,
                 content="This is about database optimization",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             ),
             ChatMessage(
                 id="msg-2",
@@ -718,7 +718,7 @@ class TestTeamsEvidenceCollection:
                 channel=channel,
                 author=user,
                 content="Random unrelated message",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             ),
         ]
 

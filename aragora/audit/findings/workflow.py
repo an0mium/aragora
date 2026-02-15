@@ -124,7 +124,7 @@ class WorkflowEvent:
     id: str = field(default_factory=lambda: str(uuid4()))
     finding_id: str = ""
     event_type: WorkflowEventType = WorkflowEventType.STATE_CHANGE
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Who made this change
     user_id: str = ""
@@ -231,13 +231,13 @@ class FindingWorkflowData:
     parent_finding_id: str | None = None  # For duplicates
 
     # Timestamps
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: datetime | None = None
 
     # Metrics
     time_in_states: dict[str, float] = field(default_factory=dict)
-    state_entered_at: datetime = field(default_factory=datetime.utcnow)
+    state_entered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

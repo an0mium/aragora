@@ -11,7 +11,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -48,8 +48,8 @@ class CanvasElement:
     content: dict[str, Any] = field(default_factory=dict)
     style: dict[str, Any] = field(default_factory=dict)
     created_by: str = ""
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     locked: bool = False
     z_index: int = 0
     rotation: float = 0.0
@@ -68,7 +68,7 @@ class CanvasLayer:
     opacity: float = 1.0
     z_index: int = 0
     elements: list[str] = field(default_factory=list)  # Element IDs
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -96,8 +96,8 @@ class Canvas:
     config: CanvasConfig
     owner_id: str
     tenant_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "active"  # active, archived, locked
 
     # Layers and elements
@@ -262,7 +262,7 @@ class CanvasManager:
 
             layer = await self._create_layer_internal(canvas_id, name, z_index=max_z + 1)
             canvas.layers.append(layer.id)
-            canvas.updated_at = datetime.utcnow()
+            canvas.updated_at = datetime.now(timezone.utc)
             canvas.version += 1
 
             await self._broadcast(canvas_id, "layer_added", {"layer": layer})
@@ -341,7 +341,7 @@ class CanvasManager:
 
             self._elements[element_id] = element
             layer.elements.append(element_id)
-            canvas.updated_at = datetime.utcnow()
+            canvas.updated_at = datetime.now(timezone.utc)
             canvas.version += 1
 
             # Record for undo
@@ -413,8 +413,8 @@ class CanvasManager:
             if "locked" in updates:
                 element.locked = updates["locked"]
 
-            element.updated_at = datetime.utcnow()
-            canvas.updated_at = datetime.utcnow()
+            element.updated_at = datetime.now(timezone.utc)
+            canvas.updated_at = datetime.now(timezone.utc)
             canvas.version += 1
 
             # Record for undo
@@ -467,7 +467,7 @@ class CanvasManager:
             canvas.redo_stack.clear()
 
             del self._elements[element_id]
-            canvas.updated_at = datetime.utcnow()
+            canvas.updated_at = datetime.now(timezone.utc)
             canvas.version += 1
 
             await self._broadcast(canvas_id, "element_deleted", {"element_id": element_id})
@@ -532,7 +532,7 @@ class CanvasManager:
                 "cursor_y": 0,
                 "cursor_color": cursor_color,
                 "selection": [],
-                "joined_at": datetime.utcnow().isoformat(),
+                "joined_at": datetime.now(timezone.utc).isoformat(),
             }
 
             if user_id not in canvas.collaborators:
@@ -655,7 +655,7 @@ class CanvasManager:
         event = {
             "type": event_type,
             "canvas_id": canvas_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data": data,
         }
 

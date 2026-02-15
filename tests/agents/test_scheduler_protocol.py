@@ -11,7 +11,7 @@ Verifies:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 import os
@@ -120,7 +120,7 @@ class TestTaskInfo:
             task_type="debate",
             status=TaskStatus.RUNNING,
             priority=Priority.NORMAL,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
         assert info.duration_seconds is None
 
@@ -261,7 +261,7 @@ class TestLocalSchedulerAdapter:
         mock_handle = MagicMock()
         mock_handle.task_id = "task-123"
         mock_handle.status = TaskStatus.PENDING
-        mock_handle.scheduled_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.now(timezone.utc)
 
         adapter._scheduler.schedule = AsyncMock(return_value=mock_handle)
 
@@ -282,7 +282,7 @@ class TestLocalSchedulerAdapter:
         mock_handle = MagicMock()
         mock_handle.task_id = "task-456"
         mock_handle.status = TaskStatus.PENDING
-        mock_handle.scheduled_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.now(timezone.utc)
 
         adapter._scheduler.schedule = AsyncMock(return_value=mock_handle)
 
@@ -301,8 +301,8 @@ class TestLocalSchedulerAdapter:
         mock_handle.task_id = "task-789"
         mock_handle.status = TaskStatus.RUNNING
         mock_handle.agent_id = "agent-1"
-        mock_handle.scheduled_at = datetime.utcnow()
-        mock_handle.started_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.now(timezone.utc)
+        mock_handle.started_at = datetime.now(timezone.utc)
         mock_handle.completed_at = None
         mock_handle.result = None
         mock_handle.error = None
@@ -343,9 +343,9 @@ class TestLocalSchedulerAdapter:
         mock_handle1.task_id = "task-1"
         mock_handle1.status = TaskStatus.COMPLETED
         mock_handle1.agent_id = "agent-1"
-        mock_handle1.scheduled_at = datetime.utcnow()
-        mock_handle1.started_at = datetime.utcnow()
-        mock_handle1.completed_at = datetime.utcnow()
+        mock_handle1.scheduled_at = datetime.now(timezone.utc)
+        mock_handle1.started_at = datetime.now(timezone.utc)
+        mock_handle1.completed_at = datetime.now(timezone.utc)
         mock_handle1.result = {"answer": 42}
         mock_handle1.error = None
 
@@ -364,7 +364,7 @@ class TestLocalSchedulerAdapter:
         mock_handle1.task_id = "task-1"
         mock_handle1.status = TaskStatus.COMPLETED
         mock_handle1.agent_id = "agent-1"
-        mock_handle1.scheduled_at = datetime.utcnow()
+        mock_handle1.scheduled_at = datetime.now(timezone.utc)
         mock_handle1.started_at = None
         mock_handle1.completed_at = None
         mock_handle1.result = None
@@ -374,7 +374,7 @@ class TestLocalSchedulerAdapter:
         mock_handle2.task_id = "task-2"
         mock_handle2.status = TaskStatus.PENDING
         mock_handle2.agent_id = "agent-2"
-        mock_handle2.scheduled_at = datetime.utcnow()
+        mock_handle2.scheduled_at = datetime.now(timezone.utc)
         mock_handle2.started_at = None
         mock_handle2.completed_at = None
         mock_handle2.result = None
@@ -622,7 +622,7 @@ class TestIntegrationScenarios:
         mock_handle = MagicMock()
         mock_handle.task_id = "lifecycle-task"
         mock_handle.status = TaskStatus.PENDING
-        mock_handle.scheduled_at = datetime.utcnow()
+        mock_handle.scheduled_at = datetime.now(timezone.utc)
         mock_handle.agent_id = "default"
         mock_handle.started_at = None
         mock_handle.completed_at = None

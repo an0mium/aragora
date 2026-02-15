@@ -190,7 +190,7 @@ class VerificationResult:
     row_counts_valid: bool
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    verified_at: datetime = field(default_factory=datetime.utcnow)
+    verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 0.0
 
 
@@ -237,7 +237,7 @@ class ComprehensiveVerificationResult:
     table_checksum_errors: list[str] = field(default_factory=list)
     all_errors: list[str] = field(default_factory=list)
     all_warnings: list[str] = field(default_factory=list)
-    verified_at: datetime = field(default_factory=datetime.utcnow)
+    verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:

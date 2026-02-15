@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aragora.fabric.models import (
     AgentConfig,
@@ -76,7 +76,7 @@ class TestTaskHandle:
             task_id="t1",
             agent_id="a1",
             status=TaskStatus.RUNNING,
-            scheduled_at=datetime.utcnow(),
+            scheduled_at=datetime.now(timezone.utc),
         )
         assert handle.task_id == "t1"
         assert handle.agent_id == "a1"
@@ -143,7 +143,7 @@ class TestAgentHandle:
         handle = AgentHandle(
             agent_id="a1",
             config=config,
-            spawned_at=datetime.utcnow(),
+            spawned_at=datetime.now(timezone.utc),
         )
         assert handle.status == HealthStatus.HEALTHY
         assert handle.tasks_completed == 0
@@ -156,8 +156,8 @@ class TestAgentInfo:
             agent_id="a1",
             model="claude-3-opus",
             status=HealthStatus.HEALTHY,
-            spawned_at=datetime.utcnow(),
-            last_heartbeat=datetime.utcnow(),
+            spawned_at=datetime.now(timezone.utc),
+            last_heartbeat=datetime.now(timezone.utc),
             tasks_pending=2,
             tasks_running=1,
             tasks_completed=10,
@@ -238,8 +238,8 @@ class TestUsageModels:
         status = BudgetStatus(
             entity_id="a1",
             entity_type="agent",
-            period_start=datetime.utcnow(),
-            period_end=datetime.utcnow(),
+            period_start=datetime.now(timezone.utc),
+            period_end=datetime.now(timezone.utc),
             usage_percent=75.0,
             over_limit=False,
         )
@@ -248,8 +248,8 @@ class TestUsageModels:
     def test_usage_report(self):
         report = UsageReport(
             entity_id="a1",
-            period_start=datetime.utcnow(),
-            period_end=datetime.utcnow(),
+            period_start=datetime.now(timezone.utc),
+            period_end=datetime.now(timezone.utc),
             total_tokens=10000,
             total_cost_usd=0.50,
         )
@@ -266,7 +266,7 @@ class TestApprovalModels:
             id="req1",
             action="deploy",
             context=PolicyContext(agent_id="a1"),
-            requested_at=datetime.utcnow(),
+            requested_at=datetime.now(timezone.utc),
             requested_by="user1",
             approvers=["admin1"],
         )

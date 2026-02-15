@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -360,8 +360,8 @@ class Coordinator:
                 return None
 
             entry.status = "resolved"
-            entry.resolved_at = datetime.utcnow()
-            entry.updated_at = datetime.utcnow()
+            entry.resolved_at = datetime.now(timezone.utc)
+            entry.updated_at = datetime.now(timezone.utc)
             if resolution:
                 entry.metadata["resolution"] = resolution
 

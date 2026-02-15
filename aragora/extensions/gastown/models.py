@@ -11,7 +11,7 @@ status lifecycle. All persistence delegates to the canonical nomic stores.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
 import logging
@@ -155,8 +155,8 @@ class Workspace:
 
     id: str
     config: WorkspaceConfig
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     owner_id: str = ""
     tenant_id: str | None = None
     status: Literal["active", "archived", "suspended"] = "active"
@@ -190,8 +190,8 @@ class Rig:
     id: str
     workspace_id: str
     config: RigConfig
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: Literal["active", "paused", "archived"] = "active"
     agents: list[str] = field(default_factory=list)  # Agent IDs
     active_convoys: list[str] = field(default_factory=list)  # Convoy IDs
@@ -208,7 +208,7 @@ class ConvoyArtifact:
     path: str
     content_hash: str = ""
     size_bytes: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -226,8 +226,8 @@ class Convoy:
     title: str
     description: str = ""
     status: ConvoyStatus = ConvoyStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -318,8 +318,8 @@ class Hook:
     path: str
     content: str = ""
     enabled: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_triggered: datetime | None = None
     trigger_count: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -339,8 +339,8 @@ class LedgerEntry:
     title: str
     body: str = ""
     status: Literal["open", "in_progress", "resolved", "closed"] = "open"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: datetime | None = None
 
     # Relationships

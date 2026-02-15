@@ -11,7 +11,7 @@ import json
 import logging
 import uuid
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -272,7 +272,7 @@ class WorkspaceManager:
                 workspace.config = config
             if status:
                 workspace.status = status
-            workspace.updated_at = datetime.utcnow()
+            workspace.updated_at = datetime.now(timezone.utc)
             self._save_state()
 
             return workspace
@@ -364,7 +364,7 @@ class WorkspaceManager:
             self._rigs[rig_id] = rig
             self._rig_index[rig_id] = workspace_id
             workspace.rigs.append(rig_id)
-            workspace.updated_at = datetime.utcnow()
+            workspace.updated_at = datetime.now(timezone.utc)
             self._save_state()
 
             logger.info(f"Created rig {config.name} ({rig_id}) in workspace {workspace_id}")
@@ -425,7 +425,7 @@ class WorkspaceManager:
                 rig.config = config
             if status:
                 rig.status = status
-            rig.updated_at = datetime.utcnow()
+            rig.updated_at = datetime.now(timezone.utc)
             self._rigs[rig_id] = rig
 
             workspace_id = self._rig_index.get(rig_id)
@@ -447,7 +447,7 @@ class WorkspaceManager:
                                 "paused": CoreRigStatus.DRAINING,
                                 "archived": CoreRigStatus.STOPPED,
                             }.get(status, CoreRigStatus.ACTIVE)
-                        core_rig.updated_at = datetime.utcnow().timestamp()
+                        core_rig.updated_at = datetime.now(timezone.utc).timestamp()
 
             self._save_state()
             return rig
@@ -479,7 +479,7 @@ class WorkspaceManager:
             workspace = self._workspaces.get(rig.workspace_id)
             if workspace and rig_id in workspace.rigs:
                 workspace.rigs.remove(rig_id)
-                workspace.updated_at = datetime.utcnow()
+                workspace.updated_at = datetime.now(timezone.utc)
 
             del self._rigs[rig_id]
             self._rig_index.pop(rig_id, None)
@@ -554,7 +554,7 @@ class WorkspaceManager:
             # 2. Pull latest changes if clean
             # 3. Update worktree if applicable
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             rig.last_sync = now
             rig.updated_at = now
             self._rigs[rig_id] = rig

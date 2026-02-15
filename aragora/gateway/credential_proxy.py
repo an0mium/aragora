@@ -69,7 +69,7 @@ class ExternalCredential:
     refresh_token: str = ""
     scopes: list[str] = field(default_factory=list)
     expires_at: datetime | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_used_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 

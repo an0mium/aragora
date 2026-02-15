@@ -23,7 +23,7 @@ import math
 import re
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 from collections.abc import Callable
@@ -87,7 +87,7 @@ class AnonymizationResult:
     identifiers_found: list[DetectedIdentifier] = field(default_factory=list)
     reversible: bool = False
     audit_id: str = field(default_factory=lambda: str(uuid4()))
-    anonymized_at: datetime = field(default_factory=datetime.utcnow)
+    anonymized_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -110,7 +110,7 @@ class SafeHarborResult:
     compliant: bool
     identifiers_remaining: list[DetectedIdentifier] = field(default_factory=list)
     verification_notes: list[str] = field(default_factory=list)
-    verified_at: datetime = field(default_factory=datetime.utcnow)
+    verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class HIPAAAnonymizer:
