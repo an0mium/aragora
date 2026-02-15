@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -528,11 +529,17 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
                     print(f"  Removed worktree: {wt_path}")
                 else:
                     # Force removal if needed
-                    _run_git(
+                    force_result = _run_git(
                         "worktree", "remove", "--force", str(wt_path),
                         check=False,
                     )
-                    print(f"  Force-removed worktree: {wt_path}")
+                    if force_result.returncode == 0 or not wt_path.exists():
+                        print(f"  Force-removed worktree: {wt_path}")
+                    else:
+                        # Last resort: manual removal + prune
+                        shutil.rmtree(wt_path, ignore_errors=True)
+                        _run_git("worktree", "prune", check=False)
+                        print(f"  Removed worktree (manual): {wt_path}")
 
             # Delete the branch
             del_result = _run_git("branch", "-d", branch, check=False)

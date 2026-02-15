@@ -782,7 +782,7 @@ class TestDownloadFile:
             )
 
             assert result.id == "file-123"
-            assert "Timeout" in result.metadata.get("error", "")
+            assert "timed out" in result.metadata.get("error", "").lower()
             connector._record_failure_mock.assert_called_once()
 
     @pytest.mark.asyncio

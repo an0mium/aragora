@@ -1243,7 +1243,7 @@ class AutonomousOrchestrator:
             True if approved, False if rejected or timed out
         """
         if self._auto_approve:
-            logger.info("approval_auto_approved gate=%s", gate_id)
+            logger.info("approval_auto_approved", gate=gate_id)
             return True
 
         import json as _json
@@ -1266,31 +1266,27 @@ class AutonomousOrchestrator:
         }
         request_file.write_text(_json.dumps(request_data, indent=2))
 
-        logger.info(
-            "approval_requested gate=%s file=%s",
-            gate_id,
-            str(request_file),
-        )
+        logger.info("approval_requested", gate=gate_id, file=str(request_file))
 
         # Poll for approval/rejection
         start = _time.monotonic()
         while (_time.monotonic() - start) < timeout:
             if approved_file.exists():
-                logger.info("approval_granted gate=%s", gate_id)
+                logger.info("approval_granted", gate=gate_id)
                 # Clean up marker
                 approved_file.unlink(missing_ok=True)
                 request_file.unlink(missing_ok=True)
                 return True
 
             if rejected_file.exists():
-                logger.warning("approval_rejected gate=%s", gate_id)
+                logger.warning("approval_rejected", gate=gate_id)
                 rejected_file.unlink(missing_ok=True)
                 request_file.unlink(missing_ok=True)
                 return False
 
             await asyncio.sleep(poll_interval)
 
-        logger.warning("approval_timeout gate=%s seconds=%.0f", gate_id, timeout)
+        logger.warning("approval_timeout", gate=gate_id, seconds=timeout)
         request_file.unlink(missing_ok=True)
         return False
 

@@ -43,7 +43,7 @@ class TestScopeGuardCheckFiles:
 
     def test_file_in_scope_no_violation(self):
         violations = self.guard.check_files(
-            ["aragora/debate/orchestrator.py"], "core-track"
+            ["aragora/debate/consensus.py"], "core-track"
         )
         assert not violations
 
@@ -57,10 +57,10 @@ class TestScopeGuardCheckFiles:
 
     def test_file_in_denied_path(self):
         violations = self.guard.check_files(
-            ["aragora/debate/orchestrator.py"], "sme-track"
+            ["aragora/debate/consensus.py"], "sme-track"
         )
-        assert len(violations) >= 1
-        assert any(v.violation_type == "outside_scope" for v in violations)
+        assert len(violations) == 1
+        assert violations[0].violation_type == "outside_scope"
 
     def test_protected_file_always_blocked(self):
         violations = self.guard.check_files(
@@ -73,8 +73,8 @@ class TestScopeGuardCheckFiles:
     def test_multiple_files_mixed_scope(self):
         violations = self.guard.check_files(
             [
-                "aragora/debate/consensus.py",  # in scope
-                "aragora/live/src/page.tsx",     # out of scope
+                "aragora/memory/coordinator.py",  # in scope for core-track
+                "aragora/live/src/page.tsx",       # out of scope (denied)
             ],
             "core-track",
         )

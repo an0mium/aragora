@@ -245,6 +245,7 @@ class ScopeGuard:
                 continue
 
             # Check denied paths
+            denied_match = False
             if scope.denied_paths:
                 for denied in scope.denied_paths:
                     if file_path.startswith(denied):
@@ -258,7 +259,11 @@ class ScopeGuard:
                             ),
                             severity=self.mode,
                         ))
+                        denied_match = True
                         break
+
+            if denied_match:
+                continue
 
             # Check allowed paths (only if there are explicit allowed paths)
             if scope.allowed_paths:
