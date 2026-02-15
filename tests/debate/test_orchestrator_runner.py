@@ -553,9 +553,9 @@ class TestSetupDebateInfrastructure:
         """Test that budget is checked before debate starts."""
         await setup_debate_infrastructure(mock_arena, execution_state)
 
-        mock_arena._budget_coordinator.check_budget_before_debate.assert_called_once_with(
-            execution_state.debate_id
-        )
+        mock_arena._budget_coordinator.check_budget_before_debate.assert_called_once()
+        call_args = mock_arena._budget_coordinator.check_budget_before_debate.call_args
+        assert call_args[0][0] == execution_state.debate_id
 
     @pytest.mark.asyncio
     async def test_budget_exceeded_raises(self, mock_arena, execution_state):
