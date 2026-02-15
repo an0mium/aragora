@@ -223,7 +223,7 @@ class CommandsMixin(BlocksMixin):
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Slash command error: {e}", exc_info=True)
 
             # Audit log error
@@ -325,7 +325,7 @@ class CommandsMixin(BlocksMixin):
                 "Error getting status. Please try again later.",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception("Unexpected status command error: %s", e)
             return self._slack_response(
                 "Error getting status. Please try again later.",
@@ -371,7 +371,7 @@ class CommandsMixin(BlocksMixin):
                 "Error listing agents. Please try again later.",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception("Unexpected agents command error: %s", e)
             return self._slack_response(
                 "Error listing agents. Please try again later.",
@@ -659,7 +659,7 @@ class CommandsMixin(BlocksMixin):
                 "Search service temporarily unavailable",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.exception("Unexpected search error: %s", e)
             return self._slack_response(
                 "Search failed. Please try again later.",
@@ -743,7 +743,7 @@ class CommandsMixin(BlocksMixin):
                 "Leaderboard service temporarily unavailable",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.exception("Unexpected leaderboard error: %s", e)
             return self._slack_response(
                 "Leaderboard failed. Please try again later.",
@@ -841,7 +841,7 @@ class CommandsMixin(BlocksMixin):
                 "Recent debates service temporarily unavailable",
                 response_type="ephemeral",
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
             logger.exception("Unexpected recent debates error: %s", e)
             return self._slack_response(
                 "Failed to get recent debates. Please try again later.",
@@ -1402,7 +1402,7 @@ class CommandsMixin(BlocksMixin):
                 evidence_store=evidence_store,
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error("Async debate creation failed: %s", e, exc_info=True)
             error_text = "Debate failed. Please try again later."
 

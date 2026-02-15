@@ -53,42 +53,42 @@ class ChannelHealthHandler:
             from aragora.connectors.chat.slack import SlackConnector
 
             self._connectors["slack"] = SlackConnector()
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Slack connector not available: {e}")
 
         try:
             from aragora.connectors.chat.teams import TeamsConnector
 
             self._connectors["teams"] = TeamsConnector()
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Teams connector not available: {e}")
 
         try:
             from aragora.connectors.chat.discord import DiscordConnector
 
             self._connectors["discord"] = DiscordConnector()
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Discord connector not available: {e}")
 
         try:
             from aragora.connectors.chat.telegram import TelegramConnector
 
             self._connectors["telegram"] = TelegramConnector()
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Telegram connector not available: {e}")
 
         try:
             from aragora.connectors.chat.whatsapp import WhatsAppConnector
 
             self._connectors["whatsapp"] = WhatsAppConnector()
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"WhatsApp connector not available: {e}")
 
         try:
             from aragora.connectors.chat.google_chat import GoogleChatConnector
 
             self._connectors["google_chat"] = GoogleChatConnector()
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Google Chat connector not available: {e}")
 
         # Check for email integration
@@ -96,7 +96,7 @@ class ChannelHealthHandler:
             from aragora.integrations.email import EmailConfig, EmailIntegration
 
             self._connectors["email"] = EmailIntegration(EmailConfig())
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug(f"Email integration not available: {e}")
 
         self._initialized = True
@@ -136,7 +136,7 @@ class ChannelHealthHandler:
                 elif status == "unconfigured":
                     unconfigured_count += 1
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
                 logger.error(f"Error getting health for {name}: {e}")
                 channels[name] = {
                     "platform": name,
@@ -212,7 +212,7 @@ class ChannelHealthHandler:
 
             return web.json_response(health)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
             logger.error(f"Error getting health for {channel}: {e}")
             return web.json_response(
                 {
@@ -247,7 +247,7 @@ class ChannelHealthHandler:
                 result = await connector.test_connection()
                 health["status"] = "healthy" if result.get("success") else "unhealthy"
                 health["details"] = result
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
                 health["status"] = "unhealthy"
                 health["details"]["error"] = "Health check failed"
         else:

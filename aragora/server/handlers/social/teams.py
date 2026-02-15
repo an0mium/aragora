@@ -397,7 +397,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Teams notify error: {e}")
             return error_response("Internal server error", 500)
 
@@ -507,7 +507,7 @@ class TeamsIntegrationHandler(BaseHandler):
             )
         except ImportError:
             logger.debug("Debate origin tracking not available")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError) as e:
             logger.warning(f"Failed to register debate origin: {e}")
 
         try:
@@ -572,7 +572,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 receipt_id = receipt.receipt_id
                 if conv_id in self._active_debates:
                     self._active_debates[conv_id]["receipt_id"] = receipt_id
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError) as e:
                 logger.warning(f"Failed to generate receipt: {e}")
 
             # Update status
@@ -585,7 +585,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 from aragora.server.debate_origin import mark_result_sent
 
                 mark_result_sent(debate_id)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, KeyError) as e:
                 logger.debug("Could not mark result sent for debate %s: %s", debate_id, e)
 
             # Optionally emit decision integrity package
@@ -606,7 +606,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 evidence_store=evidence_store,
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Teams debate error: {e}")
             await connector.send_message(
                 channel_id=conv_id,
@@ -708,7 +708,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "rankings": rankings})
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Leaderboard error: {e}")
             return error_response("Internal server error", 500)
 
@@ -752,7 +752,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "agents": agent_list})
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"List agents error: {e}")
             return error_response("Internal server error", 500)
 
@@ -794,7 +794,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "debates": debates})
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Recent debates error: {e}")
             return error_response("Internal server error", 500)
 
@@ -847,7 +847,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "query": query, "results": results})
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Search error: {e}")
             return error_response("Internal server error", 500)
 
@@ -994,7 +994,7 @@ class TeamsIntegrationHandler(BaseHandler):
                     source="teams",
                 )
                 logger.info(f"Vote recorded in DB: {debate_id} -> {vote_value}")
-        except Exception as e:
+        except (TypeError, ValueError, OSError, KeyError) as e:
             logger.warning(f"Failed to record vote in storage: {e}")
 
         # Record in vote aggregator if available

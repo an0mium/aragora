@@ -87,7 +87,7 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], KnowledgeMound | 
 
         return result, mound
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError, RuntimeError) as e:
         logger.warning("Knowledge Mound core initialization failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
@@ -133,7 +133,7 @@ def check_storage_backend(mound: KnowledgeMound | None = None) -> dict[str, Any]
 
         return result
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
         logger.debug("Storage backend check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -183,7 +183,7 @@ def check_culture_accumulator(mound: KnowledgeMound | None = None) -> dict[str, 
             "note": "Mound not available for culture accumulator check",
         }
 
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError) as e:
         logger.debug("Culture accumulator check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -221,7 +221,7 @@ def check_staleness_tracker(mound: KnowledgeMound | None = None) -> dict[str, An
             "note": "Mound not available for staleness tracker check",
         }
 
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError) as e:
         logger.debug("Staleness tracker check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -258,7 +258,7 @@ def check_rlm_integration() -> dict[str, Any]:
             "status": "not_available",
             "note": "RLM module not installed",
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.debug("RLM integration check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -300,7 +300,7 @@ def check_debate_integration() -> dict[str, Any]:
             "status": "not_available",
             "note": "knowledge_mound_ops module not available",
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.debug("Debate integration check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -337,7 +337,7 @@ def check_knowledge_mound_redis_cache() -> dict[str, Any]:
             "status": "not_available",
             "note": "Redis cache module not installed",
         }
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.debug("Redis cache check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,

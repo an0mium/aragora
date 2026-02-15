@@ -112,7 +112,7 @@ class PruningOperationsMixin:
                     ],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting prunable items: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -186,7 +186,7 @@ class PruningOperationsMixin:
                     "errors": result.errors if hasattr(result, "errors") else [],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error executing prune: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -277,7 +277,7 @@ class PruningOperationsMixin:
                     "errors": result.errors if hasattr(result, "errors") else [],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error in auto-prune: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -341,7 +341,7 @@ class PruningOperationsMixin:
                     ],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting prune history: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -395,7 +395,7 @@ class PruningOperationsMixin:
                     f"Could not restore item {node_id}. It may not exist or was deleted.",
                     status=404,
                 )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error restoring pruned item: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -454,6 +454,6 @@ class PruningOperationsMixin:
                     "items_decayed": items_decayed,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error applying confidence decay: {e}")
             return error_response(safe_error_message(e), status=500)

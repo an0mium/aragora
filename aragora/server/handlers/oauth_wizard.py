@@ -742,7 +742,7 @@ class OAuthWizardHandler(SecureHandler):
                 elif response.status_code == 401:
                     return {"success": False, "error": "Token expired"}
                 return {"success": False, "error": f"API returned {response.status_code}"}
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
             logger.warning("Teams API test failed: %s", e)
             return {"success": False, "error": "Teams API test failed"}
 
@@ -766,7 +766,7 @@ class OAuthWizardHandler(SecureHandler):
                     data = response.json()
                     return {"success": True, "bot_name": data.get("username")}
                 return {"success": False, "error": f"API returned {response.status_code}"}
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, RuntimeError) as e:
             logger.warning("Discord API test failed: %s", e)
             return {"success": False, "error": "Discord API test failed"}
 
@@ -800,7 +800,7 @@ class OAuthWizardHandler(SecureHandler):
                     "count": len(workspaces),
                 }
             )
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Failed to list workspaces for {provider_id}: {e}")
             return error_response("Failed to list workspaces", 500)
 
@@ -882,7 +882,7 @@ class OAuthWizardHandler(SecureHandler):
                     "message": result.get("message", ""),
                 }
             )
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.exception(f"Failed to disconnect {provider_id}: {e}")
             return error_response("Disconnect operation failed", 500)
 

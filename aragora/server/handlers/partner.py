@@ -483,6 +483,6 @@ class PartnerHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting limits: {e}")
             return error_response(safe_error_message(e, "limits"), 500)

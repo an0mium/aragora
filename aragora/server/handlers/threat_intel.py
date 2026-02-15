@@ -128,7 +128,7 @@ class ThreatIntelHandler(BaseHandler):
 
             return self.success_response(result.to_dict())
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"URL check failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -202,7 +202,7 @@ class ThreatIntelHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Batch URL check failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -247,7 +247,7 @@ class ThreatIntelHandler(BaseHandler):
 
             return self.success_response(result.to_dict())
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"IP check failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -299,7 +299,7 @@ class ThreatIntelHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Batch IP check failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -344,7 +344,7 @@ class ThreatIntelHandler(BaseHandler):
 
             return self.success_response(result.to_dict())
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Hash check failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -396,7 +396,7 @@ class ThreatIntelHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Batch hash check failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -454,7 +454,7 @@ class ThreatIntelHandler(BaseHandler):
 
             return self.success_response(result)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Email scan failed: {e}")
             return self.error_response("Internal server error", status=500)
 
@@ -509,7 +509,7 @@ class ThreatIntelHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.exception(f"Status check failed: {e}")
             return self.error_response("Internal server error", status=500)
 

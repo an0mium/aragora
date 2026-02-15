@@ -236,7 +236,7 @@ class CalibrationHandler(SecureHandler):
                         "elo": rating.elo,
                     }
                 )
-            except Exception as e:
+            except (KeyError, ValueError, AttributeError, TypeError) as e:
                 logger.debug(f"Skipping agent {agent_name}: {e}")
                 continue
 
@@ -322,7 +322,7 @@ class CalibrationHandler(SecureHandler):
                                 "summary": summary,
                             }
                         )
-                except Exception as e:
+                except (KeyError, ValueError, AttributeError, TypeError) as e:
                     logger.debug(f"Error getting summary for {agent}: {e}")
                     continue
 
@@ -347,7 +347,7 @@ class CalibrationHandler(SecureHandler):
                             ],
                             "perfect_line": [{"x": i / 10, "y": i / 10} for i in range(11)],
                         }
-                except Exception as e:
+                except (KeyError, ValueError, AttributeError, TypeError) as e:
                     logger.debug(f"Error getting curve for {agent}: {e}")
 
             # 2. Scatter plot data (agent confidence vs accuracy)
@@ -376,7 +376,7 @@ class CalibrationHandler(SecureHandler):
                         for i, b in enumerate(curve):
                             if i < 10:
                                 confidence_buckets[i] += b.total_predictions
-                except Exception as e:
+                except (KeyError, ValueError, AttributeError, TypeError) as e:
                     logger.debug(f"Failed to get calibration curve for {agent}: {e}")
 
             result["confidence_histogram"] = [
@@ -401,7 +401,7 @@ class CalibrationHandler(SecureHandler):
                             }
                             for domain, s in domain_data.items()
                         }
-                except Exception as e:
+                except (KeyError, ValueError, AttributeError, TypeError) as e:
                     logger.debug(f"Error getting domains for {agent}: {e}")
 
             # 5. Summary statistics
@@ -418,7 +418,7 @@ class CalibrationHandler(SecureHandler):
             if ece_scores:
                 result["summary"]["avg_ece"] = round(sum(ece_scores) / len(ece_scores), 4)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.warning(f"Calibration visualization error: {e}")
 
         return json_response(result)

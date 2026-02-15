@@ -706,7 +706,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML embedding request: {e}")
             return error_response(safe_error_message(e, "embedding"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML embedding error: {e}")
             return error_response(safe_error_message(e, "embedding"), 500)
 
@@ -771,7 +771,7 @@ class MLHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid ML search request: {e}")
             return error_response(safe_error_message(e, "search"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected ML search error: {e}")
             return error_response(safe_error_message(e, "search"), 500)
 

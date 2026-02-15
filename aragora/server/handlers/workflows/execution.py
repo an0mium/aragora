@@ -194,7 +194,7 @@ async def _dispatch_chat_message(
                     text=text,
                     thread_id=platform_thread,
                 )
-            except Exception as exc:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as exc:
                 logger.debug(
                     "Failed to send workflow update to %s:%s: %s",
                     platform,
@@ -216,7 +216,7 @@ def _schedule_chat_dispatch(coro: Any) -> None:
 
     try:
         asyncio.run(coro)
-    except Exception as exc:
+    except (RuntimeError, OSError, ValueError) as exc:
         logger.debug("Async chat dispatch failed: %s", exc)
 
 
@@ -252,14 +252,14 @@ def _build_event_callback(
 
                 stream_type = StreamEventType(event_type)
                 event_emitter.emit(StreamEvent(type=stream_type, data=payload))
-            except Exception as exc:
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.debug("Workflow event emitter failed: %s", exc)
 
         try:
             from aragora.events.dispatcher import dispatch_event
 
             dispatch_event(event_type, payload)
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError) as exc:
             logger.debug("Workflow event dispatch failed: %s", exc)
 
         if channel_targets and _should_notify_chat(event_type, notify_steps):

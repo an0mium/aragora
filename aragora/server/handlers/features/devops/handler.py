@@ -233,7 +233,7 @@ class DevOpsHandler(SecureHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in devops handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -359,7 +359,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to list incidents: {e}")
             return error_response("Failed to list incidents", 500)
@@ -464,7 +464,7 @@ class DevOpsHandler(SecureHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to create incident: {e}")
             return error_response("Failed to create incident", 500)
@@ -514,7 +514,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to get incident {incident_id}: {e}")
             return error_response("Failed to get incident", 500)
@@ -554,7 +554,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to acknowledge incident {incident_id}: {e}")
             return error_response("Failed to acknowledge incident", 500)
@@ -609,7 +609,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to resolve incident {incident_id}: {e}")
             return error_response("Failed to resolve incident", 500)
@@ -680,7 +680,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to reassign incident {incident_id}: {e}")
             return error_response("Failed to reassign incident", 500)
@@ -739,7 +739,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to merge incidents into {incident_id}: {e}")
             return error_response("Failed to merge incidents", 500)
@@ -791,7 +791,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to list notes for {incident_id}: {e}")
             return error_response("Failed to list notes", 500)
@@ -848,7 +848,7 @@ class DevOpsHandler(SecureHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to add note to {incident_id}: {e}")
             return error_response("Failed to add note", 500)
@@ -908,7 +908,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Failed to get on-call: {e}")
             return error_response("Failed to get on-call", 500)
@@ -943,7 +943,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(f"Failed to get on-call for service {service_id}: {e}")
             return error_response("Failed to retrieve on-call info", 500)
 
@@ -981,7 +981,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(f"Failed to list services: {e}")
             return error_response("Failed to list services", 500)
 
@@ -1012,7 +1012,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
             logger.error(f"Failed to get service {service_id}: {e}")
             return error_response("Failed to retrieve service", 500)
 
@@ -1062,7 +1062,7 @@ class DevOpsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler (webhooks must always return 200)
             logger.error(f"Error processing PagerDuty webhook: {e}")
             return success_response({"received": True, "error": "Webhook processing failed"})
 
@@ -1141,7 +1141,7 @@ class DevOpsHandler(SecureHandler):
                     StreamEventType.CONNECTOR_PAGERDUTY_INCIDENT.value,
                     event_data,
                 )
-        except Exception as e:
+        except (ImportError, ConnectionError, AttributeError, ValueError, TypeError) as e:
             logger.debug(f"[DevOps] Event emission skipped: {e}")
 
 

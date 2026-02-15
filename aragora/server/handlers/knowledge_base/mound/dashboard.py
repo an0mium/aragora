@@ -58,7 +58,7 @@ class DashboardOperationsMixin:
                 logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
                 return error_response(f"Permission denied: {decision.reason}", status=403)
             return None
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", status=500)
 
@@ -92,7 +92,7 @@ class DashboardOperationsMixin:
                 "Metrics module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to get health status: {e}")
             return error_response("Internal server error")
 
@@ -125,7 +125,7 @@ class DashboardOperationsMixin:
                 "Metrics module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to get metrics: {e}")
             return error_response("Internal server error")
 
@@ -210,7 +210,7 @@ class DashboardOperationsMixin:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to get adapter status: {e}")
             return error_response("Internal server error")
 
@@ -245,7 +245,7 @@ class DashboardOperationsMixin:
                 "Federated query module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to get query stats: {e}")
             return error_response("Internal server error")
 
@@ -270,7 +270,7 @@ class DashboardOperationsMixin:
                 "Metrics module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to reset metrics: {e}")
             return error_response("Internal server error")
 
@@ -308,6 +308,6 @@ class DashboardOperationsMixin:
                 "WebSocket bridge module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to get batcher stats: {e}")
             return error_response("Internal server error")

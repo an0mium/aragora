@@ -150,7 +150,7 @@ class NomicAdminMixin:
             status["stuck_detection"] = stuck_info
         except ImportError:
             errors.append("Metrics module not available")
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             errors.append(f"Failed to get metrics: {e}")
 
         # Get circuit breaker status
@@ -162,7 +162,7 @@ class NomicAdminMixin:
                 "open": registry.all_open(),
                 "details": registry.to_dict(),
             }
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, KeyError, AttributeError) as e:
             errors.append(f"Failed to get circuit breakers: {e}")
 
         # Find latest checkpoint
@@ -174,7 +174,7 @@ class NomicAdminMixin:
                 checkpoints = list_checkpoints(str(checkpoint_dir))
                 if checkpoints:
                     status["last_checkpoint"] = checkpoints[0]
-            except Exception as e:
+            except (ImportError, TypeError, ValueError, KeyError, OSError) as e:
                 errors.append(f"Failed to list checkpoints: {e}")
 
         return json_response(status)
@@ -233,7 +233,7 @@ class NomicAdminMixin:
             )
         except ImportError:
             return error_response("Nomic recovery module not available", 503)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Failed to get circuit breakers: {e}", exc_info=True)
             return error_response("Failed to retrieve circuit breakers", 500)
 
@@ -373,7 +373,7 @@ class NomicAdminMixin:
         try:
             with open(state_file, "w") as f:
                 json.dump(new_state, f, indent=2)
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("State write failed", 500)
 
@@ -513,7 +513,7 @@ class NomicAdminMixin:
         try:
             with open(state_file, "w") as f:
                 json.dump(new_state, f, indent=2)
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("Nomic pause failed", 500)
 
@@ -646,7 +646,7 @@ class NomicAdminMixin:
         try:
             with open(state_file, "w") as f:
                 json.dump(new_state, f, indent=2)
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.warning("Handler error: %s", e)
             return error_response("Nomic resume failed", 500)
 
@@ -731,7 +731,7 @@ class NomicAdminMixin:
                 update_circuit_breaker_count(0)
             except ImportError:
                 logger.debug("nomic.metrics not available for circuit breaker count update")
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Best effort metrics update failed: {type(e).__name__}")
 
             logger.info(
@@ -754,7 +754,7 @@ class NomicAdminMixin:
             )
         except ImportError:
             return error_response("Nomic recovery module not available", 503)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to reset circuit breakers: {e}", exc_info=True)
             return error_response("Circuit breaker reset failed", 500)
 

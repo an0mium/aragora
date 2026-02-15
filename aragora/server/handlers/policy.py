@@ -694,7 +694,7 @@ class PolicyHandler(BaseHandler):
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON body", 400)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to check compliance: {e}")
             return error_response("Compliance check failed", 500)
 
@@ -747,7 +747,7 @@ class PolicyHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get compliance stats: {e}")
             return error_response("Failed to retrieve statistics", 500)
 

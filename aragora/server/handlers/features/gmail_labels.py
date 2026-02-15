@@ -311,7 +311,7 @@ class GmailLabelsHandler(SecureHandler):
             label = await self._api_update_label(state, label_id, body)
             return json_response({"label": label, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Update label failed: {e}")
             return error_response("Label update failed", 500)
 
@@ -355,7 +355,7 @@ class GmailLabelsHandler(SecureHandler):
             await self._api_delete_label(state, label_id)
             return json_response({"deleted": label_id, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Delete label failed: {e}")
             return error_response("Label deletion failed", 500)
 
@@ -400,7 +400,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Modify labels failed: {e}")
             return error_response("Label modification failed", 500)
 
@@ -451,7 +451,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Mark read failed: {e}")
             return error_response("Mark as read failed", 500)
 
@@ -477,7 +477,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Star message failed: {e}")
             return error_response("Star operation failed", 500)
 
@@ -493,7 +493,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Archive failed: {e}")
             return error_response("Archive operation failed", 500)
 
@@ -520,7 +520,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Trash failed: {e}")
             return error_response("Trash operation failed", 500)
 
@@ -567,7 +567,7 @@ class GmailLabelsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] List filters failed: {e}")
             return error_response("Failed to list filters", 500)
 
@@ -601,7 +601,7 @@ class GmailLabelsHandler(SecureHandler):
             filter_result = await self._api_create_filter(state, criteria, action)
             return json_response({"filter": filter_result, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Create filter failed: {e}")
             return error_response("Filter creation failed", 500)
 
@@ -672,7 +672,7 @@ class GmailLabelsHandler(SecureHandler):
             await self._api_delete_filter(state, filter_id)
             return json_response({"deleted": filter_id, "success": True})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"[GmailLabels] Delete filter failed: {e}")
             return error_response("Filter deletion failed", 500)
 

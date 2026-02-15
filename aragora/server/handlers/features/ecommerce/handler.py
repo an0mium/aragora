@@ -275,7 +275,7 @@ class EcommerceHandler(SecureHandler):
             self._circuit_breaker.record_failure()
             logger.error(f"Ecommerce platform connection error: {e}")
             return self._error_response(503, "E-commerce platform unavailable")
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             # Don't count application-level errors as circuit breaker failures
             logger.error(f"Ecommerce handler error: {e}")
             raise
@@ -1044,7 +1044,7 @@ class EcommerceHandler(SecureHandler):
                 f"Connection error creating shipment on {platform} (order: {order_id}): {e}"
             )
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.error(
                 f"Error creating shipment on {platform} "
                 f"(order: {order_id}): {type(e).__name__}: {e}"
@@ -1082,7 +1082,7 @@ class EcommerceHandler(SecureHandler):
                     "pending_fulfillment", 0
                 )
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, AttributeError) as e:
                 logger.error(f"Error fetching {platform} metrics: {e}")
                 metrics["platforms"][platform] = {"error": "Failed to fetch platform metrics"}
 
@@ -1168,7 +1168,7 @@ class EcommerceHandler(SecureHandler):
         except (ValueError, TypeError) as e:
             logger.error(f"Invalid credentials for {platform} connector: {e}")
             return None
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to create {platform} connector: {type(e).__name__}: {e}")
             return None
 

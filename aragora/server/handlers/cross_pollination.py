@@ -240,7 +240,7 @@ class CrossPollinationResetHandler(BaseHandler):
                 "Cross-subscriber module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Failed to reset stats: {e}")
             return error_response("Internal server error", status=500)
 
@@ -334,7 +334,7 @@ class CrossPollinationKMHandler(BaseHandler):
                 "Cross-subscriber module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Failed to get KM status: {e}")
             return error_response("Internal server error", status=500)
 
@@ -391,7 +391,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
             except ImportError:
                 results["ranking"] = {"status": "unavailable", "error": "adapter not installed"}
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.warning("Ranking adapter sync failed: %s", e)
                 results["ranking"] = {"status": "error", "error": "Ranking sync failed"}
 
@@ -417,7 +417,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
             except ImportError:
                 results["rlm"] = {"status": "unavailable", "error": "adapter not installed"}
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.warning("RLM adapter sync failed: %s", e)
                 results["rlm"] = {"status": "error", "error": "RLM sync failed"}
 
@@ -453,7 +453,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
                 "Cross-subscriber module not available",
                 status=503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Failed to sync KM adapters: {e}")
             return error_response("Internal server error", status=500)
 
@@ -539,7 +539,7 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Failed to run staleness check: {e}")
             return error_response("Internal server error", status=500)
 
@@ -609,7 +609,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Failed to get culture patterns: {e}")
             return error_response("Internal server error", status=500)
 
@@ -652,7 +652,7 @@ def register_routes(router: Any, server_context: dict[str, Any] | None = None) -
                 router.add_route(method, path, handler)
             elif hasattr(router, "add_api_route"):
                 router.add_api_route(path, handler, methods=[method])
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, OSError) as e:
             logger.debug(f"Could not register route {path}: {e}")
 
 

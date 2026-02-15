@@ -135,7 +135,7 @@ class HealthHandlerMixin:
                     "agents": {agent_id: hc.to_dict() for agent_id, hc in all_health.items()},
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
             return self._handle_coordinator_error(e, "system_health")
 
     @api_endpoint(
@@ -158,7 +158,7 @@ class HealthHandlerMixin:
                 return error_response(f"No health data for agent: {agent_id}", 404)
 
             return json_response(health.to_dict())
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
             return self._handle_coordinator_error(e, f"agent_health:{agent_id}")
 
     @api_endpoint(
@@ -215,7 +215,7 @@ class HealthHandlerMixin:
                             "latency_ms": latency,
                         }
                     )
-            except Exception as e:
+            except (ImportError, ConnectionError, TimeoutError, OSError, RuntimeError) as e:
                 logger.debug(f"Redis health check failed: {e}")
                 components.append(
                     {
@@ -238,7 +238,7 @@ class HealthHandlerMixin:
                             "latency_ms": 10,
                         }
                     )
-            except Exception as e:
+            except (ImportError, ConnectionError, OSError, RuntimeError) as e:
                 logger.debug(f"Database health check skipped: {e}")
 
             # Overall status
@@ -254,7 +254,7 @@ class HealthHandlerMixin:
                     "components": components,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error(f"Error getting detailed health: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -294,7 +294,7 @@ class HealthHandlerMixin:
                 pass
 
             return json_response({"breakers": breakers})
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, RuntimeError) as e:
             logger.error(f"Error getting circuit breakers: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -316,7 +316,7 @@ class HealthHandlerMixin:
             stats = _run_async(coordinator.get_stats())
 
             return json_response(stats)
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
             return self._handle_coordinator_error(e, "stats")
 
     @api_endpoint(
@@ -367,7 +367,7 @@ class HealthHandlerMixin:
                     "tokens_used_today": 0,  # Would need token tracking integration
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
             return self._handle_coordinator_error(e, "metrics")
 
     # =========================================================================
@@ -414,7 +414,7 @@ class HealthHandlerMixin:
                     "message": "Notification module not available",
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
             logger.error(f"Error getting notifications: {e}")
             return error_response(safe_error_message(e, "notifications"), 500)
 
@@ -443,7 +443,7 @@ class HealthHandlerMixin:
 
             stats_fn = getattr(manager, "get_stats", None)
             return json_response(stats_fn() if stats_fn else {})
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
             logger.error(f"Error getting notification stats: {e}")
             return error_response(safe_error_message(e, "notifications"), 500)
 
@@ -553,7 +553,7 @@ class HealthHandlerMixin:
                     "message": "Audit module not available",
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Error querying audit logs: {e}")
             return error_response(safe_error_message(e, "audit"), 500)
 
@@ -579,7 +579,7 @@ class HealthHandlerMixin:
 
             stats_fn = getattr(audit_log, "get_stats", None)
             return json_response(stats_fn() if stats_fn else {})
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
             logger.error(f"Error getting audit stats: {e}")
             return error_response(safe_error_message(e, "audit"), 500)
 
@@ -639,6 +639,6 @@ class HealthHandlerMixin:
                     ),
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Error verifying audit integrity: {e}")
             return error_response(safe_error_message(e, "audit"), 500)

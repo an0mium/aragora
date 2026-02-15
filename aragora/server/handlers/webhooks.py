@@ -954,7 +954,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error listing dead letters: {e}")
             return error_response("Failed to list dead letters", 500)
 
@@ -981,7 +981,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error getting dead letter: {e}")
             return error_response("Failed to retrieve dead letter", 500)
 
@@ -1023,7 +1023,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error retrying dead letter: {e}")
             return error_response("Dead letter retry failed", 500)
 
@@ -1062,7 +1062,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error deleting dead letter: {e}")
             return error_response("Dead letter deletion failed", 500)
 
@@ -1083,7 +1083,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         except ImportError:
             return error_response("Webhook retry queue not available", 500)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error getting queue stats: {e}")
             return error_response("Failed to retrieve queue stats", 500)
 

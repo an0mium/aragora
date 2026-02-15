@@ -172,7 +172,7 @@ class DashboardActionsMixin:
                                 "description": f"Debate in {row[1] or 'general'} needs attention",
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Urgent items error: %s: %s", type(e).__name__, e)
 
         return json_response({"items": items, "total": len(items)})
@@ -207,7 +207,7 @@ class DashboardActionsMixin:
                     conn.commit()
                     if cursor.rowcount == 0:
                         return error_response("Item not found", 404)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dismiss urgent item error: %s: %s", type(e).__name__, e)
             return error_response("Failed to dismiss item", 500)
         return json_response(
@@ -257,7 +257,7 @@ class DashboardActionsMixin:
                                 "description": f"Review debate in {row[1] or 'general'}",
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Pending actions error: %s: %s", type(e).__name__, e)
 
         return json_response({"actions": actions, "total": len(actions)})
@@ -292,7 +292,7 @@ class DashboardActionsMixin:
                     conn.commit()
                     if cursor.rowcount == 0:
                         return error_response("Action not found or already completed", 404)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Complete action error: %s: %s", type(e).__name__, e)
             return error_response("Failed to complete action", 500)
         return json_response(
@@ -346,7 +346,7 @@ class DashboardActionsMixin:
                                 "created_at": row[4],
                             }
                         )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dashboard search error: %s: %s", type(e).__name__, e)
 
         return json_response({"results": results, "total": len(results)})
@@ -376,7 +376,7 @@ class DashboardActionsMixin:
                 export["summary"] = self._get_summary_metrics_sql(storage, None)
             export["agent_performance"] = self._get_agent_performance(50)
             export["consensus_insights"] = self._get_consensus_insights(None)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Export error: %s: %s", type(e).__name__, e)
 
         return json_response(export)
@@ -470,7 +470,7 @@ class DashboardActionsMixin:
                             }
                             for i, bucket in enumerate(curve)
                         ]
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, AttributeError) as e:
                     logger.debug("Calibration curve error for %s: %s", agent, e)
 
             # Get domain breakdown for agents with sufficient data
@@ -487,10 +487,10 @@ class DashboardActionsMixin:
                             }
                             for domain, s in domain_data.items()
                         }
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, AttributeError) as e:
                     logger.debug("Domain breakdown error for %s: %s", agent, e)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Calibration metrics error: %s", e)
 
         return metrics
@@ -513,7 +513,7 @@ class DashboardActionsMixin:
                     metrics["avg_latency_ms"] = insights.get("avg_latency_ms", 0.0)
                     metrics["success_rate"] = insights.get("success_rate", 0.0)
                     metrics["total_calls"] = insights.get("total_calls", 0)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Performance metrics error: %s", e)
 
         return metrics
@@ -547,7 +547,7 @@ class DashboardActionsMixin:
                 # Get pattern count
                 patterns = cast(Any, prompt_evolver).get_top_patterns(limit=100)
                 metrics["patterns_extracted"] = len(patterns) if patterns else 0
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Evolution metrics error: %s", e)
 
         return metrics
@@ -584,7 +584,7 @@ class DashboardActionsMixin:
                     metrics["consensus_rate"] = summary.get("consensus_rate", 0.0)
                     metrics["avg_rounds"] = summary.get("avg_rounds", 0.0)
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.warning("Debate quality metrics error: %s", e)
 
         return metrics

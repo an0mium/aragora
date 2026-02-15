@@ -652,7 +652,7 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"[Gmail] List messages failed: {e}")
             return error_response(safe_error_message(e, "Failed to list messages"), 500)
 
@@ -677,7 +677,7 @@ class GmailIngestHandler(SecureHandler):
 
             return json_response(msg.to_dict())
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"[Gmail] Get message failed: {e}")
             return error_response(safe_error_message(e, "Failed to get message"), 500)
 
@@ -724,7 +724,7 @@ class GmailIngestHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"[Gmail] Search failed: {e}")
             return error_response(safe_error_message(e, "Search"), 500)
 

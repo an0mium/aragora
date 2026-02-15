@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
@@ -83,6 +83,17 @@ export default function DebateDetailPage() {
     if (id) fetchPackage();
   }, [id]);
 
+  const handleShare = useCallback(async () => {
+    const url = `${window.location.origin}/debates/${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      logger.error('Failed to copy link:', err);
+    }
+  }, [id]);
+
   // Right sidebar context
   useEffect(() => {
     if (!pkg) return;
@@ -141,18 +152,7 @@ export default function DebateDetailPage() {
     });
 
     return () => clearContext();
-  }, [pkg, setContext, clearContext]);
-
-  const handleShare = async () => {
-    const url = `${window.location.origin}/debates/${id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      logger.error('Failed to copy link:', err);
-    }
-  };
+  }, [pkg, setContext, clearContext, handleShare]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'OVERVIEW' },

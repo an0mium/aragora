@@ -129,7 +129,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden listing triggers: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error listing triggers: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to list triggers"},
@@ -216,7 +216,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden adding trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error adding trigger: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to create trigger"},
@@ -284,7 +284,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden removing trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error removing trigger: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to remove trigger"},
@@ -345,7 +345,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden enabling trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error enabling trigger: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to enable trigger"},
@@ -406,7 +406,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden disabling trigger: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error disabling trigger: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to disable trigger"},
@@ -450,7 +450,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden starting scheduler: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error starting scheduler: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to start scheduler"},
@@ -494,7 +494,7 @@ class TriggerHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden stopping scheduler: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error stopping scheduler: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to stop scheduler"},

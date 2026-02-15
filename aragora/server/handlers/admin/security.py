@@ -185,7 +185,7 @@ class SecurityHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Security status import error: {e}")
             return error_response("Internal server error", 500)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Security status error: {e}")
             return error_response("Internal server error", 500)
 
@@ -254,7 +254,7 @@ class SecurityHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Key rotation import error: {e}")
             return error_response("Internal server error", 500)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.error(f"Key rotation error: {e}")
             return error_response("Internal server error", 500)
 
@@ -294,7 +294,7 @@ class SecurityHandler(SecureHandler):
             try:
                 service = get_encryption_service()
                 checks["service_initialized"] = True
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, TypeError) as e:
                 checks["service_initialized"] = False
                 issues.append(f"Encryption service error: {e}")
                 return json_response(
@@ -329,7 +329,7 @@ class SecurityHandler(SecureHandler):
                 checks["round_trip"] = decrypted == test_data
                 if decrypted != test_data:
                     issues.append("Encrypt/decrypt round-trip failed")
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, TypeError) as e:
                 checks["round_trip"] = False
                 issues.append(f"Encrypt/decrypt error: {e}")
 
@@ -350,7 +350,7 @@ class SecurityHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Security health check error: {e}")
             return error_response("Internal server error", 500)
 
@@ -405,6 +405,6 @@ class SecurityHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"List keys import error: {e}")
             return error_response("Internal server error", 500)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.error(f"List keys error: {e}")
             return error_response("Internal server error", 500)

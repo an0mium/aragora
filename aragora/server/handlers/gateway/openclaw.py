@@ -215,7 +215,7 @@ async def handle_openclaw_execute(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
         logger.exception("OpenClaw execute failed")
         return error_response("Execution failed", status=500)
 
@@ -250,7 +250,7 @@ async def handle_openclaw_status(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, AttributeError, TypeError) as e:
         logger.exception("OpenClaw status check failed")
         return error_response("Status check failed", status=500)
 
@@ -317,7 +317,7 @@ async def handle_openclaw_device_register(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
         logger.exception("Device registration failed")
         return error_response("Registration failed", status=500)
 
@@ -358,7 +358,7 @@ async def handle_openclaw_device_unregister(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
         logger.exception("Device unregistration failed")
         return error_response("Unregistration failed", status=500)
 
@@ -427,7 +427,7 @@ async def handle_openclaw_plugin_install(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
         logger.exception("Plugin installation failed")
         return error_response("Installation failed", status=500)
 
@@ -468,7 +468,7 @@ async def handle_openclaw_plugin_uninstall(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
         logger.exception("Plugin uninstallation failed")
         return error_response("Uninstallation failed", status=500)
 
@@ -515,7 +515,7 @@ async def handle_openclaw_config(
 
         return success_response(config)
 
-    except Exception as e:
+    except (KeyError, ValueError, AttributeError, TypeError) as e:
         logger.exception("Failed to get config")
         return error_response("Failed to retrieve configuration", status=500)
 

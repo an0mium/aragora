@@ -447,7 +447,7 @@ class BudgetHandler(BaseHandler):
             self._circuit_breaker.record_failure()
             logger.warning("Budget manager module not available")
             raise
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError, AttributeError) as e:
             self._circuit_breaker.record_failure()
             logger.error(f"Error loading budget manager: {e}")
             raise
@@ -484,7 +484,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to list budgets: {e}")
             return error_response("Failed to list budgets", 500)
 
@@ -562,7 +562,7 @@ class BudgetHandler(BaseHandler):
             self._circuit_breaker.record_success()
             return json_response(budget.to_dict(), status=201)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             self._circuit_breaker.record_failure()
             logger.error(f"Failed to create budget: {e}")
             return error_response("Budget creation failed", 500)
@@ -581,7 +581,7 @@ class BudgetHandler(BaseHandler):
 
             return json_response(budget.to_dict())
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to get budget: {e}")
             return error_response("Failed to retrieve budget", 500)
 
@@ -676,7 +676,7 @@ class BudgetHandler(BaseHandler):
             self._circuit_breaker.record_success()
             return json_response(updated.to_dict())
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             self._circuit_breaker.record_failure()
             logger.error(f"Failed to update budget: {e}")
             return error_response("Budget update failed", 500)
@@ -697,7 +697,7 @@ class BudgetHandler(BaseHandler):
 
             return json_response({"deleted": True, "budget_id": budget_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to delete budget: {e}")
             return error_response("Budget deletion failed", 500)
 
@@ -708,7 +708,7 @@ class BudgetHandler(BaseHandler):
             summary = manager.get_summary(org_id)
             return json_response(summary)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to get summary: {e}")
             return error_response("Failed to retrieve summary", 500)
 
@@ -743,7 +743,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to check budget: {e}")
             return error_response("Budget check failed", 500)
 
@@ -769,7 +769,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to get alerts: {e}")
             return error_response("Failed to retrieve alerts", 500)
 

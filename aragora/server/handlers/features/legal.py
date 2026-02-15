@@ -149,7 +149,7 @@ class LegalHandler:
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in legal handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -206,7 +206,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 
@@ -230,7 +230,7 @@ class LegalHandler:
                     "count": len(envelopes),
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to list envelopes: {e}")
             return error_response("Failed to list envelopes", 500)
 
@@ -260,7 +260,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 
@@ -351,7 +351,7 @@ class LegalHandler:
                 status=201,
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to create envelope: {e}")
             return error_response("Envelope creation failed", 500)
 
@@ -366,7 +366,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 
@@ -377,7 +377,7 @@ class LegalHandler:
 
             return success_response({"envelope": envelope.to_dict()})
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to get envelope {envelope_id}: {e}")
             return error_response("Failed to retrieve envelope", 500)
 
@@ -398,7 +398,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 
@@ -415,7 +415,7 @@ class LegalHandler:
             else:
                 return error_response("Failed to void envelope", 500)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to void envelope {envelope_id}: {e}")
             return error_response("Envelope voiding failed", 500)
 
@@ -430,7 +430,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 

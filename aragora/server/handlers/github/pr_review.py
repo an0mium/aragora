@@ -987,7 +987,7 @@ async def handle_get_review_status(
             "review": result.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get review status: {e}")
         return {
             "success": False,
@@ -1020,7 +1020,7 @@ async def handle_list_pr_reviews(
             "total": len(reviews),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to list PR reviews: {e}")
         return {
             "success": False,
@@ -1070,7 +1070,7 @@ async def handle_submit_review(
 
         return result
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.exception(f"Failed to submit review: {e}")
         return {
             "success": False,

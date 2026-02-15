@@ -172,7 +172,7 @@ class StoresMixin:
                 "error": "Data access error",
                 "error_type": "data_access",
             }, False
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:  # broad catch: last-resort handler for debate storage
             logger.warning("Health check failed for %s: %s", "debate_storage", e)
             return {
                 "healthy": False,
@@ -212,7 +212,7 @@ class StoresMixin:
                 "error": "Data access error",
                 "error_type": "data_access",
             }, False
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:  # broad catch: last-resort handler for ELO system
             logger.warning("Health check failed for %s: %s", "elo_system", e)
             return {
                 "healthy": False,
@@ -235,7 +235,7 @@ class StoresMixin:
                     "status": "not_initialized",
                     "hint": "Will auto-create on first insight",
                 }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError) as e:
             logger.warning("Health check failed for %s: %s", "insight_store", e)
             return {
                 "healthy": False,
@@ -257,7 +257,7 @@ class StoresMixin:
                     "healthy": True,
                     "status": "not_initialized",
                 }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError) as e:
             logger.warning("Health check failed for %s: %s", "flip_detector", e)
             return {
                 "healthy": False,
@@ -279,7 +279,7 @@ class StoresMixin:
                     "healthy": True,
                     "status": "not_initialized",
                 }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError) as e:
             logger.warning("Health check failed for %s: %s", "user_store", e)
             return {
                 "healthy": False,
@@ -316,7 +316,7 @@ class StoresMixin:
                 "healthy": True,
                 "status": "module_not_available",
             }
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError) as e:
             logger.warning("Health check failed for %s: %s", "consensus_memory", e)
             return {
                 "healthy": False,
@@ -363,7 +363,7 @@ class StoresMixin:
                     "healthy": True,
                     "status": "nomic_dir_not_set",
                 }
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.warning("Health check failed for %s: %s", "agent_metadata", e)
             return {
                 "healthy": False,
@@ -393,7 +393,7 @@ class StoresMixin:
                 "healthy": True,
                 "status": "module_not_available",
             }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Health check failed for %s: %s", "integration_store", e)
             return {
                 "healthy": False,
@@ -423,7 +423,7 @@ class StoresMixin:
                 "healthy": True,
                 "status": "module_not_available",
             }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Health check failed for %s: %s", "gmail_token_store", e)
             return {
                 "healthy": False,
@@ -453,7 +453,7 @@ class StoresMixin:
                 "healthy": True,
                 "status": "module_not_available",
             }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Health check failed for %s: %s", "sync_store", e)
             return {
                 "healthy": False,

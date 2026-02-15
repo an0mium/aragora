@@ -122,7 +122,7 @@ class GovernanceOperationsMixin:
                     "role": role.to_dict(),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error creating role: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -179,7 +179,7 @@ class GovernanceOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", status=404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error assigning role: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -232,7 +232,7 @@ class GovernanceOperationsMixin:
                     "message": f"Role {role_id} revoked from user {user_id}",
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error revoking role: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -275,7 +275,7 @@ class GovernanceOperationsMixin:
                     "permissions": [p.value for p in permissions],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting user permissions: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -337,7 +337,7 @@ class GovernanceOperationsMixin:
                     "has_permission": has_permission,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error checking permission: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -398,7 +398,7 @@ class GovernanceOperationsMixin:
                     "entries": [e.to_dict() for e in entries],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error querying audit trail: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -435,7 +435,7 @@ class GovernanceOperationsMixin:
             )
 
             return json_response(activity)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting user activity: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -457,6 +457,6 @@ class GovernanceOperationsMixin:
         try:
             stats = mound.get_governance_stats()
             return json_response(stats)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting governance stats: {e}")
             return error_response(safe_error_message(e), status=500)

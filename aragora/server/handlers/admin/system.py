@@ -351,7 +351,7 @@ class SystemHandler(BaseHandler):
         except (StorageError, DatabaseError) as e:
             logger.error("Database error getting history summary: %s: %s", type(e).__name__, e)
             return error_response("Database error retrieving history summary", 500)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Failed to get history summary: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get summary"), 500)
 
@@ -408,7 +408,7 @@ class SystemHandler(BaseHandler):
         except OSError as e:
             logger.error("Filesystem error during maintenance '%s': %s", task, e)
             return error_response(f"Filesystem error during maintenance task '{task}'", 500)
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Maintenance task '{task}' failed: {e}")
             return error_response(safe_error_message(e, "maintenance"), 500)
 
@@ -514,7 +514,7 @@ class SystemHandler(BaseHandler):
             )
         except ImportError:
             return error_response("Metrics module not available", 503)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception(f"Metrics generation failed: {e}")
             return error_response(safe_error_message(e, "metrics"), 500)
 
@@ -544,7 +544,7 @@ class SystemHandler(BaseHandler):
             return json_response(metrics)
         except ImportError:
             return error_response("Resilience module not available", 503)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Circuit breaker metrics failed: {e}")
             return error_response(safe_error_message(e, "circuit breaker metrics"), 500)
 
@@ -605,7 +605,7 @@ class SystemHandler(BaseHandler):
                         "/api/auth/oauth/google/callback"
                     )
                     oauth_status["class"] = oauth_handler_class.__name__
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
                     logger.warning("OAuth handler init failed: %s", e)
                     oauth_status["error"] = "OAuth handler initialization failed"
 
@@ -620,6 +620,6 @@ class SystemHandler(BaseHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Service temporarily unavailable", 503)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"Handler diagnostics failed: {e}")
             return error_response(safe_error_message(e, "handler diagnostics"), 500)

@@ -359,7 +359,7 @@ class StreamingConnectorHandler(BaseHandler):
                 self._statuses[connector_type] = "error"
                 return error_response(f"Failed to connect to {connector_type}", 500)
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             self._statuses[connector_type] = "error"
             logger.error(f"Error connecting to {connector_type}: {e}")
             return error_response("Internal server error", 500)
@@ -391,7 +391,7 @@ class StreamingConnectorHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error(f"Error disconnecting from {connector_type}: {e}")
             return error_response("Internal server error", 500)
 
@@ -411,7 +411,7 @@ class StreamingConnectorHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Error testing {connector_type} connection: {e}")
             return json_response(
                 {
@@ -472,7 +472,7 @@ class StreamingConnectorHandler(BaseHandler):
                 return self._test_rabbitmq(config)
             elif connector_type == "snssqs":
                 return self._test_snssqs(config)
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning("Connector test failed for %s: %s", connector_type, e)
             return False, "Connection test failed"
 
@@ -503,7 +503,7 @@ class StreamingConnectorHandler(BaseHandler):
         except ImportError:
             logger.debug("Kafka dependencies not installed")
             return True  # Allow connection in demo mode
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Kafka connection error: {e}")
             return False
 
@@ -525,7 +525,7 @@ class StreamingConnectorHandler(BaseHandler):
         except ImportError:
             logger.debug("RabbitMQ dependencies not installed")
             return True  # Allow connection in demo mode
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"RabbitMQ connection error: {e}")
             return False
 
@@ -547,7 +547,7 @@ class StreamingConnectorHandler(BaseHandler):
         except ImportError:
             logger.debug("AWS dependencies not installed")
             return True  # Allow connection in demo mode
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"SNS/SQS connection error: {e}")
             return False
 
@@ -568,7 +568,7 @@ class StreamingConnectorHandler(BaseHandler):
             return True, "Kafka connection successful"
         except ImportError:
             return True, "Kafka client not installed (demo mode)"
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             return False, f"Kafka connection failed: {e}"
 
     def _test_rabbitmq(self, config: dict) -> tuple[bool, str]:
@@ -585,7 +585,7 @@ class StreamingConnectorHandler(BaseHandler):
             return True, "RabbitMQ connection successful"
         except ImportError:
             return True, "RabbitMQ client not installed (demo mode)"
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             return False, f"RabbitMQ connection failed: {e}"
 
     def _test_snssqs(self, config: dict) -> tuple[bool, str]:
@@ -605,5 +605,5 @@ class StreamingConnectorHandler(BaseHandler):
             return True, "SQS connection successful"
         except ImportError:
             return True, "AWS SDK not installed (demo mode)"
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             return False, f"SQS connection failed: {e}"

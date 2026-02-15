@@ -179,7 +179,7 @@ def health_check(handler) -> HandlerResult:
     except (KeyError, TypeError, AttributeError) as e:
         logger.debug("Circuit breaker metrics access error: %s: %s", type(e).__name__, e)
         checks["circuit_breakers"] = {"healthy": True, "error": "Health check failed"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:  # broad catch: last-resort handler for CB metrics
         logger.warning("Circuit breaker health check failed: %s: %s", type(e).__name__, e)
         checks["circuit_breakers"] = {"healthy": True, "error": "Health check failed"}
 
@@ -199,7 +199,7 @@ def health_check(handler) -> HandlerResult:
     except (KeyError, TypeError, AttributeError) as e:
         logger.debug("Rate limiter stats access error: %s: %s", type(e).__name__, e)
         checks["rate_limiters"] = {"healthy": True, "error": "Health check failed"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:  # broad catch: last-resort handler for rate limiter
         logger.warning("Rate limiter health check failed: %s: %s", type(e).__name__, e)
         checks["rate_limiters"] = {"healthy": True, "error": "Health check failed"}
 
@@ -254,7 +254,7 @@ def websocket_health(handler) -> HandlerResult:
     try:
         client_count = len(getattr(ws_manager, "clients", []))
         return json_response({"status": "healthy", "clients": client_count}, status=200)
-    except Exception as e:
+    except (AttributeError, TypeError, RuntimeError) as e:
         logger.warning("WebSocket health check error: %s: %s", type(e).__name__, e)
         return json_response(
             {"status": "error", "clients": 0, "message": "Internal server error"},
@@ -472,7 +472,7 @@ def deep_health_check(handler) -> HandlerResult:
             checks["storage"] = {"healthy": True, "status": "connected"}
         else:
             checks["storage"] = {"healthy": True, "status": "not_configured"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError, AttributeError) as e:
         logger.warning("Storage health check failed: %s: %s", type(e).__name__, e)
         checks["storage"] = {"healthy": False, "error": "Health check failed"}
         all_healthy = False
@@ -485,7 +485,7 @@ def deep_health_check(handler) -> HandlerResult:
             checks["elo_system"] = {"healthy": True, "status": "connected"}
         else:
             checks["elo_system"] = {"healthy": True, "status": "not_configured"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError, AttributeError) as e:
         logger.warning("ELO system health check failed: %s: %s", type(e).__name__, e)
         checks["elo_system"] = {"healthy": False, "error": "Health check failed"}
         all_healthy = False
@@ -508,7 +508,7 @@ def deep_health_check(handler) -> HandlerResult:
             checks["supabase"] = {"healthy": True, "status": "not_configured"}
     except ImportError:
         checks["supabase"] = {"healthy": True, "status": "module_not_available"}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
         logger.warning("Supabase health check failed: %s: %s", type(e).__name__, e)
         checks["supabase"] = {"healthy": True, "status": "error", "warning": "Health check failed"}
         warnings.append("Supabase: health check failed")
@@ -524,7 +524,7 @@ def deep_health_check(handler) -> HandlerResult:
                 checks["user_store"] = {"healthy": True, "status": "connected"}
         else:
             checks["user_store"] = {"healthy": True, "status": "not_configured"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError, AttributeError) as e:
         logger.warning("User store health check failed: %s: %s", type(e).__name__, e)
         checks["user_store"] = {"healthy": False, "error": "Health check failed"}
         all_healthy = False
@@ -540,7 +540,7 @@ def deep_health_check(handler) -> HandlerResult:
             checks["billing"] = {"healthy": True, "status": "not_configured"}
     except ImportError:
         checks["billing"] = {"healthy": True, "status": "module_not_available"}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError, AttributeError) as e:
         logger.warning("Billing health check failed: %s: %s", type(e).__name__, e)
         checks["billing"] = {"healthy": True, "status": "error", "warning": "Health check failed"}
 
@@ -606,7 +606,7 @@ def deep_health_check(handler) -> HandlerResult:
 
     except ImportError:
         checks["system_resources"] = {"healthy": True, "status": "psutil_not_available"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError) as e:
         logger.warning("System resources health check failed: %s: %s", type(e).__name__, e)
         checks["system_resources"] = {"healthy": True, "warning": "Health check failed"}
 
@@ -625,7 +625,7 @@ def deep_health_check(handler) -> HandlerResult:
 
     except ImportError:
         checks["email_services"] = {"healthy": True, "status": "not_available"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.warning("Email services health check failed: %s: %s", type(e).__name__, e)
         checks["email_services"] = {
             "healthy": False,
@@ -643,7 +643,7 @@ def deep_health_check(handler) -> HandlerResult:
 
     except ImportError:
         checks["dependency_analyzer"] = {"healthy": True, "status": "not_available"}
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.warning("Dependency analyzer health check failed: %s: %s", type(e).__name__, e)
         checks["dependency_analyzer"] = {
             "healthy": False,

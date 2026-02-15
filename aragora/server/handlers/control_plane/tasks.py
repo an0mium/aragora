@@ -468,7 +468,7 @@ class TaskHandlerMixin:
             )
 
             return json_response({"completed": True})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error completing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -525,7 +525,7 @@ class TaskHandlerMixin:
             )
 
             return json_response({"failed": True})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error failing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -574,7 +574,7 @@ class TaskHandlerMixin:
             )
 
             return json_response({"failed": True})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error failing task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -609,7 +609,7 @@ class TaskHandlerMixin:
                 return error_response(f"Task not found or already completed: {task_id}", 404)
 
             return json_response({"cancelled": True})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error cancelling task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -635,7 +635,7 @@ class TaskHandlerMixin:
                 return error_response(f"Task not found or already completed: {task_id}", 404)
 
             return json_response({"cancelled": True})
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error cancelling task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -705,7 +705,7 @@ class TaskHandlerMixin:
                     "total": len(jobs),
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Error getting queue: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -746,7 +746,7 @@ class TaskHandlerMixin:
                 }
 
             return json_response(stats)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Error getting queue metrics: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -875,7 +875,7 @@ class TaskHandlerMixin:
                     "has_more": offset + limit < total,
                 }
             )
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Error getting task history: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -973,7 +973,7 @@ class TaskHandlerMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid request", 400)
-        except Exception as e:
+        except (TypeError, KeyError, AttributeError, ImportError) as e:
             logger.warning(f"Failed to parse deliberation request: {e}")
             return error_response("Failed to parse request", 400)
 
@@ -1017,7 +1017,7 @@ class TaskHandlerMixin:
                 )
             except KeyError:
                 return error_response(f"Invalid priority: {priority}", 400)
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
                 logger.error(f"Error submitting deliberation: {e}")
                 return error_response(safe_error_message(e, "control plane"), 500)
 
@@ -1046,7 +1046,7 @@ class TaskHandlerMixin:
         except asyncio.TimeoutError:
             record_deliberation_error(request.request_id, "Deliberation timed out", "timeout")
             return error_response("Deliberation request timed out", 408)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:  # broad catch: last-resort handler
             logger.exception(f"Deliberation failed: {e}")
             record_deliberation_error(request.request_id, "Deliberation failed")
             return error_response("Deliberation failed", 500)

@@ -635,7 +635,7 @@ class AdvertisingHandler(SecureHandler):
                 campaign = await connector.get_campaign(campaign_id)
                 return self._json_response(200, self._normalize_microsoft_campaign(campaign))
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, AttributeError, KeyError, ValueError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(404, "Campaign not found")
 
@@ -648,7 +648,7 @@ class AdvertisingHandler(SecureHandler):
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -754,7 +754,7 @@ class AdvertisingHandler(SecureHandler):
                     },
                 )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to create campaign")
 
@@ -772,7 +772,7 @@ class AdvertisingHandler(SecureHandler):
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -829,7 +829,7 @@ class AdvertisingHandler(SecureHandler):
                 },
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(500, "Failed to update campaign")
 
@@ -928,7 +928,7 @@ class AdvertisingHandler(SecureHandler):
                     "note": "Microsoft Ads reporting requires async report generation",
                 }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, AttributeError, ValueError) as e:
             logger.error(f"Error fetching {platform} performance: {e}")
             return {"platform": platform, "error": "Failed to fetch platform performance"}
 
@@ -952,7 +952,7 @@ class AdvertisingHandler(SecureHandler):
         """Run multi-agent analysis on advertising performance."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("Handler error: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -1136,7 +1136,7 @@ class AdvertisingHandler(SecureHandler):
             cb.record_success()
             return connector
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, TypeError, ValueError) as e:
             logger.error(f"Failed to create {platform} connector: {e}")
             cb.record_failure()
             return None

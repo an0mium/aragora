@@ -86,7 +86,7 @@ async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
         try:
             fabric_stats = await state.fabric.get_stats()
             stats["agent_fabric"] = fabric_stats
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, OSError) as e:
             logger.warning("Failed to get agent fabric stats: %s", e)
             stats["agent_fabric"] = {"error": "Internal server error"}
 
@@ -95,7 +95,7 @@ async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
         try:
             gastown_stats = await state.coordinator.get_stats()
             stats["gastown"] = gastown_stats
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, OSError) as e:
             logger.warning("Failed to get gastown stats: %s", e)
             stats["gastown"] = {"error": "Internal server error"}
 
@@ -105,25 +105,25 @@ async def handle_extensions_stats(ctx: AuthorizationContext) -> dict[str, Any]:
         if state.inbox_manager:
             try:
                 moltbot_stats["inbox"] = await state.inbox_manager.get_stats()
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, OSError) as e:
                 logger.warning("Failed to get inbox stats: %s", e)
                 moltbot_stats["inbox"] = {"error": "Internal server error"}
         if state.local_gateway:
             try:
                 moltbot_stats["gateway"] = await state.local_gateway.get_stats()
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, OSError) as e:
                 logger.warning("Failed to get gateway stats: %s", e)
                 moltbot_stats["gateway"] = {"error": "Internal server error"}
         if state.voice_processor:
             try:
                 moltbot_stats["voice"] = await state.voice_processor.get_stats()
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, OSError) as e:
                 logger.warning("Failed to get voice stats: %s", e)
                 moltbot_stats["voice"] = {"error": "Internal server error"}
         if state.onboarding:
             try:
                 moltbot_stats["onboarding"] = await state.onboarding.get_stats()
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, OSError) as e:
                 logger.warning("Failed to get onboarding stats: %s", e)
                 moltbot_stats["onboarding"] = {"error": "Internal server error"}
         stats["moltbot"] = moltbot_stats
@@ -165,7 +165,7 @@ async def handle_gastown_workspaces_list(ctx: AuthorizationContext) -> dict[str,
                 for w in workspaces
             ],
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -203,7 +203,7 @@ async def handle_gastown_workspace_create(
                 "status": workspace.status,
             },
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -237,7 +237,7 @@ async def handle_gastown_convoys_list(ctx: AuthorizationContext) -> dict[str, An
                 for c in convoys
             ],
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -280,7 +280,7 @@ async def handle_moltbot_inbox_messages(ctx: AuthorizationContext) -> dict[str, 
                 for m in messages
             ],
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -314,7 +314,7 @@ async def handle_moltbot_gateway_devices(ctx: AuthorizationContext) -> dict[str,
                 for d in devices
             ],
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -359,7 +359,7 @@ async def handle_moltbot_onboarding_flows(ctx: AuthorizationContext) -> dict[str
                 for f in flows
             ],
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -397,7 +397,7 @@ async def handle_fabric_agents_list(ctx: AuthorizationContext) -> dict[str, Any]
                 for a in agents
             ],
         }
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 
@@ -423,7 +423,7 @@ async def handle_fabric_tasks_list(ctx: AuthorizationContext) -> dict[str, Any]:
             "status": "ok",
             "stats": stats,
         }
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.warning("Extension handler error: %s", e)
         return error_dict("Internal server error", code="INTERNAL_ERROR")
 

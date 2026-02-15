@@ -200,7 +200,7 @@ async def process_gmail_notification(
         try:
             data_bytes = base64.b64decode(data_b64)
             data = json.loads(data_bytes.decode("utf-8"))
-        except Exception as e:
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
             logger.error(f"Failed to decode Gmail notification data: {e}")
             return None
 
@@ -235,7 +235,7 @@ async def process_gmail_notification(
 
         return notification
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Error processing Gmail notification: {e}")
         return None
 
@@ -316,7 +316,7 @@ async def process_outlook_notification(
 
         return notifications
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Error processing Outlook notification: {e}")
         return []
 
@@ -349,7 +349,7 @@ async def _queue_notification(notification: WebhookNotification) -> None:
             await _trigger_gmail_sync(notification)
         else:
             await _trigger_outlook_sync(notification)
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ImportError) as e:
         logger.warning(f"Failed to trigger sync: {e}")
 
 
@@ -502,7 +502,7 @@ class EmailWebhooksHandler(BaseHandler):
             )
             return False
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler for JWT verification failures
             if should_allow_unverified("gmail_pubsub"):
                 log_verification_attempt(
                     "gmail_pubsub", True, "bypassed", f"JWT verification failed but bypassed: {e}"
@@ -599,7 +599,7 @@ class EmailWebhooksHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in webhook handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -655,7 +655,7 @@ class EmailWebhooksHandler(BaseHandler):
                     }
                 )
 
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.exception(f"Error handling Gmail webhook: {e}")
             # Return 200 to acknowledge
             return success_response({"status": "error", "message": "Internal server error"})
@@ -711,7 +711,7 @@ class EmailWebhooksHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.exception(f"Error handling Outlook webhook: {e}")
             return success_response({"status": "error", "message": "Internal server error"})
 
@@ -834,7 +834,7 @@ class EmailWebhooksHandler(BaseHandler):
             else:
                 return error_response(result.get("error", "Failed to create subscription"), 400)
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError) as e:
             logger.exception(f"Error creating subscription: {e}")
             return error_response("Subscription creation failed", 500)
 
@@ -849,7 +849,7 @@ class EmailWebhooksHandler(BaseHandler):
 
         except ImportError:
             return {"success": True}  # Simulate success for testing
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Gmail subscription creation failed: %s", e)
             return {"success": False, "error": "Internal server error"}
 
@@ -865,7 +865,7 @@ class EmailWebhooksHandler(BaseHandler):
 
         except ImportError:
             return {"success": True}  # Simulate success for testing
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Outlook subscription creation failed: %s", e)
             return {"success": False, "error": "Internal server error"}
 

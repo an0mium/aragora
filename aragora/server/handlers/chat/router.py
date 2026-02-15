@@ -163,7 +163,7 @@ class ChatWebhookRouter:
         if self._decision_router is None and DECISION_ROUTER_AVAILABLE:
             try:
                 self._decision_router = get_decision_router()
-            except Exception as e:
+            except (ImportError, RuntimeError, ValueError, AttributeError) as e:
                 logger.debug(f"DecisionRouter not available: {e}")
 
     def get_connector(self, platform: str) -> ChatPlatformConnector | None:
@@ -395,7 +395,7 @@ class ChatWebhookRouter:
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Event handler error: {e}")
 
         return {"success": True}
@@ -416,7 +416,7 @@ class ChatWebhookRouter:
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Command handler error: {e}")
 
         return {"success": True}
@@ -469,7 +469,7 @@ class ChatWebhookRouter:
                         command=command,
                     )
                     response_text = f"Starting debate on: {topic}\nDebate ID: {result.decision_id}"
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.error(f"DecisionRouter error: {e}")
                     response_text = f"Failed to start debate: {e}"
             elif self.debate_starter:
@@ -482,7 +482,7 @@ class ChatWebhookRouter:
                         user=command.user,
                     )
                     response_text = f"Starting debate on: {topic}\nDebate ID: {result.get('debate_id', 'pending')}"
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     response_text = f"Failed to start debate: {e}"
             else:
                 response_text = "Debate starting not configured"
@@ -501,7 +501,7 @@ class ChatWebhookRouter:
                         command=command,
                     )
                     response_text = f"Running gauntlet on: {topic}\nID: {result.decision_id}"
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.error(f"DecisionRouter error: {e}")
                     response_text = f"Failed to run gauntlet: {e}"
             else:
@@ -521,7 +521,7 @@ class ChatWebhookRouter:
                         command=command,
                     )
                     response_text = f"Starting workflow: {workflow_name}\nID: {result.decision_id}"
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.error(f"DecisionRouter error: {e}")
                     response_text = f"Failed to start workflow: {e}"
             else:
@@ -540,7 +540,7 @@ class ChatWebhookRouter:
                 blocks=blocks,
                 ephemeral=True,
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to respond to command: {e}")
 
         return {"success": True}
@@ -566,14 +566,14 @@ class ChatWebhookRouter:
                     return {"success": True}
             except ImportError:
                 logger.debug("Approval interaction router not available")
-            except Exception as exc:
+            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as exc:
                 logger.warning("Approval interaction handling failed: %s", exc)
 
         # Pass to event handler
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Interaction handler error: {e}")
 
         return {"success": True}
@@ -594,7 +594,7 @@ class ChatWebhookRouter:
         if self.event_handler:
             try:
                 await self.event_handler(event)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
                 logger.error(f"Message handler error: {e}")
 
         return {"success": True}
@@ -624,7 +624,7 @@ class ChatWebhookRouter:
                 # Create a message event with transcription
                 event.message = event.voice_message = None
                 # Could trigger debate or pass to handler
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Voice transcription error: {e}")
 
         return {"success": True}
@@ -946,7 +946,7 @@ def _create_decision_router_debate_starter():
         except ImportError:
             logger.debug("DecisionRouter not available, returning minimal response")
             return {"debate_id": "pending", "topic": topic}
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"DecisionRouter debate start failed: {e}")
             raise
 

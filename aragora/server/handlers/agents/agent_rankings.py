@@ -101,7 +101,7 @@ class AgentRankingsMixin:
                                         else "low"
                                     ),
                                 }
-                        except Exception as e:
+                        except (KeyError, ValueError, AttributeError, OSError) as e:
                             # Fallback: set default consistency for all agents
                             logger.warning(
                                 "Consistency detection failed, using fallback: %s: %s",
@@ -140,7 +140,7 @@ class AgentRankingsMixin:
                 enhanced_rankings.append(agent_dict)
 
             return json_response({"rankings": enhanced_rankings, "agents": enhanced_rankings})
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             return error_response(safe_error_message(e, "get leaderboard"), 500)
 
     @api_endpoint(
@@ -161,7 +161,7 @@ class AgentRankingsMixin:
             rankings = elo.get_leaderboard(limit=min(limit, 50))
             # Add calibration data if available
             return json_response({"rankings": rankings})
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             return error_response(safe_error_message(e, "get calibration leaderboard"), 500)
 
     @api_endpoint(
@@ -184,7 +184,7 @@ class AgentRankingsMixin:
             else:
                 matches = elo.get_recent_matches(limit=min(limit, 50))
             return json_response({"matches": matches})
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             return error_response(safe_error_message(e, "get recent matches"), 500)
 
     @api_endpoint(
@@ -225,7 +225,7 @@ class AgentRankingsMixin:
                 try:
                     h2h = elo.get_head_to_head(agents[0], agents[1])
                     head_to_head = h2h
-                except Exception as e:
+                except (KeyError, ValueError, AttributeError, TypeError) as e:
                     logger.warning(
                         "Head-to-head lookup failed for %s vs %s: %s: %s",
                         agents[0],
@@ -240,5 +240,5 @@ class AgentRankingsMixin:
                     "head_to_head": head_to_head,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             return error_response(safe_error_message(e, "comparison"), 500)

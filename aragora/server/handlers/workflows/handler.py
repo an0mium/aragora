@@ -307,7 +307,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             if pkg is not None and hasattr(pkg, "RBAC_AVAILABLE"):
                 if not getattr(pkg, "RBAC_AVAILABLE"):
                     rbac_enabled = False
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             logger.debug("Failed to check RBAC_AVAILABLE override: %s", e)
         return bool(rbac_enabled)
 
@@ -318,7 +318,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             override = getattr(pkg, "list_pending_approvals", None) if pkg is not None else None
             if override is not None and override is not list_pending_approvals:
                 return override
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             logger.debug("Failed to resolve list_pending_approvals override: %s", e)
         return list_pending_approvals
 
@@ -329,7 +329,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             override = getattr(pkg, "_run_async", None) if pkg is not None else None
             if override is not None and override is not _run_async:
                 return override
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             logger.debug("Failed to resolve _run_async override: %s", e)
         return _run_async
 
@@ -356,7 +356,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             override = getattr(pkg, "extract_user_from_request", None) if pkg is not None else None
             if override is not None and override is not extract_user_from_request:
                 extractor = override
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             logger.debug("Failed to resolve extract_user_from_request override: %s", e)
 
         jwt_context = extractor(handler)
@@ -408,7 +408,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 override = getattr(pkg, "check_permission", None) if pkg is not None else None
                 if override is not None and override is not check_permission:
                     checker = override
-            except Exception as e:
+            except (AttributeError, TypeError) as e:
                 logger.debug("Failed to resolve check_permission override: %s", e)
 
             decision = checker(context, permission_key, resource_id)

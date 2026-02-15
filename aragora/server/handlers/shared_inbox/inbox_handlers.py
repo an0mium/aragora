@@ -94,7 +94,7 @@ def _log_activity(
                         metadata=metadata or {},
                     )
                     store.log_activity(activity)
-                except Exception as e:
+                except (KeyError, ValueError, OSError, TypeError) as e:
                     logger.debug(f"Failed to log inbox activity: {e}")
                 return
 
@@ -193,7 +193,7 @@ async def handle_create_shared_inbox(
             "inbox": inbox.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to create shared inbox: {e}")
         return {
             "success": False,
@@ -250,7 +250,7 @@ async def handle_list_shared_inboxes(
             "total": len(inboxes),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to list shared inboxes: {e}")
         return {
             "success": False,
@@ -297,7 +297,7 @@ async def handle_get_shared_inbox(
                 "inbox": inbox.to_dict(),
             }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to get shared inbox: {e}")
         return {
             "success": False,
@@ -414,7 +414,7 @@ async def handle_get_inbox_messages(
             "offset": offset,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to get inbox messages: {e}")
         return {
             "success": False,
@@ -498,7 +498,7 @@ async def handle_assign_message(
             "message": message.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to assign message: {e}")
         return {
             "success": False,
@@ -580,7 +580,7 @@ async def handle_update_message_status(
 
     except ValueError:
         return {"success": False, "error": f"Invalid status: {status}"}
-    except Exception as e:
+    except (KeyError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to update message status: {e}")
         return {
             "success": False,
@@ -633,7 +633,7 @@ async def handle_add_message_tag(
             "message": message.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to add message tag: {e}")
         return {
             "success": False,
@@ -715,7 +715,7 @@ async def handle_add_message_to_inbox(
             "message": message.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to add message to inbox: {e}")
         return {
             "success": False,
