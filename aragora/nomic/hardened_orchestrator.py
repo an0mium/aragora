@@ -202,6 +202,7 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         # Circuit breaker: per-agent-type failure tracking
         self._agent_circuit_breakers: dict[str, Any] = {}
         self._agent_failure_counts: dict[str, int] = collections.defaultdict(int)
+        self._agent_success_counts: dict[str, int] = collections.defaultdict(int)
         self._agent_open_until: dict[str, float] = {}
 
         # Canary token: random hex injected into system prompts
@@ -1207,10 +1208,11 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         return True
 
     def _record_agent_outcome(self, agent_type: str, success: bool) -> None:
-        """Record success/failure for agent circuit breaker tracking."""
+        """Record success/failure for agent circuit breaker and pool tracking."""
         config = self.hardened_config
 
         if success:
+            self._agent_success_counts[agent_type] += 1
             self._agent_failure_counts[agent_type] = 0
             self._agent_open_until.pop(agent_type, None)
         else:
@@ -1699,6 +1701,15 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                         **(assignment.result or {}),
                         "sandbox_validation": "failed",
                     }
+
+            # Cross-agent review: different agent reviews the diff
+            if assignment.status == "completed":
+                cross_ok = await self._cross_agent_review(
+                    assignment=assignment,
+                    worktree_path=ctx.worktree_path,
+                )
+                if not cross_ok:
+                    assignment.status = "failed"
 
             # Auto-commit changes in the worktree branch
             if self.hardened_config.enable_auto_commit and assignment.status == "completed":

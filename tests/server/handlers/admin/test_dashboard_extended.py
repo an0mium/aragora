@@ -460,7 +460,7 @@ class TestDismissUrgentItem:
     def test_dismiss_storage_error(self, handler, mock_storage):
         """Dismiss returns 500 on storage exception."""
         storage, cursor = mock_storage
-        storage.connection.return_value.__enter__.side_effect = RuntimeError("db fail")
+        storage.connection.return_value.__enter__.side_effect = OSError("db fail")
         handler.get_storage = MagicMock(return_value=storage)
 
         result = handler._dismiss_urgent_item("item-1")
@@ -515,7 +515,7 @@ class TestCompletePendingAction:
     def test_complete_storage_error(self, handler, mock_storage):
         """Complete returns 500 on storage exception."""
         storage, cursor = mock_storage
-        storage.connection.return_value.__enter__.side_effect = RuntimeError("db fail")
+        storage.connection.return_value.__enter__.side_effect = OSError("db fail")
         handler.get_storage = MagicMock(return_value=storage)
 
         result = handler._complete_pending_action("action-1")

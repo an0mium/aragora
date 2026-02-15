@@ -20,17 +20,17 @@ interface NavItem {
 // Quick action items - always visible at top
 const quickActions: NavItem[] = [
   { label: 'New Debate', href: '/arena', icon: '+' },
-  { label: 'Inbox', href: '/inbox', icon: '!' },
+  { label: 'Inbox', href: '/inbox', icon: '!', minMode: 'standard' },
   { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'standard' },
 ];
 
-// Core navigation items - always visible
+// Core navigation items
 const coreNav: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: '≡' },
   { label: 'Debates', href: '/debates', icon: '⌘' },
-  { label: 'Knowledge', href: '/knowledge', icon: '?' },
-  { label: 'Agents', href: '/agents', icon: '&' },
-  { label: 'Analytics', href: '/analytics', icon: '~' },
+  { label: 'Knowledge', href: '/knowledge', icon: '?', minMode: 'standard' },
+  { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
+  { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'standard' },
 ];
 
 // Enterprise section - highlighted for business users
@@ -44,7 +44,7 @@ const enterpriseItems: NavItem[] = [
 
 // Tools section
 const toolsItems: NavItem[] = [
-  { label: 'Documents', href: '/documents', icon: ']' },
+  { label: 'Documents', href: '/documents', icon: ']', minMode: 'standard' },
   { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'standard' },
   { label: 'Templates', href: '/templates', icon: '[', minMode: 'standard' },
   { label: 'Integrations', href: '/integrations', icon: '∫', minMode: 'standard' },
@@ -53,7 +53,7 @@ const toolsItems: NavItem[] = [
 // Browse section items
 const browseItems: NavItem[] = [
   { label: 'Gallery', href: '/gallery', icon: '✦', minMode: 'standard' },
-  { label: 'Leaderboard', href: '/leaderboard', icon: '^' },
+  { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
   { label: 'Tournaments', href: '/tournaments', icon: '⊕', minMode: 'standard' },
   { label: 'Reviews', href: '/reviews', icon: '<', minMode: 'standard' },
 ];

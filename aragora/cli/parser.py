@@ -1776,3 +1776,10 @@ Examples:
     si_parser.set_defaults(
         func=_lazy("aragora.cli.commands.self_improve", "cmd_self_improve")
     )
+
+
+def _add_worktree_parser(subparsers) -> None:
+    """Add the 'worktree' subcommand for multi-agent worktree management."""
+    from aragora.cli.commands.worktree import add_worktree_parser
+
+    add_worktree_parser(subparsers)
