@@ -139,6 +139,228 @@ class ComplianceAPI:
         )
 
 
+    # ===========================================================================
+    # HIPAA Compliance
+
+    def hipaa_status(self, *, scope: str = "summary", include_recommendations: bool = True) -> dict[str, Any]:
+        """Get HIPAA compliance status overview.
+
+        Args:
+            scope: 'summary' or 'full' (includes safeguard details).
+            include_recommendations: Include compliance recommendations.
+
+        Returns:
+            HIPAA compliance status with score, rules, and BAA summary.
+        """
+        return self._client._get(
+            "/api/v2/compliance/hipaa/status",
+            params={"scope": scope, "include_recommendations": str(include_recommendations).lower()},
+        )
+
+    def hipaa_phi_access_log(
+        self,
+        *,
+        patient_id: str | None = None,
+        user_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """Get PHI access log for audit purposes (45 CFR 164.312(b)).
+
+        Args:
+            patient_id: Filter by patient ID.
+            user_id: Filter by accessing user.
+            from_date: Start date (ISO format).
+            to_date: End date (ISO format).
+            limit: Max results (default 100, max 1000).
+
+        Returns:
+            PHI access log entries with filters applied.
+        """
+        params: dict[str, Any] = {"limit": str(limit)}
+        if patient_id:
+            params["patient_id"] = patient_id
+        if user_id:
+            params["user_id"] = user_id
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+        return self._client._get("/api/v2/compliance/hipaa/phi-access", params=params)
+
+    def hipaa_breach_assessment(
+        self,
+        incident_id: str,
+        incident_type: str,
+        *,
+        phi_involved: bool = False,
+        phi_types: list[str] | None = None,
+        affected_individuals: int = 0,
+        unauthorized_access: dict[str, Any] | None = None,
+        mitigation_actions: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Perform HIPAA breach risk assessment (45 CFR 164.402).
+
+        Args:
+            incident_id: Unique incident identifier.
+            incident_type: Type of security incident.
+            phi_involved: Whether PHI was involved.
+            phi_types: Types of PHI involved.
+            affected_individuals: Estimated number affected.
+            unauthorized_access: Details of unauthorized access.
+            mitigation_actions: Actions taken to mitigate.
+
+        Returns:
+            Breach assessment with risk factors and notification requirements.
+        """
+        body: dict[str, Any] = {
+            "incident_id": incident_id,
+            "incident_type": incident_type,
+            "phi_involved": phi_involved,
+            "affected_individuals": affected_individuals,
+        }
+        if phi_types:
+            body["phi_types"] = phi_types
+        if unauthorized_access:
+            body["unauthorized_access"] = unauthorized_access
+        if mitigation_actions:
+            body["mitigation_actions"] = mitigation_actions
+        return self._client._post("/api/v2/compliance/hipaa/breach-assessment", json=body)
+
+    def hipaa_list_baas(
+        self, *, status: str = "active", ba_type: str = "all"
+    ) -> dict[str, Any]:
+        """List Business Associate Agreements.
+
+        Args:
+            status: Filter by status (active, expired, pending, all).
+            ba_type: Filter by BA type (vendor, subcontractor, all).
+
+        Returns:
+            List of BAAs with count and filters.
+        """
+        return self._client._get(
+            "/api/v2/compliance/hipaa/baa",
+            params={"status": status, "ba_type": ba_type},
+        )
+
+    def hipaa_create_baa(
+        self,
+        business_associate: str,
+        ba_type: Literal["vendor", "subcontractor"],
+        services_provided: str,
+        *,
+        phi_access_scope: list[str] | None = None,
+        agreement_date: str | None = None,
+        expiration_date: str | None = None,
+        subcontractor_clause: bool = True,
+    ) -> dict[str, Any]:
+        """Register a new Business Associate Agreement.
+
+        Args:
+            business_associate: Name of the business associate.
+            ba_type: 'vendor' or 'subcontractor'.
+            services_provided: Description of services.
+            phi_access_scope: Types of PHI access granted.
+            agreement_date: Date of BAA execution (ISO format).
+            expiration_date: BAA expiration date (ISO format).
+            subcontractor_clause: Whether subcontractor clause is included.
+
+        Returns:
+            Created BAA record.
+        """
+        body: dict[str, Any] = {
+            "business_associate": business_associate,
+            "ba_type": ba_type,
+            "services_provided": services_provided,
+            "subcontractor_clause": subcontractor_clause,
+        }
+        if phi_access_scope:
+            body["phi_access_scope"] = phi_access_scope
+        if agreement_date:
+            body["agreement_date"] = agreement_date
+        if expiration_date:
+            body["expiration_date"] = expiration_date
+        return self._client._post("/api/v2/compliance/hipaa/baa", json=body)
+
+    def hipaa_security_report(
+        self, *, format: str = "json", include_evidence: bool = False
+    ) -> dict[str, Any]:
+        """Generate HIPAA Security Rule compliance report.
+
+        Args:
+            format: Output format ('json' or 'html').
+            include_evidence: Include evidence references.
+
+        Returns:
+            HIPAA Security Rule compliance report.
+        """
+        return self._client._get(
+            "/api/v2/compliance/hipaa/security-report",
+            params={"format": format, "include_evidence": str(include_evidence).lower()},
+        )
+
+    def hipaa_deidentify(
+        self,
+        *,
+        content: str | None = None,
+        data: dict[str, Any] | None = None,
+        method: str = "redact",
+        identifier_types: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """De-identify content using HIPAA Safe Harbor method.
+
+        Args:
+            content: Text content to de-identify.
+            data: Structured data dict to de-identify (alternative to content).
+            method: Anonymization method (redact, hash, generalize, suppress, pseudonymize).
+            identifier_types: Identifier types to target (default: all).
+
+        Returns:
+            Anonymization result with de-identified content and audit metadata.
+        """
+        body: dict[str, Any] = {"method": method}
+        if content:
+            body["content"] = content
+        if data:
+            body["data"] = data
+        if identifier_types:
+            body["identifier_types"] = identifier_types
+        return self._client._post("/api/v2/compliance/hipaa/deidentify", json=body)
+
+    def hipaa_safe_harbor_verify(self, content: str) -> dict[str, Any]:
+        """Verify content meets HIPAA Safe Harbor requirements.
+
+        Args:
+            content: Text content to verify.
+
+        Returns:
+            Safe Harbor compliance result with identifiers remaining.
+        """
+        return self._client._post(
+            "/api/v2/compliance/hipaa/safe-harbor/verify",
+            json={"content": content},
+        )
+
+    def hipaa_detect_phi(
+        self, content: str, *, min_confidence: float = 0.5
+    ) -> dict[str, Any]:
+        """Detect HIPAA PHI identifiers in content.
+
+        Args:
+            content: Text content to scan.
+            min_confidence: Minimum confidence threshold (default: 0.5).
+
+        Returns:
+            Detected identifiers with types, positions, and confidence scores.
+        """
+        return self._client._post(
+            "/api/v2/compliance/hipaa/detect-phi",
+            json={"content": content, "min_confidence": min_confidence},
+        )
+
+
 class AsyncComplianceAPI:
     """
     Asynchronous Compliance API.

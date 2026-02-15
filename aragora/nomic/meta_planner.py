@@ -258,6 +258,40 @@ class MetaPlanner:
         except Exception as e:
             logger.warning(f"Failed to enrich context with history: {e}")
 
+        # Also query PlanStore for recent pipeline outcomes
+        try:
+            from aragora.pipeline.plan_store import get_plan_store
+
+            store = get_plan_store()
+            outcomes = store.get_recent_outcomes(limit=5)
+
+            for outcome in outcomes:
+                status = outcome.get("status", "unknown")
+                task = outcome.get("task", "unknown task")
+                exec_error = outcome.get("execution_error")
+
+                if status in ("completed",) and not exec_error:
+                    context.past_successes_to_build_on.append(
+                        f"[pipeline] {task[:60]}"
+                    )
+                elif status in ("failed", "rejected") or exec_error:
+                    error_msg = ""
+                    if exec_error and isinstance(exec_error, dict):
+                        error_msg = f": {exec_error.get('message', '')[:80]}"
+                    context.past_failures_to_avoid.append(
+                        f"[pipeline:{status}] {task[:60]}{error_msg}"
+                    )
+
+            if outcomes:
+                logger.info(
+                    f"pipeline_feedback loaded={len(outcomes)} outcomes "
+                    f"for planning"
+                )
+        except ImportError:
+            logger.debug("PlanStore not available, skipping pipeline feedback")
+        except Exception as e:
+            logger.warning(f"Failed to load pipeline outcomes: {e}")
+
         return context
 
     def _build_debate_topic(

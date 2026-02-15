@@ -541,6 +541,59 @@ class PlanStore:
         finally:
             conn.close()
 
+    def get_recent_outcomes(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Get recent plan outcomes for feedback into planning.
+
+        Returns plans that have reached a terminal status (completed,
+        failed, rejected) along with their execution records, ordered
+        by most recent first.
+
+        Args:
+            limit: Maximum number of outcomes to return
+
+        Returns:
+            List of outcome dicts with keys: plan_id, task, status,
+            debate_id, created_at, execution_status, execution_error
+        """
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT p.id, p.task, p.status, p.debate_id, p.created_at,
+                       e.status AS exec_status,
+                       e.error_json AS exec_error
+                FROM plans p
+                LEFT JOIN plan_executions e ON e.plan_id = p.id
+                WHERE p.status IN ('completed', 'failed', 'rejected', 'executing')
+                ORDER BY p.created_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
+            outcomes: list[dict[str, Any]] = []
+            for row in rows:
+                exec_error = None
+                if row["exec_error"]:
+                    try:
+                        exec_error = json.loads(row["exec_error"])
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        exec_error = {"message": str(row["exec_error"])}
+
+                outcomes.append({
+                    "plan_id": row["id"],
+                    "task": row["task"],
+                    "status": row["status"],
+                    "debate_id": row["debate_id"],
+                    "created_at": row["created_at"],
+                    "execution_status": row["exec_status"],
+                    "execution_error": exec_error,
+                })
+
+            return outcomes
+        finally:
+            conn.close()
+
     def delete(self, plan_id: str) -> bool:
         """Delete a plan by ID. Returns True if deleted."""
         conn = self._connect()

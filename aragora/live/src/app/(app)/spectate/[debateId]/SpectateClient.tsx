@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useRightSidebar } from '@/context/RightSidebarContext';
+import { TimelineView } from '@/components/spectate/TimelineView';
+import { SummaryView } from '@/components/spectate/SummaryView';
 import {
   useSpectateStore,
   EVENT_STYLES,
@@ -13,12 +15,15 @@ import {
   type SpectatorEventType,
 } from '@/store/spectateStore';
 
+type SpectateViewMode = 'feed' | 'timeline' | 'summary';
+
 export default function SpectateClient() {
   const params = useParams();
   const debateId = params.debateId as string;
 
   const eventListRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const [viewMode, setViewMode] = useState<SpectateViewMode>('feed');
 
   // Store state
   const {
