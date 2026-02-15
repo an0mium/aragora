@@ -445,6 +445,29 @@ export default function Playground() {
             )}
           </div>
         )}
+
+        {/* Return to landing after debate completes */}
+        {result && (
+          <div className="mt-8 py-6 border-t border-[var(--border)] text-center space-y-3">
+            <p className="text-sm text-[var(--text-muted)]">
+              Want deeper analysis with real AI models?
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <a
+                href="/login"
+                className="px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-bold text-sm hover:opacity-90 transition-opacity"
+              >
+                SIGN IN FOR REAL MODELS
+              </a>
+              <a
+                href="/"
+                className="px-6 py-3 border border-[var(--border)] text-[var(--text-muted)] text-sm hover:text-[var(--acid-green)] hover:border-[var(--acid-green)] transition-colors"
+              >
+                BACK TO LANDING
+              </a>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer */}

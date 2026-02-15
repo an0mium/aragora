@@ -270,6 +270,9 @@ class ArenaBuilder:
         self._multilingual_manager: Any = None
         self._default_language: str = "en"
 
+        # Mode-based phase prompts
+        self._mode_sequence: list[str] | None = None
+
         # New orchestration features (Phase 4 integration)
         self._hook_manager: Any = None  # HookManager for extended lifecycle hooks
         self._delegation_strategy: Any = None  # DelegationStrategy for task routing
@@ -327,6 +330,28 @@ class ArenaBuilder:
 
         self._protocol = template_to_protocol(template, overrides)
         self._template = template
+        return self
+
+    # =========================================================================
+    # Mode-Based Phase Prompts
+    # =========================================================================
+
+    def with_mode_sequence(self, modes: list[str]) -> ArenaBuilder:
+        """Set mode sequence for phase-aware agent prompts.
+
+        Maps operational modes to debate phases. The sequence defines which
+        mode system prompt is injected for each phase:
+        - modes[0] -> propose phase (default: architect)
+        - modes[1] -> critique phase (default: reviewer)
+        - modes[2] -> revise phase (default: coder)
+
+        Args:
+            modes: List of mode names (e.g., ["architect", "reviewer", "coder"])
+
+        Returns:
+            Self for method chaining
+        """
+        self._mode_sequence = modes
         return self
 
     # =========================================================================
@@ -1149,6 +1174,7 @@ class ArenaBuilder:
             "training_exporter": self._training_exporter,
             "auto_export_training": self._auto_export_training,
             "training_export_min_confidence": self._training_export_min_confidence,
+            "mode_sequence": self._mode_sequence,
         }
 
         if self._enable_knowledge_retrieval is not None:

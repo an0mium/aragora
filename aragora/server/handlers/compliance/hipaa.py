@@ -50,6 +50,9 @@ PERM_HIPAA_BREACHES_REPORT = "compliance:breaches:report"
 # Manage Business Associate Agreements
 PERM_HIPAA_BAA_MANAGE = "compliance:baa:manage"
 
+# PHI de-identification and Safe Harbor verification
+PERM_HIPAA_PHI_DEIDENTIFY = "compliance:phi:deidentify"
+
 # Full HIPAA administrative access
 PERM_HIPAA_ADMIN = "compliance:hipaa:admin"
 
@@ -717,6 +720,181 @@ class HIPAAMixin:
 
         return json_response(report)
 
+    @track_handler("compliance/hipaa-deidentify", method="POST")
+    @require_permission(PERM_HIPAA_PHI_DEIDENTIFY)
+    async def _hipaa_deidentify(self, body: dict[str, Any]) -> HandlerResult:
+        """
+        De-identify content using HIPAA Safe Harbor method.
+
+        Removes the 18 HIPAA identifiers from text or structured data using
+        the HIPAAAnonymizer from aragora.privacy.anonymization.
+
+        Body:
+            content: Text content to de-identify (required, unless 'data' provided)
+            data: Structured data dict to de-identify (optional, alternative to content)
+            method: Anonymization method - redact | hash | generalize | suppress | pseudonymize
+                    (default: redact)
+            identifier_types: List of identifier types to target (optional, default: all)
+        """
+        content = body.get("content")
+        data = body.get("data")
+
+        if not content and not data:
+            return error_response("Either 'content' (string) or 'data' (object) is required", 400)
+
+        method_str = body.get("method", "redact")
+
+        try:
+            from aragora.privacy.anonymization import (
+                HIPAAAnonymizer,
+                AnonymizationMethod,
+                IdentifierType,
+            )
+        except ImportError:
+            return error_response(
+                "Privacy anonymization module not available", 501
+            )
+
+        try:
+            anon_method = AnonymizationMethod(method_str)
+        except ValueError:
+            valid = [m.value for m in AnonymizationMethod]
+            return error_response(
+                f"Invalid method '{method_str}'. Valid: {valid}", 400
+            )
+
+        # Parse identifier type filters
+        id_types = None
+        raw_types = body.get("identifier_types")
+        if raw_types and isinstance(raw_types, list):
+            try:
+                id_types = [IdentifierType(t) for t in raw_types]
+            except ValueError as e:
+                return error_response(f"Invalid identifier type: {e}", 400)
+
+        anonymizer = HIPAAAnonymizer()
+
+        if content:
+            result = anonymizer.anonymize(content, anon_method, id_types)
+        else:
+            result = anonymizer.anonymize_structured(data, default_method=anon_method)
+
+        # Audit the de-identification
+        try:
+            store = get_audit_store()
+            store.log_event(
+                action="hipaa_phi_deidentified",
+                resource_type="content",
+                resource_id=result.audit_id,
+                metadata={
+                    "method": method_str,
+                    "identifiers_found": len(result.identifiers_found),
+                    "fields_anonymized": result.fields_anonymized,
+                },
+            )
+        except Exception as e:
+            logger.warning("Failed to log de-identification audit: %s", e)
+
+        emit_handler_event(
+            "compliance",
+            COMPLETED,
+            {"action": "hipaa_deidentify", "audit_id": result.audit_id},
+        )
+        return json_response(result.to_dict())
+
+    @track_handler("compliance/hipaa-safe-harbor-verify", method="POST")
+    @require_permission(PERM_HIPAA_READ)
+    async def _hipaa_safe_harbor_verify(self, body: dict[str, Any]) -> HandlerResult:
+        """
+        Verify content meets HIPAA Safe Harbor de-identification requirements.
+
+        Checks content for the 18 HIPAA identifiers and reports compliance.
+
+        Body:
+            content: Text content to verify (required)
+        """
+        content = body.get("content")
+        if not content:
+            return error_response("'content' is required", 400)
+
+        try:
+            from aragora.privacy.anonymization import HIPAAAnonymizer
+        except ImportError:
+            return error_response(
+                "Privacy anonymization module not available", 501
+            )
+
+        anonymizer = HIPAAAnonymizer()
+        result = anonymizer.verify_safe_harbor(content)
+
+        response = {
+            "compliant": result.compliant,
+            "identifiers_remaining": [
+                {
+                    "type": ident.identifier_type.value,
+                    "value_preview": ident.value[:3] + "..." if len(ident.value) > 3 else "***",
+                    "confidence": ident.confidence,
+                    "position": {"start": ident.start_pos, "end": ident.end_pos},
+                }
+                for ident in result.identifiers_remaining
+            ],
+            "verification_notes": result.verification_notes,
+            "verified_at": result.verified_at.isoformat(),
+            "hipaa_reference": "45 CFR 164.514(b) - Safe Harbor Method",
+        }
+
+        return json_response(response)
+
+    @track_handler("compliance/hipaa-detect-phi", method="POST")
+    @require_permission(PERM_HIPAA_READ)
+    async def _hipaa_detect_phi(self, body: dict[str, Any]) -> HandlerResult:
+        """
+        Detect HIPAA PHI identifiers in content.
+
+        Scans content and returns all detected identifiers with positions
+        and confidence scores. Does not modify the content.
+
+        Body:
+            content: Text content to scan (required)
+            min_confidence: Minimum confidence threshold (default: 0.5)
+        """
+        content = body.get("content")
+        if not content:
+            return error_response("'content' is required", 400)
+
+        min_confidence = float(body.get("min_confidence", 0.5))
+
+        try:
+            from aragora.privacy.anonymization import HIPAAAnonymizer
+        except ImportError:
+            return error_response(
+                "Privacy anonymization module not available", 501
+            )
+
+        anonymizer = HIPAAAnonymizer()
+        identifiers = anonymizer.detect_identifiers(content)
+
+        # Filter by confidence and reverse to natural order
+        filtered = [
+            i for i in reversed(identifiers) if i.confidence >= min_confidence
+        ]
+
+        return json_response({
+            "identifiers": [
+                {
+                    "type": ident.identifier_type.value,
+                    "value": ident.value,
+                    "start": ident.start_pos,
+                    "end": ident.end_pos,
+                    "confidence": ident.confidence,
+                }
+                for ident in filtered
+            ],
+            "count": len(filtered),
+            "min_confidence": min_confidence,
+            "hipaa_reference": "45 CFR 164.514 - HIPAA Safe Harbor Identifiers",
+        })
+
     # =========================================================================
     # Helper methods for HIPAA operations
     # =========================================================================
@@ -742,10 +920,19 @@ class HIPAAMixin:
 
     async def _evaluate_phi_controls(self) -> dict[str, Any]:
         """Evaluate PHI handling controls."""
+        # Check if anonymizer module is available
+        anonymizer_available = False
+        try:
+            from aragora.privacy.anonymization import HIPAAAnonymizer  # noqa: F401
+            anonymizer_available = True
+        except ImportError:
+            pass
+
         return {
             "status": "configured",
             "identifiers_tracked": len(self.PHI_IDENTIFIERS),
             "de_identification_method": "Safe Harbor",
+            "anonymizer_available": anonymizer_available,
             "minimum_necessary_enforced": True,
             "access_controls": {
                 "role_based": True,
@@ -903,5 +1090,6 @@ __all__ = [
     "PERM_HIPAA_BREACHES_READ",
     "PERM_HIPAA_BREACHES_REPORT",
     "PERM_HIPAA_BAA_MANAGE",
+    "PERM_HIPAA_PHI_DEIDENTIFY",
     "PERM_HIPAA_ADMIN",
 ]

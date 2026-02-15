@@ -372,6 +372,55 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         self._supermemory_context: ContextInjectionResult | None = None
         self._supermemory_context_cache: str = ""
 
+        # Mode-based phase prompts (set externally by Arena via mode_sequence)
+        self.mode_sequence: list[str] | None = None
+        self._active_mode_name: str | None = None
+
+    def set_mode_for_phase(self, phase: str) -> None:
+        """Set the active mode based on debate phase.
+
+        Maps debate phases to mode names using mode_sequence if configured,
+        otherwise uses default mapping: propose->architect, critique->reviewer,
+        revise->coder.
+
+        Args:
+            phase: The debate phase name (propose, critique, revise, judge, etc.)
+        """
+        default_mapping = {
+            "propose": "architect",
+            "critique": "reviewer",
+            "revise": "coder",
+        }
+
+        if self.mode_sequence:
+            # mode_sequence is ordered: [propose_mode, critique_mode, revise_mode]
+            phase_index = {"propose": 0, "critique": 1, "revise": 2}
+            idx = phase_index.get(phase)
+            if idx is not None and idx < len(self.mode_sequence):
+                self._active_mode_name = self.mode_sequence[idx]
+                return
+
+        self._active_mode_name = default_mapping.get(phase)
+
+    def get_mode_prompt(self) -> str:
+        """Get the system prompt for the currently active mode.
+
+        Returns:
+            Mode system prompt string, or empty string if no mode is active
+            or the mode is not found in the registry.
+        """
+        if not self._active_mode_name:
+            return ""
+        try:
+            from aragora.modes.base import ModeRegistry
+
+            mode = ModeRegistry.get(self._active_mode_name)
+            if mode is not None:
+                return mode.get_system_prompt()
+        except ImportError:
+            logger.debug("Modes module not available for phase prompts")
+        return ""
+
     def clear_caches(self) -> None:
         """Clear all caches. Call at session boundaries (e.g., debate end)."""
         self._pattern_cache.clear()

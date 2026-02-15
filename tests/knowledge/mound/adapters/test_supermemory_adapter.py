@@ -1,7 +1,7 @@
 """Tests for SupermemoryAdapter."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -363,7 +363,7 @@ class TestSyncOutcomeResult:
         result = SyncOutcomeResult(
             success=True,
             memory_id="mem_123",
-            synced_at=datetime.utcnow(),
+            synced_at=datetime.now(timezone.utc),
         )
 
         assert result.success is True

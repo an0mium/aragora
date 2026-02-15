@@ -314,6 +314,22 @@ PAST FAILURES TO AVOID (learn from these mistakes):
 {chr(10).join(f"- {f}" for f in context.past_failures_to_avoid[:5])}
 """
 
+        # Inject relevant deliberation templates to ground abstract objectives
+        try:
+            from aragora.deliberation.templates.registry import match_templates
+
+            matched = match_templates(objective, limit=3)
+            if matched:
+                topic += "\nRELEVANT DELIBERATION TEMPLATES (use these as inspiration):\n"
+                for tmpl in matched:
+                    topic += (
+                        f"- {tmpl.name}: {tmpl.description} "
+                        f"(category={tmpl.category.value}, "
+                        f"tags={', '.join(tmpl.tags[:4])})\n"
+                    )
+        except ImportError:
+            pass
+
         topic += """
 YOUR TASK:
 Propose 3-5 specific improvement goals that would best achieve the objective.

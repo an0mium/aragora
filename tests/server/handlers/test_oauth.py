@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
@@ -75,7 +75,7 @@ class MockUser:
     password_hash: str = "hashed"
     password_salt: str = "salt"
     oauth_providers: dict = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class MockHandler:

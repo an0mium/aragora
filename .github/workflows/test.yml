@@ -678,6 +678,10 @@ jobs:
         working-directory: aragora/live
         run: npm ci
 
+      - name: Run Jest unit tests
+        working-directory: aragora/live
+        run: npx jest --ci --passWithNoTests
+
       - name: Install Playwright browsers
         working-directory: aragora/live
         run: npx playwright install --with-deps

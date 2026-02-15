@@ -33,6 +33,7 @@ class PromptAssemblyMixin:
 
     # Methods from PromptBuilder (available via MRO)
     _get_introspection_context: Any
+    get_mode_prompt: Any
 
     # Methods from PromptContextMixin (available via MRO)
     get_stance_guidance: Any
@@ -234,6 +235,11 @@ class PromptAssemblyMixin:
         if introspection_context:
             introspection_section = introspection_context
 
+        mode_section = ""
+        mode_prompt = self.get_mode_prompt()
+        if mode_prompt:
+            mode_section = mode_prompt
+
         sections = [
             ContextSection("historical", historical_section.strip()),
             ContextSection("continuum", continuum_section.strip()),
@@ -250,6 +256,7 @@ class PromptAssemblyMixin:
             ContextSection("audience", audience_section.strip()),
             ContextSection("template", template_section.strip()),
             ContextSection("introspection", introspection_section.strip()),
+            ContextSection("mode", mode_section.strip()),
         ]
 
         context_block, context_str = self._apply_context_budget(
@@ -342,6 +349,11 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         if template_context:
             template_section = template_context
 
+        mode_section = ""
+        mode_prompt = self.get_mode_prompt()
+        if mode_prompt:
+            mode_section = mode_prompt
+
         sections = [
             ContextSection("patterns", patterns_section.strip()),
             ContextSection("belief", belief_section.strip()),
@@ -351,6 +363,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
             ContextSection("trending", trending_section.strip()),
             ContextSection("audience", audience_section.strip()),
             ContextSection("template", template_section.strip()),
+            ContextSection("mode", mode_section.strip()),
         ]
         context_block, _ = self._apply_context_budget(env_context="", sections=sections)
 

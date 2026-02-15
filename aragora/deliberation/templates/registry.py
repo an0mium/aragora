@@ -279,6 +279,23 @@ def load_templates_from_yaml(path: Path) -> int:
     return _global_registry.load_from_yaml(path)
 
 
+def match_templates(goal: str, limit: int = 5) -> list[DeliberationTemplate]:
+    """Fuzzy-match deliberation templates against a goal string.
+
+    Scores templates by keyword overlap with the goal across
+    name, description, tags, and example_topics. Returns the
+    top matches sorted by relevance.
+
+    Args:
+        goal: The goal or question to match against
+        limit: Maximum results to return
+
+    Returns:
+        List of matching templates sorted by relevance score
+    """
+    return _global_registry.recommend(question=goal, limit=limit)
+
+
 def get_template_dict(name: str) -> dict[str, Any] | None:
     """Get a template as a dictionary."""
     template = get_template(name)

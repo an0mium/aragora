@@ -53,6 +53,7 @@ def sync_prompt_builder_state(arena: Arena) -> None:
     arena.prompt_builder._historical_context_cache = arena._cache.historical_context
     arena.prompt_builder._continuum_context_cache = get_continuum_context(arena)
     arena.prompt_builder.user_suggestions = list(arena.user_suggestions)
+    arena.prompt_builder.mode_sequence = getattr(arena, "mode_sequence", None)
 
 
 def get_continuum_context(arena: Arena) -> str:

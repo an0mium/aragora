@@ -44,7 +44,7 @@ class MockUser:
     org_id: str | None = "org-123"
     role: str = "member"
     is_active: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_login_at: datetime | None = None
 
 
@@ -60,7 +60,7 @@ class MockOrganization:
     debates_used_this_month: int = 0
     limits: Any = None  # Mock limits
     settings: dict = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __post_init__(self):
         if self.tier is None:
@@ -86,7 +86,7 @@ class MockInvitation:
     expires_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=7)
     )
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def is_pending(self) -> bool:

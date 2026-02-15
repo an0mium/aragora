@@ -252,6 +252,18 @@ class ComplianceHandler(
             if path == "/api/v2/compliance/hipaa/security-report" and method == "GET":
                 return await self._hipaa_security_report(query_params)
 
+            # HIPAA PHI De-identification
+            if path == "/api/v2/compliance/hipaa/deidentify" and method == "POST":
+                return await self._hipaa_deidentify(body)
+
+            # HIPAA Safe Harbor Verification
+            if path == "/api/v2/compliance/hipaa/safe-harbor/verify" and method == "POST":
+                return await self._hipaa_safe_harbor_verify(body)
+
+            # HIPAA PHI Detection
+            if path == "/api/v2/compliance/hipaa/detect-phi" and method == "POST":
+                return await self._hipaa_detect_phi(body)
+
             # =================================================================
             # EU AI Act Endpoints
             # =================================================================

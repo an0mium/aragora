@@ -98,7 +98,7 @@ class MockGauntletResult:
     critical_count: int = 0
     high_count: int = 1
     total_findings: int = 3
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 45.0
 
 
@@ -114,8 +114,8 @@ class MockInflightRun:
     persona: str | None = None
     profile: str = "default"
     agents: list[str] = field(default_factory=lambda: ["anthropic-api"])
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     current_phase: str | None = "analysis"
     progress_percent: float = 50.0
     error: str | None = None

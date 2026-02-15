@@ -84,6 +84,7 @@ class TestGrokAgentInitialization:
         monkeypatch.delenv("XAI_API_KEY", raising=False)
         monkeypatch.setenv("GROK_API_KEY", "grok-test-key-456")
         monkeypatch.setenv("ARAGORA_OPENROUTER_FALLBACK_ENABLED", "false")
+        monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "false")
 
         from aragora.agents.api_agents.grok import GrokAgent
 

@@ -467,8 +467,10 @@ class Arena(ArenaDelegatesMixin):
         post_debate_workflow_threshold: float = 0.7,
         fabric: Any = None,
         fabric_config: Any = None,
+        mode_sequence: list[str] | None = None,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
+        self.mode_sequence = mode_sequence
         knowledge_mound_param_provided = knowledge_mound is not _KNOWLEDGE_MOUND_UNSET
         knowledge_mound_param_none = knowledge_mound is None
 

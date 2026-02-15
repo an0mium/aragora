@@ -212,6 +212,17 @@ class TaskDecomposer:
         complexity_score = self._calculate_complexity(task_description, debate_result)
         complexity_level = self._score_to_level(complexity_score)
 
+        # If the goal is vague (low complexity score), try semantic expansion
+        # to produce concrete subtasks from templates and track configs
+        if complexity_score < 3:
+            expanded = self._expand_vague_goal(task_description)
+            if expanded is not None:
+                logger.info(
+                    f"vague_goal_expanded original_score={complexity_score} "
+                    f"subtasks={len(expanded.subtasks)} depth={depth}"
+                )
+                return expanded
+
         # Determine if decomposition is needed
         should_decompose = complexity_score >= self.config.complexity_threshold
 
@@ -480,6 +491,113 @@ class TaskDecomposer:
                 estimated_complexity="low",
             ),
         ]
+
+    # =========================================================================
+    # Vague goal expansion (cross-references templates + track configs)
+    # =========================================================================
+
+    def _expand_vague_goal(self, goal: str) -> TaskDecomposition | None:
+        """Expand a vague goal into concrete subtasks using templates and tracks.
+
+        When a goal like "maximize utility for SMEs" scores low on the heuristic
+        complexity check (no file mentions, few keywords), this method cross-
+        references deliberation templates and development track configs to
+        generate concrete, actionable subtasks.
+
+        Args:
+            goal: The vague goal string
+
+        Returns:
+            TaskDecomposition with expanded subtasks, or None if expansion
+            didn't produce useful results
+        """
+        subtasks: list[SubTask] = []
+        matched_sources: list[str] = []
+
+        # 1. Cross-reference against deliberation templates
+        try:
+            from aragora.deliberation.templates.registry import match_templates
+
+            matched = match_templates(goal, limit=3)
+            for i, template in enumerate(matched):
+                subtasks.append(
+                    SubTask(
+                        id=f"subtask_{len(subtasks) + 1}",
+                        title=f"{template.name.replace('_', ' ').title()}",
+                        description=(
+                            f"{template.description}. "
+                            f"Suggested personas: {', '.join(template.personas[:3])}."
+                            if template.personas
+                            else template.description
+                        ),
+                        dependencies=[f"subtask_{len(subtasks)}"] if subtasks else [],
+                        estimated_complexity="medium",
+                        file_scope=[],
+                    )
+                )
+                matched_sources.append(f"template:{template.name}")
+        except ImportError:
+            logger.debug("Deliberation templates not available for expansion")
+
+        # 2. Cross-reference against development track configs
+        try:
+            from aragora.nomic.autonomous_orchestrator import (
+                DEFAULT_TRACK_CONFIGS,
+                Track,
+            )
+
+            goal_lower = goal.lower()
+            for track, config in DEFAULT_TRACK_CONFIGS.items():
+                # Match track by name or keywords in the goal
+                track_keywords = {
+                    Track.SME: ["sme", "small business", "dashboard", "user experience", "utility"],
+                    Track.DEVELOPER: ["sdk", "api", "developer", "documentation", "package"],
+                    Track.SELF_HOSTED: ["deploy", "docker", "self-hosted", "ops", "backup"],
+                    Track.QA: ["test", "quality", "coverage", "ci", "reliability"],
+                    Track.CORE: ["debate", "agent", "consensus", "engine", "core"],
+                    Track.SECURITY: ["security", "auth", "vulnerability", "harden", "owasp"],
+                }
+                keywords = track_keywords.get(track, [])
+                if any(kw in goal_lower for kw in keywords):
+                    folders_str = ", ".join(config.folders[:3])
+                    subtasks.append(
+                        SubTask(
+                            id=f"subtask_{len(subtasks) + 1}",
+                            title=f"Improve {config.name} Track",
+                            description=(
+                                f"Enhance capabilities in the {config.name} track. "
+                                f"Key folders: {folders_str}. "
+                                f"Preferred agents: {', '.join(config.agent_types)}."
+                            ),
+                            dependencies=[],
+                            estimated_complexity="medium",
+                            file_scope=config.folders[:3],
+                        )
+                    )
+                    matched_sources.append(f"track:{track.value}")
+        except ImportError:
+            logger.debug("Track configs not available for expansion")
+
+        # Only return expansion if we found meaningful matches
+        if len(subtasks) < 2:
+            return None
+
+        # Cap at max_subtasks
+        subtasks = subtasks[: self.config.max_subtasks]
+
+        rationale = (
+            f"Vague goal expanded via semantic matching "
+            f"(sources: {', '.join(matched_sources)})"
+        )
+
+        return TaskDecomposition(
+            original_task=goal,
+            complexity_score=5,  # Elevated: vague goals are inherently complex
+            complexity_level="medium",
+            should_decompose=True,
+            subtasks=subtasks,
+            rationale=rationale,
+        )
 
     # =========================================================================
     # Debate-based decomposition (for abstract high-level goals)

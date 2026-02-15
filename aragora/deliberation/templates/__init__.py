@@ -25,6 +25,7 @@ from aragora.deliberation.templates.registry import (
     TemplateRegistry,
     get_template,
     list_templates,
+    match_templates,
     register_template,
     load_templates_from_yaml,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "TemplateRegistry",
     "get_template",
     "list_templates",
+    "match_templates",
     "register_template",
     "load_templates_from_yaml",
     # Built-in templates

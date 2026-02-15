@@ -1636,3 +1636,464 @@ class TestComplianceCoverage:
         assert "Encryption/Decryption" in technical_controls
         assert "Automatic Logoff" in technical_controls
         assert "Encryption" in technical_controls
+
+
+# ============================================================================
+# PHI De-identification Tests
+# ============================================================================
+
+
+class TestHIPAADeidentify:
+    """Tests for HIPAA PHI de-identification endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_deidentify_text_redact(self, hipaa_handler, mock_audit_store):
+        """De-identify text content using redaction."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "Patient John Smith (SSN: 123-45-6789) visited on 01/15/2024",
+                "method": "redact",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "anonymized_content" in body
+        assert "123-45-6789" not in body["anonymized_content"]
+        assert body["identifiers_count"] > 0
+        assert "audit_id" in body
+
+    @pytest.mark.asyncio
+    async def test_deidentify_text_hash(self, hipaa_handler, mock_audit_store):
+        """De-identify text content using hashing."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "Email: test@example.com, Phone: 555-123-4567",
+                "method": "hash",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "test@example.com" not in body["anonymized_content"]
+        assert "555-123-4567" not in body["anonymized_content"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_text_suppress(self, hipaa_handler, mock_audit_store):
+        """De-identify text content using suppression."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "SSN: 123-45-6789",
+                "method": "suppress",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "123-45-6789" not in body["anonymized_content"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_structured_data(self, hipaa_handler, mock_audit_store):
+        """De-identify structured data dict."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "data": {
+                    "patient_name": "John Smith",
+                    "ssn": "123-45-6789",
+                    "diagnosis": "Common cold",
+                },
+                "method": "redact",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "anonymized_content" in body
+
+    @pytest.mark.asyncio
+    async def test_deidentify_missing_content_and_data(self, hipaa_handler):
+        """De-identify rejects when neither content nor data provided."""
+        result = await hipaa_handler._hipaa_deidentify({})
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_deidentify_invalid_method(self, hipaa_handler):
+        """De-identify rejects invalid anonymization method."""
+        result = await hipaa_handler._hipaa_deidentify({
+            "content": "Test content",
+            "method": "invalid_method",
+        })
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "Invalid method" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_with_identifier_types(self, hipaa_handler, mock_audit_store):
+        """De-identify only specific identifier types."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "Email: test@example.com, SSN: 123-45-6789",
+                "method": "redact",
+                "identifier_types": ["ssn"],
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # SSN should be redacted
+        assert "123-45-6789" not in body["anonymized_content"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_invalid_identifier_type(self, hipaa_handler):
+        """De-identify rejects invalid identifier type."""
+        result = await hipaa_handler._hipaa_deidentify({
+            "content": "Test content",
+            "identifier_types": ["not_a_real_type"],
+        })
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "Invalid identifier type" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_pseudonymize(self, hipaa_handler, mock_audit_store):
+        """De-identify text using pseudonymization."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "Patient John Smith has SSN 123-45-6789",
+                "method": "pseudonymize",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["reversible"] is True
+        assert "123-45-6789" not in body["anonymized_content"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_audits_operation(self, hipaa_handler, mock_audit_store):
+        """De-identify logs an audit event."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            await hipaa_handler._hipaa_deidentify({
+                "content": "SSN: 123-45-6789",
+                "method": "redact",
+            })
+
+        mock_audit_store.log_event.assert_called_once()
+        call_kwargs = mock_audit_store.log_event.call_args
+        assert call_kwargs.kwargs["action"] == "hipaa_phi_deidentified"
+
+    @pytest.mark.asyncio
+    async def test_deidentify_generalize(self, hipaa_handler, mock_audit_store):
+        """De-identify text using generalization."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "IP: 192.168.1.100",
+                "method": "generalize",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # IP should be generalized (e.g., 192.168.x.x)
+        assert "192.168.1.100" not in body["anonymized_content"]
+
+    @pytest.mark.asyncio
+    async def test_deidentify_no_phi_in_content(self, hipaa_handler, mock_audit_store):
+        """De-identify handles content with no PHI gracefully."""
+        with patch(
+            "aragora.server.handlers.compliance.hipaa.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await hipaa_handler._hipaa_deidentify({
+                "content": "This is plain text with no identifiers",
+                "method": "redact",
+            })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["identifiers_count"] == 0
+        assert body["anonymized_content"] == "This is plain text with no identifiers"
+
+    @pytest.mark.asyncio
+    async def test_deidentify_permission_decorator(self):
+        """De-identify endpoint has correct permission decorator."""
+        import inspect
+
+        from aragora.server.handlers.compliance.hipaa import PERM_HIPAA_PHI_DEIDENTIFY
+
+        source = inspect.getsource(HIPAAMixin._hipaa_deidentify)
+        assert "require_permission" in source
+        assert "PERM_HIPAA_PHI_DEIDENTIFY" in source
+        assert PERM_HIPAA_PHI_DEIDENTIFY == "compliance:phi:deidentify"
+
+
+# ============================================================================
+# Safe Harbor Verification Tests
+# ============================================================================
+
+
+class TestHIPAASafeHarborVerify:
+    """Tests for HIPAA Safe Harbor verification endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_verify_compliant_content(self, hipaa_handler):
+        """Verify content with no PHI is compliant."""
+        result = await hipaa_handler._hipaa_safe_harbor_verify({
+            "content": "This text has no personal identifiers",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["compliant"] is True
+        assert body["identifiers_remaining"] == []
+        assert body["hipaa_reference"] == "45 CFR 164.514(b) - Safe Harbor Method"
+
+    @pytest.mark.asyncio
+    async def test_verify_non_compliant_content(self, hipaa_handler):
+        """Verify content with PHI is non-compliant."""
+        result = await hipaa_handler._hipaa_safe_harbor_verify({
+            "content": "Patient John Smith, SSN 123-45-6789, email john@example.com",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["compliant"] is False
+        assert len(body["identifiers_remaining"]) > 0
+        assert "verified_at" in body
+
+    @pytest.mark.asyncio
+    async def test_verify_identifier_details(self, hipaa_handler):
+        """Verify identifier details are returned with truncated values."""
+        result = await hipaa_handler._hipaa_safe_harbor_verify({
+            "content": "SSN: 123-45-6789",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        for ident in body["identifiers_remaining"]:
+            assert "type" in ident
+            assert "value_preview" in ident
+            assert "confidence" in ident
+            assert "position" in ident
+            # Value should be truncated for privacy
+            assert len(ident["value_preview"]) <= 6  # "xxx..." max
+
+    @pytest.mark.asyncio
+    async def test_verify_missing_content(self, hipaa_handler):
+        """Verify rejects request with missing content."""
+        result = await hipaa_handler._hipaa_safe_harbor_verify({})
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_verify_verification_notes(self, hipaa_handler):
+        """Verify verification notes are included."""
+        result = await hipaa_handler._hipaa_safe_harbor_verify({
+            "content": "Clean content with no PII",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "verification_notes" in body
+        assert len(body["verification_notes"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_verify_permission_decorator(self):
+        """Safe Harbor verify has correct permission decorator."""
+        import inspect
+
+        source = inspect.getsource(HIPAAMixin._hipaa_safe_harbor_verify)
+        assert "require_permission" in source
+        assert "PERM_HIPAA_READ" in source
+
+
+# ============================================================================
+# PHI Detection Tests
+# ============================================================================
+
+
+class TestHIPAADetectPHI:
+    """Tests for HIPAA PHI detection endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_detect_ssn(self, hipaa_handler):
+        """Detect SSN in content."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "SSN: 123-45-6789",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] > 0
+        types = [i["type"] for i in body["identifiers"]]
+        assert "ssn" in types
+
+    @pytest.mark.asyncio
+    async def test_detect_email(self, hipaa_handler):
+        """Detect email addresses in content."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "Contact: john.doe@hospital.org",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] > 0
+        types = [i["type"] for i in body["identifiers"]]
+        assert "email" in types
+
+    @pytest.mark.asyncio
+    async def test_detect_phone_number(self, hipaa_handler):
+        """Detect phone numbers in content."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "Call: 555-123-4567",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] > 0
+        types = [i["type"] for i in body["identifiers"]]
+        assert "phone" in types
+
+    @pytest.mark.asyncio
+    async def test_detect_ip_address(self, hipaa_handler):
+        """Detect IP addresses in content."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "Server: 192.168.1.100",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] > 0
+        types = [i["type"] for i in body["identifiers"]]
+        assert "ip" in types
+
+    @pytest.mark.asyncio
+    async def test_detect_multiple_identifiers(self, hipaa_handler):
+        """Detect multiple different identifier types."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "Patient John Smith, SSN 123-45-6789, email john@example.com, IP 10.0.0.1",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] >= 3
+        types = set(i["type"] for i in body["identifiers"])
+        assert len(types) >= 2
+
+    @pytest.mark.asyncio
+    async def test_detect_no_phi(self, hipaa_handler):
+        """Detect returns empty when no PHI found."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "plain text with no phi data",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 0
+        assert body["identifiers"] == []
+
+    @pytest.mark.asyncio
+    async def test_detect_with_confidence_filter(self, hipaa_handler):
+        """Detect filters by minimum confidence."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "SSN: 123-45-6789, some text at 123 Main Street",
+            "min_confidence": 0.9,
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # All returned identifiers should meet confidence threshold
+        for ident in body["identifiers"]:
+            assert ident["confidence"] >= 0.9
+
+    @pytest.mark.asyncio
+    async def test_detect_missing_content(self, hipaa_handler):
+        """Detect rejects request with missing content."""
+        result = await hipaa_handler._hipaa_detect_phi({})
+
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_detect_identifier_positions(self, hipaa_handler):
+        """Detect returns correct start/end positions."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "SSN: 123-45-6789",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        for ident in body["identifiers"]:
+            assert "start" in ident
+            assert "end" in ident
+            assert ident["start"] < ident["end"]
+
+    @pytest.mark.asyncio
+    async def test_detect_hipaa_reference(self, hipaa_handler):
+        """Detect response includes HIPAA reference."""
+        result = await hipaa_handler._hipaa_detect_phi({
+            "content": "Test",
+        })
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["hipaa_reference"] == "45 CFR 164.514 - HIPAA Safe Harbor Identifiers"
+
+    @pytest.mark.asyncio
+    async def test_detect_permission_decorator(self):
+        """PHI detect has correct permission decorator."""
+        import inspect
+
+        source = inspect.getsource(HIPAAMixin._hipaa_detect_phi)
+        assert "require_permission" in source
+        assert "PERM_HIPAA_READ" in source
+
+
+# ============================================================================
+# PHI Controls Evaluation Tests (updated)
+# ============================================================================
+
+
+class TestPHIControlsAnonymizerIntegration:
+    """Tests for anonymizer integration in PHI controls evaluation."""
+
+    @pytest.mark.asyncio
+    async def test_phi_controls_reports_anonymizer_available(self, hipaa_handler):
+        """PHI controls evaluation reports anonymizer availability."""
+        result = await hipaa_handler._evaluate_phi_controls()
+
+        assert "anonymizer_available" in result
+        assert result["anonymizer_available"] is True  # Module should be importable
+
+    @pytest.mark.asyncio
+    async def test_phi_controls_still_reports_safe_harbor(self, hipaa_handler):
+        """PHI controls evaluation still reports Safe Harbor method."""
+        result = await hipaa_handler._evaluate_phi_controls()
+
+        assert result["de_identification_method"] == "Safe Harbor"
+        assert result["status"] == "configured"

@@ -1,61 +1,22 @@
-import { render, screen, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/react';
 import { LandingPage } from '../LandingPage';
 
 // Mock all child components to isolate LandingPage logic
-jest.mock('../../MatrixRain', () => ({
-  Scanlines: () => <div data-testid="scanlines" />,
-  CRTVignette: () => <div data-testid="crt-vignette" />,
-}));
-
 jest.mock('../Header', () => ({
   Header: () => <header data-testid="header">Header</header>,
 }));
 
 jest.mock('../HeroSection', () => ({
-  HeroSection: ({
-    error,
-    activeDebateId,
-    activeQuestion,
-    onDismissError,
-    onDebateStarted,
-    onError,
-  }: {
-    error: string | null;
-    activeDebateId: string | null;
-    activeQuestion: string | null;
-    onDismissError: () => void;
-    onDebateStarted: (id: string, q: string) => void;
-    onError: (err: string) => void;
-  }) => (
+  HeroSection: () => (
     <div data-testid="hero-section">
-      {error && (
-        <div data-testid="error-display">
-          {error}
-          <button onClick={onDismissError} data-testid="dismiss-error">
-            Dismiss
-          </button>
-        </div>
-      )}
-      {activeDebateId && (
-        <div data-testid="active-debate">
-          {activeDebateId} - {activeQuestion}
-        </div>
-      )}
-      <button
-        onClick={() => onDebateStarted('debate-123', 'Test question')}
-        data-testid="start-debate"
-      >
-        Start Debate
-      </button>
-      <button
-        onClick={() => onError('Test error')}
-        data-testid="trigger-error"
-      >
-        Trigger Error
-      </button>
+      <a href="/playground">TRY A FREE DEBATE</a>
+      <a href="/login">SIGN IN FOR REAL AI MODELS</a>
     </div>
   ),
+}));
+
+jest.mock('../VerticalCards', () => ({
+  VerticalCards: () => <section data-testid="vertical-cards">Vertical Cards</section>,
 }));
 
 jest.mock('../WhyAragoraSection', () => ({
@@ -83,34 +44,17 @@ jest.mock('../Footer', () => ({
 }));
 
 describe('LandingPage', () => {
-  const defaultProps = {
-    apiBase: 'http://localhost:8080',
-    wsUrl: 'wss://localhost:8080/ws',
-    onDebateStarted: jest.fn(),
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
   });
 
   describe('initial render', () => {
-    it('renders visual effects', () => {
-      render(<LandingPage {...defaultProps} />);
-
-      expect(screen.getByTestId('scanlines')).toBeInTheDocument();
-      expect(screen.getByTestId('crt-vignette')).toBeInTheDocument();
-    });
-
-    it('renders all page sections', () => {
-      render(<LandingPage {...defaultProps} />);
+    it('renders all page sections in correct order', () => {
+      render(<LandingPage />);
 
       expect(screen.getByTestId('header')).toBeInTheDocument();
       expect(screen.getByTestId('hero-section')).toBeInTheDocument();
+      expect(screen.getByTestId('vertical-cards')).toBeInTheDocument();
       expect(screen.getByTestId('why-aragora')).toBeInTheDocument();
       expect(screen.getByTestId('debate-protocol')).toBeInTheDocument();
       expect(screen.getByTestId('capabilities')).toBeInTheDocument();
@@ -119,105 +63,31 @@ describe('LandingPage', () => {
     });
 
     it('renders main element with proper classes', () => {
-      render(<LandingPage {...defaultProps} />);
+      render(<LandingPage />);
 
       const main = screen.getByRole('main');
       expect(main).toHaveClass('min-h-screen');
     });
 
-    it('starts with no error', () => {
-      render(<LandingPage {...defaultProps} />);
+    it('renders dual CTA buttons in hero section', () => {
+      render(<LandingPage />);
 
-      expect(screen.queryByTestId('error-display')).not.toBeInTheDocument();
+      expect(screen.getByText('TRY A FREE DEBATE')).toBeInTheDocument();
+      expect(screen.getByText('SIGN IN FOR REAL AI MODELS')).toBeInTheDocument();
     });
 
-    it('starts with no active debate', () => {
-      render(<LandingPage {...defaultProps} />);
+    it('links playground CTA to /playground', () => {
+      render(<LandingPage />);
 
-      expect(screen.queryByTestId('active-debate')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('debate started flow', () => {
-    it('updates active debate state when debate starts', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      render(<LandingPage {...defaultProps} />);
-
-      await act(async () => {
-        await user.click(screen.getByTestId('start-debate'));
-      });
-
-      expect(screen.getByTestId('active-debate')).toHaveTextContent(
-        'debate-123 - Test question'
-      );
+      const playgroundLink = screen.getByText('TRY A FREE DEBATE').closest('a');
+      expect(playgroundLink).toHaveAttribute('href', '/playground');
     });
 
-    it('calls onDebateStarted prop when debate starts', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const onDebateStarted = jest.fn();
-      render(<LandingPage {...defaultProps} onDebateStarted={onDebateStarted} />);
+    it('links sign-in CTA to /login', () => {
+      render(<LandingPage />);
 
-      await act(async () => {
-        await user.click(screen.getByTestId('start-debate'));
-      });
-
-      expect(onDebateStarted).toHaveBeenCalledWith('debate-123');
-    });
-  });
-
-  describe('error handling', () => {
-    it('displays error when error occurs', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      render(<LandingPage {...defaultProps} />);
-
-      await act(async () => {
-        await user.click(screen.getByTestId('trigger-error'));
-      });
-
-      expect(screen.getByTestId('error-display')).toHaveTextContent('Test error');
-    });
-
-    it('auto-dismisses error after 5 seconds', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      render(<LandingPage {...defaultProps} />);
-
-      await act(async () => {
-        await user.click(screen.getByTestId('trigger-error'));
-      });
-
-      expect(screen.getByTestId('error-display')).toBeInTheDocument();
-
-      act(() => {
-        jest.advanceTimersByTime(5000);
-      });
-
-      expect(screen.queryByTestId('error-display')).not.toBeInTheDocument();
-    });
-
-    it('dismisses error when dismiss button is clicked', async () => {
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      render(<LandingPage {...defaultProps} />);
-
-      await act(async () => {
-        await user.click(screen.getByTestId('trigger-error'));
-      });
-
-      expect(screen.getByTestId('error-display')).toBeInTheDocument();
-
-      await act(async () => {
-        await user.click(screen.getByTestId('dismiss-error'));
-      });
-
-      expect(screen.queryByTestId('error-display')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('prop passing', () => {
-    it('passes apiBase to HeroSection', () => {
-      render(<LandingPage {...defaultProps} apiBase="http://custom:9000" />);
-
-      // HeroSection is mocked, verify component renders
-      expect(screen.getByTestId('hero-section')).toBeInTheDocument();
+      const loginLink = screen.getByText('SIGN IN FOR REAL AI MODELS').closest('a');
+      expect(loginLink).toHaveAttribute('href', '/login');
     });
   });
 });

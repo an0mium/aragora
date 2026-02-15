@@ -70,8 +70,8 @@ class MockUser:
     role: str = "member"
     is_active: bool = True
     email_verified: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_login_at: datetime | None = None
     mfa_enabled: bool = False
     mfa_secret: str | None = None
