@@ -154,9 +154,7 @@ class ScopeLimiter:
             if protected.lower() in design_lower and not any(
                 protected.lower() in risk.lower() for risk in evaluation.risk_factors
             ):
-                evaluation.risk_factors.append(
-                    f"Attempts to modify protected file: {protected}"
-                )
+                evaluation.risk_factors.append(f"Attempts to modify protected file: {protected}")
                 evaluation.is_implementable = False
                 protected_violation = True
 
@@ -173,7 +171,9 @@ class ScopeLimiter:
             evaluation.reason = f"Affects {evaluation.file_count} files, limit is {self.max_files}"
             split_hint = "Break into smaller changes"
             if self.max_files > 0:
-                split_hint = f"Break into {evaluation.file_count // self.max_files + 1} smaller changes"
+                split_hint = (
+                    f"Break into {evaluation.file_count // self.max_files + 1} smaller changes"
+                )
             evaluation.suggested_simplifications = [
                 split_hint,
                 "Focus on one module/component per cycle",

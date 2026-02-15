@@ -271,9 +271,11 @@ def check_production_requirements() -> list[str]:
     warnings.extend(agent_warnings)
 
     # Check insecure JWT mode (SECURITY: should never be in production)
-    allow_insecure_jwt = os.environ.get(
-        "ARAGORA_ALLOW_INSECURE_JWT", ""
-    ).lower() in ("true", "1", "yes")
+    allow_insecure_jwt = os.environ.get("ARAGORA_ALLOW_INSECURE_JWT", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
     if allow_insecure_jwt:
         if is_production:
             warnings.append(

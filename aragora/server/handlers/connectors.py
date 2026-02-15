@@ -74,7 +74,11 @@ def _check_permission(
     """
     if not RBAC_AVAILABLE:
         if rbac_fail_closed():
-            return error_dict("Service unavailable: access control module not loaded", code="SERVICE_UNAVAILABLE", status=503)
+            return error_dict(
+                "Service unavailable: access control module not loaded",
+                code="SERVICE_UNAVAILABLE",
+                status=503,
+            )
         return None
 
     if auth_context is None:

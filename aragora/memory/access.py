@@ -193,9 +193,8 @@ def _evaluate_entry_access(
     persona_id = meta.get("persona_id") or meta.get("persona")
     if persona_id and not admin:
         persona_values: set[str] = set()
-        single_persona = (
-            getattr(auth_context, "persona_id", None)
-            or getattr(auth_context, "active_persona_id", None)
+        single_persona = getattr(auth_context, "persona_id", None) or getattr(
+            auth_context, "active_persona_id", None
         )
         if single_persona:
             persona_values.add(str(single_persona))

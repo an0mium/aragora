@@ -455,14 +455,12 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
             supermemory_inject_on_start = memory_config.supermemory_inject_on_start
             supermemory_max_context_items = memory_config.supermemory_max_context_items
             supermemory_context_container_tag = (
-                memory_config.supermemory_context_container_tag
-                or supermemory_context_container_tag
+                memory_config.supermemory_context_container_tag or supermemory_context_container_tag
             )
             supermemory_sync_on_conclusion = memory_config.supermemory_sync_on_conclusion
             supermemory_min_confidence_for_sync = memory_config.supermemory_min_confidence_for_sync
             supermemory_outcome_container_tag = (
-                memory_config.supermemory_outcome_container_tag
-                or supermemory_outcome_container_tag
+                memory_config.supermemory_outcome_container_tag or supermemory_outcome_container_tag
             )
             supermemory_enable_privacy_filter = memory_config.supermemory_enable_privacy_filter
             supermemory_enable_resilience = memory_config.supermemory_enable_resilience
@@ -575,29 +573,47 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     # that belong in config objects. Only warn when no config object was provided
     # (if a config object IS provided, the merge above already handles precedence).
     _SUPERMEMORY_PARAMS = (
-        "enable_supermemory", "supermemory_adapter", "supermemory_inject_on_start",
-        "supermemory_max_context_items", "supermemory_context_container_tag",
-        "supermemory_sync_on_conclusion", "supermemory_min_confidence_for_sync",
-        "supermemory_outcome_container_tag", "supermemory_enable_privacy_filter",
-        "supermemory_enable_resilience", "supermemory_enable_km_adapter",
+        "enable_supermemory",
+        "supermemory_adapter",
+        "supermemory_inject_on_start",
+        "supermemory_max_context_items",
+        "supermemory_context_container_tag",
+        "supermemory_sync_on_conclusion",
+        "supermemory_min_confidence_for_sync",
+        "supermemory_outcome_container_tag",
+        "supermemory_enable_privacy_filter",
+        "supermemory_enable_resilience",
+        "supermemory_enable_km_adapter",
     )
     _RLM_PARAMS = (
-        "use_rlm_limiter", "rlm_limiter", "rlm_compression_threshold",
-        "rlm_max_recent_messages", "rlm_summary_level", "rlm_compression_round_threshold",
+        "use_rlm_limiter",
+        "rlm_limiter",
+        "rlm_compression_threshold",
+        "rlm_max_recent_messages",
+        "rlm_summary_level",
+        "rlm_compression_round_threshold",
     )
     _CROSS_DEBATE_PARAMS = ("cross_debate_memory", "enable_cross_debate_memory")
 
     _SM_DEFAULTS = {
-        "enable_supermemory": False, "supermemory_adapter": None,
-        "supermemory_inject_on_start": True, "supermemory_max_context_items": 10,
-        "supermemory_context_container_tag": None, "supermemory_sync_on_conclusion": True,
-        "supermemory_min_confidence_for_sync": 0.7, "supermemory_outcome_container_tag": None,
-        "supermemory_enable_privacy_filter": True, "supermemory_enable_resilience": True,
+        "enable_supermemory": False,
+        "supermemory_adapter": None,
+        "supermemory_inject_on_start": True,
+        "supermemory_max_context_items": 10,
+        "supermemory_context_container_tag": None,
+        "supermemory_sync_on_conclusion": True,
+        "supermemory_min_confidence_for_sync": 0.7,
+        "supermemory_outcome_container_tag": None,
+        "supermemory_enable_privacy_filter": True,
+        "supermemory_enable_resilience": True,
         "supermemory_enable_km_adapter": False,
     }
     _RLM_DEFAULTS = {
-        "use_rlm_limiter": True, "rlm_limiter": None, "rlm_compression_threshold": 3000,
-        "rlm_max_recent_messages": 5, "rlm_summary_level": "SUMMARY",
+        "use_rlm_limiter": True,
+        "rlm_limiter": None,
+        "rlm_compression_threshold": 3000,
+        "rlm_max_recent_messages": 5,
+        "rlm_summary_level": "SUMMARY",
         "rlm_compression_round_threshold": 3,
     }
     _CD_DEFAULTS = {"cross_debate_memory": None, "enable_cross_debate_memory": True}

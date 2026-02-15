@@ -119,7 +119,9 @@ def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any
     _maybe_set("max_revisions", body.get("max_revisions"))
     _maybe_set("parallel_execution", body.get("parallel_execution"))
     _maybe_set("max_parallel", body.get("max_parallel"))
-    _maybe_set("complexity_router", body.get("complexity_router") or body.get("agent_by_complexity"))
+    _maybe_set(
+        "complexity_router", body.get("complexity_router") or body.get("agent_by_complexity")
+    )
     _maybe_set("task_type_router", body.get("task_type_router") or body.get("agent_by_task_type"))
     _maybe_set(
         "capability_router",
@@ -135,7 +137,9 @@ def _build_implementation_profile_payload(body: dict[str, Any]) -> dict[str, Any
     _maybe_set("thread_id_by_platform", body.get("thread_id_by_platform"))
 
     if "channel_targets" in payload:
-        normalized_targets = _normalize_string_list(payload.get("channel_targets"), "channel_targets")
+        normalized_targets = _normalize_string_list(
+            payload.get("channel_targets"), "channel_targets"
+        )
         if normalized_targets is None:
             payload.pop("channel_targets", None)
         else:
@@ -632,7 +636,10 @@ class DecisionPipelineHandler(SecureHandler):
         raw_execution_mode = body.get("execution_mode")
         execution_mode = normalize_execution_mode(raw_execution_mode)
         if raw_execution_mode is not None:
-            if not isinstance(raw_execution_mode, str) or execution_mode not in allowed_execution_modes:
+            if (
+                not isinstance(raw_execution_mode, str)
+                or execution_mode not in allowed_execution_modes
+            ):
                 allowed = ", ".join(sorted(allowed_execution_modes))
                 return error_response(
                     f"Invalid execution_mode: {raw_execution_mode}. Allowed values: {allowed}",

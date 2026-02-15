@@ -169,10 +169,12 @@ async def list_receipts(
             all_receipts = store.list_all()
             if verdict:
                 all_receipts = [
-                    r for r in all_receipts
-                    if (r.get("verdict") if isinstance(r, dict) else getattr(r, "verdict", "")) == verdict
+                    r
+                    for r in all_receipts
+                    if (r.get("verdict") if isinstance(r, dict) else getattr(r, "verdict", ""))
+                    == verdict
                 ]
-            results = all_receipts[offset:offset + limit]
+            results = all_receipts[offset : offset + limit]
         else:
             results = []
 
@@ -373,7 +375,8 @@ async def verify_receipt(
 
             integrity_valid = receipt.verify_integrity()
             stored_checksum = (
-                receipt_data.get("checksum", "") if isinstance(receipt_data, dict)
+                receipt_data.get("checksum", "")
+                if isinstance(receipt_data, dict)
                 else getattr(receipt_data, "checksum", "")
             )
             checksum_match = receipt.checksum == stored_checksum if stored_checksum else True

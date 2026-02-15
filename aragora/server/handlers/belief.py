@@ -443,10 +443,12 @@ class BeliefHandler(BaseHandler):
         detector = CruxDetector(network, km_adapter=km_adapter)
         analysis = detector.detect_cruxes(top_k=limit)
 
-        return json_response({
-            "debate_id": debate_id,
-            **analysis.to_dict(),
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                **analysis.to_dict(),
+            }
+        )
 
     @handle_errors("load bearing claims retrieval")
     def _get_load_bearing_claims(

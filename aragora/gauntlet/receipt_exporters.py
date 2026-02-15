@@ -171,9 +171,7 @@ def receipt_to_markdown(
                 else record.description
             )
             evidence_hash = f"`{record.evidence_hash}`" if record.evidence_hash else "-"
-            lines.append(
-                f"| {i} | {timestamp} | {event} | {agent} | {desc} | {evidence_hash} |"
-            )
+            lines.append(f"| {i} | {timestamp} | {event} | {agent} | {desc} | {evidence_hash} |")
         lines.append("")
 
     lines.extend(

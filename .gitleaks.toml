@@ -50,4 +50,8 @@ paths = [
     '''deploy/k8s/secret\.yaml$''',
     '''deploy/self-hosted/.*''',
     '''\.github/workflows/.*\.yml$''',
+    '''scripts/sign_constitution\.py$''',
+    '''aragora/agents/spec\.py$''',
+    '''aragora/connectors/ecommerce/.*\.py$''',
+    '''aragora/connectors/advertising/.*\.py$''',
 ]

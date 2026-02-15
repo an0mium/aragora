@@ -1055,9 +1055,7 @@ def check_pre_debate_compliance(
                 blocked_tasks = getattr(fw, "blocked_task_patterns", [])
                 for pattern in blocked_tasks:
                     if pattern.lower() in task.lower():
-                        result.issues.append(
-                            f"[{fw_name}] Task matches blocked pattern: {pattern}"
-                        )
+                        result.issues.append(f"[{fw_name}] Task matches blocked pattern: {pattern}")
                         result.allowed = False
 
             # Check severity-based rules

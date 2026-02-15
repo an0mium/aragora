@@ -615,7 +615,17 @@ class AuthorizationAuditor:
         for handler in self._handlers:
             try:
                 handler(event)
-            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, KeyError, ConnectionError, TimeoutError, PermissionError) as e:
+            except (
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                KeyError,
+                ConnectionError,
+                TimeoutError,
+                PermissionError,
+            ) as e:
                 logger.error(f"Error in audit handler: {e}")
                 # Continue to next handler
             except Exception as e:

@@ -99,9 +99,7 @@ class ComplianceArtifactHook:
             "task": getattr(result, "task", ""),
             "verdict": "PASS" if getattr(result, "consensus_reached", False) else "CONDITIONAL",
             "confidence": getattr(result, "confidence", 0.0),
-            "agents_used": [
-                getattr(a, "name", str(a)) for a in getattr(result, "agents", [])
-            ],
+            "agents_used": [getattr(a, "name", str(a)) for a in getattr(result, "agents", [])],
             "rounds": getattr(result, "total_rounds", 0),
             "consensus_reached": getattr(result, "consensus_reached", False),
             "final_answer": getattr(result, "final_answer", ""),

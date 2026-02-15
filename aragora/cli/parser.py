@@ -334,6 +334,12 @@ def _add_ask_parser(subparsers) -> None:
         default="auto",
         help="Spectator output format (default: auto)",
     )
+    ask_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=300,
+        help="Maximum debate duration in seconds (default: 300)",
+    )
     ask_parser.set_defaults(func=_lazy("aragora.cli.commands.debate", "cmd_ask"))
 
 
@@ -411,11 +417,13 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     demo_parser.add_argument(
-        "name", nargs="?",
+        "name",
+        nargs="?",
         help="Demo name (microservices, rate-limiter, auth, cache, kubernetes)",
     )
     demo_parser.add_argument(
-        "--topic", "-t",
+        "--topic",
+        "-t",
         help="Custom topic to debate (overrides named demo)",
     )
     demo_parser.add_argument(
@@ -505,9 +513,7 @@ def _add_validate_env_parser(subparsers) -> None:
     validate_env_parser.add_argument(
         "--strict", "-s", action="store_true", help="Fail on warnings (for CI/CD enforcement)"
     )
-    validate_env_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.status", "cmd_validate_env")
-    )
+    validate_env_parser.set_defaults(func=_lazy("aragora.cli.commands.status", "cmd_validate_env"))
 
 
 def _add_improve_parser(subparsers) -> None:
@@ -774,45 +780,62 @@ def _add_review_parser(subparsers) -> None:
         description="Multi-agent AI code review for pull requests",
     )
     parser.add_argument(
-        "pr_url", nargs="?",
+        "pr_url",
+        nargs="?",
         help="GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)",
     )
     parser.add_argument("--diff-file", help="Path to diff file (alternative to PR URL or stdin)")
     parser.add_argument(
-        "--agents", default=DEFAULT_AGENTS,
+        "--agents",
+        default=DEFAULT_AGENTS,
         help=f"Comma-separated list of agents (default: {DEFAULT_AGENTS})",
     )
     parser.add_argument(
-        "--rounds", type=int, default=DEFAULT_ROUNDS,
+        "--rounds",
+        type=int,
+        default=DEFAULT_ROUNDS,
         help=f"Number of debate rounds (default: {DEFAULT_ROUNDS})",
     )
     parser.add_argument(
-        "--focus", default="security,performance,quality",
+        "--focus",
+        default="security,performance,quality",
         help="Focus areas: security,performance,quality (default: all)",
     )
     parser.add_argument(
-        "--output-format", choices=["github", "json", "html"], default="github",
+        "--output-format",
+        choices=["github", "json", "html"],
+        default="github",
         help="Output format (default: github)",
     )
     parser.add_argument("--output-dir", help="Directory to save output artifacts")
     parser.add_argument(
-        "--sarif", nargs="?", const="review-results.sarif", default=None, metavar="PATH",
+        "--sarif",
+        nargs="?",
+        const="review-results.sarif",
+        default=None,
+        metavar="PATH",
         help="Export findings as SARIF 2.1.0 (default: review-results.sarif).",
     )
     parser.add_argument(
-        "--gauntlet", action="store_true", default=False,
+        "--gauntlet",
+        action="store_true",
+        default=False,
         help="Run adversarial gauntlet stress-test after review debate.",
     )
     parser.add_argument(
-        "--ci", action="store_true", default=False,
+        "--ci",
+        action="store_true",
+        default=False,
         help="CI mode: exit with non-zero code based on findings severity.",
     )
     parser.add_argument(
-        "--demo", action="store_true",
+        "--demo",
+        action="store_true",
         help="Run in demo mode (no API keys required, shows sample output)",
     )
     parser.add_argument(
-        "--share", action="store_true",
+        "--share",
+        action="store_true",
         help="Generate a shareable link for this review",
     )
     parser.set_defaults(func=_lazy("aragora.cli.review", "cmd_review"))
@@ -967,9 +990,7 @@ def _add_cross_pollination_parser(subparsers) -> None:
         action="store_true",
         help="Output in JSON format",
     )
-    xpoll_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.stats", "cmd_cross_pollination")
-    )
+    xpoll_parser.set_defaults(func=_lazy("aragora.cli.commands.stats", "cmd_cross_pollination"))
 
 
 def _add_mcp_parser(subparsers) -> None:
@@ -1018,9 +1039,7 @@ def _add_marketplace_parser(subparsers) -> None:
         nargs=argparse.REMAINDER,
         help="Subcommand arguments",
     )
-    marketplace_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.delegated", "cmd_marketplace")
-    )
+    marketplace_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_marketplace"))
 
 
 def _add_skills_parser(subparsers) -> None:
@@ -1080,9 +1099,7 @@ Subcommands:
         default=DEFAULT_API_URL,
         help=f"API server URL (default: {DEFAULT_API_URL})",
     )
-    cp_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.delegated", "cmd_control_plane")
-    )
+    cp_parser.set_defaults(func=_lazy("aragora.cli.commands.delegated", "cmd_control_plane"))
 
 
 def _add_decide_parser(subparsers) -> None:
@@ -1299,9 +1316,7 @@ Examples:
         "-r",
         help="Reason for approval",
     )
-    approve_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.decide", "cmd_plans_approve")
-    )
+    approve_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans_approve"))
 
     # plans reject
     reject_parser = plans_subparsers.add_parser("reject", help="Reject a plan")
@@ -1311,9 +1326,7 @@ Examples:
         "-r",
         help="Reason for rejection",
     )
-    reject_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.decide", "cmd_plans_reject")
-    )
+    reject_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans_reject"))
 
     # plans execute
     execute_parser = plans_subparsers.add_parser("execute", help="Execute a plan")
@@ -1339,9 +1352,7 @@ Examples:
         action="store_true",
         help="Use browser-based computer use executor",
     )
-    execute_parser.set_defaults(
-        func=_lazy("aragora.cli.commands.decide", "cmd_plans_execute")
-    )
+    execute_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans_execute"))
 
     # Default behavior when just 'aragora plans' is called
     plans_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_plans"))
@@ -1365,20 +1376,25 @@ def _add_testfixer_parser(subparsers) -> None:
     parser.add_argument("--require-consensus", action="store_true")
     parser.add_argument("--no-revert", action="store_true")
     parser.add_argument(
-        "--require-approval", action="store_true",
+        "--require-approval",
+        action="store_true",
         help="Require manual approval before applying fixes",
     )
     parser.add_argument("--log-file", default=None, help="Path to log file (or '-' for stderr)")
     parser.add_argument("--log-level", default="info", help="Log level (debug, info, warning)")
     parser.add_argument("--run-id", default=None, help="Optional run id for correlation")
     parser.add_argument(
-        "--artifacts-dir", default=None,
+        "--artifacts-dir",
+        default=None,
         help="Directory for per-run artifacts (default: .testfixer/runs)",
     )
     parser.add_argument("--no-diagnostics", action="store_true", help="Disable crash diagnostics")
-    parser.add_argument("--llm-analyzer", action="store_true", help="Enable LLM-powered failure analysis")
     parser.add_argument(
-        "--analysis-agents", default="",
+        "--llm-analyzer", action="store_true", help="Enable LLM-powered failure analysis"
+    )
+    parser.add_argument(
+        "--analysis-agents",
+        default="",
         help="Agent types for analysis (comma-separated, default: --agents)",
     )
     parser.add_argument("--analysis-require-consensus", action="store_true")
@@ -1389,8 +1405,12 @@ def _add_testfixer_parser(subparsers) -> None:
     parser.add_argument("--arena-min-confidence", type=float, default=0.6)
     parser.add_argument("--arena-require-consensus", action="store_true")
     parser.add_argument("--arena-consensus-threshold", type=float, default=0.7)
-    parser.add_argument("--redteam-validate", action="store_true", help="Enable red team validation")
-    parser.add_argument("--redteam-attackers", default="", help="Agent types for red team attackers")
+    parser.add_argument(
+        "--redteam-validate", action="store_true", help="Enable red team validation"
+    )
+    parser.add_argument(
+        "--redteam-attackers", default="", help="Agent types for red team attackers"
+    )
     parser.add_argument("--redteam-defender", default="", help="Agent type for red team defender")
     parser.add_argument("--redteam-rounds", type=int, default=2)
     parser.add_argument("--redteam-attacks-per-round", type=int, default=3)

@@ -128,19 +128,35 @@ def build_summary() -> dict[str, Any]:
 
     sections = {
         "verify_sdk_contracts": {
-            key: {"baseline": verify_base[key], "current": verify_current[key], "delta": _delta(verify_base[key], verify_current[key])}
+            key: {
+                "baseline": verify_base[key],
+                "current": verify_current[key],
+                "delta": _delta(verify_base[key], verify_current[key]),
+            }
             for key in verify_base
         },
         "validate_openapi_routes": {
-            key: {"baseline": route_base[key], "current": route_current[key], "delta": _delta(route_base[key], route_current[key])}
+            key: {
+                "baseline": route_base[key],
+                "current": route_current[key],
+                "delta": _delta(route_base[key], route_current[key]),
+            }
             for key in route_base
         },
         "check_sdk_parity": {
-            key: {"baseline": parity_base[key], "current": parity_current[key], "delta": _delta(parity_base[key], parity_current[key])}
+            key: {
+                "baseline": parity_base[key],
+                "current": parity_current[key],
+                "delta": _delta(parity_base[key], parity_current[key]),
+            }
             for key in parity_base
         },
         "sdk_namespace_parity": {
-            key: {"baseline": ns_base.get(key, 0), "current": ns_current.get(key, 0), "delta": _delta(ns_base.get(key, 0), ns_current.get(key, 0))}
+            key: {
+                "baseline": ns_base.get(key, 0),
+                "current": ns_current.get(key, 0),
+                "delta": _delta(ns_base.get(key, 0), ns_current.get(key, 0)),
+            }
             for key in sorted(ns_base.keys())
         },
     }
@@ -155,9 +171,7 @@ def to_markdown(summary: dict[str, Any]) -> str:
         lines.append("| Metric | Baseline | Current | Delta |")
         lines.append("|---|---:|---:|---:|")
         for key, row in values.items():
-            lines.append(
-                f"| `{key}` | {row['baseline']} | {row['current']} | {row['delta']:+d} |"
-            )
+            lines.append(f"| `{key}` | {row['baseline']} | {row['current']} | {row['delta']:+d} |")
         lines.append("")
     return "\n".join(lines) + "\n"
 

@@ -63,9 +63,7 @@ class FeedbackHandler(BaseHandler):
         return False
 
     @require_permission("agents:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         cleaned = strip_version_prefix(path)
 
@@ -79,9 +77,7 @@ class FeedbackHandler(BaseHandler):
         if cleaned.startswith("/api/agents/") and cleaned.endswith("/feedback/domains"):
             # Extract agent name: /api/agents/{name}/feedback/domains
             # parts: ["", "api", "agents", "{name}", "feedback", "domains"]
-            agent_name, err = self.extract_path_param(
-                cleaned, 3, "agent_name", SAFE_AGENT_PATTERN
-            )
+            agent_name, err = self.extract_path_param(cleaned, 3, "agent_name", SAFE_AGENT_PATTERN)
             if err:
                 return err
             domain = get_string_param(query_params, "domain")
@@ -93,13 +89,15 @@ class FeedbackHandler(BaseHandler):
         """Return feedback loop metrics summary."""
         loop = _get_feedback_loop()
         if not loop:
-            return json_response({
-                "debates_processed": 0,
-                "adjustments_computed": 0,
-                "agents_tracked": 0,
-                "average_adjustment": 0.0,
-                "last_processed": None,
-            })
+            return json_response(
+                {
+                    "debates_processed": 0,
+                    "adjustments_computed": 0,
+                    "agents_tracked": 0,
+                    "average_adjustment": 0.0,
+                    "last_processed": None,
+                }
+            )
 
         return json_response(loop.get_metrics())
 
@@ -126,31 +124,35 @@ class FeedbackHandler(BaseHandler):
 
         return json_response({"agents": agents, "count": len(agents)})
 
-    def _get_domain_weights(
-        self, agent_name: str, domain: str | None
-    ) -> HandlerResult:
+    def _get_domain_weights(self, agent_name: str, domain: str | None) -> HandlerResult:
         """Return domain-specific weights for an agent."""
         loop = _get_feedback_loop()
         if not loop:
-            return json_response({
-                "agent": agent_name,
-                "domains": {},
-            })
+            return json_response(
+                {
+                    "agent": agent_name,
+                    "domains": {},
+                }
+            )
 
         state = loop.get_agent_state(agent_name)
         if not state:
-            return json_response({
-                "agent": agent_name,
-                "domains": {},
-            })
+            return json_response(
+                {
+                    "agent": agent_name,
+                    "domains": {},
+                }
+            )
 
         # If a specific domain is requested, return just that
         if domain:
             weight = loop.get_domain_adjustment(agent_name, domain)
-            return json_response({
-                "agent": agent_name,
-                "domains": {domain: round(weight, 4)},
-            })
+            return json_response(
+                {
+                    "agent": agent_name,
+                    "domains": {domain: round(weight, 4)},
+                }
+            )
 
         # Return all domains this agent has participated in
         domains: dict[str, float] = {}
@@ -158,7 +160,9 @@ class FeedbackHandler(BaseHandler):
         for d in sorted(all_domains):
             domains[d] = round(loop.get_domain_adjustment(agent_name, d), 4)
 
-        return json_response({
-            "agent": agent_name,
-            "domains": domains,
-        })
+        return json_response(
+            {
+                "agent": agent_name,
+                "domains": domains,
+            }
+        )

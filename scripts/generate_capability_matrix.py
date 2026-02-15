@@ -117,7 +117,9 @@ def _render_markdown(
     lines.append("")
     lines.append("| Surface | Inventory | Capability Coverage |")
     lines.append("|---------|-----------|---------------------|")
-    lines.append(f"| **HTTP API** | {path_count} paths / {operation_count} operations | {api_cov} |")
+    lines.append(
+        f"| **HTTP API** | {path_count} paths / {operation_count} operations | {api_cov} |"
+    )
     lines.append(f"| **CLI** | {cli_commands} commands | {cli_cov} |")
     lines.append(f"| **SDK (Python)** | {py_namespaces} namespaces | {sdk_cov} |")
     lines.append(f"| **SDK (TypeScript)** | {ts_namespaces} namespaces | {sdk_cov} |")
@@ -161,7 +163,9 @@ def _render_markdown(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate docs/CAPABILITY_MATRIX.md")
-    parser.add_argument("--root", default=str(Path(__file__).resolve().parents[1]), help="Repo root")
+    parser.add_argument(
+        "--root", default=str(Path(__file__).resolve().parents[1]), help="Repo root"
+    )
     parser.add_argument(
         "--out",
         default="docs/CAPABILITY_MATRIX.md",

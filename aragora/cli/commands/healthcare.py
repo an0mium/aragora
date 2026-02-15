@@ -313,8 +313,7 @@ def strip_phi_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
             cleaned[key] = strip_phi_from_metadata(value)
         elif isinstance(value, list):
             cleaned[key] = [
-                strip_phi_from_metadata(item) if isinstance(item, dict) else item
-                for item in value
+                strip_phi_from_metadata(item) if isinstance(item, dict) else item for item in value
             ]
         else:
             cleaned[key] = value
@@ -372,7 +371,9 @@ async def run_healthcare_review(
         full_context += "\n--- CLINICAL DATA ---\n" + context + "\n--- END CLINICAL DATA ---\n"
 
     # Calculate input hash for receipt integrity
-    input_content = clinical_input + (json.dumps(fhir_bundle, sort_keys=True) if fhir_bundle else "")
+    input_content = clinical_input + (
+        json.dumps(fhir_bundle, sort_keys=True) if fhir_bundle else ""
+    )
     input_hash = hashlib.sha256(input_content.encode()).hexdigest()
 
     if verbose:
@@ -443,11 +444,13 @@ def _build_healthcare_receipt(
         agent = getattr(msg, "agent", "unknown")
         role = getattr(msg, "role", "participant")
         content_preview = str(getattr(msg, "content", ""))[:200]
-        agent_summaries.append({
-            "agent": agent,
-            "role": role,
-            "content_preview": content_preview,
-        })
+        agent_summaries.append(
+            {
+                "agent": agent,
+                "role": role,
+                "content_preview": content_preview,
+            }
+        )
 
     # Dissenting views for audit
     dissenting = []
@@ -479,12 +482,10 @@ def _build_healthcare_receipt(
             "final_answer": final_answer[:2000] if final_answer else "",
         },
         "audit_trail": {
-            "agents_consulted": len(set(
-                getattr(m, "agent", "") for m in messages if getattr(m, "agent", "")
-            )),
-            "rounds_completed": len(set(
-                getattr(m, "round", 0) for m in messages
-            )),
+            "agents_consulted": len(
+                set(getattr(m, "agent", "") for m in messages if getattr(m, "agent", ""))
+            ),
+            "rounds_completed": len(set(getattr(m, "round", 0) for m in messages)),
             "votes_cast": len(votes),
             "dissenting_views_count": len(dissenting),
             "agent_summaries": agent_summaries,

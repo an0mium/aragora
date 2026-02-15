@@ -152,12 +152,16 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         normalized = strip_version_prefix(path)
         return normalized.startswith("/api/queue/")
 
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests - delegates to async handle method which checks permissions."""
         # Permission checking is done in the async handle method
         return None
 
-    def handle_get(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle_get(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle GET requests - delegates to async handle method which checks permissions."""
         # Permission checking is done in the async handle method
         return None

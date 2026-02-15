@@ -190,9 +190,7 @@ class GatewayHandler(BaseHandler):
         if not RBAC_AVAILABLE:
             # SECURITY: Fail closed in production when RBAC module is unavailable
             if rbac_fail_closed():
-                return error_response(
-                    "Service unavailable: access control module not loaded", 503
-                )
+                return error_response("Service unavailable: access control module not loaded", 503)
             return None
 
         rbac_ctx = self._get_auth_context(handler)

@@ -421,7 +421,8 @@ export default function Home() {
           />
         )}
 
-        {/* View Mode Controls - Simplified inline bar */}
+        {/* View Mode Controls - Simplified inline bar (hidden in simple mode) */}
+        {progressiveMode !== 'simple' && (
         <div className="border-b border-[var(--border)] bg-[var(--surface)]/50 px-4 py-2">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -486,6 +487,7 @@ export default function Home() {
             </div>
           </div>
         </div>
+        )}
 
       {/* Main Content - Wider container */}
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">

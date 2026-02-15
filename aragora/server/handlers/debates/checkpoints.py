@@ -82,13 +82,15 @@ async def handle_checkpoint_pause(
             checkpoint.checkpoint_id,
         )
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "checkpoint_id": checkpoint.checkpoint_id,
-            "paused_at": _paused_debates[debate_id]["paused_at"],
-            "message": "Debate paused and checkpoint created",
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "checkpoint_id": checkpoint.checkpoint_id,
+                "paused_at": _paused_debates[debate_id]["paused_at"],
+                "message": "Debate paused and checkpoint created",
+            }
+        )
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning("Failed to create pause checkpoint for debate %s: %s", debate_id, e)
@@ -121,9 +123,7 @@ async def handle_checkpoint_resume(
         if not checkpoint_id:
             latest = await checkpoint_manager.get_latest(debate_id)
             if not latest:
-                return error_response(
-                    f"No checkpoints found for debate {debate_id}", 404
-                )
+                return error_response(f"No checkpoints found for debate {debate_id}", 404)
             checkpoint_id = latest.checkpoint_id
 
         resumed = await checkpoint_manager.resume_from_checkpoint(
@@ -132,9 +132,7 @@ async def handle_checkpoint_resume(
         )
 
         if not resumed:
-            return error_response(
-                f"Checkpoint {checkpoint_id} not found or corrupted", 404
-            )
+            return error_response(f"Checkpoint {checkpoint_id} not found or corrupted", 404)
 
         # Clear paused state
         _paused_debates.pop(debate_id, None)
@@ -146,16 +144,18 @@ async def handle_checkpoint_resume(
             resumed.checkpoint.current_round,
         )
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "checkpoint_id": checkpoint_id,
-            "resumed_at": resumed.resumed_at,
-            "resumed_from_round": resumed.checkpoint.current_round,
-            "total_rounds": resumed.checkpoint.total_rounds,
-            "message_count": len(resumed.messages),
-            "message": "Debate resumed from checkpoint",
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "checkpoint_id": checkpoint_id,
+                "resumed_at": resumed.resumed_at,
+                "resumed_from_round": resumed.checkpoint.current_round,
+                "total_rounds": resumed.checkpoint.total_rounds,
+                "message_count": len(resumed.messages),
+                "message": "Debate resumed from checkpoint",
+            }
+        )
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.warning("Failed to resume debate %s: %s", debate_id, e)
@@ -189,13 +189,15 @@ async def handle_list_checkpoints(
         is_paused = debate_id in _paused_debates
         paused_info = _paused_debates.get(debate_id)
 
-        return json_response({
-            "debate_id": debate_id,
-            "is_paused": is_paused,
-            "paused_at": paused_info["paused_at"] if paused_info else None,
-            "total_checkpoints": len(checkpoints),
-            "checkpoints": checkpoints,
-        })
+        return json_response(
+            {
+                "debate_id": debate_id,
+                "is_paused": is_paused,
+                "paused_at": paused_info["paused_at"] if paused_info else None,
+                "total_checkpoints": len(checkpoints),
+                "checkpoints": checkpoints,
+            }
+        )
 
     except (OSError, ValueError, TypeError, AttributeError) as e:
         logger.warning("Failed to list checkpoints for debate %s: %s", debate_id, e)

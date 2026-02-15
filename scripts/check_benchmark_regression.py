@@ -97,13 +97,13 @@ def compare_benchmarks(
 
         if change_pct > threshold_pct:
             regressions.append(
-                f"  REGRESSION  {name}: {baseline_mean*1000:.3f}ms -> "
-                f"{current_mean*1000:.3f}ms (+{change_pct:.1f}%)"
+                f"  REGRESSION  {name}: {baseline_mean * 1000:.3f}ms -> "
+                f"{current_mean * 1000:.3f}ms (+{change_pct:.1f}%)"
             )
         elif change_pct < -threshold_pct:
             improvements.append(
-                f"  IMPROVED    {name}: {baseline_mean*1000:.3f}ms -> "
-                f"{current_mean*1000:.3f}ms ({change_pct:.1f}%)"
+                f"  IMPROVED    {name}: {baseline_mean * 1000:.3f}ms -> "
+                f"{current_mean * 1000:.3f}ms ({change_pct:.1f}%)"
             )
         else:
             unchanged.append(f"  OK          {name}: {change_pct:+.1f}%")
@@ -136,10 +136,7 @@ def compare_benchmarks(
     print()
 
     if regressions:
-        print(
-            f"FAILED: {len(regressions)} benchmark(s) regressed "
-            f"by more than {threshold_pct}%."
-        )
+        print(f"FAILED: {len(regressions)} benchmark(s) regressed by more than {threshold_pct}%.")
         return 1
 
     matched = len([n for n in current_means if n in baseline_means])
@@ -177,7 +174,7 @@ def validate_results(results_path: Path) -> int:
         if mean > 0 and stddev / mean > 1.0:
             print(
                 f"  WARNING: {name} has high variance "
-                f"(mean={mean*1000:.3f}ms, stddev={stddev*1000:.3f}ms)"
+                f"(mean={mean * 1000:.3f}ms, stddev={stddev * 1000:.3f}ms)"
             )
             warnings += 1
 
@@ -189,34 +186,35 @@ def validate_results(results_path: Path) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Check for benchmark regressions in CI."
-    )
+    parser = argparse.ArgumentParser(description="Check for benchmark regressions in CI.")
     subparsers = parser.add_subparsers(dest="command")
 
     # Compare mode
-    compare = subparsers.add_parser(
-        "compare", help="Compare current results against baseline"
-    )
+    compare = subparsers.add_parser("compare", help="Compare current results against baseline")
     compare.add_argument(
-        "--current", type=Path, required=True,
+        "--current",
+        type=Path,
+        required=True,
         help="Path to current benchmark results JSON",
     )
     compare.add_argument(
-        "--baseline", type=Path, required=True,
+        "--baseline",
+        type=Path,
+        required=True,
         help="Path to baseline benchmark results JSON",
     )
     compare.add_argument(
-        "--threshold", type=float, default=20.0,
+        "--threshold",
+        type=float,
+        default=20.0,
         help="Maximum allowed regression percentage (default: 20%%)",
     )
 
     # Validate mode
-    validate = subparsers.add_parser(
-        "validate", help="Validate benchmark results file"
-    )
+    validate = subparsers.add_parser("validate", help="Validate benchmark results file")
     validate.add_argument(
-        "results", type=Path,
+        "results",
+        type=Path,
         help="Path to benchmark results JSON to validate",
     )
 

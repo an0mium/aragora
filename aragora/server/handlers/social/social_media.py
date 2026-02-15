@@ -88,9 +88,7 @@ class YouTubeConnectorProtocol(Protocol):
         """Exchange authorization code for tokens."""
         ...
 
-    def upload(
-        self, video_path: Path, metadata: YouTubeVideoMetadata
-    ) -> Awaitable[dict[str, Any]]:
+    def upload(self, video_path: Path, metadata: YouTubeVideoMetadata) -> Awaitable[dict[str, Any]]:
         """Upload a video to YouTube."""
         ...
 

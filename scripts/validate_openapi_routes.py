@@ -256,12 +256,8 @@ def validate_coverage(
         print(f"Coverage:        {results['coverage_percentage']}%")
         print()
         if baseline_path:
-            print(
-                f"New missing in spec vs baseline: {results['new_missing_in_spec_count']}"
-            )
-            print(
-                f"New orphaned in spec vs baseline: {results['new_orphaned_in_spec_count']}"
-            )
+            print(f"New missing in spec vs baseline: {results['new_missing_in_spec_count']}")
+            print(f"New orphaned in spec vs baseline: {results['new_orphaned_in_spec_count']}")
             print()
 
         if missing_in_spec:

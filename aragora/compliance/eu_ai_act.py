@@ -38,6 +38,7 @@ from typing import Any
 # Risk classification per EU AI Act Article 6 + Annex III
 # ---------------------------------------------------------------------------
 
+
 class RiskLevel(Enum):
     """EU AI Act risk tiers."""
 
@@ -78,9 +79,15 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Biometrics",
         "description": "Remote biometric identification, biometric categorization, emotion recognition",
         "keywords": [
-            "biometric", "facial recognition", "face detection", "emotion recognition",
-            "fingerprint identification", "iris scan", "voice identification",
-            "remote identification", "biometric categorization",
+            "biometric",
+            "facial recognition",
+            "face detection",
+            "emotion recognition",
+            "fingerprint identification",
+            "iris scan",
+            "voice identification",
+            "remote identification",
+            "biometric categorization",
         ],
     },
     {
@@ -88,9 +95,17 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Critical infrastructure",
         "description": "Safety components in critical digital infrastructure, road traffic, water, gas, heating, electricity",
         "keywords": [
-            "critical infrastructure", "power grid", "water supply", "gas supply",
-            "electricity", "road traffic", "traffic management", "digital infrastructure",
-            "energy supply", "heating supply", "safety component",
+            "critical infrastructure",
+            "power grid",
+            "water supply",
+            "gas supply",
+            "electricity",
+            "road traffic",
+            "traffic management",
+            "digital infrastructure",
+            "energy supply",
+            "heating supply",
+            "safety component",
         ],
     },
     {
@@ -98,9 +113,15 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Education and vocational training",
         "description": "Determining access to education, assessing students, monitoring exams",
         "keywords": [
-            "student assessment", "educational admission", "exam proctoring",
-            "grading system", "academic evaluation", "learning assessment",
-            "vocational training", "educational institution", "student scoring",
+            "student assessment",
+            "educational admission",
+            "exam proctoring",
+            "grading system",
+            "academic evaluation",
+            "learning assessment",
+            "vocational training",
+            "educational institution",
+            "student scoring",
         ],
     },
     {
@@ -108,10 +129,18 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Employment and worker management",
         "description": "Recruitment, CV screening, performance evaluation, task allocation, termination",
         "keywords": [
-            "recruitment", "cv screening", "resume screening", "hiring decision",
-            "job application", "performance evaluation", "employee monitoring",
-            "worker management", "task allocation", "termination decision",
-            "promotion decision", "workforce management",
+            "recruitment",
+            "cv screening",
+            "resume screening",
+            "hiring decision",
+            "job application",
+            "performance evaluation",
+            "employee monitoring",
+            "worker management",
+            "task allocation",
+            "termination decision",
+            "promotion decision",
+            "workforce management",
         ],
     },
     {
@@ -119,10 +148,18 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Access to essential services",
         "description": "Credit scoring, insurance risk, public benefit eligibility, emergency dispatch",
         "keywords": [
-            "credit scoring", "credit score", "creditworthiness", "loan decision",
-            "insurance risk", "health insurance", "benefit eligibility",
-            "public assistance", "emergency dispatch", "emergency services",
-            "essential services", "social benefit",
+            "credit scoring",
+            "credit score",
+            "creditworthiness",
+            "loan decision",
+            "insurance risk",
+            "health insurance",
+            "benefit eligibility",
+            "public assistance",
+            "emergency dispatch",
+            "emergency services",
+            "essential services",
+            "social benefit",
         ],
     },
     {
@@ -130,9 +167,15 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Law enforcement",
         "description": "Crime analytics, evidence reliability, recidivism risk, profiling",
         "keywords": [
-            "law enforcement", "crime prediction", "predictive policing",
-            "evidence evaluation", "recidivism", "criminal profiling",
-            "crime analytics", "suspect identification", "polygraph",
+            "law enforcement",
+            "crime prediction",
+            "predictive policing",
+            "evidence evaluation",
+            "recidivism",
+            "criminal profiling",
+            "crime analytics",
+            "suspect identification",
+            "polygraph",
         ],
     },
     {
@@ -140,9 +183,16 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Migration, asylum and border control",
         "description": "Security risk assessment, visa/asylum application processing, border surveillance",
         "keywords": [
-            "migration", "asylum", "border control", "visa application",
-            "immigration", "border surveillance", "refugee", "deportation",
-            "travel document", "security risk assessment",
+            "migration",
+            "asylum",
+            "border control",
+            "visa application",
+            "immigration",
+            "border surveillance",
+            "refugee",
+            "deportation",
+            "travel document",
+            "security risk assessment",
         ],
     },
     {
@@ -150,18 +200,29 @@ ANNEX_III_CATEGORIES: list[dict[str, Any]] = [
         "name": "Administration of justice and democratic processes",
         "description": "Judicial research, legal interpretation, election influence",
         "keywords": [
-            "judicial", "court decision", "legal interpretation", "sentencing",
-            "justice system", "election", "voting", "democratic process",
-            "legal reasoning", "case law analysis",
+            "judicial",
+            "court decision",
+            "legal interpretation",
+            "sentencing",
+            "justice system",
+            "election",
+            "voting",
+            "democratic process",
+            "legal reasoning",
+            "case law analysis",
         ],
     },
 ]
 
 # Patterns for unacceptable-risk AI (Article 5 prohibitions)
 UNACCEPTABLE_KEYWORDS: list[str] = [
-    "social scoring", "social credit", "subliminal manipulation",
-    "exploit vulnerability", "real-time remote biometric identification",
-    "emotion recognition in workplace", "emotion recognition in education",
+    "social scoring",
+    "social credit",
+    "subliminal manipulation",
+    "exploit vulnerability",
+    "real-time remote biometric identification",
+    "emotion recognition in workplace",
+    "emotion recognition in education",
     "untargeted scraping of facial images",
     "cognitive behavioral manipulation",
 ]
@@ -187,10 +248,7 @@ class RiskClassifier:
         description_lower = description.lower()
 
         # Check unacceptable risk first (Article 5)
-        unacceptable_matches = [
-            kw for kw in UNACCEPTABLE_KEYWORDS
-            if kw in description_lower
-        ]
+        unacceptable_matches = [kw for kw in UNACCEPTABLE_KEYWORDS if kw in description_lower]
         if unacceptable_matches:
             return RiskClassification(
                 risk_level=RiskLevel.UNACCEPTABLE,
@@ -202,10 +260,7 @@ class RiskClassifier:
 
         # Check high-risk (Annex III categories)
         for category in ANNEX_III_CATEGORIES:
-            matches = [
-                kw for kw in category["keywords"]
-                if kw in description_lower
-            ]
+            matches = [kw for kw in category["keywords"] if kw in description_lower]
             if matches:
                 return RiskClassification(
                     risk_level=RiskLevel.HIGH,
@@ -228,8 +283,13 @@ class RiskClassifier:
 
         # Check limited-risk (Article 50 transparency obligations)
         limited_keywords = [
-            "chatbot", "generated content", "deepfake", "synthetic media",
-            "ai-generated", "virtual assistant", "conversational ai",
+            "chatbot",
+            "generated content",
+            "deepfake",
+            "synthetic media",
+            "ai-generated",
+            "virtual assistant",
+            "conversational ai",
         ]
         limited_matches = [kw for kw in limited_keywords if kw in description_lower]
         if limited_matches:
@@ -261,10 +321,12 @@ class RiskClassifier:
 
         Uses the input_summary and verdict_reasoning fields to infer the domain.
         """
-        text = " ".join([
-            receipt_dict.get("input_summary", ""),
-            receipt_dict.get("verdict_reasoning", ""),
-        ])
+        text = " ".join(
+            [
+                receipt_dict.get("input_summary", ""),
+                receipt_dict.get("verdict_reasoning", ""),
+            ]
+        )
         return self.classify(text)
 
 
@@ -287,6 +349,7 @@ def _high_risk_obligations(category_name: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Conformity assessment mapping: Receipt -> EU AI Act articles
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ArticleMapping:
@@ -390,16 +453,18 @@ class ConformityReport:
                 lines.append(f"- {obligation}")
             lines.append("")
 
-        lines.extend([
-            "---",
-            "",
-            "## Article Compliance Assessment",
-            "",
-            f"**Overall Status:** {self.overall_status.upper()}",
-            "",
-            "| Article | Requirement | Status | Evidence |",
-            "|---------|-------------|--------|----------|",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                "## Article Compliance Assessment",
+                "",
+                f"**Overall Status:** {self.overall_status.upper()}",
+                "",
+                "| Article | Requirement | Status | Evidence |",
+                "|---------|-------------|--------|----------|",
+            ]
+        )
 
         for m in self.article_mappings:
             status_indicator = {
@@ -416,24 +481,28 @@ class ConformityReport:
         lines.append("")
 
         if self.recommendations:
-            lines.extend([
-                "---",
-                "",
-                "## Recommendations",
-                "",
-            ])
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## Recommendations",
+                    "",
+                ]
+            )
             for i, rec in enumerate(self.recommendations, 1):
                 lines.append(f"{i}. {rec}")
             lines.append("")
 
-        lines.extend([
-            "---",
-            "",
-            "## Summary",
-            "",
-            self.summary,
-            "",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                "## Summary",
+                "",
+                self.summary,
+                "",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -528,49 +597,55 @@ class ConformityReportGenerator:
             risk_status = "satisfied" if risk_critical == 0 and confidence >= 0.5 else "partial"
             if risk_critical > 0:
                 risk_status = "not_satisfied"
-            mappings.append(ArticleMapping(
-                article="Article 9",
-                article_title="Risk management system",
-                requirement="Identify and analyze known and reasonably foreseeable risks",
-                receipt_field="risk_summary, confidence",
-                status=risk_status,
-                evidence=(
-                    f"Risk assessment performed: {risk_total} risks identified "
-                    f"({risk_critical} critical). Confidence: {confidence:.1%}."
-                ),
-                recommendation=(
-                    "Address critical risks before deployment."
-                    if risk_critical > 0 else ""
-                ),
-            ))
+            mappings.append(
+                ArticleMapping(
+                    article="Article 9",
+                    article_title="Risk management system",
+                    requirement="Identify and analyze known and reasonably foreseeable risks",
+                    receipt_field="risk_summary, confidence",
+                    status=risk_status,
+                    evidence=(
+                        f"Risk assessment performed: {risk_total} risks identified "
+                        f"({risk_critical} critical). Confidence: {confidence:.1%}."
+                    ),
+                    recommendation=(
+                        "Address critical risks before deployment." if risk_critical > 0 else ""
+                    ),
+                )
+            )
         else:
-            mappings.append(ArticleMapping(
-                article="Article 9",
-                article_title="Risk management system",
-                requirement="Identify and analyze known and reasonably foreseeable risks",
-                receipt_field="risk_summary",
-                status="not_satisfied",
-                evidence="No risk assessment data found in receipt.",
-                recommendation="Conduct a risk assessment and record findings in the receipt.",
-            ))
+            mappings.append(
+                ArticleMapping(
+                    article="Article 9",
+                    article_title="Risk management system",
+                    requirement="Identify and analyze known and reasonably foreseeable risks",
+                    receipt_field="risk_summary",
+                    status="not_satisfied",
+                    evidence="No risk assessment data found in receipt.",
+                    recommendation="Conduct a risk assessment and record findings in the receipt.",
+                )
+            )
 
         # --- Article 12: Record-keeping (automatic logging) ---
         provenance = receipt.get("provenance_chain", [])
         log_status = "satisfied" if len(provenance) >= 2 else "partial"
         if not provenance:
             log_status = "not_satisfied"
-        mappings.append(ArticleMapping(
-            article="Article 12",
-            article_title="Record-keeping",
-            requirement="Automatic logging of events with traceability",
-            receipt_field="provenance_chain",
-            status=log_status,
-            evidence=f"Provenance chain contains {len(provenance)} events.",
-            recommendation=(
-                "Ensure all decision events are logged in the provenance chain."
-                if log_status != "satisfied" else ""
-            ),
-        ))
+        mappings.append(
+            ArticleMapping(
+                article="Article 12",
+                article_title="Record-keeping",
+                requirement="Automatic logging of events with traceability",
+                receipt_field="provenance_chain",
+                status=log_status,
+                evidence=f"Provenance chain contains {len(provenance)} events.",
+                recommendation=(
+                    "Ensure all decision events are logged in the provenance chain."
+                    if log_status != "satisfied"
+                    else ""
+                ),
+            )
+        )
 
         # --- Article 13: Transparency ---
         consensus = receipt.get("consensus_proof") or {}
@@ -581,43 +656,48 @@ class ConformityReportGenerator:
         verdict_reasoning = receipt.get("verdict_reasoning", "")
 
         transparency_satisfied = bool(all_agents) and bool(verdict_reasoning)
-        mappings.append(ArticleMapping(
-            article="Article 13",
-            article_title="Transparency and provision of information to deployers",
-            requirement="Identify participating agents, their arguments, and decision rationale",
-            receipt_field="consensus_proof, verdict_reasoning, dissenting_views",
-            status="satisfied" if transparency_satisfied else "partial",
-            evidence=(
-                f"{len(all_agents)} agents participated. "
-                f"Verdict reasoning: {verdict_reasoning[:100]}{'...' if len(verdict_reasoning) > 100 else ''}. "
-                f"{len(dissenting_views)} dissenting view(s) recorded."
-            ),
-            recommendation=(
-                "Include agent identities and reasoning in all receipts."
-                if not transparency_satisfied else ""
-            ),
-        ))
+        mappings.append(
+            ArticleMapping(
+                article="Article 13",
+                article_title="Transparency and provision of information to deployers",
+                requirement="Identify participating agents, their arguments, and decision rationale",
+                receipt_field="consensus_proof, verdict_reasoning, dissenting_views",
+                status="satisfied" if transparency_satisfied else "partial",
+                evidence=(
+                    f"{len(all_agents)} agents participated. "
+                    f"Verdict reasoning: {verdict_reasoning[:100]}{'...' if len(verdict_reasoning) > 100 else ''}. "
+                    f"{len(dissenting_views)} dissenting view(s) recorded."
+                ),
+                recommendation=(
+                    "Include agent identities and reasoning in all receipts."
+                    if not transparency_satisfied
+                    else ""
+                ),
+            )
+        )
 
         # --- Article 14: Human oversight ---
         config = receipt.get("config_used", {})
         has_human_oversight = _detect_human_oversight(config, receipt)
-        mappings.append(ArticleMapping(
-            article="Article 14",
-            article_title="Human oversight",
-            requirement="Enable human oversight, including ability to override or halt",
-            receipt_field="config_used",
-            status="satisfied" if has_human_oversight else "partial",
-            evidence=(
-                "Human approval/override mechanism detected in receipt configuration."
-                if has_human_oversight
-                else "No explicit human oversight mechanism found in receipt."
-            ),
-            recommendation=(
-                ""
-                if has_human_oversight
-                else "Integrate human-in-the-loop approval before critical decisions are finalized."
-            ),
-        ))
+        mappings.append(
+            ArticleMapping(
+                article="Article 14",
+                article_title="Human oversight",
+                requirement="Enable human oversight, including ability to override or halt",
+                receipt_field="config_used",
+                status="satisfied" if has_human_oversight else "partial",
+                evidence=(
+                    "Human approval/override mechanism detected in receipt configuration."
+                    if has_human_oversight
+                    else "No explicit human oversight mechanism found in receipt."
+                ),
+                recommendation=(
+                    ""
+                    if has_human_oversight
+                    else "Integrate human-in-the-loop approval before critical decisions are finalized."
+                ),
+            )
+        )
 
         # --- Article 15: Accuracy, robustness, cybersecurity ---
         integrity_valid = bool(receipt.get("artifact_hash"))
@@ -628,22 +708,25 @@ class ConformityReportGenerator:
         if robustness < 0.2:
             acc_status = "not_satisfied"
 
-        mappings.append(ArticleMapping(
-            article="Article 15",
-            article_title="Accuracy, robustness and cybersecurity",
-            requirement="Appropriate levels of accuracy and robustness; resilience to attacks",
-            receipt_field="robustness_score, artifact_hash, signature",
-            status=acc_status,
-            evidence=(
-                f"Robustness score: {robustness:.1%}. "
-                f"Integrity hash: {'present' if integrity_valid else 'missing'}. "
-                f"Cryptographic signature: {'present' if has_signature else 'absent'}."
-            ),
-            recommendation=(
-                "Improve robustness score and add cryptographic signing."
-                if acc_status != "satisfied" else ""
-            ),
-        ))
+        mappings.append(
+            ArticleMapping(
+                article="Article 15",
+                article_title="Accuracy, robustness and cybersecurity",
+                requirement="Appropriate levels of accuracy and robustness; resilience to attacks",
+                receipt_field="robustness_score, artifact_hash, signature",
+                status=acc_status,
+                evidence=(
+                    f"Robustness score: {robustness:.1%}. "
+                    f"Integrity hash: {'present' if integrity_valid else 'missing'}. "
+                    f"Cryptographic signature: {'present' if has_signature else 'absent'}."
+                ),
+                recommendation=(
+                    "Improve robustness score and add cryptographic signing."
+                    if acc_status != "satisfied"
+                    else ""
+                ),
+            )
+        )
 
         return mappings
 
@@ -652,8 +735,13 @@ def _detect_human_oversight(config: dict[str, Any], receipt: dict[str, Any]) -> 
     """Detect whether human oversight was present in the decision process."""
     # Check for human-related config keys
     oversight_indicators = [
-        "human_approval", "require_approval", "human_in_loop",
-        "human_override", "approver", "approver_id", "approval_record",
+        "human_approval",
+        "require_approval",
+        "human_in_loop",
+        "human_override",
+        "approver",
+        "approver_id",
+        "approval_record",
     ]
     config_str = json.dumps(config).lower()
     for indicator in oversight_indicators:
@@ -798,12 +886,15 @@ class ComplianceArtifactBundle:
             self.integrity_hash = self._compute_hash()
 
     def _compute_hash(self) -> str:
-        content = json.dumps({
-            "bundle_id": self.bundle_id,
-            "receipt_id": self.receipt_id,
-            "risk_level": self.risk_classification.risk_level.value,
-            "conformity_status": self.conformity_report.overall_status,
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "bundle_id": self.bundle_id,
+                "receipt_id": self.receipt_id,
+                "risk_level": self.risk_classification.risk_level.value,
+                "conformity_status": self.conformity_report.overall_status,
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()
 
     def to_dict(self) -> dict[str, Any]:
@@ -881,26 +972,29 @@ class ComplianceArtifactGenerator:
         event_log = []
         for i, entry in enumerate(provenance):
             if isinstance(entry, dict):
-                event_log.append({
-                    "event_id": f"evt_{i + 1:04d}",
-                    "event_type": entry.get("event_type", "unknown"),
-                    "timestamp": entry.get("timestamp", ""),
-                    "actor": entry.get("actor", "system"),
-                })
+                event_log.append(
+                    {
+                        "event_id": f"evt_{i + 1:04d}",
+                        "event_type": entry.get("event_type", "unknown"),
+                        "timestamp": entry.get("timestamp", ""),
+                        "actor": entry.get("actor", "system"),
+                    }
+                )
             elif hasattr(entry, "event_type"):
-                event_log.append({
-                    "event_id": f"evt_{i + 1:04d}",
-                    "event_type": entry.event_type,
-                    "timestamp": getattr(entry, "timestamp", ""),
-                    "actor": getattr(entry, "actor", "system"),
-                })
+                event_log.append(
+                    {
+                        "event_id": f"evt_{i + 1:04d}",
+                        "event_type": entry.event_type,
+                        "timestamp": getattr(entry, "timestamp", ""),
+                        "actor": getattr(entry, "actor", "system"),
+                    }
+                )
 
         config = receipt.get("config_used", {})
         consensus = receipt.get("consensus_proof", {})
-        agents = list(set(
-            consensus.get("supporting_agents", [])
-            + consensus.get("dissenting_agents", [])
-        ))
+        agents = list(
+            set(consensus.get("supporting_agents", []) + consensus.get("dissenting_agents", []))
+        )
 
         input_text = receipt.get("input_summary", receipt.get("question", ""))
         input_hash = hashlib.sha256(input_text.encode()).hexdigest() if input_text else ""
@@ -961,10 +1055,9 @@ class ComplianceArtifactGenerator:
         classification: RiskClassification,
     ) -> Article13Artifact:
         consensus = receipt.get("consensus_proof", {})
-        agents = list(set(
-            consensus.get("supporting_agents", [])
-            + consensus.get("dissenting_agents", [])
-        ))
+        agents = list(
+            set(consensus.get("supporting_agents", []) + consensus.get("dissenting_agents", []))
+        )
         confidence = receipt.get("confidence", 0.0)
         robustness = receipt.get("robustness_score", 0.0)
         dissenting = receipt.get("dissenting_views", [])
@@ -1047,8 +1140,7 @@ class ComplianceArtifactGenerator:
                     k: v
                     for k, v in receipt.get("config_used", {}).items()
                     if any(
-                        term in k.lower()
-                        for term in ("human", "approval", "override", "approver")
+                        term in k.lower() for term in ("human", "approval", "override", "approver")
                     )
                 },
             },

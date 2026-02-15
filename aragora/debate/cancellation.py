@@ -90,9 +90,7 @@ class CancellationToken:
     _reason: str | None = field(default=None, repr=False)
     _reason_type: CancellationReason = field(default=CancellationReason.USER_REQUESTED, repr=False)
     _cancelled_at: datetime | None = field(default=None, repr=False)
-    _callbacks: list[Callable[[CancellationToken], None]] = field(
-        default_factory=list, repr=False
-    )
+    _callbacks: list[Callable[[CancellationToken], None]] = field(default_factory=list, repr=False)
     _children: list[CancellationToken] = field(default_factory=list, repr=False)
     _parent: CancellationToken | None = field(default=None, repr=False)
 

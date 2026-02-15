@@ -63,9 +63,7 @@ class RelationshipHandler(BaseHandler):
         return False
 
     @require_permission("agents:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         cleaned = strip_version_prefix(path)
         parts = cleaned.split("/")
@@ -74,17 +72,13 @@ class RelationshipHandler(BaseHandler):
         if len(parts) < 5 or parts[4] != "relationships":
             return None
 
-        agent_name, err = self.extract_path_param(
-            cleaned, 3, "agent_name", SAFE_AGENT_PATTERN
-        )
+        agent_name, err = self.extract_path_param(cleaned, 3, "agent_name", SAFE_AGENT_PATTERN)
         if err:
             return err
 
         # Pairwise: /api/agents/{name}/relationships/{other}
         if len(parts) == 6 and parts[5]:
-            other_name, err = self.extract_path_param(
-                cleaned, 5, "other_agent", SAFE_AGENT_PATTERN
-            )
+            other_name, err = self.extract_path_param(cleaned, 5, "other_agent", SAFE_AGENT_PATTERN)
             if err:
                 return err
             return self._get_pairwise(agent_name, other_name)
@@ -98,11 +92,13 @@ class RelationshipHandler(BaseHandler):
         """Return rivals and allies for an agent."""
         tracker = _get_relationship_tracker()
         if not tracker:
-            return json_response({
-                "agent": agent_name,
-                "rivals": [],
-                "allies": [],
-            })
+            return json_response(
+                {
+                    "agent": agent_name,
+                    "rivals": [],
+                    "allies": [],
+                }
+            )
 
         rivals_raw = tracker.get_rivals(agent_name, limit=limit)
         allies_raw = tracker.get_allies(agent_name, limit=limit)
@@ -127,32 +123,38 @@ class RelationshipHandler(BaseHandler):
             for a in allies_raw
         ]
 
-        return json_response({
-            "agent": agent_name,
-            "rivals": rivals,
-            "allies": allies,
-        })
+        return json_response(
+            {
+                "agent": agent_name,
+                "rivals": rivals,
+                "allies": allies,
+            }
+        )
 
     def _get_pairwise(self, agent_a: str, agent_b: str) -> HandlerResult:
         """Return pairwise metrics between two agents."""
         tracker = _get_relationship_tracker()
         if not tracker:
-            return json_response({
-                "agent_a": agent_a,
-                "agent_b": agent_b,
-                "debate_count": 0,
-                "relationship": "unknown",
-            })
+            return json_response(
+                {
+                    "agent_a": agent_a,
+                    "agent_b": agent_b,
+                    "debate_count": 0,
+                    "relationship": "unknown",
+                }
+            )
 
         metrics = tracker.compute_metrics(agent_a, agent_b)
 
-        return json_response({
-            "agent_a": metrics.agent_a,
-            "agent_b": metrics.agent_b,
-            "debate_count": metrics.debate_count,
-            "rivalry_score": metrics.rivalry_score,
-            "alliance_score": metrics.alliance_score,
-            "relationship": metrics.relationship,
-            "agreement_rate": metrics.agreement_rate,
-            "head_to_head": metrics.head_to_head,
-        })
+        return json_response(
+            {
+                "agent_a": metrics.agent_a,
+                "agent_b": metrics.agent_b,
+                "debate_count": metrics.debate_count,
+                "rivalry_score": metrics.rivalry_score,
+                "alliance_score": metrics.alliance_score,
+                "relationship": metrics.relationship,
+                "agreement_rate": metrics.agreement_rate,
+                "head_to_head": metrics.head_to_head,
+            }
+        )

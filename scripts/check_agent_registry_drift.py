@@ -69,14 +69,11 @@ def check_doc_counts(runtime_count: int, fix: bool = False) -> list[str]:
         for m in re.finditer(pattern, content):
             doc_count = int(m.group(1))
             if doc_count != runtime_count:
-                errors.append(
-                    f"{filename}: says {doc_count} agents, "
-                    f"registry has {runtime_count}"
-                )
+                errors.append(f"{filename}: says {doc_count} agents, registry has {runtime_count}")
                 if fix:
-                    content = content.replace(m.group(0), m.group(0).replace(
-                        str(doc_count), str(runtime_count)
-                    ))
+                    content = content.replace(
+                        m.group(0), m.group(0).replace(str(doc_count), str(runtime_count))
+                    )
 
         if fix and errors:
             path.write_text(content)

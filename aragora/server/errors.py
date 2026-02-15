@@ -431,9 +431,7 @@ def format_error_response(
     # Log the real error server-side but return a sanitized message to
     # prevent leaking internal details (file paths, SQL, stack info).
     error_msg = str(error) if str(error) else "An unexpected error occurred"
-    logger.error(
-        "Internal error (%s): %s", type(error).__name__, error_msg, exc_info=True
-    )
+    logger.error("Internal error (%s): %s", type(error).__name__, error_msg, exc_info=True)
     internal = InternalError(
         message="An internal error occurred. Please try again later.",
         details=type(error).__name__,

@@ -53,9 +53,7 @@ Examples:
   %(prog)s --repo an0mium/aragora --mode watch --poll-interval 600
 """,
     )
-    parser.add_argument(
-        "--repo", required=True, help="GitHub repository (owner/repo format)"
-    )
+    parser.add_argument("--repo", required=True, help="GitHub repository (owner/repo format)")
     parser.add_argument(
         "--task",
         choices=[t.value for t in DevOpsTask],
@@ -100,9 +98,7 @@ Examples:
         default=None,
         help="Path to write audit log JSON",
     )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Verbose logging"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose logging")
 
     args = parser.parse_args()
 
@@ -151,7 +147,7 @@ Examples:
         )
     else:
         status = "OK" if result.success else "FAILED"
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"Task: {result.task} [{status}]")
         print(f"Processed: {result.items_processed}  Skipped: {result.items_skipped}")
         print(f"Duration: {result.duration_seconds:.1f}s")
@@ -163,7 +159,7 @@ Examples:
             print(f"\nDetails:")
             for detail in result.details:
                 print(f"  {json.dumps(detail)}")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
     # Write audit log
     if args.audit_log:

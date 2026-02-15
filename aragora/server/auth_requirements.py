@@ -70,9 +70,7 @@ PUBLIC_ENDPOINTS = [
     EndpointAuth("/api/nomic/health", "get", AuthLevel.PUBLIC, description="Nomic loop health"),
     EndpointAuth("/api/nomic/state", "get", AuthLevel.PUBLIC, description="Nomic state"),
     # Leaderboard - public dashboard data
-    EndpointAuth(
-        "/api/leaderboard-view", "get", AuthLevel.PUBLIC, description="Leaderboard view"
-    ),
+    EndpointAuth("/api/leaderboard-view", "get", AuthLevel.PUBLIC, description="Leaderboard view"),
     # Breakpoints - public read-only
     EndpointAuth(
         "/api/breakpoints/pending",
@@ -97,18 +95,12 @@ PUBLIC_ENDPOINTS = [
         AuthLevel.PUBLIC,
         description="Risk warnings",
     ),
-    EndpointAuth(
-        "/api/consensus/dissents", "get", AuthLevel.PUBLIC, description="Recent dissents"
-    ),
+    EndpointAuth("/api/consensus/dissents", "get", AuthLevel.PUBLIC, description="Recent dissents"),
     EndpointAuth(
         "/api/consensus/similar", "get", AuthLevel.PUBLIC, description="Find similar debates"
     ),
-    EndpointAuth(
-        "/api/consensus/settled", "get", AuthLevel.PUBLIC, description="Settled topics"
-    ),
-    EndpointAuth(
-        "/api/consensus/stats", "get", AuthLevel.PUBLIC, description="Consensus stats"
-    ),
+    EndpointAuth("/api/consensus/settled", "get", AuthLevel.PUBLIC, description="Settled topics"),
+    EndpointAuth("/api/consensus/stats", "get", AuthLevel.PUBLIC, description="Consensus stats"),
     # Playground - public demo endpoints (rate-limited, mock agents only)
     EndpointAuth(
         "/api/v1/playground/debate",

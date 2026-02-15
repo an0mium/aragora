@@ -265,7 +265,9 @@ async def record_plan_outcome(
                             )
                             stored_count += 1
                         except (KeyError, ValueError, OSError, RuntimeError):
-                            logger.debug("Failed to store pattern in knowledge mound", exc_info=True)
+                            logger.debug(
+                                "Failed to store pattern in knowledge mound", exc_info=True
+                            )
 
                     if stored_count > 0:
                         logger.info(

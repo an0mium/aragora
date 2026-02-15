@@ -330,7 +330,9 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
         """Get high-level summary metrics (legacy, kept for compatibility)."""
         return _call_bypassing_decorators(get_summary_metrics_legacy, domain, debates)
 
-    def _get_recent_activity(self, domain: str | None, hours: int, debates: list[Any]) -> dict[str, Any]:
+    def _get_recent_activity(
+        self, domain: str | None, hours: int, debates: list[Any]
+    ) -> dict[str, Any]:
         """Get recent debate activity metrics."""
         return _call_bypassing_decorators(get_recent_activity_legacy, domain, hours, debates)
 

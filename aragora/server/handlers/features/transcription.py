@@ -579,7 +579,9 @@ class TranscriptionHandler(BaseHandler):
                             metadata=ingest_metadata,
                         )
                     except ImportError:
-                        logger.warning("Knowledge pipeline not available, skipping transcript ingestion")
+                        logger.warning(
+                            "Knowledge pipeline not available, skipping transcript ingestion"
+                        )
                     except Exception as e:
                         logger.warning("Transcript knowledge ingestion failed: %s", e)
 

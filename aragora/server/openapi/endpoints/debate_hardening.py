@@ -329,7 +329,11 @@ DEBATE_HARDENING_ENDPOINTS = {
             "description": "Get audit log of all interventions for a debate.",
             "parameters": [
                 {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}},
-                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50, "maximum": 200}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 50, "maximum": 200},
+                },
             ],
             "responses": {
                 "200": _ok_response(

@@ -37,11 +37,15 @@ def add_analytics_parser(subparsers) -> None:
         ("trends", "Usage trends over time"),
     ]:
         p = analytics_sub.add_parser(name, help=help_text)
-        p.add_argument("--days", type=int, default=30, help="Look-back period in days (default: 30)")
+        p.add_argument(
+            "--days", type=int, default=30, help="Look-back period in days (default: 30)"
+        )
         p.add_argument("--json", dest="as_json", action="store_true", help="Output as JSON")
         p.add_argument("--org-id", help="Filter by organization ID")
         if name == "agents":
-            p.add_argument("--limit", type=int, default=10, help="Number of agents to show (default: 10)")
+            p.add_argument(
+                "--limit", type=int, default=10, help="Number of agents to show (default: 10)"
+            )
             p.add_argument(
                 "--sort-by",
                 choices=["elo", "debates", "accuracy", "cost"],
@@ -50,7 +54,9 @@ def add_analytics_parser(subparsers) -> None:
             )
         p.set_defaults(func=cmd_analytics)
 
-    analytics_parser.set_defaults(func=cmd_analytics, analytics_command="summary", _parser=analytics_parser)
+    analytics_parser.set_defaults(
+        func=cmd_analytics, analytics_command="summary", _parser=analytics_parser
+    )
 
 
 def cmd_analytics(args: argparse.Namespace) -> None:
@@ -108,7 +114,9 @@ def _cmd_summary(analytics, days: int, org_id: str | None, as_json: bool) -> Non
 
 def _cmd_agents(analytics, days: int, limit: int, sort_by: str, as_json: bool) -> None:
     """Show agent performance leaderboard."""
-    agents = asyncio.run(analytics.get_agent_leaderboard(limit=limit, days_back=days, sort_by=sort_by))
+    agents = asyncio.run(
+        analytics.get_agent_leaderboard(limit=limit, days_back=days, sort_by=sort_by)
+    )
 
     if as_json:
         print(json.dumps([a.to_dict() for a in agents], indent=2, default=str))

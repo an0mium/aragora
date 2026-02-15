@@ -36,6 +36,7 @@ def _ensure_supabase() -> bool:
         SUPABASE_AVAILABLE = False
     return SUPABASE_AVAILABLE
 
+
 from aragora.persistence.models import (
     AgentMetrics,
     DebateArtifact,

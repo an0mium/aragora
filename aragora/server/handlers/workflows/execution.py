@@ -76,7 +76,9 @@ def _extract_notification_context(
             if key is not None and value is not None
         }
 
-    if not channel_targets and bool(inputs.get("notify_channels") or base_meta.get("notify_channels")):
+    if not channel_targets and bool(
+        inputs.get("notify_channels") or base_meta.get("notify_channels")
+    ):
         try:
             from aragora.approvals.chat import get_default_chat_targets
 

@@ -499,14 +499,16 @@ class OrchestrationHandler(SecureHandler):
 
             # Handle dry_run - return estimate only
             if request.dry_run:
-                return json_response({
-                    "request_id": request.request_id,
-                    "dry_run": True,
-                    "estimated_cost": cost_estimate,
-                    "agents": request.agents,
-                    "max_rounds": request.max_rounds,
-                    "message": "Dry run — no debate executed",
-                })
+                return json_response(
+                    {
+                        "request_id": request.request_id,
+                        "dry_run": True,
+                        "estimated_cost": cost_estimate,
+                        "agents": request.agents,
+                        "max_rounds": request.max_rounds,
+                        "message": "Dry run — no debate executed",
+                    }
+                )
 
             # Extract total cost as float for non-dry-run responses
             estimated_cost_usd = None

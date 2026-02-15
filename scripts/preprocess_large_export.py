@@ -262,16 +262,98 @@ def count_words(text: str) -> int:
 def extract_keywords(text: str, min_length: int = 4) -> set[str]:
     """Extract keywords from text."""
     stopwords = {
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "must", "shall", "can", "to", "of", "in",
-        "for", "on", "with", "at", "by", "from", "as", "into", "through",
-        "that", "this", "these", "those", "it", "its", "i", "you", "we", "they",
-        "what", "which", "who", "how", "when", "where", "why", "think", "believe",
-        "about", "more", "some", "any", "just", "only", "also", "very", "really",
-        "like", "know", "want", "need", "make", "take", "give", "find", "tell",
-        "good", "well", "much", "such", "even", "back", "way", "thing", "things",
-        "then", "than", "now", "here", "there", "your", "their", "other", "first",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+        "i",
+        "you",
+        "we",
+        "they",
+        "what",
+        "which",
+        "who",
+        "how",
+        "when",
+        "where",
+        "why",
+        "think",
+        "believe",
+        "about",
+        "more",
+        "some",
+        "any",
+        "just",
+        "only",
+        "also",
+        "very",
+        "really",
+        "like",
+        "know",
+        "want",
+        "need",
+        "make",
+        "take",
+        "give",
+        "find",
+        "tell",
+        "good",
+        "well",
+        "much",
+        "such",
+        "even",
+        "back",
+        "way",
+        "thing",
+        "things",
+        "then",
+        "than",
+        "now",
+        "here",
+        "there",
+        "your",
+        "their",
+        "other",
+        "first",
     }
 
     words = re.findall(r"\b[a-zA-Z]{%d,}\b" % min_length, text.lower())
@@ -394,17 +476,25 @@ def analyze_export(path: Path, max_conversations: int = 10000) -> ConversationSt
 
         # Size distribution
         if words < 500:
-            stats.size_distribution["small (<500 words)"] = stats.size_distribution.get("small (<500 words)", 0) + 1
+            stats.size_distribution["small (<500 words)"] = (
+                stats.size_distribution.get("small (<500 words)", 0) + 1
+            )
         elif words < 2000:
-            stats.size_distribution["medium (500-2000)"] = stats.size_distribution.get("medium (500-2000)", 0) + 1
+            stats.size_distribution["medium (500-2000)"] = (
+                stats.size_distribution.get("medium (500-2000)", 0) + 1
+            )
         else:
-            stats.size_distribution["large (2000+)"] = stats.size_distribution.get("large (2000+)", 0) + 1
+            stats.size_distribution["large (2000+)"] = (
+                stats.size_distribution.get("large (2000+)", 0) + 1
+            )
 
         # Date tracking
         conv_date = get_conversation_date(conv)
         if conv_date:
             month_key = conv_date.strftime("%Y-%m")
-            stats.conversations_by_month[month_key] = stats.conversations_by_month.get(month_key, 0) + 1
+            stats.conversations_by_month[month_key] = (
+                stats.conversations_by_month.get(month_key, 0) + 1
+            )
             dates.append(conv_date)
 
         # Title words
@@ -539,13 +629,15 @@ def main():
     )
 
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         type=Path,
         required=True,
         help="Input conversations.json file",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         help="Output filtered JSON file",
     )
@@ -557,7 +649,8 @@ def main():
 
     # Filtering options
     parser.add_argument(
-        "--topics", "-t",
+        "--topics",
+        "-t",
         nargs="+",
         default=[],
         help="Topics to filter for (OR matching)",
@@ -612,7 +705,8 @@ def main():
         help="Only include conversations where user wrote a lot",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Verbose output",
     )

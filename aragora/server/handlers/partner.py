@@ -344,7 +344,9 @@ class PartnerHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("get usage")
-    def _get_usage(self, query_params: dict[str, Any], handler: Any, user: Any = None) -> HandlerResult:
+    def _get_usage(
+        self, query_params: dict[str, Any], handler: Any, user: Any = None
+    ) -> HandlerResult:
         """
         Get usage statistics.
 

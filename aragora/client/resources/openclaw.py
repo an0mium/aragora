@@ -388,9 +388,7 @@ class OpenClawAPI:
 
     async def delete_credential_async(self, credential_id: str) -> bool:
         """Delete a credential by ID (async)."""
-        response = await self._client._delete_async(
-            f"/api/v1/openclaw/credentials/{credential_id}"
-        )
+        response = await self._client._delete_async(f"/api/v1/openclaw/credentials/{credential_id}")
         return response.get("success", False)
 
     def rotate_credential(self, credential_id: str, new_value: str) -> Credential:

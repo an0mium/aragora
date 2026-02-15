@@ -223,9 +223,7 @@ class OpenClawSkillConverter:
         results: list[OpenClawBridgeSkill] = []
         for s in parsed_skills:
             try:
-                results.append(
-                    OpenClawSkillConverter.convert(s, skip_scan=skip_scan)
-                )
+                results.append(OpenClawSkillConverter.convert(s, skip_scan=skip_scan))
             except DangerousSkillError as exc:
                 logger.warning(
                     "Skipping dangerous skill %r in directory scan: %s",

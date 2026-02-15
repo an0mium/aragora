@@ -58,9 +58,7 @@ class EmailTriageHandler(BaseHandler):
         return path in self.ROUTES
 
     @handle_errors("get triage rules")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if path == "/api/v1/email/triage/rules":
             return self._handle_get_rules()
         return None
@@ -89,18 +87,22 @@ class EmailTriageHandler(BaseHandler):
 
         rules = []
         for rule in config.rules:
-            rules.append({
-                "label": rule.label,
-                "keywords": rule.keywords,
-                "priority": rule.priority,
-            })
+            rules.append(
+                {
+                    "label": rule.label,
+                    "keywords": rule.keywords,
+                    "priority": rule.priority,
+                }
+            )
 
-        return json_response({
-            "rules": rules,
-            "escalation_keywords": config.escalation_keywords,
-            "auto_handle_threshold": config.auto_handle_threshold,
-            "sync_interval_minutes": config.sync_interval_minutes,
-        })
+        return json_response(
+            {
+                "rules": rules,
+                "escalation_keywords": config.escalation_keywords,
+                "auto_handle_threshold": config.auto_handle_threshold,
+                "sync_interval_minutes": config.sync_interval_minutes,
+            }
+        )
 
     def _handle_update_rules(self, handler: Any) -> HandlerResult:
         """Update triage rules from request body."""
@@ -123,10 +125,12 @@ class EmailTriageHandler(BaseHandler):
                             f"Invalid priority '{priority}'. Must be high, medium, or low",
                             400,
                         )
-                    priority_rules.setdefault(priority, []).append({
-                        "label": rule.get("label", ""),
-                        "keywords": rule.get("keywords", []),
-                    })
+                    priority_rules.setdefault(priority, []).append(
+                        {
+                            "label": rule.get("label", ""),
+                            "keywords": rule.get("keywords", []),
+                        }
+                    )
                 config_data["priority_rules"] = priority_rules
 
             if "escalation_keywords" in body:
@@ -144,10 +148,12 @@ class EmailTriageHandler(BaseHandler):
 
             logger.info("Triage rules updated: %d rules", len(config.rules))
 
-            return json_response({
-                "message": "Triage rules updated",
-                "rules_count": len(config.rules),
-            })
+            return json_response(
+                {
+                    "message": "Triage rules updated",
+                    "rules_count": len(config.rules),
+                }
+            )
 
         except (ValueError, TypeError, KeyError) as e:
             return error_response(f"Invalid rules configuration: {e}", 400)
@@ -174,12 +180,14 @@ class EmailTriageHandler(BaseHandler):
             labels=labels,
         )
 
-        return json_response({
-            "priority": score.priority,
-            "matched_rule": score.matched_rule,
-            "score_boost": score.score_boost,
-            "should_escalate": score.should_escalate,
-        })
+        return json_response(
+            {
+                "priority": score.priority,
+                "matched_rule": score.matched_rule,
+                "score_boost": score.score_boost,
+                "should_escalate": score.should_escalate,
+            }
+        )
 
 
 __all__ = ["EmailTriageHandler"]

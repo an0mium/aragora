@@ -183,7 +183,9 @@ class ComputerUseTaskStep(BaseStep):
                             "action": step_result.action.to_dict()
                             if getattr(step_result, "action", None)
                             else None,
-                            "policy_check_passed": getattr(step_result, "policy_check_passed", None),
+                            "policy_check_passed": getattr(
+                                step_result, "policy_check_passed", None
+                            ),
                             "policy_reason": getattr(step_result, "policy_reason", None),
                         },
                     )

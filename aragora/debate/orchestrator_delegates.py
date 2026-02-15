@@ -162,9 +162,7 @@ class ArenaDelegatesMixin:
             debate_id, task, self.protocol, self.env, self.agents, self
         )
 
-    async def _update_debate_bead(
-        self, bead_id: str, result: DebateResult, success: bool
-    ) -> None:
+    async def _update_debate_bead(self, bead_id: str, result: DebateResult, success: bool) -> None:
         """Update a pending debate bead. Delegates to orchestrator_hooks."""
         from aragora.debate.orchestrator_hooks import update_debate_bead
 

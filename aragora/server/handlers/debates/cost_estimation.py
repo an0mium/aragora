@@ -61,9 +61,7 @@ def estimate_debate_cost(
     total_cost = Decimal("0")
 
     for model in agent_models:
-        provider, model_key = MODEL_PROVIDER_MAP.get(
-            model, ("openrouter", "default")
-        )
+        provider, model_key = MODEL_PROVIDER_MAP.get(model, ("openrouter", "default"))
 
         input_tokens = SYSTEM_PROMPT_TOKENS + (AVG_INPUT_TOKENS_PER_ROUND * num_rounds)
         output_tokens = AVG_OUTPUT_TOKENS_PER_ROUND * num_rounds
@@ -74,9 +72,7 @@ def estimate_debate_cost(
         provider_prices = PROVIDER_PRICING.get(provider, PROVIDER_PRICING["openrouter"])
         input_key = model_key if model_key in provider_prices else "default"
         output_key = (
-            f"{model_key}-output"
-            if f"{model_key}-output" in provider_prices
-            else "default-output"
+            f"{model_key}-output" if f"{model_key}-output" in provider_prices else "default-output"
         )
         input_price = provider_prices.get(input_key, Decimal("2.00"))
         output_price = provider_prices.get(output_key, Decimal("8.00"))
@@ -84,15 +80,17 @@ def estimate_debate_cost(
         input_cost = (Decimal(input_tokens) / Decimal("1000000")) * input_price
         output_cost = (Decimal(output_tokens) / Decimal("1000000")) * output_price
 
-        breakdown.append({
-            "model": model,
-            "provider": provider,
-            "estimated_input_tokens": input_tokens,
-            "estimated_output_tokens": output_tokens,
-            "input_cost_usd": float(round(input_cost, 6)),
-            "output_cost_usd": float(round(output_cost, 6)),
-            "subtotal_usd": float(round(cost, 6)),
-        })
+        breakdown.append(
+            {
+                "model": model,
+                "provider": provider,
+                "estimated_input_tokens": input_tokens,
+                "estimated_output_tokens": output_tokens,
+                "input_cost_usd": float(round(input_cost, 6)),
+                "output_cost_usd": float(round(output_cost, 6)),
+                "subtotal_usd": float(round(cost, 6)),
+            }
+        )
         total_cost += cost
 
     return {

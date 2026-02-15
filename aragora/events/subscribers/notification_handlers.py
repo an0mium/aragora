@@ -67,10 +67,7 @@ class NotificationHandlersMixin:
             duration = data.get("duration_seconds", 0)
 
             title = "Plan Execution Failed"
-            message = (
-                f"Plan {plan_id[:12]}... failed after {duration:.1f}s: "
-                f"{error[:200]}"
-            )
+            message = f"Plan {plan_id[:12]}... failed after {duration:.1f}s: {error[:200]}"
 
             self._send_plan_notification(
                 title=title,

@@ -460,9 +460,7 @@ class TenantDataIsolation:
                     f"Using salt-based key derivation for tenant {tid}. "
                     "Configure a KMS provider for production use."
                 )
-                salt = hashlib.sha256(
-                    f"aragora_tenant_salt_{tid}".encode()
-                ).digest()
+                salt = hashlib.sha256(f"aragora_tenant_salt_{tid}".encode()).digest()
                 self._encryption_keys[tid] = hmac.new(
                     salt,
                     f"aragora_tenant_key_{tid}".encode(),

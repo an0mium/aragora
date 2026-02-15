@@ -32,6 +32,7 @@ def _logger():
     if core is not None:
         return core.logger
     import logging
+
     return logging.getLogger("aragora.server.handlers.billing.core")
 
 

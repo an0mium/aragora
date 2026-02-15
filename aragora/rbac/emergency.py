@@ -203,12 +203,8 @@ class BreakGlassAccess:
     """
 
     # Access duration limits (minutes)
-    DEFAULT_DURATION_MINUTES = int(
-        os.environ.get("ARAGORA_BREAK_GLASS_DEFAULT_MINUTES", "60")
-    )
-    MAX_DURATION_MINUTES = int(
-        os.environ.get("ARAGORA_BREAK_GLASS_MAX_MINUTES", str(24 * 60))
-    )
+    DEFAULT_DURATION_MINUTES = int(os.environ.get("ARAGORA_BREAK_GLASS_DEFAULT_MINUTES", "60"))
+    MAX_DURATION_MINUTES = int(os.environ.get("ARAGORA_BREAK_GLASS_MAX_MINUTES", str(24 * 60)))
     MIN_DURATION_MINUTES = 15  # 15 minutes
 
     # Maximum concurrent active sessions per user

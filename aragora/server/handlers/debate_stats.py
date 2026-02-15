@@ -78,10 +78,12 @@ class DebateStatsHandler(BaseHandler):
 
             service = DebateAnalytics(storage)
             agent_stats = service.get_agent_stats(limit=limit)
-            return json_response({
-                "agents": agent_stats,
-                "count": len(agent_stats),
-            })
+            return json_response(
+                {
+                    "agents": agent_stats,
+                    "count": len(agent_stats),
+                }
+            )
         except Exception as exc:
             logger.error("Failed to get agent stats: %s", exc)
             return error_response("Failed to get agent stats", 500)

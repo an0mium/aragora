@@ -921,10 +921,7 @@ async def notify_budget_alert(
 
         name_part = f" {budget_name}" if budget_name else ""
         title = f"Budget Alert: {title_prefix}{name_part}"
-        body = (
-            f"Current spend: ${current_spend:.2f} / ${limit:.2f} "
-            f"(Remaining: ${remaining:.2f})"
-        )
+        body = f"Current spend: ${current_spend:.2f} / ${limit:.2f} (Remaining: ${remaining:.2f})"
 
         notification = Notification(
             title=title,
@@ -976,15 +973,10 @@ async def notify_cost_anomaly(
     try:
         service = get_notification_service()
 
-        deviation_pct = (
-            ((amount - expected) / expected * 100) if expected > 0 else 0
-        )
+        deviation_pct = ((amount - expected) / expected * 100) if expected > 0 else 0
 
         title = f"Cost Anomaly: {anomaly_type}"
-        body = (
-            f"Actual: ${amount:.4f}, Expected: ${expected:.4f} "
-            f"(+{deviation_pct:.1f}% deviation)"
-        )
+        body = f"Actual: ${amount:.4f}, Expected: ${expected:.4f} (+{deviation_pct:.1f}% deviation)"
         if agent_id:
             body += f"\nAgent: {agent_id}"
         if details:
@@ -1067,9 +1059,7 @@ async def notify_compliance_finding(
         await service.notify_all_webhooks(notification, "compliance.finding")
         return results
     except Exception:
-        logger.debug(
-            "Failed to send compliance finding notification", exc_info=True
-        )
+        logger.debug("Failed to send compliance finding notification", exc_info=True)
         return []
 
 
@@ -1107,10 +1097,7 @@ async def notify_debate_completed(
     notification = Notification(
         title=f"Debate Complete: {verdict.upper()} ({confidence:.0%})",
         message=(
-            f"Task: {task_preview}\n"
-            f"Verdict: {verdict}\n"
-            f"Confidence: {confidence:.1%}"
-            f"{agent_summary}"
+            f"Task: {task_preview}\nVerdict: {verdict}\nConfidence: {confidence:.1%}{agent_summary}"
         ),
         severity="info" if verdict == "pass" else "warning",
         priority=NotificationPriority.NORMAL,
@@ -1191,9 +1178,7 @@ async def notify_workflow_progress(
         await service.notify_all_webhooks(notification, "workflow.progress")
         return results
     except Exception:
-        logger.debug(
-            "Failed to send workflow progress notification", exc_info=True
-        )
+        logger.debug("Failed to send workflow progress notification", exc_info=True)
         return []
 
 
@@ -1342,11 +1327,7 @@ async def notify_learning_insight(
 
         notification = Notification(
             title=f"Learning Insight: {insight_type}",
-            message=(
-                f"Type: {insight_type}\n"
-                f"Confidence: {confidence:.1%}\n"
-                f"{description[:500]}"
-            ),
+            message=(f"Type: {insight_type}\nConfidence: {confidence:.1%}\n{description[:500]}"),
             severity="info",
             priority=NotificationPriority.NORMAL,
             resource_type="insight",

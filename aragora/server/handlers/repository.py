@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _validate_repo_path(repo_path: str) -> tuple[str | None, str | None]:
     """Validate repo_path to prevent path traversal attacks.
 
@@ -364,9 +365,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
                 if repo_path:
                     validated_path, path_error = _validate_repo_path(repo_path)
                     if path_error:
-                        return error_response(
-                            f"Invalid path in batch: {path_error}", 400
-                        )
+                        return error_response(f"Invalid path in batch: {path_error}", 400)
                     repo_path = validated_path
 
                 config = RepoConfig(

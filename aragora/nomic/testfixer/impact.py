@@ -71,9 +71,7 @@ class ImpactAnalyzer:
         current_failing = {f.test_name for f in test_result.failures}
         baseline_set = set(baseline_failures)
 
-        new_failures = [
-            f for f in test_result.failures if f.test_name not in baseline_set
-        ]
+        new_failures = [f for f in test_result.failures if f.test_name not in baseline_set]
         resolved = [name for name in baseline_failures if name not in current_failing]
         unchanged = [name for name in baseline_failures if name in current_failing]
 

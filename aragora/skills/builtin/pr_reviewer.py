@@ -86,9 +86,7 @@ class PRReviewerSkill(Skill):
             author="aragora",
         )
 
-    async def execute(
-        self, input_data: dict[str, Any], context: SkillContext
-    ) -> SkillResult:
+    async def execute(self, input_data: dict[str, Any], context: SkillContext) -> SkillResult:
         """Run multi-agent code review on a PR or diff."""
         pr_url = input_data.get("pr_url")
         diff = input_data.get("diff")
@@ -146,7 +144,9 @@ class PRReviewerSkill(Skill):
         try:
             result = subprocess.run(
                 ["gh", "pr", "diff", pr_number, "--repo", owner_repo],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode != 0:
                 return None, result.stderr.strip()
@@ -157,11 +157,13 @@ class PRReviewerSkill(Skill):
             return None, "Timed out fetching PR diff"
 
     async def _run_review(
-        self, diff: str,
+        self,
+        diff: str,
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Run the Aragora review engine on a diff."""
         try:
             from aragora.cli.review import run_review_on_diff  # type: ignore[attr-defined]
+
             findings = await run_review_on_diff(diff, demo=self._demo)
             return findings, None
         except ImportError:
@@ -169,7 +171,8 @@ class PRReviewerSkill(Skill):
             return await self._run_review_subprocess(diff)
 
     async def _run_review_subprocess(
-        self, diff: str,
+        self,
+        diff: str,
     ) -> tuple[dict[str, Any] | None, str | None]:
         """Fallback: run review as a subprocess."""
         import json
@@ -180,7 +183,11 @@ class PRReviewerSkill(Skill):
 
         try:
             result = subprocess.run(
-                cmd, input=diff, capture_output=True, text=True, timeout=120,
+                cmd,
+                input=diff,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             if result.returncode != 0:
                 return None, result.stderr.strip()
@@ -198,7 +205,9 @@ class PRReviewerSkill(Skill):
             return {"raw_output": result.stdout}, None
 
     async def _post_pr_comment(
-        self, pr_url: str, findings: dict[str, Any],
+        self,
+        pr_url: str,
+        findings: dict[str, Any],
     ) -> tuple[str | None, str | None]:
         """Post review findings as a PR comment using gh CLI."""
         parts = pr_url.rstrip("/").split("/")
@@ -214,11 +223,18 @@ class PRReviewerSkill(Skill):
         try:
             result = subprocess.run(
                 [
-                    "gh", "pr", "comment", pr_number,
-                    "--repo", owner_repo,
-                    "--body", comment_body,
+                    "gh",
+                    "pr",
+                    "comment",
+                    pr_number,
+                    "--repo",
+                    owner_repo,
+                    "--body",
+                    comment_body,
                 ],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode != 0:
                 return None, result.stderr.strip()
@@ -288,8 +304,5 @@ class PRReviewerSkill(Skill):
             lines.append("")
 
         lines.append("---")
-        lines.append(
-            "*Reviewed by [Aragora](https://aragora.ai) "
-            "multi-agent debate engine*"
-        )
+        lines.append("*Reviewed by [Aragora](https://aragora.ai) multi-agent debate engine*")
         return "\n".join(lines)

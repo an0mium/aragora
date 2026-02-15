@@ -106,9 +106,11 @@ def is_encryption_required() -> bool:
     - When explicitly set (ARAGORA_ENCRYPTION_REQUIRED=true)
     """
     # Read env var live to avoid stale module-level state after reload
-    explicitly_required = os.environ.get(
-        "ARAGORA_ENCRYPTION_REQUIRED", ""
-    ).lower() in ("true", "1", "yes")
+    explicitly_required = os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
     if explicitly_required or _is_production_mode():
         return True
     return False

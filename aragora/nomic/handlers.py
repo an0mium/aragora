@@ -479,10 +479,7 @@ async def recovery_state_handler(
 
     failed_state = context.previous_state
     sica_result: dict[str, Any] | None = None
-    if (
-        failed_state in (NomicState.IMPLEMENT, NomicState.VERIFY)
-        and load_sica_settings().enabled
-    ):
+    if failed_state in (NomicState.IMPLEMENT, NomicState.VERIFY) and load_sica_settings().enabled:
         sica_result = await _run_sica_cycle(repo_path, sica_agents, logger.info)
         if sica_result.get("status") == "success":
             # SICA may have changed code directly; re-run verification next.

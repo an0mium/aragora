@@ -49,7 +49,8 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Output format (default: markdown)",
     )
     audit_p.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Write report to file instead of stdout",
     )
 
@@ -89,7 +90,8 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
         ),
     )
     generate_p.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="./compliance-bundle",
         help="Output directory for the artifact bundle (default: ./compliance-bundle/)",
     )
@@ -139,7 +141,9 @@ def cmd_compliance(args: argparse.Namespace) -> None:
         if eu_command == "generate":
             _cmd_eu_ai_act_generate(args)
         else:
-            print("Usage: aragora compliance eu-ai-act generate [receipt_file] --output ./compliance-bundle/")
+            print(
+                "Usage: aragora compliance eu-ai-act generate [receipt_file] --output ./compliance-bundle/"
+            )
             print()
             print("Generate EU AI Act compliance artifact bundles (Articles 12, 13, 14).")
             print("Omit receipt_file to generate a demonstration bundle with synthetic data.")
@@ -195,9 +199,9 @@ def _cmd_classify(args: argparse.Namespace) -> None:
     # Color-coded output
     level_colors = {
         "unacceptable": "\033[91m",  # red
-        "high": "\033[93m",          # yellow
-        "limited": "\033[96m",       # cyan
-        "minimal": "\033[92m",       # green
+        "high": "\033[93m",  # yellow
+        "limited": "\033[96m",  # cyan
+        "minimal": "\033[92m",  # green
     }
     reset = "\033[0m"
     color = level_colors.get(result.risk_level.value, "")
@@ -299,7 +303,9 @@ def _cmd_eu_ai_act_generate(args: argparse.Namespace) -> None:
     print(f"Receipt ID:      {bundle.receipt_id}")
     print(f"Risk Level:      {classification.risk_level.value.upper()}")
     if classification.annex_iii_category:
-        print(f"Annex III:       Cat. {classification.annex_iii_number} ({classification.annex_iii_category})")
+        print(
+            f"Annex III:       Cat. {classification.annex_iii_number} ({classification.annex_iii_category})"
+        )
     print(f"Conformity:      {bundle.conformity_report.overall_status.upper()}")
     print(f"Integrity Hash:  {bundle.integrity_hash}")
     print("Deadline:        August 2, 2026")
@@ -311,7 +317,9 @@ def _cmd_eu_ai_act_generate(args: argparse.Namespace) -> None:
     if args.output_format == "all":
         print("  article_12_record_keeping.json  Art. 12 event log, tech docs, retention policy")
         print("  article_13_transparency.json    Art. 13 provider identity, risks, interpretation")
-        print("  article_14_human_oversight.json  Art. 14 oversight model, override, stop mechanisms")
+        print(
+            "  article_14_human_oversight.json  Art. 14 oversight model, override, stop mechanisms"
+        )
         print("  conformity_report.md            Human-readable conformity assessment")
         print("  conformity_report.json          Machine-readable conformity assessment")
     print()
@@ -389,7 +397,11 @@ def _synthetic_receipt() -> dict:
             {"event_type": "vote_cast", "timestamp": now, "actor": "gpt4-ethics"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "gemini-challenger"},
             {"event_type": "vote_cast", "timestamp": now, "actor": "mistral-auditor"},
-            {"event_type": "human_approval", "timestamp": now, "actor": "compliance-officer@org.example.com"},
+            {
+                "event_type": "human_approval",
+                "timestamp": now,
+                "actor": "compliance-officer@org.example.com",
+            },
             {"event_type": "receipt_generated", "timestamp": now, "actor": "system"},
         ],
         "schema_version": "1.0",

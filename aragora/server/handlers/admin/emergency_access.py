@@ -200,9 +200,7 @@ class EmergencyAccessHandler(SecureHandler):
         run_async(emergency.expire_old_access())
 
         active_sessions = [
-            record.to_dict()
-            for record in emergency._active_records.values()
-            if record.is_active
+            record.to_dict() for record in emergency._active_records.values() if record.is_active
         ]
 
         history = run_async(emergency.get_history(limit=20))

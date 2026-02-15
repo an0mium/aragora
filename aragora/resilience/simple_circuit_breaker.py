@@ -125,9 +125,7 @@ class SimpleCircuitBreaker:
             if self._state == self.HALF_OPEN:
                 self._state = self.OPEN
                 self._success_count = 0
-                logger.warning(
-                    "%s circuit breaker reopened after failure in HALF_OPEN", self.name
-                )
+                logger.warning("%s circuit breaker reopened after failure in HALF_OPEN", self.name)
             elif self._state == self.CLOSED:
                 if self._failure_count >= self.failure_threshold:
                     self._state = self.OPEN

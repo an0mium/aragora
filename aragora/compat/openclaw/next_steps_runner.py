@@ -51,16 +51,47 @@ _MARKER_PATTERNS: list[tuple[str, str, str]] = [
 
 # File extensions to scan
 _SCANNABLE_EXTENSIONS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java",
-    ".rb", ".php", ".c", ".cpp", ".h", ".hpp", ".cs", ".swift",
-    ".kt", ".scala", ".sh", ".bash", ".yaml", ".yml", ".toml",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".rb",
+    ".php",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".swift",
+    ".kt",
+    ".scala",
+    ".sh",
+    ".bash",
+    ".yaml",
+    ".yml",
+    ".toml",
 }
 
 # Directories to skip
 _SKIP_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv",
-    ".tox", ".mypy_cache", ".pytest_cache", "dist", "build",
-    ".next", ".nuxt", "target", "vendor",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    "target",
+    "vendor",
 }
 
 # Priority ordering for sorting
@@ -201,17 +232,23 @@ def scan_code_markers(repo_path: Path) -> tuple[list[NextStep], int]:
                         if len(comment_text) > 200:
                             comment_text = comment_text[:197] + "..."
 
-                        steps.append(NextStep(
-                            title=comment_text[:80],
-                            description=f"Found `{match.group(0).strip()[:60]}` at {rel_path}:{line_num}",
-                            category=category,
-                            priority=default_priority,
-                            effort="small",
-                            source="code-marker",
-                            file_path=rel_path,
-                            line_number=line_num,
-                            metadata={"marker": pattern.split("\\b")[1] if "\\b" in pattern else "TODO"},
-                        ))
+                        steps.append(
+                            NextStep(
+                                title=comment_text[:80],
+                                description=f"Found `{match.group(0).strip()[:60]}` at {rel_path}:{line_num}",
+                                category=category,
+                                priority=default_priority,
+                                effort="small",
+                                source="code-marker",
+                                file_path=rel_path,
+                                line_number=line_num,
+                                metadata={
+                                    "marker": pattern.split("\\b")[1]
+                                    if "\\b" in pattern
+                                    else "TODO"
+                                },
+                            )
+                        )
                         break  # Only match first pattern per line
 
         if files_scanned > _MAX_FILES:
@@ -225,11 +262,17 @@ def scan_github_issues(repo: str, limit: int = _MAX_ISSUES) -> list[NextStep]:
     try:
         result = subprocess.run(
             [
-                "gh", "issue", "list",
-                "--repo", repo,
-                "--state", "open",
-                "--limit", str(limit),
-                "--json", "number,title,labels,url,body",
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(limit),
+                "--json",
+                "number,title,labels,url,body",
             ],
             capture_output=True,
             text=True,
@@ -251,16 +294,18 @@ def scan_github_issues(repo: str, limit: int = _MAX_ISSUES) -> list[NextStep]:
         category = _infer_issue_category(labels)
         body = (issue.get("body") or "")[:200]
 
-        steps.append(NextStep(
-            title=issue["title"][:80],
-            description=body if body else f"Issue #{issue['number']}",
-            category=category,
-            priority=priority,
-            effort=_infer_effort(labels),
-            source="github-issue",
-            url=issue.get("url"),
-            metadata={"number": issue["number"], "labels": labels},
-        ))
+        steps.append(
+            NextStep(
+                title=issue["title"][:80],
+                description=body if body else f"Issue #{issue['number']}",
+                category=category,
+                priority=priority,
+                effort=_infer_effort(labels),
+                source="github-issue",
+                url=issue.get("url"),
+                metadata={"number": issue["number"], "labels": labels},
+            )
+        )
 
     return steps
 
@@ -270,11 +315,17 @@ def scan_github_prs(repo: str, limit: int = 20) -> list[NextStep]:
     try:
         result = subprocess.run(
             [
-                "gh", "pr", "list",
-                "--repo", repo,
-                "--state", "open",
-                "--limit", str(limit),
-                "--json", "number,title,url,reviewDecision,isDraft,createdAt",
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                str(limit),
+                "--json",
+                "number,title,url,reviewDecision,isDraft,createdAt",
             ],
             capture_output=True,
             text=True,
@@ -293,27 +344,31 @@ def scan_github_prs(repo: str, limit: int = 20) -> list[NextStep]:
             continue
         review = pr.get("reviewDecision", "")
         if review == "APPROVED":
-            steps.append(NextStep(
-                title=f"Merge approved PR #{pr['number']}: {pr['title'][:50]}",
-                description=f"PR #{pr['number']} is approved and ready to merge.",
-                category="maintenance",
-                priority="high",
-                effort="small",
-                source="github-pr",
-                url=pr.get("url"),
-                metadata={"number": pr["number"], "review": review},
-            ))
+            steps.append(
+                NextStep(
+                    title=f"Merge approved PR #{pr['number']}: {pr['title'][:50]}",
+                    description=f"PR #{pr['number']} is approved and ready to merge.",
+                    category="maintenance",
+                    priority="high",
+                    effort="small",
+                    source="github-pr",
+                    url=pr.get("url"),
+                    metadata={"number": pr["number"], "review": review},
+                )
+            )
         elif review in ("CHANGES_REQUESTED", ""):
-            steps.append(NextStep(
-                title=f"Review PR #{pr['number']}: {pr['title'][:50]}",
-                description=f"PR #{pr['number']} needs review or has requested changes.",
-                category="maintenance",
-                priority="medium",
-                effort="medium",
-                source="github-pr",
-                url=pr.get("url"),
-                metadata={"number": pr["number"], "review": review},
-            ))
+            steps.append(
+                NextStep(
+                    title=f"Review PR #{pr['number']}: {pr['title'][:50]}",
+                    description=f"PR #{pr['number']} needs review or has requested changes.",
+                    category="maintenance",
+                    priority="medium",
+                    effort="medium",
+                    source="github-pr",
+                    url=pr.get("url"),
+                    metadata={"number": pr["number"], "review": review},
+                )
+            )
 
     return steps
 
@@ -339,15 +394,17 @@ def scan_test_failures(repo_path: Path) -> list[NextStep]:
             errors = re.findall(r"ERROR\s+(.*)", stderr)
             steps = []
             for err in errors[:10]:  # Cap at 10
-                steps.append(NextStep(
-                    title=f"Fix test collection error: {err[:60]}",
-                    description=f"Test collection failed: {err}",
-                    category="bug",
-                    priority="high",
-                    effort="medium",
-                    source="test-failure",
-                    metadata={"error": err},
-                ))
+                steps.append(
+                    NextStep(
+                        title=f"Fix test collection error: {err[:60]}",
+                        description=f"Test collection failed: {err}",
+                        category="bug",
+                        priority="high",
+                        effort="medium",
+                        source="test-failure",
+                        metadata={"error": err},
+                    )
+                )
             return steps
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
@@ -374,16 +431,21 @@ def scan_dependency_health(repo_path: Path) -> list[NextStep]:
             if result.returncode == 0:
                 outdated = json.loads(result.stdout)
                 if len(outdated) > 10:
-                    steps.append(NextStep(
-                        title=f"Update {len(outdated)} outdated Python dependencies",
-                        description="Multiple packages have newer versions available. "
-                                    f"Notable: {', '.join(p['name'] for p in outdated[:5])}",
-                        category="maintenance",
-                        priority="low",
-                        effort="medium",
-                        source="dep-check",
-                        metadata={"count": len(outdated), "packages": [p["name"] for p in outdated[:10]]},
-                    ))
+                    steps.append(
+                        NextStep(
+                            title=f"Update {len(outdated)} outdated Python dependencies",
+                            description="Multiple packages have newer versions available. "
+                            f"Notable: {', '.join(p['name'] for p in outdated[:5])}",
+                            category="maintenance",
+                            priority="low",
+                            effort="medium",
+                            source="dep-check",
+                            metadata={
+                                "count": len(outdated),
+                                "packages": [p["name"] for p in outdated[:10]],
+                            },
+                        )
+                    )
         except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
             pass
 
@@ -404,15 +466,17 @@ def scan_dependency_health(repo_path: Path) -> list[NextStep]:
                 critical = vuln_count.get("critical", 0)
                 high = vuln_count.get("high", 0)
                 if critical > 0 or high > 0:
-                    steps.append(NextStep(
-                        title=f"Fix {critical + high} npm security vulnerabilities",
-                        description=f"{critical} critical, {high} high severity npm vulnerabilities found.",
-                        category="security",
-                        priority="critical" if critical > 0 else "high",
-                        effort="medium",
-                        source="dep-check",
-                        metadata={"critical": critical, "high": high},
-                    ))
+                    steps.append(
+                        NextStep(
+                            title=f"Fix {critical + high} npm security vulnerabilities",
+                            description=f"{critical} critical, {high} high severity npm vulnerabilities found.",
+                            category="security",
+                            priority="critical" if critical > 0 else "high",
+                            effort="medium",
+                            source="dep-check",
+                            metadata={"critical": critical, "high": high},
+                        )
+                    )
         except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
             pass
 
@@ -430,28 +494,32 @@ def scan_doc_gaps(repo_path: Path) -> list[NextStep]:
         readme = repo_path / "README"
 
     if not readme.exists():
-        steps.append(NextStep(
-            title="Create a README",
-            description="No README file found. A README is essential for project discoverability.",
-            category="docs",
-            priority="high",
-            effort="medium",
-            source="doc-gap",
-        ))
+        steps.append(
+            NextStep(
+                title="Create a README",
+                description="No README file found. A README is essential for project discoverability.",
+                category="docs",
+                priority="high",
+                effort="medium",
+                source="doc-gap",
+            )
+        )
     else:
         try:
             content = readme.read_text(errors="replace")
             if len(content) < 200:
-                steps.append(NextStep(
-                    title="Expand README documentation",
-                    description=f"README is only {len(content)} characters. "
-                                "Consider adding: description, installation, usage, contributing.",
-                    category="docs",
-                    priority="medium",
-                    effort="medium",
-                    source="doc-gap",
-                    file_path=str(readme.relative_to(repo_path)),
-                ))
+                steps.append(
+                    NextStep(
+                        title="Expand README documentation",
+                        description=f"README is only {len(content)} characters. "
+                        "Consider adding: description, installation, usage, contributing.",
+                        category="docs",
+                        priority="medium",
+                        effort="medium",
+                        source="doc-gap",
+                        file_path=str(readme.relative_to(repo_path)),
+                    )
+                )
         except OSError:
             pass
 
@@ -460,14 +528,16 @@ def scan_doc_gaps(repo_path: Path) -> list[NextStep]:
         # Only suggest if repo has > 10 source files (non-trivial project)
         src_count = sum(1 for _ in repo_path.rglob("*.py"))
         if src_count > 10:
-            steps.append(NextStep(
-                title="Add CONTRIBUTING.md",
-                description="No contributing guide found. This helps onboard new contributors.",
-                category="docs",
-                priority="low",
-                effort="small",
-                source="doc-gap",
-            ))
+            steps.append(
+                NextStep(
+                    title="Add CONTRIBUTING.md",
+                    description="No contributing guide found. This helps onboard new contributors.",
+                    category="docs",
+                    priority="low",
+                    effort="small",
+                    source="doc-gap",
+                )
+            )
 
     return steps
 
@@ -552,7 +622,7 @@ class NextStepsRunner:
         scan_issues: bool = True,
         scan_prs: bool = True,
         scan_tests: bool = False,  # Off by default (can be slow)
-        scan_deps: bool = False,   # Off by default (can be slow)
+        scan_deps: bool = False,  # Off by default (can be slow)
         scan_docs: bool = True,
         limit: int = 50,
     ):
@@ -682,9 +752,7 @@ def format_steps_table(steps: list[NextStep], max_rows: int = 30) -> str:
 
     for i, step in enumerate(steps[:max_rows], 1):
         title = step.title[:42]
-        lines.append(
-            f"{i:<4} {step.priority:<10} {step.category:<14} {step.effort:<8} {title}"
-        )
+        lines.append(f"{i:<4} {step.priority:<10} {step.category:<14} {step.effort:<8} {title}")
 
     if len(steps) > max_rows:
         lines.append(f"\n... and {len(steps) - max_rows} more")

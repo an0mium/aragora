@@ -46,9 +46,7 @@ class ReceiptExportHandler(BaseHandler):
 
     @require_permission("debates:export")
     @handle_errors("export receipt")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if not self.can_handle(path):
             return None
 

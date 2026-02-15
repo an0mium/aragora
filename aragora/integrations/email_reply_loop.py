@@ -428,7 +428,9 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
             logger.info("PostgreSQL email reply store initialized")
             return _postgres_email_store
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"PostgreSQL email reply store connection failed: {type(e).__name__}: {e}")
+            logger.warning(
+                f"PostgreSQL email reply store connection failed: {type(e).__name__}: {e}"
+            )
             return None
         except Exception as e:
             # asyncpg and psycopg raise their own exception hierarchies
@@ -530,7 +532,9 @@ def register_email_origin(
                 # Not in async context - run synchronously
                 asyncio.run(pg_store.save(origin))
         except (ConnectionError, TimeoutError, OSError) as e:
-            logger.warning(f"PostgreSQL email origin storage connection error: {type(e).__name__}: {e}")
+            logger.warning(
+                f"PostgreSQL email origin storage connection error: {type(e).__name__}: {e}"
+            )
         except Exception as e:
             logger.warning(f"PostgreSQL email origin storage failed: {type(e).__name__}: {e}")
     else:
@@ -597,7 +601,9 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                     _reply_origins[in_reply_to] = origin  # Cache locally
                     return origin
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.debug(f"PostgreSQL email origin lookup connection error: {type(e).__name__}: {e}")
+                logger.debug(
+                    f"PostgreSQL email origin lookup connection error: {type(e).__name__}: {e}"
+                )
             except Exception as e:
                 logger.debug(f"PostgreSQL email origin lookup failed: {type(e).__name__}: {e}")
         else:

@@ -43,6 +43,7 @@ from .lockout import (
     get_lockout_tracker,
     reset_lockout_tracker,
 )
+
 # Pre-declare OIDC names for optional import fallback
 OIDCConfig: Any
 OIDCError: Any

@@ -286,7 +286,9 @@ class PostgresMarketplaceStore:
         offset: int = 0,
     ) -> tuple[list[StoredTemplate], int]:
         """List templates (sync wrapper for async)."""
-        return _marketplace_mod.run_async(self.list_templates_async(category, search, sort_by, limit, offset))
+        return _marketplace_mod.run_async(
+            self.list_templates_async(category, search, sort_by, limit, offset)
+        )
 
     async def list_templates_async(
         self,

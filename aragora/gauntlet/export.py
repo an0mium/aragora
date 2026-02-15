@@ -80,10 +80,10 @@ th {{ background: #f3f4f6; }}
 <h2>Risk Summary</h2>
 <table>
 <tr><th>Severity</th><th>Count</th></tr>
-<tr><td>Critical</td><td>{risk.get('critical', 0)}</td></tr>
-<tr><td>High</td><td>{risk.get('high', 0)}</td></tr>
-<tr><td>Medium</td><td>{risk.get('medium', 0)}</td></tr>
-<tr><td>Low</td><td>{risk.get('low', 0)}</td></tr>
+<tr><td>Critical</td><td>{risk.get("critical", 0)}</td></tr>
+<tr><td>High</td><td>{risk.get("high", 0)}</td></tr>
+<tr><td>Medium</td><td>{risk.get("medium", 0)}</td></tr>
+<tr><td>Low</td><td>{risk.get("low", 0)}</td></tr>
 </table>
 <p>Attacks: {receipt.attacks_attempted} attempted, {receipt.attacks_successful} successful | Probes: {receipt.probes_run}</p>
 
@@ -127,7 +127,9 @@ def receipt_to_pdf(receipt: DecisionReceipt) -> bytes:
     for level in ("critical", "high", "medium", "low"):
         lines.append(f"  {level.capitalize()}: {risk.get(level, 0)}")
 
-    lines.append(f"\nAttacks: {receipt.attacks_attempted} attempted, {receipt.attacks_successful} successful")
+    lines.append(
+        f"\nAttacks: {receipt.attacks_attempted} attempted, {receipt.attacks_successful} successful"
+    )
     lines.append(f"Probes: {receipt.probes_run}")
 
     if receipt.vulnerability_details:
@@ -186,14 +188,11 @@ def _build_minimal_pdf(text: str) -> bytes:
 
     # Object 4: Content stream
     objects.append(
-        f"4 0 obj\n<< /Length {len(stream_content)} >>\n"
-        f"stream\n{stream_content}\nendstream\nendobj"
+        f"4 0 obj\n<< /Length {len(stream_content)} >>\nstream\n{stream_content}\nendstream\nendobj"
     )
 
     # Object 5: Font
-    objects.append(
-        "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj"
-    )
+    objects.append("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj")
 
     # Build final PDF
     pdf_parts = ["%PDF-1.4\n"]

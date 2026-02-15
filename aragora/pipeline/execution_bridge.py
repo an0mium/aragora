@@ -102,9 +102,7 @@ class ExecutionBridge:
         if plan.status == PlanStatus.EXECUTING:
             raise ValueError(f"Plan {plan_id} is already executing")
         if plan.status in (PlanStatus.COMPLETED, PlanStatus.FAILED):
-            raise ValueError(
-                f"Plan {plan_id} has already been executed ({plan.status.value})"
-            )
+            raise ValueError(f"Plan {plan_id} has already been executed ({plan.status.value})")
         if plan.requires_human_approval and not plan.is_approved:
             raise ValueError(f"Plan {plan_id} requires approval before execution")
 
@@ -279,9 +277,7 @@ class ExecutionBridge:
                     correlation_id=record_correlation_id,
                 )
             except Exception as exc:
-                logger.error(
-                    "Background execution of plan %s failed: %s", plan_id, exc
-                )
+                logger.error("Background execution of plan %s failed: %s", plan_id, exc)
 
         try:
             loop = asyncio.get_running_loop()

@@ -37,9 +37,11 @@ from aragora_debate.styled_mock import StyledMockAgent
 # Result containers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SingleDebateMetrics:
     """Metrics for a single debate run."""
+
     total_time: float = 0.0
     time_per_round: float = 0.0
     rounds_used: int = 0
@@ -53,6 +55,7 @@ class SingleDebateMetrics:
 @dataclass
 class ConcurrentMetrics:
     """Metrics for a batch of concurrent debates."""
+
     num_debates: int = 0
     total_wall_time: float = 0.0
     debates_per_sec: float = 0.0
@@ -67,6 +70,7 @@ class ConcurrentMetrics:
 @dataclass
 class BenchmarkResults:
     """Complete benchmark results."""
+
     single_debate: SingleDebateMetrics = field(default_factory=SingleDebateMetrics)
     concurrent_batches: dict[int, ConcurrentMetrics] = field(default_factory=dict)
     large_panel: SingleDebateMetrics = field(default_factory=SingleDebateMetrics)
@@ -97,6 +101,7 @@ def _make_agents(n: int) -> list[MockAgent | StyledMockAgent]:
 # ---------------------------------------------------------------------------
 # Benchmark scenarios
 # ---------------------------------------------------------------------------
+
 
 async def _run_single_debate(
     question: str,
@@ -195,6 +200,7 @@ async def _run_concurrent_debates(
 # Main benchmark runner
 # ---------------------------------------------------------------------------
 
+
 async def run_benchmark(
     num_agents: int = 3,
     num_rounds: int = 2,
@@ -217,8 +223,7 @@ async def run_benchmark(
     )
 
     # -- 1. Single debate --
-    print(f"  Running single debate ({num_agents} agents, {num_rounds} rounds)...",
-          flush=True)
+    print(f"  Running single debate ({num_agents} agents, {num_rounds} rounds)...", flush=True)
     results.single_debate = await _run_single_debate(
         question="Should our team adopt a microservices architecture?",
         num_agents=num_agents,
@@ -235,8 +240,10 @@ async def run_benchmark(
         )
 
     # -- 3. Large panel --
-    print(f"  Running large panel ({large_panel_agents} agents, "
-          f"{large_panel_rounds} rounds)...", flush=True)
+    print(
+        f"  Running large panel ({large_panel_agents} agents, {large_panel_rounds} rounds)...",
+        flush=True,
+    )
     results.large_panel = await _run_single_debate(
         question="What is the optimal caching strategy for a multi-region deployment?",
         num_agents=large_panel_agents,
@@ -249,6 +256,7 @@ async def run_benchmark(
 # ---------------------------------------------------------------------------
 # Output formatting
 # ---------------------------------------------------------------------------
+
 
 def _print_human(results: BenchmarkResults) -> None:
     """Print results in human-readable table format."""
@@ -270,10 +278,14 @@ def _print_human(results: BenchmarkResults) -> None:
 
     print("\nConcurrent Debates:")
     # Table header
-    print(f"  {'Debates':>8}  {'Wall time':>10}  {'Avg/debate':>11}  "
-          f"{'Median':>8}  {'P95':>8}  {'Throughput':>12}  {'Fails':>5}")
-    print(f"  {'-------':>8}  {'--------':>10}  {'---------':>11}  "
-          f"{'------':>8}  {'---':>8}  {'----------':>12}  {'-----':>5}")
+    print(
+        f"  {'Debates':>8}  {'Wall time':>10}  {'Avg/debate':>11}  "
+        f"{'Median':>8}  {'P95':>8}  {'Throughput':>12}  {'Fails':>5}"
+    )
+    print(
+        f"  {'-------':>8}  {'--------':>10}  {'---------':>11}  "
+        f"{'------':>8}  {'---':>8}  {'----------':>12}  {'-----':>5}"
+    )
     for level in sorted(results.concurrent_batches):
         m = results.concurrent_batches[level]
         print(
@@ -304,9 +316,7 @@ def _print_json(results: BenchmarkResults) -> None:
     out = {
         "config": results.config,
         "single_debate": asdict(results.single_debate),
-        "concurrent_batches": {
-            str(k): asdict(v) for k, v in results.concurrent_batches.items()
-        },
+        "concurrent_batches": {str(k): asdict(v) for k, v in results.concurrent_batches.items()},
         "large_panel": asdict(results.large_panel),
     }
     print(json_mod.dumps(out, indent=2))
@@ -316,32 +326,44 @@ def _print_json(results: BenchmarkResults) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Benchmark the aragora-debate engine (no API keys required).",
     )
     parser.add_argument(
-        "--agents", type=int, default=3,
+        "--agents",
+        type=int,
+        default=3,
         help="Number of agents per debate (default: 3)",
     )
     parser.add_argument(
-        "--rounds", type=int, default=2,
+        "--rounds",
+        type=int,
+        default=2,
         help="Number of debate rounds (default: 2)",
     )
     parser.add_argument(
-        "--concurrent", type=int, default=None,
+        "--concurrent",
+        type=int,
+        default=None,
         help="Run a single concurrency level instead of the default [5,10,25,50]",
     )
     parser.add_argument(
-        "--large-panel-agents", type=int, default=10,
+        "--large-panel-agents",
+        type=int,
+        default=10,
         help="Number of agents in the large panel scenario (default: 10)",
     )
     parser.add_argument(
-        "--large-panel-rounds", type=int, default=3,
+        "--large-panel-rounds",
+        type=int,
+        default=3,
         help="Number of rounds in the large panel scenario (default: 3)",
     )
     parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Output results as JSON",
     )
 
@@ -354,8 +376,10 @@ def main() -> None:
 
     if not args.json:
         print("\nStarting debate engine benchmark...")
-        print(f"  Agents: {args.agents}  |  Rounds: {args.rounds}  "
-              f"|  Concurrency levels: {concurrent_levels}")
+        print(
+            f"  Agents: {args.agents}  |  Rounds: {args.rounds}  "
+            f"|  Concurrency levels: {concurrent_levels}"
+        )
         print()
 
     results = asyncio.run(

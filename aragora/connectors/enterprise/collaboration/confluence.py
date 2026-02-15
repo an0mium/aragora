@@ -248,7 +248,9 @@ class ConfluenceConnector(EnterpriseConnector):
                 break
             start += limit
         else:
-            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for spaces")
+            logger.warning(
+                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for spaces"
+            )
 
         return spaces
 

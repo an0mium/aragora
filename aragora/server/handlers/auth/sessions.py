@@ -138,9 +138,7 @@ def handle_list_sessions(handler_instance: AuthHandler, handler) -> HandlerResul
     requests_per_minute=10, limiter_name="auth_revoke_session", endpoint_name="session revocation"
 )
 @handle_errors("revoke session")
-def handle_revoke_session(
-    handler_instance: AuthHandler, handler, session_id: str
-) -> HandlerResult:
+def handle_revoke_session(handler_instance: AuthHandler, handler, session_id: str) -> HandlerResult:
     """Revoke a specific session.
 
     This invalidates the session and adds the token to the blacklist.

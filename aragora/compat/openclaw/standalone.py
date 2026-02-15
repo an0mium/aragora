@@ -78,9 +78,7 @@ class StandaloneGatewayServer:
                 self.cors_origins = ["http://localhost:3000"]
         # F01: API key auth — from parameter or environment (checked in order)
         self._api_key = (
-            api_key
-            or os.environ.get("OPENCLAW_API_KEY")
-            or os.environ.get("ARAGORA_API_TOKEN")
+            api_key or os.environ.get("OPENCLAW_API_KEY") or os.environ.get("ARAGORA_API_TOKEN")
         )
         if not self._api_key:
             logger.warning(
@@ -135,7 +133,9 @@ class StandaloneGatewayServer:
             ("GET", "/api/gateway/openclaw/stats", "handle"),
         ]
 
-    async def _handle_request(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def _handle_request(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
         """Handle an incoming HTTP request."""
         try:
             # Read request line
@@ -183,7 +183,9 @@ class StandaloneGatewayServer:
                 await self._send_response(writer, 413, {"error": "Request body too large"})
                 return
             if content_length > 0:
-                body_bytes = await asyncio.wait_for(reader.readexactly(content_length), timeout=30.0)
+                body_bytes = await asyncio.wait_for(
+                    reader.readexactly(content_length), timeout=30.0
+                )
                 try:
                     body = json.loads(body_bytes.decode("utf-8"))
                 except (json.JSONDecodeError, UnicodeDecodeError):
@@ -196,11 +198,15 @@ class StandaloneGatewayServer:
 
             # Health check shortcut
             if path == "/health" or path == "/":
-                await self._send_response(writer, 200, {
-                    "status": "healthy",
-                    "service": "aragora-openclaw-gateway",
-                    "version": self._get_version(),
-                })
+                await self._send_response(
+                    writer,
+                    200,
+                    {
+                        "status": "healthy",
+                        "service": "aragora-openclaw-gateway",
+                        "version": self._get_version(),
+                    },
+                )
                 return
 
             # F01: API key authentication for all non-health API routes
@@ -451,25 +457,35 @@ def main() -> None:
         "--host", default=DEFAULT_HOST, help=f"Bind address (default: {DEFAULT_HOST})"
     )
     parser.add_argument(
-        "--port", "-p", type=int, default=DEFAULT_PORT,
+        "--port",
+        "-p",
+        type=int,
+        default=DEFAULT_PORT,
         help=f"Port to listen on (default: {DEFAULT_PORT})",
     )
     parser.add_argument(
-        "--policy", help="Path to policy YAML file for action filtering",
+        "--policy",
+        help="Path to policy YAML file for action filtering",
     )
     parser.add_argument(
-        "--default-policy", default=DEFAULT_POLICY, choices=["allow", "deny"],
+        "--default-policy",
+        default=DEFAULT_POLICY,
+        choices=["allow", "deny"],
         help="Default policy when no rule matches (default: deny)",
     )
     parser.add_argument(
-        "--cors", default="http://localhost:3000", help="CORS allowed origins (comma-separated, default: http://localhost:3000)",
+        "--cors",
+        default="http://localhost:3000",
+        help="CORS allowed origins (comma-separated, default: http://localhost:3000)",
     )
     parser.add_argument(
         "--api-key",
         help="API key for authentication. Also reads OPENCLAW_API_KEY or ARAGORA_API_TOKEN env vars.",
     )
     parser.add_argument(
-        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Log level (default: INFO)",
     )
 

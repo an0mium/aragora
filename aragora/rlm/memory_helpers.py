@@ -113,9 +113,7 @@ def load_memory_context(
         by_tier[tier] = tier_entries
 
     total = len(entries)
-    avg_importance = (
-        sum(e.importance for e in entries) / total if total > 0 else 0.0
-    )
+    avg_importance = sum(e.importance for e in entries) / total if total > 0 else 0.0
     tier_counts = {tier: len(items) for tier, items in by_tier.items()}
 
     return MemoryREPLContext(

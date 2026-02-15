@@ -61,7 +61,9 @@ class SecurityDebateHandler(SecureHandler):
             return self.get_api_v1_audit_security_debate_id(parts[-1])
         return None
 
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests to trigger security debates."""
         if path.rstrip("/") == self._PREFIX:
             return self.post_api_v1_audit_security_debate()

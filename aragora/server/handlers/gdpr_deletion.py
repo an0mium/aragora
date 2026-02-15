@@ -64,9 +64,7 @@ class GDPRDeletionHandler(BaseHandler):
         return path in self.ROUTES
 
     @handle_errors("get deletion request status")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if path != "/api/v1/users/self/deletion-request":
             return None
 
@@ -78,17 +76,21 @@ class GDPRDeletionHandler(BaseHandler):
         requests = scheduler.store.get_requests_for_user(user_id)
 
         if not requests:
-            return json_response({
-                "has_pending_request": False,
-                "requests": [],
-            })
+            return json_response(
+                {
+                    "has_pending_request": False,
+                    "requests": [],
+                }
+            )
 
-        return json_response({
-            "has_pending_request": any(
-                r.status.value in ("pending", "in_progress") for r in requests
-            ),
-            "requests": [r.to_dict() for r in requests],
-        })
+        return json_response(
+            {
+                "has_pending_request": any(
+                    r.status.value in ("pending", "in_progress") for r in requests
+                ),
+                "requests": [r.to_dict() for r in requests],
+            }
+        )
 
     @require_permission("privacy:request_deletion")
     @handle_errors("schedule deletion request")

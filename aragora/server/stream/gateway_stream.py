@@ -383,7 +383,9 @@ def _maybe_register_tool_capture(server: GatewayStreamServer) -> None:
                 tier_value = capture.config.tier
                 tier = MemoryTier(tier_value) if tier_value else MemoryTier.FAST
             except (ValueError, KeyError):
-                logger.debug("Invalid memory tier in capture config, defaulting to FAST", exc_info=True)
+                logger.debug(
+                    "Invalid memory tier in capture config, defaulting to FAST", exc_info=True
+                )
                 tier = MemoryTier.FAST
 
             content = capture.format_content(

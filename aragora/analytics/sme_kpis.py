@@ -127,9 +127,7 @@ def get_sme_kpis(
     debate_stats = None
     if analytics is not None:
         try:
-            debate_stats = _run_async(
-                analytics.get_debate_stats(org_id=org_id, days_back=days)
-            )
+            debate_stats = _run_async(analytics.get_debate_stats(org_id=org_id, days_back=days))
         except Exception as e:
             logger.debug(f"Failed to get debate stats: {e}")
 
@@ -148,9 +146,7 @@ def get_sme_kpis(
     if debate_stats is not None and debate_stats.total_debates > 0:
         kpis.total_debates = debate_stats.total_debates
         kpis.avg_debate_duration_minutes = (
-            debate_stats.avg_duration_seconds / 60
-            if debate_stats.avg_duration_seconds > 0
-            else 5.0
+            debate_stats.avg_duration_seconds / 60 if debate_stats.avg_duration_seconds > 0 else 5.0
         )
     else:
         # Estimate from cost data if no analytics
@@ -178,9 +174,7 @@ def get_sme_kpis(
     # ROI percentage
     time_value_saved = kpis.time_saved_hours * hourly_rate
     if kpis.total_cost_usd > 0:
-        kpis.roi_percentage = (
-            (time_value_saved - kpis.total_cost_usd) / kpis.total_cost_usd * 100
-        )
+        kpis.roi_percentage = (time_value_saved - kpis.total_cost_usd) / kpis.total_cost_usd * 100
     else:
         kpis.roi_percentage = 0.0
 

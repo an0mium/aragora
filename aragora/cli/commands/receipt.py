@@ -84,14 +84,22 @@ Examples:
     # --- list ---
     list_p = receipt_sub.add_parser("list", help="List recent decision receipts from the database")
     list_p.add_argument("--limit", "-n", type=int, default=20, help="Maximum results (default: 20)")
-    list_p.add_argument("--verdict", choices=["pass", "fail", "conditional"], help="Filter by verdict")
+    list_p.add_argument(
+        "--verdict", choices=["pass", "fail", "conditional"], help="Filter by verdict"
+    )
     list_p.add_argument("--org-id", help="Filter by organization ID")
     list_p.set_defaults(func=cmd_receipt_list)
 
     # --- show ---
     show_p = receipt_sub.add_parser("show", help="Show a specific receipt by ID")
     show_p.add_argument("id", help="Gauntlet/receipt ID to look up")
-    show_p.add_argument("--format", "-f", choices=["json", "md", "html"], default=None, help="Output format (default: terminal inspect view)")
+    show_p.add_argument(
+        "--format",
+        "-f",
+        choices=["json", "md", "html"],
+        default=None,
+        help="Output format (default: terminal inspect view)",
+    )
     show_p.add_argument("--org-id", help="Organization ID for ownership check")
     show_p.set_defaults(func=cmd_receipt_show)
 
@@ -480,6 +488,7 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
     org_id = getattr(args, "org_id", None)
     try:
         from aragora.gauntlet.storage import get_storage
+
         storage = get_storage()
         results = storage.list_recent(
             limit=limit,
@@ -517,6 +526,7 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
         sys.exit(1)
     try:
         from aragora.gauntlet.storage import get_storage
+
         storage = get_storage()
         data = storage.get(receipt_id, org_id=org_id)
     except ImportError:
@@ -533,6 +543,7 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
     elif output_format == "md":
         try:
             from aragora.gauntlet.receipt_models import DecisionReceipt
+
             receipt = DecisionReceipt.from_dict(data)
             print(receipt.to_markdown())
         except (ImportError, AttributeError, KeyError, ValueError, TypeError):
@@ -540,10 +551,12 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
     elif output_format == "html":
         try:
             from aragora.gauntlet.receipt_models import DecisionReceipt
+
             receipt = DecisionReceipt.from_dict(data)
             print(receipt.to_html())
         except (ImportError, AttributeError, KeyError, ValueError, TypeError):
             from aragora.cli.receipt_formatter import receipt_to_html
+
             print(receipt_to_html(data))
     else:
         _inspect_receipt_data(data)
@@ -560,9 +573,11 @@ def _inspect_receipt_data(data: dict[str, Any]) -> None:
     print(f"Confidence:    {confidence:.1%}")
     risk_summary = data.get("risk_summary", {})
     if risk_summary:
-        print(f"Findings:      {risk_summary.get('total', 0)} "
-              f"(critical: {risk_summary.get('critical', 0)}, "
-              f"high: {risk_summary.get('high', 0)})")
+        print(
+            f"Findings:      {risk_summary.get('total', 0)} "
+            f"(critical: {risk_summary.get('critical', 0)}, "
+            f"high: {risk_summary.get('high', 0)})"
+        )
     print("=" * 60)
 
 

@@ -34,7 +34,9 @@ class InvitationRepository:
         "created_at, expires_at, accepted_by, accepted_at"
     )
 
-    def __init__(self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]) -> None:
+    def __init__(
+        self, transaction_fn: Callable[[], AbstractContextManager[sqlite3.Cursor]]
+    ) -> None:
         """
         Initialize the invitation repository.
 

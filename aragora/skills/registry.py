@@ -132,11 +132,24 @@ class RateLimitState:
 
 # Modules that indicate capabilities requiring declaration
 _SHELL_MODULES = frozenset({"subprocess", "os", "shutil", "pathlib", "tempfile", "glob"})
-_NETWORK_MODULES = frozenset({
-    "socket", "ssl", "http", "urllib", "urllib3", "requests",
-    "httpx", "aiohttp", "ftplib", "smtplib", "poplib",
-    "imaplib", "telnetlib", "xmlrpc",
-})
+_NETWORK_MODULES = frozenset(
+    {
+        "socket",
+        "ssl",
+        "http",
+        "urllib",
+        "urllib3",
+        "requests",
+        "httpx",
+        "aiohttp",
+        "ftplib",
+        "smtplib",
+        "poplib",
+        "imaplib",
+        "telnetlib",
+        "xmlrpc",
+    }
+)
 
 
 def validate_skill_imports(
@@ -247,14 +260,10 @@ def _validate_skill_code(skill: Skill) -> list[str]:
 
         validate_python_code(source, strict_mode=False)
     except CodeValidationError as e:
-        warnings.append(
-            f"Skill '{skill.manifest.name}' execute() code validation warning: {e}"
-        )
+        warnings.append(f"Skill '{skill.manifest.name}' execute() code validation warning: {e}")
     except Exception as e:
         # Don't break registration for unexpected validation errors
-        warnings.append(
-            f"Skill '{skill.manifest.name}' code validation could not complete: {e}"
-        )
+        warnings.append(f"Skill '{skill.manifest.name}' code validation could not complete: {e}")
 
     return warnings
 
@@ -477,7 +486,11 @@ class SkillRegistry:
                         duration,
                     )
                     self._emit_audit_event(
-                        skill_name, manifest, context, result, duration,
+                        skill_name,
+                        manifest,
+                        context,
+                        result,
+                        duration,
                     )
                     return result
 
@@ -498,7 +511,11 @@ class SkillRegistry:
                     duration,
                 )
                 self._emit_audit_event(
-                    skill_name, manifest, context, result, duration,
+                    skill_name,
+                    manifest,
+                    context,
+                    result,
+                    duration,
                 )
                 return result
 
@@ -516,7 +533,11 @@ class SkillRegistry:
                     duration,
                 )
                 self._emit_audit_event(
-                    skill_name, manifest, context, result, duration,
+                    skill_name,
+                    manifest,
+                    context,
+                    result,
+                    duration,
                     error_message=f"Missing permission: {missing_perm}",
                 )
                 return result
@@ -537,7 +558,11 @@ class SkillRegistry:
                     duration,
                 )
                 self._emit_audit_event(
-                    skill_name, manifest, context, result, duration,
+                    skill_name,
+                    manifest,
+                    context,
+                    result,
+                    duration,
                 )
                 return result
 
@@ -568,7 +593,11 @@ class SkillRegistry:
                 duration,
             )
             self._emit_audit_event(
-                skill_name, manifest, context, result, duration,
+                skill_name,
+                manifest,
+                context,
+                result,
+                duration,
             )
 
             # Run post-invoke hooks
@@ -595,7 +624,11 @@ class SkillRegistry:
                 duration,
             )
             self._emit_audit_event(
-                skill_name, manifest, context, result, duration,
+                skill_name,
+                manifest,
+                context,
+                result,
+                duration,
                 error_message=str(e),
             )
 

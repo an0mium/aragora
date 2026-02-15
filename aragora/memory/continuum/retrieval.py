@@ -367,7 +367,14 @@ class RetrievalMixin:
                 ORDER BY datetime(created_at) DESC
                 LIMIT ?
                 """,
-                (*tier_values, min_importance, anchor_id, anchor.created_at, *tenant_params, before),
+                (
+                    *tier_values,
+                    min_importance,
+                    anchor_id,
+                    anchor.created_at,
+                    *tenant_params,
+                    before,
+                ),
             )
             before_rows = cursor.fetchall()
 

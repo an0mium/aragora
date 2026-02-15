@@ -76,92 +76,196 @@ class ScanResult:
 
 # Shell command patterns - commands that can execute arbitrary code or damage
 _SHELL_PATTERNS: list[tuple[re.Pattern[str], Severity, str]] = [
-    (re.compile(r"\bcurl\b.*\|.*\b(?:bash|sh|zsh)\b", re.IGNORECASE), Severity.CRITICAL,
-     "Pipe from curl to shell - remote code execution"),
-    (re.compile(r"\bwget\b.*\|.*\b(?:bash|sh|zsh)\b", re.IGNORECASE), Severity.CRITICAL,
-     "Pipe from wget to shell - remote code execution"),
-    (re.compile(r"\bbash\s+-i\b", re.IGNORECASE), Severity.CRITICAL,
-     "Interactive bash shell - potential reverse shell"),
-    (re.compile(r"\brm\s+-rf\s+/", re.IGNORECASE), Severity.CRITICAL,
-     "Recursive forced deletion from root - destructive command"),
-    (re.compile(r"\bdd\s+if=", re.IGNORECASE), Severity.HIGH,
-     "dd command - raw disk/device access"),
-    (re.compile(r"\bmkfs\b", re.IGNORECASE), Severity.CRITICAL,
-     "mkfs - filesystem formatting, destructive"),
-    (re.compile(r"\bchmod\s+777\b", re.IGNORECASE), Severity.HIGH,
-     "chmod 777 - world-writable permissions"),
-    (re.compile(r"\beval\s*\(", re.IGNORECASE), Severity.HIGH,
-     "eval() call - arbitrary code execution"),
-    (re.compile(r"/dev/tcp/", re.IGNORECASE), Severity.CRITICAL,
-     "/dev/tcp - network connection via bash pseudo-device"),
-    (re.compile(r"\bnc\s+-[elp]", re.IGNORECASE), Severity.CRITICAL,
-     "netcat with listen/exec flags - potential reverse shell"),
-    (re.compile(r"\bcurl\b", re.IGNORECASE), Severity.MEDIUM,
-     "curl command - network request capability"),
-    (re.compile(r"\bwget\b", re.IGNORECASE), Severity.MEDIUM,
-     "wget command - network download capability"),
+    (
+        re.compile(r"\bcurl\b.*\|.*\b(?:bash|sh|zsh)\b", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Pipe from curl to shell - remote code execution",
+    ),
+    (
+        re.compile(r"\bwget\b.*\|.*\b(?:bash|sh|zsh)\b", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Pipe from wget to shell - remote code execution",
+    ),
+    (
+        re.compile(r"\bbash\s+-i\b", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Interactive bash shell - potential reverse shell",
+    ),
+    (
+        re.compile(r"\brm\s+-rf\s+/", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Recursive forced deletion from root - destructive command",
+    ),
+    (
+        re.compile(r"\bdd\s+if=", re.IGNORECASE),
+        Severity.HIGH,
+        "dd command - raw disk/device access",
+    ),
+    (
+        re.compile(r"\bmkfs\b", re.IGNORECASE),
+        Severity.CRITICAL,
+        "mkfs - filesystem formatting, destructive",
+    ),
+    (
+        re.compile(r"\bchmod\s+777\b", re.IGNORECASE),
+        Severity.HIGH,
+        "chmod 777 - world-writable permissions",
+    ),
+    (
+        re.compile(r"\beval\s*\(", re.IGNORECASE),
+        Severity.HIGH,
+        "eval() call - arbitrary code execution",
+    ),
+    (
+        re.compile(r"/dev/tcp/", re.IGNORECASE),
+        Severity.CRITICAL,
+        "/dev/tcp - network connection via bash pseudo-device",
+    ),
+    (
+        re.compile(r"\bnc\s+-[elp]", re.IGNORECASE),
+        Severity.CRITICAL,
+        "netcat with listen/exec flags - potential reverse shell",
+    ),
+    (
+        re.compile(r"\bcurl\b", re.IGNORECASE),
+        Severity.MEDIUM,
+        "curl command - network request capability",
+    ),
+    (
+        re.compile(r"\bwget\b", re.IGNORECASE),
+        Severity.MEDIUM,
+        "wget command - network download capability",
+    ),
 ]
 
 # Exfiltration patterns - sending data to external locations
 _EXFILTRATION_PATTERNS: list[tuple[re.Pattern[str], Severity, str]] = [
-    (re.compile(r"https?://[^\s]+\?[^\s]*\$\{?\w+\}?", re.IGNORECASE), Severity.CRITICAL,
-     "URL with variable interpolation in query params - data exfiltration"),
-    (re.compile(r"https?://[^\s]+\?[^\s]*\$[A-Z_]+", re.IGNORECASE), Severity.CRITICAL,
-     "URL with environment variable in query params - data exfiltration"),
-    (re.compile(r"\bbase64\b.*(?:/etc/passwd|\.env|\.ssh|credentials|\.aws)", re.IGNORECASE),
-     Severity.CRITICAL, "base64 encoding of sensitive file paths - exfiltration attempt"),
-    (re.compile(r"\bbase64\b.*\$(?:API_KEY|SECRET|TOKEN|PASSWORD)", re.IGNORECASE),
-     Severity.CRITICAL, "base64 encoding of credentials - exfiltration attempt"),
+    (
+        re.compile(r"https?://[^\s]+\?[^\s]*\$\{?\w+\}?", re.IGNORECASE),
+        Severity.CRITICAL,
+        "URL with variable interpolation in query params - data exfiltration",
+    ),
+    (
+        re.compile(r"https?://[^\s]+\?[^\s]*\$[A-Z_]+", re.IGNORECASE),
+        Severity.CRITICAL,
+        "URL with environment variable in query params - data exfiltration",
+    ),
+    (
+        re.compile(r"\bbase64\b.*(?:/etc/passwd|\.env|\.ssh|credentials|\.aws)", re.IGNORECASE),
+        Severity.CRITICAL,
+        "base64 encoding of sensitive file paths - exfiltration attempt",
+    ),
+    (
+        re.compile(r"\bbase64\b.*\$(?:API_KEY|SECRET|TOKEN|PASSWORD)", re.IGNORECASE),
+        Severity.CRITICAL,
+        "base64 encoding of credentials - exfiltration attempt",
+    ),
 ]
 
 # Prompt injection patterns - attempting to override system instructions
 _INJECTION_PATTERNS: list[tuple[re.Pattern[str], Severity, str]] = [
-    (re.compile(r"ignore\s+(?:all\s+)?previous\s+instructions", re.IGNORECASE), Severity.HIGH,
-     "Prompt injection - attempting to override previous instructions"),
-    (re.compile(r"you\s+are\s+now\s+(?:a|an)\s+", re.IGNORECASE), Severity.MEDIUM,
-     "Prompt injection - attempting to redefine agent identity"),
-    (re.compile(r"system\s*(?:prompt|message)\s*[:=]", re.IGNORECASE), Severity.HIGH,
-     "Prompt injection - attempting to set system prompt"),
-    (re.compile(r"forget\s+(?:all\s+)?(?:your|the)\s+(?:rules|instructions|guidelines)",
-                re.IGNORECASE), Severity.HIGH,
-     "Prompt injection - attempting to erase safety guidelines"),
-    (re.compile(r"disregard\s+(?:all\s+)?(?:previous|prior|above)", re.IGNORECASE), Severity.HIGH,
-     "Prompt injection - attempting to disregard prior context"),
-    (re.compile(r"\[SYSTEM\]|\[INST\]|\<\|im_start\|>system", re.IGNORECASE), Severity.HIGH,
-     "Prompt injection - raw model control tokens"),
+    (
+        re.compile(r"ignore\s+(?:all\s+)?previous\s+instructions", re.IGNORECASE),
+        Severity.HIGH,
+        "Prompt injection - attempting to override previous instructions",
+    ),
+    (
+        re.compile(r"you\s+are\s+now\s+(?:a|an)\s+", re.IGNORECASE),
+        Severity.MEDIUM,
+        "Prompt injection - attempting to redefine agent identity",
+    ),
+    (
+        re.compile(r"system\s*(?:prompt|message)\s*[:=]", re.IGNORECASE),
+        Severity.HIGH,
+        "Prompt injection - attempting to set system prompt",
+    ),
+    (
+        re.compile(
+            r"forget\s+(?:all\s+)?(?:your|the)\s+(?:rules|instructions|guidelines)", re.IGNORECASE
+        ),
+        Severity.HIGH,
+        "Prompt injection - attempting to erase safety guidelines",
+    ),
+    (
+        re.compile(r"disregard\s+(?:all\s+)?(?:previous|prior|above)", re.IGNORECASE),
+        Severity.HIGH,
+        "Prompt injection - attempting to disregard prior context",
+    ),
+    (
+        re.compile(r"\[SYSTEM\]|\[INST\]|\<\|im_start\|>system", re.IGNORECASE),
+        Severity.HIGH,
+        "Prompt injection - raw model control tokens",
+    ),
 ]
 
 # Credential access patterns - reading or referencing secrets
 _CREDENTIAL_PATTERNS: list[tuple[re.Pattern[str], Severity, str]] = [
-    (re.compile(r"\$(?:API_KEY|APIKEY)", re.IGNORECASE), Severity.HIGH,
-     "References API key environment variable"),
-    (re.compile(r"\$(?:SECRET|SECRET_KEY|APP_SECRET)", re.IGNORECASE), Severity.HIGH,
-     "References secret environment variable"),
-    (re.compile(r"\$(?:PASSWORD|PASSWD|DB_PASSWORD)", re.IGNORECASE), Severity.HIGH,
-     "References password environment variable"),
-    (re.compile(r"\$(?:TOKEN|ACCESS_TOKEN|AUTH_TOKEN|BEARER_TOKEN)", re.IGNORECASE), Severity.HIGH,
-     "References token environment variable"),
-    (re.compile(r"(?:sk|pk)[-_](?:live|test)[-_][a-zA-Z0-9]{20,}", re.IGNORECASE), Severity.CRITICAL,
-     "Hardcoded API key pattern detected (Stripe-style)"),
-    (re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,}", re.IGNORECASE), Severity.CRITICAL,
-     "Hardcoded GitHub token detected"),
-    (re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE), Severity.CRITICAL,
-     "Hardcoded AWS access key detected"),
+    (
+        re.compile(r"\$(?:API_KEY|APIKEY)", re.IGNORECASE),
+        Severity.HIGH,
+        "References API key environment variable",
+    ),
+    (
+        re.compile(r"\$(?:SECRET|SECRET_KEY|APP_SECRET)", re.IGNORECASE),
+        Severity.HIGH,
+        "References secret environment variable",
+    ),
+    (
+        re.compile(r"\$(?:PASSWORD|PASSWD|DB_PASSWORD)", re.IGNORECASE),
+        Severity.HIGH,
+        "References password environment variable",
+    ),
+    (
+        re.compile(r"\$(?:TOKEN|ACCESS_TOKEN|AUTH_TOKEN|BEARER_TOKEN)", re.IGNORECASE),
+        Severity.HIGH,
+        "References token environment variable",
+    ),
+    (
+        re.compile(r"(?:sk|pk)[-_](?:live|test)[-_][a-zA-Z0-9]{20,}", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Hardcoded API key pattern detected (Stripe-style)",
+    ),
+    (
+        re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36,}", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Hardcoded GitHub token detected",
+    ),
+    (
+        re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),
+        Severity.CRITICAL,
+        "Hardcoded AWS access key detected",
+    ),
 ]
 
 # Obfuscation patterns - hiding malicious intent
 _OBFUSCATION_PATTERNS: list[tuple[re.Pattern[str], Severity, str]] = [
-    (re.compile(r"\becho\s+['\"]?[A-Za-z0-9+/]{40,}={0,2}['\"]?\s*\|\s*base64\s+-d",
-                re.IGNORECASE), Severity.CRITICAL,
-     "Base64-encoded command being decoded and likely executed"),
-    (re.compile(r"\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){10,}"), Severity.HIGH,
-     "Long hex-encoded string - possible obfuscated payload"),
-    (re.compile(r"(?:\\[0-7]{3}){10,}"), Severity.HIGH,
-     "Long octal-encoded string - possible obfuscated payload"),
-    (re.compile(r"\$\(echo\s+[^\)]+\|\s*(?:base64|xxd|rev)\b", re.IGNORECASE), Severity.HIGH,
-     "Command substitution with encoding - obfuscated execution"),
-    (re.compile(r"\\\\\\\\", re.IGNORECASE), Severity.LOW,
-     "Excessive backslash escaping - possible obfuscation"),
+    (
+        re.compile(
+            r"\becho\s+['\"]?[A-Za-z0-9+/]{40,}={0,2}['\"]?\s*\|\s*base64\s+-d", re.IGNORECASE
+        ),
+        Severity.CRITICAL,
+        "Base64-encoded command being decoded and likely executed",
+    ),
+    (
+        re.compile(r"\\x[0-9a-fA-F]{2}(?:\\x[0-9a-fA-F]{2}){10,}"),
+        Severity.HIGH,
+        "Long hex-encoded string - possible obfuscated payload",
+    ),
+    (
+        re.compile(r"(?:\\[0-7]{3}){10,}"),
+        Severity.HIGH,
+        "Long octal-encoded string - possible obfuscated payload",
+    ),
+    (
+        re.compile(r"\$\(echo\s+[^\)]+\|\s*(?:base64|xxd|rev)\b", re.IGNORECASE),
+        Severity.HIGH,
+        "Command substitution with encoding - obfuscated execution",
+    ),
+    (
+        re.compile(r"\\\\\\\\", re.IGNORECASE),
+        Severity.LOW,
+        "Excessive backslash escaping - possible obfuscation",
+    ),
 ]
 
 # All pattern groups with their categories
@@ -250,13 +354,15 @@ class SkillScanner:
             for pattern, severity, description in patterns:
                 for line_idx, line in enumerate(lines):
                     if pattern.search(line):
-                        findings.append(ScanFinding(
-                            pattern_matched=pattern.pattern,
-                            severity=severity,
-                            description=description,
-                            line_number=line_idx + 1,
-                            category=category,
-                        ))
+                        findings.append(
+                            ScanFinding(
+                                pattern_matched=pattern.pattern,
+                                severity=severity,
+                                description=description,
+                                line_number=line_idx + 1,
+                                category=category,
+                            )
+                        )
 
         # Deduplicate findings with same description on same line
         seen: set[tuple[str, int]] = set()
@@ -284,7 +390,9 @@ class SkillScanner:
         if findings:
             logger.info(
                 "Skill scan complete: verdict=%s risk_score=%d findings=%d",
-                verdict.value, risk_score, len(findings),
+                verdict.value,
+                risk_score,
+                len(findings),
             )
 
         return result

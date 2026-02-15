@@ -1068,12 +1068,14 @@ class BudgetHandler(BaseHandler):
             stats = tracker.get_workspace_stats(workspace_id)
             agent_costs = stats.get("cost_by_agent", {})
 
-            return json_response({
-                "agents": agent_costs,
-                "workspace_id": workspace_id,
-                "total_cost_usd": stats.get("total_cost_usd", "0"),
-                "count": len(agent_costs),
-            })
+            return json_response(
+                {
+                    "agents": agent_costs,
+                    "workspace_id": workspace_id,
+                    "total_cost_usd": stats.get("total_cost_usd", "0"),
+                    "count": len(agent_costs),
+                }
+            )
 
         except ImportError:
             return error_response("Cost tracking module not available", 503)
@@ -1099,22 +1101,26 @@ class BudgetHandler(BaseHandler):
 
             # detect_and_store_anomalies is async, returns (anomalies, advisory)
             try:
-                anomalies, cost_advisory = run_async(tracker.detect_and_store_anomalies(workspace_id))
+                anomalies, cost_advisory = run_async(
+                    tracker.detect_and_store_anomalies(workspace_id)
+                )
             except (RuntimeError, OSError):
                 anomalies = []
                 cost_advisory = None
 
-            return json_response({
-                "anomalies": anomalies,
-                "workspace_id": workspace_id,
-                "count": len(anomalies),
-                "cost_advisory": cost_advisory.to_dict() if cost_advisory else None,
-                "advisory": (
-                    "Cost anomalies detected. Review spending patterns."
-                    if anomalies
-                    else "No anomalies detected."
-                ),
-            })
+            return json_response(
+                {
+                    "anomalies": anomalies,
+                    "workspace_id": workspace_id,
+                    "count": len(anomalies),
+                    "cost_advisory": cost_advisory.to_dict() if cost_advisory else None,
+                    "advisory": (
+                        "Cost anomalies detected. Review spending patterns."
+                        if anomalies
+                        else "No anomalies detected."
+                    ),
+                }
+            )
 
         except ImportError:
             return error_response("Cost tracking module not available", 503)

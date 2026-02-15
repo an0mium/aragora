@@ -275,8 +275,13 @@ class DebateRoundsPhase:
     ) -> None:
         """Observe content for rhetorical patterns and emit events."""
         observe_rhetorical_patterns(
-            self.rhetorical_observer, self.event_emitter, self.hooks,
-            agent, content, round_num, loop_id,
+            self.rhetorical_observer,
+            self.event_emitter,
+            self.hooks,
+            agent,
+            content,
+            round_num,
+            loop_id,
         )
 
     @staticmethod
@@ -671,7 +676,9 @@ class DebateRoundsPhase:
             return False
         if round_num < self._fast_first_min_round:
             return False
-        return proposal_count <= self._fast_first_low_contention_agent_threshold and critic_count > 0
+        return (
+            proposal_count <= self._fast_first_low_contention_agent_threshold and critic_count > 0
+        )
 
     def _maybe_fast_first_early_exit(
         self,
@@ -710,7 +717,9 @@ class DebateRoundsPhase:
 
         convergence_result = self._convergence_tracker.check_convergence(ctx, round_num)
         similarity = self._coerce_float(
-            getattr(convergence_result, "similarity", getattr(convergence_result, "avg_similarity", 0.0)),
+            getattr(
+                convergence_result, "similarity", getattr(convergence_result, "avg_similarity", 0.0)
+            ),
             default=0.0,
             minimum=0.0,
             maximum=1.0,
@@ -795,7 +804,10 @@ class DebateRoundsPhase:
                 governor.record_agent_response(critic.name, latency_ms, success=False)
                 logger.warning(
                     "critique_agent_error critic=%s target=%s error_type=%s: %s",
-                    critic.name, proposal_agent, type(e).__name__, e,
+                    critic.name,
+                    proposal_agent,
+                    type(e).__name__,
+                    e,
                 )
                 return (critic, proposal_agent, e)
             except Exception as e:
@@ -804,7 +816,10 @@ class DebateRoundsPhase:
                 governor.record_agent_response(critic.name, latency_ms, success=False)
                 logger.error(
                     "critique_unexpected_error critic=%s target=%s error_type=%s: %s",
-                    critic.name, proposal_agent, type(e).__name__, e,
+                    critic.name,
+                    proposal_agent,
+                    type(e).__name__,
+                    e,
                 )
                 return (critic, proposal_agent, e)
 
@@ -1061,7 +1076,9 @@ class DebateRoundsPhase:
                 governor.record_agent_response(agent.name, latency_ms, success=False)
                 logger.warning(
                     "revision_agent_error agent=%s error_type=%s: %s",
-                    agent.name, type(e).__name__, e,
+                    agent.name,
+                    type(e).__name__,
+                    e,
                 )
                 raise
             except Exception as e:
@@ -1070,7 +1087,9 @@ class DebateRoundsPhase:
                 governor.record_agent_response(agent.name, latency_ms, success=False)
                 logger.error(
                     "revision_unexpected_error agent=%s error_type=%s: %s",
-                    agent.name, type(e).__name__, e,
+                    agent.name,
+                    type(e).__name__,
+                    e,
                 )
                 raise
 
@@ -1294,8 +1313,13 @@ class DebateRoundsPhase:
     async def _refresh_evidence_for_round(self, ctx: DebateContext, round_num: int) -> None:
         """Refresh evidence based on claims made in the current round."""
         await refresh_evidence_for_round(
-            ctx, round_num, self._refresh_evidence, self._skill_registry,
-            self._enable_skills, self._notify_spectator, self.hooks,
+            ctx,
+            round_num,
+            self._refresh_evidence,
+            self._skill_registry,
+            self._enable_skills,
+            self._notify_spectator,
+            self.hooks,
             self._partial_critiques,
         )
 
@@ -1314,15 +1338,24 @@ class DebateRoundsPhase:
     async def _compress_debate_context(self, ctx: DebateContext, round_num: int) -> None:
         """Compress debate context using RLM cognitive load limiter."""
         await compress_debate_context(
-            ctx, round_num, self._compress_context, self.hooks,
-            self._notify_spectator, self._partial_critiques,
+            ctx,
+            round_num,
+            self._compress_context,
+            self.hooks,
+            self._notify_spectator,
+            self._partial_critiques,
         )
 
     async def _execute_final_synthesis_round(self, ctx: DebateContext, round_num: int) -> None:
         """Execute Round 7: Final Synthesis."""
         await execute_final_synthesis_round(
-            ctx, round_num, self.circuit_breaker, self._generate_with_agent,
-            self.hooks, self._notify_spectator, self._partial_messages,
+            ctx,
+            round_num,
+            self.circuit_breaker,
+            self._generate_with_agent,
+            self.hooks,
+            self._notify_spectator,
+            self._partial_messages,
         )
 
     def _build_final_synthesis_prompt(
@@ -1334,7 +1367,9 @@ class DebateRoundsPhase:
         round_num: int,
     ) -> str:
         """Build prompt for Round 7 final synthesis."""
-        return build_final_synthesis_prompt(agent, current_proposal, all_proposals, critiques, round_num)
+        return build_final_synthesis_prompt(
+            agent, current_proposal, all_proposals, critiques, round_num
+        )
 
     async def _fire_propulsion_event(
         self,
@@ -1345,6 +1380,10 @@ class DebateRoundsPhase:
     ) -> None:
         """Fire propulsion event to push work to the next stage."""
         await fire_propulsion_event(
-            event_type, ctx, round_num, self._propulsion_engine,
-            self._enable_propulsion, data,
+            event_type,
+            ctx,
+            round_num,
+            self._propulsion_engine,
+            self._enable_propulsion,
+            data,
         )

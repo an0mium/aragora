@@ -395,9 +395,7 @@ class EvidenceFetchSkill(Skill):
             for fact in facts:
                 validation_status = getattr(fact, "validation_status", None)
                 status_value = (
-                    validation_status.value
-                    if hasattr(validation_status, "value")
-                    else "unknown"
+                    validation_status.value if hasattr(validation_status, "value") else "unknown"
                 )
                 results.append(
                     {

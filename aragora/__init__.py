@@ -92,6 +92,7 @@ try:
 except Exception as exc:
     # Best-effort: avoid blocking imports if secrets hydration fails.
     import logging as _logging
+
     _logging.getLogger(__name__).debug("Secrets hydration skipped: %s", exc)
     del _logging
 

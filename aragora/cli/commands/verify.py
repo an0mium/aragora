@@ -230,8 +230,7 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
                     "name": "checksum",
                     "passed": False,
                     "detail": (
-                        f"checksum mismatch: stored={stored_checksum}, "
-                        f"recomputed={expected}"
+                        f"checksum mismatch: stored={stored_checksum}, recomputed={expected}"
                     ),
                 }
             )
@@ -263,9 +262,7 @@ def _verify_receipt(data: dict[str, Any], *, verbose: bool = False) -> dict[str,
                     "name": "signature",
                     "passed": sig_valid,
                     "detail": (
-                        "signature verified"
-                        if sig_valid
-                        else "signature verification failed"
+                        "signature verified" if sig_valid else "signature verification failed"
                     ),
                 }
             )

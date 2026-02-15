@@ -1133,9 +1133,7 @@ class FeedbackPhase:
         """Check trait emergence. Delegates to PersonaFeedback."""
         self._persona_feedback.check_trait_emergence(ctx)
 
-    def _detect_emerging_traits(
-        self, agent_name: str, ctx: DebateContext
-    ) -> list[dict[str, Any]]:
+    def _detect_emerging_traits(self, agent_name: str, ctx: DebateContext) -> list[dict[str, Any]]:
         """Detect emerging traits. Delegates to PersonaFeedback."""
         return self._persona_feedback.detect_emerging_traits(agent_name, ctx)
 

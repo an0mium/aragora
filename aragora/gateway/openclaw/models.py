@@ -15,8 +15,8 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 import logging
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================

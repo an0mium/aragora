@@ -326,7 +326,7 @@ def _cmd_agents(args: argparse.Namespace) -> None:
         return
 
     print(f"  {'Agent':<25} {'Cost':>10} {'Tokens':>12} {'Debates':>8}")
-    print(f"  {'-'*25} {'-'*10} {'-'*12} {'-'*8}")
+    print(f"  {'-' * 25} {'-' * 10} {'-' * 12} {'-' * 8}")
     for entry in agent_costs:
         name = entry.get("agent", "unknown")
         cost = entry.get("cost", 0)
@@ -386,9 +386,7 @@ def add_billing_ops_parser(subparsers: Any) -> None:
 
     # agents (local)
     agents_p = bp_sub.add_parser("agents", help="Per-agent cost breakdown (local)")
-    agents_p.add_argument(
-        "--days", "-d", type=int, default=30, help="Period in days (default: 30)"
-    )
+    agents_p.add_argument("--days", "-d", type=int, default=30, help="Period in days (default: 30)")
     agents_p.add_argument("--json", action="store_true", help="Output as JSON")
 
 

@@ -52,7 +52,9 @@ def load_baseline(path: Path) -> dict[str, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check namespace-focused SDK parity regressions")
-    parser.add_argument("--strict", action="store_true", help="Fail when focused namespace counts regress")
+    parser.add_argument(
+        "--strict", action="store_true", help="Fail when focused namespace counts regress"
+    )
     parser.add_argument(
         "--baseline",
         type=Path,
@@ -82,7 +84,9 @@ def main() -> int:
         focus = sorted(baseline.keys())
     if not focus:
         # safe default: top namespaces by current missing count
-        focus = [k for k, _ in sorted(namespace_counts.items(), key=lambda kv: kv[1], reverse=True)[:8]]
+        focus = [
+            k for k, _ in sorted(namespace_counts.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        ]
 
     regressions: dict[str, dict[str, int]] = {}
     summary_rows: list[dict[str, int | str]] = []

@@ -675,15 +675,15 @@ class EnhancedWorkflowEngine(WorkflowEngine):
 
         self._emit_event(
             context,
-            StreamEventType.WORKFLOW_STEP_COMPLETE if all_success else StreamEventType.WORKFLOW_STEP_FAILED,
+            StreamEventType.WORKFLOW_STEP_COMPLETE
+            if all_success
+            else StreamEventType.WORKFLOW_STEP_FAILED,
             {
                 **self._base_event_payload(context),
                 "step_id": step_def.id,
                 "step_name": step_def.name,
                 "step_type": step_def.step_type,
-                "status": StepStatus.COMPLETED.value
-                if all_success
-                else StepStatus.FAILED.value,
+                "status": StepStatus.COMPLETED.value if all_success else StepStatus.FAILED.value,
                 "duration_ms": duration_ms,
                 "parallel_steps": sub_step_ids,
             },

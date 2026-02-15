@@ -75,9 +75,7 @@ class IntegrationHealthHandler(BaseHandler):
         return path == "/api/integrations/health"
 
     @handle_errors("integration health GET")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for integration health."""
         path = strip_version_prefix(path)
 
@@ -88,9 +86,7 @@ class IntegrationHealthHandler(BaseHandler):
 
     @require_permission("integrations:read")
     @rate_limit(requests_per_minute=30, limiter_name="integration_health")
-    def _get_health(
-        self, handler: Any = None, user: Any = None
-    ) -> HandlerResult:
+    def _get_health(self, handler: Any = None, user: Any = None) -> HandlerResult:
         """Get health status for all integrations."""
         results: list[dict[str, Any]] = []
 

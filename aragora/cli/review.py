@@ -502,7 +502,9 @@ def findings_to_sarif(findings: dict, tool_name: str = "Aragora Review") -> dict
                     {
                         "id": rule_id,
                         "name": f"CodeReview{severity.title()}",
-                        "shortDescription": {"text": f"Aragora Review: {severity} severity finding"},
+                        "shortDescription": {
+                            "text": f"Aragora Review: {severity} severity finding"
+                        },
                         "helpUri": "https://aragora.ai/docs/review",
                         "properties": {
                             "security-severity": sarif_severity_map.get(severity, "4.0"),
@@ -544,9 +546,7 @@ def findings_to_sarif(findings: dict, tool_name: str = "Aragora Review") -> dict
             # Add suggestions if present
             suggestions = issue.get("suggestions", [])
             if suggestions:
-                result_entry["fixes"] = [
-                    {"description": {"text": s}} for s in suggestions[:3]
-                ]
+                result_entry["fixes"] = [{"description": {"text": s}} for s in suggestions[:3]]
 
             results.append(result_entry)
 
@@ -589,9 +589,9 @@ def findings_to_sarif(findings: dict, tool_name: str = "Aragora Review") -> dict
                     }
                 ],
                 "fingerprints": {
-                    "aragora/v1": hashlib.sha256(
-                        f"unanimous:{critique_text}".encode()
-                    ).hexdigest()[:32]
+                    "aragora/v1": hashlib.sha256(f"unanimous:{critique_text}".encode()).hexdigest()[
+                        :32
+                    ]
                 },
                 "properties": {
                     "unanimous": True,
@@ -658,13 +658,21 @@ async def run_gauntlet_on_diff(
     vuln_list: list[Any] = []
     gauntlet_findings: dict[str, Any] = {
         "gauntlet_id": gauntlet_result.gauntlet_id,
-        "gauntlet_verdict": gauntlet_result.verdict.value if hasattr(gauntlet_result.verdict, "value") else str(gauntlet_result.verdict),
-        "gauntlet_robustness": gauntlet_result.attack_summary.robustness_score if gauntlet_result.attack_summary else 0.0,
+        "gauntlet_verdict": gauntlet_result.verdict.value
+        if hasattr(gauntlet_result.verdict, "value")
+        else str(gauntlet_result.verdict),
+        "gauntlet_robustness": gauntlet_result.attack_summary.robustness_score
+        if gauntlet_result.attack_summary
+        else 0.0,
         "gauntlet_vulnerabilities": vuln_list,
     }
 
     for vuln in gauntlet_result.vulnerabilities:
-        severity = vuln.severity.value.upper() if hasattr(vuln.severity, "value") else str(vuln.severity).upper()
+        severity = (
+            vuln.severity.value.upper()
+            if hasattr(vuln.severity, "value")
+            else str(vuln.severity).upper()
+        )
         vuln_data = {
             "agent": vuln.agent_name or vuln.source,
             "issue": vuln.description,
@@ -930,8 +938,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             gauntlet_verdict = gauntlet_info.get("gauntlet_verdict", "unknown")
             gauntlet_vulns = len(gauntlet_info.get("gauntlet_vulnerabilities", []))
             print(
-                f"Gauntlet complete: verdict={gauntlet_verdict}, "
-                f"vulnerabilities={gauntlet_vulns}",
+                f"Gauntlet complete: verdict={gauntlet_verdict}, vulnerabilities={gauntlet_vulns}",
                 file=sys.stderr,
             )
         except Exception as e:

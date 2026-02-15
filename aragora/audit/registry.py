@@ -316,9 +316,7 @@ class AuditRegistry:
         """List all registered presets."""
         return list(self._presets.values())
 
-    def get_auditors_for_preset(
-        self, preset_name: str
-    ) -> list[tuple[str, BaseAuditor | None]]:
+    def get_auditors_for_preset(self, preset_name: str) -> list[tuple[str, BaseAuditor | None]]:
         """
         Get all auditors specified by a preset.
 

@@ -59,7 +59,9 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> Ha
 
     if not RBAC_AVAILABLE:
         if rbac_fail_closed():
-            return error_response("Service unavailable: access control module not loaded", status=503)
+            return error_response(
+                "Service unavailable: access control module not loaded", status=503
+            )
         # Dev/test: fail closed for write operations only
         if permission_key in write_permissions:
             return error_response("RBAC unavailable", status=503)

@@ -22,6 +22,7 @@ from . import CommitResult
 if TYPE_CHECKING:
     from aragora.nomic.gates import CommitGate
 
+
 def _is_auto_commit_enabled() -> bool:
     """Read auto-commit flag at runtime (supports test monkeypatching)."""
     return os.environ.get("NOMIC_AUTO_COMMIT", "0") == "1"

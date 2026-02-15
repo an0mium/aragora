@@ -698,7 +698,9 @@ class SkillMarketplace:
             is_deprecated=bool(row["is_deprecated"]),
             scan_verdict=row["scan_verdict"] if "scan_verdict" in row.keys() else None,
             scan_risk_score=row["scan_risk_score"] if "scan_risk_score" in row.keys() else None,
-            scan_findings_count=row["scan_findings_count"] if "scan_findings_count" in row.keys() else 0,
+            scan_findings_count=row["scan_findings_count"]
+            if "scan_findings_count" in row.keys()
+            else 0,
             created_at=datetime.fromisoformat(row["created_at"])
             if row["created_at"]
             else datetime.now(timezone.utc),

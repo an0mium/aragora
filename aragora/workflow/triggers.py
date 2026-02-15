@@ -154,13 +154,15 @@ class ReceiptWorkflowTrigger:
                 matched = False
 
             if matched:
-                results.append(TriggerResult(
-                    rule_name=rule.name,
-                    workflow_template=rule.workflow_template,
-                    matched=True,
-                    receipt_id=receipt_id,
-                    metadata=rule.metadata,
-                ))
+                results.append(
+                    TriggerResult(
+                        rule_name=rule.name,
+                        workflow_template=rule.workflow_template,
+                        matched=True,
+                        receipt_id=receipt_id,
+                        metadata=rule.metadata,
+                    )
+                )
                 logger.info(
                     "Trigger '%s' matched receipt %s -> workflow '%s'",
                     rule.name,

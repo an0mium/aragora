@@ -37,9 +37,7 @@ try:
             "Number of threads registered with the lifecycle manager",
         )
     except ValueError:
-        REGISTERED_THREADS_GAUGE = REGISTRY._names_to_collectors.get(
-            "aragora_registered_threads"
-        )
+        REGISTERED_THREADS_GAUGE = REGISTRY._names_to_collectors.get("aragora_registered_threads")
 
     try:
         SHUTDOWN_DURATION_HISTOGRAM: Histogram | None = Histogram(
@@ -121,9 +119,7 @@ class ThreadRegistry:
             return {}
 
         count = len(snapshot)
-        logger.info(
-            "Shutting down %d registered thread(s) (timeout=%.1fs)", count, timeout
-        )
+        logger.info("Shutting down %d registered thread(s) (timeout=%.1fs)", count, timeout)
 
         # Phase 1: signal all threads to stop
         for name, entry in snapshot.items():
@@ -136,18 +132,14 @@ class ThreadRegistry:
         # Phase 2: join threads with fair timeout sharing
         results: dict[str, bool] = {}
         remaining_threads = [
-            (name, entry)
-            for name, entry in snapshot.items()
-            if entry.thread.is_alive()
+            (name, entry) for name, entry in snapshot.items() if entry.thread.is_alive()
         ]
 
         for idx, (name, entry) in enumerate(remaining_threads):
             elapsed = time.monotonic() - start
             remaining_time = max(0.0, timeout - elapsed)
             if remaining_time <= 0:
-                logger.warning(
-                    "Timeout budget exhausted; skipping join for %s", name
-                )
+                logger.warning("Timeout budget exhausted; skipping join for %s", name)
                 results[name] = not entry.thread.is_alive()
                 continue
 
@@ -261,9 +253,7 @@ def register_lifecycle_signal_handlers() -> None:
     try:
         signal.signal(signal.SIGTERM, _handle_signal)
         signal.signal(signal.SIGINT, _handle_signal)
-        logger.debug(
-            "Thread lifecycle signal handlers registered (SIGTERM, SIGINT)"
-        )
+        logger.debug("Thread lifecycle signal handlers registered (SIGTERM, SIGINT)")
     except (ValueError, OSError) as exc:
         logger.warning("Could not register lifecycle signal handlers: %s", exc)
 

@@ -56,6 +56,7 @@ from aragora.observability.otlp_export import (
 # Import logging APIs from observability.logging which has the canonical
 # implementations with stable signatures (LogConfig, correlation helpers, etc).
 import warnings as _warnings
+
 with _warnings.catch_warnings():
     _warnings.simplefilter("ignore", DeprecationWarning)
     from aragora.observability.logging import (  # noqa: E402

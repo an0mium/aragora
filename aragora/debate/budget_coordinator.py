@@ -176,8 +176,7 @@ class BudgetCoordinator:
                         else "Autotuner recommends stopping"
                     )
                     logger.info(
-                        f"autotuner_stop debate_id={debate_id} round={round_num} "
-                        f"reason={reason}"
+                        f"autotuner_stop debate_id={debate_id} round={round_num} reason={reason}"
                     )
                     return False, reason
             except (AttributeError, TypeError) as e:

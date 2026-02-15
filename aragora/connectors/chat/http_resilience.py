@@ -347,10 +347,7 @@ class HTTPResilienceMixin:
                 # Kept broad because httpx internals may raise unexpected types.
                 last_error = f"Unexpected error: {e}"
                 self._record_failure()
-                logger.error(
-                    f"{self.platform_name} {operation} unhandled "
-                    f"{type(e).__name__}: {e}"
-                )
+                logger.error(f"{self.platform_name} {operation} unhandled {type(e).__name__}: {e}")
                 # Don't retry on unknown exceptions
                 break
 

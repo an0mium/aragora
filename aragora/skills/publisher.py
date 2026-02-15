@@ -464,9 +464,7 @@ class SkillPublisher:
 
         # Block DANGEROUS skills from publishing
         if scan_result is not None and scan_result.is_dangerous:
-            findings_summary = "; ".join(
-                f.description for f in scan_result.findings[:5]
-            )
+            findings_summary = "; ".join(f.description for f in scan_result.findings[:5])
             return (
                 False,
                 None,

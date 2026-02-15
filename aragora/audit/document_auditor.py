@@ -666,7 +666,11 @@ class DocumentAuditor:
 
                 context_manager: Any = get_context_manager()
                 chunk_size = self.config.max_tokens_per_call
-                overlap = int(chunk_size * self.config.chunk_overlap) if self.config.enable_chunking else 0
+                overlap = (
+                    int(chunk_size * self.config.chunk_overlap)
+                    if self.config.enable_chunking
+                    else 0
+                )
 
                 doc_chunks = context_manager.chunk_text(
                     text,
@@ -698,7 +702,11 @@ class DocumentAuditor:
                     )
                 else:
                     # Split into overlapping chunks
-                    overlap_chars = int(max_chars * self.config.chunk_overlap) if self.config.enable_chunking else 0
+                    overlap_chars = (
+                        int(max_chars * self.config.chunk_overlap)
+                        if self.config.enable_chunking
+                        else 0
+                    )
                     step = max_chars - overlap_chars
                     seq = 0
                     for start in range(0, len(text), step):
@@ -716,9 +724,7 @@ class DocumentAuditor:
                         )
                         seq += 1
 
-        logger.info(
-            f"Loaded {len(chunks)} chunks from {len(session.document_ids)} documents"
-        )
+        logger.info(f"Loaded {len(chunks)} chunks from {len(session.document_ids)} documents")
         return chunks
 
     async def _initial_scan(

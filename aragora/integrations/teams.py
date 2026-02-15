@@ -35,6 +35,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 try:
     from aragora.resilience.registry import get_circuit_breaker
 except ImportError:

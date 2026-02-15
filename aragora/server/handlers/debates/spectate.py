@@ -89,12 +89,14 @@ async def handle_spectate(
     that reports whether spectating is available.
     """
     n_clients = len(_active_collectors.get(debate_id, set()))
-    return json_response({
-        "debate_id": debate_id,
-        "spectate_available": True,
-        "active_viewers": n_clients,
-        "sse_url": f"/api/v1/debates/{debate_id}/spectate",
-    })
+    return json_response(
+        {
+            "debate_id": debate_id,
+            "spectate_available": True,
+            "active_viewers": n_clients,
+            "sse_url": f"/api/v1/debates/{debate_id}/spectate",
+        }
+    )
 
 
 async def spectate_sse_generator(
@@ -171,12 +173,14 @@ def register_spectate_routes(router: Any) -> None:
             )
         except ImportError:
             # Fallback: return JSON with SSE URL
-            return json_response({
-                "debate_id": debate_id,
-                "spectate_available": True,
-                "sse_url": f"/api/v1/debates/{debate_id}/spectate",
-                "message": "Connect via SSE client",
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "spectate_available": True,
+                    "sse_url": f"/api/v1/debates/{debate_id}/spectate",
+                    "message": "Connect via SSE client",
+                }
+            )
 
     router.add_route(
         "GET",

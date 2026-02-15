@@ -110,9 +110,7 @@ class OTelConfig:
         if self.export_timeout_ms < 1:
             raise ValueError(f"export_timeout_ms must be positive, got {self.export_timeout_ms}")
         if self.protocol not in ("grpc", "http/protobuf"):
-            raise ValueError(
-                f"protocol must be 'grpc' or 'http/protobuf', got '{self.protocol}'"
-            )
+            raise ValueError(f"protocol must be 'grpc' or 'http/protobuf', got '{self.protocol}'")
 
     @classmethod
     def from_env(cls) -> OTelConfig:
@@ -327,6 +325,7 @@ def _create_otlp_exporter(config: OTelConfig) -> Any:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter as GrpcExporter,
             )
+
             logger.debug("Using OTLP/gRPC exporter")
             return GrpcExporter(**grpc_kwargs)
         except ImportError:
@@ -336,6 +335,7 @@ def _create_otlp_exporter(config: OTelConfig) -> Any:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                 OTLPSpanExporter as HttpExporter,
             )
+
             logger.info("Falling back to OTLP/HTTP exporter (gRPC not installed)")
             return HttpExporter(**http_kwargs)
         except ImportError:
@@ -350,6 +350,7 @@ def _create_otlp_exporter(config: OTelConfig) -> Any:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                 OTLPSpanExporter as HttpExporter,
             )
+
             logger.debug("Using OTLP/HTTP exporter")
             return HttpExporter(**http_kwargs)
         except ImportError:
@@ -359,6 +360,7 @@ def _create_otlp_exporter(config: OTelConfig) -> Any:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter as GrpcExporter,
             )
+
             logger.info("Falling back to OTLP/gRPC exporter (HTTP not installed)")
             return GrpcExporter(**grpc_kwargs)
         except ImportError:

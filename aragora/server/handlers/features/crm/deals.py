@@ -117,9 +117,7 @@ class DealOperationsMixin:
 
         return []
 
-    async def _list_platform_deals(
-        self: CRMHandler, request: Any, platform: str
-    ) -> HandlerResult:
+    async def _list_platform_deals(self: CRMHandler, request: Any, platform: str) -> HandlerResult:
         """List deals from a specific platform."""
         # Check circuit breaker
         if err := self._check_circuit_breaker():

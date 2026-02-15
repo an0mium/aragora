@@ -36,11 +36,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _FIELD_RANGES: list[tuple[int, int]] = [
-    (0, 59),   # minute
-    (0, 23),   # hour
-    (1, 31),   # day of month
-    (1, 12),   # month
-    (0, 6),    # day of week (0=Sunday)
+    (0, 59),  # minute
+    (0, 23),  # hour
+    (1, 31),  # day of month
+    (1, 12),  # month
+    (0, 6),  # day of week (0=Sunday)
 ]
 
 
@@ -83,13 +83,8 @@ def parse_cron_expression(expr: str) -> list[set[int]]:
     """
     parts = expr.strip().split()
     if len(parts) != 5:
-        raise ValueError(
-            f"Cron expression must have 5 fields (got {len(parts)}): {expr}"
-        )
-    return [
-        _parse_cron_field(parts[i], lo, hi)
-        for i, (lo, hi) in enumerate(_FIELD_RANGES)
-    ]
+        raise ValueError(f"Cron expression must have 5 fields (got {len(parts)}): {expr}")
+    return [_parse_cron_field(parts[i], lo, hi) for i, (lo, hi) in enumerate(_FIELD_RANGES)]
 
 
 def cron_matches(parsed: list[set[int]], dt: datetime) -> bool:
@@ -233,26 +228,20 @@ class _ScheduleStore:
 
     def delete(self, schedule_id: str) -> bool:
         conn = self._get_conn()
-        cur = conn.execute(
-            "DELETE FROM workflow_schedules WHERE id=?", (schedule_id,)
-        )
+        cur = conn.execute("DELETE FROM workflow_schedules WHERE id=?", (schedule_id,))
         conn.commit()
         return cur.rowcount > 0
 
     def get(self, schedule_id: str) -> ScheduleEntry | None:
         conn = self._get_conn()
-        row = conn.execute(
-            "SELECT * FROM workflow_schedules WHERE id=?", (schedule_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM workflow_schedules WHERE id=?", (schedule_id,)).fetchone()
         if row is None:
             return None
         return self._row_to_entry(row)
 
     def list_all(self) -> list[ScheduleEntry]:
         conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT * FROM workflow_schedules ORDER BY created_at"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM workflow_schedules ORDER BY created_at").fetchall()
         return [self._row_to_entry(r) for r in rows]
 
     def list_enabled(self) -> list[ScheduleEntry]:
@@ -333,7 +322,9 @@ class WorkflowScheduler:
         self._store.insert(entry)
         logger.info(
             "Added workflow schedule %s for workflow %s (%s)",
-            entry.id, workflow_id, cron_expr,
+            entry.id,
+            workflow_id,
+            cron_expr,
         )
         return entry.id
 
@@ -418,9 +409,7 @@ class WorkflowScheduler:
             except (OSError, sqlite3.Error) as exc:
                 logger.error("WorkflowScheduler tick error: %s", exc)
             try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(), timeout=self._tick_interval
-                )
+                await asyncio.wait_for(self._stop_event.wait(), timeout=self._tick_interval)
                 break  # stop event set
             except asyncio.TimeoutError:
                 pass  # continue next tick
@@ -435,7 +424,8 @@ class WorkflowScheduler:
             except ValueError:
                 logger.warning(
                     "Skipping schedule %s with invalid cron: %s",
-                    entry.id, entry.cron_expr,
+                    entry.id,
+                    entry.cron_expr,
                 )
                 continue
 
@@ -459,7 +449,8 @@ class WorkflowScheduler:
 
             logger.info(
                 "Schedule %s due — triggering workflow %s",
-                entry.id, entry.workflow_id,
+                entry.id,
+                entry.workflow_id,
             )
             await self._enqueue_execution(entry)
 
@@ -489,15 +480,11 @@ class WorkflowScheduler:
                     name=f"sched_exec_{exec_id}",
                 )
             else:
-                logger.warning(
-                    "No workflow definition found for %s", entry.workflow_id
-                )
+                logger.warning("No workflow definition found for %s", entry.workflow_id)
         except ImportError:
             logger.warning("Workflow engine not available for scheduled execution")
         except (OSError, RuntimeError, ValueError) as exc:
-            logger.error(
-                "Failed to enqueue workflow %s: %s", entry.workflow_id, exc
-            )
+            logger.error("Failed to enqueue workflow %s: %s", entry.workflow_id, exc)
 
 
 # ---------------------------------------------------------------------------

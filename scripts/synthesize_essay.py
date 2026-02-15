@@ -75,20 +75,23 @@ def parse_args() -> argparse.Namespace:
 
     # Input options
     parser.add_argument(
-        "--exports", "-e",
+        "--exports",
+        "-e",
         type=Path,
         required=True,
         help="Path to exports directory or single export file",
     )
     parser.add_argument(
-        "--seed-essay", "-s",
+        "--seed-essay",
+        "-s",
         type=Path,
         help="Path to seed essay (markdown file) to weave into synthesis",
     )
 
     # Output options
     parser.add_argument(
-        "--title", "-t",
+        "--title",
+        "-t",
         type=str,
         required=True,
         help="Essay title",
@@ -99,13 +102,15 @@ def parse_args() -> argparse.Namespace:
         help="Optional thesis statement",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         default=Path("output/essay.md"),
         help="Output file path (default: output/essay.md)",
     )
     parser.add_argument(
-        "--format", "-f",
+        "--format",
+        "-f",
         choices=["markdown", "json", "html"],
         default="markdown",
         help="Output format (default: markdown)",
@@ -175,7 +180,8 @@ def parse_args() -> argparse.Namespace:
         help="Export all outputs to directory (claims, clusters, outline, thread, etc.)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -213,16 +219,10 @@ def export_all_outputs(workflow, result: WorkflowResult, output_dir: Path) -> No
         path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
     # Export claims
-    write_json(
-        output_dir / "claims.json",
-        {"claims": [c.to_dict() for c in result.claims]}
-    )
+    write_json(output_dir / "claims.json", {"claims": [c.to_dict() for c in result.claims]})
 
     # Export clusters
-    write_json(
-        output_dir / "clusters.json",
-        {"clusters": [c.to_dict() for c in result.clusters]}
-    )
+    write_json(output_dir / "clusters.json", {"clusters": [c.to_dict() for c in result.clusters]})
 
     # Export outline
     write_json(output_dir / "outline.json", result.outline.to_dict())
@@ -238,14 +238,11 @@ def export_all_outputs(workflow, result: WorkflowResult, output_dir: Path) -> No
     # Export debate results
     write_json(
         output_dir / "debate_results.json",
-        {"debates": [d.to_dict() for d in result.debate_results]}
+        {"debates": [d.to_dict() for d in result.debate_results]},
     )
 
     # Export steelman claims
-    write_json(
-        output_dir / "steelman_claims.json",
-        {"steelman_claims": result.steelman_claims}
-    )
+    write_json(output_dir / "steelman_claims.json", {"steelman_claims": result.steelman_claims})
 
     # Export seed scores if available
     if result.seed_essay:

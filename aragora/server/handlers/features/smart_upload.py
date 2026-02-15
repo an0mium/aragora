@@ -1064,7 +1064,9 @@ if HANDLER_BASE_AVAILABLE:
 
                 auth_context = await get_auth_context(handler, require_auth=True)
             except (ImportError, AttributeError):
-                logger.debug("Auth context unavailable for upload metadata enrichment", exc_info=True)
+                logger.debug(
+                    "Auth context unavailable for upload metadata enrichment", exc_info=True
+                )
                 return options
 
             metadata = options.get("metadata")
@@ -1076,7 +1078,8 @@ if HANDLER_BASE_AVAILABLE:
             metadata.setdefault("workspace_id", getattr(auth_context, "workspace_id", None))
             metadata.setdefault(
                 "tenant_id",
-                getattr(auth_context, "workspace_id", None) or getattr(auth_context, "org_id", None),
+                getattr(auth_context, "workspace_id", None)
+                or getattr(auth_context, "org_id", None),
             )
 
             options["metadata"] = metadata

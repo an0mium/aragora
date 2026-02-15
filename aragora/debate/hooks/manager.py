@@ -155,9 +155,7 @@ class DebateHooks(Protocol):
         self, ctx: DebateContext, critique: Critique
     ) -> Coroutine[Any, Any, None] | None: ...
 
-    def on_post_vote(
-        self, ctx: DebateContext, vote: Vote
-    ) -> Coroutine[Any, Any, None] | None: ...
+    def on_post_vote(self, ctx: DebateContext, vote: Vote) -> Coroutine[Any, Any, None] | None: ...
 
 
 class AuditHooks(Protocol):

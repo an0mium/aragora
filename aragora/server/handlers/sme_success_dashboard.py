@@ -334,7 +334,11 @@ class SMESuccessDashboardHandler(SecureHandler):
         if debate_stats is not None and debate_stats.total_debates > 0:
             estimated_debates = debate_stats.total_debates
             consensus_rate = debate_stats.consensus_rate * 100  # Convert 0-1 to percentage
-            avg_debate_duration_minutes = debate_stats.avg_duration_seconds / 60 if debate_stats.avg_duration_seconds > 0 else 5
+            avg_debate_duration_minutes = (
+                debate_stats.avg_duration_seconds / 60
+                if debate_stats.avg_duration_seconds > 0
+                else 5
+            )
         else:
             # Fallback: estimate debates from API calls
             estimated_debates = max(1, api_calls // 10) if api_calls > 0 else 0

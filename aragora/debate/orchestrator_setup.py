@@ -371,9 +371,7 @@ def init_health_registry(arena: Arena) -> None:
             except (AttributeError, TypeError):
                 pass  # register/record_success may not exist
 
-        logger.debug(
-            f"[health] Registered {len(subsystem_checks)} subsystem health checks"
-        )
+        logger.debug(f"[health] Registered {len(subsystem_checks)} subsystem health checks")
     except ImportError:
         logger.debug("HealthRegistry not available")
         arena._health_registry = None

@@ -414,9 +414,7 @@ def track_pattern(pattern: str, test_name: str, metadata: dict[str, Any] | None 
     get_tracker().track_pattern(pattern, test_name, metadata)
 
 
-def track_template(
-    template: str, test_name: str, metadata: dict[str, Any] | None = None
-) -> None:
+def track_template(template: str, test_name: str, metadata: dict[str, Any] | None = None) -> None:
     """Convenience function to track template coverage."""
     get_tracker().track_template(template, test_name, metadata)
 

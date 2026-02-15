@@ -82,7 +82,10 @@ _DEFAULT_ROUNDS = 2
 _DEFAULT_AGENTS = 3
 
 _AGENT_STYLES: list[Literal["supportive", "critical", "balanced", "contrarian"]] = [
-    "supportive", "critical", "balanced", "contrarian",
+    "supportive",
+    "critical",
+    "balanced",
+    "contrarian",
 ]
 
 
@@ -117,28 +120,36 @@ class PlaygroundHandler(BaseHandler):
     # ------------------------------------------------------------------
 
     def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any,
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult | None:
         if path == "/api/v1/playground/status":
             return self._handle_status()
         return None
 
     def _handle_status(self) -> HandlerResult:
-        return json_response({
-            "status": "ok",
-            "engine": "aragora-debate",
-            "mock_agents": True,
-            "max_rounds": _MAX_ROUNDS,
-            "max_agents": _MAX_AGENTS,
-            "rate_limit": f"{_PLAYGROUND_RATE_LIMIT} requests per {int(_PLAYGROUND_RATE_WINDOW)}s",
-        })
+        return json_response(
+            {
+                "status": "ok",
+                "engine": "aragora-debate",
+                "mock_agents": True,
+                "max_rounds": _MAX_ROUNDS,
+                "max_agents": _MAX_AGENTS,
+                "rate_limit": f"{_PLAYGROUND_RATE_LIMIT} requests per {int(_PLAYGROUND_RATE_WINDOW)}s",
+            }
+        )
 
     # ------------------------------------------------------------------
     # POST /api/v1/playground/debate
     # ------------------------------------------------------------------
 
     def handle_post(
-        self, path: str, query_params: dict[str, Any], handler: Any,
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult | None:
         if path != "/api/v1/playground/debate":
             return None
@@ -171,7 +182,8 @@ class PlaygroundHandler(BaseHandler):
             topic = _DEFAULT_TOPIC
         if len(topic) > _MAX_TOPIC_LENGTH:
             return error_response(
-                f"Topic must be {_MAX_TOPIC_LENGTH} characters or less", 400,
+                f"Topic must be {_MAX_TOPIC_LENGTH} characters or less",
+                400,
             )
 
         try:
@@ -189,7 +201,10 @@ class PlaygroundHandler(BaseHandler):
         return self._run_debate(topic, rounds, agent_count)
 
     def _run_debate(
-        self, topic: str, rounds: int, agent_count: int,
+        self,
+        topic: str,
+        rounds: int,
+        agent_count: int,
     ) -> HandlerResult:
         try:
             from aragora_debate.styled_mock import StyledMockAgent
@@ -227,34 +242,40 @@ class PlaygroundHandler(BaseHandler):
             # Already in an event loop -- use a helper
             try:
                 import nest_asyncio  # type: ignore[import-untyped]
+
                 nest_asyncio.apply()
                 loop = asyncio.get_event_loop()
                 result = loop.run_until_complete(arena.run())
             except ImportError:
                 # Fallback: create a new loop in a thread
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     result = pool.submit(asyncio.run, arena.run()).result(timeout=30)
 
         # Build response
         critiques_out = []
         for c in result.critiques:
-            critiques_out.append({
-                "agent": c.agent,
-                "target_agent": c.target_agent,
-                "issues": c.issues,
-                "suggestions": c.suggestions,
-                "severity": c.severity,
-            })
+            critiques_out.append(
+                {
+                    "agent": c.agent,
+                    "target_agent": c.target_agent,
+                    "issues": c.issues,
+                    "suggestions": c.suggestions,
+                    "severity": c.severity,
+                }
+            )
 
         votes_out = []
         for v in result.votes:
-            votes_out.append({
-                "agent": v.agent,
-                "choice": v.choice,
-                "confidence": v.confidence,
-                "reasoning": v.reasoning,
-            })
+            votes_out.append(
+                {
+                    "agent": v.agent,
+                    "choice": v.choice,
+                    "confidence": v.confidence,
+                    "reasoning": v.reasoning,
+                }
+            )
 
         receipt_data = None
         receipt_hash = None

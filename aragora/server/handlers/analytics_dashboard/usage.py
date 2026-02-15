@@ -362,9 +362,7 @@ class UsageAnalyticsMixin:
             # Get budget utilization
             budget_info: dict[str, Any] = {}
             try:
-                budget = cost_tracker.get_budget(
-                    workspace_id=workspace_id, org_id=workspace_id
-                )
+                budget = cost_tracker.get_budget(workspace_id=workspace_id, org_id=workspace_id)
                 if budget and budget.monthly_limit_usd:
                     monthly_limit = float(budget.monthly_limit_usd)
                     current_spend = float(budget.current_monthly_spend)
@@ -372,9 +370,7 @@ class UsageAnalyticsMixin:
                         "monthly_limit_usd": monthly_limit,
                         "current_spend_usd": current_spend,
                         "remaining_usd": max(0, monthly_limit - current_spend),
-                        "utilization_percent": round(
-                            current_spend / monthly_limit * 100, 1
-                        )
+                        "utilization_percent": round(current_spend / monthly_limit * 100, 1)
                         if monthly_limit > 0
                         else 0,
                     }

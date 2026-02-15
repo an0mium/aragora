@@ -497,7 +497,10 @@ class TeamsBot:
         """Check if the user in the activity has a specific permission."""
         if not RBAC_AVAILABLE or check_permission is None:
             if rbac_fail_closed():
-                return {"error": "Service unavailable: access control module not loaded", "status": 503}
+                return {
+                    "error": "Service unavailable: access control module not loaded",
+                    "status": 503,
+                }
             return None
 
         context = self._get_auth_context_from_activity(activity)

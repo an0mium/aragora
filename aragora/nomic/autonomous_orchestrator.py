@@ -901,7 +901,7 @@ class AutonomousOrchestrator:
                 continue
             # aragora/foo/bar.py -> tests/foo/test_bar.py
             if path.startswith("aragora/"):
-                rel = path[len("aragora/"):]
+                rel = path[len("aragora/") :]
                 parts = rel.rsplit("/", 1)
                 if len(parts) == 2:
                     directory, filename = parts

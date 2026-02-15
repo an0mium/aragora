@@ -121,8 +121,16 @@ def main() -> int:
 
     # Print critical/high findings if not quiet
     if not args.quiet:
-        critical_findings = [f for f in report.findings if f.severity == SecuritySeverity.CRITICAL and not f.is_false_positive]
-        high_findings = [f for f in report.findings if f.severity == SecuritySeverity.HIGH and not f.is_false_positive]
+        critical_findings = [
+            f
+            for f in report.findings
+            if f.severity == SecuritySeverity.CRITICAL and not f.is_false_positive
+        ]
+        high_findings = [
+            f
+            for f in report.findings
+            if f.severity == SecuritySeverity.HIGH and not f.is_false_positive
+        ]
 
         if critical_findings:
             print(f"\n{RED}{BOLD}CRITICAL Findings:{RESET}")

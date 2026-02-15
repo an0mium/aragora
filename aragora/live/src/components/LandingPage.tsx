@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, FormEvent } from 'react';
 import Link from 'next/link';
+import { DebateResultPreview, type DebateResponse } from './DebateResultPreview';
 
 interface LandingPageProps {
   apiBase?: string;
@@ -79,10 +81,19 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: '3,200+', label: 'MODULES' },
-  { value: '136,000+', label: 'TESTS' },
-  { value: '360+', label: 'RBAC PERMISSIONS' },
-  { value: '36', label: 'KNOWLEDGE ADAPTERS' },
+  { value: '30+', label: 'AI AGENTS' },
+  { value: '6', label: 'PROVIDERS' },
+  { value: '<30s', label: 'FIRST RESULT' },
+  { value: '100%', label: 'AUDIT TRAIL' },
+];
+
+const EXAMPLE_TOPICS = [
+  'Should we use Kubernetes or stick with VMs?',
+  'Kafka vs RabbitMQ for our event system?',
+  'Should we build or buy our auth system?',
+  'Is it worth migrating to TypeScript?',
+  'How should we handle PII in our analytics pipeline?',
+  'Monorepo or polyrepo for our microservices?',
 ];
 
 const FOOTER_LINKS = [
@@ -92,7 +103,48 @@ const FOOTER_LINKS = [
   { href: 'https://status.aragora.ai', label: 'Status' },
 ];
 
-export function LandingPage({ onEnterDashboard }: LandingPageProps) {
+export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
+  const [question, setQuestion] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const [result, setResult] = useState<DebateResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const resolvedApiBase = apiBase || 'https://api.aragora.ai';
+
+  async function runDebate(topic: string) {
+    setIsRunning(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, rounds: 2, agents: 3 }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || `Request failed (${res.status})`);
+        return;
+      }
+
+      setResult(await res.json());
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Network error';
+      setError(message);
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (question.trim()) {
+      runDebate(question.trim());
+    }
+  }
+
   return (
     <main className="min-h-screen bg-bg text-text">
       {/* ── NAV ── */}
@@ -102,8 +154,8 @@ export function LandingPage({ onEnterDashboard }: LandingPageProps) {
             ARAGORA
           </span>
           <div className="flex items-center gap-4">
-            <a href="#quickstart" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
-              [QUICKSTART]
+            <a href="#how-it-works" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
+              [HOW IT WORKS]
             </a>
             <a href="https://github.com/an0mium/aragora" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
               [GITHUB]
@@ -113,55 +165,105 @@ export function LandingPage({ onEnterDashboard }: LandingPageProps) {
                 onClick={onEnterDashboard}
                 className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
               >
-                DASHBOARD
+                LOG IN
               </button>
             ) : (
               <Link
-                href="/"
+                href="/auth/login"
                 className="text-xs font-mono px-3 py-1.5 border border-acid-green text-acid-green hover:bg-acid-green hover:text-bg transition-colors"
               >
-                DASHBOARD
+                LOG IN
               </Link>
             )}
           </div>
         </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <section className="py-20 sm:py-28 px-4">
-        <div className="max-w-4xl mx-auto text-center">
+      {/* ── HERO with live debate input ── */}
+      <section className="py-16 sm:py-24 px-4">
+        <div className="max-w-3xl mx-auto text-center">
           <h1 className="font-mono text-2xl sm:text-4xl lg:text-5xl text-text mb-6 leading-tight">
             Don&apos;t trust a single AI.{' '}
-            <span className="text-acid-green glow-text-subtle">Trust a debate.</span>
+            <span className="text-acid-green">Trust a debate.</span>
           </h1>
-          <p className="font-mono text-sm sm:text-base text-text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
-            Aragora orchestrates 30+ AI agents to adversarially vet your decisions
-            through structured debate, delivering audit-ready decision receipts
-            with cryptographic integrity.
+          <p className="font-mono text-sm sm:text-base text-text-muted max-w-2xl mx-auto mb-8 leading-relaxed">
+            Submit any question. Watch AI agents argue. Get a decision receipt.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <a
-              href="#quickstart"
-              className="font-mono text-sm px-6 py-3 bg-acid-green text-bg font-bold hover:shadow-glow transition-all"
-            >
-              TRY DEMO
-            </a>
-            {onEnterDashboard ? (
+
+          {/* Debate input form */}
+          <form onSubmit={handleSubmit} className="text-left">
+            <textarea
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="What decision are you facing?"
+              disabled={isRunning}
+              rows={2}
+              className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors resize-none disabled:opacity-50"
+            />
+
+            {/* Example topic chips */}
+            <div className="flex flex-wrap gap-2 mt-3">
+              {EXAMPLE_TOPICS.map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => { setQuestion(ex); runDebate(ex); }}
+                  disabled={isRunning}
+                  className="text-xs px-2 py-1 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)] transition-colors disabled:opacity-50 font-mono"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-center mt-6">
               <button
-                onClick={onEnterDashboard}
-                className="font-mono text-sm px-6 py-3 border border-acid-green/50 text-acid-green hover:border-acid-green hover:shadow-glow transition-all"
+                type="submit"
+                disabled={isRunning || !question.trim()}
+                className="font-mono text-sm px-8 py-3 bg-acid-green text-bg font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                VIEW DASHBOARD
+                {isRunning ? 'AGENTS DEBATING...' : 'RUN FREE DEBATE'}
               </button>
-            ) : (
-              <Link
-                href="/"
-                className="font-mono text-sm px-6 py-3 border border-acid-green/50 text-acid-green hover:border-acid-green hover:shadow-glow transition-all"
-              >
-                VIEW DASHBOARD
-              </Link>
-            )}
-          </div>
+            </div>
+          </form>
+
+          {/* Loading spinner */}
+          {isRunning && (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-3 text-[var(--acid-green)]">
+                <svg
+                  className="animate-spin h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                <span className="text-sm font-mono">Agents are debating...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="border border-[var(--crimson)] bg-[var(--crimson)]/10 p-4 mt-6 text-left">
+              <p className="text-sm text-[var(--crimson)] font-mono">{error}</p>
+            </div>
+          )}
+
+          {/* Inline results with gated receipt */}
+          {result && <DebateResultPreview result={result} />}
         </div>
       </section>
 
@@ -196,7 +298,7 @@ export function LandingPage({ onEnterDashboard }: LandingPageProps) {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section className="py-16 px-4 border-t border-border">
+      <section id="how-it-works" className="py-16 px-4 border-t border-border">
         <div className="max-w-5xl mx-auto">
           <h2 className="font-mono text-lg sm:text-xl text-center text-acid-green mb-10">
             {'>'} HOW IT WORKS
@@ -289,11 +391,14 @@ export function LandingPage({ onEnterDashboard }: LandingPageProps) {
             </div>
           </div>
           <p className="font-mono text-xs text-text-muted/60 mt-4">
-            Or try the{' '}
-            <Link href="/" className="text-acid-cyan hover:text-acid-green transition-colors">
-              live dashboard
-            </Link>{' '}
-            to start a debate right in your browser.
+            Or{' '}
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="text-acid-cyan hover:text-acid-green transition-colors"
+            >
+              scroll up
+            </button>{' '}
+            to try a free debate right in your browser.
           </p>
         </div>
       </section>

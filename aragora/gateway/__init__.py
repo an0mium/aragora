@@ -58,6 +58,7 @@ from aragora.gateway.credential_proxy import (
     set_credential_proxy,
     reset_credential_proxy,
 )
+
 # Suppress deprecation warning for this internal re-export; the warning should
 # only fire when external code imports aragora.gateway.decision_router directly.
 import warnings as _warnings

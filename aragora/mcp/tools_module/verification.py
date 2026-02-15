@@ -375,12 +375,14 @@ async def get_receipt_tool(
                     "",
                 ]
                 findings_data = raw_data.get("findings", {})
-                md_lines.extend([
-                    "## Findings",
-                    "",
-                    f"**Agreement Score:** {findings_data.get('agreement_score', 0):.0%}",
-                    "",
-                ])
+                md_lines.extend(
+                    [
+                        "## Findings",
+                        "",
+                        f"**Agreement Score:** {findings_data.get('agreement_score', 0):.0%}",
+                        "",
+                    ]
+                )
                 unanimous = findings_data.get("unanimous_critiques", [])
                 if unanimous:
                     md_lines.append("### Unanimous Issues")

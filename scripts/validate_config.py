@@ -101,7 +101,9 @@ def main() -> int:
     else:
         backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite")
         if backend == "postgres" or is_production:
-            warnings.append("No DATABASE_URL set - will use SQLite (not recommended for production)")
+            warnings.append(
+                "No DATABASE_URL set - will use SQLite (not recommended for production)"
+            )
         print(f"  --  Using {backend} backend")
 
     # 5. Check Redis
@@ -143,7 +145,9 @@ def main() -> int:
         print(f"\n{len(warnings)} warning(s) found (strict mode).")
         return 2
     else:
-        print(f"\n{len(warnings)} warning(s). Configuration is usable but review before production.")
+        print(
+            f"\n{len(warnings)} warning(s). Configuration is usable but review before production."
+        )
         return 0
 
 

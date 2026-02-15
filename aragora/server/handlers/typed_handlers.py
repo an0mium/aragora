@@ -772,15 +772,11 @@ class ResourceHandler(PermissionHandler):
         self, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult:
         """List resources. Override in subclass."""
-        return error_response(
-            f"GET {handler.path}: list {self.RESOURCE_NAME} not implemented", 501
-        )
+        return error_response(f"GET {handler.path}: list {self.RESOURCE_NAME} not implemented", 501)
 
     def _get_resource(self, resource_id: str, handler: HTTPRequestHandler) -> HandlerResult:
         """Get a single resource. Override in subclass."""
-        return error_response(
-            f"GET {handler.path}: get {self.RESOURCE_NAME} not implemented", 501
-        )
+        return error_response(f"GET {handler.path}: get {self.RESOURCE_NAME} not implemented", 501)
 
     def _create_resource(self, handler: HTTPRequestHandler) -> HandlerResult:
         """Create a new resource. Override in subclass."""

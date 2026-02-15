@@ -40,7 +40,13 @@ def _python_type_to_json(annotation: str) -> str | list[str]:
     clean = annotation.replace("typing.", "").strip()
     # Handle Optional / union with None
     if "None" in clean:
-        base = clean.replace("| None", "").replace("None |", "").replace("Optional[", "").rstrip("]").strip()
+        base = (
+            clean.replace("| None", "")
+            .replace("None |", "")
+            .replace("Optional[", "")
+            .rstrip("]")
+            .strip()
+        )
         json_type = _PYTHON_TO_JSON_TYPE.get(base, "string")
         if isinstance(json_type, list):
             return [*json_type, "null"]
@@ -150,7 +156,14 @@ def generate_decision_receipt_schema() -> dict[str, Any]:
             "Audit-ready decision receipt from Gauntlet stress-tests or debate results. "
             "Defined in aragora.export.decision_receipt.DecisionReceipt."
         ),
-        required_fields=["receipt_id", "gauntlet_id", "timestamp", "verdict", "confidence", "schema_version"],
+        required_fields=[
+            "receipt_id",
+            "gauntlet_id",
+            "timestamp",
+            "verdict",
+            "confidence",
+            "schema_version",
+        ],
         verdict_enum=verdict_values,
     )
 
@@ -172,11 +185,19 @@ def generate_gauntlet_receipt_schema() -> dict[str, Any]:
             "Defined in aragora.gauntlet.receipt_models.DecisionReceipt."
         ),
         required_fields=[
-            "receipt_id", "gauntlet_id", "timestamp",
-            "input_summary", "input_hash",
-            "risk_summary", "attacks_attempted", "attacks_successful",
-            "probes_run", "vulnerabilities_found",
-            "verdict", "confidence", "robustness_score",
+            "receipt_id",
+            "gauntlet_id",
+            "timestamp",
+            "input_summary",
+            "input_hash",
+            "risk_summary",
+            "attacks_attempted",
+            "attacks_successful",
+            "probes_run",
+            "vulnerabilities_found",
+            "verdict",
+            "confidence",
+            "robustness_score",
         ],
         verdict_enum=verdict_values,
     )
@@ -185,6 +206,7 @@ def generate_gauntlet_receipt_schema() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(

@@ -105,9 +105,7 @@ class PostDebateCoordinator:
 
         # Step 2: Create decision plan
         if self.config.auto_create_plan and confidence >= self.config.plan_min_confidence:
-            result.plan = self._step_create_plan(
-                debate_id, debate_result, task, result.explanation
-            )
+            result.plan = self._step_create_plan(debate_id, debate_result, task, result.explanation)
 
         # Step 3: Send notifications
         if self.config.auto_notify:
@@ -117,9 +115,7 @@ class PostDebateCoordinator:
 
         # Step 4: Execute plan if approved
         if self.config.auto_execute_plan and result.plan:
-            result.execution_result = self._step_execute_plan(
-                result.plan, result.explanation
-            )
+            result.execution_result = self._step_execute_plan(result.plan, result.explanation)
 
         return result
 

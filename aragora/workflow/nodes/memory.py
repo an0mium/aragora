@@ -53,7 +53,13 @@ class MemoryReadStep(BaseStep):
         """Execute the memory read step."""
         config = {**self._config, **context.current_step_config}
 
-        def _emit(success: bool, total_count: int, query_value: str, error: str | None = None, **extra: Any) -> None:
+        def _emit(
+            success: bool,
+            total_count: int,
+            query_value: str,
+            error: str | None = None,
+            **extra: Any,
+        ) -> None:
             try:
                 from aragora.events.types import StreamEventType
 

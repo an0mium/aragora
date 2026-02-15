@@ -242,10 +242,25 @@ class SICAConfig:
 
 # Allowed base commands for validation tools (must start with one of these)
 _ALLOWED_VALIDATION_COMMANDS = [
-    "pytest", "mypy", "ruff", "flake8", "pylint", "black", "isort",
-    "pyright", "pyre", "bandit", "safety", "vulture", "pyflakes",
-    "python -m pytest", "python -m mypy", "python -m ruff",
-    "python -m flake8", "python -m pylint", "python -m black",
+    "pytest",
+    "mypy",
+    "ruff",
+    "flake8",
+    "pylint",
+    "black",
+    "isort",
+    "pyright",
+    "pyre",
+    "bandit",
+    "safety",
+    "vulture",
+    "pyflakes",
+    "python -m pytest",
+    "python -m mypy",
+    "python -m ruff",
+    "python -m flake8",
+    "python -m pylint",
+    "python -m black",
 ]
 
 
@@ -265,9 +280,7 @@ def _validate_tool_command(command: str) -> list[str]:
     # Reject shell metacharacters
     for meta in [";", "&&", "||", "|", "`", "$(", "${"]:
         if meta in command:
-            raise ValueError(
-                f"Tool command contains shell metacharacter: '{meta}'"
-            )
+            raise ValueError(f"Tool command contains shell metacharacter: '{meta}'")
 
     parts = shlex.split(command)
     if not parts:
@@ -282,9 +295,7 @@ def _validate_tool_command(command: str) -> list[str]:
             break
 
     if not matched:
-        raise ValueError(
-            f"Tool command '{parts[0]}' is not in the allowed validation commands"
-        )
+        raise ValueError(f"Tool command '{parts[0]}' is not in the allowed validation commands")
 
     return parts
 
@@ -314,9 +325,7 @@ def _validate_file_path(file_path: str, repo_path: Path) -> str:
     resolved = (repo_path / file_path).resolve()
     repo_resolved = repo_path.resolve()
     if not str(resolved).startswith(str(repo_resolved) + "/") and resolved != repo_resolved:
-        raise ValueError(
-            f"File path escapes repository root: {file_path}"
-        )
+        raise ValueError(f"File path escapes repository root: {file_path}")
 
     return file_path
 
@@ -389,7 +398,9 @@ class SICAImprover:
         Returns:
             Result of the improvement cycle
         """
-        cycle_id = hashlib.md5(f"{datetime.now().isoformat()}".encode(), usedforsecurity=False).hexdigest()[:12]
+        cycle_id = hashlib.md5(
+            f"{datetime.now().isoformat()}".encode(), usedforsecurity=False
+        ).hexdigest()[:12]
         started_at = datetime.now()
 
         result = ImprovementCycleResult(

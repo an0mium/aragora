@@ -104,7 +104,9 @@ class WatchdogIssue:
     details: dict[str, Any] = field(default_factory=dict)
 
     # Tracking
-    id: str = field(default_factory=lambda: f"issue-{int(time.time() * 1000) % 1000000}-{next(_issue_counter)}")
+    id: str = field(
+        default_factory=lambda: f"issue-{int(time.time() * 1000) % 1000000}-{next(_issue_counter)}"
+    )
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     detected_by: WatchdogTier | None = None
 

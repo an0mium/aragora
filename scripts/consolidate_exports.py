@@ -332,14 +332,14 @@ def consolidate_exports(
             stats.total_conversations_found += len(conversations)
 
             # Track by source type
-            stats.conversations_by_source[source_type] = (
-                stats.conversations_by_source.get(source_type, 0) + len(conversations)
-            )
+            stats.conversations_by_source[source_type] = stats.conversations_by_source.get(
+                source_type, 0
+            ) + len(conversations)
 
             # Track by account
-            stats.conversations_by_account[account] = (
-                stats.conversations_by_account.get(account, 0) + len(conversations)
-            )
+            stats.conversations_by_account[account] = stats.conversations_by_account.get(
+                account, 0
+            ) + len(conversations)
 
             # Collect dates
             for conv in conversations:
@@ -383,7 +383,10 @@ def consolidate_exports(
             else:
                 normalized_dates.append(d)
         normalized_dates.sort()
-        stats.date_range = (normalized_dates[0].isoformat()[:10], normalized_dates[-1].isoformat()[:10])
+        stats.date_range = (
+            normalized_dates[0].isoformat()[:10],
+            normalized_dates[-1].isoformat()[:10],
+        )
 
     return deduped, stats
 
@@ -420,18 +423,21 @@ def main():
     )
 
     parser.add_argument(
-        "--input-dir", "-d",
+        "--input-dir",
+        "-d",
         type=Path,
         help="Directory containing export folders/files",
     )
     parser.add_argument(
-        "--inputs", "-i",
+        "--inputs",
+        "-i",
         type=Path,
         nargs="+",
         help="Individual export files to consolidate",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         required=True,
         help="Output consolidated JSON file",
@@ -448,7 +454,8 @@ def main():
         help="Skip deduplication",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Verbose output",
     )

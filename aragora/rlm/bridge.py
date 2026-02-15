@@ -479,8 +479,7 @@ class AragoraRLM(RLMStreamingMixin):
 
             self._official_rlm = OfficialRLM(**init_kwargs)
             logger.info(
-                "[AragoraRLM] Initialized TRUE RLM with backend=%s, "
-                "model=%s, environment=%s",
+                "[AragoraRLM] Initialized TRUE RLM with backend=%s, model=%s, environment=%s",
                 self.backend_config.backend,
                 self.backend_config.model_name,
                 self.backend_config.environment_type,

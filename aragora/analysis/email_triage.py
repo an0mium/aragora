@@ -58,11 +58,13 @@ class TriageConfig:
 
         for priority_level, rule_list in data.get("priority_rules", {}).items():
             for rule_data in rule_list:
-                rules.append(TriageRule(
-                    label=rule_data.get("label", ""),
-                    keywords=rule_data.get("keywords", []),
-                    priority=priority_level,
-                ))
+                rules.append(
+                    TriageRule(
+                        label=rule_data.get("label", ""),
+                        keywords=rule_data.get("keywords", []),
+                        priority=priority_level,
+                    )
+                )
 
         escalation = data.get("escalation", {})
         return cls(
@@ -111,7 +113,9 @@ class TriageRuleEngine:
         config = TriageConfig.from_dict(data)
         logger.info(
             "Loaded %d triage rules from %s (%d escalation keywords)",
-            len(config.rules), path.name, len(config.escalation_keywords),
+            len(config.rules),
+            path.name,
+            len(config.escalation_keywords),
         )
         return cls(config)
 

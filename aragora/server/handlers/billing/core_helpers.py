@@ -12,7 +12,6 @@ import sys
 from datetime import datetime
 
 
-
 # --- Input validation helpers for financial operations ---
 
 # ISO date pattern: YYYY-MM-DD

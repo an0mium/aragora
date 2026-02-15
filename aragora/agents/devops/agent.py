@@ -107,11 +107,8 @@ class DevOpsAgentConfig:
         return cls(
             repo=os.environ.get("ARAGORA_DEVOPS_REPO", ""),
             poll_interval=int(os.environ.get("ARAGORA_DEVOPS_POLL_INTERVAL", "300")),
-            review_agents=os.environ.get(
-                "ARAGORA_DEVOPS_AGENTS", "anthropic-api,openai-api"
-            ),
-            allow_destructive=os.environ.get("ARAGORA_DEVOPS_ALLOW_DESTRUCTIVE", "")
-            == "true",
+            review_agents=os.environ.get("ARAGORA_DEVOPS_AGENTS", "anthropic-api,openai-api"),
+            allow_destructive=os.environ.get("ARAGORA_DEVOPS_ALLOW_DESTRUCTIVE", "") == "true",
             dry_run=os.environ.get("ARAGORA_DEVOPS_DRY_RUN", "") == "true",
             github_token=os.environ.get("GITHUB_TOKEN", ""),
         )
@@ -235,9 +232,7 @@ class DevOpsAgent:
             self._audit(action_name, command, "error", str(e))
             return False, str(e)
 
-    def _audit(
-        self, action: str, command: str, outcome: str, detail: str = ""
-    ) -> None:
+    def _audit(self, action: str, command: str, outcome: str, detail: str = "") -> None:
         entry = AuditEntry(
             timestamp=datetime.now(timezone.utc).isoformat(),
             action=action,
@@ -286,9 +281,7 @@ class DevOpsAgent:
             if pr_result.get("success"):
                 result.items_processed += 1
             else:
-                result.errors.append(
-                    f"PR #{pr_num}: {pr_result.get('error', 'unknown')}"
-                )
+                result.errors.append(f"PR #{pr_num}: {pr_result.get('error', 'unknown')}")
 
         result.duration_seconds = time.monotonic() - start
         result.completed_at = datetime.now(timezone.utc)
@@ -299,9 +292,7 @@ class DevOpsAgent:
         logger.info("Reviewing PR #%d: %s", pr_number, title)
 
         # Get the diff
-        ok, diff = self._execute(
-            f"gh pr diff {pr_number} -R {self._config.repo}", "get_pr_diff"
-        )
+        ok, diff = self._execute(f"gh pr diff {pr_number} -R {self._config.repo}", "get_pr_diff")
         if not ok:
             return {"pr": pr_number, "success": False, "error": diff}
 
@@ -417,9 +408,7 @@ class DevOpsAgent:
                     "label_issue",
                 )
                 result.items_processed += 1
-                result.details.append(
-                    {"issue": issue_num, "labels": labels, "title": title}
-                )
+                result.details.append({"issue": issue_num, "labels": labels, "title": title})
             else:
                 result.items_skipped += 1
 
@@ -471,7 +460,9 @@ class DevOpsAgent:
             "python -m pytest tests/ -x -q --tb=short --timeout=120",
             "run_tests",
         )
-        result.details.append({"step": "tests", "success": ok, "output": output[:500] if output else ""})
+        result.details.append(
+            {"step": "tests", "success": ok, "output": output[:500] if output else ""}
+        )
         if not ok:
             result.errors.append(f"Tests failed: {output[:200] if output else 'unknown'}")
             result.success = False
@@ -595,9 +586,7 @@ class DevOpsAgent:
 
     # ── Dispatcher ─────────────────────────────────────────────────
 
-    def run_task(
-        self, task: DevOpsTask, version: str | None = None
-    ) -> TaskResult:
+    def run_task(self, task: DevOpsTask, version: str | None = None) -> TaskResult:
         """Run a specific task."""
         if task == DevOpsTask.REVIEW_PRS:
             return self.review_prs()

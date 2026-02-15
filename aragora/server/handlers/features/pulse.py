@@ -451,10 +451,12 @@ class PulseHandler(BaseHandler):
         store = get_scheduled_debate_store()
         store_analytics = store.get_analytics() if store else {}
 
-        return json_response({
-            "scheduler_metrics": metrics,
-            "store_analytics": store_analytics,
-        })
+        return json_response(
+            {
+                "scheduler_metrics": metrics,
+                "store_analytics": store_analytics,
+            }
+        )
 
     @auto_error_response("get topic outcomes")
     def _get_topic_outcomes(self, topic_id: str) -> HandlerResult:
@@ -487,23 +489,27 @@ class PulseHandler(BaseHandler):
                     outcomes = []
                     for row in rows:
                         record = store._row_to_record(row)
-                        outcomes.append({
-                            "id": record.id,
-                            "topic": record.topic_text,
-                            "platform": record.platform,
-                            "category": record.category,
-                            "debate_id": record.debate_id,
-                            "consensus_reached": record.consensus_reached,
-                            "confidence": record.confidence,
-                            "rounds_used": record.rounds_used,
-                            "created_at": record.created_at,
-                            "hours_ago": record.hours_ago,
-                        })
-                    return json_response({
-                        "topic_id": topic_id,
-                        "outcomes": outcomes,
-                        "count": len(outcomes),
-                    })
+                        outcomes.append(
+                            {
+                                "id": record.id,
+                                "topic": record.topic_text,
+                                "platform": record.platform,
+                                "category": record.category,
+                                "debate_id": record.debate_id,
+                                "consensus_reached": record.consensus_reached,
+                                "confidence": record.confidence,
+                                "rounds_used": record.rounds_used,
+                                "created_at": record.created_at,
+                                "hours_ago": record.hours_ago,
+                            }
+                        )
+                    return json_response(
+                        {
+                            "topic_id": topic_id,
+                            "outcomes": outcomes,
+                            "count": len(outcomes),
+                        }
+                    )
             except (sqlite3.Error, AttributeError, TypeError) as e:
                 logger.debug(f"Store lookup failed for topic {topic_id}: {e}")
 
@@ -525,11 +531,13 @@ class PulseHandler(BaseHandler):
                 if getattr(o, "debate_id", "") == topic_id
             ]
             if matching:
-                return json_response({
-                    "topic_id": topic_id,
-                    "outcomes": matching,
-                    "count": len(matching),
-                })
+                return json_response(
+                    {
+                        "topic_id": topic_id,
+                        "outcomes": matching,
+                        "count": len(matching),
+                    }
+                )
 
         return json_response(
             {"topic_id": topic_id, "outcomes": [], "count": 0},

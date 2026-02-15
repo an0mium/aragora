@@ -217,12 +217,7 @@ def score_passage_quality(text: str) -> dict[str, float]:
     length_bonus = min(word_count / 500, 1.5)
 
     # Calculate overall score (weighted)
-    overall = (
-        depth * 0.3 +
-        novelty * 0.25 +
-        beauty * 0.2 +
-        edification * 0.25
-    ) * length_bonus
+    overall = (depth * 0.3 + novelty * 0.25 + beauty * 0.2 + edification * 0.25) * length_bonus
 
     return {
         "depth": round(depth, 3),
@@ -237,6 +232,7 @@ def score_passage_quality(text: str) -> dict[str, float]:
 # =============================================================================
 # Prose Extraction
 # =============================================================================
+
 
 @dataclass
 class ProsePassage:
@@ -288,12 +284,16 @@ def extract_messages_from_conversation(conv: dict) -> list[dict]:
                     parts = msg.get("content", {}).get("parts", [])
                     content = "\n".join(str(p) for p in parts if p)
                     timestamp = msg.get("create_time")
-                    nodes.append({
-                        "role": role,
-                        "content": content,
-                        "timestamp": datetime.fromtimestamp(timestamp).isoformat() if timestamp else None,
-                        "sort_key": timestamp or 0,
-                    })
+                    nodes.append(
+                        {
+                            "role": role,
+                            "content": content,
+                            "timestamp": datetime.fromtimestamp(timestamp).isoformat()
+                            if timestamp
+                            else None,
+                            "sort_key": timestamp or 0,
+                        }
+                    )
         nodes.sort(key=lambda x: x["sort_key"])
         messages = nodes
 
@@ -313,11 +313,13 @@ def extract_messages_from_conversation(conv: dict) -> list[dict]:
                 content = "\n".join(str(c) for c in content)
 
             timestamp = msg.get("created_at")
-            messages.append({
-                "role": role,
-                "content": content,
-                "timestamp": timestamp,
-            })
+            messages.append(
+                {
+                    "role": role,
+                    "content": content,
+                    "timestamp": timestamp,
+                }
+            )
 
     return messages
 
@@ -380,8 +382,8 @@ def extract_quality_prose(
 
             if scores["overall"] >= min_quality:
                 # Get context
-                context_before = messages[i-1]["content"] if i > 0 else ""
-                context_after = messages[i+1]["content"] if i < len(messages)-1 else ""
+                context_before = messages[i - 1]["content"] if i > 0 else ""
+                context_after = messages[i + 1]["content"] if i < len(messages) - 1 else ""
 
                 passage = ProsePassage(
                     text=content,
@@ -413,6 +415,7 @@ def extract_quality_prose(
 # Main
 # =============================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Extract high-quality prose from conversations",
@@ -420,13 +423,15 @@ def main():
     )
 
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         type=Path,
         required=True,
         help="Input conversations JSON file",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=Path,
         required=True,
         help="Output quality prose JSON file",
@@ -459,7 +464,8 @@ def main():
         help="Only output top N passages by quality",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Verbose output",
     )
@@ -496,7 +502,7 @@ def main():
 
     # Apply top-n filter
     if args.top_n:
-        passages = passages[:args.top_n]
+        passages = passages[: args.top_n]
 
     # Calculate statistics
     total_words = sum(p.word_count for p in passages)
@@ -514,7 +520,9 @@ def main():
             "total_words": total_words,
             "user_passages": len(user_passages),
             "assistant_passages": len(assistant_passages),
-            "avg_quality": sum(p.overall_quality for p in passages) / len(passages) if passages else 0,
+            "avg_quality": sum(p.overall_quality for p in passages) / len(passages)
+            if passages
+            else 0,
         },
         "passages": [p.to_dict() for p in passages],
     }
@@ -522,9 +530,9 @@ def main():
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, default=str)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("QUALITY PROSE EXTRACTION COMPLETE")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"\nTotal passages: {len(passages)}")
     print(f"  User passages: {len(user_passages)}")
     print(f"  Assistant passages: {len(assistant_passages)}")

@@ -100,7 +100,7 @@ def _init_metrics() -> bool:
             except ValueError:
                 # Already registered — retrieve from registry
                 for collector in list(REGISTRY._names_to_collectors.values()):
-                    if hasattr(collector, '_name') and collector._name == name:
+                    if hasattr(collector, "_name") and collector._name == name:
                         return collector
                 # Fallback: unregister and recreate
                 try:

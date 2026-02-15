@@ -149,9 +149,7 @@ class BotHandlerMixin:
 
         return self._build_status_response(extra_status)
 
-    def _build_status_response(
-        self, extra_status: dict[str, Any] | None = None
-    ) -> HandlerResult:
+    def _build_status_response(self, extra_status: dict[str, Any] | None = None) -> HandlerResult:
         """Build the status response JSON.
 
         Combines base status fields with platform-specific config from

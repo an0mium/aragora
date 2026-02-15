@@ -53,9 +53,7 @@ class PlanManagementHandler(BaseHandler):
         cleaned = strip_version_prefix(path)
         return cleaned.startswith("/api/plans")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         cleaned = strip_version_prefix(path)
 
@@ -94,12 +92,7 @@ class PlanManagementHandler(BaseHandler):
 
         # /api/plans/:id/approve
         parts = cleaned.split("/")
-        if (
-            len(parts) == 5
-            and parts[1] == "api"
-            and parts[2] == "plans"
-            and parts[4] == "approve"
-        ):
+        if len(parts) == 5 and parts[1] == "api" and parts[2] == "plans" and parts[4] == "approve":
             plan_id = parts[3]
             is_valid, err = validate_path_segment(plan_id, "plan_id", SAFE_ID_PATTERN)
             if not is_valid:
@@ -129,10 +122,7 @@ class PlanManagementHandler(BaseHandler):
 
             # Filter by status if provided
             if status_filter:
-                plans = [
-                    p for p in plans
-                    if self._get_plan_status(p) == status_filter
-                ]
+                plans = [p for p in plans if self._get_plan_status(p) == status_filter]
 
             # Sort by created_at descending
             plans.sort(
@@ -141,20 +131,22 @@ class PlanManagementHandler(BaseHandler):
             )
 
             total = len(plans)
-            paginated = plans[offset:offset + limit]
+            paginated = plans[offset : offset + limit]
 
             # Summarize each plan for list view
             summaries = []
             for plan in paginated:
                 summaries.append(self._plan_summary(plan))
 
-            return json_response({
-                "plans": summaries,
-                "count": len(summaries),
-                "total": total,
-                "limit": limit,
-                "offset": offset,
-            })
+            return json_response(
+                {
+                    "plans": summaries,
+                    "count": len(summaries),
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
         except Exception as e:
             logger.error("List plans failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to list plans", 500)
@@ -214,12 +206,14 @@ class PlanManagementHandler(BaseHandler):
             else:
                 return error_response("Plan does not support approval", 400)
 
-            return json_response({
-                "approved": True,
-                "plan_id": plan_id,
-                "approver_id": approver_id,
-                "plan": result_dict,
-            })
+            return json_response(
+                {
+                    "approved": True,
+                    "plan_id": plan_id,
+                    "approver_id": approver_id,
+                    "plan": result_dict,
+                }
+            )
         except Exception as e:
             logger.error("Approve plan failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to approve plan", 500)
@@ -251,11 +245,13 @@ class PlanManagementHandler(BaseHandler):
             if memo_md is None:
                 memo_md = self._build_simple_memo(plan, plan_id)
 
-            return json_response({
-                "plan_id": plan_id,
-                "memo": memo_md,
-                "format": "markdown",
-            })
+            return json_response(
+                {
+                    "plan_id": plan_id,
+                    "memo": memo_md,
+                    "format": "markdown",
+                }
+            )
         except Exception as e:
             logger.error("Get memo failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to generate memo", 500)

@@ -100,10 +100,7 @@ class PostFixBugChecker:
             all_resolved.extend(resolved)
 
         # Check severity of new bugs
-        high_severity_new = [
-            b for b in all_new if getattr(b, "severity", None)
-            in _HIGH_SEVERITIES
-        ]
+        high_severity_new = [b for b in all_new if getattr(b, "severity", None) in _HIGH_SEVERITIES]
 
         passes = len(high_severity_new) == 0
         summary_parts = [
@@ -111,9 +108,7 @@ class PostFixBugChecker:
             f"{len(all_resolved)} resolved bug(s)",
         ]
         if high_severity_new:
-            summary_parts.append(
-                f"{len(high_severity_new)} high/critical severity"
-            )
+            summary_parts.append(f"{len(high_severity_new)} high/critical severity")
 
         return BugCheckResult(
             new_bugs=all_new,

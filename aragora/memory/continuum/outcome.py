@@ -289,7 +289,9 @@ class OutcomeMixin:
                         meta = json.loads(row[0]) if isinstance(row[0], str) else row[0]
                         pattern_id = meta.get("pattern_id")
             except (OSError, KeyError, ValueError):
-                logger.debug("Non-critical metadata lookup failure for memory %s", memory_id, exc_info=True)
+                logger.debug(
+                    "Non-critical metadata lookup failure for memory %s", memory_id, exc_info=True
+                )
 
             feedback_entry = {
                 "memory_id": memory_id,

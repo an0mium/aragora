@@ -753,9 +753,7 @@ class DecisionReceipt:
         timestamp = datetime.now(timezone.utc).isoformat()
 
         # --- agents ---
-        agents_used: list[str] = reviewer_agents or list(
-            review_result.get("agents_used", [])
-        )
+        agents_used: list[str] = reviewer_agents or list(review_result.get("agents_used", []))
 
         # --- severity counts ---
         critical_issues = list(review_result.get("critical_issues", []))
@@ -764,10 +762,7 @@ class DecisionReceipt:
         low_issues = list(review_result.get("low_issues", []))
 
         total_issues = (
-            len(critical_issues)
-            + len(high_issues)
-            + len(medium_issues)
-            + len(low_issues)
+            len(critical_issues) + len(high_issues) + len(medium_issues) + len(low_issues)
         )
 
         risk_summary = {
@@ -784,20 +779,16 @@ class DecisionReceipt:
             {
                 "unanimous_critiques": review_result.get("unanimous_critiques", []),
                 "critical_issues": [
-                    i.get("issue", "") if isinstance(i, dict) else str(i)
-                    for i in critical_issues
+                    i.get("issue", "") if isinstance(i, dict) else str(i) for i in critical_issues
                 ],
                 "high_issues": [
-                    i.get("issue", "") if isinstance(i, dict) else str(i)
-                    for i in high_issues
+                    i.get("issue", "") if isinstance(i, dict) else str(i) for i in high_issues
                 ],
                 "medium_issues": [
-                    i.get("issue", "") if isinstance(i, dict) else str(i)
-                    for i in medium_issues
+                    i.get("issue", "") if isinstance(i, dict) else str(i) for i in medium_issues
                 ],
                 "low_issues": [
-                    i.get("issue", "") if isinstance(i, dict) else str(i)
-                    for i in low_issues
+                    i.get("issue", "") if isinstance(i, dict) else str(i) for i in low_issues
                 ],
                 "final_summary": review_result.get("final_summary", ""),
             },
@@ -846,9 +837,7 @@ class DecisionReceipt:
                     event_type="review_finding",
                     agent=agent,
                     description=description,
-                    evidence_hash=hashlib.sha256(
-                        evidence_content.encode()
-                    ).hexdigest()[:16],
+                    evidence_hash=hashlib.sha256(evidence_content.encode()).hexdigest()[:16],
                 )
             )
 
@@ -859,9 +848,7 @@ class DecisionReceipt:
                     timestamp=timestamp,
                     event_type="unanimous_critique",
                     description=str(critique)[:80],
-                    evidence_hash=hashlib.sha256(
-                        str(critique).encode()
-                    ).hexdigest()[:16],
+                    evidence_hash=hashlib.sha256(str(critique).encode()).hexdigest()[:16],
                 )
             )
 
@@ -874,9 +861,7 @@ class DecisionReceipt:
                         timestamp=timestamp,
                         event_type="split_opinion",
                         description=f"{str(desc)[:60]} (for: {majority}, against: {minority})",
-                        evidence_hash=hashlib.sha256(
-                            str(desc).encode()
-                        ).hexdigest()[:16],
+                        evidence_hash=hashlib.sha256(str(desc).encode()).hexdigest()[:16],
                     )
                 )
 
@@ -926,19 +911,21 @@ class DecisionReceipt:
         vulnerability_details: list[dict] = []
         for issue_data in critical_issues + high_issues:
             if isinstance(issue_data, dict):
-                vulnerability_details.append({
-                    "agent": issue_data.get("agent", ""),
-                    "issue": issue_data.get("issue", ""),
-                    "target": issue_data.get("target", ""),
-                    "severity": (
-                        "CRITICAL" if issue_data in critical_issues else "HIGH"
-                    ),
-                })
+                vulnerability_details.append(
+                    {
+                        "agent": issue_data.get("agent", ""),
+                        "issue": issue_data.get("issue", ""),
+                        "target": issue_data.get("target", ""),
+                        "severity": ("CRITICAL" if issue_data in critical_issues else "HIGH"),
+                    }
+                )
             else:
-                vulnerability_details.append({
-                    "issue": str(issue_data),
-                    "severity": "HIGH",
-                })
+                vulnerability_details.append(
+                    {
+                        "issue": str(issue_data),
+                        "severity": "HIGH",
+                    }
+                )
 
         # --- robustness score ---
         robustness_score = agreement_score * (1.0 - (len(critical_issues) * 0.2))
@@ -947,9 +934,9 @@ class DecisionReceipt:
         # --- verdict reasoning ---
         summary = review_result.get("final_summary", "")
         verdict_reasoning = (
-            summary[:500] if summary
-            else f"Review found {total_issues} issue(s) with "
-                 f"{agreement_score:.0%} agent agreement."
+            summary[:500]
+            if summary
+            else f"Review found {total_issues} issue(s) with {agreement_score:.0%} agent agreement."
         )
 
         # --- input summary ---
@@ -1260,7 +1247,9 @@ class DecisionReceipt:
         """Generate markdown report with full provenance and evidence links."""
         from aragora.gauntlet.receipt_exporters import receipt_to_markdown
 
-        return receipt_to_markdown(self, include_provenance=include_provenance, include_evidence=include_evidence)
+        return receipt_to_markdown(
+            self, include_provenance=include_provenance, include_evidence=include_evidence
+        )
 
     def to_html(self, max_findings: int = 20, max_provenance: int = 50) -> str:
         """Export as self-contained HTML document."""

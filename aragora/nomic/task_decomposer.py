@@ -197,8 +197,7 @@ class TaskDecomposer:
         # Enforce depth limit to prevent unbounded recursive decomposition
         if depth >= self.config.max_depth:
             logger.info(
-                f"decomposition_depth_limit_reached depth={depth} "
-                f"max={self.config.max_depth}"
+                f"decomposition_depth_limit_reached depth={depth} max={self.config.max_depth}"
             )
             complexity_score = self._calculate_complexity(task_description, debate_result)
             return TaskDecomposition(
@@ -275,7 +274,9 @@ class TaskDecomposer:
         length_score = min(word_count / 30, 3)
 
         # Concept breadth (0-3 bonus points)
-        concepts = self._concept_pattern.findall(task_lower) if hasattr(self, "_concept_pattern") else []
+        concepts = (
+            self._concept_pattern.findall(task_lower) if hasattr(self, "_concept_pattern") else []
+        )
         unique_concepts = set(c.lower() for c in concepts)
         concept_score = min(len(unique_concepts), 3)
 
@@ -521,8 +522,7 @@ class TaskDecomposer:
         # Enforce depth limit
         if depth >= self.config.max_depth:
             logger.info(
-                f"debate_decomposition_depth_limit depth={depth} "
-                f"max={self.config.max_depth}"
+                f"debate_decomposition_depth_limit depth={depth} max={self.config.max_depth}"
             )
             return self.analyze(goal, depth=self.config.max_depth)
         from aragora.core import Environment

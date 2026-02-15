@@ -191,9 +191,7 @@ def _ast_extract_endpoints_from_file(filepath: Path) -> list[dict[str, Any]]:
             # Use function docstring as description fallback
             if not description and isinstance(node.body, list) and node.body:
                 first_stmt = node.body[0]
-                if isinstance(first_stmt, ast.Expr) and isinstance(
-                    first_stmt.value, ast.Constant
-                ):
+                if isinstance(first_stmt, ast.Expr) and isinstance(first_stmt.value, ast.Constant):
                     doc = first_stmt.value.value
                     if isinstance(doc, str):
                         description = doc.strip()
@@ -454,8 +452,7 @@ def build_openapi_schema(
                     "type": "http",
                     "scheme": "bearer",
                     "description": (
-                        "API token authentication. Set via ARAGORA_API_TOKEN "
-                        "environment variable."
+                        "API token authentication. Set via ARAGORA_API_TOKEN environment variable."
                     ),
                 },
             },
@@ -523,9 +520,7 @@ def _legacy_generate_openapi_schema() -> dict[str, Any]:
             }
 
     sorted_paths = dict(sorted(paths.items()))
-    tag_list = [
-        {"name": t, "description": d or f"{t} operations"} for t, d in sorted(tags.items())
-    ]
+    tag_list = [{"name": t, "description": d or f"{t} operations"} for t, d in sorted(tags.items())]
     return {
         "openapi": "3.1.0",
         "info": {

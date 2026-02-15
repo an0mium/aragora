@@ -33,7 +33,9 @@ def receipt_to_html(data: dict[str, Any]) -> str:
     verdict = data.get("verdict", "N/A")
     confidence = data.get("confidence", 0)
     agents = data.get("agents", [])
-    summary = escape(str(data.get("summary", data.get("verdict_reasoning", "No summary available."))))
+    summary = escape(
+        str(data.get("summary", data.get("verdict_reasoning", "No summary available.")))
+    )
     dissent = data.get("dissent", data.get("dissenting_views", []))
     rounds = data.get("rounds", data.get("probes_run", 0))
     mode = data.get("mode", "")
@@ -138,7 +140,9 @@ def receipt_to_html(data: dict[str, Any]) -> str:
     # Integrity hash
     hash_html = ""
     if artifact_hash:
-        hash_html = f'<p class="hash">Artifact hash: <code>{escape(artifact_hash[:16])}...</code></p>'
+        hash_html = (
+            f'<p class="hash">Artifact hash: <code>{escape(artifact_hash[:16])}...</code></p>'
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -310,7 +314,7 @@ def receipt_to_html(data: dict[str, Any]) -> str:
 <body>
     <div class="header">
         <h1>Aragora Decision Receipt</h1>
-        <div class="subtitle">{escape(receipt_id) if receipt_id else 'Quickstart debate result'}</div>
+        <div class="subtitle">{escape(receipt_id) if receipt_id else "Quickstart debate result"}</div>
     </div>
 
     <div class="verdict-banner">
@@ -325,7 +329,7 @@ def receipt_to_html(data: dict[str, Any]) -> str:
     <div class="meta-row">
         <div class="meta-item"><strong>Rounds</strong> {rounds}</div>
         <div class="meta-item"><strong>Agents</strong> {agent_badges}</div>
-        {f'<div class="meta-item"><strong>Mode</strong> {escape(mode)}</div>' if mode else ''}
+        {f'<div class="meta-item"><strong>Mode</strong> {escape(mode)}</div>' if mode else ""}
     </div>
 
     <div class="section">
@@ -392,7 +396,9 @@ def receipt_to_markdown(data: dict[str, Any]) -> str:
         dissenting_agents = cp.get("dissenting_agents", [])
 
         lines += [
-            "", "## Consensus Proof", "",
+            "",
+            "## Consensus Proof",
+            "",
             f"- **Status:** {'Reached' if reached else 'Not reached'}",
             f"- **Method:** {method}",
             f"- **Supporting:** {', '.join(str(a) for a in supporting) or 'None'}",

@@ -138,9 +138,7 @@ class PlanStore:
             """)
 
             # Backward-compatible schema migration for existing databases.
-            columns = {
-                row["name"] for row in conn.execute("PRAGMA table_info(plans)").fetchall()
-            }
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(plans)").fetchall()}
             if "max_auto_risk" not in columns:
                 conn.execute(
                     "ALTER TABLE plans ADD COLUMN max_auto_risk TEXT NOT NULL DEFAULT 'low'"
@@ -159,9 +157,7 @@ class PlanStore:
         """Insert a new plan into the store."""
         now = datetime.utcnow().isoformat()
         budget_json = json.dumps(plan.budget.to_dict()) if plan.budget else "{}"
-        approval_json = (
-            json.dumps(plan.approval_record.to_dict()) if plan.approval_record else None
-        )
+        approval_json = json.dumps(plan.approval_record.to_dict()) if plan.approval_record else None
         implementation_profile_json = (
             json.dumps(plan.implementation_profile.to_dict())
             if plan.implementation_profile
@@ -209,9 +205,7 @@ class PlanStore:
         """Retrieve a plan by ID."""
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT * FROM plans WHERE id = ?", (plan_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM plans WHERE id = ?", (plan_id,)).fetchone()
             if row is None:
                 return None
             return self._row_to_plan(row)
@@ -389,10 +383,7 @@ class PlanStore:
             params.append(json.dumps(approval_record.to_dict()))
 
         placeholders = ", ".join("?" for _ in expected_values)
-        query = (
-            f"UPDATE plans SET {', '.join(fields)} "
-            f"WHERE id = ? AND status IN ({placeholders})"
-        )
+        query = f"UPDATE plans SET {', '.join(fields)} WHERE id = ? AND status IN ({placeholders})"
         query_params = [*params, plan_id, *expected_values]
 
         conn = self._connect()
@@ -540,10 +531,7 @@ class PlanStore:
         if clauses:
             where = "WHERE " + " AND ".join(clauses)
 
-        query = (
-            "SELECT * FROM plan_executions "
-            f"{where} ORDER BY started_at DESC LIMIT ? OFFSET ?"
-        )
+        query = f"SELECT * FROM plan_executions {where} ORDER BY started_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         conn = self._connect()
@@ -603,11 +591,15 @@ class PlanStore:
                 if isinstance(profile_data, dict):
                     implementation_profile = ImplementationProfile.from_dict(profile_data)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
-                logger.warning("invalid implementation_profile_json for plan %s: %s", row["id"], exc)
+                logger.warning(
+                    "invalid implementation_profile_json for plan %s: %s", row["id"], exc
+                )
 
         metadata = json.loads(row["metadata_json"] or "{}")
 
-        max_auto_risk_raw = row["max_auto_risk"] if "max_auto_risk" in row_keys else RiskLevel.LOW.value
+        max_auto_risk_raw = (
+            row["max_auto_risk"] if "max_auto_risk" in row_keys else RiskLevel.LOW.value
+        )
         try:
             max_auto_risk = RiskLevel(max_auto_risk_raw)
         except ValueError:

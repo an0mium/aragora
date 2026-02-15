@@ -269,7 +269,9 @@ class JiraConnector(EnterpriseConnector):
                 break
             start += max_results
         else:
-            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for projects")
+            logger.warning(
+                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for projects"
+            )
 
         return projects
 
@@ -425,7 +427,9 @@ class JiraConnector(EnterpriseConnector):
                 break
             start_at += max_results
         else:
-            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for issues")
+            logger.warning(
+                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for issues"
+            )
 
     async def _get_issue_comments(self, issue_key: str) -> list[JiraComment]:
         """Get comments for an issue."""

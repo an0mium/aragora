@@ -27,8 +27,17 @@ PACKAGES = {
         "path": ".",
         "type": "python",
         "build_cmd": ["python", "-m", "build"],
-        "test_cmd": ["python", "-m", "pytest", "tests/", "-x", "-q", "--timeout=60",
-                      "-k", "not benchmark and not e2e and not integration"],
+        "test_cmd": [
+            "python",
+            "-m",
+            "pytest",
+            "tests/",
+            "-x",
+            "-q",
+            "--timeout=60",
+            "-k",
+            "not benchmark and not e2e and not integration",
+        ],
         "description": "Aragora core platform",
         "pypi_name": "aragora",
     },
@@ -76,7 +85,11 @@ def _run(cmd: list[str], cwd: Path, dry_run: bool = False) -> tuple[bool, str]:
         return True, ""
     try:
         result = subprocess.run(
-            cmd, cwd=str(cwd), capture_output=True, text=True, timeout=300,
+            cmd,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
         if result.returncode != 0:
             return False, result.stderr or result.stdout
@@ -108,7 +121,10 @@ def _check_credentials(pkg_type: str) -> tuple[bool, str]:
         if npmrc.exists() and npmrc.read_text().strip():
             return True, "~/.npmrc found"
         result = subprocess.run(
-            ["npm", "whoami"], capture_output=True, text=True, timeout=10,
+            ["npm", "whoami"],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             return True, f"Logged in as {result.stdout.strip()}"
@@ -123,7 +139,9 @@ def _verify_package(dist_dir: Path) -> tuple[bool, str]:
         return False, "No distribution files found"
     result = subprocess.run(
         ["python", "-m", "twine", "check", *[str(d) for d in dists]],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     if result.returncode != 0:
         return False, result.stdout + result.stderr
@@ -151,7 +169,11 @@ def _publish_npm(pkg_dir: Path, dry_run: bool = False) -> tuple[bool, str]:
     if dry_run:
         cmd.append("--dry-run")
     result = subprocess.run(
-        cmd, cwd=str(pkg_dir), capture_output=True, text=True, timeout=120,
+        cmd,
+        cwd=str(pkg_dir),
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if result.returncode != 0:
         return False, result.stderr or result.stdout
@@ -171,9 +193,9 @@ def publish_package(
     pkg_type = pkg["type"]
     desc = pkg["description"]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {desc} ({name})")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # 1. Check directory exists
     if not pkg_dir.exists():
@@ -291,16 +313,18 @@ def cmd_publish(args: argparse.Namespace) -> None:
     for name in targets:
         pkg = PACKAGES[name]
         results[name] = publish_package(
-            name, pkg, repo_root,
+            name,
+            pkg,
+            repo_root,
             dry_run=dry_run,
             skip_tests=skip_tests,
             verbose=verbose,
         )
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("  PUBLISH SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for name, success in results.items():
         status = "OK" if success else "FAILED"
         marker = "+" if success else "x"
@@ -357,7 +381,8 @@ Examples:
         help="Skip running tests before publishing",
     )
     publish_parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show detailed output on failures",
     )

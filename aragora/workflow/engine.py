@@ -283,7 +283,9 @@ class WorkflowEngine:
         Also dispatches lifecycle events (start, step_complete, complete, failed)
         to the webhook event dispatcher for external delivery.
         """
-        event_name = event_type.value if isinstance(event_type, StreamEventType) else str(event_type)
+        event_name = (
+            event_type.value if isinstance(event_type, StreamEventType) else str(event_type)
+        )
 
         if context.event_callback:
             try:
@@ -492,7 +494,9 @@ class WorkflowEngine:
         """
         logger.info(f"Resuming workflow {workflow_id} from step {checkpoint.current_step}")
 
-        metadata = self._merge_metadata(definition, metadata, checkpoint.context_state.get("metadata"))
+        metadata = self._merge_metadata(
+            definition, metadata, checkpoint.context_state.get("metadata")
+        )
         metadata.setdefault("workflow_name", definition.name)
 
         # Restore context from checkpoint

@@ -181,9 +181,7 @@ class CrudOperationsMixin:
             user = self.get_current_user(handler)
             if user:
                 debate_org_id = (
-                    debate.get("org_id")
-                    or debate.get("tenant_id")
-                    or debate.get("workspace_id")
+                    debate.get("org_id") or debate.get("tenant_id") or debate.get("workspace_id")
                 )
                 user_org_id = getattr(user, "org_id", None)
 
@@ -201,11 +199,7 @@ class CrudOperationsMixin:
                 # If debate has an owner and is not public, check participation
                 debate_visibility = debate.get("visibility", "private")
                 debate_owner_id = debate.get("user_id") or debate.get("owner_id")
-                if (
-                    debate_visibility != "public"
-                    and debate_owner_id
-                    and not debate_org_id
-                ):
+                if debate_visibility != "public" and debate_owner_id and not debate_org_id:
                     # No org scoping -- fall back to ownership/participant check
                     participants = debate.get("participants", [])
                     if (

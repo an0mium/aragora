@@ -43,13 +43,71 @@ def _extract_keywords(text: str) -> set[str]:
     import re
 
     stopwords = {
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "must", "shall", "can", "to", "of", "in",
-        "for", "on", "with", "at", "by", "from", "as", "into", "through",
-        "that", "this", "these", "those", "it", "its", "i", "you", "we", "they",
-        "what", "which", "who", "how", "when", "where", "why", "think", "believe",
-        "about", "more", "some", "any", "just", "only", "also", "very", "really",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+        "i",
+        "you",
+        "we",
+        "they",
+        "what",
+        "which",
+        "who",
+        "how",
+        "when",
+        "where",
+        "why",
+        "think",
+        "believe",
+        "about",
+        "more",
+        "some",
+        "any",
+        "just",
+        "only",
+        "also",
+        "very",
+        "really",
     }
     words = re.findall(r"\b[a-zA-Z]{4,}\b", text.lower())
     return {w for w in words if w not in stopwords}
@@ -139,17 +197,29 @@ def _write_json(path: Path, payload: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Synthesize essays from ChatGPT/Claude exports.")
     parser.add_argument("--exports", required=True, help="Path to export JSON file or directory")
-    parser.add_argument("--output", default=None, help="Output directory (default: output/essay_synthesis/<timestamp>)")
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Output directory (default: output/essay_synthesis/<timestamp>)",
+    )
     parser.add_argument("--seed-text", default=None, help="Seed idea text (string)")
     parser.add_argument("--seed-file", default=None, help="Path to seed idea file (markdown/text)")
     parser.add_argument("--title", default="Synthesized Essay", help="Essay title")
     parser.add_argument("--thesis", default=None, help="Optional thesis statement override")
     parser.add_argument("--target-words", type=int, default=50000, help="Target essay word count")
     parser.add_argument("--min-claim-length", type=int, default=50, help="Minimum claim length")
-    parser.add_argument("--max-claims", type=int, default=300, help="Max claims to keep after filtering")
-    parser.add_argument("--seed-min-score", type=float, default=0.05, help="Minimum seed relevance score")
-    parser.add_argument("--include-counterarguments", action="store_true", help="Include assistant counterarguments")
-    parser.add_argument("--with-attribution", action="store_true", help="Attempt scholarly attribution")
+    parser.add_argument(
+        "--max-claims", type=int, default=300, help="Max claims to keep after filtering"
+    )
+    parser.add_argument(
+        "--seed-min-score", type=float, default=0.05, help="Minimum seed relevance score"
+    )
+    parser.add_argument(
+        "--include-counterarguments", action="store_true", help="Include assistant counterarguments"
+    )
+    parser.add_argument(
+        "--with-attribution", action="store_true", help="Attempt scholarly attribution"
+    )
 
     args = parser.parse_args()
 
@@ -193,7 +263,11 @@ def main() -> None:
     # Optional attribution (off by default to avoid network/API requirements)
     if args.with_attribution:
         try:
-            from aragora.connectors import ArXivConnector, SemanticScholarConnector, CrossRefConnector
+            from aragora.connectors import (
+                ArXivConnector,
+                SemanticScholarConnector,
+                CrossRefConnector,
+            )
 
             pipeline.connectors = {
                 "arxiv": ArXivConnector(),

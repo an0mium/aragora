@@ -649,7 +649,9 @@ class ExternalIntegrationsHandler(SecureHandler):
         summary="List Make connections",
         tags=["Integrations"],
     )
-    def _handle_list_make_connections(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_list_make_connections(
+        self, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
         """Handle GET /api/integrations/make/connections - list connections."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "connectors.read")
@@ -840,7 +842,9 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not conn_id:
-            return error_response("connection_id query parameter is required", 400, code="MISSING_CONNECTION_ID")
+            return error_response(
+                "connection_id query parameter is required", 400, code="MISSING_CONNECTION_ID"
+            )
 
         make = self._get_make()
 
@@ -859,7 +863,9 @@ class ExternalIntegrationsHandler(SecureHandler):
         summary="List n8n credentials",
         tags=["Integrations"],
     )
-    def _handle_list_n8n_credentials(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+    def _handle_list_n8n_credentials(
+        self, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
         """Handle GET /api/integrations/n8n/credentials - list credentials."""
         # Check RBAC permission
         perm_error = self._check_permission(handler, "connectors.read")
@@ -1015,7 +1021,9 @@ class ExternalIntegrationsHandler(SecureHandler):
         if not cred_id:
             return error_response("credential_id is required", 400, code="MISSING_CREDENTIAL_ID")
         if not events:
-            return error_response("events is required (list of event types)", 400, code="MISSING_EVENTS")
+            return error_response(
+                "events is required (list of event types)", 400, code="MISSING_EVENTS"
+            )
 
         n8n = self._get_n8n()
         webhook = n8n.register_webhook(
@@ -1057,7 +1065,9 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         if not cred_id:
-            return error_response("credential_id query parameter is required", 400, code="MISSING_CREDENTIAL_ID")
+            return error_response(
+                "credential_id query parameter is required", 400, code="MISSING_CREDENTIAL_ID"
+            )
 
         n8n = self._get_n8n()
 

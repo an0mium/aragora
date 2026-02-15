@@ -181,9 +181,7 @@ class SecurityHandler(BaseHandler):
                     self.handle_get_secrets_scan(params, repo_id, scan_id)
                 )
         if sub_path == "/scan/secrets/latest":
-            return loop.run_until_complete(
-                self.handle_get_secrets_scan_latest(params, repo_id)
-            )
+            return loop.run_until_complete(self.handle_get_secrets_scan_latest(params, repo_id))
         if sub_path.startswith("/scan/sast/"):
             scan_id = sub_path.split("/scan/sast/", 1)[1].rstrip("/")
             if scan_id:
@@ -193,23 +191,17 @@ class SecurityHandler(BaseHandler):
         if sub_path.startswith("/scan/"):
             scan_id = sub_path.split("/scan/", 1)[1].rstrip("/")
             if scan_id and scan_id not in ("latest", "secrets", "sast"):
-                return loop.run_until_complete(
-                    self.handle_get_scan(params, repo_id, scan_id)
-                )
+                return loop.run_until_complete(self.handle_get_scan(params, repo_id, scan_id))
 
         # Vulnerability listings
         if sub_path == "/vulnerabilities" or sub_path.startswith("/vulnerabilities?"):
-            return loop.run_until_complete(
-                self.handle_get_vulnerabilities(params, repo_id)
-            )
+            return loop.run_until_complete(self.handle_get_vulnerabilities(params, repo_id))
 
         # Scan listings
         if sub_path == "/scans" or sub_path == "/scans/":
             return loop.run_until_complete(self.handle_list_scans(params, repo_id))
         if sub_path == "/scans/secrets" or sub_path == "/scans/secrets/":
-            return loop.run_until_complete(
-                self.handle_list_secrets_scans(params, repo_id)
-            )
+            return loop.run_until_complete(self.handle_list_secrets_scans(params, repo_id))
 
         # Secrets
         if sub_path == "/secrets" or sub_path.startswith("/secrets?"):
@@ -217,13 +209,9 @@ class SecurityHandler(BaseHandler):
 
         # SAST
         if sub_path == "/sast/findings" or sub_path.startswith("/sast/findings?"):
-            return loop.run_until_complete(
-                self.handle_get_sast_findings(params, repo_id)
-            )
+            return loop.run_until_complete(self.handle_get_sast_findings(params, repo_id))
         if sub_path == "/sast/owasp-summary":
-            return loop.run_until_complete(
-                self.handle_get_owasp_summary(params, repo_id)
-            )
+            return loop.run_until_complete(self.handle_get_owasp_summary(params, repo_id))
 
         # SBOM
         if sub_path == "/sbom/latest":
@@ -239,9 +227,7 @@ class SecurityHandler(BaseHandler):
         if sub_path.startswith("/sbom/"):
             sbom_id = sub_path.split("/sbom/", 1)[1].rstrip("/")
             if sbom_id and sbom_id not in ("latest", "list", "compare"):
-                return loop.run_until_complete(
-                    self.handle_get_sbom_by_id(params, repo_id, sbom_id)
-                )
+                return loop.run_until_complete(self.handle_get_sbom_by_id(params, repo_id, sbom_id))
 
         return None
 
@@ -277,7 +263,7 @@ class SecurityHandler(BaseHandler):
         """
         for prefix in ("/api/v1/codebase/", "/api/codebase/"):
             if path.startswith(prefix):
-                remainder = path[len(prefix):]
+                remainder = path[len(prefix) :]
                 if "/" in remainder:
                     repo_id, sub_path = remainder.split("/", 1)
                     return repo_id, "/" + sub_path

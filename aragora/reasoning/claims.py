@@ -732,22 +732,14 @@ class ClaimsKernel:
             return []
 
         # Tokenize topic into meaningful words (3+ chars)
-        topic_words = {
-            w.lower()
-            for w in re.split(r"\W+", topic)
-            if len(w) >= 3
-        }
+        topic_words = {w.lower() for w in re.split(r"\W+", topic) if len(w) >= 3}
 
         if not topic_words:
             return []
 
         scored: list[tuple[TypedClaim, float]] = []
         for claim in self.claims.values():
-            claim_words = {
-                w.lower()
-                for w in re.split(r"\W+", claim.statement)
-                if len(w) >= 3
-            }
+            claim_words = {w.lower() for w in re.split(r"\W+", claim.statement) if len(w) >= 3}
             overlap = len(topic_words & claim_words)
             if overlap > 0:
                 # Score by overlap count weighted by claim strength

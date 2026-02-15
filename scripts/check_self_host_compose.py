@@ -108,7 +108,9 @@ def _contains_required_runbook_markers(path: Path) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate production self-host compose configuration")
+    parser = argparse.ArgumentParser(
+        description="Validate production self-host compose configuration"
+    )
     parser.add_argument("--compose", default="docker-compose.production.yml")
     parser.add_argument("--env-example", default=".env.production.example")
     parser.add_argument("--runbook", default="docs/SELF_HOSTING.md")
@@ -186,7 +188,8 @@ def main() -> int:
     missing_healthcheck = sorted(
         name
         for name in REQUIRED_HEALTHCHECK_SERVICES
-        if name in services and not isinstance(services[name], dict)
+        if name in services
+        and not isinstance(services[name], dict)
         or (name in services and "healthcheck" not in services[name])
     )
     if missing_healthcheck:

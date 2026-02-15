@@ -401,6 +401,7 @@ class GauntletOrchestrator:
         self.on_progress = on_progress
         if nomic_dir is None:
             from aragora.persistence.db_config import get_nomic_dir
+
             nomic_dir = get_nomic_dir()
         self.nomic_dir = nomic_dir
         self.on_phase_complete = on_phase_complete
@@ -442,11 +443,11 @@ class GauntletOrchestrator:
         import re
 
         claims: list[str] = []
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
 
         claim_patterns = [
-            r'\b(must|shall|always|never|guarantees?|ensures?)\b',
-            r'\b(implies|entails|requires?)\b',
+            r"\b(must|shall|always|never|guarantees?|ensures?)\b",
+            r"\b(implies|entails|requires?)\b",
         ]
 
         for sentence in sentences:
@@ -642,6 +643,7 @@ class GauntletOrchestrator:
         # Resolve template to config
         if template is not None and config is None:
             from aragora.gauntlet.templates import _TEMPLATES
+
             config = _TEMPLATES.get(template, PipelineConfig())
 
         if config is None:

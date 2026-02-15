@@ -87,7 +87,12 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
         title = getattr(f, "title", "")
         desc = getattr(f, "description", "")
         mit = getattr(f, "mitigation", "")
-        sev_color = {"CRITICAL": "#dc3545", "HIGH": "#fd7e14", "MEDIUM": "#ffc107", "LOW": "#28a745"}.get(sev, "#6c757d")
+        sev_color = {
+            "CRITICAL": "#dc3545",
+            "HIGH": "#fd7e14",
+            "MEDIUM": "#ffc107",
+            "LOW": "#28a745",
+        }.get(sev, "#6c757d")
         findings_html += f"""
         <div style="border-left: 4px solid {sev_color}; padding: 12px 16px; margin: 12px 0; background: #f8f9fa; border-radius: 0 6px 6px 0;">
             <strong style="color: {sev_color};">[{esc(sev)}]</strong> {esc(title)}
@@ -152,15 +157,15 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
             </div>
             <div class="scores">
                 <div class="score">
-                    <div class="score-val">{getattr(receipt, 'robustness_score', 0):.0%}</div>
+                    <div class="score-val">{getattr(receipt, "robustness_score", 0):.0%}</div>
                     <div class="score-lbl">Robustness</div>
                 </div>
                 <div class="score">
-                    <div class="score-val">{getattr(receipt, 'coverage_score', 0):.0%}</div>
+                    <div class="score-val">{getattr(receipt, "coverage_score", 0):.0%}</div>
                     <div class="score-lbl">Coverage</div>
                 </div>
                 <div class="score">
-                    <div class="score-val">{getattr(receipt, 'verification_coverage', 0):.0%}</div>
+                    <div class="score-val">{getattr(receipt, "verification_coverage", 0):.0%}</div>
                     <div class="score-lbl">Verification</div>
                 </div>
             </div>
@@ -170,7 +175,7 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
             <div class="section-title">Decision Details</div>
             <div class="meta-row"><span class="meta-key">Input</span><span class="meta-val">{esc(str(input_summary)[:100])}</span></div>
             <div class="meta-row"><span class="meta-key">Timestamp</span><span class="meta-val">{esc(str(timestamp))}</span></div>
-            <div class="meta-row"><span class="meta-key">Agents</span><span class="meta-val">{esc(', '.join(agents[:5]))}{' ...' if len(agents) > 5 else ''}</span></div>
+            <div class="meta-row"><span class="meta-key">Agents</span><span class="meta-val">{esc(", ".join(agents[:5]))}{" ..." if len(agents) > 5 else ""}</span></div>
             <div class="meta-row"><span class="meta-key">Receipt ID</span><span class="meta-val">{esc(receipt_id[:24])}</span></div>
         </div>
 

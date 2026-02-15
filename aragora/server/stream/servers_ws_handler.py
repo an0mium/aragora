@@ -493,8 +493,11 @@ class WebSocketHandlerMixin:
                                 if subscribe_allowed:
                                     try:
                                         from .tenant_filter import get_tenant_filter
+
                                         tf = get_tenant_filter()
-                                        tenant_ok, tenant_msg = tf.validate_subscription(ws_id, debate_id)
+                                        tenant_ok, tenant_msg = tf.validate_subscription(
+                                            ws_id, debate_id
+                                        )
                                         if not tenant_ok:
                                             subscribe_allowed = False
                                             await ws.send_json(

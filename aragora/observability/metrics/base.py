@@ -101,9 +101,7 @@ def get_or_create_counter(
         return NoOpMetric()
 
 
-def get_or_create_gauge(
-    name: str, documentation: str, labelnames: list[str] | None = None
-) -> Any:
+def get_or_create_gauge(name: str, documentation: str, labelnames: list[str] | None = None) -> Any:
     """Create a Prometheus Gauge, reusing an existing one on conflict.
 
     Falls back to :class:`NoOpMetric` when ``prometheus_client`` is missing.

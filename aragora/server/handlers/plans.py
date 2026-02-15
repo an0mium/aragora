@@ -98,24 +98,12 @@ class PlansHandler(BaseHandler):
         self._post_dispatcher = RouteDispatcher()
         self._post_dispatcher.add_route("/api/v1/plans", self._create_plan)
         self._post_dispatcher.add_route("/api/plans", self._create_plan)
-        self._post_dispatcher.add_route(
-            "/api/v1/plans/{plan_id}/approve", self._approve_plan
-        )
-        self._post_dispatcher.add_route(
-            "/api/plans/{plan_id}/approve", self._approve_plan
-        )
-        self._post_dispatcher.add_route(
-            "/api/v1/plans/{plan_id}/reject", self._reject_plan
-        )
-        self._post_dispatcher.add_route(
-            "/api/plans/{plan_id}/reject", self._reject_plan
-        )
-        self._post_dispatcher.add_route(
-            "/api/v1/plans/{plan_id}/execute", self._execute_plan
-        )
-        self._post_dispatcher.add_route(
-            "/api/plans/{plan_id}/execute", self._execute_plan
-        )
+        self._post_dispatcher.add_route("/api/v1/plans/{plan_id}/approve", self._approve_plan)
+        self._post_dispatcher.add_route("/api/plans/{plan_id}/approve", self._approve_plan)
+        self._post_dispatcher.add_route("/api/v1/plans/{plan_id}/reject", self._reject_plan)
+        self._post_dispatcher.add_route("/api/plans/{plan_id}/reject", self._reject_plan)
+        self._post_dispatcher.add_route("/api/v1/plans/{plan_id}/execute", self._execute_plan)
+        self._post_dispatcher.add_route("/api/plans/{plan_id}/execute", self._execute_plan)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler serves the given path."""
@@ -125,9 +113,7 @@ class PlansHandler(BaseHandler):
             return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -189,12 +175,14 @@ class PlansHandler(BaseHandler):
         plans = store.list(debate_id=debate_id, status=status, limit=limit, offset=offset)
         total = store.count(debate_id=debate_id, status=status)
 
-        return json_response({
-            "plans": [self._plan_summary(p) for p in plans],
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "plans": [self._plan_summary(p) for p in plans],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
     # -------------------------------------------------------------------------
     # GET /api/v1/plans/{plan_id}
@@ -215,7 +203,7 @@ class PlansHandler(BaseHandler):
         """Fallback GET handler for /api/v1/plans/{id} paths."""
         for prefix in (_PLAN_PREFIX, _PLAN_PREFIX_UNVERSIONED):
             if path.startswith(prefix):
-                remainder = path[len(prefix):]
+                remainder = path[len(prefix) :]
                 if "/" not in remainder and remainder:
                     return self._get_plan({"plan_id": remainder}, query_params)
         return None
@@ -263,7 +251,9 @@ class PlansHandler(BaseHandler):
             debate_id=str(debate_id),
             task=str(task),
             approval_mode=approval_mode,
-            status=PlanStatus.AWAITING_APPROVAL if approval_mode != ApprovalMode.NEVER else PlanStatus.APPROVED,
+            status=PlanStatus.AWAITING_APPROVAL
+            if approval_mode != ApprovalMode.NEVER
+            else PlanStatus.APPROVED,
             metadata=metadata,
         )
 
@@ -295,9 +285,7 @@ class PlansHandler(BaseHandler):
         """Approve a decision plan. Requires plans:approve permission."""
         from aragora.pipeline.decision_plan.core import PlanStatus
 
-        user, perm_err = self.require_permission_or_error(
-            self._current_handler, "plans:approve"
-        )
+        user, perm_err = self.require_permission_or_error(self._current_handler, "plans:approve")
         if perm_err:
             return perm_err
 
@@ -321,9 +309,7 @@ class PlansHandler(BaseHandler):
         conditions = body.get("conditions", [])
 
         plan.approve(approver_id, reason=str(reason), conditions=conditions)
-        store.update_status(
-            plan_id, PlanStatus.APPROVED, approved_by=approver_id
-        )
+        store.update_status(plan_id, PlanStatus.APPROVED, approved_by=approver_id)
 
         logger.info("Plan %s approved by %s", plan_id, approver_id)
         _fire_plan_notification("approved", plan, approved_by=approver_id)
@@ -342,13 +328,15 @@ class PlansHandler(BaseHandler):
             except Exception as exc:
                 logger.warning("Auto-execution scheduling failed for plan %s: %s", plan_id, exc)
 
-        return json_response({
-            "plan_id": plan_id,
-            "status": "approved",
-            "approved_by": approver_id,
-            "message": f"Plan {plan_id} approved successfully",
-            "execution_scheduled": execution_scheduled,
-        })
+        return json_response(
+            {
+                "plan_id": plan_id,
+                "status": "approved",
+                "approved_by": approver_id,
+                "message": f"Plan {plan_id} approved successfully",
+                "execution_scheduled": execution_scheduled,
+            }
+        )
 
     # -------------------------------------------------------------------------
     # POST /api/v1/plans/{plan_id}/reject
@@ -358,9 +346,7 @@ class PlansHandler(BaseHandler):
         """Reject a decision plan with reason."""
         from aragora.pipeline.decision_plan.core import PlanStatus
 
-        user, perm_err = self.require_permission_or_error(
-            self._current_handler, "plans:deny"
-        )
+        user, perm_err = self.require_permission_or_error(self._current_handler, "plans:deny")
         if perm_err:
             return perm_err
 
@@ -395,13 +381,15 @@ class PlansHandler(BaseHandler):
         logger.info("Plan %s rejected by %s: %s", plan_id, rejecter_id, reason)
         _fire_plan_notification("rejected", plan, rejected_by=rejecter_id, reason=str(reason))
 
-        return json_response({
-            "plan_id": plan_id,
-            "status": "rejected",
-            "rejected_by": rejecter_id,
-            "reason": str(reason),
-            "message": f"Plan {plan_id} rejected",
-        })
+        return json_response(
+            {
+                "plan_id": plan_id,
+                "status": "rejected",
+                "rejected_by": rejecter_id,
+                "reason": str(reason),
+                "message": f"Plan {plan_id} rejected",
+            }
+        )
 
     # -------------------------------------------------------------------------
     # POST /api/v1/plans/{plan_id}/execute
@@ -415,9 +403,7 @@ class PlansHandler(BaseHandler):
         """
         from aragora.pipeline.decision_plan.core import PlanStatus
 
-        user, perm_err = self.require_permission_or_error(
-            self._current_handler, "plans:approve"
-        )
+        user, perm_err = self.require_permission_or_error(self._current_handler, "plans:approve")
         if perm_err:
             return perm_err
 
@@ -429,9 +415,7 @@ class PlansHandler(BaseHandler):
             return error_response(f"Plan not found: {plan_id}", 404)
 
         if plan.status == PlanStatus.EXECUTING:
-            return error_response(
-                f"Plan {plan_id} is already executing", 409
-            )
+            return error_response(f"Plan {plan_id} is already executing", 409)
         if plan.status in (PlanStatus.COMPLETED, PlanStatus.FAILED):
             return error_response(
                 f"Plan {plan_id} has already been executed ({plan.status.value})",
@@ -457,9 +441,7 @@ class PlansHandler(BaseHandler):
             )
         except Exception as exc:
             logger.error("Failed to schedule execution for plan %s: %s", plan_id, exc)
-            return error_response(
-                f"Failed to schedule execution: {exc}", 500
-            )
+            return error_response(f"Failed to schedule execution: {exc}", 500)
 
         logger.info("Execution scheduled for plan %s", plan_id)
         _fire_plan_notification("execution_started", plan)

@@ -114,9 +114,7 @@ class TenantRateLimiter:
                 "remaining": bucket.remaining if bucket else self.default_limit,
             }
 
-    def allow(
-        self, tenant_id: str | None = None, action: str = "default"
-    ) -> RateLimitResult:
+    def allow(self, tenant_id: str | None = None, action: str = "default") -> RateLimitResult:
         """Check if tenant can perform action.
 
         If tenant_id is not provided, reads from TenantContext.
@@ -145,9 +143,7 @@ class TenantRateLimiter:
 
         with self._lock:
             self._total_requests += 1
-            self._requests_by_tenant[tenant_id] = (
-                self._requests_by_tenant.get(tenant_id, 0) + 1
-            )
+            self._requests_by_tenant[tenant_id] = self._requests_by_tenant.get(tenant_id, 0) + 1
 
             if tenant_id in self._tenant_buckets:
                 self._tenant_buckets.move_to_end(tenant_id)

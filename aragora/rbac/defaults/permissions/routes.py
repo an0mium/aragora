@@ -168,9 +168,7 @@ PERM_PODCAST_CREATE = _permission(
 # PULSE - additional write permission
 # ============================================================================
 
-PERM_PULSE_WRITE = _permission(
-    ResourceType.PULSE, Action.WRITE, "Write Pulse", "Submit pulse data"
-)
+PERM_PULSE_WRITE = _permission(ResourceType.PULSE, Action.WRITE, "Write Pulse", "Submit pulse data")
 
 # ============================================================================
 # RELATIONSHIPS PERMISSIONS

@@ -435,7 +435,9 @@ def measure_sync(
 
     try:
         yield context
-    except BaseException as e:  # Intentionally broad: records metrics for all failure types before re-raising
+    except (
+        BaseException
+    ) as e:  # Intentionally broad: records metrics for all failure types before re-raising
         context["status"] = "failure"
         error_type = type(e).__name__
         record_sync_error(connector_type, error_type)

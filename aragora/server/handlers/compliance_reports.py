@@ -40,9 +40,7 @@ class ComplianceReportHandler(BaseHandler):
         return path.startswith("/api/v1/compliance/reports")
 
     @handle_errors("get compliance report")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if not path.startswith("/api/v1/compliance/reports"):
             return None
 
@@ -175,7 +173,9 @@ class ComplianceReportHandler(BaseHandler):
                     status_code=200,
                     content_type="application/json",
                     body=content.encode("utf-8"),
-                    headers={"Content-Disposition": f'attachment; filename="report-{report_id}.json"'},
+                    headers={
+                        "Content-Disposition": f'attachment; filename="report-{report_id}.json"'
+                    },
                 )
             elif fmt == "markdown":
                 content = generator.export_markdown(report)
@@ -183,7 +183,9 @@ class ComplianceReportHandler(BaseHandler):
                     status_code=200,
                     content_type="text/markdown; charset=utf-8",
                     body=content.encode("utf-8"),
-                    headers={"Content-Disposition": f'attachment; filename="report-{report_id}.md"'},
+                    headers={
+                        "Content-Disposition": f'attachment; filename="report-{report_id}.md"'
+                    },
                 )
             elif fmt == "html":
                 # Use markdown export wrapped in basic HTML
@@ -193,7 +195,9 @@ class ComplianceReportHandler(BaseHandler):
                     status_code=200,
                     content_type="text/html; charset=utf-8",
                     body=html.encode("utf-8"),
-                    headers={"Content-Disposition": f'attachment; filename="report-{report_id}.html"'},
+                    headers={
+                        "Content-Disposition": f'attachment; filename="report-{report_id}.html"'
+                    },
                 )
         except ImportError:
             return error_response("Report generator not available", 503)

@@ -470,20 +470,12 @@ class ArenaKnowledgeManager:
                 return []
 
             # Extract keywords from task for relevance matching
-            task_words = {
-                w.lower()
-                for w in task.split()
-                if len(w) >= 3
-            }
+            task_words = {w.lower() for w in task.split() if len(w) >= 3}
 
             scored: list[tuple[Any, int]] = []
             for record in recent:
                 topic_text = getattr(record, "topic_text", "")
-                topic_words = {
-                    w.lower()
-                    for w in topic_text.split()
-                    if len(w) >= 3
-                }
+                topic_words = {w.lower() for w in topic_text.split() if len(w) >= 3}
                 overlap = len(task_words & topic_words)
                 scored.append((record, overlap))
 
@@ -492,13 +484,15 @@ class ArenaKnowledgeManager:
 
             results = []
             for record, _score in scored[:limit]:
-                results.append({
-                    "topic": getattr(record, "topic_text", ""),
-                    "platform": getattr(record, "platform", "unknown"),
-                    "volume": getattr(record, "volume", 0),
-                    "category": getattr(record, "category", ""),
-                    "hours_ago": getattr(record, "hours_ago", 0.0),
-                })
+                results.append(
+                    {
+                        "topic": getattr(record, "topic_text", ""),
+                        "platform": getattr(record, "platform", "unknown"),
+                        "volume": getattr(record, "volume", 0),
+                        "category": getattr(record, "category", ""),
+                        "hours_ago": getattr(record, "hours_ago", 0.0),
+                    }
+                )
 
             return results
         except (AttributeError, TypeError) as e:

@@ -126,9 +126,11 @@ There is no clean resolution, only ongoing negotiation.
 # Prose Processing
 # =============================================================================
 
+
 @dataclass
 class ThemedPassage:
     """A passage with theme and quality information."""
+
     text: str
     role: str
     conversation_title: str
@@ -163,8 +165,20 @@ def load_quality_prose(path: Path) -> list[ThemedPassage]:
     passages = []
 
     # Filter out code content
-    code_keywords = ['def ', 'class ', 'import ', '.py', 'function', 'method',
-                     'error', 'terminal', 'git ', 'npm', 'armand@', 'MacBook']
+    code_keywords = [
+        "def ",
+        "class ",
+        "import ",
+        ".py",
+        "function",
+        "method",
+        "error",
+        "terminal",
+        "git ",
+        "npm",
+        "armand@",
+        "MacBook",
+    ]
 
     for p in data["passages"]:
         text = p["text"]
@@ -182,14 +196,16 @@ def load_quality_prose(path: Path) -> list[ThemedPassage]:
         if theme_score < 0.1:
             continue
 
-        passages.append(ThemedPassage(
-            text=text,
-            role=p["role"],
-            conversation_title=p["conversation_title"],
-            quality_score=quality,
-            primary_theme=theme,
-            word_count=len(text.split()),
-        ))
+        passages.append(
+            ThemedPassage(
+                text=text,
+                role=p["role"],
+                conversation_title=p["conversation_title"],
+                quality_score=quality,
+                primary_theme=theme,
+                word_count=len(text.split()),
+            )
+        )
 
     return passages
 
@@ -210,15 +226,16 @@ def organize_by_theme(passages: list[ThemedPassage]) -> dict[str, list[ThemedPas
 # Essay Generation
 # =============================================================================
 
+
 def clean_passage_text(text: str) -> str:
     """Clean up passage text for essay inclusion."""
     # Remove markdown artifacts
-    text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # Remove bold
-    text = re.sub(r'---+', '', text)  # Remove horizontal rules
+    text = re.sub(r"^#+\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)  # Remove bold
+    text = re.sub(r"---+", "", text)  # Remove horizontal rules
 
     # Clean up whitespace
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
     text = text.strip()
 
     return text
@@ -296,7 +313,8 @@ def generate_unified_essay(
     # Abstract
     lines.append("## Abstract")
     lines.append("")
-    lines.append("""
+    lines.append(
+        """
 This essay argues that debates about artificial intelligence are trapped in a false
 binary between utopia and extinction. Drawing on evolutionary theory, complex systems,
 philosophy of mind, and cultural analysis, it develops an alternative framework:
@@ -310,7 +328,8 @@ of AI risk, the language of complex systems, the deep structure of religion and
 morality, the substrate independence of intelligence, the tradeoff between rate and
 durability, the information theory of art, and the politics of legitimacy in an
 age of transformation.
-""".strip())
+""".strip()
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -330,7 +349,8 @@ age of transformation.
     # Introduction
     lines.append("## Introduction: Against the Fantasy of Final States")
     lines.append("")
-    lines.append("""
+    lines.append(
+        """
 Public discourse about artificial intelligence oscillates between two poles.
 On one side is techno-optimism: the belief that sufficiently advanced, well-aligned
 AI systems will solve humanity's hardest problems and usher in an era of abundance.
@@ -354,7 +374,8 @@ rate/durability tradeoffs, and metastable equilibrium.
 The structure follows a narrative arc: from the specific dynamics of AI risk, through
 the general language of complex systems, to the deep patterns visible in religion
 and consciousness, and finally to the practical implications for culture and politics.
-""".strip())
+""".strip()
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -381,7 +402,7 @@ and consciousness, and finally to the practical implications for culture and pol
 
         # Section header
         lines.append(f"## {config['name']}")
-        lines.append(f"<a name=\"{theme_id}\"></a>")
+        lines.append(f'<a name="{theme_id}"></a>')
         lines.append("")
 
         # Theme introduction
@@ -406,7 +427,7 @@ and consciousness, and finally to the practical implications for culture and pol
             # Attribution
             source = "conversation" if p.role == "user" else "AI synthesis"
             lines.append("")
-            lines.append(f"*— From \"{p.conversation_title}\" ({source})*")
+            lines.append(f'*— From "{p.conversation_title}" ({source})*')
 
             theme_word_count += p.word_count
             total_words += p.word_count
@@ -420,7 +441,8 @@ and consciousness, and finally to the practical implications for culture and pol
     # Conclusion
     lines.append("## Conclusion: Living Without Final States")
     lines.append("")
-    lines.append("""
+    lines.append(
+        """
 The choice is not between a clean AI utopia and total annihilation. Intelligence
 does not abolish evolution; it accelerates it. Alignment does not end risk; it
 shifts its form. Power does not eliminate adversaries; it constrains them.
@@ -440,7 +462,8 @@ question is whether we can maintain enough coherence, enough slack, enough capac
 for course-correction to keep the system adapting. That is the real work of wisdom
 in an age of artificial intelligence: not the pursuit of final states, but the
 cultivation of resilient, adaptive, non-equilibrial flourishing.
-""".strip())
+""".strip()
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -453,7 +476,9 @@ cultivation of resilient, adaptive, non-equilibrial flourishing.
     lines.append(f"- **Source passages:** {sum(len(v) for v in by_theme.values())}")
     lines.append(f"- **Generated:** {datetime.now().isoformat()}")
     lines.append("")
-    lines.append("This essay was synthesized from extended conversations with Claude, GPT-4, and other AI systems, preserving the original prose while organizing it into a coherent intellectual arc.")
+    lines.append(
+        "This essay was synthesized from extended conversations with Claude, GPT-4, and other AI systems, preserving the original prose while organizing it into a coherent intellectual arc."
+    )
 
     return "\n".join(lines)
 
@@ -462,21 +487,22 @@ cultivation of resilient, adaptive, non-equilibrial flourishing.
 # Main
 # =============================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Synthesize cross-theme essay from quality prose",
     )
-    parser.add_argument("--input", "-i", type=Path, required=True,
-                        help="Quality prose JSON file")
-    parser.add_argument("--output", "-o", type=Path, required=True,
-                        help="Output markdown file")
-    parser.add_argument("--title", "-t", type=str,
-                        default="AI, Evolution, and the Myth of Final States",
-                        help="Essay title")
-    parser.add_argument("--target-words", type=int, default=50000,
-                        help="Target word count")
-    parser.add_argument("--max-per-theme", type=int, default=8,
-                        help="Max passages per theme")
+    parser.add_argument("--input", "-i", type=Path, required=True, help="Quality prose JSON file")
+    parser.add_argument("--output", "-o", type=Path, required=True, help="Output markdown file")
+    parser.add_argument(
+        "--title",
+        "-t",
+        type=str,
+        default="AI, Evolution, and the Myth of Final States",
+        help="Essay title",
+    )
+    parser.add_argument("--target-words", type=int, default=50000, help="Target word count")
+    parser.add_argument("--max-per-theme", type=int, default=8, help="Max passages per theme")
 
     args = parser.parse_args()
 
@@ -487,8 +513,9 @@ def main():
     by_theme = organize_by_theme(passages)
 
     print("\nPassages by theme:")
-    for theme_id, theme_passages in sorted(by_theme.items(),
-                                            key=lambda x: THEME_CONFIG[x[0]]["narrative_position"]):
+    for theme_id, theme_passages in sorted(
+        by_theme.items(), key=lambda x: THEME_CONFIG[x[0]]["narrative_position"]
+    ):
         name = THEME_CONFIG[theme_id]["short_name"]
         words = sum(p.word_count for p in theme_passages)
         print(f"  {name}: {len(theme_passages)} passages, {words:,} words")

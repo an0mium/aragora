@@ -1290,6 +1290,7 @@ class DebateStreamServer(ServerBase):
                         # Also check tenant isolation
                         if subscribe_allowed:
                             from .tenant_filter import get_tenant_filter
+
                             tf = get_tenant_filter()
                             tenant_ok, tenant_msg = tf.validate_subscription(ws_id, debate_id)
                             if not tenant_ok:

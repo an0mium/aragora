@@ -94,18 +94,14 @@ class ResearchIntegrationConfig:
     """Configuration for research integration features."""
 
     level: IntegrationLevel = IntegrationLevel.STANDARD
-    adaptive_stopping: AdaptiveStoppingConfig = field(
-        default_factory=AdaptiveStoppingConfig
-    )
+    adaptive_stopping: AdaptiveStoppingConfig = field(default_factory=AdaptiveStoppingConfig)
     muse: MuseConfig = field(default_factory=MuseConfig)
     lara: LaraConfig = field(default_factory=LaraConfig)
     think_prm: ThinkPrmConfig = field(default_factory=ThinkPrmConfig)
     graph_rag: GraphRagConfig = field(default_factory=GraphRagConfig)
     telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
     ascot: AscotConfig = field(default_factory=AscotConfig)
-    debate_analytics: DebateAnalyticsConfig = field(
-        default_factory=DebateAnalyticsConfig
-    )
+    debate_analytics: DebateAnalyticsConfig = field(default_factory=DebateAnalyticsConfig)
 
     @classmethod
     def from_preset(cls, level: IntegrationLevel) -> "ResearchIntegrationConfig":
@@ -130,13 +126,9 @@ class ResearchIntegrationConfig:
                 lara=LaraConfig(enabled=True, max_hops=3, depth=5),
                 think_prm=ThinkPrmConfig(enabled=True, max_parallel=5),
                 graph_rag=GraphRagConfig(enabled=True, max_hops=3),
-                telemetry=TelemetryConfig(
-                    enabled=True, record_all_events=True
-                ),
+                telemetry=TelemetryConfig(enabled=True, record_all_events=True),
                 ascot=AscotConfig(enabled=True),
-                debate_analytics=DebateAnalyticsConfig(
-                    enabled=True, export_graphs=True
-                ),
+                debate_analytics=DebateAnalyticsConfig(enabled=True, export_graphs=True),
             )
         elif level == IntegrationLevel.STANDARD:
             return cls(
@@ -177,18 +169,15 @@ class ResearchIntegrationConfig:
         warnings: list[str] = []
         if self.adaptive_stopping.enabled and not self.muse.enabled:
             warnings.append(
-                "MUSE scoring is disabled; adaptive stopping may "
-                "lack quality signal gating."
+                "MUSE scoring is disabled; adaptive stopping may lack quality signal gating."
             )
         if self.adaptive_stopping.enabled and not self.ascot.enabled:
             warnings.append(
-                "ASCOT calibration is disabled; adaptive stopping "
-                "may lack calibration gating."
+                "ASCOT calibration is disabled; adaptive stopping may lack calibration gating."
             )
         if self.lara.enabled and not self.graph_rag.enabled:
             warnings.append(
-                "GraphRAG is disabled; LARA analysis may have "
-                "limited knowledge retrieval."
+                "GraphRAG is disabled; LARA analysis may have limited knowledge retrieval."
             )
         return warnings
 

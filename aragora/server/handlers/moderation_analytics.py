@@ -68,9 +68,7 @@ class ModerationAnalyticsHandler(BaseHandler):
 
     @require_permission("admin:read")
     @handle_errors("get moderation stats")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if path == "/api/v1/moderation/stats":
             return self._handle_stats()
         if path == "/api/v1/moderation/queue":
@@ -81,16 +79,18 @@ class ModerationAnalyticsHandler(BaseHandler):
         """Return moderation statistics."""
         moderation = _get_moderation()
         if moderation is None:
-            return json_response({
-                "total_checks": 0,
-                "blocked_count": 0,
-                "flagged_count": 0,
-                "clean_count": 0,
-                "block_rate": 0.0,
-                "false_positive_rate": 0.0,
-                "queue_size": 0,
-                "available": False,
-            })
+            return json_response(
+                {
+                    "total_checks": 0,
+                    "blocked_count": 0,
+                    "flagged_count": 0,
+                    "clean_count": 0,
+                    "block_rate": 0.0,
+                    "false_positive_rate": 0.0,
+                    "queue_size": 0,
+                    "available": False,
+                }
+            )
 
         stats = dict(getattr(moderation, "statistics", {}))
         total = stats.get("total_checks", 0) or 0
@@ -103,16 +103,18 @@ class ModerationAnalyticsHandler(BaseHandler):
         fp_rate = false_positives / blocked if blocked > 0 else 0.0
         queue_size = _get_queue_size()
 
-        return json_response({
-            "total_checks": total,
-            "blocked_count": blocked,
-            "flagged_count": flagged,
-            "clean_count": clean,
-            "block_rate": round(block_rate, 4),
-            "false_positive_rate": round(fp_rate, 4),
-            "queue_size": queue_size,
-            "available": True,
-        })
+        return json_response(
+            {
+                "total_checks": total,
+                "blocked_count": blocked,
+                "flagged_count": flagged,
+                "clean_count": clean,
+                "block_rate": round(block_rate, 4),
+                "false_positive_rate": round(fp_rate, 4),
+                "queue_size": queue_size,
+                "available": True,
+            }
+        )
 
     def _handle_queue(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return pending review items."""
@@ -130,12 +132,14 @@ class ModerationAnalyticsHandler(BaseHandler):
             else:
                 serialized.append(str(item))
 
-        return json_response({
-            "items": serialized,
-            "count": len(serialized),
-            "limit": limit,
-            "offset": offset,
-        })
+        return json_response(
+            {
+                "items": serialized,
+                "count": len(serialized),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
 
 
 __all__ = ["ModerationAnalyticsHandler"]

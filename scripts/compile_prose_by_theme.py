@@ -146,9 +146,11 @@ def detect_themes(text: str) -> list[tuple[str, float]]:
 # Compilation
 # =============================================================================
 
+
 @dataclass
 class ThemedPassage:
     """A passage with its theme classification."""
+
     text: str
     role: str
     conversation_title: str
@@ -172,8 +174,19 @@ def compile_by_theme(
     passages = data["passages"]
 
     # Filter out code content
-    code_keywords = ['def ', 'class ', 'import ', '.py', 'function', 'method',
-                     'error', 'terminal', 'git ', 'npm', 'armand@']
+    code_keywords = [
+        "def ",
+        "class ",
+        "import ",
+        ".py",
+        "function",
+        "method",
+        "error",
+        "terminal",
+        "git ",
+        "npm",
+        "armand@",
+    ]
 
     themed_passages: dict[str, list[ThemedPassage]] = defaultdict(list)
 
@@ -227,7 +240,9 @@ def generate_compilation_document(
     lines.append("")
     lines.append(f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*")
     lines.append("")
-    lines.append("This compilation preserves the full prose from conversations, organized by intellectual theme.")
+    lines.append(
+        "This compilation preserves the full prose from conversations, organized by intellectual theme."
+    )
     lines.append("")
 
     # Table of contents
@@ -243,8 +258,12 @@ def generate_compilation_document(
 
     # Statistics
     total_passages = sum(len(p) for p in themed_passages.values())
-    total_words = sum(len(p.text.split()) for passages in themed_passages.values() for p in passages)
-    user_count = sum(1 for passages in themed_passages.values() for p in passages if p.role == "user")
+    total_words = sum(
+        len(p.text.split()) for passages in themed_passages.values() for p in passages
+    )
+    user_count = sum(
+        1 for passages in themed_passages.values() for p in passages if p.role == "user"
+    )
     ai_count = total_passages - user_count
 
     lines.append("## Statistics")
@@ -263,7 +282,7 @@ def generate_compilation_document(
         passages = themed_passages[theme_id][:max_passages_per_theme]
 
         lines.append(f"## {theme_name}")
-        lines.append(f"<a name=\"{theme_id}\"></a>")
+        lines.append(f'<a name="{theme_id}"></a>')
         lines.append("")
         lines.append(f"*{len(passages)} passages*")
         lines.append("")
@@ -287,6 +306,7 @@ def generate_compilation_document(
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Compile prose by intellectual theme")
     parser.add_argument("--input", "-i", type=Path, required=True, help="Quality prose JSON")
     parser.add_argument("--output", "-o", type=Path, required=True, help="Output markdown")
@@ -302,7 +322,9 @@ def main():
         theme_name = THEMES[theme_id]["name"]
         print(f"  {theme_name}: {len(passages)} passages")
 
-    total, words = generate_compilation_document(themed, args.output, max_passages_per_theme=args.max_per_theme)
+    total, words = generate_compilation_document(
+        themed, args.output, max_passages_per_theme=args.max_per_theme
+    )
 
     print(f"\nCompilation written to: {args.output}")
     print(f"Total: {total} passages, {words:,} words")

@@ -308,10 +308,16 @@ PERM_EXPLAINABILITY_BATCH = _permission(
 # ============================================================================
 
 PERM_BREAKPOINT_READ = _permission(
-    ResourceType.BREAKPOINT, Action.READ, "View Breakpoints", "View pending breakpoints and their status"
+    ResourceType.BREAKPOINT,
+    Action.READ,
+    "View Breakpoints",
+    "View pending breakpoints and their status",
 )
 PERM_BREAKPOINT_UPDATE = _permission(
-    ResourceType.BREAKPOINT, Action.UPDATE, "Resolve Breakpoints", "Approve or reject breakpoint resolutions"
+    ResourceType.BREAKPOINT,
+    Action.UPDATE,
+    "Resolve Breakpoints",
+    "Approve or reject breakpoint resolutions",
 )
 
 # ============================================================================

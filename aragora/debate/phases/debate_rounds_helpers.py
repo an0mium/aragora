@@ -251,9 +251,7 @@ async def refresh_evidence_for_round(
         total_refreshed = (refreshed or 0) + skill_snippets
 
         if total_refreshed:
-            logger.info(
-                "evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed
-            )
+            logger.info("evidence_refreshed round=%s new_snippets=%s", round_num, total_refreshed)
 
             # Notify spectator
             if notify_spectator:
@@ -543,12 +541,16 @@ async def execute_final_synthesis_round(
         except (ConnectionError, OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(
                 "synthesis_agent_error agent=%s error_type=%s: %s",
-                agent.name, type(e).__name__, e,
+                agent.name,
+                type(e).__name__,
+                e,
             )
         except Exception as e:
             logger.error(
                 "synthesis_unexpected_error agent=%s error_type=%s: %s",
-                agent.name, type(e).__name__, e,
+                agent.name,
+                type(e).__name__,
+                e,
             )
 
     # Notify spectator

@@ -37,8 +37,12 @@ class StartGauntletRequest(BaseModel):
     """Request to start a gauntlet stress-test."""
 
     input_content: str = Field(..., description="Content to stress-test")
-    input_type: str = Field("spec", description="Type of input: spec, architecture, policy, code, strategy, contract")
-    persona: str | None = Field(None, description="Regulatory persona to use (e.g., 'gdpr', 'hipaa')")
+    input_type: str = Field(
+        "spec", description="Type of input: spec, architecture, policy, code, strategy, contract"
+    )
+    persona: str | None = Field(
+        None, description="Regulatory persona to use (e.g., 'gdpr', 'hipaa')"
+    )
     agents: list[str] = Field(
         default_factory=lambda: ["anthropic-api"],
         description="Agent types for the gauntlet",
@@ -247,11 +251,21 @@ async def get_gauntlet_status(
                 inflight_dict = inflight.to_dict() if hasattr(inflight, "to_dict") else inflight
                 return GauntletStatusResponse(
                     gauntlet_id=run_id,
-                    status=inflight_dict.get("status", "unknown") if isinstance(inflight_dict, dict) else "unknown",
-                    input_type=inflight_dict.get("input_type", "") if isinstance(inflight_dict, dict) else "",
-                    input_summary=inflight_dict.get("input_summary", "") if isinstance(inflight_dict, dict) else "",
-                    persona=inflight_dict.get("persona") if isinstance(inflight_dict, dict) else None,
-                    created_at=inflight_dict.get("created_at") if isinstance(inflight_dict, dict) else None,
+                    status=inflight_dict.get("status", "unknown")
+                    if isinstance(inflight_dict, dict)
+                    else "unknown",
+                    input_type=inflight_dict.get("input_type", "")
+                    if isinstance(inflight_dict, dict)
+                    else "",
+                    input_summary=inflight_dict.get("input_summary", "")
+                    if isinstance(inflight_dict, dict)
+                    else "",
+                    persona=inflight_dict.get("persona")
+                    if isinstance(inflight_dict, dict)
+                    else None,
+                    created_at=inflight_dict.get("created_at")
+                    if isinstance(inflight_dict, dict)
+                    else None,
                 )
 
         # Check completed results
@@ -261,7 +275,9 @@ async def get_gauntlet_status(
                 return GauntletStatusResponse(
                     gauntlet_id=run_id,
                     status="completed",
-                    result=stored if isinstance(stored, dict) else (stored.to_dict() if hasattr(stored, "to_dict") else None),
+                    result=stored
+                    if isinstance(stored, dict)
+                    else (stored.to_dict() if hasattr(stored, "to_dict") else None),
                 )
 
         raise NotFoundError(f"Gauntlet run {run_id} not found")
@@ -278,7 +294,9 @@ async def get_gauntlet_findings(
     run_id: str,
     limit: int = Query(50, ge=1, le=200, description="Max findings to return"),
     offset: int = Query(0, ge=0, description="Number of findings to skip"),
-    severity: str | None = Query(None, description="Filter by severity: CRITICAL, HIGH, MEDIUM, LOW"),
+    severity: str | None = Query(
+        None, description="Filter by severity: CRITICAL, HIGH, MEDIUM, LOW"
+    ),
     store=Depends(get_gauntlet_storage),
 ) -> FindingsResponse:
     """
@@ -315,7 +333,11 @@ async def get_gauntlet_findings(
             if hasattr(store, "get"):
                 stored = store.get(run_id)
                 if stored:
-                    result_data = stored if isinstance(stored, dict) else (stored.to_dict() if hasattr(stored, "to_dict") else {})
+                    result_data = (
+                        stored
+                        if isinstance(stored, dict)
+                        else (stored.to_dict() if hasattr(stored, "to_dict") else {})
+                    )
 
         if result_data is None:
             raise NotFoundError(f"Gauntlet run {run_id} not found")
@@ -357,12 +379,14 @@ async def get_gauntlet_findings(
         if severity:
             severity_upper = severity.upper()
             findings = [
-                f for f in findings
-                if f.severity.upper() == severity_upper or f.severity_level.upper() == severity_upper
+                f
+                for f in findings
+                if f.severity.upper() == severity_upper
+                or f.severity_level.upper() == severity_upper
             ]
 
         total = len(findings)
-        findings = findings[offset:offset + limit]
+        findings = findings[offset : offset + limit]
 
         return FindingsResponse(
             gauntlet_id=run_id,

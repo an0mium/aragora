@@ -425,10 +425,14 @@ class DiscordWebhookManager:
                 try:
                     results[name] = await handler(*args, **kwargs)
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    logger.error(f"Discord broadcast to {name} connection error: {type(e).__name__}: {e}")
+                    logger.error(
+                        f"Discord broadcast to {name} connection error: {type(e).__name__}: {e}"
+                    )
                     results[name] = False
                 except Exception as e:
-                    logger.error(f"Discord broadcast to {name} unexpected error: {type(e).__name__}: {e}")
+                    logger.error(
+                        f"Discord broadcast to {name} unexpected error: {type(e).__name__}: {e}"
+                    )
                     results[name] = False
 
         return results

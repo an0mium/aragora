@@ -161,9 +161,7 @@ def _render_markdown(*, include_frontmatter: bool) -> str:
     for cmd in commands:
         aliases = ", ".join(f"`{a}`" for a in cmd["aliases"]) if cmd["aliases"] else "-"
         summary = (cmd["help"] or "-").replace("|", "\\|")
-        subcommands = (
-            ", ".join(f"`{s}`" for s in cmd["subcommands"]) if cmd["subcommands"] else "-"
-        )
+        subcommands = ", ".join(f"`{s}`" for s in cmd["subcommands"]) if cmd["subcommands"] else "-"
         lines.append(f"| `{cmd['name']}` | {aliases} | {summary} | {subcommands} |")
 
     lines.extend(
@@ -176,10 +174,10 @@ def _render_markdown(*, include_frontmatter: bool) -> str:
             "aragora quickstart --demo",
             "",
             "# Debate",
-            "aragora ask \"Design a rate limiter\" --agents anthropic-api,openai-api --rounds 3",
+            'aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3',
             "",
             "# Full decision pipeline",
-            "aragora decide \"Roll out SSO\" --auto-approve --budget-limit 10.00",
+            'aragora decide "Roll out SSO" --auto-approve --budget-limit 10.00',
             "",
             "# Receipt validation",
             "aragora receipt verify receipt.json",
@@ -224,7 +222,11 @@ def main() -> None:
         if DOC_PATH.exists() and DOC_PATH.read_text(encoding="utf-8") != docs_md:
             ok = False
             print(f"Out of date: {DOC_PATH}")
-        if args.check_site and DOCS_SITE_PATH.exists() and DOCS_SITE_PATH.read_text(encoding="utf-8") != site_md:
+        if (
+            args.check_site
+            and DOCS_SITE_PATH.exists()
+            and DOCS_SITE_PATH.read_text(encoding="utf-8") != site_md
+        ):
             ok = False
             print(f"Out of date: {DOCS_SITE_PATH}")
         if not ok:

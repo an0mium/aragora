@@ -149,9 +149,7 @@ class MoltbotCanvasHandler(BaseHandler):
 
     # ========== Handler Methods ==========
 
-    def _serialize_canvas(
-        self, canvas: Canvas, element_count: int | None = None
-    ) -> dict[str, Any]:
+    def _serialize_canvas(self, canvas: Canvas, element_count: int | None = None) -> dict[str, Any]:
         """Serialize canvas to JSON-safe dict."""
         return {
             "id": canvas.id,

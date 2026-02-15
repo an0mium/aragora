@@ -599,9 +599,7 @@ class VoteCollector:
             except Exception as e:
                 logger.debug(f"Position tracking error for vote: {e}")
 
-    def compute_vote_groups(
-        self, votes: list[Vote]
-    ) -> tuple[dict[str, list[str]], dict[str, str]]:
+    def compute_vote_groups(self, votes: list[Vote]) -> tuple[dict[str, list[str]], dict[str, str]]:
         """Group similar votes and create choice mapping.
 
         Args:

@@ -93,7 +93,7 @@ class TestSchedulerAnalyticsEndpoint:
         result = handler._get_scheduler_analytics()
 
         assert result is not None
-        assert result.status_code == 501
+        assert result.status_code == 503
 
     @patch("aragora.server.handlers.features.pulse.get_scheduled_debate_store")
     @patch("aragora.server.handlers.features.pulse.get_pulse_scheduler")

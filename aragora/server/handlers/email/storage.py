@@ -30,9 +30,7 @@ except ImportError:
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 
 
-def _check_email_permission(
-    auth_context: Any | None, permission_key: str
-) -> dict[str, Any] | None:
+def _check_email_permission(auth_context: Any | None, permission_key: str) -> dict[str, Any] | None:
     """
     Check RBAC permission for email operations.
 

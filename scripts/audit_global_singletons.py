@@ -40,8 +40,7 @@ def _is_singleton_pattern(node: ast.Assign) -> str | None:
     if isinstance(value, ast.Constant) and value.value is None:
         return name
     if isinstance(value, (ast.Dict, ast.List)) and not (
-        getattr(value, "keys", None) and value.keys
-        or getattr(value, "elts", None) and value.elts
+        getattr(value, "keys", None) and value.keys or getattr(value, "elts", None) and value.elts
     ):
         return name
     return None

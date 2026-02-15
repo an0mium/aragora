@@ -59,14 +59,10 @@ class FeatureFlagAdminHandler(BaseHandler):
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         path = strip_version_prefix(path)
-        return path == "/api/admin/feature-flags" or path.startswith(
-            "/api/admin/feature-flags/"
-        )
+        return path == "/api/admin/feature-flags" or path.startswith("/api/admin/feature-flags/")
 
     @handle_errors("feature flags GET")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for feature flag endpoints."""
         path = strip_version_prefix(path)
 
@@ -128,9 +124,7 @@ class FeatureFlagAdminHandler(BaseHandler):
                 category_filter = FlagCategory(category_str)
             except ValueError:
                 valid = [c.value for c in FlagCategory]
-                return error_response(
-                    f"Invalid category. Valid: {', '.join(valid)}", 400
-                )
+                return error_response(f"Invalid category. Valid: {', '.join(valid)}", 400)
 
         status_str = query_params.get("status")
         if status_str:
@@ -138,13 +132,9 @@ class FeatureFlagAdminHandler(BaseHandler):
                 status_filter = FlagStatus(status_str)
             except ValueError:
                 valid = [s.value for s in FlagStatus]
-                return error_response(
-                    f"Invalid status. Valid: {', '.join(valid)}", 400
-                )
+                return error_response(f"Invalid status. Valid: {', '.join(valid)}", 400)
 
-        flags = registry.get_all_flags(
-            category=category_filter, status=status_filter
-        )
+        flags = registry.get_all_flags(category=category_filter, status=status_filter)
 
         flag_list = []
         for flag in flags:
@@ -174,9 +164,7 @@ class FeatureFlagAdminHandler(BaseHandler):
 
     @require_permission("admin:feature_flags")
     @rate_limit(requests_per_minute=60, limiter_name="feature_flags_get")
-    def _get_flag(
-        self, name: str, handler: Any = None, user: Any = None
-    ) -> HandlerResult:
+    def _get_flag(self, name: str, handler: Any = None, user: Any = None) -> HandlerResult:
         """Get a specific flag with its value and usage stats."""
         registry = get_flag_registry()
 
@@ -216,9 +204,7 @@ class FeatureFlagAdminHandler(BaseHandler):
 
     @require_permission("admin:feature_flags")
     @rate_limit(requests_per_minute=30, limiter_name="feature_flags_set")
-    def _set_flag(
-        self, name: str, handler: Any = None, user: Any = None
-    ) -> HandlerResult:
+    def _set_flag(self, name: str, handler: Any = None, user: Any = None) -> HandlerResult:
         """Set a feature flag value.
 
         Request body:

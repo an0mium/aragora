@@ -99,9 +99,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         """
         if not RBAC_AVAILABLE:
             if rbac_fail_closed():
-                raise PermissionError(
-                    "Service unavailable: access control module not loaded"
-                )
+                raise PermissionError("Service unavailable: access control module not loaded")
             return
         auth_ctx = (context or {}).get("auth_context")
         if auth_ctx is None and user_id:

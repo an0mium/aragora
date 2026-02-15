@@ -214,9 +214,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         """
         if not RBAC_AVAILABLE:
             if rbac_fail_closed():
-                raise PermissionError(
-                    "Service unavailable: access control module not loaded"
-                )
+                raise PermissionError("Service unavailable: access control module not loaded")
             return
         auth_ctx = (context or {}).get("auth_context")
         if auth_ctx is None and user_id:
@@ -244,9 +242,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         connector = get_google_chat_connector()
         return connector is not None
 
-    def _build_status_response(
-        self, extra_status: dict[str, Any] | None = None
-    ) -> HandlerResult:
+    def _build_status_response(self, extra_status: dict[str, Any] | None = None) -> HandlerResult:
         """Build Google Chat-specific status response."""
         status = {
             "platform": self.bot_platform,

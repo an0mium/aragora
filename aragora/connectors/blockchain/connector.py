@@ -442,7 +442,16 @@ class ERC8004Connector(BaseConnector):
                         )
                     )
 
-        except (ValueError, IndexError, AttributeError, RuntimeError, KeyError, TypeError, OSError, ConnectionError) as e:
+        except (
+            ValueError,
+            IndexError,
+            AttributeError,
+            RuntimeError,
+            KeyError,
+            TypeError,
+            OSError,
+            ConnectionError,
+        ) as e:
             logger.error(f"Search error for query '{query}': {e}")
         except ImportError as e:
             logger.error(f"Unexpected search error for query '{query}': {e}")

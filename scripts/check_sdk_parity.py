@@ -203,7 +203,9 @@ def extract_sdk_paths_typescript() -> dict[str, set[str]]:
     # The generic type parameter can contain nested angle brackets, e.g.
     # request<Record<string, unknown>>(...) -- so we use (?:<[^(]*>)? to match
     # everything between the first < and the last > before the opening paren.
-    path_pattern = re.compile(r'request(?:<[^(]*>)?\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']')
+    path_pattern = re.compile(
+        r'request(?:<[^(]*>)?\(\s*["\'][A-Z]+["\']\s*,\s*[`"\']([^`"\']+)[`"\']'
+    )
 
     namespace_paths: dict[str, set[str]] = {}
 
@@ -333,8 +335,12 @@ def build_parity_report(
                 "total_routes": len(public_routes),
                 "python_sdk_covered": py_covered,
                 "typescript_sdk_covered": ts_covered,
-                "missing_python": [r for r in public_routes if not _sdk_covers_route(r, all_py_paths)],
-                "missing_typescript": [r for r in public_routes if not _sdk_covers_route(r, all_ts_paths)],
+                "missing_python": [
+                    r for r in public_routes if not _sdk_covers_route(r, all_py_paths)
+                ],
+                "missing_typescript": [
+                    r for r in public_routes if not _sdk_covers_route(r, all_ts_paths)
+                ],
             }
         )
 
@@ -534,9 +540,7 @@ def main() -> int:
             )
 
             stale_current = len(report["gaps"]["stale_python_sdk_paths"])
-            initial_stale = int(
-                budget_data.get("initial_stale_python_sdk_paths", stale_current)
-            )
+            initial_stale = int(budget_data.get("initial_stale_python_sdk_paths", stale_current))
             weekly_stale = int(budget_data.get("weekly_reduction_stale_python_sdk_paths", 0))
             expected_stale = _expected_budget_max(
                 initial=initial_stale,

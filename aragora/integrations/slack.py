@@ -24,6 +24,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 try:
     from aragora.resilience.registry import get_circuit_breaker
 except ImportError:
@@ -217,12 +218,16 @@ class SlackIntegration:
             except (ValueError, TypeError, KeyError) as e:
                 # Payload construction or data format error -- not retryable
                 last_error = e
-                logger.error(f"Slack payload error (attempt {attempt + 1}): {type(e).__name__}: {e}")
+                logger.error(
+                    f"Slack payload error (attempt {attempt + 1}): {type(e).__name__}: {e}"
+                )
                 break
             except OSError as e:
                 # Low-level network/socket error -- retryable
                 last_error = e
-                logger.warning(f"Slack network error (attempt {attempt + 1}): {type(e).__name__}: {e}")
+                logger.warning(
+                    f"Slack network error (attempt {attempt + 1}): {type(e).__name__}: {e}"
+                )
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_failure()
                 if attempt < max_retries - 1:

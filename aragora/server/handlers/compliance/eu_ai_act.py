@@ -69,9 +69,7 @@ class EUAIActMixin:
 
     @track_handler("compliance/eu-ai-act/classify", method="POST")
     @require_permission("compliance:read")
-    async def _eu_ai_act_classify(
-        self, body: dict[str, Any]
-    ) -> HandlerResult:
+    async def _eu_ai_act_classify(self, body: dict[str, Any]) -> HandlerResult:
         """Classify an AI use case by EU AI Act risk level.
 
         Body:
@@ -82,22 +80,20 @@ class EUAIActMixin:
         """
         description = body.get("description", "").strip()
         if not description:
-            return error_response(
-                "Missing required field: 'description'", 400
-            )
+            return error_response("Missing required field: 'description'", 400)
 
         classifier = _get_classifier()
         classification = classifier.classify(description)
 
-        return json_response({
-            "classification": classification.to_dict(),
-        })
+        return json_response(
+            {
+                "classification": classification.to_dict(),
+            }
+        )
 
     @track_handler("compliance/eu-ai-act/audit", method="POST")
     @require_permission("compliance:read")
-    async def _eu_ai_act_audit(
-        self, body: dict[str, Any]
-    ) -> HandlerResult:
+    async def _eu_ai_act_audit(self, body: dict[str, Any]) -> HandlerResult:
         """Generate a conformity report from a decision receipt.
 
         Body:
@@ -109,22 +105,20 @@ class EUAIActMixin:
         """
         receipt = body.get("receipt")
         if not receipt or not isinstance(receipt, dict):
-            return error_response(
-                "Missing required field: 'receipt' (must be a dict)", 400
-            )
+            return error_response("Missing required field: 'receipt' (must be a dict)", 400)
 
         generator = _get_report_generator()
         report = generator.generate(receipt)
 
-        return json_response({
-            "conformity_report": report.to_dict(),
-        })
+        return json_response(
+            {
+                "conformity_report": report.to_dict(),
+            }
+        )
 
     @track_handler("compliance/eu-ai-act/generate-bundle", method="POST")
     @require_permission("compliance:write")
-    async def _eu_ai_act_generate_bundle(
-        self, body: dict[str, Any]
-    ) -> HandlerResult:
+    async def _eu_ai_act_generate_bundle(self, body: dict[str, Any]) -> HandlerResult:
         """Generate a full EU AI Act compliance artifact bundle.
 
         Produces Articles 12 (Record-Keeping), 13 (Transparency), and
@@ -144,9 +138,7 @@ class EUAIActMixin:
         """
         receipt = body.get("receipt")
         if not receipt or not isinstance(receipt, dict):
-            return error_response(
-                "Missing required field: 'receipt' (must be a dict)", 400
-            )
+            return error_response("Missing required field: 'receipt' (must be a dict)", 400)
 
         # Extract optional provider customization
         gen_kwargs: dict[str, str] = {}
@@ -164,6 +156,8 @@ class EUAIActMixin:
         generator = _get_artifact_generator(**gen_kwargs)
         bundle = generator.generate(receipt)
 
-        return json_response({
-            "bundle": bundle.to_dict(),
-        })
+        return json_response(
+            {
+                "bundle": bundle.to_dict(),
+            }
+        )

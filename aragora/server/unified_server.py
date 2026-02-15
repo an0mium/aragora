@@ -340,21 +340,31 @@ class UnifiedHandler(  # type: ignore[misc]
                 import hashlib as _h
                 import json as _json
                 import os as _os
+
                 diag: dict[str, Any] = {}
                 try:
                     from aragora.billing.auth.config import _get_jwt_secret, MIN_SECRET_LENGTH
+
                     secret = _get_jwt_secret()
                     diag["jwt_secret_set"] = bool(secret)
                     diag["jwt_secret_length"] = len(secret) if secret else 0
-                    diag["jwt_secret_fingerprint"] = _h.sha256(secret.encode()).hexdigest()[:8] if secret else None
-                    diag["jwt_secret_strong"] = len(secret) >= MIN_SECRET_LENGTH if secret else False
+                    diag["jwt_secret_fingerprint"] = (
+                        _h.sha256(secret.encode()).hexdigest()[:8] if secret else None
+                    )
+                    diag["jwt_secret_strong"] = (
+                        len(secret) >= MIN_SECRET_LENGTH if secret else False
+                    )
                 except Exception as e:
                     diag["jwt_secret_error"] = f"{type(e).__name__}: {e}"
                 try:
                     from aragora.server.handlers.oauth.config import (
-                        _get_google_client_id, _get_oauth_success_url, _get_allowed_redirect_hosts,
-                        _is_production, _get_google_redirect_uri,
+                        _get_google_client_id,
+                        _get_oauth_success_url,
+                        _get_allowed_redirect_hosts,
+                        _is_production,
+                        _get_google_redirect_uri,
                     )
+
                     diag["google_client_id_set"] = bool(_get_google_client_id())
                     diag["oauth_success_url"] = _get_oauth_success_url()
                     diag["google_redirect_uri"] = _get_google_redirect_uri()
@@ -371,6 +381,7 @@ class UnifiedHandler(  # type: ignore[misc]
                     diag["token_fingerprint"] = _h.sha256(token.encode()).hexdigest()[:8]
                     try:
                         from aragora.billing.auth.tokens import decode_jwt
+
                         payload = decode_jwt(token)
                         if payload:
                             diag["jwt_valid"] = True
@@ -394,7 +405,9 @@ class UnifiedHandler(  # type: ignore[misc]
             except Exception as e:
                 # Fallback: send minimal response bypassing _send_json entirely
                 try:
-                    err = _json.dumps({"error": f"Debug endpoint error: {type(e).__name__}: {e}"}).encode()
+                    err = _json.dumps(
+                        {"error": f"Debug endpoint error: {type(e).__name__}: {e}"}
+                    ).encode()
                 except Exception as json_err:
                     logger.debug("Failed to serialize error response: %s", json_err)
                     err = b'{"error": "Debug endpoint critically failed"}'
@@ -940,7 +953,9 @@ class UnifiedServer:
         import os as _os
 
         if not _os.environ.get("ARAGORA_ANOMALY_DETECTION"):
-            logger.debug("[init] Anomaly detection disabled (set ARAGORA_ANOMALY_DETECTION=1 to enable)")
+            logger.debug(
+                "[init] Anomaly detection disabled (set ARAGORA_ANOMALY_DETECTION=1 to enable)"
+            )
             UnifiedHandler.anomaly_detector = None
             return
 

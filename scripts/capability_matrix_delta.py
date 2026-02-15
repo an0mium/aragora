@@ -96,7 +96,9 @@ def main() -> int:
         if base_text:
             base = _parse_matrix(base_text)
         else:
-            base_note = f"Base matrix unavailable for ref `{args.base_ref}`; showing head snapshot only."
+            base_note = (
+                f"Base matrix unavailable for ref `{args.base_ref}`; showing head snapshot only."
+            )
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     lines: list[str] = []
@@ -130,7 +132,9 @@ def main() -> int:
     lines.append(_metric_line("Mapped capabilities", current["catalog"][0], base_mapped))
     lines.append(_metric_line("Total capabilities", current["catalog"][1], base_total))
 
-    current_cov = (current["catalog"][0] / current["catalog"][1] * 100) if current["catalog"][1] else 0.0
+    current_cov = (
+        (current["catalog"][0] / current["catalog"][1] * 100) if current["catalog"][1] else 0.0
+    )
     if base and base["catalog"][1]:
         base_cov = base["catalog"][0] / base["catalog"][1] * 100
         cov_delta = current_cov - base_cov

@@ -69,9 +69,7 @@ class NotificationPreferencesHandler(BaseHandler):
         cleaned = strip_version_prefix(path)
         return cleaned == "/api/notifications/preferences"
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET for preferences."""
         cleaned = strip_version_prefix(path)
         if cleaned != "/api/notifications/preferences":
@@ -114,10 +112,12 @@ class NotificationPreferencesHandler(BaseHandler):
         if prefs is None:
             prefs = copy.deepcopy(_DEFAULT_PREFERENCES)
 
-        return json_response({
-            "user_id": user_id,
-            "preferences": prefs,
-        })
+        return json_response(
+            {
+                "user_id": user_id,
+                "preferences": prefs,
+            }
+        )
 
     def _update_preferences(self, handler: Any) -> HandlerResult:
         """Update notification preferences for current user."""
@@ -183,8 +183,10 @@ class NotificationPreferencesHandler(BaseHandler):
 
         _user_preferences[user_id] = current
 
-        return json_response({
-            "user_id": user_id,
-            "preferences": current,
-            "updated": True,
-        })
+        return json_response(
+            {
+                "user_id": user_id,
+                "preferences": current,
+                "updated": True,
+            }
+        )

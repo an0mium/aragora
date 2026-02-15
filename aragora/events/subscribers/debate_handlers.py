@@ -422,7 +422,8 @@ class DebateHandlersMixin:
                     )
                     logger.debug(
                         "Stored debate outcome as knowledge: debate=%s confidence=%.2f",
-                        debate_id, confidence,
+                        debate_id,
+                        confidence,
                     )
             except ImportError:
                 logger.debug("KnowledgeMound not available for debate outcome storage")

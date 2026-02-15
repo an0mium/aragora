@@ -667,9 +667,7 @@ h3 {{ color: #666; }}
             logger.error(f"Summary error for {debate_id}: {e}")
             return error_response(f"Failed to generate summary: {str(e)[:100]}", 500)
 
-    async def _handle_export(
-        self, debate_id: str, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _handle_export(self, debate_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Handle export request for decision explanation in various formats."""
         try:
             decision = await self._get_or_build_decision(debate_id)

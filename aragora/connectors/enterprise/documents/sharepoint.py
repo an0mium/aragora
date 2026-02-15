@@ -608,7 +608,14 @@ class SharePointConnector(EnterpriseConnector):
                         created_at=data.get("createdDateTime"),
                         confidence=0.8,
                     )
-                except (httpx.HTTPError, OSError, ConnectionError, TimeoutError, KeyError, ValueError) as e:
+                except (
+                    httpx.HTTPError,
+                    OSError,
+                    ConnectionError,
+                    TimeoutError,
+                    KeyError,
+                    ValueError,
+                ) as e:
                     logger.debug(f"[{self.name}] Failed to create fetch result: {e}")
                     continue
 

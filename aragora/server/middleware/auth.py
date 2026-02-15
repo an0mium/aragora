@@ -310,8 +310,7 @@ def require_auth_or_localhost(func: Callable) -> Callable:
         # Use client_address directly (not X-Forwarded-For which is spoofable)
         # Check both ARAGORA_ENV and ARAGORA_ENVIRONMENT for compatibility
         env = (
-            os.environ.get("ARAGORA_ENV", "")
-            or os.environ.get("ARAGORA_ENVIRONMENT", "")
+            os.environ.get("ARAGORA_ENV", "") or os.environ.get("ARAGORA_ENVIRONMENT", "")
         ).lower()
         is_production = env in ("production", "prod", "staging", "live")
         if not is_production and hasattr(handler, "client_address"):

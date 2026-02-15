@@ -873,9 +873,7 @@ class ShutdownPhaseBuilder:
                 registry = get_thread_registry()
                 results = registry.shutdown_all(timeout=8.0)
                 stopped = sum(1 for v in results.values() if v)
-                logger.info(
-                    f"ThreadRegistry shutdown: {stopped}/{len(results)} threads stopped"
-                )
+                logger.info(f"ThreadRegistry shutdown: {stopped}/{len(results)} threads stopped")
             except ImportError:
                 pass
 

@@ -11,7 +11,10 @@ from __future__ import annotations
 # Mapping of attribute names to (module_path, attr_name)
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # debate
-    "get_event_emitter_if_available": ("aragora.cli.commands.debate", "get_event_emitter_if_available"),
+    "get_event_emitter_if_available": (
+        "aragora.cli.commands.debate",
+        "get_event_emitter_if_available",
+    ),
     "parse_agents": ("aragora.cli.commands.debate", "parse_agents"),
     "run_debate": ("aragora.cli.commands.debate", "run_debate"),
     "cmd_ask": ("aragora.cli.commands.debate", "cmd_ask"),

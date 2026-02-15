@@ -1059,29 +1059,39 @@ def cmd_ask(args: argparse.Namespace) -> None:
         spectate_fmt = getattr(args, "spectate_format", "auto")
         spectate_kwargs["spectator"] = SpectatorStream(enabled=True, format=spectate_fmt)
 
-    result = asyncio.run(
-        run_debate(
-            task=args.task,
-            agents_str=agents,
-            rounds=rounds,
-            consensus=args.consensus,
-            context=args.context or "",
-            learn=learn,
-            db_path=args.db,
-            enable_audience=enable_audience,
-            server_url=server_url,
-            protocol_overrides=protocol_overrides,
-            mode=getattr(args, "mode", None),
-            enable_verticals=enable_verticals,
-            vertical_id=vertical_id,
-            auto_select=auto_select,
-            auto_select_config=auto_select_config,
-            offline=offline or force_local,
-            auto_explain=explain,
-            **preset_kwargs,
-            **spectate_kwargs,
+    debate_timeout = getattr(args, "timeout", 300)
+
+    async def _run_with_timeout():
+        return await asyncio.wait_for(
+            run_debate(
+                task=args.task,
+                agents_str=agents,
+                rounds=rounds,
+                consensus=args.consensus,
+                context=args.context or "",
+                learn=learn,
+                db_path=args.db,
+                enable_audience=enable_audience,
+                server_url=server_url,
+                protocol_overrides=protocol_overrides,
+                mode=getattr(args, "mode", None),
+                enable_verticals=enable_verticals,
+                vertical_id=vertical_id,
+                auto_select=auto_select,
+                auto_select_config=auto_select_config,
+                offline=offline or force_local,
+                auto_explain=explain,
+                **preset_kwargs,
+                **spectate_kwargs,
+            ),
+            timeout=debate_timeout,
         )
-    )
+
+    try:
+        result = asyncio.run(_run_with_timeout())
+    except asyncio.TimeoutError:
+        print(f"Debate timed out after {debate_timeout}s", file=sys.stderr)
+        raise SystemExit(1)
 
     print("\n" + "=" * 60)
     print("FINAL ANSWER:")

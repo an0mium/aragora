@@ -31,4 +31,3 @@ def is_offline_mode() -> bool:
 
 
 __all__ = ["is_truthy_env", "is_offline_mode"]
-

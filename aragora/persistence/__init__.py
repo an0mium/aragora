@@ -54,6 +54,7 @@ __all__ = [
 def __getattr__(name: str):
     if name == "SupabaseClient":
         from aragora.persistence.supabase_client import SupabaseClient
+
         globals()["SupabaseClient"] = SupabaseClient
         return SupabaseClient
     raise AttributeError(f"module 'aragora.persistence' has no attribute {name!r}")

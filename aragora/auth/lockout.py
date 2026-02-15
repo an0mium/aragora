@@ -319,7 +319,8 @@ class LockoutTracker:
                         "SECURITY: Redis unavailable in %s — using in-memory lockout storage. "
                         "Lockout state will be LOST on restart and NOT shared across instances. "
                         "This allows lockout bypass via server restart or multi-instance routing. "
-                        "Configure REDIS_URL to enable distributed lockout tracking.", _env
+                        "Configure REDIS_URL to enable distributed lockout tracking.",
+                        _env,
                     )
                 else:
                     logger.info("Redis unavailable, using in-memory lockout storage")

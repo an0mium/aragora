@@ -283,7 +283,9 @@ class StreamEventType(Enum):
     EXPLAINABILITY_COMPLETE = "explainability_complete"  # Full explanation ready
 
     # Compliance Artifact Events
-    COMPLIANCE_ARTIFACT_GENERATED = "compliance_artifact_generated"  # EU AI Act artifact bundle generated
+    COMPLIANCE_ARTIFACT_GENERATED = (
+        "compliance_artifact_generated"  # EU AI Act artifact bundle generated
+    )
 
     # Notification-driven Events
     BUDGET_ALERT = "budget_alert"  # Budget threshold exceeded

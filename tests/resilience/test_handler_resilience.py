@@ -98,6 +98,7 @@ class TestSlackResilience:
         ctx_fn, resp = _mock_aiohttp_response(200)
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = ctx_fn
         slack._session = mock_session
 
@@ -116,6 +117,7 @@ class TestSlackResilience:
         ctx_fn, resp = _mock_aiohttp_response(500, "Internal Server Error")
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = ctx_fn
         slack._session = mock_session
 
@@ -133,6 +135,7 @@ class TestSlackResilience:
         circuit_breaker.is_open = True
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = MagicMock()
         slack._session = mock_session
 
@@ -155,6 +158,7 @@ class TestSlackResilience:
             yield  # noqa: unreachable - needed for generator syntax
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = _raise
         slack._session = mock_session
 
@@ -177,6 +181,7 @@ class TestSlackResilience:
             yield  # noqa: unreachable
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = _raise
         slack._session = mock_session
 
@@ -225,6 +230,7 @@ class TestDiscordResilience:
         ctx_fn, resp = _mock_aiohttp_response(204)
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = ctx_fn
         discord._session = mock_session
 
@@ -240,6 +246,7 @@ class TestDiscordResilience:
         ctx_fn, resp = _mock_aiohttp_response(500, "Internal Server Error")
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = ctx_fn
         discord._session = mock_session
         discord.config.retry_count = 1
@@ -256,6 +263,7 @@ class TestDiscordResilience:
         circuit_breaker.is_open = True
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = MagicMock()
         discord._session = mock_session
 
@@ -275,6 +283,7 @@ class TestDiscordResilience:
             yield  # noqa: unreachable
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = _raise
         discord._session = mock_session
         discord.config.retry_count = 1
@@ -323,6 +332,7 @@ class TestTeamsResilience:
         ctx_fn, resp = _mock_aiohttp_response(200)
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = ctx_fn
         teams._session = mock_session
 
@@ -341,6 +351,7 @@ class TestTeamsResilience:
         ctx_fn, resp = _mock_aiohttp_response(500, "Internal Server Error")
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = ctx_fn
         teams._session = mock_session
 
@@ -357,6 +368,7 @@ class TestTeamsResilience:
         circuit_breaker.is_open = True
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = MagicMock()
         teams._session = mock_session
 
@@ -381,6 +393,7 @@ class TestTeamsResilience:
             yield  # noqa: unreachable
 
         mock_session = MagicMock()
+        mock_session.closed = False
         mock_session.post = _raise
         teams._session = mock_session
 

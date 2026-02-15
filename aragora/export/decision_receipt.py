@@ -431,9 +431,7 @@ class DecisionReceipt:
             Verdict.NEEDS_REVIEW.value: "#fd7e14",
             Verdict.REJECTED.value: "#dc3545",
         }
-        verdict_color = _verdict_colors.get(
-            self.verdict.lower() if self.verdict else "", "#6c757d"
-        )
+        verdict_color = _verdict_colors.get(self.verdict.lower() if self.verdict else "", "#6c757d")
 
         findings_html = ""
         for f in self.findings:

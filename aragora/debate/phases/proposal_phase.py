@@ -251,9 +251,7 @@ class ProposalPhase:
         # Legacy stagger mode available via PROPOSAL_STAGGER_SECONDS > 0
         proposal_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PROPOSALS)
 
-        async def generate_proposal_bounded(
-            idx: int, agent: AgentType
-        ) -> tuple[AgentType, Any]:
+        async def generate_proposal_bounded(idx: int, agent: AgentType) -> tuple[AgentType, Any]:
             """Generate proposal with semaphore-bounded concurrency."""
             # Optional stagger delay for backward compatibility
             if PROPOSAL_STAGGER_SECONDS > 0 and idx > 0:
@@ -436,9 +434,7 @@ class ProposalPhase:
             except Exception as e:
                 logger.debug(f"Recorder error for proposal: {e}")
 
-    def _record_positions(
-        self, ctx: DebateContextType, agent: AgentType, proposal: str
-    ) -> None:
+    def _record_positions(self, ctx: DebateContextType, agent: AgentType, proposal: str) -> None:
         """Record positions for truth-grounded personas."""
         debate_id = ctx.debate_id or ctx.env.task[:50]
 

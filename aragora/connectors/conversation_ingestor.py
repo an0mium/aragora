@@ -311,7 +311,13 @@ class ConversationIngestorConnector(BaseConnector):
             try:
                 export = self.load_export(path)
                 exports.append(export)
-            except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError, ValueError, KeyError) as e:
+            except (
+                FileNotFoundError,
+                json.JSONDecodeError,
+                UnicodeDecodeError,
+                ValueError,
+                KeyError,
+            ) as e:
                 logger.warning(f"Failed to load {path}: {e}")
 
         return exports
@@ -369,7 +375,13 @@ class ConversationIngestorConnector(BaseConnector):
 
     def _parse_chatgpt_conversation(self, data: dict) -> Conversation | None:
         """Parse a single ChatGPT conversation."""
-        conv_id = data.get("id", data.get("conversation_id", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]))
+        conv_id = data.get(
+            "id",
+            data.get(
+                "conversation_id",
+                hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16],
+            ),
+        )
         title = data.get("title", "Untitled Conversation")
 
         # Parse timestamps
@@ -464,7 +476,10 @@ class ConversationIngestorConnector(BaseConnector):
 
     def _parse_claude_conversation(self, data: dict) -> Conversation | None:
         """Parse a single Claude conversation."""
-        conv_id = data.get("uuid", data.get("id", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]))
+        conv_id = data.get(
+            "uuid",
+            data.get("id", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]),
+        )
         title = data.get("name", data.get("title", "Untitled Conversation"))
 
         # Parse timestamps
@@ -514,7 +529,9 @@ class ConversationIngestorConnector(BaseConnector):
             timestamp = None
             if "created_at" in msg_data:
                 try:
-                    timestamp = datetime.fromisoformat(msg_data["created_at"].replace("Z", "+00:00"))
+                    timestamp = datetime.fromisoformat(
+                        msg_data["created_at"].replace("Z", "+00:00")
+                    )
                 except (ValueError, AttributeError) as e:
                     logger.debug("Failed to parse datetime value: %s", e)
 
@@ -524,7 +541,11 @@ class ConversationIngestorConnector(BaseConnector):
                     content=content,
                     timestamp=timestamp,
                     model=msg_data.get("model"),
-                    metadata={k: v for k, v in msg_data.items() if k not in ("text", "content", "sender", "role")},
+                    metadata={
+                        k: v
+                        for k, v in msg_data.items()
+                        if k not in ("text", "content", "sender", "role")
+                    },
                 )
             )
 
@@ -569,7 +590,14 @@ class ConversationIngestorConnector(BaseConnector):
 
     def _parse_generic_conversation(self, data: dict) -> Conversation | None:
         """Best-effort parsing of unknown conversation format."""
-        conv_id = str(data.get("id", data.get("uuid", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16])))
+        conv_id = str(
+            data.get(
+                "id",
+                data.get(
+                    "uuid", hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]
+                ),
+            )
+        )
         title = str(data.get("title", data.get("name", "Untitled")))
 
         # Try to find messages in various keys
@@ -659,7 +687,9 @@ class ConversationIngestorConnector(BaseConnector):
                         context_end = min(len(conv.messages), i + 2)
                         context_msgs = conv.messages[context_start:context_end]
                         context = "\n---\n".join(
-                            f"[{m.role}]: {m.content[:500]}..." if len(m.content) > 500 else f"[{m.role}]: {m.content}"
+                            f"[{m.role}]: {m.content[:500]}..."
+                            if len(m.content) > 500
+                            else f"[{m.role}]: {m.content}"
                             for m in context_msgs
                         )
 
@@ -677,7 +707,9 @@ class ConversationIngestorConnector(BaseConnector):
 
         return results[:limit]
 
-    def _get_match_preview(self, content: str, pattern: re.Pattern, context_chars: int = 100) -> str:
+    def _get_match_preview(
+        self, content: str, pattern: re.Pattern, context_chars: int = 100
+    ) -> str:
         """Get preview of match with surrounding context."""
         match = pattern.search(content)
         if not match:
@@ -808,7 +840,10 @@ class ConversationIngestorConnector(BaseConnector):
             (r"I suspect\s+(.{50,500}?)(?:\.|$)", "hypothesis"),
             (r"I predict\s+(.{50,500}?)(?:\.|$)", "hypothesis"),
             # Questions (user's deep questions)
-            (r"(?:Why|How|What) (?:do|does|is|are|can|should|would)\s+(.{30,300}\?)(?:\s|$)", "question"),
+            (
+                r"(?:Why|How|What) (?:do|does|is|are|can|should|would)\s+(.{30,300}\?)(?:\s|$)",
+                "question",
+            ),
         ]
 
         compiled_patterns = [(re.compile(p, re.IGNORECASE), t) for p, t in default_patterns]
@@ -819,11 +854,19 @@ class ConversationIngestorConnector(BaseConnector):
 
         assistant_default_patterns = [
             (r"(?:However|On the other hand|That said)\s+(.{50,500}?)(?:\.|$)", "counterargument"),
-            (r"(?:A common objection is|A strong counterargument is|The strongest objection is)\s+(.{50,500}?)(?:\.|$)", "counterargument"),
-            (r"(?:The risk is|The downside is|The problem is)\s+(.{50,500}?)(?:\.|$)", "counterargument"),
+            (
+                r"(?:A common objection is|A strong counterargument is|The strongest objection is)\s+(.{50,500}?)(?:\.|$)",
+                "counterargument",
+            ),
+            (
+                r"(?:The risk is|The downside is|The problem is)\s+(.{50,500}?)(?:\.|$)",
+                "counterargument",
+            ),
             (r"(?:One could argue|You could argue)\s+(.{50,500}?)(?:\.|$)", "counterargument"),
         ]
-        assistant_compiled = [(re.compile(p, re.IGNORECASE), t) for p, t in assistant_default_patterns]
+        assistant_compiled = [
+            (re.compile(p, re.IGNORECASE), t) for p, t in assistant_default_patterns
+        ]
 
         if assistant_patterns:
             for p in assistant_patterns:
@@ -892,29 +935,158 @@ class ConversationIngestorConnector(BaseConnector):
         # Simple keyword extraction - could be enhanced with TF-IDF or embeddings
         word_counts: dict[str, int] = {}
         stopwords = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "shall", "can", "to", "of", "in",
-            "for", "on", "with", "at", "by", "from", "as", "into", "through",
-            "during", "before", "after", "above", "below", "between", "under",
-            "again", "further", "then", "once", "here", "there", "when", "where",
-            "why", "how", "all", "each", "few", "more", "most", "other", "some",
-            "such", "no", "nor", "not", "only", "own", "same", "so", "than",
-            "too", "very", "just", "and", "but", "if", "or", "because", "as",
-            "until", "while", "it", "its", "this", "that", "these", "those",
-            "i", "you", "he", "she", "we", "they", "what", "which", "who",
-            "me", "him", "her", "us", "them", "my", "your", "his", "our", "their",
-            "about", "like", "think", "know", "get", "make", "go", "see", "want",
-            "use", "find", "give", "tell", "work", "seem", "feel", "try", "leave",
-            "call", "good", "new", "first", "last", "long", "great", "little",
-            "thing", "things", "way", "also", "well", "even", "back", "much",
-            "one", "two", "something", "anything", "nothing", "everything",
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "under",
+            "again",
+            "further",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+            "and",
+            "but",
+            "if",
+            "or",
+            "because",
+            "as",
+            "until",
+            "while",
+            "it",
+            "its",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "he",
+            "she",
+            "we",
+            "they",
+            "what",
+            "which",
+            "who",
+            "me",
+            "him",
+            "her",
+            "us",
+            "them",
+            "my",
+            "your",
+            "his",
+            "our",
+            "their",
+            "about",
+            "like",
+            "think",
+            "know",
+            "get",
+            "make",
+            "go",
+            "see",
+            "want",
+            "use",
+            "find",
+            "give",
+            "tell",
+            "work",
+            "seem",
+            "feel",
+            "try",
+            "leave",
+            "call",
+            "good",
+            "new",
+            "first",
+            "last",
+            "long",
+            "great",
+            "little",
+            "thing",
+            "things",
+            "way",
+            "also",
+            "well",
+            "even",
+            "back",
+            "much",
+            "one",
+            "two",
+            "something",
+            "anything",
+            "nothing",
+            "everything",
         }
 
         for conv in self._conversation_index.values():
             for msg in conv.user_messages:
                 # Extract words
-                words = re.findall(r'\b[a-zA-Z]{4,}\b', msg.content.lower())
+                words = re.findall(r"\b[a-zA-Z]{4,}\b", msg.content.lower())
                 for word in words:
                     if word not in stopwords:
                         word_counts[word] = word_counts.get(word, 0) + 1

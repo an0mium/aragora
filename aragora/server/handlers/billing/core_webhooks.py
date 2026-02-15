@@ -13,7 +13,11 @@ import sys
 from typing import TYPE_CHECKING, Any
 
 from ..base import HandlerResult, error_response, handle_errors, json_response
-from .core_helpers import _get_admin_billing_callable, _is_duplicate_webhook, _mark_webhook_processed
+from .core_helpers import (
+    _get_admin_billing_callable,
+    _is_duplicate_webhook,
+    _mark_webhook_processed,
+)
 
 
 def _logger():
@@ -22,6 +26,7 @@ def _logger():
     if core is not None:
         return core.logger
     import logging
+
     return logging.getLogger("aragora.server.handlers.billing.core")
 
 

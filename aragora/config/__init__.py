@@ -224,6 +224,7 @@ if TYPE_CHECKING:
     def resolve_db_path(path_str: str | _Path) -> str: ...
     def get_api_key(*env_vars: str, required: bool = True) -> str | None: ...
     def validate_configuration() -> dict[str, _Any]: ...
+
     DB_TIMEOUT_SECONDS: float
     NOMIC_DIR: str
     DB_MEMORY_PATH: str
@@ -337,6 +338,7 @@ if TYPE_CHECKING:
 
     class ConfigurationError(Exception): ...
 
+
 _legacy_mod: _types.ModuleType | None = None
 _slo_mod: _types.ModuleType | None = None
 
@@ -345,6 +347,7 @@ def _get_legacy_mod() -> _types.ModuleType:
     global _legacy_mod
     if _legacy_mod is None:
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             _legacy_mod = _importlib.import_module("aragora.config.legacy")

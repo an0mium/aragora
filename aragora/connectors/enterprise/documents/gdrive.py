@@ -349,7 +349,9 @@ class GoogleDriveConnector(EnterpriseConnector):
             if not page_token:
                 break
         else:
-            logger.warning(f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for shared drives")
+            logger.warning(
+                f"[{self.name}] Pagination limit reached ({_MAX_PAGES} pages) for shared drives"
+            )
 
         return drives
 
@@ -481,7 +483,15 @@ class GoogleDriveConnector(EnterpriseConnector):
 
             return content.decode("utf-8", errors="replace")[:10000]
 
-        except (httpx.HTTPError, ConnectionError, TimeoutError, OSError, UnicodeDecodeError, ValueError, KeyError) as e:
+        except (
+            httpx.HTTPError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            UnicodeDecodeError,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.warning(f"[{self.name}] Failed to extract text from {file.name}: {e}")
             return ""
 

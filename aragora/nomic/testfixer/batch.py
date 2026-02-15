@@ -141,9 +141,7 @@ class FailureGrouper:
             List of FailureBatch ordered by priority (highest first).
         """
         if len(failures) != len(analyses):
-            raise ValueError(
-                f"Mismatch: {len(failures)} failures vs {len(analyses)} analyses"
-            )
+            raise ValueError(f"Mismatch: {len(failures)} failures vs {len(analyses)} analyses")
 
         # Build groups keyed by (directory_prefix, category)
         groups: dict[tuple[str, FailureCategory], list[tuple[TestFailure, FailureAnalysis]]] = {}
@@ -291,9 +289,7 @@ class BatchOrchestrator:
                 # Step 6: Process each batch
                 any_progress = False
                 for batch in batches:
-                    batch_result = await self._process_batch(
-                        batch, baseline_failure_names
-                    )
+                    batch_result = await self._process_batch(batch, baseline_failure_names)
                     result.batch_results.append(batch_result)
                     result.batches_processed += 1
                     result.fixes_attempted += batch_result.fixes_attempted
@@ -376,9 +372,7 @@ class BatchOrchestrator:
                 if generators:
                     original_proposer_generators = self._orch.proposer.generators
                     self._orch.proposer.generators = generators
-                    batch_result.notes.append(
-                        f"ELO-selected agents for {batch.category.value}"
-                    )
+                    batch_result.notes.append(f"ELO-selected agents for {batch.category.value}")
 
         try:
             # Fix each failure in the batch
@@ -430,9 +424,7 @@ class BatchOrchestrator:
                 and batch_result.fixes_successful > 0
                 and batch_result.status != BatchStatus.REVERTED
             ):
-                impact_passed = await self._run_impact_check(
-                    batch_result, baseline_failure_names
-                )
+                impact_passed = await self._run_impact_check(batch_result, baseline_failure_names)
                 batch_result.impact_check_passed = impact_passed
                 if not impact_passed:
                     self._revert_batch(batch_result)
@@ -496,9 +488,7 @@ class BatchOrchestrator:
         )
         if impact.has_regressions:
             names = [f.test_name for f in impact.new_failures[:5]]
-            batch_result.notes.append(
-                f"Regressions detected: {names}"
-            )
+            batch_result.notes.append(f"Regressions detected: {names}")
             logger.warning(
                 "batch.regressions batch=%s new_failures=%d",
                 batch_result.batch.id,
@@ -574,8 +564,6 @@ class BatchOrchestrator:
             logger.warning("batch.impact_analyzer_unavailable error=%s", exc)
             return None
 
-    async def _emit_event(
-        self, event_type: StreamEventType, data: dict[str, Any]
-    ) -> None:
+    async def _emit_event(self, event_type: StreamEventType, data: dict[str, Any]) -> None:
         """Emit event through the orchestrator's emitter."""
         await self._orch._emit_event(event_type, data)

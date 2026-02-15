@@ -217,7 +217,14 @@ class CourtListenerConnector(BaseConnector):
                     return None
                 response.raise_for_status()
                 data = response.json()
-        except (httpx.HTTPError, ConnectorError, ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except (
+            httpx.HTTPError,
+            ConnectorError,
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+        ) as e:
             logger.warning("CourtListener fetch failed: %s", e)
             return None
 

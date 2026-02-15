@@ -47,11 +47,19 @@ def find_singletons(src_dir: Path) -> list[dict]:
                         # Check if assigned to None
                         if isinstance(node.value, ast.Constant) and node.value.value is None:
                             private_globals[target.id] = node.lineno
-            elif isinstance(node, ast.AnnAssign) and node.target and isinstance(node.target, ast.Name):
+            elif (
+                isinstance(node, ast.AnnAssign)
+                and node.target
+                and isinstance(node.target, ast.Name)
+            ):
                 name = node.target.id
                 if name.startswith("_"):
                     # Check if value is None
-                    if node.value and isinstance(node.value, ast.Constant) and node.value.value is None:
+                    if (
+                        node.value
+                        and isinstance(node.value, ast.Constant)
+                        and node.value.value is None
+                    ):
                         private_globals[name] = node.lineno
 
         if not private_globals:
@@ -67,13 +75,15 @@ def find_singletons(src_dir: Path) -> list[dict]:
                             if global_name in private_globals:
                                 rel_path = py_file.relative_to(ROOT)
                                 module = str(rel_path).replace("/", ".").removesuffix(".py")
-                                singletons.append({
-                                    "module": module,
-                                    "var": global_name,
-                                    "getter": node.name,
-                                    "line": private_globals[global_name],
-                                    "file": str(rel_path),
-                                })
+                                singletons.append(
+                                    {
+                                        "module": module,
+                                        "var": global_name,
+                                        "getter": node.name,
+                                        "line": private_globals[global_name],
+                                        "file": str(rel_path),
+                                    }
+                                )
 
     return singletons
 
@@ -85,7 +95,9 @@ def find_covered_resets(conftest: Path) -> set[tuple[str, str]]:
     source = conftest.read_text(encoding="utf-8")
 
     # Find the function body
-    match = re.search(r"def _reset_lazy_globals_impl\(\).*?(?=\n(?:def |@pytest|class )|\Z)", source, re.DOTALL)
+    match = re.search(
+        r"def _reset_lazy_globals_impl\(\).*?(?=\n(?:def |@pytest|class )|\Z)", source, re.DOTALL
+    )
     if not match:
         print("WARNING: Could not find _reset_lazy_globals_impl in conftest.py")
         return covered

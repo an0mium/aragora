@@ -211,7 +211,15 @@ class GmailMessagesMixin(GmailBaseMethods):
                 try:
                     msg = await self.get_message(msg_id, format=format)
                     return msg, None
-                except (OSError, ValueError, KeyError, TypeError, RuntimeError, ConnectionError, TimeoutError) as e:
+                except (
+                    OSError,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                    RuntimeError,
+                    ConnectionError,
+                    TimeoutError,
+                ) as e:
                     # Log with appropriate level based on error type
                     error_type = type(e).__name__
                     error_msg = str(e)

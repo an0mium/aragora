@@ -665,8 +665,7 @@ class MigrationOrchestrator:
 
             # Stream data in batches
             data_cursor = sqlite_conn.execute(
-                "SELECT {} ".format(", ".join(f'"{c}"' for c in common_columns))
-                + f'FROM "{table}"'
+                "SELECT {} ".format(", ".join(f'"{c}"' for c in common_columns)) + f'FROM "{table}"'
             )
 
             batch: list[tuple[Any, ...]] = []

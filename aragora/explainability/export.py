@@ -93,9 +93,7 @@ def _decision_to_html_body(decision: Decision) -> str:
         parts.append("<h2>Conclusion</h2>")
         # Escape HTML in conclusion text
         escaped = (
-            decision.conclusion.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
+            decision.conclusion.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         )
         parts.append(f"<p>{escaped}</p>")
 
@@ -105,10 +103,7 @@ def _decision_to_html_body(decision: Decision) -> str:
         top_evidence = decision.get_top_evidence(5)
         for ev in top_evidence:
             escaped_content = (
-                ev.content[:300]
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
+                ev.content[:300].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             )
             parts.append('<div class="evidence-card">')
             parts.append(

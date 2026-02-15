@@ -460,12 +460,8 @@ DEFAULT_ROUTE_PERMISSIONS = [
         r"^/api/(v1/)?scheduler/webhooks/[^/]+$", "POST", "", allow_unauthenticated=True
     ),
     # Playground - public demo endpoints (rate-limited, mock agents only)
-    RoutePermission(
-        r"^/api/(v1/)?playground/debate$", "POST", "", allow_unauthenticated=True
-    ),
-    RoutePermission(
-        r"^/api/(v1/)?playground/status$", "GET", "", allow_unauthenticated=True
-    ),
+    RoutePermission(r"^/api/(v1/)?playground/debate$", "POST", "", allow_unauthenticated=True),
+    RoutePermission(r"^/api/(v1/)?playground/status$", "GET", "", allow_unauthenticated=True),
     # Health endpoints (additional patterns)
     RoutePermission(
         r"^/api/(v1/)?health(/detailed|/deep|/stores)?$", "GET", "", allow_unauthenticated=True
@@ -756,24 +752,41 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/gateway/openclaw/sessions$", "GET", "gateway:sessions.read"),
     RoutePermission(r"^/api/gateway/openclaw/sessions$", "POST", "gateway:sessions.create"),
     RoutePermission(r"^/api/gateway/openclaw/sessions/([^/]+)$", "GET", "gateway:sessions.read", 1),
-    RoutePermission(r"^/api/gateway/openclaw/sessions/([^/]+)$", "DELETE", "gateway:sessions.delete", 1),
+    RoutePermission(
+        r"^/api/gateway/openclaw/sessions/([^/]+)$", "DELETE", "gateway:sessions.delete", 1
+    ),
     # Actions
     RoutePermission(r"^/api/gateway/openclaw/actions$", "POST", "gateway:actions.execute"),
     RoutePermission(r"^/api/gateway/openclaw/actions/([^/]+)$", "GET", "gateway:actions.read", 1),
-    RoutePermission(r"^/api/gateway/openclaw/actions/([^/]+)/cancel$", "POST", "gateway:actions.cancel", 1),
+    RoutePermission(
+        r"^/api/gateway/openclaw/actions/([^/]+)/cancel$", "POST", "gateway:actions.cancel", 1
+    ),
     # Credentials (use singular "credential" to match existing permissions)
     RoutePermission(r"^/api/gateway/openclaw/credentials$", "GET", "gateway.credential.read"),
     RoutePermission(r"^/api/gateway/openclaw/credentials$", "POST", "gateway.credential.create"),
-    RoutePermission(r"^/api/gateway/openclaw/credentials/([^/]+)$", "DELETE", "gateway.credential.delete", 1),
-    RoutePermission(r"^/api/gateway/openclaw/credentials/([^/]+)/rotate$", "POST", "gateway.credential.rotate", 1),
+    RoutePermission(
+        r"^/api/gateway/openclaw/credentials/([^/]+)$", "DELETE", "gateway.credential.delete", 1
+    ),
+    RoutePermission(
+        r"^/api/gateway/openclaw/credentials/([^/]+)/rotate$",
+        "POST",
+        "gateway.credential.rotate",
+        1,
+    ),
     # Policy rules
     RoutePermission(r"^/api/gateway/openclaw/policy/rules$", "GET", "gateway:policy.read"),
     RoutePermission(r"^/api/gateway/openclaw/policy/rules$", "POST", "gateway:policy.write"),
-    RoutePermission(r"^/api/gateway/openclaw/policy/rules/([^/]+)$", "DELETE", "gateway:policy.write", 1),
+    RoutePermission(
+        r"^/api/gateway/openclaw/policy/rules/([^/]+)$", "DELETE", "gateway:policy.write", 1
+    ),
     # Approvals
     RoutePermission(r"^/api/gateway/openclaw/approvals$", "GET", "gateway:approvals.read"),
-    RoutePermission(r"^/api/gateway/openclaw/approvals/([^/]+)/approve$", "POST", "gateway:approvals.write", 1),
-    RoutePermission(r"^/api/gateway/openclaw/approvals/([^/]+)/deny$", "POST", "gateway:approvals.write", 1),
+    RoutePermission(
+        r"^/api/gateway/openclaw/approvals/([^/]+)/approve$", "POST", "gateway:approvals.write", 1
+    ),
+    RoutePermission(
+        r"^/api/gateway/openclaw/approvals/([^/]+)/deny$", "POST", "gateway:approvals.write", 1
+    ),
     # Health/metrics/audit (health is public, metrics/audit require auth)
     RoutePermission(r"^/api/gateway/openclaw/health$", "GET", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/gateway/openclaw/metrics$", "GET", "gateway:metrics.read"),
@@ -785,7 +798,9 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/v1/gateway/openclaw/devices$", "POST", "gateway.create"),
     RoutePermission(r"^/api/v1/gateway/openclaw/devices/([^/]+)$", "DELETE", "gateway.delete", 1),
     RoutePermission(r"^/api/v1/gateway/openclaw/plugins$", "POST", "gateway.install"),
-    RoutePermission(r"^/api/v1/gateway/openclaw/plugins/([^/]+)$", "DELETE", "gateway.uninstall", 1),
+    RoutePermission(
+        r"^/api/v1/gateway/openclaw/plugins/([^/]+)$", "DELETE", "gateway.uninstall", 1
+    ),
     RoutePermission(r"^/api/v1/gateway/openclaw/config$", "GET", "gateway.read"),
 ]
 

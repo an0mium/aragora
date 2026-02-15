@@ -27,7 +27,10 @@ def _extract_agent_section(text: str) -> str:
 
 def _extract_doc_agent_types(agent_section: str) -> set[str]:
     # Agent rows in the top section follow: | `agent-type` | ...
-    return {m.group(1).strip() for m in re.finditer(r"^\|\s*`([^`]+)`\s*\|", agent_section, re.MULTILINE)}
+    return {
+        m.group(1).strip()
+        for m in re.finditer(r"^\|\s*`([^`]+)`\s*\|", agent_section, re.MULTILINE)
+    }
 
 
 def _extract_declared_registered_count(agent_section: str) -> int:
@@ -57,7 +60,9 @@ def _load_allowlist() -> set[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check AGENTS.md registry/allowlist synchronization")
+    parser = argparse.ArgumentParser(
+        description="Check AGENTS.md registry/allowlist synchronization"
+    )
     parser.add_argument("--agents-doc", default="AGENTS.md", help="Path to AGENTS.md")
     parser.add_argument(
         "--docs-only",
@@ -127,7 +132,9 @@ def main() -> int:
         if only_in_doc:
             errors.append(f"Agent types documented but not registered at runtime: {only_in_doc}")
         if only_in_runtime:
-            errors.append(f"Agent types registered at runtime but missing from AGENTS.md: {only_in_runtime}")
+            errors.append(
+                f"Agent types registered at runtime but missing from AGENTS.md: {only_in_runtime}"
+            )
 
     missing_allowlisted = sorted(allowlist - doc_agent_types)
     if missing_allowlisted:

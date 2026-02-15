@@ -8,6 +8,7 @@ This module is a thin facade that re-exports from focused submodules:
 - receipt_models.py: Core dataclasses (ProvenanceRecord, ConsensusProof, DecisionReceipt)
 - receipt_exporters.py: Export functions (markdown, HTML, SARIF, CSV)
 """
+
 from __future__ import annotations
 
 # Re-export data models

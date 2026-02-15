@@ -37,6 +37,7 @@ except ImportError:
 # Safe metric creation helpers (prevent ValueError on duplicate registration)
 # ============================================================================
 
+
 def _get_existing(name: str):
     """Look up an already-registered collector by metric name."""
     try:
@@ -451,73 +452,232 @@ if PROMETHEUS_AVAILABLE:
     )
 
     # RLM metrics
-    RLM_COMPRESSIONS = _safe_counter("aragora_rlm_compressions_total", "Total RLM compression operations", ["source_type", "status"])
-    RLM_COMPRESSION_RATIO = _safe_histogram("aragora_rlm_compression_ratio", "Compression ratio", ["source_type"], buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    RLM_TOKENS_SAVED = _safe_counter("aragora_rlm_tokens_saved_total", "Total tokens saved through compression", ["source_type"])
-    RLM_COMPRESSION_DURATION = _safe_histogram("aragora_rlm_compression_duration_seconds", "Time taken for compression", ["source_type", "levels"], buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0])
-    RLM_QUERIES = _safe_counter("aragora_rlm_queries_total", "Total RLM context queries", ["query_type", "level"])
-    RLM_QUERY_DURATION = _safe_histogram("aragora_rlm_query_duration_seconds", "Time taken for context queries", ["query_type"], buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5])
+    RLM_COMPRESSIONS = _safe_counter(
+        "aragora_rlm_compressions_total",
+        "Total RLM compression operations",
+        ["source_type", "status"],
+    )
+    RLM_COMPRESSION_RATIO = _safe_histogram(
+        "aragora_rlm_compression_ratio",
+        "Compression ratio",
+        ["source_type"],
+        buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    )
+    RLM_TOKENS_SAVED = _safe_counter(
+        "aragora_rlm_tokens_saved_total", "Total tokens saved through compression", ["source_type"]
+    )
+    RLM_COMPRESSION_DURATION = _safe_histogram(
+        "aragora_rlm_compression_duration_seconds",
+        "Time taken for compression",
+        ["source_type", "levels"],
+        buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+    )
+    RLM_QUERIES = _safe_counter(
+        "aragora_rlm_queries_total", "Total RLM context queries", ["query_type", "level"]
+    )
+    RLM_QUERY_DURATION = _safe_histogram(
+        "aragora_rlm_query_duration_seconds",
+        "Time taken for context queries",
+        ["query_type"],
+        buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+    )
     RLM_CACHE_HITS = _safe_counter("aragora_rlm_cache_hits_total", "RLM compression cache hits")
-    RLM_CACHE_MISSES = _safe_counter("aragora_rlm_cache_misses_total", "RLM compression cache misses")
-    RLM_CONTEXT_LEVELS = _safe_histogram("aragora_rlm_context_levels", "Number of abstraction levels created", ["source_type"], buckets=[1, 2, 3, 4, 5])
+    RLM_CACHE_MISSES = _safe_counter(
+        "aragora_rlm_cache_misses_total", "RLM compression cache misses"
+    )
+    RLM_CONTEXT_LEVELS = _safe_histogram(
+        "aragora_rlm_context_levels",
+        "Number of abstraction levels created",
+        ["source_type"],
+        buckets=[1, 2, 3, 4, 5],
+    )
     RLM_MEMORY_USAGE = _safe_gauge("aragora_rlm_memory_bytes", "Memory used by RLM context cache")
-    RLM_REFINEMENT_ITERATIONS = _safe_histogram("aragora_rlm_refinement_iterations", "Refinement iterations", ["strategy"], buckets=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    RLM_REFINEMENT_SUCCESS = _safe_counter("aragora_rlm_refinement_success_total", "Successful refinements", ["strategy"])
-    RLM_REFINEMENT_DURATION = _safe_histogram("aragora_rlm_refinement_duration_seconds", "Refinement loop time", ["strategy"], buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0])
-    RLM_READY_FALSE_RATE = _safe_counter("aragora_rlm_ready_false_total", "Times LLM signaled ready=False", ["iteration"])
+    RLM_REFINEMENT_ITERATIONS = _safe_histogram(
+        "aragora_rlm_refinement_iterations",
+        "Refinement iterations",
+        ["strategy"],
+        buckets=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    )
+    RLM_REFINEMENT_SUCCESS = _safe_counter(
+        "aragora_rlm_refinement_success_total", "Successful refinements", ["strategy"]
+    )
+    RLM_REFINEMENT_DURATION = _safe_histogram(
+        "aragora_rlm_refinement_duration_seconds",
+        "Refinement loop time",
+        ["strategy"],
+        buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+    )
+    RLM_READY_FALSE_RATE = _safe_counter(
+        "aragora_rlm_ready_false_total", "Times LLM signaled ready=False", ["iteration"]
+    )
 
     # Knowledge Mound metrics
-    KNOWLEDGE_VISIBILITY_CHANGES = _safe_counter("aragora_knowledge_visibility_changes_total", "Visibility level changes", ["from_level", "to_level", "workspace_id"])
-    KNOWLEDGE_ACCESS_GRANTS = _safe_counter("aragora_knowledge_access_grants_total", "Access grants", ["action", "grantee_type", "workspace_id"])
-    KNOWLEDGE_SHARES = _safe_counter("aragora_knowledge_shares_total", "Knowledge sharing operations", ["action", "target_type"])
-    KNOWLEDGE_SHARED_ITEMS = _safe_gauge("aragora_knowledge_shared_items_count", "Shared items pending", ["workspace_id"])
-    KNOWLEDGE_GLOBAL_FACTS = _safe_counter("aragora_knowledge_global_facts_total", "Global/verified facts", ["action"])
-    KNOWLEDGE_GLOBAL_QUERIES = _safe_counter("aragora_knowledge_global_queries_total", "Queries against global knowledge", ["has_results"])
-    KNOWLEDGE_FEDERATION_SYNCS = _safe_counter("aragora_knowledge_federation_syncs_total", "Federation sync operations", ["region_id", "direction", "status"])
-    KNOWLEDGE_FEDERATION_NODES = _safe_counter("aragora_knowledge_federation_nodes_total", "Nodes synced via federation", ["region_id", "direction"])
-    KNOWLEDGE_FEDERATION_LATENCY = _safe_histogram("aragora_knowledge_federation_latency_seconds", "Federation sync latency", ["region_id", "direction"], buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0])
-    KNOWLEDGE_FEDERATION_REGIONS = _safe_gauge("aragora_knowledge_federation_regions_count", "Federated regions by status", ["status"])
+    KNOWLEDGE_VISIBILITY_CHANGES = _safe_counter(
+        "aragora_knowledge_visibility_changes_total",
+        "Visibility level changes",
+        ["from_level", "to_level", "workspace_id"],
+    )
+    KNOWLEDGE_ACCESS_GRANTS = _safe_counter(
+        "aragora_knowledge_access_grants_total",
+        "Access grants",
+        ["action", "grantee_type", "workspace_id"],
+    )
+    KNOWLEDGE_SHARES = _safe_counter(
+        "aragora_knowledge_shares_total", "Knowledge sharing operations", ["action", "target_type"]
+    )
+    KNOWLEDGE_SHARED_ITEMS = _safe_gauge(
+        "aragora_knowledge_shared_items_count", "Shared items pending", ["workspace_id"]
+    )
+    KNOWLEDGE_GLOBAL_FACTS = _safe_counter(
+        "aragora_knowledge_global_facts_total", "Global/verified facts", ["action"]
+    )
+    KNOWLEDGE_GLOBAL_QUERIES = _safe_counter(
+        "aragora_knowledge_global_queries_total",
+        "Queries against global knowledge",
+        ["has_results"],
+    )
+    KNOWLEDGE_FEDERATION_SYNCS = _safe_counter(
+        "aragora_knowledge_federation_syncs_total",
+        "Federation sync operations",
+        ["region_id", "direction", "status"],
+    )
+    KNOWLEDGE_FEDERATION_NODES = _safe_counter(
+        "aragora_knowledge_federation_nodes_total",
+        "Nodes synced via federation",
+        ["region_id", "direction"],
+    )
+    KNOWLEDGE_FEDERATION_LATENCY = _safe_histogram(
+        "aragora_knowledge_federation_latency_seconds",
+        "Federation sync latency",
+        ["region_id", "direction"],
+        buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0],
+    )
+    KNOWLEDGE_FEDERATION_REGIONS = _safe_gauge(
+        "aragora_knowledge_federation_regions_count", "Federated regions by status", ["status"]
+    )
 
     # Cross-Pollination Event Metrics
-    CROSS_POLL_EVENTS_TOTAL = _safe_counter("aragora_cross_pollination_events_total", "Cross-pollination events dispatched", ["event_type"])
-    CROSS_POLL_HANDLER_CALLS = _safe_counter("aragora_cross_pollination_handler_calls_total", "Handler invocations", ["handler", "status"])
-    CROSS_POLL_HANDLER_DURATION = _safe_histogram("aragora_cross_pollination_handler_duration_seconds", "Handler execution time", ["handler"], buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5])
-    CROSS_POLL_CIRCUIT_BREAKER = _safe_gauge("aragora_cross_pollination_circuit_breaker_state", "Circuit breaker state", ["handler"])
-    CROSS_POLL_SUBSCRIBERS = _safe_gauge("aragora_cross_pollination_subscribers", "Registered subscribers", ["event_type"])
+    CROSS_POLL_EVENTS_TOTAL = _safe_counter(
+        "aragora_cross_pollination_events_total",
+        "Cross-pollination events dispatched",
+        ["event_type"],
+    )
+    CROSS_POLL_HANDLER_CALLS = _safe_counter(
+        "aragora_cross_pollination_handler_calls_total",
+        "Handler invocations",
+        ["handler", "status"],
+    )
+    CROSS_POLL_HANDLER_DURATION = _safe_histogram(
+        "aragora_cross_pollination_handler_duration_seconds",
+        "Handler execution time",
+        ["handler"],
+        buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
+    )
+    CROSS_POLL_CIRCUIT_BREAKER = _safe_gauge(
+        "aragora_cross_pollination_circuit_breaker_state", "Circuit breaker state", ["handler"]
+    )
+    CROSS_POLL_SUBSCRIBERS = _safe_gauge(
+        "aragora_cross_pollination_subscribers", "Registered subscribers", ["event_type"]
+    )
 
     # KM Bidirectional Flow Metrics
-    KM_INBOUND_EVENTS = _safe_counter("aragora_km_inbound_events_total", "Events INTO Knowledge Mound", ["source", "event_type"])
-    KM_OUTBOUND_EVENTS = _safe_counter("aragora_km_outbound_events_total", "Events OUT of Knowledge Mound", ["target", "event_type"])
-    KM_ADAPTER_SYNC = _safe_counter("aragora_km_adapter_sync_total", "Adapter sync operations", ["adapter", "direction", "status"])
-    KM_ADAPTER_SYNC_DURATION = _safe_histogram("aragora_km_adapter_sync_duration_seconds", "Adapter sync duration", ["adapter", "direction"], buckets=[0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30])
-    KM_STALENESS_CHECKS = _safe_counter("aragora_km_staleness_checks_total", "Staleness check operations", ["workspace", "status"])
-    KM_STALE_NODES_FOUND = _safe_gauge("aragora_km_stale_nodes_found", "Stale nodes found", ["workspace"])
-    KM_NODES_BY_SOURCE = _safe_gauge("aragora_km_nodes_by_source", "Knowledge nodes by source type", ["source"])
+    KM_INBOUND_EVENTS = _safe_counter(
+        "aragora_km_inbound_events_total", "Events INTO Knowledge Mound", ["source", "event_type"]
+    )
+    KM_OUTBOUND_EVENTS = _safe_counter(
+        "aragora_km_outbound_events_total",
+        "Events OUT of Knowledge Mound",
+        ["target", "event_type"],
+    )
+    KM_ADAPTER_SYNC = _safe_counter(
+        "aragora_km_adapter_sync_total",
+        "Adapter sync operations",
+        ["adapter", "direction", "status"],
+    )
+    KM_ADAPTER_SYNC_DURATION = _safe_histogram(
+        "aragora_km_adapter_sync_duration_seconds",
+        "Adapter sync duration",
+        ["adapter", "direction"],
+        buckets=[0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30],
+    )
+    KM_STALENESS_CHECKS = _safe_counter(
+        "aragora_km_staleness_checks_total", "Staleness check operations", ["workspace", "status"]
+    )
+    KM_STALE_NODES_FOUND = _safe_gauge(
+        "aragora_km_stale_nodes_found", "Stale nodes found", ["workspace"]
+    )
+    KM_NODES_BY_SOURCE = _safe_gauge(
+        "aragora_km_nodes_by_source", "Knowledge nodes by source type", ["source"]
+    )
 
     # Checkpoint Bridge metrics
-    CHECKPOINT_BRIDGE_SAVES = _safe_counter("aragora_checkpoint_bridge_saves_total", "Checkpoint bridge save operations", ["debate_id", "phase"])
-    CHECKPOINT_BRIDGE_RESTORES = _safe_counter("aragora_checkpoint_bridge_restores_total", "Checkpoint bridge restore operations", ["status"])
-    CHECKPOINT_BRIDGE_MOLECULE_RECOVERIES = _safe_counter("aragora_checkpoint_bridge_molecule_recoveries_total", "Molecule recovery operations", ["status"])
-    CHECKPOINT_BRIDGE_SAVE_DURATION = _safe_histogram("aragora_checkpoint_bridge_save_duration_seconds", "Checkpoint bridge save duration", buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0])
+    CHECKPOINT_BRIDGE_SAVES = _safe_counter(
+        "aragora_checkpoint_bridge_saves_total",
+        "Checkpoint bridge save operations",
+        ["debate_id", "phase"],
+    )
+    CHECKPOINT_BRIDGE_RESTORES = _safe_counter(
+        "aragora_checkpoint_bridge_restores_total",
+        "Checkpoint bridge restore operations",
+        ["status"],
+    )
+    CHECKPOINT_BRIDGE_MOLECULE_RECOVERIES = _safe_counter(
+        "aragora_checkpoint_bridge_molecule_recoveries_total",
+        "Molecule recovery operations",
+        ["status"],
+    )
+    CHECKPOINT_BRIDGE_SAVE_DURATION = _safe_histogram(
+        "aragora_checkpoint_bridge_save_duration_seconds",
+        "Checkpoint bridge save duration",
+        buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+    )
 
     # Agent Channel metrics
-    AGENT_CHANNEL_MESSAGES = _safe_counter("aragora_agent_channel_messages_total", "Agent channel messages", ["message_type", "channel"])
-    AGENT_CHANNEL_SETUPS = _safe_counter("aragora_agent_channel_setups_total", "Channel setup operations", ["status"])
-    AGENT_CHANNEL_TEARDOWNS = _safe_counter("aragora_agent_channel_teardowns_total", "Channel teardown operations")
+    AGENT_CHANNEL_MESSAGES = _safe_counter(
+        "aragora_agent_channel_messages_total",
+        "Agent channel messages",
+        ["message_type", "channel"],
+    )
+    AGENT_CHANNEL_SETUPS = _safe_counter(
+        "aragora_agent_channel_setups_total", "Channel setup operations", ["status"]
+    )
+    AGENT_CHANNEL_TEARDOWNS = _safe_counter(
+        "aragora_agent_channel_teardowns_total", "Channel teardown operations"
+    )
     AGENT_CHANNEL_ACTIVE = _safe_gauge("aragora_agent_channel_active", "Active agent channels")
-    AGENT_CHANNEL_HISTORY_SIZE = _safe_histogram("aragora_agent_channel_history_size", "Message history size at teardown", buckets=[5, 10, 25, 50, 100, 250, 500])
+    AGENT_CHANNEL_HISTORY_SIZE = _safe_histogram(
+        "aragora_agent_channel_history_size",
+        "Message history size at teardown",
+        buckets=[5, 10, 25, 50, 100, 250, 500],
+    )
 
     # Session Management metrics
-    SESSION_CREATED = _safe_counter("aragora_session_created_total", "Sessions created", ["channel"])
-    SESSION_DEBATES_LINKED = _safe_counter("aragora_session_debates_linked_total", "Debates linked to sessions", ["channel"])
-    SESSION_HANDOFFS = _safe_counter("aragora_session_handoffs_total", "Session handoffs", ["from_channel", "to_channel"])
-    SESSION_RESULT_ROUTES = _safe_counter("aragora_session_result_routes_total", "Debate results routed", ["channel", "status"])
-    SESSION_ACTIVE = _safe_gauge("aragora_sessions_active", "Active sessions by channel", ["channel"])
+    SESSION_CREATED = _safe_counter(
+        "aragora_session_created_total", "Sessions created", ["channel"]
+    )
+    SESSION_DEBATES_LINKED = _safe_counter(
+        "aragora_session_debates_linked_total", "Debates linked to sessions", ["channel"]
+    )
+    SESSION_HANDOFFS = _safe_counter(
+        "aragora_session_handoffs_total", "Session handoffs", ["from_channel", "to_channel"]
+    )
+    SESSION_RESULT_ROUTES = _safe_counter(
+        "aragora_session_result_routes_total", "Debate results routed", ["channel", "status"]
+    )
+    SESSION_ACTIVE = _safe_gauge(
+        "aragora_sessions_active", "Active sessions by channel", ["channel"]
+    )
 
     # V1 API Deprecation Metrics
-    V1_API_REQUESTS = _safe_counter("aragora_v1_api_requests_total", "V1 API requests", ["endpoint", "method"])
-    V1_API_DAYS_UNTIL_SUNSET = _safe_gauge("aragora_v1_api_days_until_sunset", "Days until V1 API sunset")
-    V1_API_SUNSET_BLOCKED = _safe_counter("aragora_v1_api_sunset_blocked_total", "Requests blocked by sunset", ["endpoint", "method"])
+    V1_API_REQUESTS = _safe_counter(
+        "aragora_v1_api_requests_total", "V1 API requests", ["endpoint", "method"]
+    )
+    V1_API_DAYS_UNTIL_SUNSET = _safe_gauge(
+        "aragora_v1_api_days_until_sunset", "Days until V1 API sunset"
+    )
+    V1_API_SUNSET_BLOCKED = _safe_counter(
+        "aragora_v1_api_sunset_blocked_total", "Requests blocked by sunset", ["endpoint", "method"]
+    )
 
 
 # ============================================================================

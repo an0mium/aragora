@@ -67,7 +67,12 @@ def build_plan(backlog: dict[str, Any], max_tickets: int = 40) -> dict[str, Any]
                 {
                     "wave": idx + 1,
                     "total_open_items": wave_items,
-                    "focus_owners": [owner for owner, _ in sorted(wave_owners.items(), key=lambda kv: kv[1], reverse=True)[:3]],
+                    "focus_owners": [
+                        owner
+                        for owner, _ in sorted(
+                            wave_owners.items(), key=lambda kv: kv[1], reverse=True
+                        )[:3]
+                    ],
                     "tickets": [
                         {
                             **ticket,
@@ -132,7 +137,9 @@ def to_markdown(plan: dict[str, Any]) -> str:
     lines.append("## Execution Notes")
     lines.append("")
     lines.append("1. Work tickets in wave order; complete Wave 1 before opening new Wave 2 work.")
-    lines.append("2. Each merged PR must not regress strict drift baselines and should reduce at least one source bucket when touching contract surfaces.")
+    lines.append(
+        "2. Each merged PR must not regress strict drift baselines and should reduce at least one source bucket when touching contract surfaces."
+    )
     lines.append("3. Re-run backlog and issue plan generation weekly to refresh priorities.")
     lines.append("")
     return "\n".join(lines)

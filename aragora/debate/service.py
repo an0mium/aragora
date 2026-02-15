@@ -70,7 +70,19 @@ class DebateOptions:
 
     # Protocol options
     rounds: int | None = None
-    consensus: Literal["majority", "unanimous", "judge", "none", "weighted", "supermajority", "any", "byzantine"] | None = None
+    consensus: (
+        Literal[
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
+        ]
+        | None
+    ) = None
     topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
         "all-to-all"
     )

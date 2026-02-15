@@ -68,7 +68,9 @@ def _owner(domain: str) -> str:
     return OWNER_MAP.get(domain, "@team-platform")
 
 
-def _targets(start_total: int, weeks: int = 8, weekly_reduction: float = 0.1) -> list[dict[str, Any]]:
+def _targets(
+    start_total: int, weeks: int = 8, weekly_reduction: float = 0.1
+) -> list[dict[str, Any]]:
     rows = []
     current = start_total
     start = date.today()

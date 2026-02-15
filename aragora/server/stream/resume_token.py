@@ -121,11 +121,14 @@ class ResumeTokenManager:
         Token format: base64(json({debate_id, last_seq, expires_at})).signature
         """
         expires_at = time.time() + RESUME_TOKEN_TTL_SECONDS
-        payload = json.dumps({
-            "d": debate_id,
-            "s": last_seq,
-            "e": expires_at,
-        }, separators=(",", ":"))
+        payload = json.dumps(
+            {
+                "d": debate_id,
+                "s": last_seq,
+                "e": expires_at,
+            },
+            separators=(",", ":"),
+        )
 
         sig = hmac.new(self._secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
         return f"{payload}.{sig}"

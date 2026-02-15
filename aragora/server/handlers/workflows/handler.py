@@ -1123,9 +1123,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
 
         try:
             # Get templates from persistent store
-            store_templates = self._run_async_fn()(
-                list_templates(category=category)
-            )
+            store_templates = self._run_async_fn()(list_templates(category=category))
 
             # Merge with code-defined templates from the catalog
             try:

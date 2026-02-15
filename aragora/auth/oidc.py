@@ -450,9 +450,7 @@ class OIDCProvider(SSOProvider):
         """
         now = time.time()
         # Remove expired entries
-        expired_keys = [
-            k for k, v in store.items() if now - v[1] > self._pkce_entry_ttl
-        ]
+        expired_keys = [k for k, v in store.items() if now - v[1] > self._pkce_entry_ttl]
         for k in expired_keys:
             del store[k]
         # Enforce max size by evicting oldest entries

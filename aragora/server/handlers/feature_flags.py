@@ -83,18 +83,22 @@ class FeatureFlagsHandler(BaseHandler):
         flag_list = []
         for flag in flags:
             current_value = registry.get_value(flag.name, flag.default)
-            flag_list.append({
-                "name": flag.name,
-                "value": current_value,
-                "description": flag.description,
-                "category": flag.category.value,
-                "status": flag.status.value,
-            })
+            flag_list.append(
+                {
+                    "name": flag.name,
+                    "value": current_value,
+                    "description": flag.description,
+                    "category": flag.category.value,
+                    "status": flag.status.value,
+                }
+            )
 
-        return json_response({
-            "flags": flag_list,
-            "total": len(flag_list),
-        })
+        return json_response(
+            {
+                "flags": flag_list,
+                "total": len(flag_list),
+            }
+        )
 
     def _get_flag(self, name: str) -> HandlerResult:
         registry = get_flag_registry()
@@ -103,13 +107,15 @@ class FeatureFlagsHandler(BaseHandler):
             return error_response(f"Flag not found: {name}", 404)
 
         current_value = registry.get_value(name, definition.default)
-        return json_response({
-            "name": definition.name,
-            "value": current_value,
-            "description": definition.description,
-            "category": definition.category.value,
-            "status": definition.status.value,
-        })
+        return json_response(
+            {
+                "name": definition.name,
+                "value": current_value,
+                "description": definition.description,
+                "category": definition.category.value,
+                "status": definition.status.value,
+            }
+        )
 
 
 __all__ = ["FeatureFlagsHandler"]

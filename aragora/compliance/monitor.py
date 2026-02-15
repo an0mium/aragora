@@ -334,7 +334,9 @@ class ComplianceMonitor:
                 action = getattr(entry, "action", "")
                 details = getattr(entry, "details", {})
                 # Check if any framework name appears in action or details
-                searchable = f"{action} {details.get('framework', '')} {details.get('category', '')}".lower()
+                searchable = (
+                    f"{action} {details.get('framework', '')} {details.get('category', '')}".lower()
+                )
                 for fw in frameworks:
                     if fw.lower() in searchable:
                         severity = details.get("severity", "info")

@@ -148,9 +148,7 @@ class HybridExecutor:
         self._reviser_type = (reviser or env_reviser or "").strip()
         self._complexity_router = complexity_router or self._parse_router_map(env_complexity_router)
         self._task_type_router = task_type_router or self._parse_router_map(env_task_type_router)
-        self._capability_router = capability_router or self._parse_router_map(
-            env_capability_router
-        )
+        self._capability_router = capability_router or self._parse_router_map(env_capability_router)
         self._implementer_index = 0
         self._dynamic_agents: dict[tuple[str, str], Any] = {}
 

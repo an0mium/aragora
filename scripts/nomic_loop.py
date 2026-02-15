@@ -9527,10 +9527,16 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                     f"  [constitution] Signature verified (v{self.constitution_verifier.constitution.version})"
                 )
             else:
-                self._log("  [constitution] WARNING: Verifier not available — skipping signature check")
-                self._log("  [constitution] For autonomous runs, ensure constitution.json is signed")
+                self._log(
+                    "  [constitution] WARNING: Verifier not available — skipping signature check"
+                )
+                self._log(
+                    "  [constitution] For autonomous runs, ensure constitution.json is signed"
+                )
         else:
-            self._log("  [constitution] No verifier configured — running without constitution checks")
+            self._log(
+                "  [constitution] No verifier configured — running without constitution checks"
+            )
 
         cycle_result = {
             "cycle": self.cycle_count,
@@ -9942,7 +9948,9 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                 self.phase_recovery.record_success("verify")
             except PhaseError as e:
                 self._log(f"PHASE TIMEOUT: Verification phase exceeded timeout: {e}")
-                self._log("  [SAFETY] Verify timeout triggers immediate rollback — no more fix iterations.")
+                self._log(
+                    "  [SAFETY] Verify timeout triggers immediate rollback — no more fix iterations."
+                )
                 verify_result = {"all_passed": False, "checks": [], "error": str(e)}
                 cycle_result["phases"]["verify"] = verify_result
                 cycle_result["outcome"] = "verify_timeout"
@@ -9953,7 +9961,9 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                 return cycle_result
             except Exception as e:
                 self._log(f"PHASE CRASH: Verification phase failed: {e}")
-                self._log("  [SAFETY] Verify crash triggers immediate rollback — no more fix iterations.")
+                self._log(
+                    "  [SAFETY] Verify crash triggers immediate rollback — no more fix iterations."
+                )
                 verify_result = {"all_passed": False, "checks": [], "error": str(e)}
                 cycle_result["phases"]["verify"] = verify_result
                 cycle_result["outcome"] = "verify_crash"

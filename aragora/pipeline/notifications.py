@@ -57,8 +57,7 @@ def _plan_summary_text(plan: DecisionPlan) -> str:
     if plan.risk_register:
         s = plan.risk_register.summary
         parts.append(
-            f"Risks: {s['total_risks']} total "
-            f"({s['critical']} critical, {s['high']} high)"
+            f"Risks: {s['total_risks']} total ({s['critical']} critical, {s['high']} high)"
         )
 
     if plan.implement_plan:
@@ -97,9 +96,7 @@ async def notify_plan_created(
 
     severity = _risk_to_severity(plan)
     priority = (
-        NotificationPriority.HIGH
-        if plan.requires_human_approval
-        else NotificationPriority.NORMAL
+        NotificationPriority.HIGH if plan.requires_human_approval else NotificationPriority.NORMAL
     )
 
     title = "Plan Awaiting Approval" if plan.requires_human_approval else "New Plan Created"

@@ -78,7 +78,8 @@ class ExecutionHandlersMixin:
             latency_ms = (time.time() - start) * 1000
             logger.debug(
                 "PLAN_COMPLETED handler: plan=%s latency=%.1fms",
-                plan_id, latency_ms,
+                plan_id,
+                latency_ms,
             )
 
         except Exception as e:
@@ -126,7 +127,8 @@ class ExecutionHandlersMixin:
             latency_ms = (time.time() - start) * 1000
             logger.debug(
                 "PLAN_FAILED handler: plan=%s latency=%.1fms",
-                plan_id, latency_ms,
+                plan_id,
+                latency_ms,
             )
 
         except Exception as e:
@@ -187,7 +189,9 @@ class ExecutionHandlersMixin:
 
             logger.debug(
                 "ELO updated for %d agents from debate %s: %+d",
-                len(debate_agents), debate_id, boost,
+                len(debate_agents),
+                debate_id,
+                boost,
             )
 
         except ImportError:

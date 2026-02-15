@@ -167,7 +167,9 @@ def _wait_for_http_200(base_url: str, path: str, timeout_seconds: int) -> None:
             return
         time.sleep(2)
 
-    raise RuntimeCheckError(f"Timed out waiting for {path} to return 200 (last_status={last_status})")
+    raise RuntimeCheckError(
+        f"Timed out waiting for {path} to return 200 (last_status={last_status})"
+    )
 
 
 def _check_api_flow(base_url: str, api_token: str) -> None:

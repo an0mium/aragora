@@ -49,9 +49,12 @@ def _clamp_ttl(value: int, lower: int, upper: int, name: str) -> int:
     clamped = max(min(value, upper), lower)
     if clamped != value:
         logger.warning(
-            "Session TTL %s=%d is outside recommended range [%d, %d]; "
-            "clamped to %d",
-            name, value, lower, upper, clamped,
+            "Session TTL %s=%d is outside recommended range [%d, %d]; clamped to %d",
+            name,
+            value,
+            lower,
+            upper,
+            clamped,
         )
     return clamped
 
@@ -69,19 +72,27 @@ _SESSION_MAX_DEVICE_SESSIONS = int(os.getenv("ARAGORA_SESSION_MAX_DEVICES", "100
 #   - Rate limiter TTL: [60, 3600] (1 min to 1 hour)
 _SESSION_DEBATE_STATE_TTL = _clamp_ttl(
     int(os.getenv("ARAGORA_SESSION_DEBATE_TTL", "3600")),
-    300, 86400, "ARAGORA_SESSION_DEBATE_TTL",
+    300,
+    86400,
+    "ARAGORA_SESSION_DEBATE_TTL",
 )
 _SESSION_ACTIVE_LOOP_TTL = _clamp_ttl(
     int(os.getenv("ARAGORA_SESSION_LOOP_TTL", "86400")),
-    300, 86400, "ARAGORA_SESSION_LOOP_TTL",
+    300,
+    86400,
+    "ARAGORA_SESSION_LOOP_TTL",
 )
 _SESSION_AUTH_STATE_TTL = _clamp_ttl(
     int(os.getenv("ARAGORA_SESSION_AUTH_TTL", "3600")),
-    60, 86400, "ARAGORA_SESSION_AUTH_TTL",
+    60,
+    86400,
+    "ARAGORA_SESSION_AUTH_TTL",
 )
 _SESSION_RATE_LIMITER_TTL = _clamp_ttl(
     int(os.getenv("ARAGORA_SESSION_RATE_LIMIT_TTL", "300")),
-    60, 3600, "ARAGORA_SESSION_RATE_LIMIT_TTL",
+    60,
+    3600,
+    "ARAGORA_SESSION_RATE_LIMIT_TTL",
 )
 _SESSION_MAX_DEBATE_STATES = int(os.getenv("ARAGORA_SESSION_MAX_DEBATES", "500"))
 _SESSION_MAX_ACTIVE_LOOPS = int(os.getenv("ARAGORA_SESSION_MAX_LOOPS", "1000"))
@@ -759,7 +770,8 @@ class InMemorySessionStore(SessionStore):
             # making old_session.push_token == session.push_token even when
             # the token actually changed.
             stale_tokens = [
-                tok for tok, did in self._device_token_index.items()
+                tok
+                for tok, did in self._device_token_index.items()
                 if did == session.device_id and tok != session.push_token
             ]
             for tok in stale_tokens:

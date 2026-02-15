@@ -179,9 +179,7 @@ def analyze_debate_for_gauntlet(
             agent = msg.get("agent", msg.get("agent_name", "unknown"))
 
             # Heuristic-based analysis (without actual LLM call)
-            round_findings = _analyze_message_heuristic(
-                content, agent, round_num, focus
-            )
+            round_findings = _analyze_message_heuristic(content, agent, round_num, focus)
             findings.extend(round_findings)
 
     # Calculate severity counts
@@ -190,7 +188,9 @@ def analyze_debate_for_gauntlet(
         severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1
 
     # Build summary
-    summary_parts = [f"Analyzed {debate_ctx.total_rounds} rounds, {len(debate_ctx.all_messages)} messages."]
+    summary_parts = [
+        f"Analyzed {debate_ctx.total_rounds} rounds, {len(debate_ctx.all_messages)} messages."
+    ]
     if findings:
         summary_parts.append(f"Found {len(findings)} potential issue(s).")
         for sev, count in sorted(severity_counts.items()):
@@ -223,14 +223,16 @@ def _analyze_message_heuristic(
         ad_hominem_patterns = [r"you always", r"you never", r"people like you"]
         for pattern in ad_hominem_patterns:
             if re.search(pattern, content_lower):
-                findings.append(GauntletRLMFinding(
-                    category="logical_fallacy",
-                    severity="medium",
-                    description=f"Potential ad hominem: '{pattern}' pattern detected",
-                    source_round=round_num,
-                    source_agent=agent,
-                    evidence=content[:200],
-                ))
+                findings.append(
+                    GauntletRLMFinding(
+                        category="logical_fallacy",
+                        severity="medium",
+                        description=f"Potential ad hominem: '{pattern}' pattern detected",
+                        source_round=round_num,
+                        source_agent=agent,
+                        evidence=content[:200],
+                    )
+                )
                 break
 
     if "weak_argument" in focus_areas:
@@ -238,14 +240,16 @@ def _analyze_message_heuristic(
         assertion_patterns = [r"obviously", r"everyone knows", r"it's clear that"]
         for pattern in assertion_patterns:
             if re.search(pattern, content_lower):
-                findings.append(GauntletRLMFinding(
-                    category="weak_argument",
-                    severity="low",
-                    description=f"Unsupported assertion: '{pattern}' without evidence",
-                    source_round=round_num,
-                    source_agent=agent,
-                    evidence=content[:200],
-                ))
+                findings.append(
+                    GauntletRLMFinding(
+                        category="weak_argument",
+                        severity="low",
+                        description=f"Unsupported assertion: '{pattern}' without evidence",
+                        source_round=round_num,
+                        source_agent=agent,
+                        evidence=content[:200],
+                    )
+                )
                 break
 
     if "missing_evidence" in focus_areas:
@@ -254,18 +258,18 @@ def _analyze_message_heuristic(
         citation_patterns = [r"\d{4}", r"http", r"doi:", r"\[.+\]"]
         for pattern in claim_patterns:
             if re.search(pattern, content_lower):
-                has_citation = any(
-                    re.search(cp, content) for cp in citation_patterns
-                )
+                has_citation = any(re.search(cp, content) for cp in citation_patterns)
                 if not has_citation:
-                    findings.append(GauntletRLMFinding(
-                        category="missing_evidence",
-                        severity="medium",
-                        description=f"Claim '{pattern}' without supporting citation",
-                        source_round=round_num,
-                        source_agent=agent,
-                        evidence=content[:200],
-                    ))
+                    findings.append(
+                        GauntletRLMFinding(
+                            category="missing_evidence",
+                            severity="medium",
+                            description=f"Claim '{pattern}' without supporting citation",
+                            source_round=round_num,
+                            source_agent=agent,
+                            evidence=content[:200],
+                        )
+                    )
                     break
 
     return findings
@@ -280,14 +284,16 @@ def _parse_gauntlet_findings(raw_text: str) -> list[GauntletRLMFinding]:
         data = json.loads(raw_text)
         if isinstance(data, list):
             for item in data:
-                findings.append(GauntletRLMFinding(
-                    category=item.get("category", "unknown"),
-                    severity=item.get("severity", "low"),
-                    description=item.get("description", ""),
-                    source_round=item.get("source_round"),
-                    source_agent=item.get("source_agent"),
-                    evidence=item.get("evidence", ""),
-                ))
+                findings.append(
+                    GauntletRLMFinding(
+                        category=item.get("category", "unknown"),
+                        severity=item.get("severity", "low"),
+                        description=item.get("description", ""),
+                        source_round=item.get("source_round"),
+                        source_agent=item.get("source_agent"),
+                        evidence=item.get("evidence", ""),
+                    )
+                )
             return findings
     except (json.JSONDecodeError, TypeError):
         pass
@@ -303,11 +309,13 @@ def _parse_gauntlet_findings(raw_text: str) -> list[GauntletRLMFinding]:
         # Try to extract category and description
         match = re.match(r"\[(\w+)\]\s*\((\w+)\)\s*(.*)", line)
         if match:
-            findings.append(GauntletRLMFinding(
-                category=match.group(1),
-                severity=match.group(2),
-                description=match.group(3),
-            ))
+            findings.append(
+                GauntletRLMFinding(
+                    category=match.group(1),
+                    severity=match.group(2),
+                    description=match.group(3),
+                )
+            )
 
     return findings
 
@@ -439,18 +447,20 @@ def load_trajectory_insights(
                     continue
                 try:
                     record = json.loads(line)
-                    entries.append(TrajectoryLearningData(
-                        query=record.get("query", ""),
-                        answer=record.get("answer", ""),
-                        trajectory_log_path=record.get("trajectory_log_path"),
-                        rlm_iterations=record.get("rlm_iterations", 0),
-                        code_blocks_executed=record.get("code_blocks_executed", 0),
-                        confidence=record.get("confidence", 0.0),
-                        used_true_rlm=record.get("used_true_rlm", False),
-                        debate_id=record.get("debate_id"),
-                        timestamp=record.get("timestamp", ""),
-                        metadata=record.get("metadata", {}),
-                    ))
+                    entries.append(
+                        TrajectoryLearningData(
+                            query=record.get("query", ""),
+                            answer=record.get("answer", ""),
+                            trajectory_log_path=record.get("trajectory_log_path"),
+                            rlm_iterations=record.get("rlm_iterations", 0),
+                            code_blocks_executed=record.get("code_blocks_executed", 0),
+                            confidence=record.get("confidence", 0.0),
+                            used_true_rlm=record.get("used_true_rlm", False),
+                            debate_id=record.get("debate_id"),
+                            timestamp=record.get("timestamp", ""),
+                            metadata=record.get("metadata", {}),
+                        )
+                    )
                     if len(entries) >= limit:
                         break
                 except json.JSONDecodeError:

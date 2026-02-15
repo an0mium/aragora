@@ -272,13 +272,16 @@ class PlanExecutor:
 
         # Emit PLAN_EXECUTING event
         _exec_mode = execution_mode or self._execution_mode
-        self._emit_plan_event("PLAN_EXECUTING", {
-            "plan_id": plan.id,
-            "debate_id": plan.debate_id,
-            "workspace_id": (plan.metadata or {}).get("workspace_id", ""),
-            "execution_mode": _exec_mode if isinstance(_exec_mode, str) else str(_exec_mode),
-            "task": plan.task[:200],
-        })
+        self._emit_plan_event(
+            "PLAN_EXECUTING",
+            {
+                "plan_id": plan.id,
+                "debate_id": plan.debate_id,
+                "workspace_id": (plan.metadata or {}).get("workspace_id", ""),
+                "execution_mode": _exec_mode if isinstance(_exec_mode, str) else str(_exec_mode),
+                "task": plan.task[:200],
+            },
+        )
 
         start_time = time.time()
         outcome: PlanOutcome
@@ -329,9 +332,7 @@ class PlanExecutor:
             )
             if isinstance(channel_targets, str):
                 ct_str: str = channel_targets
-                channel_targets = [
-                    item.strip() for item in ct_str.split(",") if item.strip()
-                ]
+                channel_targets = [item.strip() for item in ct_str.split(",") if item.strip()]
             thread_id = thread_id or meta.get("thread_id") or meta.get("origin_thread_id")
             if isinstance(meta.get("thread_id_by_platform"), dict):
                 thread_id_by_platform = thread_id_by_platform or meta.get("thread_id_by_platform")
@@ -1193,8 +1194,7 @@ class PlanExecutor:
         """
         if plan.status != PlanStatus.APPROVED:
             raise ValueError(
-                f"Plan {plan.id} must be APPROVED to create a PR "
-                f"(current: {plan.status.value})"
+                f"Plan {plan.id} must be APPROVED to create a PR (current: {plan.status.value})"
             )
 
         import subprocess

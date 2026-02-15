@@ -51,9 +51,7 @@ class AutonomousStreamEmitter:
         self._client_counter = 0
         self._lock = asyncio.Lock()
 
-    def add_client(
-        self, ws: web.WebSocketResponse, subscriptions: set[str] | None = None
-    ) -> str:
+    def add_client(self, ws: web.WebSocketResponse, subscriptions: set[str] | None = None) -> str:
         """Add a new WebSocket client."""
         self._client_counter += 1
         client_id = f"auto_{self._client_counter}_{int(time.time())}"

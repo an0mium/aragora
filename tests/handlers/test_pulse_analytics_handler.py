@@ -66,7 +66,7 @@ class TestSchedulerAnalytics:
     def test_no_scheduler_returns_unavailable(self, handler):
         with patch(_SCHEDULER_PATCH, return_value=None):
             result = handler._get_scheduler_analytics()
-        assert result[1] == 501
+        assert result[1] == 503
 
     def test_no_store_returns_empty_analytics(self, handler):
         mock_scheduler = MagicMock()

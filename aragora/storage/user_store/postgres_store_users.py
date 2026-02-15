@@ -157,6 +157,7 @@ class UserOperationsMixin:
     async def get_user_by_api_key_async(self, api_key: str) -> User | None:
         """Get user by API key asynchronously."""
         import hashlib
+
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(

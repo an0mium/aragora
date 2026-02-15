@@ -80,9 +80,7 @@ class OAuthHandlerProtocol(Protocol):
         """Find user by OAuth provider ID."""
         ...
 
-    def _link_oauth_to_user(
-        self, user_store: Any, user_id: str, user_info: OAuthUserInfo
-    ) -> bool:
+    def _link_oauth_to_user(self, user_store: Any, user_id: str, user_info: OAuthUserInfo) -> bool:
         """Link OAuth provider to existing user."""
         ...
 
@@ -123,28 +121,20 @@ class OAuthHandlerProtocol(Protocol):
         """Redirect user to Microsoft OAuth consent screen."""
         ...
 
-    def _handle_apple_auth_start(
-        self, handler: Any, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_apple_auth_start(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """Redirect user to Apple OAuth consent screen."""
         ...
 
-    def _handle_oidc_auth_start(
-        self, handler: Any, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_oidc_auth_start(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """Redirect user to OIDC OAuth consent screen."""
         ...
 
     # Provider-specific callback methods (used by AccountManagementMixin)
-    def _handle_google_callback(
-        self, handler: Any, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_google_callback(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """Handle Google OAuth callback."""
         ...
 
-    def _handle_github_callback(
-        self, handler: Any, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    def _handle_github_callback(self, handler: Any, query_params: dict[str, Any]) -> HandlerResult:
         """Handle GitHub OAuth callback."""
         ...
 

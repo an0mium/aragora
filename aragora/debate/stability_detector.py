@@ -113,18 +113,14 @@ class BetaBinomialStabilityDetector:
             beta_prior: Optional beta prior for compatibility calculations.
         """
         self.config = config or StabilityConfig()
-        self.agreement_threshold = (
-            agreement_threshold if agreement_threshold is not None else 0.75
-        )
+        self.agreement_threshold = agreement_threshold if agreement_threshold is not None else 0.75
         self.alpha_prior = alpha_prior if alpha_prior is not None else self.config.alpha_prior
         self.beta_prior = beta_prior if beta_prior is not None else self.config.beta_prior
         self._vote_history: list[dict[str, float]] = []
         self._stable_since: int | None = None
         self._stability_scores: list[float] = []
 
-    def calculate_stability(
-        self, agreement_scores: Iterable[float]
-    ) -> AgreementStabilityResult:
+    def calculate_stability(self, agreement_scores: Iterable[float]) -> AgreementStabilityResult:
         """
         Compute a simple beta-binomial posterior over agreement scores.
 

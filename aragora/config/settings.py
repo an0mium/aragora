@@ -1249,7 +1249,9 @@ def get_settings() -> Settings:
         # Ensure Secrets Manager values populate env before settings load.
         hydrate_env_from_secrets(overwrite=True)
     except (ImportError, OSError, RuntimeError):
-        logging.getLogger(__name__).debug("Secrets hydration unavailable, using env directly", exc_info=True)
+        logging.getLogger(__name__).debug(
+            "Secrets hydration unavailable, using env directly", exc_info=True
+        )
     return Settings()
 
 

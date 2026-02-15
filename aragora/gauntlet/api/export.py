@@ -278,9 +278,7 @@ def _generate_sarif_rules(receipt: DecisionReceipt) -> list[dict[str, Any]]:
     return rules
 
 
-def _generate_sarif_results(
-    receipt: DecisionReceipt, opts: ExportOptions
-) -> list[dict[str, Any]]:
+def _generate_sarif_results(receipt: DecisionReceipt, opts: ExportOptions) -> list[dict[str, Any]]:
     """Generate SARIF results from vulnerabilities."""
     results = []
 

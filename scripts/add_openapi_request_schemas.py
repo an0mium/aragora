@@ -1494,14 +1494,22 @@ KNOWN_SCHEMAS: dict[str, dict] = {
     "POST /api/v1/debates/{id}/export": {
         "type": "object",
         "properties": {
-            "format": {"type": "string", "enum": ["json", "csv", "pdf", "markdown"], "default": "json"},
+            "format": {
+                "type": "string",
+                "enum": ["json", "csv", "pdf", "markdown"],
+                "default": "json",
+            },
             "include_metadata": {"type": "boolean", "default": True},
         },
     },
     "POST /api/debates/{id}/export": {
         "type": "object",
         "properties": {
-            "format": {"type": "string", "enum": ["json", "csv", "pdf", "markdown"], "default": "json"},
+            "format": {
+                "type": "string",
+                "enum": ["json", "csv", "pdf", "markdown"],
+                "default": "json",
+            },
             "include_metadata": {"type": "boolean", "default": True},
         },
     },
@@ -1660,8 +1668,14 @@ KNOWN_SCHEMAS: dict[str, dict] = {
             "async": {"type": "boolean", "default": False},
         },
     },
-    "POST /api/v1/workflows/{id}/cancel": {"type": "object", "properties": {"reason": {"type": "string"}}},
-    "POST /api/workflows/{id}/cancel": {"type": "object", "properties": {"reason": {"type": "string"}}},
+    "POST /api/v1/workflows/{id}/cancel": {
+        "type": "object",
+        "properties": {"reason": {"type": "string"}},
+    },
+    "POST /api/workflows/{id}/cancel": {
+        "type": "object",
+        "properties": {"reason": {"type": "string"}},
+    },
 }
 
 # HTTP methods that can have request bodies

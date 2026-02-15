@@ -221,9 +221,7 @@ class VotingPhase:
         # Only return groups with multiple members (merges occurred)
         return {k: v for k, v in groups.items() if len(v) > 1}
 
-    def apply_vote_grouping(
-        self, votes: list[Vote], groups: dict[str, list[str]]
-    ) -> list[Vote]:
+    def apply_vote_grouping(self, votes: list[Vote], groups: dict[str, list[str]]) -> list[Vote]:
         """Apply vote grouping to normalize vote choices.
 
         Args:

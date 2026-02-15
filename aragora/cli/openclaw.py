@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 from typing import Any
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -504,13 +505,17 @@ def cmd_review(args: argparse.Namespace) -> int:
             print(json_mod.dumps(summary))
         else:
             print(f"\nReview: {result.pr_url}")
-            print(f"  Findings: {len(result.findings)} "
-                  f"({result.critical_count} critical, {result.high_count} high)")
+            print(
+                f"  Findings: {len(result.findings)} "
+                f"({result.critical_count} critical, {result.high_count} high)"
+            )
             print(f"  Agreement: {result.agreement_score:.0%}")
             print(f"  Comment: {'posted' if result.comment_posted else 'skipped'}")
             if result.receipt:
-                print(f"  Receipt: {result.receipt.review_id} "
-                      f"(checksum: {result.receipt.checksum[:12]}...)")
+                print(
+                    f"  Receipt: {result.receipt.review_id} "
+                    f"(checksum: {result.receipt.checksum[:12]}...)"
+                )
 
         if args.fail_on_critical and result.has_critical:
             exit_code = 2
@@ -593,8 +598,10 @@ def cmd_next_steps(args: argparse.Namespace) -> int:
         print(f"\nNext Steps for {result.repo}")
         print("=" * 60)
         if result.receipt:
-            print(f"Scanned {result.receipt.files_scanned} files | "
-                  f"Found {result.receipt.steps_count} actions")
+            print(
+                f"Scanned {result.receipt.files_scanned} files | "
+                f"Found {result.receipt.steps_count} actions"
+            )
             signals = ", ".join(
                 f"{k}: {v}" for k, v in result.receipt.signals_by_source.items() if v > 0
             )
@@ -603,8 +610,9 @@ def cmd_next_steps(args: argparse.Namespace) -> int:
         print()
         print(format_steps_table(result.steps, max_rows=args.limit))
         if result.receipt:
-            print(f"\nReceipt: {result.receipt.scan_id} "
-                  f"(checksum: {result.receipt.checksum[:12]}...)")
+            print(
+                f"\nReceipt: {result.receipt.scan_id} (checksum: {result.receipt.checksum[:12]}...)"
+            )
 
         if args.output:
             output = steps_to_json(result.steps, result.receipt)
@@ -736,25 +744,33 @@ Examples:
         "serve",
         help="Run standalone OpenClaw governance gateway",
     )
+    serve_parser.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
     serve_parser.add_argument(
-        "--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)"
-    )
-    serve_parser.add_argument(
-        "--port", "-p", type=int, default=8100,
+        "--port",
+        "-p",
+        type=int,
+        default=8100,
         help="Port to listen on (default: 8100)",
     )
     serve_parser.add_argument(
-        "--policy", help="Path to policy YAML file",
+        "--policy",
+        help="Path to policy YAML file",
     )
     serve_parser.add_argument(
-        "--default-policy", default="deny", choices=["allow", "deny"],
+        "--default-policy",
+        default="deny",
+        choices=["allow", "deny"],
         help="Default policy when no rule matches (default: deny)",
     )
     serve_parser.add_argument(
-        "--cors", default="*", help="CORS allowed origins (comma-separated)",
+        "--cors",
+        default="*",
+        help="CORS allowed origins (comma-separated)",
     )
     serve_parser.add_argument(
-        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Log level (default: INFO)",
     )
     serve_parser.set_defaults(func=_cmd_serve_gateway)
@@ -781,47 +797,61 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     review_parser.add_argument(
-        "--pr", help="GitHub PR URL to review",
+        "--pr",
+        help="GitHub PR URL to review",
     )
     review_parser.add_argument(
-        "--repo", help="GitHub repo URL to review all open PRs",
+        "--repo",
+        help="GitHub repo URL to review all open PRs",
     )
     review_parser.add_argument(
-        "--policy", help="Path to policy YAML file (default: bundled pr-reviewer policy)",
+        "--policy",
+        help="Path to policy YAML file (default: bundled pr-reviewer policy)",
     )
     review_parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Analyze but don't post PR comments",
     )
     review_parser.add_argument(
-        "--ci", action="store_true",
+        "--ci",
+        action="store_true",
         help="CI mode: machine-readable output with exit codes",
     )
     review_parser.add_argument(
-        "--fail-on-critical", action="store_true",
+        "--fail-on-critical",
+        action="store_true",
         help="Exit non-zero if critical issues found",
     )
     review_parser.add_argument(
-        "--demo", action="store_true",
+        "--demo",
+        action="store_true",
         help="Demo mode (no API keys required)",
     )
     review_parser.add_argument(
-        "--agents", default="anthropic-api,openai-api",
+        "--agents",
+        default="anthropic-api,openai-api",
         help="Comma-separated agent list (default: anthropic-api,openai-api)",
     )
     review_parser.add_argument(
-        "--rounds", type=int, default=2,
+        "--rounds",
+        type=int,
+        default=2,
         help="Number of debate rounds (default: 2)",
     )
     review_parser.add_argument(
-        "--gauntlet", action="store_true",
+        "--gauntlet",
+        action="store_true",
         help="Run adversarial stress-test on findings",
     )
     review_parser.add_argument(
-        "--output", "-o", help="Write JSON results to file",
+        "--output",
+        "-o",
+        help="Write JSON results to file",
     )
     review_parser.add_argument(
-        "--sarif", help="Write SARIF 2.1.0 results to file (for GitHub Security tab)",
+        "--sarif",
+        help="Write SARIF 2.1.0 results to file (for GitHub Security tab)",
     )
     review_parser.set_defaults(func=cmd_review)
 
@@ -848,45 +878,58 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ns_parser.add_argument(
-        "--path", default=".",
+        "--path",
+        default=".",
         help="Local repository path to scan (default: current directory)",
     )
     ns_parser.add_argument(
-        "--repo", help="GitHub repo URL (enables issue/PR scanning for remote repos)",
+        "--repo",
+        help="GitHub repo URL (enables issue/PR scanning for remote repos)",
     )
     ns_parser.add_argument(
-        "--limit", type=int, default=30,
+        "--limit",
+        type=int,
+        default=30,
         help="Max results to show (default: 30)",
     )
     ns_parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Output as JSON",
     )
     ns_parser.add_argument(
-        "--output", "-o", help="Write results to file",
+        "--output",
+        "-o",
+        help="Write results to file",
     )
     ns_parser.add_argument(
-        "--tests", action="store_true",
+        "--tests",
+        action="store_true",
         help="Also scan for test failures (slower)",
     )
     ns_parser.add_argument(
-        "--deps", action="store_true",
+        "--deps",
+        action="store_true",
         help="Also check dependency health (slower)",
     )
     ns_parser.add_argument(
-        "--no-code", action="store_true",
+        "--no-code",
+        action="store_true",
         help="Skip source code marker scanning",
     )
     ns_parser.add_argument(
-        "--no-issues", action="store_true",
+        "--no-issues",
+        action="store_true",
         help="Skip GitHub issue scanning",
     )
     ns_parser.add_argument(
-        "--no-prs", action="store_true",
+        "--no-prs",
+        action="store_true",
         help="Skip GitHub PR scanning",
     )
     ns_parser.add_argument(
-        "--no-docs", action="store_true",
+        "--no-docs",
+        action="store_true",
         help="Skip documentation gap scanning",
     )
     ns_parser.set_defaults(func=cmd_next_steps)

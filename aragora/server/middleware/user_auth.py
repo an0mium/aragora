@@ -253,7 +253,7 @@ class SupabaseAuthValidator:
             raise RuntimeError(
                 f"SUPABASE_JWT_SECRET is too short ({len(self.jwt_secret)} chars). "
                 f"Production requires at least {self._MIN_JWT_SECRET_LENGTH} characters. "
-                "Generate a strong secret with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+                'Generate a strong secret with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
             )
 
         # Cache for validated tokens (short TTL)
@@ -364,8 +364,7 @@ class SupabaseAuthValidator:
                     )
                 except ImportError:
                     logger.error(
-                        "SECURITY AUDIT: insecure JWT decode for sub=%s "
-                        "(audit module unavailable)",
+                        "SECURITY AUDIT: insecure JWT decode for sub=%s (audit module unavailable)",
                         payload.get("sub"),
                     )
 

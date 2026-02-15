@@ -55,7 +55,8 @@ import contextvars
 import threading
 
 _circuit_breakers_var: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
-    "email_circuit_breakers", default=None  # type: ignore[arg-type]
+    "email_circuit_breakers",
+    default=None,  # type: ignore[arg-type]
 )
 _circuit_breakers_init_lock = threading.Lock()
 

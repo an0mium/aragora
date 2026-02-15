@@ -114,11 +114,7 @@ class TokenRotationConfig:
             ARAGORA_GITHUB_REPO: GitHub repo name
             ARAGORA_TOKEN_STORES: Comma-separated store list (default: aws,github)
         """
-        region = (
-            os.environ.get("AWS_REGION")
-            or os.environ.get("AWS_DEFAULT_REGION")
-            or "us-east-1"
-        )
+        region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
         raw_stores = os.environ.get("ARAGORA_TOKEN_STORES", "aws,github")
         stores = [s.strip() for s in raw_stores.split(",") if s.strip()]
 
@@ -216,9 +212,7 @@ class TokenRotationManager:
             return None
 
         try:
-            self._aws_client = boto3.client(
-                "secretsmanager", region_name=self._config.aws_region
-            )
+            self._aws_client = boto3.client("secretsmanager", region_name=self._config.aws_region)
             return self._aws_client
         except (BotoCoreError, ClientError, OSError, ValueError) as e:
             logger.warning("Failed to initialize AWS SM client: %s", e)

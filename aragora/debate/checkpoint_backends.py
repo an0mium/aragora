@@ -162,9 +162,7 @@ class S3CheckpointStore(CheckpointStore):
 
                 self._client = boto3.client("s3", region_name=self.region)
             except ImportError:
-                raise RuntimeError(
-                    "boto3 required but not installed. Run: pip install boto3"
-                )
+                raise RuntimeError("boto3 required but not installed. Run: pip install boto3")
         return self._client
 
     def _get_key(self, checkpoint_id: str) -> str:
