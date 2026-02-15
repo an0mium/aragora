@@ -773,7 +773,7 @@ class RoutingRulesHandler(SecureHandler):
                 "status": "success",
                 "rule": existing,
             }
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Failed to toggle rule {rule_id}: {e}")
             return {
                 "status": "error",

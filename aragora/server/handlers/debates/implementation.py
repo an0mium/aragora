@@ -954,7 +954,7 @@ class ImplementationOperationsMixin:
                 "results": [r.to_dict() for r in results],
                 "progress": notifier.progress.to_dict(),
             }
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
             response_payload["execution"] = {
                 "status": "failed",
                 "mode": "fabric",

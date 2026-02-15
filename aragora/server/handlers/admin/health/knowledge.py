@@ -486,7 +486,7 @@ class KnowledgeMixin:
                 "status": "not_available",
                 "prometheus_integration": False,
             }
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.debug("KM metrics check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
