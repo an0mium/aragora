@@ -191,9 +191,15 @@ class SlackIntegration:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
+                # Payload construction or data format error -- not retryable
                 last_error = e
-                logger.warning(f"Slack send error (attempt {attempt + 1}): {e}")
+                logger.error(f"Slack payload error (attempt {attempt + 1}): {type(e).__name__}: {e}")
+                break
+            except OSError as e:
+                # Low-level network/socket error -- retryable
+                last_error = e
+                logger.warning(f"Slack network error (attempt {attempt + 1}): {type(e).__name__}: {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2**attempt)
                     continue

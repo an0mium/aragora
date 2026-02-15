@@ -169,8 +169,11 @@ class DiscordIntegration:
 
             except asyncio.TimeoutError:
                 logger.warning(f"Discord webhook timeout (attempt {attempt + 1})")
-            except Exception as e:
-                logger.error(f"Discord webhook error: {e}")
+            except aiohttp.ClientError as e:
+                logger.error(f"Discord webhook connection error: {type(e).__name__}: {e}")
+            except (ValueError, TypeError) as e:
+                logger.error(f"Discord webhook payload error: {type(e).__name__}: {e}")
+                break  # Payload errors are not retryable
 
             if attempt < self.config.retry_count - 1:
                 await asyncio.sleep(self.config.retry_delay * (attempt + 1))
@@ -397,8 +400,11 @@ class DiscordWebhookManager:
             if handler and callable(handler):
                 try:
                     results[name] = await handler(*args, **kwargs)
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    logger.error(f"Discord broadcast to {name} connection error: {type(e).__name__}: {e}")
+                    results[name] = False
                 except Exception as e:
-                    logger.error(f"Discord broadcast to {name} failed: {e}")
+                    logger.error(f"Discord broadcast to {name} unexpected error: {type(e).__name__}: {e}")
                     results[name] = False
 
         return results
