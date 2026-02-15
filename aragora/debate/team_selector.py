@@ -399,11 +399,7 @@ class TeamSelector:
         Raises:
             BudgetExceededError: If budget is at HARD_LIMIT
         """
-        if (
-            not self.budget_manager
-            or not self.org_id
-            or not self.config.enable_budget_filtering
-        ):
+        if not self.budget_manager or not self.org_id or not self.config.enable_budget_filtering:
             return agents
 
         try:
@@ -442,8 +438,7 @@ class TeamSelector:
                 # Prefer cheaper agents when budget is in warning zone
                 cheap_patterns = self.config.budget_cheap_agent_patterns
                 cheap_agents = [
-                    a for a in agents
-                    if self._agent_matches_capability(a, cheap_patterns)
+                    a for a in agents if self._agent_matches_capability(a, cheap_patterns)
                 ]
                 if cheap_agents:
                     # Apply max_agents limit if configured
@@ -935,9 +930,7 @@ class TeamSelector:
         agent_name_lower = agent.name.lower()
         for idx, expert in enumerate(experts):
             expert_name = getattr(expert, "agent_name", "").lower()
-            if expert_name and (
-                expert_name in agent_name_lower or agent_name_lower in expert_name
-            ):
+            if expert_name and (expert_name in agent_name_lower or agent_name_lower in expert_name):
                 max_entries = min(len(experts), 10)
                 position_score = 1.0 - (idx / max_entries)
                 confidence = getattr(expert, "confidence", 0.5)
