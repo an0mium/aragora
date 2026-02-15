@@ -170,7 +170,7 @@ class TestGenesisHandlerStatsEndpoint:
         """Stats endpoint returns 500 on internal error."""
         with patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True):
             with patch(
-                "aragora.server.handlers.genesis.GenesisLedger", side_effect=Exception("DB error")
+                "aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("DB error")
             ):
                 result = handler.handle("/api/v1/genesis/stats", {}, mock_http_handler)
 

@@ -1616,7 +1616,7 @@ class TestErrorHandling:
         """Test session creation handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.create_session.side_effect = RuntimeError("DB down")
+        mock_store.create_session.side_effect = OSError("DB down")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(
@@ -1629,7 +1629,7 @@ class TestErrorHandling:
         """Test action execution handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.get_session.side_effect = RuntimeError("DB error")
+        mock_store.get_session.side_effect = OSError("DB error")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(
@@ -1644,7 +1644,7 @@ class TestErrorHandling:
         """Test action cancellation handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.get_action.side_effect = RuntimeError("DB error")
+        mock_store.get_action.side_effect = OSError("DB error")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(
@@ -1657,7 +1657,7 @@ class TestErrorHandling:
         """Test session retrieval handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.get_session.side_effect = RuntimeError("DB error")
+        mock_store.get_session.side_effect = OSError("DB error")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(
@@ -1734,7 +1734,7 @@ class TestErrorHandling:
         """Test session close handles store exception."""
         setup_handler_user(handler, mock_user)
         mock_store = MagicMock()
-        mock_store.get_session.side_effect = RuntimeError("DB error")
+        mock_store.get_session.side_effect = OSError("DB error")
 
         with patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=mock_store):
             result = call_with_bypassed_decorators(

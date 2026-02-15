@@ -488,9 +488,13 @@ class TestGetGenesisEvents:
 
     def test_filter_event_type_as_list(self, handler, http_handler):
         """When event_type is a list, first element is used."""
+        mock_ledger = MagicMock()
+        mock_ledger.get_events_by_type.return_value = []
+
         with (
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
             patch("aragora.server.handlers.genesis.GenesisEventType") as mock_et,
+            patch("aragora.server.handlers.genesis.GenesisLedger", return_value=mock_ledger),
         ):
             valid_type = MagicMock()
             valid_type.value = "mutation"
@@ -560,7 +564,7 @@ class TestGetGenesisEvents:
         with (
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
             patch(
-                "aragora.server.handlers.genesis.GenesisLedger", side_effect=Exception("DB down")
+                "aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("DB down")
             ),
         ):
             result = handler.handle("/api/genesis/events", {}, http_handler)
@@ -656,7 +660,7 @@ class TestGetGenomes:
         with (
             patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True),
             patch(
-                "aragora.server.handlers.genesis.GenomeStore", side_effect=Exception("disk full")
+                "aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("disk full")
             ),
         ):
             result = handler.handle("/api/genesis/genomes", {}, http_handler)
@@ -718,7 +722,7 @@ class TestGetTopGenomes:
     def test_db_error_returns_500(self, handler, http_handler):
         with (
             patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True),
-            patch("aragora.server.handlers.genesis.GenomeStore", side_effect=Exception("timeout")),
+            patch("aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("timeout")),
         ):
             result = handler.handle("/api/genesis/genomes/top", {}, http_handler)
         assert result.status_code == 500
@@ -776,7 +780,7 @@ class TestGetGenomeById:
         with (
             patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True),
             patch(
-                "aragora.server.handlers.genesis.GenomeStore", side_effect=Exception("corrupted")
+                "aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("corrupted")
             ),
         ):
             result = handler.handle("/api/genesis/genomes/valid_id", {}, http_handler)
@@ -965,7 +969,7 @@ class TestGetGenomeLineage:
         with (
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
             patch(
-                "aragora.server.handlers.genesis.GenesisLedger", side_effect=Exception("corrupt")
+                "aragora.server.handlers.genesis.GenesisLedger", side_effect=OSError("corrupt")
             ),
         ):
             result = handler.handle("/api/genesis/lineage/valid_id", {}, http_handler)
@@ -977,7 +981,7 @@ class TestGetGenomeLineage:
         mock_ledger.get_lineage.return_value = [
             {"genome_id": "g1", "name": "n1", "generation": 0, "fitness_score": 0.5},
         ]
-        mock_ledger.get_events_by_type.side_effect = Exception("event store down")
+        mock_ledger.get_events_by_type.side_effect = ValueError("event store down")
 
         with (
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
@@ -1037,7 +1041,7 @@ class TestGetDebateTree:
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
             patch(
                 "aragora.server.handlers.genesis.GenesisLedger",
-                side_effect=Exception("ledger corrupted"),
+                side_effect=OSError("ledger corrupted"),
             ),
         ):
             result = handler.handle("/api/genesis/tree/debate_abc", {}, http_handler)
@@ -1159,7 +1163,7 @@ class TestGetPopulation:
     def test_db_error_returns_500(self, handler, http_handler):
         with patch(
             "aragora.genesis.breeding.PopulationManager",
-            side_effect=Exception("DB crash"),
+            side_effect=OSError("DB crash"),
         ):
             result = handler.handle("/api/genesis/population", {}, http_handler)
         assert result.status_code == 500
@@ -1321,7 +1325,7 @@ class TestGetGenomeDescendants:
     def test_db_error_returns_500(self, handler, http_handler):
         with (
             patch("aragora.server.handlers.genesis.GENOME_AVAILABLE", True),
-            patch("aragora.server.handlers.genesis.GenomeStore", side_effect=Exception("IO error")),
+            patch("aragora.server.handlers.genesis.GenomeStore", side_effect=OSError("IO error")),
         ):
             result = handler.handle("/api/genesis/descendants/valid_id", {}, http_handler)
         assert result.status_code == 500

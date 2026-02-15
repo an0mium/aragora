@@ -315,7 +315,7 @@ class TestRBACPermissions:
         """RBAC check failure on seed-demo returns 500."""
         mock_user = _make_mock_user()
         checker = MagicMock()
-        checker.check_permission.side_effect = RuntimeError("checker down")
+        checker.check_permission.side_effect = TypeError("checker down")
 
         with (
             patch.object(ConsensusHandler, "require_auth_or_error", return_value=(mock_user, None)),

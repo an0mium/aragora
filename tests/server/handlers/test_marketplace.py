@@ -415,7 +415,7 @@ class TestMarketplaceListTemplates:
         h._current_query_params = {}
 
         with patch(
-            "aragora.server.handlers.marketplace._get_registry", side_effect=RuntimeError("DB down")
+            "aragora.server.handlers.marketplace._get_registry", side_effect=OSError("DB down")
         ):
             result = h.handle_list_templates()
             assert result.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
