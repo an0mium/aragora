@@ -604,6 +604,34 @@ class DebateRoundsPhase:
         if should_break:
             return False  # Converged - exit round execution early, stop debate loop
 
+        # Fork detection: when debate is NOT converging and forking is enabled,
+        # check if agents have fundamentally diverged and record fork points.
+        if not should_break and getattr(ctx, "enable_debate_forking", False):
+            try:
+                from aragora.debate.forking import ForkDetector
+
+                fork_threshold = getattr(ctx, "fork_disagreement_threshold", 0.7)
+                detector = ForkDetector(disagreement_threshold=fork_threshold)
+                fork_decision = detector.should_fork(
+                    messages=ctx.result.messages if ctx.result else [],
+                    round_num=round_num,
+                )
+                if fork_decision and fork_decision.should_fork:
+                    logger.info(
+                        "fork_detected round=%s reason=%s agents=%s",
+                        round_num,
+                        fork_decision.reason,
+                        fork_decision.disagreeing_agents,
+                    )
+                    if ctx.result and ctx.result.metadata is not None:
+                        ctx.result.metadata["fork_detected"] = {
+                            "round": round_num,
+                            "reason": fork_decision.reason,
+                            "agents": fork_decision.disagreeing_agents,
+                        }
+            except (ImportError, Exception) as e:
+                logger.debug("Fork detection unavailable: %s", e)
+
         # Termination checks (only if not last round)
         if round_num < total_rounds:
             if await self._should_terminate(ctx, round_num):

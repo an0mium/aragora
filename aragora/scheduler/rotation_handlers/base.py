@@ -6,7 +6,7 @@ All provider-specific handlers should inherit from RotationHandler.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 import logging
@@ -162,7 +162,7 @@ class RotationHandler(ABC):
             logger.info(f"Generating new credentials for {secret_id}")
             new_value, updated_metadata = await self.generate_new_credentials(secret_id, metadata)
             new_version = updated_metadata.get(
-                "version", "v" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                "version", "v" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
             )
 
             # Step 2: Validate new credentials
@@ -179,7 +179,7 @@ class RotationHandler(ABC):
                 )
 
             # Step 3: Calculate grace period
-            grace_period_ends = datetime.utcnow()
+            grace_period_ends = datetime.now(timezone.utc)
             from datetime import timedelta
 
             grace_period_ends += timedelta(hours=self.grace_period_hours)

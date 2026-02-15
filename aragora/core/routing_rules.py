@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 from collections.abc import Callable
@@ -343,12 +343,12 @@ class RoutingRule:
             created_at=(
                 datetime.fromisoformat(data["created_at"])
                 if "created_at" in data
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             updated_at=(
                 datetime.fromisoformat(data["updated_at"])
                 if "updated_at" in data
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             created_by=data.get("created_by"),
             match_mode=data.get("match_mode", "all"),

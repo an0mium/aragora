@@ -7,7 +7,7 @@ Unified data structures for cross-platform chat integration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -157,7 +157,7 @@ class ChatMessage:
     reply_to_id: str | None = None
 
     # Timestamps
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     edited_at: datetime | None = None
 
     # Rich content
@@ -312,7 +312,7 @@ class WebhookEvent:
 
     platform: str
     event_type: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     raw_payload: dict[str, Any] = field(default_factory=dict)
     message: ChatMessage | None = None
     command: BotCommand | None = None
@@ -352,8 +352,8 @@ class ChatEvidence:
     author_is_bot: bool = False
 
     # Timestamps
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-    collected_at: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    collected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Threading
     thread_id: str | None = None
@@ -477,7 +477,7 @@ class ChannelContext:
     warnings: list[str] = field(default_factory=list)
 
     # Metadata
-    fetched_at: datetime = field(default_factory=datetime.utcnow)
+    fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_context_string(self, max_messages: int = 50) -> str:
@@ -585,7 +585,7 @@ class MetadataCacheEntry:
         """Check if cache entry has expired."""
         from datetime import timedelta
 
-        return datetime.utcnow() > self.enriched_at + timedelta(seconds=self.ttl_seconds)
+        return datetime.now(timezone.utc) > self.enriched_at + timedelta(seconds=self.ttl_seconds)
 
 
 class MetadataCache:
@@ -646,7 +646,7 @@ class MetadataCache:
         key = f"{platform}:{user_id}"
         self._user_cache[key] = MetadataCacheEntry(
             data=metadata,
-            enriched_at=datetime.utcnow(),
+            enriched_at=datetime.now(timezone.utc),
             ttl_seconds=ttl or self.default_ttl,
         )
 
@@ -689,7 +689,7 @@ class MetadataCache:
         key = f"{platform}:{channel_id}"
         self._channel_cache[key] = MetadataCacheEntry(
             data=metadata,
-            enriched_at=datetime.utcnow(),
+            enriched_at=datetime.now(timezone.utc),
             ttl_seconds=ttl or self.default_ttl,
         )
 

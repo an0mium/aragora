@@ -18,7 +18,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.memory.protocols import (
@@ -137,7 +137,7 @@ class InMemoryBackend:
                 self._by_tier[old_entry.tier].discard(entry.id)
                 self._by_tier[entry.tier].add(entry.id)
 
-            entry.updated_at = datetime.utcnow()
+            entry.updated_at = datetime.now(timezone.utc)
             self._entries[entry.id] = entry
 
             # Update vector index if embedding changed
@@ -347,7 +347,7 @@ class InMemoryBackend:
 
             # Update tier
             entry.tier = new_tier
-            entry.updated_at = datetime.utcnow()
+            entry.updated_at = datetime.now(timezone.utc)
 
             # Update indices
             self._by_tier[old_tier].discard(entry_id)
@@ -365,7 +365,7 @@ class InMemoryBackend:
 
     async def cleanup_expired(self) -> int:
         """Remove expired entries."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired_ids = []
 
         for entry_id, entry in self._entries.items():

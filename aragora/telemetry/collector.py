@@ -6,7 +6,7 @@ and flushing telemetry events to a backend.
 """
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Protocol
 import asyncio
 import logging
@@ -90,7 +90,7 @@ class TelemetryCollector:
         self._buffer: list[TelemetryEvent] = []
         self._aggregates: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
         self._flush_task: asyncio.Task[None] | None = None
-        self._period_start = datetime.utcnow()
+        self._period_start = datetime.now(timezone.utc)
 
     async def start_periodic_flush(self) -> None:
         """Start background task for periodic flushing."""
@@ -233,8 +233,8 @@ class TelemetryCollector:
 
         summary: dict[str, Any] = {
             "period_start": self._period_start.isoformat(),
-            "period_end": datetime.utcnow().isoformat(),
-            "period_seconds": (datetime.utcnow() - self._period_start).total_seconds(),
+            "period_end": datetime.now(timezone.utc).isoformat(),
+            "period_seconds": (datetime.now(timezone.utc) - self._period_start).total_seconds(),
         }
 
         # Stability summary
@@ -335,7 +335,7 @@ class TelemetryCollector:
     def reset_aggregates(self) -> None:
         """Reset all aggregates (typically after a period)."""
         self._aggregates.clear()
-        self._period_start = datetime.utcnow()
+        self._period_start = datetime.now(timezone.utc)
 
 
 # Singleton collector for easy access

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from collections.abc import Iterator
@@ -651,7 +651,7 @@ class DebateStore:
                     channel_id,
                     channel_name,
                     ",".join(team_agents) if team_agents else None,
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     str(metadata) if metadata else None,
                 ),
             )
@@ -688,7 +688,7 @@ class DebateStore:
                     duration_seconds,
                     total_tokens,
                     total_cost_usd,
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     deliberation_id,
                 ),
             )

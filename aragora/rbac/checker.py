@@ -104,6 +104,7 @@ class PermissionChecker:
         enable_workspace_scope: bool = True,
         enable_conditions: bool = True,
         condition_evaluator: ConditionEvaluator | None = None,
+        enable_ownership: bool = True,
     ) -> None:
         """
         Initialize the permission checker.
@@ -134,6 +135,8 @@ class PermissionChecker:
         self._enable_workspace_scope = enable_workspace_scope
         self._enable_conditions = enable_conditions
         self._condition_evaluator = condition_evaluator
+        self._enable_ownership = enable_ownership
+        self._ownership_manager: Any = None
 
         # Local cache (used when no distributed backend, or as L1)
         self._decision_cache: dict[str, tuple[AuthorizationDecision, datetime]] = {}
@@ -761,6 +764,28 @@ class PermissionChecker:
                     resource_id=resource_id,
                     context=context,
                 )
+
+        # Check resource ownership as final fallback
+        if self._enable_ownership and resource_id:
+            try:
+                if self._ownership_manager is None:
+                    from .ownership import get_ownership_manager
+
+                    self._ownership_manager = get_ownership_manager()
+                resource_type_str = permission_key.split(".")[0]
+                resource_type = ResourceType(resource_type_str)
+                if self._ownership_manager.is_owner(
+                    context.user_id, resource_type, resource_id
+                ):
+                    return AuthorizationDecision(
+                        allowed=True,
+                        reason=f"Implicit owner permission for '{permission_key}' on owned resource",
+                        permission_key=permission_key,
+                        resource_id=resource_id,
+                        context=context,
+                    )
+            except (ValueError, ImportError):
+                pass  # Resource type not in enum or ownership module unavailable
 
         # Permission denied
         return AuthorizationDecision(

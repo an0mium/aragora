@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
@@ -99,13 +99,13 @@ class IndividualRoutingConfig:
         """Check if trial has expired."""
         if self.trial_ends_at is None:
             return False
-        return datetime.utcnow() > self.trial_ends_at
+        return datetime.now(timezone.utc) > self.trial_ends_at
 
     def is_rate_limited(self) -> bool:
         """Check if currently rate limited."""
         if self.rate_limit_until is None:
             return False
-        return datetime.utcnow() < self.rate_limit_until
+        return datetime.now(timezone.utc) < self.rate_limit_until
 
     def is_at_monthly_limit(self) -> bool:
         """Check if monthly limit is reached."""
@@ -322,7 +322,7 @@ class IndividualTenantHandler:
         # Check rate limiting
         if config.is_rate_limited():
             seconds_remaining = (
-                int((config.rate_limit_until - datetime.utcnow()).total_seconds())
+                int((config.rate_limit_until - datetime.now(timezone.utc)).total_seconds())
                 if config.rate_limit_until
                 else 0
             )

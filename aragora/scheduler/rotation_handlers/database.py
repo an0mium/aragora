@@ -132,12 +132,12 @@ class DatabaseRotationHandler(RotationHandler):
         else:
             raise RotationError(f"Unsupported database type: {db_type}", secret_id)
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         return new_password, {
             **metadata,
-            "version": f"v{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-            "rotated_at": datetime.utcnow().isoformat(),
+            "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+            "rotated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     async def _rotate_postgresql(

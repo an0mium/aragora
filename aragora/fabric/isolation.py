@@ -12,7 +12,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -116,7 +116,7 @@ class ResourceMonitor:
 
             usage = ResourceUsage(
                 agent_id=agent_id,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 memory_mb=memory_info.rss / (1024 * 1024),
                 cpu_percent=cpu_percent,
                 disk_mb=disk_mb,

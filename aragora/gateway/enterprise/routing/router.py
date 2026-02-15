@@ -57,7 +57,7 @@ import random
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 from collections.abc import Callable
@@ -394,7 +394,7 @@ class EndpointHealthTracker:
 
             health.status = EndpointStatus.HEALTHY
             health.consecutive_failures = 0
-            health.last_check = datetime.utcnow()
+            health.last_check = datetime.now(timezone.utc)
             # Exponential moving average for latency
             if health.latency_ms > 0:
                 health.latency_ms = 0.7 * health.latency_ms + 0.3 * latency_ms
@@ -419,7 +419,7 @@ class EndpointHealthTracker:
                 self._health[endpoint_url] = health
 
             health.consecutive_failures += 1
-            health.last_check = datetime.utcnow()
+            health.last_check = datetime.now(timezone.utc)
 
             if health.consecutive_failures >= self._unhealthy_threshold:
                 health.status = EndpointStatus.UNHEALTHY
@@ -451,7 +451,7 @@ class EndpointHealthTracker:
 
             if health.status == EndpointStatus.UNHEALTHY:
                 # Check if recovery timeout has passed
-                elapsed = (datetime.utcnow() - health.last_check).total_seconds()
+                elapsed = (datetime.now(timezone.utc) - health.last_check).total_seconds()
                 if elapsed >= self._recovery_timeout:
                     # Allow retry
                     health.status = EndpointStatus.DEGRADED
@@ -660,7 +660,7 @@ class TenantRouter:
         if context_tenant and context_tenant != resolved_tenant_id:
             await self._log_audit(
                 RoutingAuditEntry(
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                     tenant_id=resolved_tenant_id,
                     event_type=RoutingEventType.CROSS_TENANT_BLOCKED,
                     success=False,
@@ -695,7 +695,7 @@ class TenantRouter:
         if not allowed and exceeded_status:
             await self._log_audit(
                 RoutingAuditEntry(
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                     tenant_id=resolved_tenant_id,
                     event_type=RoutingEventType.QUOTA_EXCEEDED,
                     success=False,
@@ -704,7 +704,7 @@ class TenantRouter:
                 )
             )
             retry_after = max(
-                1, int((exceeded_status.reset_time - datetime.utcnow()).total_seconds())
+                1, int((exceeded_status.reset_time - datetime.now(timezone.utc)).total_seconds())
             )
             raise QuotaExceededError(
                 tenant_id=resolved_tenant_id,
@@ -761,7 +761,7 @@ class TenantRouter:
         )
         await self._log_audit(
             RoutingAuditEntry(
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 tenant_id=resolved_tenant_id,
                 event_type=event_type,
                 endpoint=endpoint.url,
@@ -812,7 +812,7 @@ class TenantRouter:
             if status == EndpointStatus.UNHEALTHY:
                 await self._log_audit(
                     RoutingAuditEntry(
-                        timestamp=datetime.utcnow(),
+                        timestamp=datetime.now(timezone.utc),
                         tenant_id=tenant_id,
                         event_type=RoutingEventType.ENDPOINT_HEALTH_CHANGE,
                         endpoint=endpoint_url,

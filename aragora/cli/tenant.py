@@ -20,7 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -491,7 +491,7 @@ def cmd_export_local(args: argparse.Namespace) -> int:
         # Build export data
         export_data = {
             "tenant": tenant.to_dict(),
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "format_version": "1.0",
         }
 

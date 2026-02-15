@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
@@ -150,7 +150,7 @@ async def send_webhook(
             # Default payload
             payload = {
                 "event": context.get("trigger", "hook_event"),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "data": {k: str(v)[:500] for k, v in context.items() if k != "trigger"},
             }
 
@@ -248,7 +248,7 @@ async def save_checkpoint(
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate filename
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         try:
             filename = filename_template.format(
                 timestamp=timestamp,
@@ -264,7 +264,7 @@ async def save_checkpoint(
             data = context
 
         # Add metadata
-        data["_checkpoint_time"] = datetime.utcnow().isoformat()
+        data["_checkpoint_time"] = datetime.now(timezone.utc).isoformat()
 
         # Save file
         file_path = checkpoint_dir / filename

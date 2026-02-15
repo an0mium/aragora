@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .models import (
@@ -110,8 +110,8 @@ class BudgetManager:
                 return True, BudgetStatus(
                     entity_id=entity_id,
                     entity_type="agent",
-                    period_start=datetime.utcnow(),
-                    period_end=datetime.utcnow() + timedelta(days=1),
+                    period_start=datetime.now(timezone.utc),
+                    period_end=datetime.now(timezone.utc) + timedelta(days=1),
                 )
 
             status = await self._calculate_status(entity_id)
@@ -138,7 +138,7 @@ class BudgetManager:
     ) -> UsageReport:
         """Get usage report for an entity."""
         async with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             period_start = now - timedelta(days=period_days)
             period_end = now
 
@@ -233,12 +233,12 @@ class BudgetManager:
 
     def _get_period_start(self) -> datetime:
         """Get the start of the current budget period (midnight UTC)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     def _cleanup_old_records(self, entity_id: str) -> None:
         """Remove records older than 7 days."""
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         self._usage_records[entity_id] = [
             r for r in self._usage_records[entity_id] if r.timestamp >= cutoff
         ]

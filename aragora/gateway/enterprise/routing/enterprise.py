@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -443,7 +443,7 @@ class EnterpriseTenantHandler:
             "actual_latency_ms": actual_latency_ms,
             "is_compliant": is_compliant,
             "margin_ms": target - actual_latency_ms,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 

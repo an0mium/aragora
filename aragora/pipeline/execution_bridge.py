@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 import uuid
 
@@ -174,7 +174,7 @@ class ExecutionBridge:
                 error={
                     "type": type(exc).__name__,
                     "message": str(exc),
-                    "at": datetime.utcnow().isoformat(),
+                    "at": datetime.now(timezone.utc).isoformat(),
                 },
                 metadata={
                     "execution_mode": execution_mode or "default",
@@ -191,7 +191,7 @@ class ExecutionBridge:
             failure_error = {
                 "type": "ExecutionFailure",
                 "message": outcome.error or "Execution returned unsuccessful outcome",
-                "at": datetime.utcnow().isoformat(),
+                "at": datetime.now(timezone.utc).isoformat(),
             }
         store.update_execution_record(
             resolved_execution_id,
@@ -294,7 +294,7 @@ class ExecutionBridge:
                 error={
                     "type": "RuntimeError",
                     "message": "No running event loop available for background execution",
-                    "at": datetime.utcnow().isoformat(),
+                    "at": datetime.now(timezone.utc).isoformat(),
                 },
             )
 

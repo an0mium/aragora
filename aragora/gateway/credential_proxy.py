@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
 
@@ -78,7 +78,7 @@ class ExternalCredential:
         """Check if credential has expired."""
         if self.expires_at is None:
             return False
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary (excludes sensitive data)."""
@@ -374,7 +374,7 @@ class CredentialProxy:
             RateLimitExceededError: If rate limit exceeded
             TenantIsolationError: If credential belongs to different tenant
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         usage = CredentialUsage(
             credential_id=credential_id,
             external_service=external_service,
@@ -422,10 +422,10 @@ class CredentialProxy:
             result = await execute_fn(credential)
 
             # 6. Update credential last used
-            credential.last_used_at = datetime.utcnow()
+            credential.last_used_at = datetime.now(timezone.utc)
 
             usage.success = True
-            usage.duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+            usage.duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
             return result
 

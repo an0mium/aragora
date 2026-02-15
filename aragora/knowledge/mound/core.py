@@ -289,7 +289,26 @@ class KnowledgeMoundCore:
             logger.warning(f"Redis init failed: {e}, caching disabled")
 
     async def _init_weaviate(self) -> None:
-        """Initialize Weaviate vector store."""
+        """Initialize Weaviate vector store.
+
+        Prefers KnowledgeVectorStore (KnowledgeNode-aware) over raw WeaviateStore.
+        """
+        # Try KnowledgeVectorStore first (higher-level, KnowledgeNode-aware)
+        try:
+            from aragora.knowledge.vector_store import KnowledgeVectorStore
+
+            self._vector_store = KnowledgeVectorStore(
+                workspace_id=self.workspace_id,
+                weaviate_url=self.config.weaviate_url,
+                weaviate_api_key=self.config.weaviate_api_key,
+            )
+            await self._vector_store.connect()
+            logger.debug("KnowledgeVectorStore initialized (KnowledgeNode-aware)")
+            return
+        except (ImportError, Exception) as e:
+            logger.debug("KnowledgeVectorStore unavailable, falling back to WeaviateStore: %s", e)
+
+        # Fallback to raw WeaviateStore
         try:
             from aragora.documents.indexing.weaviate_store import WeaviateStore, WeaviateConfig
 

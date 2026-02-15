@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from aragora.connectors.chat.models import (
@@ -145,7 +145,7 @@ class TeamsChannelsMixin:
                     try:
                         timestamp = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
-                        timestamp = datetime.utcnow()
+                        timestamp = datetime.now(timezone.utc)
 
                     # Filter by latest timestamp if provided
                     if latest:

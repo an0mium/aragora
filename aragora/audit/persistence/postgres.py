@@ -13,7 +13,7 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from .base import AuditPersistenceBackend, PersistenceError
@@ -374,7 +374,7 @@ class PostgresBackend(AuditPersistenceBackend):
             timestamp=(
                 datetime.fromisoformat(str(data["timestamp"]))
                 if data.get("timestamp")
-                else datetime.utcnow()
+                else datetime.now(timezone.utc)
             ),
             category=AuditCategory(data.get("category", "system")),
             action=data.get("action", ""),

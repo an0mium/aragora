@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from heapq import heappop, heappush
 from typing import Any
 from collections.abc import Callable, Coroutine
@@ -132,7 +132,7 @@ class AgentScheduler:
                 task_id=task.id,
                 agent_id=agent_id,
                 status=TaskStatus.PENDING,
-                scheduled_at=datetime.utcnow(),
+                scheduled_at=datetime.now(timezone.utc),
             )
 
             # Store task
@@ -200,7 +200,7 @@ class AgentScheduler:
                 self._cancel_tokens[task_id].set()
 
             handle.status = TaskStatus.CANCELLED
-            handle.completed_at = datetime.utcnow()
+            handle.completed_at = datetime.now(timezone.utc)
             self._tasks_cancelled += 1
 
             # Notify dependents
@@ -250,7 +250,7 @@ class AgentScheduler:
             handle = self._tasks[task.id]
 
             handle.status = TaskStatus.RUNNING
-            handle.started_at = datetime.utcnow()
+            handle.started_at = datetime.now(timezone.utc)
             self._agent_running[agent_id].add(task.id)
 
             logger.debug(f"Agent {agent_id} starting task {task.id}")
@@ -275,7 +275,7 @@ class AgentScheduler:
                 return
 
             handle = self._tasks[task_id]
-            handle.completed_at = datetime.utcnow()
+            handle.completed_at = datetime.now(timezone.utc)
             handle.result = result
             handle.error = error
 
@@ -342,7 +342,7 @@ class AgentScheduler:
                     if handle:
                         handle.status = TaskStatus.FAILED
                         handle.error = f"Dependency {task_id} failed"
-                        handle.completed_at = datetime.utcnow()
+                        handle.completed_at = datetime.now(timezone.utc)
                         logger.debug(f"Task {dep_task_id} failed due to dependency failure")
 
     def on_complete(

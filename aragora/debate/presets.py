@@ -59,6 +59,9 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_telemetry": True,
         "use_airlock": True,
         "enable_performance_monitor": True,
+        # Advanced debate features
+        "enable_debate_forking": True,
+        "enable_unified_voting": True,
     },
     "minimal": {
         # Cheap & fast
@@ -75,13 +78,34 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_position_ledger": True,
         "enable_telemetry": True,
     },
+    "healthcare": {
+        # HIPAA compliance
+        "enable_receipt_generation": True,
+        "enable_receipt_auto_sign": True,
+        "enable_provenance": True,
+        "enable_bead_tracking": True,
+        "enable_compliance_artifacts": True,
+        "enable_position_ledger": True,
+        "enable_telemetry": True,
+        # Privacy
+        "enable_privacy_anonymization": True,
+        "anonymization_method": "redact",
+        # Knowledge
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        # Vertical
+        "vertical": "healthcare_hipaa",
+        # Budget
+        "budget_downgrade_models": True,
+    },
 }
 
 _PRESET_DESCRIPTIONS: dict[str, str] = {
     "sme": "Balanced preset for small/medium businesses: receipts, knowledge, budget controls, compliance",
-    "enterprise": "Full-featured preset: everything in SME plus telemetry, airlock, performance monitoring",
+    "enterprise": "Full-featured preset: everything in SME plus telemetry, airlock, performance monitoring, forking, unified voting",
     "minimal": "Lightweight preset: stability detection and budget controls only (fast & cheap)",
     "audit": "Maximum traceability: receipts, provenance, beads, compliance, position ledger, telemetry",
+    "healthcare": "HIPAA-compliant preset: full audit trail, privacy anonymization, healthcare vertical weight profiles",
 }
 
 

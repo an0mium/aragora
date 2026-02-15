@@ -6,7 +6,7 @@ Note: Most LLM providers don't support programmatic key rotation,
 so this handler primarily manages manual rotation workflows.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 import logging
 
@@ -78,8 +78,8 @@ class APIKeyRotationHandler(RotationHandler):
             logger.info(f"Using manually provided new key for {secret_id}")
             return new_key, {
                 **metadata,
-                "version": f"v{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-                "rotated_at": datetime.utcnow().isoformat(),
+                "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+                "rotated_at": datetime.now(timezone.utc).isoformat(),
                 "rotation_method": "manual",
             }
 
@@ -135,7 +135,7 @@ class APIKeyRotationHandler(RotationHandler):
                         "Content-Type": "application/json",
                     },
                     json={
-                        "name": f"aragora-{datetime.utcnow().strftime('%Y%m%d')}",
+                        "name": f"aragora-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
                         "scopes": metadata.get("scopes", ["model.read", "model.request"]),
                     },
                     timeout=30.0,
@@ -152,8 +152,8 @@ class APIKeyRotationHandler(RotationHandler):
             return new_key, {
                 **metadata,
                 "key_id": key_data.get("id"),
-                "version": f"v{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-                "rotated_at": datetime.utcnow().isoformat(),
+                "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+                "rotated_at": datetime.now(timezone.utc).isoformat(),
                 "rotation_method": "programmatic",
             }
 

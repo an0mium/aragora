@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.tenancy.context import (
@@ -194,7 +194,7 @@ class TenantContextBuilder:
 
         # Add routing metadata
         headers["X-Aragora-Router"] = "TenantRouter"
-        headers["X-Aragora-Timestamp"] = datetime.utcnow().isoformat()
+        headers["X-Aragora-Timestamp"] = datetime.now(timezone.utc).isoformat()
 
         return headers
 

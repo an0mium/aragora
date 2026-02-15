@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable
@@ -383,6 +383,6 @@ class ExecutionNotifier:
                 "channel_id": channel_id,
                 "retryable": retryable,
                 "attempt": attempt,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )

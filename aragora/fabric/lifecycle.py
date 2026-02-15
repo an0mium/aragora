@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .models import (
@@ -86,7 +86,7 @@ class LifecycleManager:
                 handle.agent_id = config.id
                 handle.config = config
                 handle.status = HealthStatus.HEALTHY
-                handle.last_heartbeat = datetime.utcnow()
+                handle.last_heartbeat = datetime.now(timezone.utc)
                 self._agents[config.id] = handle
                 logger.debug(f"Reused agent from pool {pool_id} as {config.id}")
                 return handle
@@ -94,9 +94,9 @@ class LifecycleManager:
             handle = AgentHandle(
                 agent_id=config.id,
                 config=config,
-                spawned_at=datetime.utcnow(),
+                spawned_at=datetime.now(timezone.utc),
                 status=HealthStatus.HEALTHY,
-                last_heartbeat=datetime.utcnow(),
+                last_heartbeat=datetime.now(timezone.utc),
             )
 
             self._agents[config.id] = handle
@@ -150,7 +150,7 @@ class LifecycleManager:
             if agent_id not in self._agents:
                 return False
             handle = self._agents[agent_id]
-            handle.last_heartbeat = datetime.utcnow()
+            handle.last_heartbeat = datetime.now(timezone.utc)
             if handle.status == HealthStatus.DEGRADED:
                 handle.status = HealthStatus.HEALTHY
             return True
@@ -219,7 +219,7 @@ class LifecycleManager:
 
     async def _check_all_health(self) -> None:
         """Check health of all agents."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         timeout_threshold = now - timedelta(seconds=self._heartbeat_timeout)
         degraded_threshold = now - timedelta(seconds=self._heartbeat_interval * 2)
 

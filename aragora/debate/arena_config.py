@@ -398,6 +398,18 @@ class ArenaConfig:
         stability_min_rounds: int = 1,
         stability_agreement_threshold: float = 0.7,
         stability_conflict_confidence: float = 0.4,
+        # Debate Forking (branch divergent debates)
+        enable_debate_forking: bool = False,
+        fork_disagreement_threshold: float = 0.7,
+        fork_max_branches: int = 3,
+        # Unified Voting Engine
+        enable_unified_voting: bool = False,
+        voting_weight_reputation: float = 0.4,
+        voting_weight_calibration: float = 0.3,
+        voting_weight_consistency: float = 0.3,
+        # Privacy anonymization (HIPAA Safe Harbor)
+        enable_privacy_anonymization: bool = False,
+        anonymization_method: str = "redact",
         # ---- Sub-config objects (optional, for grouped construction) ----
         hook_config: HookConfig | None = None,
         tracking_config: TrackingConfig | None = None,
@@ -476,6 +488,21 @@ class ArenaConfig:
         self.stability_min_rounds = stability_min_rounds
         self.stability_agreement_threshold = stability_agreement_threshold
         self.stability_conflict_confidence = stability_conflict_confidence
+
+        # Debate Forking
+        self.enable_debate_forking = enable_debate_forking
+        self.fork_disagreement_threshold = fork_disagreement_threshold
+        self.fork_max_branches = fork_max_branches
+
+        # Unified Voting Engine
+        self.enable_unified_voting = enable_unified_voting
+        self.voting_weight_reputation = voting_weight_reputation
+        self.voting_weight_calibration = voting_weight_calibration
+        self.voting_weight_consistency = voting_weight_consistency
+
+        # Privacy anonymization
+        self.enable_privacy_anonymization = enable_privacy_anonymization
+        self.anonymization_method = anonymization_method
 
         # Explainability
         self.auto_explain = kwargs.pop("auto_explain", False)

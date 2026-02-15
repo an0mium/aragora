@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
@@ -213,7 +213,7 @@ class SlackThreadManager:
             author=user,
             content=message,
             thread_id=thread_ts,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
     async def broadcast_thread_reply(
@@ -252,7 +252,7 @@ class SlackThreadManager:
             author=user,
             content=message,
             thread_id=thread_ts,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
     async def get_thread_stats(self, thread_ts: str, channel_id: str) -> ThreadStats:
@@ -280,7 +280,7 @@ class SlackThreadManager:
                 thread_id=thread_ts,
                 message_count=0,
                 participant_count=0,
-                last_activity=datetime.utcnow(),
+                last_activity=datetime.now(timezone.utc),
             )
 
         participants = list(set(m.author.id for m in all_messages))

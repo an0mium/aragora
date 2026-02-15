@@ -4,7 +4,7 @@ OAuth token rotation handler.
 Handles refresh token rotation for OAuth 2.0 integrations.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import logging
 
@@ -112,9 +112,9 @@ class OAuthRotationHandler(RotationHandler):
             return new_access_token, {
                 **metadata,
                 "refresh_token": new_refresh_token,
-                "expires_at": (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat(),
-                "version": f"v{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-                "rotated_at": datetime.utcnow().isoformat(),
+                "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
+                "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+                "rotated_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except ImportError as e:

@@ -25,7 +25,7 @@ import os
 import secrets
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 from collections.abc import Awaitable, Callable
@@ -221,7 +221,7 @@ class TenantDataIsolation:
                 )
                 self._audit_log.append(
                     IsolationAuditEntry(
-                        timestamp=datetime.utcnow(),
+                        timestamp=datetime.now(timezone.utc),
                         tenant_id=tid,
                         resource_type=resource_type,
                         action="shared_access",

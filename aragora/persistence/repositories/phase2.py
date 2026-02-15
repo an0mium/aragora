@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -171,7 +171,7 @@ class InboxRepository(BaseRepository[dict[str, Any]]):
         import uuid
 
         record_id = f"pri_{uuid.uuid4().hex[:12]}"
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with self._connection() as conn:
             conn.execute(
@@ -245,7 +245,7 @@ class InboxRepository(BaseRepository[dict[str, Any]]):
         actual_feedback: str | None = None,
     ) -> None:
         """Record a user action on an email."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         with self._connection() as conn:
             conn.execute(
                 """
@@ -432,7 +432,7 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
         summary: dict[str, Any] | None = None,
     ) -> str:
         """Save or update a scan result."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with self._connection() as conn:
             conn.execute(
@@ -513,7 +513,7 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
         recommended_version: str | None = None,
     ) -> str:
         """Save a vulnerability finding."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with self._connection() as conn:
             conn.execute(
@@ -670,7 +670,7 @@ class PRReviewRepository(BaseRepository[dict[str, Any]]):
         created_by: str | None = None,
     ) -> str:
         """Save or update a PR review."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with self._connection() as conn:
             conn.execute(
@@ -737,7 +737,7 @@ class PRReviewRepository(BaseRepository[dict[str, Any]]):
         side: str = "RIGHT",
     ) -> str:
         """Save a review comment."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         with self._connection() as conn:
             conn.execute(

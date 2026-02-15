@@ -18,7 +18,7 @@ import json
 import logging
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import uuid
@@ -155,7 +155,7 @@ class PlanStore:
 
     def create(self, plan: DecisionPlan) -> None:
         """Insert a new plan into the store."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         budget_json = json.dumps(plan.budget.to_dict()) if plan.budget else "{}"
         approval_json = json.dumps(plan.approval_record.to_dict()) if plan.approval_record else None
         implementation_profile_json = (
@@ -284,7 +284,7 @@ class PlanStore:
         rejection_reason: str | None = None,
     ) -> bool:
         """Update a plan's status. Returns True if the plan was found and updated."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         fields = ["status = ?", "updated_at = ?"]
         params: list[Any] = [status.value, now]
 
@@ -350,7 +350,7 @@ class PlanStore:
         if not expected_values:
             return False
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         fields = ["status = ?", "updated_at = ?"]
         params: list[Any] = [new_status.value, now]
 
@@ -420,7 +420,7 @@ class PlanStore:
         """Create a persistent execution record and return the execution ID."""
         record_id = execution_id or f"exec-{uuid.uuid4().hex[:12]}"
         corr_id = correlation_id or f"corr-{uuid.uuid4().hex[:12]}"
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         conn = self._connect()
         try:
@@ -458,7 +458,7 @@ class PlanStore:
         error: dict[str, Any] | None = None,
     ) -> bool:
         """Update an execution record. Returns True when record exists."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         fields = ["updated_at = ?"]
         params: list[Any] = [now]
 

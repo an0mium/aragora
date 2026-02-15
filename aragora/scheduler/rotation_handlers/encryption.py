@@ -5,7 +5,7 @@ Handles rotation of encryption keys used for data-at-rest encryption.
 """
 
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 import logging
 import base64
@@ -101,8 +101,8 @@ class EncryptionKeyRotationHandler(RotationHandler):
             "key_id": key_id,
             "key_type": key_type,
             "key_length": len(new_key),
-            "version": f"v{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-            "rotated_at": datetime.utcnow().isoformat(),
+            "version": f"v{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+            "rotated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     async def validate_credentials(
@@ -280,5 +280,5 @@ class EncryptionKeyRotationHandler(RotationHandler):
         return {
             "secret_id": secret_id,
             "stores": results,
-            "queued_at": datetime.utcnow().isoformat(),
+            "queued_at": datetime.now(timezone.utc).isoformat(),
         }

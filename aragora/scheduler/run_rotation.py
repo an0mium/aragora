@@ -20,7 +20,7 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -75,7 +75,7 @@ async def should_rotate(
     from datetime import timedelta
 
     next_rotation = last_rotation + timedelta(days=interval_days)
-    return datetime.utcnow() >= next_rotation
+    return datetime.now(timezone.utc) >= next_rotation
 
 
 async def get_handler(secret_type: str):
@@ -159,7 +159,7 @@ async def store_new_secret(
                 Name=secret_id,
                 SecretString=new_value,
                 Tags=[
-                    {"Key": "rotated_at", "Value": datetime.utcnow().isoformat()},
+                    {"Key": "rotated_at", "Value": datetime.now(timezone.utc).isoformat()},
                     {"Key": "managed_by", "Value": "aragora-rotation"},
                 ],
             )

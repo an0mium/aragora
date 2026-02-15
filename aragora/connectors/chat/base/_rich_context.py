@@ -71,7 +71,7 @@ class RichContextMixin:
             context = await slack.fetch_context("C123456", lookback_minutes=30)
             deliberation_context = context.to_context_string()
         """
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
 
         from ..models import ChannelContext, ChatChannel, ChatUser
 
@@ -88,7 +88,7 @@ class RichContextMixin:
             warnings.append(f"Could not fetch channel info for {channel_id}")
 
         # Calculate timestamp for lookback
-        oldest_time = datetime.utcnow() - timedelta(minutes=lookback_minutes)
+        oldest_time = datetime.now(timezone.utc) - timedelta(minutes=lookback_minutes)
 
         # Platform-specific oldest timestamp conversion
         oldest_str = self._format_timestamp_for_api(oldest_time)
@@ -213,7 +213,7 @@ class RichContextMixin:
             Based on this discussion, respond to: {user_query}
             \"\"\"
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         from ..rich_context import (
             analyze_sentiment as _analyze_sentiment_impl,
@@ -275,7 +275,7 @@ class RichContextMixin:
             },
             "metadata": {
                 "platform": self.platform_name,
-                "fetched_at": datetime.utcnow().isoformat(),
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
                 "thread_id": thread_id,
                 **base_context.metadata,
             },

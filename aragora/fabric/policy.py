@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import fnmatch
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import uuid
 
@@ -175,10 +175,10 @@ class PolicyEngine:
             id=request_id,
             action=action,
             context=context,
-            requested_at=datetime.utcnow(),
+            requested_at=datetime.now(timezone.utc),
             requested_by=context.user_id or context.agent_id,
             approvers=approvers,
-            expires_at=datetime.utcnow() + timedelta(seconds=timeout),
+            expires_at=datetime.now(timezone.utc) + timedelta(seconds=timeout),
         )
 
         event = asyncio.Event()
@@ -189,14 +189,14 @@ class PolicyEngine:
 
         logger.info(f"Approval requested: {request_id} for action {action}")
 
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc)
         try:
             await asyncio.wait_for(event.wait(), timeout=timeout)
         except asyncio.TimeoutError:
             async with self._lock:
                 request.status = "expired"
 
-        waited = (datetime.utcnow() - start).total_seconds()
+        waited = (datetime.now(timezone.utc) - start).total_seconds()
 
         async with self._lock:
             self._pending_approvals.pop(request_id, None)
@@ -226,7 +226,7 @@ class PolicyEngine:
 
             request.status = "approved"
             request.approved_by = approver_id
-            request.approved_at = datetime.utcnow()
+            request.approved_at = datetime.now(timezone.utc)
             request.reason = reason
 
             event = self._approval_events.get(request_id)

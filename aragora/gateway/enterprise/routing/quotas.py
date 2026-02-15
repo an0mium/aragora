@@ -31,7 +31,7 @@ import asyncio
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -150,7 +150,7 @@ class QuotaTracker:
                     used=self._concurrent[tenant_id],
                     remaining=0,
                     limit=quotas.concurrent_requests,
-                    reset_time=datetime.utcnow(),
+                    reset_time=datetime.now(timezone.utc),
                     quota_type="concurrent_requests",
                     is_exceeded=True,
                     percentage_used=100.0,
@@ -351,7 +351,7 @@ class QuotaTracker:
                 used=concurrent_used,
                 remaining=concurrent_remaining,
                 limit=quotas.concurrent_requests,
-                reset_time=datetime.utcnow(),
+                reset_time=datetime.now(timezone.utc),
                 quota_type="concurrent_requests",
                 is_exceeded=concurrent_remaining == 0,
                 is_warning=concurrent_pct >= quotas.warn_threshold * 100,

@@ -21,7 +21,7 @@ import time
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from aragora.memory.protocols import (
@@ -234,7 +234,7 @@ class SupermemoryBackend:
                 self._by_tier[old_entry.tier].discard(entry.id)
                 self._by_tier[entry.tier].add(entry.id)
 
-            entry.updated_at = datetime.utcnow()
+            entry.updated_at = datetime.now(timezone.utc)
             self._local_entries[entry.id] = entry
             self._add_to_cache(entry)
 
@@ -400,7 +400,7 @@ class SupermemoryBackend:
             self._by_tier[old_tier].discard(entry_id)
             self._by_tier[new_tier].add(entry_id)
             entry.tier = new_tier
-            entry.updated_at = datetime.utcnow()
+            entry.updated_at = datetime.now(timezone.utc)
             self._add_to_cache(entry)
 
             return True
@@ -415,7 +415,7 @@ class SupermemoryBackend:
 
     async def cleanup_expired(self) -> int:
         """Remove expired entries."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired_ids = []
 
         for entry_id, entry in self._local_entries.items():
