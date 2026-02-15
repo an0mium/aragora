@@ -543,9 +543,7 @@ class TestHandlerKMWiring:
             BeliefNetwork,
         )
 
-        # Skip if BeliefNetwork not available or is None
-        if not BELIEF_NETWORK_AVAILABLE or BeliefNetwork is None:
-            pytest.skip("BeliefNetwork not available")
+        assert BELIEF_NETWORK_AVAILABLE and BeliefNetwork is not None
 
         ctx = {}
         handler = BeliefHandler(ctx)
