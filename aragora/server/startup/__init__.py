@@ -104,6 +104,9 @@ from aragora.server.startup.validation_runner import (  # noqa: F401
     run_startup_validation,
     run_startup_validation_sync,
 )
+from aragora.server.startup.health_check import (  # noqa: F401
+    run_startup_health_checks,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -235,8 +235,12 @@ class EmailRateLimiter:
             self._redis.ping()
             self._redis_checked = True
             logger.info("Redis connected for email rate limiter")
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.debug(f"Redis rate limiter connection failed: {type(e).__name__}: {e}")
+            self._redis = None
+            self._redis_checked = True
         except Exception as e:
-            logger.debug(f"Redis not available for rate limiter: {e}")
+            logger.debug(f"Redis not available for rate limiter: {type(e).__name__}: {e}")
             self._redis = None
             self._redis_checked = True
 
@@ -416,8 +420,15 @@ class EmailRateLimiter:
                 limit_type="ok",
             )
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(
+                f"Redis rate limit connection error, falling back to local: {type(e).__name__}: {e}"
+            )
+            return await self._acquire_local(tenant_id, provider, limits, count)
         except Exception as e:
-            logger.warning(f"Redis rate limit error, falling back to local: {e}")
+            logger.warning(
+                f"Redis rate limit error, falling back to local: {type(e).__name__}: {e}"
+            )
             return await self._acquire_local(tenant_id, provider, limits, count)
 
     async def _acquire_local(
@@ -552,8 +563,10 @@ class EmailRateLimiter:
                     day_reset=now_dt + timedelta(seconds=86400 - (now % 86400)),
                     limits=limits,
                 )
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.warning(f"Redis usage fetch connection error: {type(e).__name__}: {e}")
             except Exception as e:
-                logger.warning(f"Redis usage fetch failed: {e}")
+                logger.warning(f"Redis usage fetch failed: {type(e).__name__}: {e}")
 
         # Local fallback
         key = f"{tenant_id}:{provider}"
@@ -587,8 +600,8 @@ class EmailRateLimiter:
                 pipe.delete(self._key(tenant_id, provider, "day"))
                 pipe.delete(self._bucket_key(tenant_id, provider))
                 pipe.execute()
-            except Exception as e:
-                logger.warning(f"Redis reset failed: {e}")
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.warning(f"Redis reset connection error: {type(e).__name__}: {e}")
 
         # Also reset local state
         key = f"{tenant_id}:{provider}"

@@ -336,9 +336,12 @@ class TestPodcastFeed:
         assert result is not None
         assert result.status_code == 503
 
-    @pytest.mark.skipif(PODCAST_AVAILABLE, reason="Only test when podcast module not available")
-    def test_get_feed_module_unavailable(self, audio_handler):
+    def test_get_feed_module_unavailable(self, audio_handler, monkeypatch):
         """Should return 503 when podcast module not available."""
+        import aragora.server.handlers.features.audio as audio_mod
+
+        monkeypatch.setattr(audio_mod, "PODCAST_AVAILABLE", False)
+
         mock_handler = Mock()
         mock_handler.headers = {"Host": "localhost:8080"}
 

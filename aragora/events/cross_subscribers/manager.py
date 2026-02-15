@@ -55,7 +55,6 @@ except ImportError:
         return None
 
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -397,6 +396,34 @@ class CrossSubscriberManager(
             "vote_to_belief",
             StreamEventType.VOTE,
             self._handle_vote_to_belief,
+        )
+
+        # Workflow Complete → Supermemory (cross-workflow learning)
+        self.register(
+            "workflow_complete_to_supermemory",
+            StreamEventType.WORKFLOW_COMPLETE,
+            self._handle_workflow_outcome_to_supermemory,
+        )
+
+        # Workflow Failed → Supermemory (learn from failures)
+        self.register(
+            "workflow_failed_to_supermemory",
+            StreamEventType.WORKFLOW_FAILED,
+            self._handle_workflow_outcome_to_supermemory,
+        )
+
+        # Memory Tier Demotion → Re-validation
+        self.register(
+            "tier_demotion_to_revalidation",
+            StreamEventType.MEMORY_TIER_DEMOTION,
+            self._handle_tier_demotion_to_revalidation,
+        )
+
+        # Memory Tier Promotion → KM importance boost
+        self.register(
+            "tier_promotion_to_knowledge",
+            StreamEventType.MEMORY_TIER_PROMOTION,
+            self._handle_tier_promotion_to_knowledge,
         )
 
         # Register webhook delivery for all cross-pollination events

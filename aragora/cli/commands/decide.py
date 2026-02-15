@@ -69,7 +69,10 @@ async def run_decide(
     template_config: dict[str, Any] = {}
     if template:
         try:
-            from aragora.workflow.templates import get_template as get_wf_template, WORKFLOW_TEMPLATES
+            from aragora.workflow.templates import (
+                get_template as get_wf_template,
+                WORKFLOW_TEMPLATES,
+            )
 
             tmpl = get_wf_template(template)
             if tmpl is None:
@@ -82,7 +85,11 @@ async def run_decide(
                 template_config = tmpl
                 # Override debate params from template
                 if tmpl.get("agents"):
-                    agents_str = ",".join(tmpl["agents"]) if isinstance(tmpl["agents"], list) else tmpl["agents"]
+                    agents_str = (
+                        ",".join(tmpl["agents"])
+                        if isinstance(tmpl["agents"], list)
+                        else tmpl["agents"]
+                    )
                 if tmpl.get("rounds"):
                     rounds = tmpl["rounds"]
                 if verbose:
@@ -98,14 +105,24 @@ async def run_decide(
     mode_config: dict[str, Any] = {}
     if mode and mode != "standard":
         try:
+            from aragora.modes import load_builtins
             from aragora.modes.base import ModeRegistry
 
-            registry = ModeRegistry()
-            mode_def = registry.get(mode)
+            load_builtins()
+            mode_def = ModeRegistry.get(mode)
             if mode_def:
-                mode_config = {"mode": mode, "mode_definition": mode_def}
+                mode_config = {
+                    "mode": mode,
+                    "mode_definition": mode_def,
+                    "mode_system_prompt": mode_def.get_system_prompt(),
+                }
                 if verbose:
                     print(f"[decide] Using mode: {mode}")
+            else:
+                available = ", ".join(ModeRegistry.list_all())
+                raise KeyError(f"Mode '{mode}' not found. Available: {available}")
+        except KeyError:
+            raise
         except ImportError:
             if verbose:
                 print(f"[decide] Mode system not available, ignoring --mode {mode}")
@@ -539,7 +556,9 @@ def cmd_decide(args: argparse.Namespace) -> None:
                 notify_debate_completed(
                     debate_id=getattr(debate_result, "debate_id", ""),
                     task=getattr(debate_result, "task", "")[:200],
-                    verdict="pass" if getattr(debate_result, "consensus_reached", False) else "fail",
+                    verdict="pass"
+                    if getattr(debate_result, "consensus_reached", False)
+                    else "fail",
                     confidence=getattr(debate_result, "confidence", 0.0),
                     agents_used=[
                         getattr(a, "name", str(a))
@@ -740,7 +759,7 @@ def _print_available_templates() -> None:
         print()
 
     print(f"Total: {len(WORKFLOW_TEMPLATES)} templates")
-    print("\nUsage: aragora decide --template <template-id> \"your question\"")
+    print('\nUsage: aragora decide --template <template-id> "your question"')
 
 
 __all__ = [

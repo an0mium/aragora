@@ -183,7 +183,9 @@ class AragoraDebateChain(_ChainBase):
                             )
                             reasoning_steps.append(f"Found {len(items)} relevant knowledge items")
                 except (ConnectionError, TimeoutError, OSError) as e:
-                    logger.warning(f"[AragoraDebateChain] Research connection error: {type(e).__name__}: {e}")
+                    logger.warning(
+                        f"[AragoraDebateChain] Research connection error: {type(e).__name__}: {e}"
+                    )
                     reasoning_steps.append(f"Research skipped (connection error): {e}")
                 except Exception as e:
                     logger.warning(f"[AragoraDebateChain] Research failed: {type(e).__name__}: {e}")
@@ -223,7 +225,9 @@ class AragoraDebateChain(_ChainBase):
                     )
 
             except (ConnectionError, TimeoutError, OSError) as e:
-                logger.error(f"[AragoraDebateChain] Debate connection error: {type(e).__name__}: {e}")
+                logger.error(
+                    f"[AragoraDebateChain] Debate connection error: {type(e).__name__}: {e}"
+                )
                 return {
                     "answer": f"Debate failed (connection error): {e}",
                     "confidence": 0,
@@ -338,8 +342,16 @@ class AragoraResearchDebateChain(_ChainBase):
                                         for i in items[:3]
                                     )
                                 )
+                except (ConnectionError, TimeoutError, OSError) as e:
+                    logger.warning(
+                        f"[AragoraResearchDebateChain] {source} search connection error: "
+                        f"{type(e).__name__}: {e}"
+                    )
                 except Exception as e:
-                    logger.warning(f"[AragoraResearchDebateChain] {source} search failed: {e}")
+                    logger.warning(
+                        f"[AragoraResearchDebateChain] {source} search failed: "
+                        f"{type(e).__name__}: {e}"
+                    )
 
             # Debate phase
             full_context = (
@@ -366,9 +378,12 @@ class AragoraResearchDebateChain(_ChainBase):
                     f"Rounds: {debate_result.get('rounds', 0)}"
                 )
 
+            except (ConnectionError, TimeoutError, OSError) as e:
+                conclusion = f"Research completed but debate connection failed: {e}"
+                debate_summary = f"Debate connection error: {type(e).__name__}"
             except Exception as e:
                 conclusion = f"Research completed but debate failed: {e}"
-                debate_summary = "Debate failed"
+                debate_summary = f"Debate error: {type(e).__name__}"
 
             return {
                 "conclusion": conclusion,

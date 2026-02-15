@@ -431,6 +431,10 @@ class SubsystemCoordinator:
         if self.selection_feedback_loop and self.team_selector:
             self._wire_feedback_to_team_selector()
 
+        # Wire KM adapters into TeamSelector if KM available
+        if self.knowledge_mound and self.team_selector:
+            self._auto_wire_km_adapters_to_team_selector()
+
         # =======================================================================
         # Phase 10: Bidirectional Knowledge Mound
         # =======================================================================
@@ -685,6 +689,40 @@ class SubsystemCoordinator:
             logger.debug("Wired SelectionFeedbackLoop into TeamSelector")
         except (AttributeError, TypeError) as e:
             logger.debug("Failed to wire feedback loop to TeamSelector: %s", e)
+
+    def _auto_wire_km_adapters_to_team_selector(self) -> None:
+        """Auto-wire KM PerformanceAdapter into TeamSelector.
+
+        Queries the KnowledgeMound's adapter factory for PerformanceAdapter.
+        If available, injects it into TeamSelector for KM-driven expertise
+        scoring. Also wires the ranking_adapter (which uses the same
+        PerformanceAdapter, since RankingAdapter is a deprecated alias).
+        Gracefully skips when KM is unavailable or adapters cannot be created.
+        """
+        if not self.knowledge_mound or not self.team_selector:
+            return
+
+        try:
+            from aragora.knowledge.mound.adapters.factory import AdapterFactory
+
+            factory = AdapterFactory(knowledge_mound=self.knowledge_mound)
+            created = factory.create_from_subsystems(elo_system=self.elo_system)
+
+            # Wire PerformanceAdapter if created and not already set
+            perf = created.get("performance")
+            if perf and not self.team_selector.performance_adapter:
+                self.team_selector.performance_adapter = perf.adapter
+                logger.debug("Auto-wired PerformanceAdapter into TeamSelector")
+
+            # Wire as ranking_adapter too (PerformanceAdapter subsumes RankingAdapter)
+            if perf and not self.team_selector.ranking_adapter:
+                self.team_selector.ranking_adapter = perf.adapter
+                logger.debug("Auto-wired RankingAdapter (via PerformanceAdapter) into TeamSelector")
+
+        except ImportError:
+            logger.debug("KM adapter factory not available, skipping auto-wire")
+        except (TypeError, ValueError, RuntimeError, AttributeError) as e:
+            logger.debug("KM adapter auto-wire failed: %s", e)
 
     def _auto_init_novelty_selection_bridge(self) -> None:
         """Auto-initialize NoveltySelectionBridge for novelty-based selection feedback."""

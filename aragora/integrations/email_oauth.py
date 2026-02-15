@@ -690,8 +690,12 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
             self._redis.ping()
             self._redis_checked = True
             logger.info("Redis connected for email credential store")
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.debug(f"Redis connection failed, using SQLite only: {type(e).__name__}: {e}")
+            self._redis = None
+            self._redis_checked = True
         except Exception as e:
-            logger.debug(f"Redis not available, using SQLite only: {e}")
+            logger.debug(f"Redis not available, using SQLite only: {type(e).__name__}: {e}")
             self._redis = None
             self._redis_checked = True
 
@@ -710,8 +714,14 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
                 data = redis.get(self._cache_key(tenant_id, provider, email_address))
                 if data:
                     return EmailCredential.from_json(data)
-            except Exception as e:
-                logger.debug(f"Redis get failed, falling back to SQLite: {e}")
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(
+                    f"Redis get connection error, falling back to SQLite: {type(e).__name__}: {e}"
+                )
+            except (ValueError, TypeError) as e:
+                logger.debug(
+                    f"Redis get deserialization error, falling back to SQLite: {type(e).__name__}: {e}"
+                )
 
         credential = await self._sqlite.get(tenant_id, provider, email_address)
 
@@ -743,8 +753,8 @@ class RedisEmailCredentialStore(EmailCredentialStoreBackend):
                     self.REDIS_TTL,
                     credential.to_json(),
                 )
-            except Exception as e:
-                logger.debug(f"Redis cache update failed: {e}")
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"Redis cache update connection error: {type(e).__name__}: {e}")
 
     async def delete(self, tenant_id: str, provider: str, email_address: str) -> bool:
         redis = self._get_redis()

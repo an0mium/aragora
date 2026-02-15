@@ -244,10 +244,16 @@ class AragoraTool(BaseTool):
                     "timeout_seconds": self.timeout_seconds,
                 }
             )
+        except (ConnectionError, TimeoutError, OSError) as e:
+            return json.dumps(
+                {
+                    "error": f"Debate connection error ({type(e).__name__}): {e}",
+                }
+            )
         except Exception as e:
             return json.dumps(
                 {
-                    "error": f"Failed to run debate: {str(e)}",
+                    "error": f"Failed to run debate ({type(e).__name__}): {e}",
                 }
             )
 
@@ -381,8 +387,11 @@ class AragoraRetriever(BaseRetriever):
                 else:
                     logger.warning(f"Knowledge search failed: {response.status_code}")
                     return []
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"Knowledge retrieval connection error: {type(e).__name__}: {e}")
+            return []
         except Exception as e:
-            logger.error(f"Failed to retrieve documents: {e}")
+            logger.error(f"Failed to retrieve documents: {type(e).__name__}: {e}")
             return []
 
     def _convert_to_documents(self, nodes: list[dict[str, Any]]) -> list[Document]:

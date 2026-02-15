@@ -70,8 +70,22 @@ from aragora.modes.redteam import (
 )
 from aragora.modes.tool_groups import ToolGroup, can_use_tool, get_required_group
 
+
+def load_builtins() -> None:
+    """Ensure all built-in modes are registered in the ModeRegistry.
+
+    This is safe to call multiple times (idempotent). Import of the
+    builtin subpackage triggers registration via ``register_all_builtins()``.
+    Call this explicitly before looking up modes by name to guarantee
+    all five built-in modes (architect, coder, reviewer, debugger,
+    orchestrator) are available.
+    """
+    register_all_builtins()
+
+
 __all__ = [
     # Operational Mode System
+    "load_builtins",
     "custom",
     "ToolGroup",
     "can_use_tool",

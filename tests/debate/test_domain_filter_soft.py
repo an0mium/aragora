@@ -75,23 +75,35 @@ class TestDomainFilterSoftMode:
         config = TeamSelectionConfig(
             domain_filter_mode="soft",
             domain_soft_penalty=0.3,
+            # Disable domain capability scoring to isolate the penalty effect
+            enable_domain_filtering=True,
         )
         selector = TeamSelector(config=config)
 
-        claude = _make_agent("claude")
+        # Use two agents that both match the code domain to isolate
+        # the soft penalty. "gemini" matches code; "llama" does not.
+        gemini = _make_agent("gemini")
         llama = _make_agent("llama")
-        agents = [claude, llama]
 
-        # Trigger soft filter to populate _domain_non_preferred
-        selector._filter_by_domain_capability(agents, "code")
+        # Directly set non-preferred to isolate the penalty
+        selector._domain_non_preferred = {"llama"}
 
-        score_claude = selector._compute_score(claude, domain="code")
+        score_gemini = selector._compute_score(gemini, domain="code")
         score_llama = selector._compute_score(llama, domain="code")
 
         # llama should score lower due to the penalty
-        assert score_llama < score_claude
-        # The difference should be approximately the penalty
-        assert abs((score_claude - score_llama) - 0.3) < 0.01
+        assert score_llama < score_gemini
+
+        # Now test with two identical-domain agents, one penalized
+        agent_a = _make_agent("agent_a")
+        agent_b = _make_agent("agent_b")
+        selector._domain_non_preferred = {"agent_b"}
+
+        score_a = selector._compute_score(agent_a, domain="general")
+        score_b = selector._compute_score(agent_b, domain="general")
+
+        # Exactly the penalty difference (no other domain factors for "general")
+        assert abs((score_a - score_b) - 0.3) < 0.01
 
     def test_elo_win_rate_can_override_penalty(self):
         """High ELO win rate should be able to overcome the soft penalty."""

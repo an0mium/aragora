@@ -115,7 +115,6 @@ class TestListTournamentsEndpoint:
             result = handler.handle("/api/tournaments", {}, None)
             assert result is not None
 
-
     def test_list_with_tournaments(self, mock_ctx):
         """Returns list of tournaments when they exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -183,7 +182,6 @@ class TestStandingsEndpoint:
             result = handler.handle("/api/tournaments/<script>/standings", {}, None)
             assert result is not None
 
-
     def test_standings_success(self, mock_ctx):
         """Returns standings when tournament exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -208,18 +206,26 @@ class TestStandingsEndpoint:
 
 
 class TestTournamentNotConfigured:
-    """Test error handling when tournament system not configured."""
+    """Test error handling when tournament system not configured.
 
-    @pytest.mark.skipif(TOURNAMENT_AVAILABLE, reason="Test requires TournamentManager unavailable")
-    def test_list_unavailable(self, mock_ctx):
+    Patches TOURNAMENT_AVAILABLE to False so the 503 path is always
+    exercised, regardless of whether the ranking module is installed.
+    """
+
+    def test_list_unavailable(self, mock_ctx, monkeypatch):
         """Returns 503 when tournament system unavailable."""
+        import aragora.server.handlers.tournaments as t_mod
+
+        monkeypatch.setattr(t_mod, "TOURNAMENT_AVAILABLE", False)
         handler = TournamentHandler(mock_ctx)
         result = handler.handle("/api/tournaments", {}, None)
         assert result is not None
 
-    @pytest.mark.skipif(TOURNAMENT_AVAILABLE, reason="Test requires TournamentManager unavailable")
-    def test_standings_unavailable(self, mock_ctx):
+    def test_standings_unavailable(self, mock_ctx, monkeypatch):
         """Returns 503 when tournament system unavailable."""
+        import aragora.server.handlers.tournaments as t_mod
+
+        monkeypatch.setattr(t_mod, "TOURNAMENT_AVAILABLE", False)
         handler = TournamentHandler(mock_ctx)
         result = handler.handle("/api/tournaments/main/standings", {}, None)
         assert result is not None

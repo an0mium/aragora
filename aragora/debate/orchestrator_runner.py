@@ -80,10 +80,7 @@ def _convert_messages_to_think_prm_rounds(
         )
 
     # Sort by round number and return
-    return [
-        {"contributions": rounds_map[r]}
-        for r in sorted(rounds_map.keys())
-    ]
+    return [{"contributions": rounds_map[r]} for r in sorted(rounds_map.keys())]
 
 
 async def _run_think_prm_verification(
@@ -290,9 +287,7 @@ async def initialize_debate_context(
         try:
             from aragora.utils.env import is_offline_mode
 
-            use_llm = bool(
-                getattr(arena.protocol, "enable_llm_question_classification", True)
-            )
+            use_llm = bool(getattr(arena.protocol, "enable_llm_question_classification", True))
             if is_offline_mode():
                 use_llm = False
 
@@ -572,6 +567,33 @@ async def handle_debate_completion(
                 ctx.result.bead_id = bead_id
         except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug(f"Bead creation failed (non-critical): {e}")
+
+    # Post-debate workflow fallback: run if FeedbackPhase didn't trigger it
+    if (
+        getattr(arena, "enable_post_debate_workflow", False)
+        and getattr(arena, "post_debate_workflow", None)
+        and not getattr(ctx, "post_debate_workflow_triggered", False)
+    ):
+        try:
+            workflow = arena.post_debate_workflow
+            threshold = getattr(arena, "post_debate_workflow_threshold", 0.0)
+            confidence = getattr(ctx.result, "confidence", 0.0) if ctx.result else 0.0
+            if confidence >= threshold:
+                import asyncio as _asyncio
+
+                async def _run_fallback_workflow() -> None:
+                    try:
+                        await workflow.execute({"debate_result": ctx.result})
+                    except Exception as wf_err:
+                        logger.debug("Post-debate workflow fallback failed: %s", wf_err)
+
+                _asyncio.create_task(_run_fallback_workflow())
+                logger.info(
+                    "[workflow-fallback] Triggered post-debate workflow for debate %s",
+                    state.debate_id,
+                )
+        except Exception as e:
+            logger.debug("Post-debate workflow fallback setup failed: %s", e)
 
     # Queue for Supabase background sync
     arena._queue_for_supabase_sync(ctx, ctx.result)

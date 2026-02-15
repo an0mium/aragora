@@ -40,6 +40,7 @@ class BudgetCoordinator:
         org_id: str | None = None,
         user_id: str | None = None,
         extensions: Any | None = None,
+        autotuner: Any | None = None,
     ) -> None:
         """Initialize budget coordinator.
 
@@ -47,10 +48,12 @@ class BudgetCoordinator:
             org_id: Organization identifier for budget tracking
             user_id: Optional user identifier for per-user tracking
             extensions: Optional ArenaExtensions for per-debate budget checks
+            autotuner: Optional Autotuner for budget-aware debate optimization
         """
         self.org_id = org_id
         self.user_id = user_id
         self.extensions = extensions
+        self.autotuner = autotuner
 
     def estimate_debate_cost(
         self,
@@ -127,22 +130,59 @@ class BudgetCoordinator:
             # Budget manager not available - proceed without check
             logger.debug("Budget manager not available, skipping pre-debate check")
 
-    def check_budget_mid_debate(self, debate_id: str, round_num: int) -> tuple[bool, str]:
+    def check_budget_mid_debate(
+        self,
+        debate_id: str,
+        round_num: int,
+        round_tokens: int = 0,
+        round_messages: int = 0,
+        support_scores: list[float] | None = None,
+    ) -> tuple[bool, str]:
         """Check if organization has sufficient budget to continue debate mid-execution.
 
         Unlike check_budget_before_debate(), this method returns a tuple instead of
         raising an exception, allowing the debate to pause gracefully rather than
         fail abruptly.
 
+        When an autotuner is configured, feeds round data via ``record_round()``
+        and consults ``should_continue()`` to decide whether to stop early.
+
         Args:
             debate_id: Debate identifier for logging
             round_num: Current round number for logging
+            round_tokens: Tokens used in the current round (for autotuner)
+            round_messages: Messages sent in the current round (for autotuner)
+            support_scores: Per-agent support scores for the round (for autotuner)
 
         Returns:
             Tuple of (allowed: bool, reason: str)
             - allowed: True if debate can continue, False if budget exceeded
             - reason: Human-readable reason if budget check failed
         """
+        # Feed round data to autotuner if available
+        if self.autotuner is not None:
+            try:
+                self.autotuner.record_round(
+                    round_num=round_num,
+                    tokens=round_tokens,
+                    messages=round_messages,
+                    support_scores=support_scores or [],
+                )
+                decision = self.autotuner.should_continue()
+                if not decision.should_continue:
+                    reason = (
+                        f"Autotuner stop: {decision.stop_reason.value}"
+                        if decision.stop_reason
+                        else "Autotuner recommends stopping"
+                    )
+                    logger.info(
+                        f"autotuner_stop debate_id={debate_id} round={round_num} "
+                        f"reason={reason}"
+                    )
+                    return False, reason
+            except (AttributeError, TypeError) as e:
+                logger.debug(f"Autotuner check failed (continuing): {e}")
+
         if not self.org_id:
             return True, ""  # No org context - allow continuation
 

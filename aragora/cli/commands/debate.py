@@ -648,13 +648,16 @@ async def run_debate(
     # Get mode system prompt if specified
     mode_system_prompt = ""
     if mode:
+        from aragora.modes import load_builtins
+
+        load_builtins()
         mode_obj = ModeRegistry.get(mode)
         if mode_obj:
             mode_system_prompt = mode_obj.get_system_prompt()
             print(f"[mode] Using '{mode}' mode - {mode_obj.description}")
         else:
             available = ", ".join(ModeRegistry.list_all())
-            print(f"[mode] Warning: Mode '{mode}' not found. Available: {available}")
+            raise KeyError(f"Mode '{mode}' not found. Available: {available}")
 
     # Auto-select agents if requested and no explicit list provided
     if auto_select:

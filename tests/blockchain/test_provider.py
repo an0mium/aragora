@@ -363,6 +363,7 @@ class TestWeb3ProviderGetWeb3:
         provider._web3_instances["https://rpc.test"] = mock_w3
         # Ensure the Web3 global is set so the method doesn't try to import
         import aragora.blockchain.provider as _pmod
+
         _orig = _pmod.Web3
         _pmod.Web3 = MagicMock()
         try:
@@ -403,6 +404,7 @@ class TestWeb3ProviderGetWeb3:
         provider._web3_instances["https://fallback.rpc"] = mock_w3
 
         import aragora.blockchain.provider as _pmod
+
         _orig = _pmod.Web3
         _pmod.Web3 = MagicMock()
         try:
@@ -426,6 +428,7 @@ class TestWeb3ProviderGetWeb3:
         provider._web3_instances["https://rpc.test"] = mock_w3
 
         import aragora.blockchain.provider as _pmod
+
         _orig = _pmod.Web3
         _pmod.Web3 = MagicMock()
         try:

@@ -549,6 +549,65 @@ class BasicHandlersMixin:
         except Exception as e:
             logger.debug(f"KM outcome persistence failed: {e}")
 
+    def _handle_workflow_outcome_to_supermemory(self, event: StreamEvent) -> None:
+        """Workflow completion/failure → Supermemory persistence.
+
+        When a workflow completes or fails, store the outcome in supermemory
+        for cross-workflow learning. This creates institutional memory of
+        what worked and what didn't, enabling future workflows to benefit
+        from past experience.
+        """
+        data = event.data
+        workflow_id = data.get("workflow_id", "")
+        definition_id = data.get("definition_id", "")
+        success = data.get("success", False)
+
+        if not workflow_id:
+            return
+
+        logger.info(
+            "Storing workflow outcome in supermemory: workflow=%s success=%s",
+            workflow_id,
+            success,
+        )
+
+        try:
+            from aragora.memory.supermemory import get_supermemory
+
+            sm = get_supermemory()
+            if sm is None:
+                return
+
+            outcome = {
+                "workflow_id": workflow_id,
+                "definition_id": definition_id,
+                "success": success,
+                "duration_ms": data.get("duration_ms", 0),
+                "steps_executed": data.get("steps_executed", 0),
+                "error": data.get("error", ""),
+            }
+
+            status = "completed successfully" if success else "failed"
+            content = (
+                f"Workflow {definition_id or workflow_id} {status}. "
+                f"Steps: {outcome['steps_executed']}, "
+                f"Duration: {outcome['duration_ms']}ms"
+            )
+            if not success and outcome["error"]:
+                content += f". Error: {outcome['error'][:200]}"
+
+            sm.store(
+                content=content,
+                source=f"workflow:{workflow_id}",
+                metadata=outcome,
+                tags=["workflow_outcome", f"workflow:{definition_id}"],
+            )
+            logger.debug("Workflow outcome stored in supermemory: %s", workflow_id)
+        except ImportError:
+            pass  # Supermemory not available
+        except Exception as e:
+            logger.debug(f"Supermemory workflow storage failed: {e}")
+
     def _handle_tier_demotion_to_revalidation(self, event: StreamEvent) -> None:
         """Memory tier demotion → Re-validation trigger.
 
