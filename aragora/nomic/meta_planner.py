@@ -98,6 +98,8 @@ class MetaPlannerConfig:
     enable_cross_cycle_learning: bool = True
     max_similar_cycles: int = 3
     min_cycle_similarity: float = 0.3
+    # Quick mode: skip debate, use heuristic for concrete goals
+    quick_mode: bool = False
 
 
 class MetaPlanner:
@@ -136,6 +138,11 @@ class MetaPlanner:
             f"meta_planner_started objective={objective[:100]} tracks={[t.value for t in available_tracks]}"
         )
 
+        # Quick mode: skip debate entirely, use heuristic
+        if self.config.quick_mode:
+            logger.info("meta_planner_quick_mode using heuristic prioritization")
+            return self._heuristic_prioritize(objective, available_tracks)
+
         # Cross-cycle learning: Query past similar cycles
         if self.config.enable_cross_cycle_learning:
             context = await self._enrich_context_with_history(objective, available_tracks, context)
@@ -143,19 +150,17 @@ class MetaPlanner:
         try:
             from aragora.debate.orchestrator import Arena, DebateProtocol
             from aragora.core import Environment
-            from aragora.agents import create_agent
 
             # Build debate topic
             topic = self._build_debate_topic(objective, available_tracks, constraints, context)
 
-            # Create agents
+            # Create agents using get_secret pattern for API key resolution
             agents = []
             for agent_type in self.config.agents:
                 try:
-                    from aragora.agents.base import AgentType
-
-                    agent = create_agent(cast(AgentType, agent_type))
-                    agents.append(agent)
+                    agent = self._create_agent(agent_type)
+                    if agent is not None:
+                        agents.append(agent)
                 except Exception as e:
                     logger.warning(f"Could not create agent {agent_type}: {e}")
 
@@ -296,6 +301,42 @@ class MetaPlanner:
             logger.warning(f"Failed to load pipeline outcomes: {e}")
 
         return context
+
+    def _create_agent(self, agent_type: str) -> Any:
+        """Create an agent using get_secret pattern for API key resolution.
+
+        Falls back through multiple import paths to maximize compatibility.
+        """
+        try:
+            from aragora.agents import create_agent
+            from aragora.agents.base import AgentType
+
+            return create_agent(cast(AgentType, agent_type))
+        except ImportError:
+            pass
+
+        # Fallback: try direct agent construction
+        try:
+            from aragora.config.secrets import get_secret
+
+            # Map agent type to required API key
+            key_map = {
+                "claude": "ANTHROPIC_API_KEY",
+                "anthropic-api": "ANTHROPIC_API_KEY",
+                "openai-api": "OPENAI_API_KEY",
+                "gemini": "GEMINI_API_KEY",
+                "deepseek": "OPENROUTER_API_KEY",
+                "grok": "XAI_API_KEY",
+            }
+            required_key = key_map.get(agent_type)
+            if required_key and not get_secret(required_key):
+                logger.debug(f"No API key for {agent_type}, skipping")
+                return None
+        except ImportError:
+            pass
+
+        logger.debug(f"Could not create agent {agent_type} via any path")
+        return None
 
     def _build_debate_topic(
         self,

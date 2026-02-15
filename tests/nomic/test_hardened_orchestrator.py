@@ -15,6 +15,7 @@ from aragora.nomic.autonomous_orchestrator import (
     reset_orchestrator,
 )
 from aragora.nomic.hardened_orchestrator import (
+    BudgetEnforcementConfig,
     PHASE_MODE_MAP,
     HardenedOrchestrator,
 )
@@ -577,6 +578,221 @@ class TestBudgetEnforcement:
 
 
 # =============================================================================
+# BudgetManager Integration Tests
+# =============================================================================
+
+
+class TestBudgetManagerIntegration:
+    """Verify BudgetManager integration for persistent budget tracking."""
+
+    def test_budget_enforcement_config_defaults(self):
+        """BudgetEnforcementConfig has sensible defaults."""
+        cfg = BudgetEnforcementConfig()
+        assert cfg.org_id == "default"
+        assert cfg.budget_id is None
+        assert cfg.cost_per_subtask_estimate == 0.10
+        assert cfg.hard_stop_percent == 1.0
+
+    def test_init_with_budget_enforcement_creates_manager(self):
+        """BudgetManager is initialized when BudgetEnforcementConfig is provided."""
+        mock_bm = MagicMock()
+        mock_budget = MagicMock()
+        mock_budget.budget_id = "test-budget-123"
+        mock_bm.create_budget.return_value = mock_budget
+
+        with patch(
+            "aragora.billing.budget_manager.get_budget_manager",
+            return_value=mock_bm,
+        ):
+            orch = HardenedOrchestrator(
+                budget_limit_usd=5.0,
+                budget_enforcement=BudgetEnforcementConfig(org_id="test-org"),
+            )
+
+        assert orch._budget_manager is mock_bm
+        assert orch._budget_id == "test-budget-123"
+        mock_bm.create_budget.assert_called_once()
+
+    def test_init_with_existing_budget_id(self):
+        """Existing budget_id is used without creating a new budget."""
+        mock_bm = MagicMock()
+
+        with patch(
+            "aragora.billing.budget_manager.get_budget_manager",
+            return_value=mock_bm,
+        ):
+            orch = HardenedOrchestrator(
+                budget_enforcement=BudgetEnforcementConfig(
+                    budget_id="existing-42",
+                ),
+            )
+
+        assert orch._budget_id == "existing-42"
+        mock_bm.create_budget.assert_not_called()
+
+    def test_init_budget_manager_import_error_falls_back(self):
+        """ImportError for BudgetManager falls back to float counter."""
+        with patch(
+            "aragora.nomic.hardened_orchestrator.HardenedOrchestrator._init_budget_manager",
+            side_effect=lambda cfg: None,
+        ):
+            orch = HardenedOrchestrator(
+                budget_enforcement=BudgetEnforcementConfig(),
+            )
+
+        # Falls back gracefully — _budget_manager stays None
+        assert orch._budget_manager is None
+
+    @pytest.mark.asyncio
+    async def test_check_budget_uses_budget_manager(self):
+        """_check_budget_allows uses BudgetManager.can_spend_extended when available."""
+        mock_bm = MagicMock()
+        mock_budget = MagicMock()
+        mock_budget.usage_percentage = 0.5
+        mock_budget.can_spend_extended.return_value = MagicMock(
+            allowed=True, message="ok"
+        )
+        mock_bm.get_budget.return_value = mock_budget
+
+        orch = HardenedOrchestrator(budget_limit_usd=10.0)
+        orch._budget_manager = mock_bm
+        orch._budget_id = "test-id"
+        orch.hardened_config.budget_enforcement = BudgetEnforcementConfig()
+
+        assignment = _make_assignment()
+        result = orch._check_budget_allows(assignment)
+
+        assert result is True
+        mock_bm.get_budget.assert_called_once_with("test-id")
+        mock_budget.can_spend_extended.assert_called_once_with(0.10)
+
+    @pytest.mark.asyncio
+    async def test_check_budget_blocks_at_hard_stop(self):
+        """_check_budget_allows blocks when usage_percentage >= hard_stop_percent."""
+        mock_bm = MagicMock()
+        mock_budget = MagicMock()
+        mock_budget.usage_percentage = 0.9
+        mock_bm.get_budget.return_value = mock_budget
+
+        orch = HardenedOrchestrator(budget_limit_usd=10.0)
+        orch._budget_manager = mock_bm
+        orch._budget_id = "test-id"
+        orch.hardened_config.budget_enforcement = BudgetEnforcementConfig(
+            hard_stop_percent=0.8,
+        )
+
+        assignment = _make_assignment()
+        orch._active_assignments.append(assignment)
+
+        result = orch._check_budget_allows(assignment)
+
+        assert result is False
+        assert assignment.status == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_check_budget_blocks_when_cannot_spend(self):
+        """_check_budget_allows blocks when can_spend_extended returns not allowed."""
+        mock_bm = MagicMock()
+        mock_budget = MagicMock()
+        mock_budget.usage_percentage = 0.5
+        mock_budget.spent_usd = 5.0
+        mock_budget.amount_usd = 10.0
+        mock_budget.can_spend_extended.return_value = MagicMock(
+            allowed=False, message="over limit"
+        )
+        mock_bm.get_budget.return_value = mock_budget
+
+        orch = HardenedOrchestrator(budget_limit_usd=10.0)
+        orch._budget_manager = mock_bm
+        orch._budget_id = "test-id"
+        orch.hardened_config.budget_enforcement = BudgetEnforcementConfig()
+
+        assignment = _make_assignment()
+        orch._active_assignments.append(assignment)
+
+        result = orch._check_budget_allows(assignment)
+
+        assert result is False
+        assert assignment.status == "skipped"
+        assert assignment.result == {"reason": "budget_exceeded"}
+
+    def test_record_budget_spend_uses_manager(self):
+        """_record_budget_spend delegates to BudgetManager.record_spend."""
+        mock_bm = MagicMock()
+        mock_budget = MagicMock()
+        mock_budget.org_id = "test-org"
+        mock_bm.get_budget.return_value = mock_budget
+
+        orch = HardenedOrchestrator(budget_limit_usd=10.0)
+        orch._budget_manager = mock_bm
+        orch._budget_id = "test-id"
+        orch.hardened_config.budget_enforcement = BudgetEnforcementConfig()
+
+        assignment = _make_assignment()
+        orch._record_budget_spend(assignment)
+
+        mock_bm.record_spend.assert_called_once()
+        call_kwargs = mock_bm.record_spend.call_args
+        assert call_kwargs[1]["org_id"] == "test-org"
+        assert call_kwargs[1]["amount_usd"] == 0.10
+
+    def test_record_budget_spend_custom_amount(self):
+        """_record_budget_spend accepts custom amount_usd."""
+        mock_bm = MagicMock()
+        mock_budget = MagicMock()
+        mock_budget.org_id = "org-1"
+        mock_bm.get_budget.return_value = mock_budget
+
+        orch = HardenedOrchestrator(budget_limit_usd=10.0)
+        orch._budget_manager = mock_bm
+        orch._budget_id = "b-1"
+        orch.hardened_config.budget_enforcement = BudgetEnforcementConfig()
+
+        assignment = _make_assignment()
+        orch._record_budget_spend(assignment, amount_usd=0.50)
+
+        assert mock_bm.record_spend.call_args[1]["amount_usd"] == 0.50
+
+    def test_record_budget_spend_falls_back_to_counter(self):
+        """Without BudgetManager, _record_budget_spend increments float counter."""
+        orch = HardenedOrchestrator(budget_limit_usd=10.0)
+        assert orch._budget_manager is None
+
+        assignment = _make_assignment()
+        orch._record_budget_spend(assignment, amount_usd=0.25)
+
+        assert orch._budget_spent_usd == 0.25
+
+        orch._record_budget_spend(assignment, amount_usd=0.75)
+        assert orch._budget_spent_usd == 1.00
+
+    @pytest.mark.asyncio
+    async def test_budget_spend_recorded_after_execution(self):
+        """Budget spend is recorded after successful non-worktree execution."""
+        orch = HardenedOrchestrator(
+            budget_limit_usd=10.0,
+            use_worktree_isolation=False,
+            enable_gauntlet_validation=False,
+        )
+
+        assignment = _make_assignment()
+        assignment.status = "running"
+        orch._active_assignments.append(assignment)
+
+        with patch.object(
+            AutonomousOrchestrator,
+            "_execute_single_assignment",
+            new_callable=AsyncMock,
+        ) as mock_parent:
+            mock_parent.return_value = None
+            with patch.object(
+                orch, "_record_budget_spend"
+            ) as mock_record:
+                await orch._execute_single_assignment(assignment, max_cycles=3)
+                mock_record.assert_called_once_with(assignment)
+
+
+# =============================================================================
 # Audit Reconciliation Tests
 # =============================================================================
 
@@ -641,11 +857,12 @@ class TestAuditReconciliation:
 class TestBackwardCompatibility:
     """Verify default flags produce identical behavior to base class."""
 
-    def test_default_init_no_worktree(self):
-        """Default init does not create worktree manager."""
+    def test_default_init_worktree_enabled(self):
+        """Default init enables worktree isolation but lazily creates manager."""
         orch = HardenedOrchestrator()
+        # Manager is lazily created, not at init time
         assert orch._worktree_manager is None
-        assert not orch.hardened_config.use_worktree_isolation
+        assert orch.hardened_config.use_worktree_isolation is True
 
     def test_kwargs_forwarded_to_parent(self):
         """Parent constructor kwargs are forwarded correctly."""

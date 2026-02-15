@@ -82,6 +82,9 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # autopilot GTM
     "cmd_autopilot": ("aragora.cli.commands.autopilot", "cmd_autopilot"),
     "add_autopilot_parser": ("aragora.cli.commands.autopilot", "add_autopilot_parser"),
+    # coordinate (multi-agent worktree coordination)
+    "cmd_coordinate": ("aragora.cli.commands.coordinate", "cmd_coordinate"),
+    "add_coordinate_parser": ("aragora.cli.commands.coordinate", "add_coordinate_parser"),
 }
 
 __all__ = list(_LAZY_IMPORTS.keys())

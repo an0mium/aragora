@@ -122,6 +122,8 @@ Examples:
     _add_analytics_parser(subparsers)
     _add_starter_parser(subparsers)
     _add_handlers_parser(subparsers)
+    _add_coordinate_parser(subparsers)
+    _add_self_improve_parser(subparsers)
 
     return parser
 
@@ -585,6 +587,37 @@ Examples:
         "-v",
         action="store_true",
         help="Show detailed progress and checkpoint information",
+    )
+    improve_parser.add_argument(
+        "--worktree",
+        action="store_true",
+        help="Use git worktree isolation for each subtask (default when --hardened)",
+    )
+    improve_parser.add_argument(
+        "--hardened",
+        action="store_true",
+        help="Use HardenedOrchestrator with gauntlet validation, mode enforcement, and worktree isolation",
+    )
+    improve_parser.add_argument(
+        "--spectate",
+        action="store_true",
+        help="Enable real-time spectate event streaming",
+    )
+    improve_parser.add_argument(
+        "--receipt",
+        action="store_true",
+        help="Generate DecisionReceipt for each completed subtask",
+    )
+    improve_parser.add_argument(
+        "--budget-limit",
+        type=float,
+        default=None,
+        help="Maximum budget in USD for this improvement run",
+    )
+    improve_parser.add_argument(
+        "--coordinated",
+        action="store_true",
+        help="Use coordinated pipeline: MetaPlanner -> BranchCoordinator -> merge",
     )
     improve_parser.set_defaults(func=_lazy("aragora.cli.commands.tools", "cmd_improve"))
 
@@ -1631,3 +1664,10 @@ def _add_handlers_parser(subparsers) -> None:
     from aragora.cli.commands.handlers import add_handlers_parser
 
     add_handlers_parser(subparsers)
+
+
+def _add_coordinate_parser(subparsers) -> None:
+    """Add the 'coordinate' subcommand parser for multi-agent coordination."""
+    from aragora.cli.commands.coordinate import add_coordinate_parser
+
+    add_coordinate_parser(subparsers)
