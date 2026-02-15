@@ -1871,66 +1871,29 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
-    # Clear module-level rate limiters (not in registry)
+    # Clear ALL module-level RateLimiter instances across loaded aragora modules.
+    # This replaces individual per-module cleanup blocks with a single loop that
+    # discovers every RateLimiter in any loaded aragora.* module, preventing
+    # order-dependent test failures when new handlers add limiters.
     try:
-        import aragora.server.handlers.analytics as analytics
+        import sys
 
-        if hasattr(analytics, "_analytics_limiter"):
-            analytics._analytics_limiter.clear()
-    except (ImportError, AttributeError):
-        pass
+        from aragora.server.handlers.utils.rate_limit import RateLimiter as _RL
 
-    # Clear external_integrations rate limiters
-    try:
-        import aragora.server.handlers.external_integrations as ext_int
-
-        for limiter_name in (
-            "_create_limiter",
-            "_list_limiter",
-            "_delete_limiter",
-            "_test_limiter",
-        ):
-            if hasattr(ext_int, limiter_name):
-                getattr(ext_int, limiter_name).clear()
-    except (ImportError, AttributeError):
-        pass
-
-    # Clear metrics rate limiter
-    try:
-        import aragora.server.handlers.metrics.handler as metrics_handler
-
-        if hasattr(metrics_handler, "_metrics_limiter"):
-            metrics_handler._metrics_limiter.clear()
-    except (ImportError, AttributeError):
-        pass
-
-    # Clear SME dashboard rate limiter
-    try:
-        import aragora.server.handlers.sme_usage_dashboard as sme_dashboard
-
-        if hasattr(sme_dashboard, "_dashboard_limiter"):
-            sme_dashboard._dashboard_limiter.clear()
-    except (ImportError, AttributeError):
-        pass
-
-    # Clear transcription rate limiters
-    try:
-        import aragora.server.handlers.transcription as transcription
-
-        for limiter_name in ("_audio_limiter", "_youtube_limiter"):
-            if hasattr(transcription, limiter_name):
-                getattr(transcription, limiter_name).clear()
-    except (ImportError, AttributeError):
-        pass
-
-    # Clear payments rate limiters
-    try:
-        import aragora.server.handlers.payments.handler as payments_handler
-
-        for limiter_name in ("_payment_write_limiter", "_payment_read_limiter", "_webhook_limiter"):
-            if hasattr(payments_handler, limiter_name):
-                getattr(payments_handler, limiter_name).clear()
-    except (ImportError, AttributeError):
+        for mod in list(sys.modules.values()):
+            mod_name = getattr(mod, "__name__", "") or ""
+            if not mod_name.startswith("aragora."):
+                continue
+            for attr_name in dir(mod):
+                if not attr_name.startswith("_") or attr_name.startswith("__"):
+                    continue
+                try:
+                    obj = getattr(mod, attr_name, None)
+                    if isinstance(obj, _RL):
+                        obj.clear()
+                except Exception:
+                    pass
+    except ImportError:
         pass
 
     # Clear all registered @lru_cache instances
@@ -2120,15 +2083,11 @@ def reset_lazy_globals():
     - aragora.debate.orchestrator (9 globals)
     - aragora.server.handlers.* (2-4 globals each)
     - aragora.storage.schema.DatabaseManager (singleton cache)
-    - Rate limiters (via clear_all_limiters, distributed reset, and module-level cleanup):
+    - Rate limiters (via clear_all_limiters, distributed reset, and universal cleanup):
       - _limiters registry (all auth_rate_limit and rate_limit decorators)
       - DistributedRateLimiter singleton (reset_distributed_limiter)
-      - analytics._analytics_limiter
-      - external_integrations (_create/_list/_delete/_test_limiter)
-      - metrics._metrics_limiter
-      - sme_usage_dashboard._dashboard_limiter
-      - transcription (_audio/_youtube_limiter)
-      - payments (_payment_write/_payment_read/_webhook_limiter)
+      - ALL module-level RateLimiter instances in loaded aragora.* modules
+        (discovered dynamically via isinstance check, no manual enumeration needed)
     - aragora.rbac.checker._permission_checker (PermissionChecker singleton)
     - aragora.ranking.elo._elo_store (EloSystem singleton + class-level TTL caches)
     - aragora.observability.decision_metrics (11 metric globals + _initialized)
