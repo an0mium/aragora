@@ -561,6 +561,10 @@ class AutonomousOrchestrator:
         # Concurrency semaphore for parallel task execution
         self._semaphore = asyncio.Semaphore(max_parallel_tasks)
 
+        # File-based approval gate
+        self._auto_approve = not require_human_approval
+        self._approval_gate_dir = self.aragora_path / ".aragora_beads" / "approval_gates"
+
         # State
         self._active_assignments: list[AgentAssignment] = []
         self._completed_assignments: list[AgentAssignment] = []
@@ -1207,6 +1211,88 @@ class AutonomousOrchestrator:
                 lines.append(f"  {task}")
 
         return "\n".join(lines)
+
+    # =========================================================================
+    # File-based approval gate
+    # =========================================================================
+
+    async def request_approval(
+        self,
+        gate_id: str,
+        description: str,
+        metadata: dict[str, Any] | None = None,
+        poll_interval: float = 2.0,
+        timeout: float = 300.0,
+    ) -> bool:
+        """Request human approval via a file-based gate.
+
+        Writes a JSON request to ``.aragora_beads/approval_gates/<gate_id>.json``.
+        Polls for a ``.approved`` or ``.rejected`` marker file.
+
+        If ``--auto-approve`` / ``self._auto_approve`` is True, returns
+        immediately without waiting.
+
+        Args:
+            gate_id: Unique identifier for this approval gate
+            description: Human-readable description of what's being approved
+            metadata: Additional context for the reviewer
+            poll_interval: Seconds between polls
+            timeout: Maximum seconds to wait
+
+        Returns:
+            True if approved, False if rejected or timed out
+        """
+        if self._auto_approve:
+            logger.info("approval_auto_approved gate=%s", gate_id)
+            return True
+
+        import json as _json
+        import time as _time
+
+        gate_dir = self._approval_gate_dir
+        gate_dir.mkdir(parents=True, exist_ok=True)
+
+        request_file = gate_dir / f"{gate_id}.json"
+        approved_file = gate_dir / f"{gate_id}.approved"
+        rejected_file = gate_dir / f"{gate_id}.rejected"
+
+        # Write request
+        request_data = {
+            "gate_id": gate_id,
+            "description": description,
+            "metadata": metadata or {},
+            "requested_at": datetime.now(timezone.utc).isoformat(),
+            "orchestration_id": self._orchestration_id,
+        }
+        request_file.write_text(_json.dumps(request_data, indent=2))
+
+        logger.info(
+            "approval_requested gate=%s file=%s",
+            gate_id,
+            str(request_file),
+        )
+
+        # Poll for approval/rejection
+        start = _time.monotonic()
+        while (_time.monotonic() - start) < timeout:
+            if approved_file.exists():
+                logger.info("approval_granted gate=%s", gate_id)
+                # Clean up marker
+                approved_file.unlink(missing_ok=True)
+                request_file.unlink(missing_ok=True)
+                return True
+
+            if rejected_file.exists():
+                logger.warning("approval_rejected gate=%s", gate_id)
+                rejected_file.unlink(missing_ok=True)
+                request_file.unlink(missing_ok=True)
+                return False
+
+            await asyncio.sleep(poll_interval)
+
+        logger.warning("approval_timeout gate=%s seconds=%.0f", gate_id, timeout)
+        request_file.unlink(missing_ok=True)
+        return False
 
     # =========================================================================
     # Branch coordination helpers
