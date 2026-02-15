@@ -1,19 +1,19 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
 
 > Source of truth: generated from `aragora/cli/parser.py` via `python scripts/generate_cli_reference.py`.
-> Generated: 2026-02-13
+> Generated: 2026-02-14
 
 ## Scope
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **63**
-- Total top-level invocations (including aliases): **64**
+- Canonical top-level commands: **65**
+- Total top-level invocations (including aliases): **66**
 
 ## Installation
 
@@ -43,6 +43,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 |---------|---------|---------|-------------|
 | `agent` | - | Run autonomous agents (DevOps, review, triage) | `run` |
 | `agents` | - | List available agents and their configuration | - |
+| `analytics` | - | View debate analytics and platform usage | `agents`, `costs`, `summary`, `trends` |
 | `ask` | - | Run a decision stress-test (debate engine) | - |
 | `audit` | - | Document compliance and audit commands | `create`, `export`, `findings`, `preset`, `presets`, `report`, `start`, `status`, `types` |
 | `autopilot` | - | Autonomous GTM task orchestration | - |
@@ -57,7 +58,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `connectors` | - | Connector management commands | `list`, `status`, `test` |
 | `context` | - | Build codebase context for RLM-powered analysis | - |
 | `control-plane` | - | Control plane status and management | - |
-| `costs` | - | Cost tracking and billing management commands | `budget`, `forecast`, `usage` |
+| `costs` | - | Cost tracking and billing management commands | `agents`, `budget`, `dashboard`, `forecast`, `report`, `usage` |
 | `cross-pollination` | `xpoll` | Cross-pollination event system diagnostics | - |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
 | `demo` | - | Run a self-contained adversarial debate demo (no API keys needed) | - |
@@ -78,13 +79,13 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
-| `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `policy`, `review`, `serve`, `status` |
+| `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status` |
 | `patterns` | - | Show learned patterns | - |
 | `plans` | - | Manage decision plans | `approve`, `execute`, `list`, `reject`, `show` |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |
 | `quickstart` | - | Guided zero-to-receipt first debate (new user onboarding) | - |
 | `rbac` | - | RBAC management commands | `assign`, `check`, `permissions`, `roles` |
-| `receipt` | - | View, verify, and export decision receipts | `export`, `inspect`, `verify`, `view` |
+| `receipt` | - | View, verify, and export decision receipts | `export`, `inspect`, `list`, `show`, `verify`, `view` |
 | `repl` | - | Interactive debate mode | - |
 | `replay` | - | Replay stored debates | - |
 | `review` | - | Run AI code review on a diff or PR | - |
@@ -93,6 +94,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `serve` | - | Run live debate server | - |
 | `setup` | - | Interactive setup wizard for API keys and configuration | - |
 | `skills` | - | Skill marketplace commands | `info`, `install`, `list`, `scan`, `search`, `stats`, `uninstall` |
+| `starter` | - | SME Starter Pack -- install to decision receipt in 15 minutes | - |
 | `stats` | - | Show memory statistics | - |
 | `status` | - | Show environment health and agent availability | - |
 | `template` | - | Manage workflow templates | `list`, `package`, `run`, `show`, `validate` |
