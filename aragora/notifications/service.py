@@ -93,6 +93,10 @@ __all__ = [
     "notify_compliance_finding",
     "notify_debate_completed",
     "notify_workflow_progress",
+    "notify_gauntlet_completed",
+    "notify_consensus_reached",
+    "notify_learning_insight",
+    "notify_health_degraded",
 ]
 
 
@@ -1190,4 +1194,234 @@ async def notify_workflow_progress(
         logger.debug(
             "Failed to send workflow progress notification", exc_info=True
         )
+        return []
+
+
+async def notify_gauntlet_completed(
+    gauntlet_id: str,
+    verdict: str,
+    confidence: float,
+    total_findings: int,
+    critical_count: int,
+    workspace_id: str | None = None,
+) -> list[NotificationResult]:
+    """Send notification when a gauntlet stress-test completes.
+
+    Args:
+        gauntlet_id: Unique gauntlet identifier.
+        verdict: Gauntlet verdict (pass/fail/conditional).
+        confidence: Confidence score (0-1).
+        total_findings: Total number of findings.
+        critical_count: Number of critical findings.
+        workspace_id: Optional workspace ID.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        if critical_count >= 3:
+            severity = "critical"
+        elif critical_count >= 1:
+            severity = "warning"
+        else:
+            severity = "info"
+
+        notification = Notification(
+            title=f"Gauntlet Complete: {verdict.upper()} ({confidence:.0%})",
+            message=(
+                f"Gauntlet {gauntlet_id[:12]}... completed.\n"
+                f"Verdict: {verdict}\n"
+                f"Confidence: {confidence:.1%}\n"
+                f"Findings: {total_findings} total, {critical_count} critical"
+            ),
+            severity=severity,
+            priority=_severity_to_priority(severity),
+            resource_type="gauntlet",
+            resource_id=gauntlet_id,
+            workspace_id=workspace_id,
+            metadata={
+                "gauntlet_id": gauntlet_id,
+                "verdict": verdict,
+                "confidence": confidence,
+                "total_findings": total_findings,
+                "critical_count": critical_count,
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "gauntlet.completed")
+        return results
+    except Exception:
+        logger.debug("Failed to send gauntlet completed notification", exc_info=True)
+        return []
+
+
+async def notify_consensus_reached(
+    debate_id: str,
+    task: str,
+    confidence: float,
+    winner: str | None = None,
+    agents_used: list[str] | None = None,
+    workspace_id: str | None = None,
+) -> list[NotificationResult]:
+    """Send notification when consensus is reached in a debate.
+
+    Args:
+        debate_id: Unique debate identifier.
+        task: The debate task/question.
+        confidence: Consensus confidence score (0-1).
+        winner: Winning position or agent.
+        agents_used: List of agent names that participated.
+        workspace_id: Optional workspace ID.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        task_preview = task[:120] + "..." if len(task) > 120 else task
+        agent_summary = ""
+        if agents_used:
+            agent_summary = f"\nAgents: {', '.join(agents_used[:5])}"
+            if len(agents_used) > 5:
+                agent_summary += f" (+{len(agents_used) - 5} more)"
+
+        notification = Notification(
+            title=f"Consensus Reached ({confidence:.0%})",
+            message=(
+                f"Task: {task_preview}\n"
+                f"Confidence: {confidence:.1%}"
+                f"{f'{chr(10)}Winner: {winner}' if winner else ''}"
+                f"{agent_summary}"
+            ),
+            severity="info",
+            priority=NotificationPriority.NORMAL,
+            resource_type="debate",
+            resource_id=debate_id,
+            workspace_id=workspace_id,
+            metadata={
+                "debate_id": debate_id,
+                "confidence": confidence,
+                "winner": winner,
+                "agents_used": agents_used or [],
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "consensus.reached")
+        return results
+    except Exception:
+        logger.debug("Failed to send consensus reached notification", exc_info=True)
+        return []
+
+
+async def notify_learning_insight(
+    insight_id: str,
+    insight_type: str,
+    description: str,
+    confidence: float,
+    workspace_id: str | None = None,
+) -> list[NotificationResult]:
+    """Send notification when a new learning insight is extracted.
+
+    Args:
+        insight_id: Unique insight identifier.
+        insight_type: Type of insight (pattern, anomaly, correlation).
+        description: Description of the insight.
+        confidence: Confidence score (0-1).
+        workspace_id: Optional workspace ID.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        notification = Notification(
+            title=f"Learning Insight: {insight_type}",
+            message=(
+                f"Type: {insight_type}\n"
+                f"Confidence: {confidence:.1%}\n"
+                f"{description[:500]}"
+            ),
+            severity="info",
+            priority=NotificationPriority.NORMAL,
+            resource_type="insight",
+            resource_id=insight_id,
+            workspace_id=workspace_id,
+            metadata={
+                "insight_id": insight_id,
+                "insight_type": insight_type,
+                "confidence": confidence,
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "learning.insight")
+        return results
+    except Exception:
+        logger.debug("Failed to send learning insight notification", exc_info=True)
+        return []
+
+
+async def notify_health_degraded(
+    component_name: str,
+    status: str,
+    consecutive_failures: int,
+    last_error: str | None = None,
+    workspace_id: str | None = None,
+) -> list[NotificationResult]:
+    """Send notification when a system component's health degrades.
+
+    Args:
+        component_name: Name of the degraded component.
+        status: Current health status (degraded, unhealthy, critical).
+        consecutive_failures: Number of consecutive health check failures.
+        last_error: Most recent error message.
+        workspace_id: Optional workspace ID.
+
+    Returns:
+        List of notification results from each channel.
+    """
+    try:
+        service = get_notification_service()
+
+        if consecutive_failures >= 5:
+            severity = "critical"
+        elif consecutive_failures >= 3:
+            severity = "warning"
+        else:
+            severity = "info"
+
+        error_info = f"\nLast error: {last_error[:200]}" if last_error else ""
+
+        notification = Notification(
+            title=f"Health Degraded: {component_name}",
+            message=(
+                f"Component: {component_name}\n"
+                f"Status: {status}\n"
+                f"Consecutive failures: {consecutive_failures}"
+                f"{error_info}"
+            ),
+            severity=severity,
+            priority=_severity_to_priority(severity),
+            resource_type="health",
+            resource_id=component_name,
+            workspace_id=workspace_id,
+            metadata={
+                "component_name": component_name,
+                "status": status,
+                "consecutive_failures": consecutive_failures,
+                "last_error": last_error,
+            },
+        )
+
+        results = await service.notify(notification)
+        await service.notify_all_webhooks(notification, "health.degraded")
+        return results
+    except Exception:
+        logger.debug("Failed to send health degraded notification", exc_info=True)
         return []

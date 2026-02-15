@@ -314,6 +314,24 @@ def cmd_decide(args: argparse.Namespace) -> None:
     if supermemory_container or supermemory_max_items is not None:
         enable_supermemory = True
 
+    # Apply preset configuration if specified
+    extra_kwargs: dict[str, Any] = {}
+    preset_name = getattr(args, "preset", None)
+    if preset_name:
+        from aragora.debate.presets import get_preset
+
+        extra_kwargs.update(get_preset(preset_name))
+        print(f"[preset] Applied '{preset_name}' configuration preset")
+
+    # Create spectator stream if --spectate is specified
+    if getattr(args, "spectate", False):
+        from aragora.spectate.stream import SpectatorStream
+
+        spectate_fmt = getattr(args, "spectate_format", "auto")
+        extra_kwargs["spectator"] = SpectatorStream(enabled=True, format=spectate_fmt)
+
+    extra_kwargs["auto_explain"] = True
+
     result = asyncio.run(
         run_decide(
             task=args.task,
@@ -338,7 +356,7 @@ def cmd_decide(args: argparse.Namespace) -> None:
             template=getattr(args, "template", None),
             mode=getattr(args, "mode", "standard") or "standard",
             verbose=getattr(args, "verbose", False),
-            auto_explain=True,
+            **extra_kwargs,
         )
     )
 

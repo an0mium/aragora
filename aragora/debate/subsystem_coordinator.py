@@ -1374,6 +1374,7 @@ class SubsystemConfig:
     enable_hook_handlers: bool = True
 
     # Phase 9: Cross-Pollination Bridge enable flags
+    enable_performance_feedback: bool = True
     enable_performance_router: bool = True
     enable_outcome_complexity: bool = True
     enable_analytics_selection: bool = True
@@ -1381,6 +1382,11 @@ class SubsystemConfig:
     enable_relationship_bias: bool = True
     enable_rlm_selection: bool = True
     enable_calibration_cost: bool = True
+
+    # Performance feedback config
+    feedback_loop_weight: float = 0.15
+    feedback_loop_decay: float = 0.9
+    feedback_loop_min_debates: int = 3
 
     # Pre-configured subsystems (optional)
     position_tracker: Any | None = None
@@ -1476,6 +1482,10 @@ class SubsystemConfig:
             hook_handler_registry=self.hook_handler_registry,
             enable_hook_handlers=self.enable_hook_handlers,
             # Phase 9: Cross-Pollination Bridges
+            enable_performance_feedback=self.enable_performance_feedback,
+            feedback_loop_weight=self.feedback_loop_weight,
+            feedback_loop_decay=self.feedback_loop_decay,
+            feedback_loop_min_debates=self.feedback_loop_min_debates,
             performance_monitor=self.performance_monitor,
             agent_router=self.agent_router,
             performance_router_bridge=self.performance_router_bridge,

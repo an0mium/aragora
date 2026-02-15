@@ -39,15 +39,18 @@ class BudgetCoordinator:
         self,
         org_id: str | None = None,
         user_id: str | None = None,
+        extensions: Any | None = None,
     ) -> None:
         """Initialize budget coordinator.
 
         Args:
             org_id: Organization identifier for budget tracking
             user_id: Optional user identifier for per-user tracking
+            extensions: Optional ArenaExtensions for per-debate budget checks
         """
         self.org_id = org_id
         self.user_id = user_id
+        self.extensions = extensions
 
     def estimate_debate_cost(
         self,
@@ -168,15 +171,28 @@ class BudgetCoordinator:
                 )
                 # Continue but warn - could be logged for alerting
 
-            return True, ""
-
         except ImportError:
-            # Budget manager not available - allow continuation
-            return True, ""
+            # Budget manager not available - skip org-level check
+            pass
         except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
             # On any error, allow continuation (fail open for availability)
             logger.debug(f"Budget check error (continuing): {e}")
-            return True, ""
+
+        # Per-debate budget check via extensions
+        if self.extensions is not None and hasattr(self.extensions, "check_debate_budget"):
+            try:
+                status = self.extensions.check_debate_budget(debate_id)
+                if not status.get("allowed", True):
+                    reason = status.get("message", "Per-debate budget exceeded")
+                    logger.warning(
+                        f"per_debate_budget_exceeded debate_id={debate_id} "
+                        f"round={round_num} reason={reason}"
+                    )
+                    return False, reason
+            except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
+                logger.debug(f"Per-debate budget check error (continuing): {e}")
+
+        return True, ""
 
     def record_debate_cost(
         self,

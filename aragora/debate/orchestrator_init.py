@@ -75,18 +75,20 @@ def apply_core_components(arena: Arena, core: Any) -> None:
     arena.checkpoint_manager = core.checkpoint_manager
     arena.org_id = core.org_id
     arena.user_id = core.user_id
+    arena.extensions = core.extensions
     # Try DI container first, fall back to direct instantiation
     arena._budget_coordinator = try_resolve(BudgetCoordinatorProtocol)  # type: ignore[type-abstract]
     if arena._budget_coordinator is None:
         arena._budget_coordinator = BudgetCoordinator(
             org_id=arena.org_id,
             user_id=arena.user_id,
+            extensions=arena.extensions,
         )
     else:
         # Configure resolved coordinator with org/user context
         arena._budget_coordinator.org_id = arena.org_id
         arena._budget_coordinator.user_id = arena.user_id
-    arena.extensions = core.extensions
+        arena._budget_coordinator.extensions = arena.extensions
     arena.cartographer = core.cartographer
     arena.event_bridge = core.event_bridge
     # ML Integration
