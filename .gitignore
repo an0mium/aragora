@@ -6,6 +6,11 @@ __pycache__/
 # Git worktrees for parallel agent execution
 .worktrees/
 
+# Multi-agent coordination artifacts
+.aragora_sessions.yaml
+.aragora_sessions.json
+.aragora_events/
+
 # C extensions
 *.so
 
