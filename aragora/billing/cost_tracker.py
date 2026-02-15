@@ -326,6 +326,54 @@ class CostReport:
         }
 
 
+@dataclass
+class CostAdvisory:
+    """Advisory recommendation based on cost anomaly detection.
+
+    Maps anomaly severity to recommended actions for automated or
+    human-in-the-loop cost management.
+    """
+
+    recommended_action: str  # "downgrade_tier", "reduce_rounds", "pause_workspace", "none"
+    severity: str  # "critical", "high", "warning", "info", "none"
+    reason: str = ""
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    workspace_id: str = ""
+    anomaly_count: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "recommended_action": self.recommended_action,
+            "severity": self.severity,
+            "reason": self.reason,
+            "timestamp": self.timestamp.isoformat(),
+            "workspace_id": self.workspace_id,
+            "anomaly_count": self.anomaly_count,
+        }
+
+    @staticmethod
+    def no_action(workspace_id: str = "") -> CostAdvisory:
+        """Create a no-action advisory (no anomalies detected)."""
+        return CostAdvisory(
+            recommended_action="none",
+            severity="none",
+            reason="No cost anomalies detected",
+            workspace_id=workspace_id,
+        )
+
+    @staticmethod
+    def severity_to_action(severity: str) -> str:
+        """Map anomaly severity to a recommended action."""
+        mapping = {
+            "critical": "downgrade_tier",
+            "high": "reduce_rounds",
+            "warning": "pause_workspace",
+            "info": "none",
+        }
+        return mapping.get(severity, "none")
+
+
 AlertCallback = Callable[[BudgetAlert], None]
 
 

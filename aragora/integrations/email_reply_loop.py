@@ -1390,8 +1390,12 @@ Reply to this email to continue the discussion.
             },
         )
         return {"status": "sent", "provider": "ses", "message_id": response["MessageId"]}
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(f"SES connection error: {type(e).__name__}: {e}")
+        return None
     except Exception as e:
-        logger.error(f"SES error: {e}")
+        # botocore exceptions (ClientError, etc.) may not be importable
+        logger.error(f"SES error ({type(e).__name__}): {e}")
         return None
 
 
@@ -1444,8 +1448,12 @@ Reply to this email to continue the discussion.
             server.send_message(msg)
 
         return {"status": "sent", "provider": "smtp"}
-    except Exception as e:
-        logger.error(f"SMTP error: {e}")
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"SMTP authentication error: {e}")
+    except smtplib.SMTPException as e:
+        logger.error(f"SMTP protocol error: {type(e).__name__}: {e}")
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(f"SMTP connection error: {type(e).__name__}: {e}")
         return None
 
 

@@ -11,6 +11,7 @@ Tests cover:
 
 import json
 import sys
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,9 +21,17 @@ from aragora.server.handlers.bots.teams import (
     _check_botframework_available,
 )
 
-# Check if botbuilder SDK is available
+# If botbuilder SDK is not installed, install stub modules so that
+# ``patch("botbuilder.schema.Activity")`` resolves in tests that
+# fully mock the Bot Framework layer.
 HAS_BOTBUILDER = "botbuilder" in sys.modules or _check_botframework_available()[0]
-requires_botbuilder = pytest.mark.skipif(not HAS_BOTBUILDER, reason="botbuilder SDK not installed")
+if not HAS_BOTBUILDER:
+    for _mod_name in ("botbuilder", "botbuilder.schema", "botbuilder.core"):
+        if _mod_name not in sys.modules:
+            _stub = types.ModuleType(_mod_name)
+            if _mod_name == "botbuilder.schema":
+                _stub.Activity = None  # type: ignore[attr-defined]
+            sys.modules[_mod_name] = _stub
 
 
 # =============================================================================
@@ -240,7 +249,6 @@ class TestTeamsMessages:
 
         assert result is None
 
-    @requires_botbuilder
     @pytest.mark.asyncio
     async def test_handle_post_with_valid_activity(self):
         """Should process valid Bot Framework activity."""
