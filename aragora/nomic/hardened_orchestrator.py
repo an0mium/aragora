@@ -137,6 +137,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
     def _scan_for_injection(self, goal: str, context: dict[str, Any] | None) -> None:
         """Scan goal and context for prompt injection patterns."""
+        if not self.hardened_config.enable_prompt_defense:
+            return
+
         try:
             from aragora.compat.openclaw.skill_scanner import (
                 Severity,
@@ -406,7 +409,6 @@ class HardenedOrchestrator(AutonomousOrchestrator):
 
             config = GauntletConfig(
                 attack_rounds=1,
-                max_concurrent=1,
             )
             runner = GauntletRunner(config)
             result = await runner.run(content, context=assignment.subtask.description)
