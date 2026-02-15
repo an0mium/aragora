@@ -1037,8 +1037,10 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
 
     except ImportError:
         logger.debug("Queue system not available for email routing")
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(f"Email queue connection error: {type(e).__name__}: {e}")
     except Exception as e:
-        logger.error(f"Failed to queue email input: {e}")
+        logger.error(f"Failed to queue email input: {type(e).__name__}: {e}")
 
     return False
 
@@ -1214,7 +1216,7 @@ async def handle_email_reply(email_data: InboundEmail) -> bool:
             if handler(email_data):
                 return True
         except Exception as e:
-            logger.warning(f"Reply handler error: {e}")
+            logger.warning(f"Reply handler error ({type(e).__name__}): {e}")
 
     # Default processing
     return await process_inbound_email(email_data)
