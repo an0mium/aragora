@@ -585,15 +585,14 @@ async def handle_debate_completion(
                     try:
                         await workflow.execute({"debate_result": ctx.result})
                     except Exception as wf_err:
-                        logger.debug("Post-debate workflow fallback failed: %s", wf_err)
+                        logger.debug(f"Post-debate workflow fallback failed: {wf_err}")
 
                 _asyncio.create_task(_run_fallback_workflow())
                 logger.info(
-                    "[workflow-fallback] Triggered post-debate workflow for debate %s",
-                    state.debate_id,
+                    f"[workflow-fallback] Triggered post-debate workflow for debate {state.debate_id}"
                 )
         except Exception as e:
-            logger.debug("Post-debate workflow fallback setup failed: %s", e)
+            logger.debug(f"Post-debate workflow fallback setup failed: {e}")
 
     # Queue for Supabase background sync
     arena._queue_for_supabase_sync(ctx, ctx.result)
