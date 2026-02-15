@@ -143,7 +143,7 @@ class GlobalKnowledgeOperationsMixin:
                 )
             )
             track_global_fact(action="store")
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to store verified fact: {e}")
             return error_response("Failed to store verified fact", 500)
 
@@ -186,7 +186,7 @@ class GlobalKnowledgeOperationsMixin:
                 # If no query, get all system facts
                 items = _run_async(mound.get_system_facts(limit=limit, topics=topics))
             track_global_query(has_results=len(items) > 0)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to query global knowledge: {e}")
             return error_response("Failed to query global knowledge", 500)
 

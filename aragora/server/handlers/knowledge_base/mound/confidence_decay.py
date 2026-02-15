@@ -88,7 +88,7 @@ class ConfidenceDecayOperationsMixin:
             )
 
             return json_response(report.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error applying confidence decay: {e}")
             return error_response(safe_error_message(e), status=500)
 

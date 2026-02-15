@@ -257,6 +257,6 @@ class DedupOperationsMixin:
                     "details": result.get("details", []),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error in auto-merge: {e}")
             return error_response(safe_error_message(e), status=500)

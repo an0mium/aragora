@@ -514,7 +514,7 @@ class DocumentHandler(BaseHandler):
                 f"Could not parse document: {safe_error_message(e, 'document_parsing')}",
                 {"filename": filename, "error_type": "ValueError"},
             ).to_response(400)
-        except Exception as e:
+        except (KeyError, TypeError, OSError, RuntimeError) as e:
             logger.error(f"Document storage error: {e}")
             return UploadError(
                 UploadErrorCode.STORAGE_FAILED,

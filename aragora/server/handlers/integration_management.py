@@ -807,7 +807,7 @@ class IntegrationsHandler(BaseHandler):
                     "error": result.get("error", "unknown"),
                 }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Slack health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": "Health check failed"}
 
@@ -835,7 +835,7 @@ class IntegrationsHandler(BaseHandler):
                 "display_name": result.get("displayName"),
             }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Teams health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": "Health check failed"}
 

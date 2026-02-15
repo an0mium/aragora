@@ -461,7 +461,7 @@ async def handle_analyze_codebase(repo_id: str, body: dict[str, Any]) -> Handler
 
         return success_response(result)
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error(f"Analysis failed: {e}")
         return error_response("Analysis operation failed", status=500)
 

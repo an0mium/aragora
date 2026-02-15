@@ -368,7 +368,7 @@ class GraphDebatesHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Import error for graph debates: {e}")
             return error_response("Graph debate module not available", 500)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.exception(f"Graph debate failed: {e}")
             return error_response(safe_error_message(e, "graph debate"), 500)
 
