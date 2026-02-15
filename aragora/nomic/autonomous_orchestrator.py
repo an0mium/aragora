@@ -138,6 +138,42 @@ DEFAULT_TRACK_CONFIGS: dict[Track, TrackConfig] = {
 
 
 @dataclass
+class HierarchyConfig:
+    """Configuration for Planner/Worker/Judge agent hierarchy.
+
+    When enabled, the orchestration workflow becomes:
+      1. Planner designs the solution (design step)
+      2. Plan approval gate: judge reviews the plan before implementation
+      3. Workers implement the changes (implement step)
+      4. Standard verification (verify step)
+      5. Judge reviews the final result before completion
+
+    This separation of concerns ensures no single agent both designs and
+    approves its own work, improving quality and catching design flaws early.
+    """
+
+    enabled: bool = False
+
+    # The planner agent handles design/decomposition (defaults to orchestrator's choice)
+    planner_agent: str = "claude"
+
+    # Worker agents handle implementation (list allows round-robin or selection)
+    worker_agents: list[str] = field(default_factory=lambda: ["claude", "codex"])
+
+    # The judge agent reviews plans and final output (should differ from planner)
+    judge_agent: str = "claude"
+
+    # Whether the plan approval gate blocks on rejection (vs. warning-only)
+    plan_gate_blocking: bool = True
+
+    # Whether the final judge review blocks on rejection
+    final_review_blocking: bool = True
+
+    # Maximum plan revision attempts before escalating
+    max_plan_revisions: int = 2
+
+
+@dataclass
 class AgentAssignment:
     """Assignment of a subtask to an agent."""
 
@@ -448,6 +484,7 @@ class AutonomousOrchestrator:
         enable_curriculum: bool = True,
         curriculum_config: Any | None = None,
         branch_coordinator: Any | None = None,
+        hierarchy: HierarchyConfig | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -465,6 +502,7 @@ class AutonomousOrchestrator:
             enable_curriculum: Enable SOAR curriculum for failed tasks
             curriculum_config: Optional curriculum configuration
             branch_coordinator: Optional BranchCoordinator for worktree isolation
+            hierarchy: Optional Planner/Worker/Judge hierarchy configuration
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -478,6 +516,7 @@ class AutonomousOrchestrator:
         self.on_checkpoint = on_checkpoint
         self.use_debate_decomposition = use_debate_decomposition
 
+        self.hierarchy = hierarchy or HierarchyConfig()
         self.router = AgentRouter(self.track_configs)
         self.feedback_loop = FeedbackLoop()
         if enable_curriculum:
@@ -861,25 +900,81 @@ class AutonomousOrchestrator:
         test_paths = self._infer_test_paths(subtask.file_scope)
 
         # Create workflow with phases aligned to nomic loop gold path
+        #
+        # With hierarchy enabled, the workflow becomes:
+        #   design (planner) -> plan_approval (judge) -> implement (worker)
+        #   -> verify -> judge_review (judge)
+        #
+        # Without hierarchy, the workflow is the standard:
+        #   design -> implement -> verify
+
+        hierarchy_enabled = self.hierarchy.enabled
+
+        # Override agent types when hierarchy is active
+        design_agent = self.hierarchy.planner_agent if hierarchy_enabled else assignment.agent_type
+        implement_agent = assignment.agent_type
+        if hierarchy_enabled and self.hierarchy.worker_agents:
+            # Pick the first worker agent that matches the track, or fallback to first
+            implement_agent = self.hierarchy.worker_agents[0]
+            for wa in self.hierarchy.worker_agents:
+                if wa in (config.agent_types if (config := self.track_configs.get(assignment.track)) else []):
+                    implement_agent = wa
+                    break
+
         steps = [
             StepDefinition(
                 id="design",
                 name="Design Solution",
                 step_type="agent",
                 config={
-                    "agent_type": assignment.agent_type,
+                    "agent_type": design_agent,
                     "prompt_template": "design",
                     "task": subtask.description,
                 },
-                next_steps=["implement"],
+                next_steps=["plan_approval"] if hierarchy_enabled else ["implement"],
             ),
+        ]
+
+        if hierarchy_enabled:
+            steps.append(
+                StepDefinition(
+                    id="plan_approval",
+                    name="Plan Approval Gate",
+                    step_type="agent",
+                    config={
+                        "agent_type": self.hierarchy.judge_agent,
+                        "prompt_template": "review",
+                        "task": (
+                            f"Review the design plan for: {subtask.description}\n\n"
+                            "Evaluate the plan for:\n"
+                            "1. Feasibility: Can this be implemented as described?\n"
+                            "2. Completeness: Are all edge cases addressed?\n"
+                            "3. Risk: Are there security or correctness risks?\n\n"
+                            "Respond with APPROVE or REJECT (with reasons)."
+                        ),
+                        "gate": True,
+                        "blocking": self.hierarchy.plan_gate_blocking,
+                        "max_revisions": self.hierarchy.max_plan_revisions,
+                    },
+                    next_steps=["implement"],
+                )
+            )
+
+        steps.append(
             StepDefinition(
                 id="implement",
                 name="Implement Changes",
                 step_type="implementation",
-                config=implement_config,
+                config={
+                    **implement_config,
+                    "agent_type": implement_agent,
+                },
                 next_steps=["verify"],
             ),
+        )
+
+        verify_next = ["judge_review"] if hierarchy_enabled else []
+        steps.append(
             StepDefinition(
                 id="verify",
                 name="Verify Changes",
@@ -889,9 +984,31 @@ class AutonomousOrchestrator:
                     "test_paths": test_paths,
                     "test_count": len(test_paths),
                 },
-                next_steps=[],
+                next_steps=verify_next,
             ),
-        ]
+        )
+
+        if hierarchy_enabled:
+            steps.append(
+                StepDefinition(
+                    id="judge_review",
+                    name="Judge Final Review",
+                    step_type="agent",
+                    config={
+                        "agent_type": self.hierarchy.judge_agent,
+                        "prompt_template": "review",
+                        "task": (
+                            f"Final review for: {subtask.description}\n\n"
+                            "Review the implementation and verification results.\n"
+                            "Check that the implementation matches the approved plan.\n"
+                            "Respond with APPROVE or REJECT (with reasons)."
+                        ),
+                        "gate": True,
+                        "blocking": self.hierarchy.final_review_blocking,
+                    },
+                    next_steps=[],
+                )
+            )
 
         return WorkflowDefinition(
             id=f"subtask_{subtask.id}",
@@ -1020,6 +1137,7 @@ __all__ = [
     "AutonomousOrchestrator",
     "AgentRouter",
     "FeedbackLoop",
+    "HierarchyConfig",
     "Track",
     "TrackConfig",
     "AgentAssignment",
