@@ -134,7 +134,6 @@ class PostDebateCoordinator:
             # Extract key data from debate result
             consensus = getattr(debate_result, "consensus", None)
             messages = getattr(debate_result, "messages", [])
-            winner = getattr(debate_result, "winner", None)
 
             explanation = builder.build(
                 query=task,

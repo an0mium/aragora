@@ -66,7 +66,6 @@ async def run_decide(
     result: dict[str, Any] = {}
 
     # Apply template overrides if specified
-    template_config: dict[str, Any] = {}
     if template:
         try:
             from aragora.workflow.templates import (
@@ -82,7 +81,6 @@ async def run_decide(
                         tmpl = WORKFLOW_TEMPLATES[key]
                         break
             if tmpl:
-                template_config = tmpl
                 # Override debate params from template
                 if tmpl.get("agents"):
                     agents_str = (
@@ -111,7 +109,7 @@ async def run_decide(
             load_builtins()
             mode_def = ModeRegistry.get(mode)
             if mode_def:
-                mode_config = {
+                mode_config = {  # noqa: F841 — stored for future mode injection
                     "mode": mode,
                     "mode_definition": mode_def,
                     "mode_system_prompt": mode_def.get_system_prompt(),

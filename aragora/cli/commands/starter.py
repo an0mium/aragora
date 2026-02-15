@@ -21,7 +21,7 @@ import asyncio
 import json
 import os
 import sys
-import time
+
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -212,7 +212,6 @@ def cmd_starter(args: argparse.Namespace) -> None:
     # Run the debate
     from aragora.cli.demo import _run_demo_debate
 
-    start_time = time.monotonic()
     try:
         result, elapsed = asyncio.run(_run_demo_debate(topic))
     except Exception as e:
