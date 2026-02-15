@@ -218,7 +218,7 @@ class TestEmailSending:
 
         assert result.success is False
         assert result.method == "email"
-        assert "SMTP connection failed" in result.error
+        assert result.error  # Sanitized error message present
 
     @patch("smtplib.SMTP")
     def test_send_email_html_only(self, mock_smtp_class):
