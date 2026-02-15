@@ -377,8 +377,8 @@ class TestRateLimiting:
 
 
 class TestGracefulDegradation:
-    def test_missing_aragora_debate_returns_503(self, handler, mock_http_handler):
-        """When aragora-debate is not installed, returns 503."""
+    def test_missing_aragora_debate_uses_inline_fallback(self, handler, mock_http_handler):
+        """When aragora-debate is not installed, falls back to inline mock."""
         h = mock_http_handler({})
 
         with patch.dict(
@@ -402,5 +402,10 @@ class TestGracefulDegradation:
             with patch("builtins.__import__", side_effect=failing_import):
                 result = handler._run_debate("test", 1, 2)
                 data, status = _parse_result(result)
-                assert status == 503
-                assert "aragora-debate" in data.get("error", "")
+                # Falls back to inline mock instead of returning 503
+                assert status == 200
+                assert "proposals" in data
+                assert "critiques" in data
+                assert "votes" in data
+                assert "receipt" in data
+                assert data["topic"] == "test"
