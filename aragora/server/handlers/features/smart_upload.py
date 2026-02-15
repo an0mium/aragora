@@ -505,7 +505,7 @@ async def process_file(
             if knowledge_result and knowledge_result.get("knowledge_processing"):
                 result["knowledge_processing"] = knowledge_result.get("knowledge_processing")
 
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.error(f"Error processing {filename}: {e}")
         result["error"] = "Internal server error"
 
@@ -616,7 +616,7 @@ async def _queue_knowledge_from_result(
         )
     except ImportError:
         logger.warning("Knowledge pipeline not available, skipping knowledge ingestion")
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.warning("Knowledge ingestion failed: %s", e)
 
     return None
@@ -775,7 +775,7 @@ async def _parse_data_file(
                 "columns": reader.fieldnames,
                 "record_count": len(rows),
             }
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.warning("CSV parse failed: %s", e)
             return {"parsed": False, "error": "Internal server error"}
 

@@ -98,7 +98,7 @@ def _secret_configured(name: str) -> bool:
         value = get_secret(name)
         if value and value.strip():
             return True
-    except Exception as e:
+    except (ImportError, KeyError, ValueError, OSError) as e:
         # Secrets module may not be available, fall back to env vars
         logger.debug(f"Could not get secret '{name}': {e}")
     env_value = os.getenv(name)
@@ -396,7 +396,7 @@ class AgentsHandler(  # type: ignore[misc]
                         )
                     else:
                         agents.append({"name": name})
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
                 logger.warning(f"Could not get agents from ELO: {e}")
 
         # Fallback to known agent types if no ELO data

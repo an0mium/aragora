@@ -491,7 +491,7 @@ class DocumentHandler(BaseHandler):
                     )
                 except ImportError:
                     logger.warning("Knowledge pipeline not available, skipping")
-                except Exception as ke:
+                except (KeyError, ValueError, TypeError, OSError, RuntimeError) as ke:
                     logger.warning(f"Knowledge processing failed, document still uploaded: {ke}")
                     response_data["knowledge_processing"] = {
                         "status": "failed",
@@ -580,7 +580,7 @@ class DocumentHandler(BaseHandler):
         try:
             body_raw = handler.rfile.read(content_length)
             body: bytes = body_raw if isinstance(body_raw, bytes) else body_raw.encode()
-        except Exception as e:
+        except (OSError, ValueError, TypeError, MemoryError) as e:
             logger.warning("Failed to read multipart upload body: %s", e)
             return (
                 None,

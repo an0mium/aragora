@@ -643,7 +643,7 @@ async def handle_get_callgraph(repo_id: str, params: dict[str, Any]) -> HandlerR
 
         return success_response(result)
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error(f"Call graph construction failed: {e}")
         return error_response("Call graph construction failed", status=500)
 
@@ -719,7 +719,7 @@ async def handle_find_deadcode(repo_id: str, params: dict[str, Any]) -> HandlerR
 
         return success_response(result)
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error(f"Dead code analysis failed: {e}")
         return error_response("Dead code analysis failed", status=500)
 

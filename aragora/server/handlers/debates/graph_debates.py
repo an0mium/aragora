@@ -402,7 +402,7 @@ class GraphDebatesHandler(SecureHandler):
                 return error_response("Graph debate not found", 404)
 
             return json_response(debate)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get graph debate {debate_id}: {e}")
             return error_response("Failed to retrieve graph debate", 500)
 
@@ -430,7 +430,7 @@ class GraphDebatesHandler(SecureHandler):
         try:
             branches = await storage.get_debate_branches(debate_id)
             return json_response({"debate_id": debate_id, "branches": branches})
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get branches for {debate_id}: {e}")
             return error_response("Failed to retrieve branches", 500)
 

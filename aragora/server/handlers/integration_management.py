@@ -866,7 +866,7 @@ class IntegrationsHandler(BaseHandler):
                 "bot_id": result.get("id"),
             }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Discord health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": "Health check failed"}
 
@@ -900,7 +900,7 @@ class IntegrationsHandler(BaseHandler):
                     "error": f"Cannot connect to {smtp_host}:{smtp_port}",
                 }
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("Email health check failed: %s", e, exc_info=True)
             return {"status": "error", "error": "Health check failed"}
 

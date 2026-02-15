@@ -162,7 +162,7 @@ class ConfidenceDecayOperationsMixin:
                     "adjustment": adjustment.to_dict(),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error recording confidence event: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -224,7 +224,7 @@ class ConfidenceDecayOperationsMixin:
                     "adjustments": [a.to_dict() for a in history],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error getting confidence history: {e}")
             return error_response(safe_error_message(e), status=500)
 

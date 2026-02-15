@@ -260,7 +260,7 @@ class GlobalKnowledgeOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to promote to global: {e}")
             return error_response("Failed to promote to global", 500)
 
@@ -292,7 +292,7 @@ class GlobalKnowledgeOperationsMixin:
 
         try:
             facts = _run_async(mound.get_system_facts(limit=limit + offset, topics=topics))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to get system facts: {e}")
             return error_response("Failed to get system facts", 500)
 
