@@ -269,7 +269,7 @@ class TaskQueue:
             logger.warning(f"Task {task.id} timed out")
 
         except Exception as e:
-            task.mark_failed(str(e))
+            task.mark_failed("Task execution failed")
             logger.error(f"Task {task.id} failed: {e}")
 
             if self._on_task_error:

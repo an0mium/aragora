@@ -1276,7 +1276,8 @@ class LinearConnector(EnterpriseConnector):
             async for _ in self.incremental_sync(sync_state):
                 items_synced += 1
         except (LinearError, ValueError, OSError) as e:
-            errors.append(str(e))
+            logger.warning("Linear sync failed: %s", e)
+            errors.append("Linear sync operation failed")
 
         duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 

@@ -410,7 +410,8 @@ class HealthMonitor:
             if cb:
                 cb.record_failure()
         except Exception as e:
-            error_msg = str(e)
+            logger.warning(f"Health probe failed for agent: {e}")
+            error_msg = "Health probe failed"
             if cb:
                 cb.record_failure()
 

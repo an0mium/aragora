@@ -402,20 +402,15 @@ Safety: automatic backups, protected file checksums, rollback on failure, human 
 
 ## Deployment
 
-```bash
-# Local development
-aragora serve --api-port 8080 --ws-port 8765
+| Goal | Command | Requirements |
+|------|---------|-------------|
+| **Try it** | `docker compose -f docker-compose.quickstart.yml up` | Docker only |
+| **Self-hosted** | `cd deploy/self-hosted && docker compose up -d` | Docker + API key |
+| **Local dev** | `aragora serve --api-port 8080 --ws-port 8765` | Python + API key |
 
-# Docker (self-hosted)
-git clone https://github.com/an0mium/aragora.git && cd aragora
-cp .env.example .env  # add your API keys
-docker compose -f deploy/docker-compose.yml up
-```
+See [deploy/README.md](deploy/README.md) for the full deployment guide.
 
-See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) for the full self-hosting guide.
-
-**API:** REST endpoints at `/api/v2/*` | WebSocket streaming at `/ws`
-**Docs:** OpenAPI at `/api/openapi` | Swagger UI at `/api/docs`
+**API:** REST at `/api/v2/*` | WebSocket at `/ws` | OpenAPI at `/api/openapi`
 
 ---
 

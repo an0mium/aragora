@@ -491,7 +491,7 @@ class SyncScheduler:
             logger.error(f"Sync failed for {job.connector_id}: {e}")
             history.status = SyncStatus.FAILED
             history.completed_at = datetime.now(timezone.utc)
-            history.errors.append(str(e))
+            history.errors.append("Sync operation failed")
 
             job.consecutive_failures += 1
             job.current_run_id = None

@@ -744,7 +744,8 @@ class ArenaControlPlaneBridge:
 
         except Exception as e:
             task.metrics.completed_at = time.time()
-            error_msg = str(e)
+            logger.warning("Arena bridge debate failed: %s", e)
+            error_msg = "Debate execution failed"
             duration = task.metrics.duration_seconds or 0
 
             # Record failure metrics

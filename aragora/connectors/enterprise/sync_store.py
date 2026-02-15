@@ -190,9 +190,10 @@ def _encrypt_config(
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         record_encryption_error("encrypt", type(e).__name__)
         if is_encryption_required():
+            logger.warning("Config encryption failed for %s: %s", connector_id, e)
             raise EncryptionError(
                 "encrypt",
-                str(e),
+                "Config encryption failed",
                 "sync_store",
             ) from e
         logger.warning(f"Config encryption unavailable for {connector_id}: {e}")

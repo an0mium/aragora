@@ -495,7 +495,8 @@ class SlackMessageQueue:
                 stats["delivered"] += 1
 
             except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-                error = str(e)
+                logger.warning("Message delivery failed for %s: %s", message.id, e)
+                error = "Message delivery failed"
 
                 if message.retries >= self._max_retries:
                     # Move to dead letter queue

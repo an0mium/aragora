@@ -217,7 +217,7 @@ class EmailProvider(ChannelProvider):
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.EMAIL,
-                error=str(e),
+                error="Email delivery failed",
             )
 
     def _send_smtp(
@@ -433,11 +433,12 @@ class NotificationDispatcher:
             if isinstance(result, NotificationResult):
                 notification_results.append(result)
             elif isinstance(result, Exception):
+                logger.warning("Notification dispatch failed: %s", result)
                 notification_results.append(
                     NotificationResult(
                         success=False,
                         channel=NotificationChannel.WEBHOOK,
-                        error=str(result),
+                        error="Notification dispatch failed",
                     )
                 )
 
@@ -526,7 +527,7 @@ class NotificationDispatcher:
             return NotificationResult(
                 success=False,
                 channel=channel,
-                error=str(e),
+                error="Notification delivery failed",
             )
 
     def _update_channel_metrics(self, channel: NotificationChannel, success: bool) -> None:

@@ -4,6 +4,14 @@
 ## [Unreleased] - since v2.7.4
 
 ### Added
+- **HardenedOrchestrator:** Gold path wiring with canary tokens, spectate events, work stealing, and OpenClaw computer-use integration
+- **HierarchicalCoordinator:** Planner/Worker/Judge multi-agent coordination cycle with revision loops (70 tests)
+- **ParallelOrchestrator:** Concurrent task execution with semaphore-based concurrency limits
+- **SemanticConflictDetector:** Cross-branch semantic conflict detection for parallel development
+- **Docker quickstart:** `docker-compose.quickstart.yml` for zero-config offline demo (no API keys needed)
+- **Dashboard in self-hosted:** Dashboard service added to production `deploy/self-hosted/docker-compose.yml`
+- **Batch claim verification example:** `examples/batch_verify_claims.py` for concurrent claim verification
+- **Cross-cycle learning:** Calibration-weighted agent selection across Nomic self-improvement cycles
 - **RLM deep integration:** Three-tier Recursive Language Model integration across debate, memory, and knowledge subsystems (182 new tests)
 - **Business decision templates:** Pre-built deliberation templates for hiring, vendor selection, budget allocation, and strategy decisions
 - **Budget-aware team selection:** Arena team selector now factors per-debate cost estimates into agent selection, with configurable budget caps
@@ -32,6 +40,10 @@
 - **Transcription handler coverage:** Full test coverage for audio transcription endpoints
 
 ### Changed
+- **Exception handler narrowing:** 80+ additional handler files narrowed from `except Exception` to specific exception types; error messages sanitized to prevent information leakage
+- **TypeScript SDK methods:** 37 HTTP method verb corrections (GET/POST/DELETE/PATCH alignment with server endpoints)
+- **Frontend sidebar:** Simplified to 5 items in simple mode; Knowledge, Agents, Analytics, Documents, Leaderboard gated behind `minMode: 'standard'`
+- **Deployment docs:** `deploy/README.md` rewritten with "which deployment should I use?" decision table; main README deployment section streamlined
 - **SDK voice namespace:** Removed stale voice namespace and re-wired into sync/async clients with proper gateway methods
 - **SDK parity:** Added missing methods for analytics, skills, voice, `getAgentCosts`, and `getCostAnomalies` to `AragoraClient`
 - **TypeScript SDK namespaces:** Expanded belief, pulse, and OpenAPI namespaces for TypeScript SDK
@@ -44,6 +56,10 @@
 - **Skip baseline:** Reduced from ~190 to current level through systematic removal of vestigial skip guards across JWT, Z3, WhatsApp, evolution, and relationship tests
 
 ### Fixed
+- **Handler routing bugs:** Fixed 10 `extract_path_param` off-by-one index bugs and 1 `strip_version_prefix` path comparison bug across handler files
+- **SpectatorStream.emit():** Fixed API call to use `details` string parameter instead of `data` dict
+- **StructuredLogger args:** Fixed `logger.warning()` calls passing positional args to structured logger (requires f-string)
+- **Orchestration test exceptions:** Updated tests to raise specific exception types matching narrowed handler catches
 - **Prometheus metric re-registration:** Prevent duplicate metric registration errors on server restart
 - **Revoked token detection:** Optimized `_decrypt_token` to short-circuit on revoked tokens in storage layer
 - **Persistence timestamps:** Fixed timezone-aware datetime handling to prevent comparison errors in receipt verification

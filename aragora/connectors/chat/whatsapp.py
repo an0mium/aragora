@@ -231,9 +231,9 @@ class WhatsAppConnector(ChatPlatformConnector):
                     continue
                 return False, None, last_error
             except (httpx.RequestError, OSError, ValueError, RuntimeError) as e:
-                last_error = str(e)
+                last_error = "WhatsApp API request failed"
                 self._record_failure(e)
-                logger.error(f"WhatsApp API {operation} error: {e}")
+                logger.warning("WhatsApp API %s error: %s", operation, e)
                 return False, None, last_error
 
         return False, None, last_error or "Max retries exceeded"

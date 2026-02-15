@@ -605,7 +605,7 @@ class MySQLConnector(EnterpriseConnector):
                 },
             )
         except (OSError, RuntimeError, ValueError) as e:
-            error_msg = str(e)
+            logger.warning("MySQL health check failed: %s", e)
             latency_ms = (time.time() - start_time) * 1000
 
             return ConnectorHealth(
@@ -614,7 +614,7 @@ class MySQLConnector(EnterpriseConnector):
                 is_configured=self.is_configured,
                 is_healthy=False,
                 latency_ms=latency_ms,
-                error=error_msg,
+                error="Health check failed",
                 last_check=datetime.now(timezone.utc),
                 metadata={
                     "database": self.database,

@@ -22,6 +22,7 @@ Configuration:
 
 from __future__ import annotations
 
+import logging
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -31,6 +32,8 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
+
+logger = logging.getLogger(__name__)
 
 
 class MapReducePattern(WorkflowPattern):
@@ -260,7 +263,8 @@ def _register_map_reduce_handlers():
                         )
                         return {"index": index, "result": result, "success": True}
                     except Exception as e:
-                        return {"index": index, "error": str(e), "success": False}
+                        logger.warning("Map-reduce chunk %d failed: %s", index, e)
+                        return {"index": index, "error": "Chunk processing failed", "success": False}
 
             tasks = [process_chunk(chunk, i) for i, chunk in enumerate(chunks)]
             results = await asyncio.gather(*tasks)

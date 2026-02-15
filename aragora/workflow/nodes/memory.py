@@ -142,8 +142,8 @@ class MemoryReadStep(BaseStep):
 
         except Exception as e:
             logger.error(f"Memory read failed: {e}")
-            response = {"items": [], "total_count": 0, "query": query, "error": str(e)}
-            _emit(False, 0, query, str(e))
+            response = {"items": [], "total_count": 0, "query": query, "error": "Memory read failed"}
+            _emit(False, 0, query, "Memory read failed")
             return response
 
     def _interpolate_query(self, template: str, context: WorkflowContext) -> str:
@@ -310,8 +310,8 @@ class MemoryWriteStep(BaseStep):
 
         except Exception as e:
             logger.error(f"Memory write failed: {e}")
-            response = {"success": False, "error": str(e)}
-            _emit(False, str(e))
+            response = {"success": False, "error": "Memory write failed"}
+            _emit(False, "Memory write failed")
             return response
 
     def _interpolate_content(self, template: str, context: WorkflowContext) -> str:

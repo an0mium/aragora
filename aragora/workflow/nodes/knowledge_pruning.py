@@ -148,7 +148,7 @@ class KnowledgePruningStep(BaseStep):
             return {
                 "success": False,
                 "workspace_id": workspace_id,
-                "error": str(e),
+                "error": "Knowledge pruning failed",
             }
 
 
@@ -237,7 +237,7 @@ class KnowledgeDedupStep(BaseStep):
             return {
                 "success": False,
                 "workspace_id": workspace_id,
-                "error": str(e),
+                "error": "Knowledge deduplication failed",
             }
 
 
@@ -322,7 +322,7 @@ class ConfidenceDecayStep(BaseStep):
             return {
                 "success": False,
                 "workspace_id": workspace_id,
-                "error": str(e),
+                "error": "Confidence decay step failed",
             }
 
 

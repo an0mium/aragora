@@ -364,7 +364,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                 # Ensures sync continues with remaining tables on connection errors,
                 # query failures, and data conversion issues.
                 logger.warning(f"Failed to sync table {table} ({type(e).__name__}): {e}")
-                state.errors.append(f"{table}: {str(e)}")
+                state.errors.append(f"{table}: sync failed")
                 continue
 
     async def search(

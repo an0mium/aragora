@@ -326,7 +326,7 @@ class GauntletStep(BaseStep):
                         {
                             "framework": framework,
                             "passed": False,
-                            "error": str(e),
+                            "error": "Compliance check failed",
                         }
                     )
 

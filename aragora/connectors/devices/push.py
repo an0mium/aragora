@@ -215,12 +215,12 @@ class FCMConnector(DeviceConnector):
                 )
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"FCM send error: {e}")
+            logger.warning("FCM send failed: %s", e)
             return SendResult(
                 success=False,
                 device_id=device.device_id,
                 status=DeliveryStatus.FAILED,
-                error=str(e),
+                error="FCM notification send failed",
                 timestamp=datetime.now(timezone.utc),
             )
 
@@ -541,12 +541,12 @@ class APNsConnector(DeviceConnector):
                 )
 
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"APNs send error: {e}")
+            logger.warning("APNs send failed: %s", e)
             return SendResult(
                 success=False,
                 device_id=device.device_id,
                 status=DeliveryStatus.FAILED,
-                error=str(e),
+                error="APNs notification send failed",
                 timestamp=datetime.now(timezone.utc),
             )
 
@@ -747,18 +747,18 @@ class WebPushConnector(DeviceConnector):
             )
 
         except (OSError, ValueError, RuntimeError) as e:
-            error_str = str(e)
+            error_detail = str(e)
             self._record_failure()
 
             # Check for invalid subscription
-            should_unregister = "410" in error_str or "404" in error_str
+            should_unregister = "410" in error_detail or "404" in error_detail
 
-            logger.error(f"Web Push send error: {e}")
+            logger.warning("Web Push send failed: %s", e)
             return SendResult(
                 success=False,
                 device_id=device.device_id,
                 status=DeliveryStatus.FAILED,
-                error=error_str,
+                error="Web Push notification send failed",
                 should_unregister=should_unregister,
                 timestamp=datetime.now(timezone.utc),
             )

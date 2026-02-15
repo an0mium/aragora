@@ -955,7 +955,7 @@ class GmailMessagesMixin(GmailBaseMethods):
                         "priority_result": None,
                         "priority": "MEDIUM",
                         "confidence": 0.0,
-                        "rationale": f"Prioritization failed: {str(e)}",
+                        "rationale": "Prioritization failed",
                     }
                 )
 

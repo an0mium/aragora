@@ -1,6 +1,6 @@
 # Aragora Project Status
 
-*Last updated: February 12, 2026*
+*Last updated: February 15, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [EXTENDED_README](../EXTENDED_README.md) for the comprehensive technical reference.
 
@@ -14,6 +14,47 @@ Detailed execution plan: `docs/status/NEXT_STEPS_CANONICAL.md`.
 - **Docs alignment**: keep agent catalog and file path references synced to runtime (`list_available_agents()`) and current module layout.
 - **SDK and package alignment**: keep Python, TypeScript SDK, live UI, and IDE extension versions aligned to `v2.6.3`.
 - **External penetration test**: requires third-party vendor engagement.
+
+## Phase 9: Adoption Readiness (February 14-15, 2026)
+
+### Handler Routing Bug Fix
+- **10 `extract_path_param` index bugs fixed** across handler files (off-by-one from leading empty string in `path.split("/")`)
+- All 38 remaining `extract_path_param` calls verified correct
+- 1 `strip_version_prefix` path comparison bug fixed in `gastown_dashboard.py`
+
+### Exception Handler Narrowing (Final Sweep)
+- 80+ additional handler files narrowed from `except Exception` to specific types
+- TypeScript SDK: 37 HTTP method verb corrections (GET/POST/DELETE/PATCH alignment)
+- Error messages sanitized to prevent information leakage (no `str(e)` in responses)
+
+### HardenedOrchestrator
+- Gold path wired: canary tokens, spectate events, work stealing
+- SpectatorStream.emit() API fix for event data formatting
+- OpenClaw computer-use integration bridge
+
+### Multi-Agent Coordination Infrastructure
+- `HierarchicalCoordinator`: Planner/Worker/Judge cycle (561 LOC, 70 tests)
+- `ParallelOrchestrator`: Concurrent task execution with semaphore-based limits
+- `SemanticConflictDetector`: Cross-branch conflict detection
+- CI feedback integration and worktree-based parallel sessions
+
+### Deployment Consolidation
+- `docker-compose.quickstart.yml` for zero-config offline demo (2 services, no API keys)
+- Dashboard service added to `deploy/self-hosted/docker-compose.yml`
+- Deployment README rewritten with "which deployment should I use?" decision table
+- Main README deployment section streamlined to 3-option table
+
+### Frontend Simplification
+- Sidebar reduced from 30+ items to 5 in simple mode (New Debate, Dashboard, Debates, Settings, About)
+- Knowledge, Agents, Analytics, Documents, Leaderboard gated behind `minMode: 'standard'`
+
+### SDK & Examples
+- New `batch_verify_claims.py` example for concurrent claim verification
+- SDK quickstart doc updated with real-world examples table
+
+### Cross-Cycle Learning (Nomic)
+- Calibration-weighted agent selection across self-improvement cycles
+- Budget hard cutoff with structured logging
 
 ## Phase 8: GA Final Polish (February 9-11, 2026)
 

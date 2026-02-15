@@ -921,7 +921,7 @@ class FHIRConnector(EnterpriseConnector):
 
             except (FHIRError, httpx.RequestError) as e:
                 logger.error(f"[{self.name}] Error syncing {resource_name}: {e}")
-                state.errors.append(f"{resource_name}: {str(e)}")
+                state.errors.append(f"{resource_name}: sync failed")
 
     async def search(
         self,

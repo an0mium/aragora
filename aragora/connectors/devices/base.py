@@ -435,13 +435,13 @@ class DeviceConnector(ABC):
                     await asyncio.sleep(self.config.batch_delay_ms / 1000)
 
             except (OSError, TimeoutError, RuntimeError, ValueError, ConnectionError) as e:
-                logger.error(f"Failed to send to device {device.device_id}: {e}")
+                logger.warning("Failed to send to device %s: %s", device.device_id, e)
                 results.append(
                     SendResult(
                         success=False,
                         device_id=device.device_id,
                         status=DeliveryStatus.FAILED,
-                        error=str(e),
+                        error="Notification delivery failed",
                     )
                 )
 

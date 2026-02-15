@@ -325,21 +325,22 @@ class EnhancedWorkflowEngine(WorkflowEngine):
         except ResourceExhaustedError as e:
             logger.error(f"Resource limit exceeded: {e}")
             success = False
-            error = str(e)
+            error = "Resource limit exceeded"
             limits_exceeded = True
             # Extract resource type from error message
-            if "token" in str(e).lower():
+            err_lower = str(e).lower()
+            if "token" in err_lower:
                 limit_exceeded_type = ResourceType.TOKENS
-            elif "cost" in str(e).lower():
+            elif "cost" in err_lower:
                 limit_exceeded_type = ResourceType.COST
-            elif "api" in str(e).lower():
+            elif "api" in err_lower:
                 limit_exceeded_type = ResourceType.API_CALLS
             final_output = None
 
         except Exception as e:
             logger.exception(f"Workflow execution failed: {e}")
             success = False
-            error = str(e)
+            error = "Workflow execution failed"
             final_output = None
 
         # Update elapsed time
@@ -572,7 +573,8 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                 retry_count += 1
 
             except Exception as e:
-                last_error = str(e)
+                logger.warning("Workflow step failed: %s", e)
+                last_error = "Step execution failed"
                 retry_count += 1
 
         duration_ms = (time.time() - start_time) * 1000

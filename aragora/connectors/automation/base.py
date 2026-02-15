@@ -454,7 +454,7 @@ class AutomationConnector(ABC):
                 subscription_id=subscription.id,
                 event_type=event_type,
                 success=False,
-                error=str(e),
+                error="Webhook delivery failed",
                 duration_ms=duration_ms,
             )
 

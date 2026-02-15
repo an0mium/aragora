@@ -468,7 +468,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
             except (ValueError, RuntimeError, OSError, KeyError) as e:
                 logger.warning(f"Failed to sync table {table}: {e}")
-                state.errors.append(f"{table}: {str(e)}")
+                state.errors.append(f"{table}: sync failed")
                 continue
 
     async def search(

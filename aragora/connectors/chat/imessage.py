@@ -867,10 +867,11 @@ class IMessageConnector(ChatPlatformConnector):
                         "error": f"HTTP {response.status_code}",
                     }
         except (httpx.HTTPError, OSError) as e:
+            logger.warning("iMessage health check failed: %s", e)
             return {
                 "platform": self.platform_name,
                 "success": False,
-                "error": str(e),
+                "error": "Health check failed",
             }
 
     async def list_chats(

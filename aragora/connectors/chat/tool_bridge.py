@@ -513,9 +513,10 @@ class ToolBridge:
                 partial_result=result,
             )
         except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
+            logger.warning("Tool execution failed: %s", e)
             yield ProgressUpdate(
                 progress=0.0,
-                message=str(e),
+                message="Tool execution failed",
                 status=ToolStatus.FAILED,
                 timestamp=datetime.now(timezone.utc),
             )

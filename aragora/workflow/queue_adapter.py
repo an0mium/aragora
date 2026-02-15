@@ -237,7 +237,7 @@ class TaskQueueExecutorAdapter:
                 success=False,
                 steps=self._results.copy(),
                 total_duration_ms=total_duration_ms,
-                error=str(e),
+                error="Workflow execution failed",
             )
 
     async def _convert_steps_to_tasks(

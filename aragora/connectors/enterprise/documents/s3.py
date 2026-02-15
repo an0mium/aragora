@@ -346,7 +346,7 @@ class S3Connector(EnterpriseConnector):
 
         except (OSError, ValueError, KeyError) as e:
             logger.error(f"S3 sync failed: {e}")
-            state.errors.append(str(e))
+            state.errors.append("S3 sync operation failed")
 
     async def search(
         self,

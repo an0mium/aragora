@@ -107,7 +107,7 @@ class DecisionStep(BaseStep):
                         "name": name,
                         "expression": expression,
                         "result": False,
-                        "error": str(e),
+                        "error": "Condition evaluation failed",
                     }
                 )
 
@@ -223,7 +223,7 @@ class DecisionStep(BaseStep):
             return {
                 "name": "error",
                 "next_step": config.get("default_branch", ""),
-                "error": str(e),
+                "error": "AI decision failed",
             }
 
     def _summarize_context(self, context: WorkflowContext) -> str:

@@ -400,7 +400,7 @@ class GmailWatchMixin(GmailBaseMethods):
         except (OSError, ValueError, KeyError, RuntimeError) as e:
             if self._gmail_state:
                 self._gmail_state.sync_errors += 1
-                self._gmail_state.last_error = str(e)
+                self._gmail_state.last_error = "Webhook processing failed"
             logger.error(f"[Gmail] Webhook processing failed: {e}")
             raise
 

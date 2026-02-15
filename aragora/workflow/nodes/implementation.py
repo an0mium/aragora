@@ -170,7 +170,7 @@ class ImplementationStep(BaseStep):
                 "task_id": task_id,
                 "success": False,
                 "diff": "",
-                "error": str(e),
+                "error": "Implementation task failed",
                 "model_used": None,
                 "duration_seconds": elapsed,
             }

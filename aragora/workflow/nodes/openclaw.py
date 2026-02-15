@@ -267,11 +267,11 @@ class OpenClawActionStep(BaseStep):
                     "success": False,
                     "skipped": True,
                     "action_type": action_type,
-                    "error": str(e),
+                    "error": "OpenClaw action failed",
                 }
             return {
                 "success": False,
-                "error": str(e),
+                "error": "OpenClaw action failed",
                 "action_type": action_type,
             }
 
@@ -378,7 +378,7 @@ class OpenClawSessionStep(BaseStep):
             }
         except Exception as e:
             logger.error(f"OpenClaw session operation failed: {e}")
-            return {"success": False, "error": str(e), "operation": operation}
+            return {"success": False, "error": "OpenClaw session operation failed", "operation": operation}
 
     async def _create_session(
         self, proxy: Any, config: dict[str, Any], context: WorkflowContext

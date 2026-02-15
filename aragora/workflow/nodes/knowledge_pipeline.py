@@ -157,7 +157,7 @@ class KnowledgePipelineStep(BaseStep):
                     errors.append(
                         {
                             "source": source,
-                            "error": str(e),
+                            "error": "Source processing failed",
                         }
                     )
 
@@ -352,7 +352,7 @@ class KnowledgePipelineStep(BaseStep):
                 "source": source,
                 "type": connector_type,
                 "documents": 0,
-                "error": str(e),
+                "error": "Connector processing failed",
             }
 
     def _is_supported_file(self, file_path: Path) -> bool:

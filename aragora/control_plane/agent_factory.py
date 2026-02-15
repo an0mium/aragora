@@ -287,7 +287,7 @@ class AgentFactory:
             )
             return AgentCreationResult(
                 agent_info=agent_info,
-                error=f"Failed to create agent: {e}",
+                error="Failed to create agent",
             )
 
     async def create_agents(

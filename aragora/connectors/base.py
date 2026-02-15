@@ -457,7 +457,8 @@ class BaseConnector(ABC):
         except asyncio.TimeoutError:
             error_msg = f"Health check timed out after {timeout}s"
         except (OSError, ConnectionError, RuntimeError) as e:
-            error_msg = str(e)
+            logger.warning("Health check failed: %s", e)
+            error_msg = "Health check failed"
 
         latency_ms = (time.time() - start_time) * 1000
         return ConnectorHealth(
@@ -840,11 +841,13 @@ class BaseConnector(ABC):
 
             except (ValueError, TypeError, KeyError, AttributeError) as e:
                 # Unexpected error - log and don't retry
-                if "json" in str(e).lower() or "decode" in str(e).lower():
+                error_desc = str(e).lower()
+                if "json" in error_desc or "decode" in error_desc:
                     if metrics_available:
                         record_sync_error(connector_type, "parse")
+                    logger.warning("[%s] %s parse error: %s", self.name, operation, e)
                     raise ConnectorParseError(
-                        f"{operation} parse error: {e}",
+                        f"{operation} parse error",
                         connector_name=self.name,
                     ) from e
 
@@ -852,17 +855,19 @@ class BaseConnector(ABC):
                 if metrics_available:
                     record_sync_error(connector_type, "unexpected")
                 raise ConnectorAPIError(
-                    f"{operation} failed unexpectedly: {e}",
+                    f"{operation} failed unexpectedly",
                     connector_name=self.name,
                 ) from e
 
             except (UnicodeDecodeError, RuntimeError) as e:
                 # Remaining non-HTTP errors: decode failures or runtime issues
-                if "json" in str(e).lower() or "decode" in str(e).lower():
+                error_desc = str(e).lower()
+                if "json" in error_desc or "decode" in error_desc:
                     if metrics_available:
                         record_sync_error(connector_type, "parse")
+                    logger.warning("[%s] %s parse error: %s", self.name, operation, e)
                     raise ConnectorParseError(
-                        f"{operation} parse error: {e}",
+                        f"{operation} parse error",
                         connector_name=self.name,
                     ) from e
 
@@ -870,7 +875,7 @@ class BaseConnector(ABC):
                 if metrics_available:
                     record_sync_error(connector_type, "unexpected")
                 raise ConnectorAPIError(
-                    f"{operation} failed unexpectedly: {e}",
+                    f"{operation} failed unexpectedly",
                     connector_name=self.name,
                 ) from e
 

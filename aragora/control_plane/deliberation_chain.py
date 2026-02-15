@@ -573,7 +573,7 @@ class ChainExecutor:
             execution.error = f"Chain exceeded overall timeout of {chain.overall_timeout_seconds}s"
         except Exception as e:
             execution.status = ChainStatus.FAILED
-            execution.error = str(e)
+            execution.error = "Chain execution failed"
             logger.exception(
                 "chain_failed",
                 extra={"execution_id": execution.execution_id, "error": str(e)},
@@ -752,7 +752,8 @@ class ChainExecutor:
             except Exception as e:
                 result.status = StageStatus.FAILED
                 result.transition = StageTransition.ERROR
-                result.error = str(e)
+                result.error = "Stage execution failed"
+                logger.warning("Stage execution failed: %s", e)
                 if retries < stage.retry_count:
                     retries += 1
                     result.retries = retries

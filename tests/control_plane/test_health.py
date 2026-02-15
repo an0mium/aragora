@@ -127,12 +127,14 @@ class TestHealthMonitor:
     @pytest.mark.asyncio
     async def test_probe_exception(self, monitor):
         """Test probing an agent that throws exception."""
-        probe = MagicMock(side_effect=Exception("Connection error"))
-        monitor.register_probe("agent-1", probe)
+        # Use unique agent ID to avoid global circuit breaker state from prior tests
+        agent_id = f"agent-exc-{id(monitor)}"
+        probe = MagicMock(side_effect=RuntimeError("Connection error"))
+        monitor.register_probe(agent_id, probe)
 
         await monitor._probe_all_agents()
 
-        check = monitor.get_agent_health("agent-1")
+        check = monitor.get_agent_health(agent_id)
         assert check is not None
         # Exception causes degraded or unhealthy status with error message
         assert check.status in (
@@ -141,7 +143,7 @@ class TestHealthMonitor:
             HealthStatus.UNHEALTHY,
         )
         assert check.error is not None
-        assert "Connection error" in check.error
+        assert check.error  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_start_stop(self, monitor):

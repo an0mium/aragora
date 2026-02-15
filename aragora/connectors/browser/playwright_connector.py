@@ -357,11 +357,12 @@ class PlaywrightConnector:
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
         except (TimeoutError, ValueError, RuntimeError) as e:
+            logger.warning("Browser click failed on %s: %s", selector, e)
             return ActionResult(
                 success=False,
                 action="click",
                 selector=selector,
-                error=str(e),
+                error="Click action failed",
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
 
@@ -402,11 +403,12 @@ class PlaywrightConnector:
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
         except (TimeoutError, ValueError, RuntimeError) as e:
+            logger.warning("Browser fill failed on %s: %s", selector, e)
             return ActionResult(
                 success=False,
                 action="fill",
                 selector=selector,
-                error=str(e),
+                error="Fill action failed",
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
 
@@ -447,11 +449,12 @@ class PlaywrightConnector:
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
         except (TimeoutError, ValueError, RuntimeError) as e:
+            logger.warning("Browser select failed on %s: %s", selector, e)
             return ActionResult(
                 success=False,
                 action="select",
                 selector=selector,
-                error=str(e),
+                error="Select action failed",
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
 

@@ -1,144 +1,103 @@
 # Aragora Deployment
 
-This directory contains deployment configurations for running Aragora in various environments.
+## Which deployment should I use?
 
-## Quick Start
+| Goal | Command | Time | Requirements |
+|------|---------|------|-------------|
+| **Try it out** | `docker compose -f docker-compose.quickstart.yml up` | 2 min | Docker only |
+| **Development** | `docker compose -f docker-compose.dev.yml up` | 3 min | Docker + API key |
+| **Self-hosted production** | `cd deploy/self-hosted && docker compose up -d` | 5 min | Docker + API key |
+| **Kubernetes** | `kubectl apply -k deploy/kubernetes/` | 15 min | K8s cluster |
 
-### Docker Compose (Development)
+## Quickstart (no API keys needed)
 
 ```bash
-# Set environment variables
-export ANTHROPIC_API_KEY=your-key
-export OPENAI_API_KEY=your-key
+docker compose -f docker-compose.quickstart.yml up
+# Open http://localhost:3000 (Dashboard) / http://localhost:8080 (API)
+```
 
-# Start basic services
-docker-compose up -d
+Uses offline mode with mock agents and SQLite. Add `ANTHROPIC_API_KEY` to `.env` for real AI debates.
 
-# Start with monitoring (Prometheus + Grafana)
-docker-compose --profile monitoring up -d
+## Self-Hosted Production
 
-# Start with PostgreSQL
-docker-compose --profile postgres up -d
+The recommended production deployment. Includes PostgreSQL, Redis with Sentinel HA, and optional monitoring.
 
-# View logs
-docker-compose logs -f backend
+```bash
+cd deploy/self-hosted
+cp .env.example .env
+# Edit .env: set ANTHROPIC_API_KEY (required), ARAGORA_JWT_SECRET, REDIS_PASSWORD
+
+docker compose up -d
+
+# Optional: add monitoring (Prometheus + Grafana)
+docker compose --profile monitoring up -d
+
+# Optional: add queue workers for async debates
+docker compose --profile workers up -d
 ```
 
 Access points:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8080
+- Dashboard: http://localhost:3000
+- API: http://localhost:8080
 - WebSocket: ws://localhost:8765/ws
-- Prometheus: http://localhost:9090 (with monitoring profile)
-- Grafana: http://localhost:3001 (with monitoring profile)
+- Grafana: http://localhost:3001 (with `--profile monitoring`)
 
-### Kubernetes (Production)
+## Development
+
+Hot-reload backend with Next.js dev server:
 
 ```bash
-# Create namespace
-kubectl apply -f k8s/namespace.yaml
-
-# Create config and secrets (edit secrets.yaml first!)
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/secrets.yaml
-
-# Create persistent volumes
-kubectl apply -f k8s/pvc.yaml
-
-# Deploy backend and frontend
-kubectl apply -f k8s/backend-deployment.yaml
-kubectl apply -f k8s/frontend-deployment.yaml
-
-# Create ingress and HPA
-kubectl apply -f k8s/ingress.yaml
-kubectl apply -f k8s/hpa.yaml
-
-# Check status
-kubectl -n aragora get pods
-kubectl -n aragora get svc
+docker compose -f docker-compose.dev.yml up
 ```
 
-## Files
+## Directory Structure
 
 ```
 deploy/
-├── Dockerfile.backend     # Backend container image
-├── Dockerfile.frontend    # Frontend container image
-├── docker-compose.yml     # Local development stack
-├── monitoring/
-│   ├── prometheus.yml     # Prometheus configuration
-│   └── grafana/           # Grafana provisioning
-└── k8s/
-    ├── namespace.yaml     # Kubernetes namespace
-    ├── configmap.yaml     # Non-sensitive config
-    ├── secrets.yaml       # Sensitive config (template)
-    ├── backend-deployment.yaml
-    ├── frontend-deployment.yaml
-    ├── ingress.yaml       # Ingress with TLS
-    ├── hpa.yaml           # Auto-scaling
-    └── pvc.yaml           # Persistent storage
+├── self-hosted/              # Production Docker Compose (recommended)
+│   ├── docker-compose.yml    # Postgres + Redis Sentinel + API + Dashboard
+│   ├── .env.example          # Configuration template
+│   └── prometheus.yml        # Metrics config
+├── kubernetes/               # K8s manifests + Kustomize
+├── observability/            # Standalone Prometheus/Grafana/Loki stack
+├── openclaw/                 # OpenClaw governance gateway variants
+├── demo/                     # Pre-seeded demo environment
+├── scripts/                  # Entrypoint, backup, healthcheck, smoke test
+├── redis/                    # Redis Sentinel configuration
+├── Dockerfile.backend        # Backend image
+└── Dockerfile.frontend       # Frontend image
 ```
 
 ## Environment Variables
 
-### Required
+### Required (at least one AI provider)
 | Variable | Description |
 |----------|-------------|
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude |
-| `OPENAI_API_KEY` | OpenAI API key for GPT |
+| `ANTHROPIC_API_KEY` | Anthropic Claude (recommended primary) |
 
-### Recommended
+### Optional Providers
 | Variable | Description |
 |----------|-------------|
-| `OPENROUTER_API_KEY` | Fallback for rate limits |
-| `MISTRAL_API_KEY` | Mistral models |
-| `ARAGORA_API_TOKEN` | API authentication token |
-| `NEXT_PUBLIC_API_URL` | Frontend API base URL |
-| `NEXT_PUBLIC_WS_URL` | Frontend WebSocket URL |
+| `OPENAI_API_KEY` | OpenAI GPT (fallback) |
+| `OPENROUTER_API_KEY` | OpenRouter (auto-fallback on 429) |
+| `GEMINI_API_KEY` | Google Gemini |
 
 ### Production
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `ARAGORA_ALLOWED_ORIGINS` | CORS allowed origins |
+| `ARAGORA_JWT_SECRET` | JWT signing key (`openssl rand -base64 32`) |
+| `REDIS_PASSWORD` | Redis auth password |
+| `ARAGORA_ALLOWED_ORIGINS` | CORS origins (default: `*`) |
+
+## Health Checks
+
+- API: `GET /healthz`
+- Metrics: `GET /metrics` (port 9090)
 
 ## Building Images
 
 ```bash
-# Build backend
-docker build -f deploy/Dockerfile.backend -t aragora/backend:latest .
-
-# Build frontend
-docker build -f deploy/Dockerfile.frontend -t aragora/frontend:latest .
-
-# Push to registry
-docker push your-registry/aragora/backend:latest
-docker push your-registry/aragora/frontend:latest
-```
-
-## Production Considerations
-
-1. **Secrets Management**: Use sealed-secrets or external-secrets-operator
-2. **TLS**: Configure cert-manager for automatic certificate management
-3. **Monitoring**: Deploy Prometheus Operator for production monitoring
-4. **Logging**: Configure FluentD/Loki for log aggregation
-5. **Backup**: Set up PostgreSQL backups with pg_dump or Velero
-
-## Health Checks
-
-- Backend: `GET /api/health`
-- Frontend: `GET /`
-- Metrics: `GET /metrics` (backend)
-
-## Troubleshooting
-
-```bash
-# Check pod logs
-kubectl -n aragora logs -f deployment/aragora-backend
-
-# Check events
-kubectl -n aragora get events --sort-by=.metadata.creationTimestamp
-
-# Restart deployment
-kubectl -n aragora rollout restart deployment/aragora-backend
+# From repo root
+docker build -t aragora/api:latest .
+docker build -t aragora/dashboard:latest -f aragora/live/Dockerfile aragora/live/
 ```

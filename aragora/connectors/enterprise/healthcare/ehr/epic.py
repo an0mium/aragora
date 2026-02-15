@@ -494,7 +494,7 @@ class EpicAdapter(EHRAdapter):
             return result
         except (OSError, RuntimeError, ValueError, TimeoutError, KeyError) as e:
             logger.warning(f"Care Everywhere query failed: {e}")
-            return {"error": str(e), "available": False}
+            return {"error": "Care Everywhere query failed", "available": False}
 
     async def get_mychart_status(self, patient_id: str) -> dict[str, Any]:
         """

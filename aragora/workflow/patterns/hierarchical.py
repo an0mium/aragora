@@ -21,6 +21,7 @@ Configuration:
 
 from __future__ import annotations
 
+import logging
 
 from aragora.workflow.types import (
     WorkflowDefinition,
@@ -29,6 +30,8 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
+
+logger = logging.getLogger(__name__)
 
 
 class HierarchicalPattern(WorkflowPattern):
@@ -282,10 +285,11 @@ Provide a thorough response:"""
                         "success": True,
                     }
                 except Exception as e:
+                    logger.warning("Hierarchical subtask %d failed: %s", index, e)
                     return {
                         "subtask": subtask.get("title", f"Subtask {index}"),
                         "agent": agent_type,
-                        "error": str(e),
+                        "error": "Subtask processing failed",
                         "success": False,
                     }
 

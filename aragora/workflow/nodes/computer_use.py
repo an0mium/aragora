@@ -225,4 +225,4 @@ class ComputerUseTaskStep(BaseStep):
 
         except Exception as e:
             logger.error("Computer-use task failed: %s", e)
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Computer-use task failed"}

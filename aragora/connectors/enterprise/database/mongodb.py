@@ -356,7 +356,7 @@ class MongoDBConnector(EnterpriseConnector):
 
             except (OSError, ConnectionError, ValueError, KeyError, RuntimeError) as e:
                 logger.warning(f"Failed to sync collection {collection_name}: {e}")
-                state.errors.append(f"{collection_name}: {str(e)}")
+                state.errors.append(f"{collection_name}: sync failed")
                 continue
 
     async def search(

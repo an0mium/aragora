@@ -425,7 +425,7 @@ class WorkflowEngine:
                     error=str(e),
                 )
                 success = False
-                error = str(e)
+                error = "Workflow execution failed"
                 final_output = None
 
             total_duration = (time.time() - start_time) * 1000
@@ -548,7 +548,7 @@ class WorkflowEngine:
         except Exception as e:
             logger.exception(f"Workflow resume failed: {e}")
             success = False
-            error = str(e)
+            error = "Workflow resume failed"
             final_output = None
 
         total_duration = (time.time() - start_time) * 1000
@@ -814,7 +814,7 @@ class WorkflowEngine:
                         )
 
                 except Exception as e:
-                    last_error = str(e)
+                    last_error = "Step execution failed"
                     retry_count += 1
                     if retry_count <= step_def.retries:
                         logger.warning(

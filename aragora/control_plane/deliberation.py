@@ -544,9 +544,10 @@ class DeliberationManager:
 
         except Exception as e:
             task.status = DeliberationStatus.FAILED
-            task.error = str(e)
+            task.error = "Deliberation failed"
             task.metrics.completed_at = time.time()
-            record_deliberation_error(task.request_id, str(e))
+            logger.warning("Deliberation failed for request %s: %s", task.request_id, e)
+            record_deliberation_error(task.request_id, "Deliberation failed")
             outcome = self._build_outcome_from_task(task)
             self._emit_completion_notification(task, outcome)
             return outcome

@@ -345,10 +345,11 @@ class SlackProvider(ChannelProvider):
                 error="httpx not installed",
             )
         except Exception as e:
+            logger.warning("Slack notification failed: %s", e)
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.SLACK,
-                error=str(e),
+                error="Slack notification delivery failed",
             )
 
     def format_message(self, message: NotificationMessage) -> dict[str, Any]:
@@ -467,10 +468,11 @@ class TeamsProvider(ChannelProvider):
                 error="httpx not installed",
             )
         except Exception as e:
+            logger.warning("Teams notification failed: %s", e)
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.TEAMS,
-                error=str(e),
+                error="Teams notification delivery failed",
             )
 
     def format_message(self, message: NotificationMessage) -> dict[str, Any]:
@@ -583,10 +585,11 @@ class WebhookProvider(ChannelProvider):
                 error="httpx not installed",
             )
         except Exception as e:
+            logger.warning("Webhook notification failed: %s", e)
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.WEBHOOK,
-                error=str(e),
+                error="Webhook notification delivery failed",
             )
 
     def format_message(self, message: NotificationMessage) -> dict[str, Any]:
@@ -845,10 +848,11 @@ class NotificationManager:
                 notification_results.append(result)
                 self._add_to_history(result)
             elif isinstance(result, Exception):
+                logger.warning("Notification delivery failed: %s", result)
                 error_result = NotificationResult(
                     success=False,
                     channel=NotificationChannel.WEBHOOK,  # Generic
-                    error=str(result),
+                    error="Notification delivery failed",
                 )
                 notification_results.append(error_result)
                 self._add_to_history(error_result)
@@ -911,7 +915,7 @@ class NotificationManager:
             return NotificationResult(
                 success=False,
                 channel=config.channel_type,
-                error=str(e),
+                error="Notification delivery failed",
             )
 
     def _add_to_history(self, result: NotificationResult) -> None:

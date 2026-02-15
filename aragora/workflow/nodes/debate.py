@@ -250,7 +250,7 @@ class DebateStep(BaseStep):
 
         except Exception as e:
             logger.error(f"Debate execution failed: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Debate execution failed"}
 
     def _interpolate_text(self, template: str, context: WorkflowContext) -> str:
         """Interpolate template with context values."""
@@ -327,7 +327,8 @@ class QuickDebateStep(BaseStep):
                         "success": True,
                     }
                 except Exception as e:
-                    return {"agent": agent_type_str, "error": str(e), "success": False}
+                    logger.warning("Agent %s response failed: %s", agent_type_str, e)
+                    return {"agent": agent_type_str, "error": "Agent response failed", "success": False}
 
             responses = await asyncio.gather(*[get_response(at) for at in agent_types])
 
@@ -360,7 +361,8 @@ class QuickDebateStep(BaseStep):
             }
 
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.error("Multi-agent query failed: %s", e)
+            return {"success": False, "error": "Multi-agent query failed"}
 
     def _interpolate_text(self, template: str, context: WorkflowContext) -> str:
         """Interpolate template with context values."""

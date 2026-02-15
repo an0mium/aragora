@@ -207,10 +207,10 @@ class FileOperationsMixin:
                 message_id=attachment.id,
             )
         except (RuntimeError, OSError, ValueError) as e:
-            logger.error(f"Failed to send voice message on {self.platform_name}: {e}")
+            logger.warning("Failed to send voice message on %s: %s", self.platform_name, e)
             return SendMessageResponse(
                 success=False,
-                error=str(e),
+                error="Voice message send failed",
             )
 
 

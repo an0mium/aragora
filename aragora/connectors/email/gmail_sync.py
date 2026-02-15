@@ -409,7 +409,7 @@ class GmailSyncService:
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as e:
             self._status = SyncStatus.ERROR
             if self._state:
-                self._state.last_error = str(e)
+                self._state.last_error = "Sync service failed to start"
                 self._state.sync_errors += 1
             logger.error(f"[GmailSync] Failed to start: {e}")
             return False
@@ -553,7 +553,7 @@ class GmailSyncService:
             except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = SyncStatus.ERROR
                 if self._state:
-                    self._state.last_error = str(e)
+                    self._state.last_error = "Initial sync failed"
                     self._state.sync_errors += 1
                 logger.error(f"[GmailSync] Initial sync failed: {e}")
                 raise
@@ -660,7 +660,7 @@ class GmailSyncService:
             except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = SyncStatus.ERROR
                 if self._state:
-                    self._state.last_error = str(e)
+                    self._state.last_error = "Incremental sync failed"
                     self._state.sync_errors += 1
                 logger.error(f"[GmailSync] Incremental sync failed: {e}")
                 raise

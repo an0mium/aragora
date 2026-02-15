@@ -106,7 +106,7 @@ class TaskStep(BaseStep):
 
         except Exception as e:
             logger.error(f"Task execution failed: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Task execution failed"}
 
     async def _execute_function(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute a registered function handler."""
@@ -165,7 +165,8 @@ class TaskStep(BaseStep):
         except asyncio.TimeoutError:
             return {"success": False, "error": f"Request timed out after {timeout}s"}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            logger.warning("HTTP task execution failed: %s", e)
+            return {"success": False, "error": "HTTP request failed"}
 
     async def _execute_transform(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute a data transformation."""
