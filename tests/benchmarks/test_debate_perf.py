@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+aragora_debate = pytest.importorskip("aragora_debate", reason="aragora-debate package not installed")
 
 from aragora_debate import Debate, create_agent
 from aragora_debate.receipt import ReceiptBuilder
