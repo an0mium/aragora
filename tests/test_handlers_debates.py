@@ -227,14 +227,14 @@ class TestListDebatesEndpoint:
         result = debates_handler.handle("/api/v1/debates", {"limit": "10"}, None)
 
         assert result.status_code == 200
-        mock_storage.list_recent.assert_called_with(limit=10, org_id=None)
+        mock_storage.list_recent.assert_called_with(limit=10, org_id="test-org-001")
 
     def test_list_caps_limit_at_100(self, debates_handler, mock_storage):
         """Should cap limit at 100."""
         result = debates_handler.handle("/api/v1/debates", {"limit": "500"}, None)
 
         assert result.status_code == 200
-        mock_storage.list_recent.assert_called_with(limit=100, org_id=None)
+        mock_storage.list_recent.assert_called_with(limit=100, org_id="test-org-001")
 
     def test_list_unavailable_returns_503(self):
         """Should return 503 when storage not available."""
