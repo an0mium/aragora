@@ -131,8 +131,8 @@ class TestRateLimiterTokenRefill:
             mock_time.return_value = old_last_refill + 60  # 1 minute later
             rate_limiter._refill()
 
-        # Should have refilled up to burst size
-        assert rate_limiter._tokens == rate_limiter.tier.burst_size
+            # Assert inside mock context since _tokens property triggers _refill()
+            assert rate_limiter._tokens == rate_limiter.tier.burst_size
 
     def test_burst_size_enforcement(self, rate_limiter):
         """Test that tokens don't exceed burst size."""
@@ -199,9 +199,9 @@ class TestRateLimiterTokenRefill:
 
         def acquire_sync():
             try:
-                with rate_limiter._sync_lock:
-                    rate_limiter._tokens -= 1
-                    results.append(rate_limiter._tokens)
+                with rate_limiter._bucket._sync_lock:
+                    rate_limiter._bucket._tokens -= 1
+                    results.append(rate_limiter._bucket._tokens)
             except Exception as e:
                 errors.append(e)
 
@@ -762,10 +762,10 @@ class TestConcurrency:
         lock = threading.Lock()
 
         def acquire_sync():
-            # Synchronous version using the lock directly
-            with limiter._sync_lock:
-                if limiter._tokens >= 1:
-                    limiter._tokens -= 1
+            # Synchronous version using the bucket lock directly
+            with limiter._bucket._sync_lock:
+                if limiter._bucket._tokens >= 1:
+                    limiter._bucket._tokens -= 1
                     with lock:
                         acquired.append(True)
                 else:
