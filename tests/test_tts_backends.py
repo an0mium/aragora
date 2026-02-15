@@ -219,7 +219,9 @@ class TestElevenLabsBackend:
     def test_is_available_with_key_and_module(self, config_with_key):
         """Available when API key set and module installed."""
         backend = ElevenLabsBackend(config_with_key)
-        with patch.dict("sys.modules", {"elevenlabs": MagicMock()}):
+        mock_mod = MagicMock()
+        mock_mod.__spec__ = MagicMock()
+        with patch.dict("sys.modules", {"elevenlabs": mock_mod}):
             assert backend.is_available() is True
 
     def test_is_available_without_key(self, config_without_key):
@@ -420,10 +422,14 @@ class TestXTTSBackend:
     def test_is_available_with_dependencies(self, config):
         """Available when torch and TTS installed."""
         backend = XTTSBackend(config)
-        with patch.dict("sys.modules", {"torch": MagicMock(), "TTS.api": MagicMock()}):
-            with patch("builtins.__import__", return_value=MagicMock()):
-                # Mock the actual import check
-                assert backend.is_available() is True
+        mock_torch = MagicMock()
+        mock_torch.__spec__ = MagicMock()
+        mock_tts_api = MagicMock()
+        mock_tts_api.__spec__ = MagicMock()
+        mock_tts = MagicMock()
+        mock_tts.__path__ = ["/fake/TTS"]
+        with patch.dict("sys.modules", {"torch": mock_torch, "TTS": mock_tts, "TTS.api": mock_tts_api}):
+            assert backend.is_available() is True
 
     def test_is_available_without_torch(self, config):
         """Not available without torch."""
@@ -849,9 +855,11 @@ class TestGetTTSBackend:
             assert isinstance(backend, ElevenLabsBackend)
 
     def test_specific_backend_not_available(self):
-        """Raises RuntimeError when specific backend not available."""
+        """Raises ConfigurationError when specific backend not available."""
+        from aragora.exceptions import ConfigurationError
+
         with patch.object(ElevenLabsBackend, "is_available", return_value=False):
-            with pytest.raises(RuntimeError, match="not available"):
+            with pytest.raises(ConfigurationError, match="not available"):
                 get_tts_backend("elevenlabs")
 
     def test_unknown_backend_raises_value_error(self):
@@ -870,12 +878,14 @@ class TestGetTTSBackend:
                     assert isinstance(backend, EdgeTTSBackend)
 
     def test_no_backends_available_raises(self):
-        """Raises RuntimeError when no backends available."""
+        """Raises ConfigurationError when no backends available."""
+        from aragora.exceptions import ConfigurationError
+
         config = TTSConfig(backend_priority=["elevenlabs", "polly"])
 
         with patch.object(ElevenLabsBackend, "is_available", return_value=False):
             with patch.object(PollyBackend, "is_available", return_value=False):
-                with pytest.raises(RuntimeError, match="No TTS backends available"):
+                with pytest.raises(ConfigurationError, match="No TTS backends available"):
                     get_tts_backend(config=config)
 
 
