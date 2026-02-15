@@ -17,14 +17,21 @@ from aragora.resilience import (
     HealthChecker,
     HealthReport,
 )
+from aragora.resilience.health import ComponentHealthStatus
 
 
 class TestHealthStatus:
-    """Tests for HealthStatus dataclass."""
+    """Tests for HealthStatus enum and ComponentHealthStatus dataclass."""
+
+    def test_health_status_enum_values(self):
+        """Test HealthStatus enum contains expected values."""
+        assert HealthStatus.HEALTHY == "healthy"
+        assert HealthStatus.DEGRADED == "degraded"
+        assert HealthStatus.UNHEALTHY == "unhealthy"
 
     def test_healthy_status(self):
-        """Test creating healthy status."""
-        status = HealthStatus(
+        """Test creating healthy ComponentHealthStatus."""
+        status = ComponentHealthStatus(
             healthy=True,
             last_check=datetime.now(timezone.utc),
         )
@@ -32,8 +39,8 @@ class TestHealthStatus:
         assert status.consecutive_failures == 0
 
     def test_unhealthy_status(self):
-        """Test creating unhealthy status."""
-        status = HealthStatus(
+        """Test creating unhealthy ComponentHealthStatus."""
+        status = ComponentHealthStatus(
             healthy=False,
             last_check=datetime.now(timezone.utc),
             consecutive_failures=3,
@@ -46,7 +53,7 @@ class TestHealthStatus:
     def test_to_dict(self):
         """Test serialization to dict."""
         now = datetime.now(timezone.utc)
-        status = HealthStatus(
+        status = ComponentHealthStatus(
             healthy=True,
             last_check=now,
             latency_ms=15.5,
@@ -212,8 +219,8 @@ class TestHealthReport:
     def test_all_healthy(self):
         """Test report with all healthy components."""
         components = {
-            "comp1": HealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
-            "comp2": HealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
+            "comp1": ComponentHealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
+            "comp2": ComponentHealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
         }
         report = HealthReport(
             components=components,
@@ -227,8 +234,8 @@ class TestHealthReport:
     def test_one_unhealthy(self):
         """Test report with one unhealthy component."""
         components = {
-            "comp1": HealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
-            "comp2": HealthStatus(
+            "comp1": ComponentHealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
+            "comp2": ComponentHealthStatus(
                 healthy=False,
                 last_check=datetime.now(timezone.utc),
                 consecutive_failures=5,
@@ -249,7 +256,7 @@ class TestHealthReport:
         """Test serialization to dict."""
         now = datetime.now(timezone.utc)
         components = {
-            "comp1": HealthStatus(healthy=True, last_check=now),
+            "comp1": ComponentHealthStatus(healthy=True, last_check=now),
         }
         report = HealthReport(
             components=components,
