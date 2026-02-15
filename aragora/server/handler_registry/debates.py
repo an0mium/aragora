@@ -83,6 +83,11 @@ SecurityDebateHandler = _safe_import(
     "aragora.server.handlers.security_debate", "SecurityDebateHandler"
 )
 
+# Template discovery handler
+TemplateDiscoveryHandler = _safe_import(
+    "aragora.server.handlers.template_discovery", "TemplateDiscoveryHandler"
+)
+
 # =============================================================================
 # Debate Handler Registry Entries
 # =============================================================================
@@ -122,6 +127,8 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_gauntlet_heatmap_export_handler", GauntletHeatmapExportHandler),
     # Security debate
     ("_security_debate_handler", SecurityDebateHandler),
+    # Template discovery
+    ("_template_discovery_handler", TemplateDiscoveryHandler),
 ]
 
 __all__ = [
@@ -164,6 +171,7 @@ __all__ = [
     "HybridDebateHandler",
     "EmailDebateHandler",
     "SecurityDebateHandler",
+    "TemplateDiscoveryHandler",
     # Registry
     "DEBATE_HANDLER_REGISTRY",
 ]

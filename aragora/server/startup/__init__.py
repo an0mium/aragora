@@ -281,7 +281,10 @@ async def _run_migrations(os: Any) -> dict[str, Any]:
         env_name = os.environ.get("ARAGORA_ENV", "development").lower()
         should_migrate = env_name in ("development", "dev", "local", "test")
         if should_migrate:
-            logger.info("Auto-migrating in %s environment (set ARAGORA_AUTO_MIGRATE_ON_STARTUP=false to disable)", env_name)
+            logger.info(
+                "Auto-migrating in %s environment (set ARAGORA_AUTO_MIGRATE_ON_STARTUP=false to disable)",
+                env_name,
+            )
     if should_migrate:
         try:
             from aragora.server.auto_migrations import run_auto_migrations
@@ -441,6 +444,25 @@ async def _init_all_components(
     # Knowledge and workflow
     status["knowledge_mound"] = await init_knowledge_mound_from_env()
     status["km_adapters"] = await init_km_adapters()
+
+    # Process any failed KM ingestions from previous runs
+    try:
+        from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
+
+        dlq = IngestionDeadLetterQueue()
+        failed_items = dlq.list_failed(limit=1)
+        if failed_items:
+            logger.info(
+                "Found %d items in KM ingestion dead letter queue",
+                len(dlq.list_failed(limit=100)),
+            )
+        status["ingestion_dlq"] = True
+    except ImportError:
+        logger.debug("Ingestion DLQ module not available")
+        status["ingestion_dlq"] = False
+    except Exception as e:
+        logger.debug(f"Ingestion DLQ check failed: {e}")
+        status["ingestion_dlq"] = False
 
     # Cost tracking (after KM so it can wire the KM adapter)
     try:

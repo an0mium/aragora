@@ -300,10 +300,14 @@ class ParallelInitializer:
         import os
 
         require_db = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
-            "true", "1", "yes",
+            "true",
+            "1",
+            "yes",
         )
         require_redis = os.environ.get("ARAGORA_REQUIRE_REDIS", "").lower() in (
-            "true", "1", "yes",
+            "true",
+            "1",
+            "yes",
         )
 
         # Also implicitly require Redis when distributed state is needed
@@ -330,9 +334,7 @@ class ParallelInitializer:
 
         if failed:
             msg = "; ".join(failed)
-            logger.error(
-                f"[parallel_init] Required backend(s) failed connectivity gate: {msg}"
-            )
+            logger.error(f"[parallel_init] Required backend(s) failed connectivity gate: {msg}")
             if self.graceful_degradation:
                 try:
                     from aragora.server.degraded_mode import DegradedErrorCode, set_degraded

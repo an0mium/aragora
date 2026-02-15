@@ -51,11 +51,22 @@ from .routing import (
     build_suffix_routes,
 )
 from .search import SearchOperationsMixin
+from .decision_package import DecisionPackageHandler
+from .share import (
+    DebateShareHandler,
+    get_public_collectors,
+    get_shared_debates,
+    is_publicly_shared,
+    public_spectate_sse_generator,
+    push_public_spectator_event,
+    set_public_spectate,
+)
 
 __all__ = [
     # Main handlers
     "DebatesHandler",
     "DebateHandler",  # Backward compatibility alias
+    "DecisionPackageHandler",
     "GraphDebatesHandler",
     "MatrixDebatesHandler",
     # Mixins
@@ -88,6 +99,14 @@ __all__ = [
     "ROUTES",
     "SUFFIX_ROUTES",
     "build_suffix_routes",
+    # Share / public spectate
+    "DebateShareHandler",
+    "get_public_collectors",
+    "get_shared_debates",
+    "is_publicly_shared",
+    "public_spectate_sse_generator",
+    "push_public_spectator_event",
+    "set_public_spectate",
     # Utilities
     "_graph_limiter",
 ]

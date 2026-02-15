@@ -121,6 +121,9 @@ StreamingConnectorHandler = _safe_import(
     "aragora.server.handlers.streaming", "StreamingConnectorHandler"
 )
 MarketplaceHandler = _safe_import("aragora.server.handlers", "MarketplaceHandler")
+MarketplaceBrowseHandler = _safe_import(
+    "aragora.server.handlers.marketplace_browse", "MarketplaceBrowseHandler"
+)
 AutomationHandler = _safe_import(
     "aragora.server.handlers.integrations.automation", "AutomationHandler"
 )
@@ -490,6 +493,8 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_plans_handler", PlansHandler),
     # Playground (public demo)
     ("_playground_handler", PlaygroundHandler),
+    # Marketplace browsing
+    ("_marketplace_browse_handler", MarketplaceBrowseHandler),
 ]
 
 __all__ = [
@@ -635,6 +640,8 @@ __all__ = [
     "PlansHandler",
     # Playground
     "PlaygroundHandler",
+    # Marketplace browsing
+    "MarketplaceBrowseHandler",
     # Handler result
     "HandlerResult",
     # Registry

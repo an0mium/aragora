@@ -60,6 +60,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _resolve_template(name: str):
+    """Resolve a deliberation template by name.
+
+    Returns:
+        DeliberationTemplate or None if not found
+    """
+    try:
+        from aragora.deliberation.templates.registry import get_template
+
+        return get_template(name)
+    except (ImportError, RuntimeError):
+        return None
+
+
 def _normalize_documents(value: Any, max_items: int = 50) -> list[str]:
     """Normalize document ID input to a clean list of strings."""
     if not value:
@@ -132,6 +146,7 @@ class DebateRequest:
     enable_verticals: bool = DEFAULT_ENABLE_VERTICALS
     vertical_id: str | None = None
     context: str | None = None  # Optional context for the debate
+    template_name: str | None = None  # Optional deliberation template name
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -188,11 +203,31 @@ class DebateRequest:
             enable_verticals = bool(enable_verticals)
         vertical_id = data.get("vertical_id") or data.get("vertical") or metadata.get("vertical_id")
 
+        # Template support: apply template defaults as fallbacks
+        template_name = data.get("template")
+        if template_name:
+            template = _resolve_template(template_name)
+            if template is None:
+                raise ValueError(f"Unknown template: {template_name}")
+            # Apply template defaults where user hasn't specified values
+            if raw_agents is None and not auto_select and template.default_agents:
+                agents_value = template.default_agents
+            if "rounds" not in data:
+                rounds = template.max_rounds
+            if "consensus" not in data:
+                consensus_val = str(template.consensus_threshold)
+            else:
+                consensus_val = data.get("consensus", DEFAULT_CONSENSUS)
+            # Store template in metadata
+            metadata["template_name"] = template_name
+        else:
+            consensus_val = data.get("consensus", DEFAULT_CONSENSUS)
+
         return cls(
             question=question,
             agents_str=agents_value,
             rounds=rounds,
-            consensus=data.get("consensus", DEFAULT_CONSENSUS),
+            consensus=consensus_val,
             debate_format=data.get("debate_format", "full"),
             auto_select=auto_select,
             auto_select_config=auto_select_config,
@@ -203,6 +238,7 @@ class DebateRequest:
             enable_verticals=enable_verticals,
             vertical_id=vertical_id,
             context=data.get("context"),
+            template_name=template_name,
         )
 
 
@@ -415,9 +451,31 @@ Return JSON with these exact fields:
             return _DEFAULT_CLASSIFICATION
 
     def _quick_classify(self, question: str, debate_id: str) -> None:
-        """Run quick classification and emit event (sync wrapper)."""
+        """Run quick classification and emit event (sync wrapper).
+
+        Also recommends relevant templates based on the question and
+        classification domain, including them in the stream event.
+        """
         try:
             classification = run_async(self._quick_classify_async(question))
+
+            # Auto-recommend templates based on question + domain
+            suggested_templates: list[dict[str, str]] = []
+            try:
+                from aragora.deliberation.templates.registry import _global_registry
+
+                _global_registry._ensure_initialized()
+                domain = classification.get("domain")
+                recommended = _global_registry.recommend(
+                    question=question, domain=domain, limit=3
+                )
+                suggested_templates = [
+                    {"name": t.name, "description": t.description}
+                    for t in recommended
+                ]
+            except (ImportError, RuntimeError, AttributeError) as e:
+                logger.debug(f"Template recommendation failed (non-fatal): {e}")
+
             self.emitter.emit(
                 StreamEvent(
                     type=StreamEventType.QUICK_CLASSIFICATION,
@@ -427,6 +485,7 @@ Return JSON with these exact fields:
                         "complexity": classification.get("complexity", "moderate"),
                         "key_aspects": classification.get("aspects", []),
                         "suggested_approach": classification.get("approach", ""),
+                        "suggested_templates": suggested_templates,
                     },
                     loop_id=debate_id,
                 )
@@ -657,6 +716,7 @@ Return JSON with these exact fields:
                     "total_cost_usd": getattr(result, "total_cost_usd", None) or 0.0,
                     "per_agent_cost": getattr(result, "per_agent_cost", None) or {},
                     "explanation_summary": explanation_text[:500] if explanation_text else "",
+                    "has_plan": getattr(result, "plan", None) is not None,
                 },
             )
 
