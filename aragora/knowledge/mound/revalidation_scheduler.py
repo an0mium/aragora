@@ -369,11 +369,11 @@ async def handle_revalidation_task(
         return result
 
     except (RuntimeError, ValueError, KeyError) as e:
-        logger.warning(f"Revalidation failed for {node_id}: {e}")
-        return {"success": False, "error": str(e)}
+        logger.warning("Revalidation failed for %s: %s", node_id, e)
+        return {"success": False, "error": "Revalidation failed"}
     except Exception as e:
-        logger.exception(f"Unexpected revalidation failure for {node_id}: {e}")
-        return {"success": False, "error": str(e)}
+        logger.exception("Unexpected revalidation failure for %s: %s", node_id, e)
+        return {"success": False, "error": "Unexpected revalidation failure"}
 
 
 async def _revalidate_via_debate(
@@ -481,10 +481,10 @@ async def _revalidate_via_debate(
             "error": f"Debate components not available: {e}",
         }
     except Exception as e:
-        logger.exception(f"Revalidation debate failed: {e}")
+        logger.exception("Revalidation debate failed: %s", e)
         return {
             "success": False,
-            "error": str(e),
+            "error": "Revalidation debate failed",
         }
 
 

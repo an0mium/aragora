@@ -563,11 +563,11 @@ class FederatedQueryAggregator:
             except asyncio.TimeoutError:
                 results[source] = ([], f"Timeout after {self._timeout_seconds}s")
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.debug(f"Query to {source.value} failed with expected error: {e}")
-                results[source] = ([], str(e))
+                logger.debug("Query to %s failed with expected error: %s", source.value, e)
+                results[source] = ([], f"Query failed: {type(e).__name__}")
             except Exception as e:
-                logger.warning(f"Query to {source.value} failed with unexpected error: {e}")
-                results[source] = ([], str(e))
+                logger.warning("Query to %s failed with unexpected error: %s", source.value, e)
+                results[source] = ([], f"Query failed: {type(e).__name__}")
 
         return results
 
@@ -585,13 +585,13 @@ class FederatedQueryAggregator:
                 items = await self._query_single(source, query, limit, **kwargs)
                 results[source] = (items, None)
             except (ConnectionError, OSError, ValueError, RuntimeError, AttributeError) as e:
-                logger.debug(f"Sequential query to {source.value} failed with expected error: {e}")
-                results[source] = ([], str(e))
+                logger.debug("Sequential query to %s failed with expected error: %s", source.value, e)
+                results[source] = ([], f"Query failed: {type(e).__name__}")
             except Exception as e:
                 logger.warning(
-                    f"Sequential query to {source.value} failed with unexpected error: {e}"
+                    "Sequential query to %s failed with unexpected error: %s", source.value, e
                 )
-                results[source] = ([], str(e))
+                results[source] = ([], f"Query failed: {type(e).__name__}")
 
         return results
 

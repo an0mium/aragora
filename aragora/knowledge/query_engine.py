@@ -224,11 +224,11 @@ class DatasetQueryEngine:
             )
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Query processing error: {e}")
-            return self._error_result(ctx, str(e))
+            logger.warning("Query processing error: %s", e)
+            return self._error_result(ctx, "Query processing failed")
         except Exception as e:
-            logger.exception(f"Unexpected query failure: {e}")
-            return self._error_result(ctx, str(e))
+            logger.exception("Unexpected query failure: %s", e)
+            return self._error_result(ctx, "Unexpected query failure")
 
     async def _search_chunks(self, ctx: QueryContext) -> list[ChunkMatch]:
         """Search for relevant chunks."""

@@ -572,9 +572,8 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
                     result["needs_review_count"] += 1
 
             except Exception as e:
-                error_msg = f"Error syncing consensus {consensus.debate_id}: {str(e)}"
-                result["errors"].append(error_msg)
-                logger.warning(error_msg)
+                logger.warning("Error syncing consensus %s: %s", consensus.debate_id, e)
+                result["errors"].append(f"Error syncing consensus {consensus.debate_id}")
 
         result["duration_ms"] = (time.time() - start_time) * 1000
 

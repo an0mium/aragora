@@ -596,11 +596,10 @@ class TricksterAdapter(KnowledgeMoundAdapter):
 
             except Exception as e:
                 result.records_failed += 1
-                error_msg = f"Failed to sync trickster {record.id}: {str(e)}"
-                result.errors.append(error_msg)
-                logger.warning(error_msg)
+                logger.warning("Failed to sync trickster %s: %s", record.id, e)
+                result.errors.append(f"Failed to sync trickster {record.id}")
 
-                record.metadata["km_sync_error"] = str(e)
+                record.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
                 record.metadata["km_sync_failed_at"] = datetime.now().isoformat()
 
         result.duration_ms = (time.time() - start) * 1000

@@ -221,7 +221,7 @@ class FactExtractor:
 
         except Exception as e:
             logger.exception(f"Fact extraction failed for chunk {chunk_id}")
-            result.errors.append(str(e))
+            result.errors.append("Fact extraction failed")
 
         end_time = datetime.now()
         result.extraction_time_ms = (end_time - start_time).total_seconds() * 1000

@@ -504,9 +504,8 @@ class FusionMixin:
                     result["items_skipped"] += 1
 
             except Exception as e:
-                error_msg = f"Error fusing item {item_id}: {str(e)}"
-                logger.warning(f"[{self.adapter_name}] {error_msg}")
-                result["errors"].append(error_msg)
+                logger.warning("[%s] Error fusing item %s: %s", self.adapter_name, item_id, e)
+                result["errors"].append(f"Error fusing item {item_id}")
 
         # Calculate duration
         result["duration_ms"] = (time.time() - start_time) * 1000

@@ -337,13 +337,13 @@ class KnowledgeFederationMixin:
 
         except Exception as e:
             # Update sync status with error
-            await self._update_region_sync_status(region_id, "push", 0, str(e))
-            logger.error(f"Failed to sync to region {region_id}: {e}")
+            logger.warning("Failed to sync to region %s: %s", region_id, e)
+            await self._update_region_sync_status(region_id, "push", 0, "Push sync failed")
             return SyncResult(
                 region_id=region_id,
                 direction="push",
                 success=False,
-                error=str(e),
+                error="Push sync failed",
             )
 
     async def pull_from_region(
@@ -441,13 +441,13 @@ class KnowledgeFederationMixin:
 
         except Exception as e:
             # Update sync status with error
-            await self._update_region_sync_status(region_id, "pull", 0, str(e))
-            logger.error(f"Failed to pull from region {region_id}: {e}")
+            logger.warning("Failed to pull from region %s: %s", region_id, e)
+            await self._update_region_sync_status(region_id, "pull", 0, "Pull sync failed")
             return SyncResult(
                 region_id=region_id,
                 direction="pull",
                 success=False,
-                error=str(e),
+                error="Pull sync failed",
             )
 
     async def sync_all_regions(

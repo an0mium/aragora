@@ -295,7 +295,7 @@ class KMMetrics:
             yield
         except Exception as e:
             success = False
-            error = str(e)
+            error = f"Operation failed: {type(e).__name__}"
             raise
         finally:
             latency_ms = (time.time() - start) * 1000

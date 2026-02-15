@@ -652,12 +652,11 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
 
             except Exception as e:
                 result.records_failed += 1
-                error_msg = f"Failed to sync consensus {record.id}: {str(e)}"
-                result.errors.append(error_msg)
-                logger.warning(error_msg)
+                logger.warning("Failed to sync consensus %s: %s", record.id, e)
+                result.errors.append(f"Failed to sync consensus {record.id}")
 
                 # Mark as failed but keep pending for retry
-                record.metadata["km_sync_error"] = str(e)
+                record.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
                 record.metadata["km_sync_failed_at"] = datetime.now().isoformat()
 
         result.duration_ms = (time.time() - start) * 1000
@@ -761,8 +760,8 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowl
                 )
 
             except Exception as e:
-                result["errors"].append(f"Failed to update {source_id}: {str(e)}")
-                logger.warning(f"Reverse sync failed for consensus {source_id}: {e}")
+                logger.warning("Reverse sync failed for consensus %s: %s", source_id, e)
+                result["errors"].append(f"Failed to update {source_id}")
 
         duration_ms = (time.time() - start_time) * 1000
 

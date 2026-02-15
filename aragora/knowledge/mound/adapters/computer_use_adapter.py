@@ -760,8 +760,8 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 }
 
             except Exception as e:
-                logger.error(f"Failed to get policy block analysis: {e}")
-                return {"analysis_available": False, "error": str(e)}
+                logger.warning("Failed to get policy block analysis: %s", e)
+                return {"analysis_available": False, "error": "Policy block analysis unavailable"}
 
     def _generate_policy_recommendations(
         self,
@@ -839,8 +839,8 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
                 return synced
 
             except Exception as e:
-                logger.error(f"Failed to sync from orchestrator: {e}")
-                return {"error": str(e)}
+                logger.warning("Failed to sync from orchestrator: %s", e)
+                return {"error": "Orchestrator sync failed"}
 
     # =========================================================================
     # Stats and Health

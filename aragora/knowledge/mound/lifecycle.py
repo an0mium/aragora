@@ -510,7 +510,7 @@ class LifecycleManager:
                 report["errors"].append(
                     {
                         "knowledge_id": knowledge_id,
-                        "error": str(e),
+                        "error": "Lifecycle evaluation failed",
                     }
                 )
 

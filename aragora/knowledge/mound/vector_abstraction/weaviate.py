@@ -477,7 +477,7 @@ class WeaviateVectorStore(BaseVectorStore):
             return {
                 "status": "unhealthy",
                 "backend": "weaviate",
-                "error": str(e),
+                "error": "Health check failed",
             }
 
     # -------------------------------------------------------------------------

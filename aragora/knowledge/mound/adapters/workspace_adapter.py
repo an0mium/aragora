@@ -816,8 +816,8 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 }
 
             except Exception as e:
-                logger.error(f"Failed to get merge success factors: {e}")
-                return {"analysis_available": False, "error": str(e)}
+                logger.warning("Failed to get merge success factors: %s", e)
+                return {"analysis_available": False, "error": "Merge success analysis unavailable"}
 
     # =========================================================================
     # Sync from Workspace Manager
@@ -889,8 +889,8 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
                 return synced
 
             except Exception as e:
-                logger.error(f"Failed to sync from workspace: {e}")
-                return {"error": str(e)}
+                logger.warning("Failed to sync from workspace: %s", e)
+                return {"error": "Workspace sync failed"}
 
     # =========================================================================
     # Stats and Health

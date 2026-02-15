@@ -583,4 +583,5 @@ class MilvusVectorStore(BaseVectorStore):
                 "row_count": stats.get("row_count", 0),
             }
         except Exception as e:
-            return {"status": "unhealthy", "error": str(e)}
+            logger.warning("Milvus health check failed: %s", e)
+            return {"status": "unhealthy", "error": "Health check failed"}

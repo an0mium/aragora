@@ -213,13 +213,15 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
                         synced += 1
                     except Exception as e:
                         failed += 1
-                        errors.append(str(e))
+                        logger.warning("Obsidian note ingestion failed: %s", e)
+                        errors.append("Note ingestion failed")
 
                     if max_notes is not None and (synced + skipped + failed) >= max_notes:
                         break
 
         except Exception as e:
-            errors.append(str(e))
+            logger.warning("Obsidian sync failed: %s", e)
+            errors.append("Obsidian sync failed")
 
         duration_ms = (time.time() - start_time) * 1000
         self._emit_event(

@@ -870,8 +870,8 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 }
 
             except Exception as e:
-                logger.error(f"Failed to get budget forecast: {e}")
-                return {"forecast_available": False, "error": str(e)}
+                logger.warning("Failed to get budget forecast: %s", e)
+                return {"forecast_available": False, "error": "Budget forecast unavailable"}
 
     # =========================================================================
     # Sync from Fabric
@@ -958,8 +958,8 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 return synced
 
             except Exception as e:
-                logger.error(f"Failed to sync from fabric: {e}")
-                return {"error": str(e)}
+                logger.warning("Failed to sync from fabric: %s", e)
+                return {"error": "Fabric sync failed"}
 
     # =========================================================================
     # Stats and Health

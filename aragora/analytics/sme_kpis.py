@@ -155,8 +155,8 @@ def get_sme_kpis(
             try:
                 ws = cost_tracker.get_workspace_stats(org_id)
                 api_calls = ws.get("total_api_calls", 0)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to get workspace API call stats for %s: %s", org_id, e)
         kpis.total_debates = max(1, api_calls // 10) if api_calls > 0 else 0
 
     # Cost per decision

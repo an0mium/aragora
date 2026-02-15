@@ -279,20 +279,20 @@ class KnowledgeMoundMigrator:
 
                 except Exception as e:
                     result.error_count += 1
+                    logger.warning("Failed to migrate entry %s: %s", entry.id, e)
                     result.errors.append(
                         {
                             "entry_id": entry.id,
-                            "error": str(e),
+                            "error": "Migration failed for entry",
                         }
                     )
-                    logger.warning(f"Failed to migrate entry {entry.id}: {e}")
 
             result.duration_seconds = time.time() - start_time
             result.completed_at = datetime.now()
 
         except Exception as e:
-            logger.error(f"Migration failed: {e}")
-            result.errors.append({"error": str(e), "fatal": True})
+            logger.warning("Migration failed: %s", e)
+            result.errors.append({"error": "Migration failed", "fatal": True})
 
         return result
 
@@ -461,20 +461,20 @@ class KnowledgeMoundMigrator:
 
                 except Exception as e:
                     result.error_count += 1
+                    logger.warning("Failed to migrate consensus %s: %s", record.id, e)
                     result.errors.append(
                         {
                             "record_id": record.id,
-                            "error": str(e),
+                            "error": "Migration failed for consensus record",
                         }
                     )
-                    logger.warning(f"Failed to migrate consensus {record.id}: {e}")
 
             result.duration_seconds = time.time() - start_time
             result.completed_at = datetime.now()
 
         except Exception as e:
-            logger.error(f"Consensus migration failed: {e}")
-            result.errors.append({"error": str(e), "fatal": True})
+            logger.warning("Consensus migration failed: %s", e)
+            result.errors.append({"error": "Consensus migration failed", "fatal": True})
 
         return result
 

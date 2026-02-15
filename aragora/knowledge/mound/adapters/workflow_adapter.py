@@ -324,7 +324,7 @@ class WorkflowAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowle
                 error_msg = f"Failed to sync workflow {outcome.workflow_id}: {e}"
                 errors.append(error_msg)
                 logger.warning(error_msg)
-                outcome.metadata["km_sync_error"] = str(e)
+                outcome.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
 
         synced_ids = {o.workflow_id for o in pending if o.metadata.get("km_sync_pending") is False}
         self._pending_outcomes = [

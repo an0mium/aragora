@@ -166,7 +166,7 @@ class SyncOperationsMixin(_SyncMixinBase):
                         or req.metadata.get("pattern_id")
                         or "unknown"
                     )
-                    return (False, False, 0, f"{item_id}: {str(e)}")
+                    return (False, False, 0, f"{item_id}: ingestion failed")
 
             # Execute batch concurrently
             results = await asyncio.gather(
@@ -258,8 +258,8 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                 except Exception as e:
                     nodes_skipped += 1
-                    errors.append(f"continuum:{entry.id}: {str(e)}")
-                    logger.warning(f"Failed to create request for continuum entry {entry.id}: {e}")
+                    logger.warning("Failed to create request for continuum entry %s: %s", entry.id, e)
+                    errors.append(f"continuum:{entry.id}: request creation failed")
 
             # Batch store all requests
             if requests:
@@ -272,8 +272,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                 errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"continuum:retrieve: {str(e)}")
-            logger.error(f"Failed to retrieve continuum entries: {e}")
+            logger.warning("Failed to retrieve continuum entries: %s", e)
+            errors.append("continuum:retrieve: retrieval failed")
 
         return SyncResult(
             source="continuum",
@@ -384,10 +384,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                     except Exception as e:
                         nodes_skipped += 1
-                        errors.append(f"consensus:{row[0]}: {str(e)}")
                         logger.warning(
-                            f"Failed to create request for consensus record {row[0]}: {e}"
+                            "Failed to create request for consensus record %s: %s", row[0], e
                         )
+                        errors.append(f"consensus:{row[0]}: request creation failed")
 
                 # Batch store all requests
                 if requests:
@@ -401,8 +401,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                     errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"consensus:query: {str(e)}")
-            logger.error(f"Failed to query consensus records: {e}")
+            logger.warning("Failed to query consensus records: %s", e)
+            errors.append("consensus:query: query failed")
 
         return SyncResult(
             source="consensus",
@@ -488,8 +488,8 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                     except Exception as e:
                         nodes_skipped += 1
-                        errors.append(f"facts:{fact.id}: {str(e)}")
-                        logger.warning(f"Failed to create request for fact {fact.id}: {e}")
+                        logger.warning("Failed to create request for fact %s: %s", fact.id, e)
+                        errors.append(f"facts:{fact.id}: request creation failed")
 
                 # Batch store all requests
                 if requests:
@@ -503,8 +503,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                     errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"facts:query: {str(e)}")
-            logger.error(f"Failed to query facts: {e}")
+            logger.warning("Failed to query facts: %s", e)
+            errors.append("facts:query: query failed")
 
         return SyncResult(
             source="facts",
@@ -579,8 +579,8 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                     except Exception as e:
                         nodes_skipped += 1
-                        errors.append(f"evidence:{ev.id}: {str(e)}")
-                        logger.warning(f"Failed to create request for evidence {ev.id}: {e}")
+                        logger.warning("Failed to create request for evidence %s: %s", ev.id, e)
+                        errors.append(f"evidence:{ev.id}: request creation failed")
 
                 # Batch store all requests
                 if requests:
@@ -594,8 +594,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                     errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"evidence:search: {str(e)}")
-            logger.error(f"Failed to search evidence: {e}")
+            logger.warning("Failed to search evidence: %s", e)
+            errors.append("evidence:search: search failed")
 
         return SyncResult(
             source="evidence",
@@ -674,10 +674,10 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                     except Exception as e:
                         nodes_skipped += 1
-                        errors.append(f"critique:{pattern.id}: {str(e)}")
                         logger.warning(
-                            f"Failed to create request for critique pattern {pattern.id}: {e}"
+                            "Failed to create request for critique pattern %s: %s", pattern.id, e
                         )
+                        errors.append(f"critique:{pattern.id}: request creation failed")
 
                 # Batch store all requests
                 if requests:
@@ -691,8 +691,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                     errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"critique:search: {str(e)}")
-            logger.error(f"Failed to search critique patterns: {e}")
+            logger.warning("Failed to search critique patterns: %s", e)
+            errors.append("critique:search: search failed")
 
         return SyncResult(
             source="critique",
@@ -848,7 +848,8 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                 except Exception as e:
                     nodes_skipped += 1
-                    errors.append(f"continuum:{entry.id}: {str(e)}")
+                    logger.warning("Failed to create request for continuum entry %s: %s", entry.id, e)
+                    errors.append(f"continuum:{entry.id}: request creation failed")
 
             # Batch store all requests using concurrent processing
             if requests:
@@ -861,7 +862,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                 errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"continuum:retrieve: {str(e)}")
+            logger.warning("Failed to retrieve continuum entries: %s", e)
+            errors.append("continuum:retrieve: retrieval failed")
 
         return SyncResult(
             source="continuum",
@@ -987,7 +989,8 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                     except Exception as e:
                         nodes_skipped += 1
-                        errors.append(f"consensus:{row[0]}: {str(e)}")
+                        logger.warning("Failed to create request for consensus record %s: %s", row[0], e)
+                        errors.append(f"consensus:{row[0]}: request creation failed")
 
                 # Batch store all requests using concurrent processing
                 if requests:
@@ -1001,7 +1004,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                     errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"consensus:query: {str(e)}")
+            logger.warning("Failed to query consensus records: %s", e)
+            errors.append("consensus:query: query failed")
 
         return SyncResult(
             source="consensus",
@@ -1110,7 +1114,8 @@ class SyncOperationsMixin(_SyncMixinBase):
 
                     except Exception as e:
                         nodes_skipped += 1
-                        errors.append(f"facts:{fact.id}: {str(e)}")
+                        logger.warning("Failed to create request for fact %s: %s", fact.id, e)
+                        errors.append(f"facts:{fact.id}: request creation failed")
 
                 # Batch store all requests using concurrent processing
                 if requests:
@@ -1124,7 +1129,8 @@ class SyncOperationsMixin(_SyncMixinBase):
                     errors.extend(batch_errors)
 
         except Exception as e:
-            errors.append(f"facts:query: {str(e)}")
+            logger.warning("Failed to query facts: %s", e)
+            errors.append("facts:query: query failed")
 
         return SyncResult(
             source="facts",

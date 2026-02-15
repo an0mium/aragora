@@ -319,12 +319,12 @@ class KnowledgeMound:
             )
 
         except Exception as e:
-            logger.error(f"Failed to store knowledge item: {e}")
+            logger.warning("Failed to store knowledge item: %s", e)
             return StoreResult(
                 id=item_id,
                 source=source_type,
                 success=False,
-                message=str(e),
+                message="Failed to store knowledge item",
             )
 
     async def link(
@@ -381,8 +381,8 @@ class KnowledgeMound:
             return LinkResult(id=link_id, success=True)
 
         except Exception as e:
-            logger.error(f"Failed to create link: {e}")
-            return LinkResult(id=link_id, success=False, message=str(e))
+            logger.warning("Failed to create link: %s", e)
+            return LinkResult(id=link_id, success=False, message="Failed to create link")
 
     async def get_links(
         self,

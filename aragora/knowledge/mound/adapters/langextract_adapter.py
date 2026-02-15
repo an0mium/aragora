@@ -207,8 +207,8 @@ class LangExtractAdapter(KnowledgeMoundAdapter):
                 self._fact_store[fact.fact_id] = fact
 
         except Exception as e:
-            logger.error("extraction_failed doc=%s error=%s", document_path, e)
-            error = str(e)
+            logger.warning("extraction_failed doc=%s error=%s", document_path, e)
+            error = f"Extraction failed: {type(e).__name__}"
 
         duration_ms = (time.time() - start_time) * 1000
         result = ExtractionResult(

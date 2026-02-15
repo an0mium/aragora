@@ -128,7 +128,8 @@ class DebateTrace:
             )
             object.__setattr__(self, "_checksum_dirty", False)
             object.__setattr__(self, "_last_event_count", current_count)
-        assert self._cached_checksum is not None  # Set above when _checksum_dirty
+        if self._cached_checksum is None:  # pragma: no cover – unreachable after block above
+            raise RuntimeError("_cached_checksum was not set during checksum computation")
         return self._cached_checksum
 
     @property

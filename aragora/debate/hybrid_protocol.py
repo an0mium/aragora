@@ -259,7 +259,10 @@ class HybridDebateProtocol:
                 # gather with return_exceptions=True wraps unexpected errors
                 continue
             # result is tuple[str, bool] after BaseException check
-            assert isinstance(result, tuple)
+            if not isinstance(result, tuple):
+                raise TypeError(
+                    f"Expected tuple from health check, got {type(result).__name__}"
+                )
             name, available = result
             health[name] = available
 

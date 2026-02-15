@@ -144,7 +144,7 @@ class ResilientAdapterMixin:
             raise
         except Exception as e:
             if self._circuit_breaker:
-                self._circuit_breaker.record_failure(str(e))
+                self._circuit_breaker.record_failure(f"Failed: {type(e).__name__}")
             raise
         finally:
             # Record SLO metrics

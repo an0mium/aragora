@@ -238,8 +238,8 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                     knowledge_item_ids.append(item_id)
                     records_ingested += 1
             except Exception as e:
-                errors.append(f"Failed to ingest record {record.id}: {str(e)[:100]}")
-                logger.warning(f"Record ingestion failed: {e}")
+                logger.warning("Record ingestion failed for %s: %s", record.id, e)
+                errors.append(f"Failed to ingest record {record.id}")
 
         # 2. Ingest citations
         for citation in manager.graph.citations.values():
@@ -278,8 +278,8 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                         logger.debug("Failed to create evidence-claim relationship: %s", e)
 
             except Exception as e:
-                errors.append(f"Failed to ingest citation: {str(e)[:100]}")
-                logger.warning(f"Citation ingestion failed: {e}")
+                logger.warning("Citation ingestion failed: %s", e)
+                errors.append("Failed to ingest citation")
 
         # 3. Create chain summary item
         try:
@@ -301,7 +301,8 @@ class ProvenanceAdapter(KnowledgeMoundAdapter):
                         except Exception as e:
                             logger.debug("Failed to create summary-record relationship: %s", e)
         except Exception as e:
-            errors.append(f"Failed to create chain summary: {str(e)[:100]}")
+            logger.warning("Failed to create chain summary: %s", e)
+            errors.append("Failed to create chain summary")
 
         result = ProvenanceIngestionResult(
             chain_id=manager.chain.chain_id,

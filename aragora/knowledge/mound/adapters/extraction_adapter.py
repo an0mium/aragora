@@ -366,7 +366,8 @@ class ExtractionAdapter(KnowledgeMoundAdapter):
                     )
                 except Exception as e:
                     failed_ids.append(debate["debate_id"])
-                    errors.append(f"{debate['debate_id']}: {str(e)}")
+                    logger.warning("Extraction failed for debate %s: %s", debate["debate_id"], e)
+                    errors.append(f"{debate['debate_id']}: extraction failed")
                     return None
 
         # Process all debates

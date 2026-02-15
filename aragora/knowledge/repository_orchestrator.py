@@ -270,8 +270,8 @@ class RepositoryOrchestrator:
 
         except Exception as e:
             progress.status = "failed"
-            progress.error = str(e)
-            logger.error(f"Repository indexing failed: {e}")
+            progress.error = f"Indexing failed: {type(e).__name__}"
+            logger.warning("Repository indexing failed: %s", e)
 
             completed_at = datetime.now(timezone.utc)
             duration_ms = (completed_at - start_time).total_seconds() * 1000
@@ -284,7 +284,7 @@ class RepositoryOrchestrator:
                 nodes_created=0,
                 relationships_created=0,
                 symbols_indexed=0,
-                errors=[str(e)],
+                errors=["Repository indexing failed"],
                 warnings=warnings,
                 duration_ms=duration_ms,
                 started_at=start_time,
@@ -580,5 +580,5 @@ class RepositoryOrchestrator:
                 "repository_name": repository_name,
                 "workspace_id": workspace_id,
                 "indexed": False,
-                "error": str(e),
+                "error": "Failed to get repository stats",
             }

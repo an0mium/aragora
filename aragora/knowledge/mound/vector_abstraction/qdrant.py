@@ -518,7 +518,7 @@ class QdrantVectorStore(BaseVectorStore):
             return {
                 "status": "unhealthy",
                 "backend": "qdrant",
-                "error": str(e),
+                "error": "Health check failed",
             }
 
     # -------------------------------------------------------------------------

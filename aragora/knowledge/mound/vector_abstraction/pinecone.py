@@ -417,4 +417,5 @@ class PineconeVectorStore(BaseVectorStore):
                 "namespaces": list(stats.namespaces.keys()),
             }
         except Exception as e:
-            return {"status": "unhealthy", "error": str(e)}
+            logger.warning("Pinecone health check failed: %s", e)
+            return {"status": "unhealthy", "error": "Health check failed"}

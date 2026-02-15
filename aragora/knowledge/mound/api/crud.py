@@ -253,7 +253,7 @@ class CRUDOperationsMixin(_CRUDMixinBase):
                     span.add_event("semantic_indexed")
                 except Exception as e:
                     logger.warning(f"Failed to index in semantic store: {e}")
-                    span.add_event("semantic_index_failed", {"error": str(e)})
+                    span.add_event("semantic_index_failed", {"error": "Semantic indexing failed"})
 
             # Create relationships
             relationships_created = 0

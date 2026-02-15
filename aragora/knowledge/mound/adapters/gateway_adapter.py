@@ -794,8 +794,8 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 }
 
             except Exception as e:
-                logger.error(f"Failed to get device capabilities analysis: {e}")
-                return {"analysis_available": False, "error": str(e)}
+                logger.warning("Failed to get device capabilities analysis: %s", e)
+                return {"analysis_available": False, "error": "Device capabilities analysis unavailable"}
 
     # =========================================================================
     # Sync from Gateway
@@ -860,8 +860,8 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                 return synced
 
             except Exception as e:
-                logger.error(f"Failed to sync from gateway: {e}")
-                return {"error": str(e)}
+                logger.warning("Failed to sync from gateway: %s", e)
+                return {"error": "Gateway sync failed"}
 
     # =========================================================================
     # Stats and Health

@@ -373,8 +373,8 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
                 return SyncOutcomeResult(success=False, error=result.error)
 
         except Exception as e:
-            logger.error(f"Failed to sync debate outcome: {e}")
-            return SyncOutcomeResult(success=False, error=str(e))
+            logger.warning("Failed to sync debate outcome: %s", e)
+            return SyncOutcomeResult(success=False, error="Debate outcome sync failed")
 
     async def search_memories(
         self,
@@ -488,7 +488,7 @@ class SupermemoryAdapter(SemanticSearchMixin, KnowledgeMoundAdapter):
         except Exception as e:
             return {
                 "healthy": False,
-                "error": str(e),
+                "error": "Health check failed",
                 "adapter": self.adapter_name,
             }
 

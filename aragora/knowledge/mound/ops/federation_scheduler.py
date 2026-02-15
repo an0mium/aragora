@@ -526,13 +526,13 @@ class FederationScheduler:
 
         except Exception as e:
             run.status = "error"
-            run.error_message = str(e)
+            run.error_message = f"Federation sync failed: {type(e).__name__}"
             run.completed_at = datetime.now()
             run.duration_ms = int((run.completed_at - run.started_at).total_seconds() * 1000)
 
             schedule.error_count += 1
             schedule.consecutive_errors += 1
-            schedule.last_result = {"status": "error", "error": str(e)}
+            schedule.last_result = {"status": "error", "error": "Federation sync failed"}
 
             logger.error(f"Federation sync failed: {e}")
 

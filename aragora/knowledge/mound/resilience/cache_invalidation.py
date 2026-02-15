@@ -73,11 +73,11 @@ class CacheInvalidationBus:
             try:
                 await subscriber(event)
             except (ValueError, TypeError, RuntimeError, AttributeError) as e:
-                errors.append(str(e))
-                logger.warning(f"Cache invalidation subscriber error (expected): {e}")
+                logger.warning("Cache invalidation subscriber error (expected): %s", e)
+                errors.append("Subscriber notification failed")
             except Exception as e:
-                errors.append(str(e))
-                logger.exception(f"Cache invalidation subscriber error (unexpected): {e}")
+                logger.exception("Cache invalidation subscriber error (unexpected): %s", e)
+                errors.append("Subscriber notification failed")
 
         if errors:
             logger.warning(f"Cache invalidation had {len(errors)} subscriber errors")

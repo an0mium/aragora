@@ -93,7 +93,7 @@ class AdapterCircuitBreaker:
                 breaker.record_success()
                 return result
             except Exception as e:
-                breaker.record_failure(str(e))
+                breaker.record_failure(f"Failed: {type(e).__name__}")
                 raise
     """
 
@@ -330,7 +330,7 @@ class AdapterCircuitBreaker:
                 self._half_open_calls -= 1
             raise
         except Exception as e:
-            self.record_failure(str(e))
+            self.record_failure(f"Failed: {type(e).__name__}")
             raise
 
 

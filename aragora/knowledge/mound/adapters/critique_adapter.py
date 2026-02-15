@@ -597,7 +597,8 @@ class CritiqueAdapter(KnowledgeMoundAdapter):
                 f"+{validation.boost_amount} successes"
             )
         except Exception as e:
-            boost.metadata["error"] = str(e)
+            logger.warning("KM boost application failed: %s", e)
+            boost.metadata["error"] = f"Boost failed: {type(e).__name__}"
 
         return boost
 

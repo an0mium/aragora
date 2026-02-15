@@ -477,7 +477,7 @@ class ChromaVectorStore(BaseVectorStore):
             return {
                 "status": "unhealthy",
                 "backend": "chroma",
-                "error": str(e),
+                "error": "Health check failed",
             }
 
     # -------------------------------------------------------------------------

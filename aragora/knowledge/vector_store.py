@@ -787,10 +787,11 @@ class KnowledgeVectorStore:
                 "node_count": node_count,
             }
         except (RuntimeError, ConnectionError, TimeoutError) as e:
-            return {"healthy": False, "error": str(e)}
+            logger.warning("Health check failed: %s", e)
+            return {"healthy": False, "error": "Health check failed"}
         except Exception as e:
-            logger.exception(f"Unexpected error in health check: {e}")
-            return {"healthy": False, "error": str(e)}
+            logger.exception("Unexpected error in health check: %s", e)
+            return {"healthy": False, "error": "Health check failed"}
 
     @staticmethod
     def _parse_ids(ids_string: str) -> list[str]:

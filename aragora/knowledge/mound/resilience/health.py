@@ -96,17 +96,17 @@ class ConnectionHealthMonitor:
                 healthy=self._status.consecutive_failures < self._failure_threshold,
                 last_check=datetime.now(timezone.utc),
                 consecutive_failures=self._status.consecutive_failures + 1,
-                last_error=str(e),
+                last_error=f"Failed: {type(e).__name__}",
             )
-            logger.debug(f"Health check failed with expected error: {e}")
+            logger.debug("Health check failed with expected error: %s", e)
         except Exception as e:
             self._status = HealthStatus(
                 healthy=self._status.consecutive_failures < self._failure_threshold,
                 last_check=datetime.now(timezone.utc),
                 consecutive_failures=self._status.consecutive_failures + 1,
-                last_error=str(e),
+                last_error=f"Failed: {type(e).__name__}",
             )
-            logger.warning(f"Health check failed with unexpected error: {e}")
+            logger.warning("Health check failed with unexpected error: %s", e)
 
         return self._status
 

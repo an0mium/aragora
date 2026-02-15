@@ -200,7 +200,7 @@ class DecisionPlanAdapter(KnowledgeMoundAdapter):
 
         except Exception as e:
             logger.warning("Plan ingestion failed: %s", e)
-            errors.append(str(e))
+            errors.append("Plan ingestion failed")
 
         result.errors = errors
         return result

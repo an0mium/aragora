@@ -193,12 +193,12 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
                     except Exception as e:
                         failed += 1
-                        errors.append(f"Agent {agent_id}: {str(e)}")
-                        logger.warning(f"Failed to sync agent {agent_id}: {e}")
+                        logger.warning("Failed to sync agent %s: %s", agent_id, e)
+                        errors.append(f"Agent {agent_id}: sync failed")
 
         except Exception as e:
-            errors.append(f"Sync failed: {str(e)}")
-            logger.error(f"sync_to_km failed: {e}")
+            logger.warning("sync_to_km failed: %s", e)
+            errors.append("Sync failed")
 
         duration_ms = (time.time() - start_time) * 1000
         return SyncResult(
@@ -301,8 +301,8 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     errors.extend(receipt_result["errors"])
 
         except Exception as e:
-            errors.append(f"Reverse sync failed: {str(e)}")
-            logger.error(f"sync_from_km failed: {e}")
+            logger.warning("sync_from_km failed: %s", e)
+            errors.append("Reverse sync failed")
 
         duration_ms = (time.time() - start_time) * 1000
         return ValidationSyncResult(
@@ -504,14 +504,12 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     updated += 1
 
                 except Exception as e:
-                    error_msg = f"Failed to push reputation for {agent_id}: {str(e)}"
-                    errors.append(error_msg)
-                    logger.warning(error_msg)
+                    logger.warning("Failed to push reputation for %s: %s", agent_id, e)
+                    errors.append(f"Failed to push reputation for {agent_id}")
 
             except Exception as e:
-                error_msg = f"Error processing agent {agent_id}: {str(e)}"
-                errors.append(error_msg)
-                logger.warning(error_msg)
+                logger.warning("Error processing agent %s: %s", agent_id, e)
+                errors.append(f"Error processing agent {agent_id}")
 
         return {
             "analyzed": analyzed,
@@ -648,11 +646,8 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                     updated += 1
 
                 except Exception as e:
-                    error_msg = (
-                        f"Failed to push calibration for {agent_id}: {str(e)}"
-                    )
-                    errors.append(error_msg)
-                    logger.warning(error_msg)
+                    logger.warning("Failed to push calibration for %s: %s", agent_id, e)
+                    errors.append(f"Failed to push calibration for {agent_id}")
 
                 # Push per-domain calibration scores
                 domains = stats.get("domains", {})
@@ -692,9 +687,8 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                         )
 
             except Exception as e:
-                error_msg = f"Error processing calibration for {agent_id}: {str(e)}"
-                errors.append(error_msg)
-                logger.warning(error_msg)
+                logger.warning("Error processing calibration for %s: %s", agent_id, e)
+                errors.append(f"Error processing calibration for {agent_id}")
 
         return {
             "analyzed": analyzed,
@@ -777,7 +771,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
 
             except Exception as e:
                 result["status"] = "local_only"
-                result["error"] = str(e)
+                result["error"] = f"On-chain commitment failed: {type(e).__name__}"
                 logger.warning(
                     f"On-chain commitment failed for {agent_id}, "
                     f"recording locally: {e}"
@@ -946,17 +940,17 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
                         updated += 1
 
                     except Exception as e:
-                        error_msg = (
-                            f"Failed to push validation for receipt {receipt_id}, "
-                            f"agent {agent_id}: {str(e)}"
+                        logger.warning(
+                            "Failed to push validation for receipt %s, agent %s: %s",
+                            receipt_id, agent_id, e,
                         )
-                        errors.append(error_msg)
-                        logger.warning(error_msg)
+                        errors.append(
+                            f"Failed to push validation for receipt {receipt_id}, agent {agent_id}"
+                        )
 
             except Exception as e:
-                error_msg = f"Error processing receipt {receipt_id}: {str(e)}"
-                errors.append(error_msg)
-                logger.warning(error_msg)
+                logger.warning("Error processing receipt %s: %s", receipt_id, e)
+                errors.append(f"Error processing receipt {receipt_id}")
 
         return {
             "analyzed": analyzed,
@@ -987,7 +981,7 @@ class ERC8004Adapter(KnowledgeMoundAdapter):
             return {
                 "adapter": self.adapter_name,
                 "connected": False,
-                "error": str(e),
+                "error": "Health check failed",
             }
 
 

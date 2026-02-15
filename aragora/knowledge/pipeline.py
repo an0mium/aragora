@@ -416,7 +416,7 @@ class KnowledgePipeline:
             )
 
         except Exception as e:
-            logger.error(f"Document processing failed: {e}")
+            logger.warning("Document processing failed: %s", e)
             duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
             return ProcessingResult(
@@ -429,7 +429,7 @@ class KnowledgePipeline:
                 total_tokens=0,
                 duration_ms=duration_ms,
                 success=False,
-                error=str(e),
+                error="Document processing failed",
             )
 
     async def process_text(
@@ -524,7 +524,7 @@ class KnowledgePipeline:
             )
 
         except Exception as e:
-            logger.error(f"Text processing failed: {e}")
+            logger.warning("Text processing failed: %s", e)
             duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
             return ProcessingResult(
@@ -537,7 +537,7 @@ class KnowledgePipeline:
                 total_tokens=0,
                 duration_ms=duration_ms,
                 success=False,
-                error=str(e),
+                error="Text processing failed",
             )
 
     async def process_batch(

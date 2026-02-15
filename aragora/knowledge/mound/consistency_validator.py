@@ -370,7 +370,7 @@ class ConsistencyValidator:
                 )
 
         except Exception as e:
-            logger.error(f"Referential integrity check failed: {e}")
+            logger.warning("Referential integrity check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.REFERENTIAL,
                 passed=False,
@@ -378,7 +378,7 @@ class ConsistencyValidator:
                 issues_found=len(issues),
                 issues=issues,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
-                error=str(e),
+                error="Referential integrity check failed",
             )
 
         return ConsistencyCheckResult(
@@ -460,7 +460,7 @@ class ConsistencyValidator:
                         )
 
         except Exception as e:
-            logger.error(f"Content validation check failed: {e}")
+            logger.warning("Content validation check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.CONTENT,
                 passed=False,
@@ -468,7 +468,7 @@ class ConsistencyValidator:
                 issues_found=len(issues),
                 issues=issues,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
-                error=str(e),
+                error="Content validation check failed",
             )
 
         return ConsistencyCheckResult(
@@ -544,7 +544,7 @@ class ConsistencyValidator:
                 duration_ms=(time.perf_counter() - start_time) * 1000,
             )
         except Exception as e:
-            logger.error(f"Contradiction check failed: {e}")
+            logger.warning("Contradiction check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.CONTRADICTION,
                 passed=False,
@@ -552,7 +552,7 @@ class ConsistencyValidator:
                 issues_found=len(issues),
                 issues=issues,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
-                error=str(e),
+                error="Contradiction check failed",
             )
 
         return ConsistencyCheckResult(
@@ -623,7 +623,7 @@ class ConsistencyValidator:
                         )
 
         except Exception as e:
-            logger.error(f"Staleness check failed: {e}")
+            logger.warning("Staleness check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.STALENESS,
                 passed=False,
@@ -631,7 +631,7 @@ class ConsistencyValidator:
                 issues_found=len(issues),
                 issues=issues,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
-                error=str(e),
+                error="Staleness check failed",
             )
 
         return ConsistencyCheckResult(
@@ -680,7 +680,7 @@ class ConsistencyValidator:
                     )
 
         except Exception as e:
-            logger.error(f"Confidence decay check failed: {e}")
+            logger.warning("Confidence decay check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.CONFIDENCE,
                 passed=False,
@@ -688,7 +688,7 @@ class ConsistencyValidator:
                 issues_found=len(issues),
                 issues=issues,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
-                error=str(e),
+                error="Confidence decay check failed",
             )
 
         return ConsistencyCheckResult(
@@ -742,7 +742,7 @@ class ConsistencyValidator:
                     )
 
         except Exception as e:
-            logger.error(f"Adapter sync check failed: {e}")
+            logger.warning("Adapter sync check failed: %s", e)
             return ConsistencyCheckResult(
                 check_type=ConsistencyCheckType.SYNC,
                 passed=False,
@@ -750,7 +750,7 @@ class ConsistencyValidator:
                 issues_found=len(issues),
                 issues=issues,
                 duration_ms=(time.perf_counter() - start_time) * 1000,
-                error=str(e),
+                error="Adapter sync check failed",
             )
 
         return ConsistencyCheckResult(
@@ -843,10 +843,11 @@ class ConsistencyValidator:
                         )
 
                     except Exception as e:
+                        logger.warning("Auto-fix failed for issue: %s", e)
                         fixes_failed.append(
                             {
                                 "issue": issue.to_dict(),
-                                "error": str(e),
+                                "error": "Auto-fix failed",
                             }
                         )
 

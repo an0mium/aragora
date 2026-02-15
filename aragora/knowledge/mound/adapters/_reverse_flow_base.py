@@ -245,9 +245,8 @@ class ReverseFlowMixin:
                     break
 
             except Exception as e:
-                error_msg = f"Failed to update {source_id}: {str(e)}"
-                result["errors"].append(error_msg)
-                logger.warning(f"[{self.adapter_name}] Reverse sync failed for {source_id}: {e}")
+                logger.warning("[%s] Reverse sync failed for %s: %s", self.adapter_name, source_id, e)
+                result["errors"].append(f"Failed to update {source_id}")
 
         result["duration_ms"] = (time.time() - start_time) * 1000
 

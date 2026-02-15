@@ -335,9 +335,9 @@ def queue_text_processing(
 
         except Exception as e:
             job.status = "failed"
-            job.error = str(e)
+            job.error = f"Processing failed: {type(e).__name__}"
             job.completed_at = datetime.now(timezone.utc)
-            logger.error(f"Knowledge processing failed: {job_id} - {e}")
+            logger.warning("Knowledge processing failed: %s - %s", job_id, e)
 
     _executor.submit(run_processing)
 
@@ -407,9 +407,9 @@ def queue_document_processing(
 
         except Exception as e:
             job.status = "failed"
-            job.error = str(e)
+            job.error = f"Processing failed: {type(e).__name__}"
             job.completed_at = datetime.now(timezone.utc)
-            logger.error(f"Knowledge processing failed: {job_id} - {e}")
+            logger.warning("Knowledge processing failed: %s - %s", job_id, e)
 
     _executor.submit(run_processing)
 

@@ -230,8 +230,8 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                     knowledge_item_ids.append(item_id)
                     claims_ingested += 1
             except Exception as e:
-                errors.append(f"Failed to ingest claim: {str(e)[:100]}")
-                logger.warning(f"Claim ingestion failed: {e}")
+                logger.warning("Claim ingestion failed: %s", e)
+                errors.append("Failed to ingest claim")
 
         # 2. Ingest critical and high severity findings
         findings = self._get_receipt_field(receipt, "findings", [])
@@ -256,8 +256,8 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                     knowledge_item_ids.append(item_id)
                     findings_ingested += 1
             except Exception as e:
-                errors.append(f"Failed to ingest finding: {str(e)[:100]}")
-                logger.warning(f"Finding ingestion failed: {e}")
+                logger.warning("Finding ingestion failed: %s", e)
+                errors.append("Failed to ingest finding")
 
         # 3. Create receipt summary item
         try:
@@ -278,7 +278,8 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
                     except Exception as e:
                         logger.debug("Failed to create receipt summary relationship: %s", e)
         except Exception as e:
-            errors.append(f"Failed to create receipt summary: {str(e)[:100]}")
+            logger.warning("Failed to create receipt summary: %s", e)
+            errors.append("Failed to create receipt summary")
 
         result = ReceiptIngestionResult(
             receipt_id=receipt.receipt_id,
