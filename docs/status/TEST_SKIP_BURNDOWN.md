@@ -26,63 +26,64 @@ stays actionable and does not hide regression.
 
 ### Category details
 
-**`optional_dependency` (30)** -- skip when a Python package is not installed:
+**`missing_feature` (98)** -- skip when a module, handler, or endpoint is not yet available:
+
+| Reason | Count | Top files |
+|---|---:|---|
+| SDK parity stubs | 23 | `test_openclaw_parity.py` (15), `test_contract_parity.py` (8) |
+| Handler not available | 20 | `test_inbox_actions.py` (8), `test_handlers_probes.py` (5), social handlers |
+| Contract matrix stubs | 7 | `test_contract_matrix.py` (7) |
+| KM adapter compliance | 8 | `test_adapter_compliance.py` (8) |
+| Mound facade stubs | 6 | `test_mound_facade.py` (6) |
+| Document pipeline | 5 | `test_document_pipeline.py` (5) |
+| Other module skips | 29 | Various handler and feature tests |
+
+**`optional_dependency` (29)** -- skip when a Python package is not installed:
 
 | Package | Count | Files |
 |---|---:|---|
-| cryptography | 4 | `test_encryption.py`, `security/test_encryption.py`, `security/test_encryption_security.py`, `benchmarks/test_encryption_performance.py` |
-| aragora-debate | 3 | `server/handlers/test_playground.py` |
-| numpy | 3 | `memory/test_vector_index.py`, `debate/cache/test_embeddings_lru.py` |
 | pymilvus | 2 | `knowledge/mound/vector_abstraction/test_milvus.py` |
-| aragora_sdk | 2 | `benchmarks/test_sdk_benchmarks.py` |
-| qdrant-client | 2 | `integration/test_knowledge_vector_stores.py`, `knowledge/mound/vector_abstraction/test_vector_adapters.py` |
+| qdrant-client | 2 | `integration/test_knowledge_vector_stores.py`, vector adapters |
 | faster-whisper | 2 | `transcription/test_whisper_backend.py` |
-| Other (1 each) | 12 | playwright, FAISS, yt-dlp, openai, weaviate, pyotp, botbuilder, tree-sitter, psycopg2, ThinkPRM, web3, chromadb |
+| aragora_sdk | 2 | `benchmarks/test_sdk_benchmarks.py` |
+| Other (1 each) | 21 | playwright, FAISS, yt-dlp, weaviate, botbuilder, tree-sitter, web3, chromadb, etc. |
 
-**`missing_feature` (23)** -- skip when a module or handler is not yet available:
-
-| Reason | Count | Files |
-|---|---:|---|
-| Handler not available | 10 | 7 social handlers, 3 sme handlers |
-| Module not available | 5 | `test_handlers_slack.py`, `test_handlers_whatsapp.py`, `test_handlers_audio.py` (3) |
-| Feature not available | 4 | `test_handlers_tournaments.py` (4) |
-| Other module skips | 4 | `test_handlers_evolution.py`, `test_rhetorical_integration.py`, `test_handlers_memory_analytics.py`, `test_visualization_replay.py` |
-
-**`integration_dependency` (22)** -- skip when external service or env var is not configured:
+**`integration_dependency` (29)** -- skip when external service or env var is not configured:
 
 | Dependency | Count | Files |
 |---|---:|---|
-| Redis | 5 | `test_control_plane_redis.py`, `test_distributed_integration.py`, `test_redis_ha.py`, `test_integration_store.py` (2) |
-| Live server | 4 | `integration/test_knowledge_visibility_sharing.py` (4) |
-| aragora-debate (ollama) | 1 | `test_debate_embeddings.py` |
-| PostgreSQL | 2 | `integration/test_postgres.py`, `integration/test_postgres_stores.py` |
-| Full server setup | 2 | `e2e/test_canvas_e2e.py` (2) |
-| Env-gated | 8 | API keys, encryption key, integration flags, load test, stress test, RLM, SSO |
+| Live server | 6 | `test_knowledge_visibility_sharing.py`, e2e tests |
+| Redis | 5 | `test_control_plane_redis.py`, `test_redis_ha.py`, distributed tests |
+| PostgreSQL | 3 | `test_postgres.py`, `test_postgres_stores.py` |
+| Docker | 3 | sandbox and container tests |
+| Env-gated | 12 | API keys, encryption key, integration flags, load/stress tests |
 
-**`platform_specific` (9)** -- skip based on OS, Python version, or runtime:
+**`platform_specific` (14)** -- skip based on OS, Python version, or runtime:
 
 | Condition | Count |
 |---|---:|
-| Windows (win32) | 5 |
-| Fork start method | 1 |
-| Python < 3.11 | 1 |
+| Windows (win32) | 6 |
+| Docker not available | 3 |
+| Fork start method | 2 |
+| Python version | 1 |
 | /etc/passwd availability | 1 |
 | CPython GIL limitation | 1 |
 
-**`performance` (8)** -- skip slow or CI-flaky tests:
-
-| Reason | Count |
-|---|---:|
-| CI environment flaky | 5 |
-| Slow test (RUN_SLOW_TESTS) | 2 |
-| NLI model loading timeout | 1 |
-
-**`known_bug` (2)** -- skip due to known defects:
+**`known_bug` (11)** -- skip due to known defects:
 
 | Bug | Count |
 |---|---:|
-| aiohttp event loop incompatibility (#1234) | 1 |
-| pytest-timeout plugin conflict with signal.alarm | 1 |
+| Handler implementation incomplete | 5 |
+| Event loop incompatibility | 2 |
+| pytest-timeout plugin conflicts | 2 |
+| Module initialization ordering | 2 |
+
+**`performance` (3)** -- skip slow or CI-flaky tests:
+
+| Reason | Count |
+|---|---:|
+| Slow test (RUN_SLOW_TESTS) | 2 |
+| NLI model loading timeout | 1 |
 
 ### High-skip files
 
