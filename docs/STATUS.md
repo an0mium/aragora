@@ -4,10 +4,10 @@
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
 
-## Phase 9: SDK Parity & Test Isolation (February 13-14, 2026)
+## Phase 9: SDK Parity, Test Isolation & Handler Coverage (February 13-14, 2026)
 
 ### Summary
-Focused sprint on SDK completeness, test isolation hardening, and import hygiene. Test suite grew to **138,349 tests collected** (up from 136K+).
+Major sprint on SDK completeness, test isolation hardening, handler test coverage expansion, and codebase hygiene. Test suite grew to **141,038 tests collected** across **3,376 test files** (up from 138,349). Handler test suite alone: **1,632+ tests** across **60+ files** in `tests/handlers/`, with **567 handler-related test files** project-wide.
 
 ### SDK Completeness - 100% Route Coverage
 - **SDK Parity**: 100% coverage with 0 missing routes (previously showed gaps in parity checker)
@@ -15,18 +15,50 @@ Focused sprint on SDK completeness, test isolation hardening, and import hygiene
 - **Voice SDK Namespace**: 4 methods implemented (`synthesize`, `list_voices`, `create_session`, `end_session`)
 - **OpenClaw Handler ROUTES**: Added explicit ROUTES constants for parity checker discovery (23 false-stale endpoints resolved to 0)
 
+### Handler Test Coverage Expansion
+30+ new test files created this session, covering previously untested or under-tested handlers:
+- **Workflow & Templates**: `workflow_templates`, `marketplace`, `plans`, `feedback`
+- **Moderation & Content**: `moderation`, `verticals`, `threat_intel`, `reviews`
+- **Agent & Skills**: `skills`, `introspection`, `transcription`
+- **Data & Storage**: `repository`, `moments`, `utilities`, `receipt_export`
+- **Communication**: `email_debate`, `docs`
+- **Analytics & Observability**: `analytics_internals`, `breakpoints`, `evaluation`, `slo`
+- **Routing & Security**: `routing`, `security_debate`
+
+### Circuit Breaker Expansion
+- **GitHub Integration**: Circuit breaker protection added for GitHub API calls
+- **Slack Integration**: Circuit breaker protection added for Slack API calls
+- **Discord Integration**: Circuit breaker protection added for Discord API calls
+- **Teams Integration**: Circuit breaker protection added for Microsoft Teams API calls
+
+### Email Connector Thread Safety
+- Migrated email connector from thread-local storage to `contextvars` + `threading.Lock`
+- Ensures safe concurrent access in async server contexts
+
 ### Test Isolation Fixes
 - **Gauntlet Signing**: Singleton state leaking between tests fixed
 - **Secrets Rotation**: ContextVar isolation for rotation state across async boundaries
 - **Audit Scheduler**: Exception handling hardened to prevent cascading test failures
 - **JWT Verification**: Test isolation for JWT verify connector tests
 
+### Test Skip Burndown
+- Reduced skips from **220+ to 181** (39 skips eliminated)
+- **Contract matrix SDK path fix**: Corrected SDK import paths unblocking contract parity tests
+- **Dead guard removal**: Removed obsolete skip guards referencing deleted modules
+
+### Code Quality & Hygiene
+- **F401 lint violations**: Reduced to **0** (all unused imports eliminated)
+- **Dead speech handler removed**: Cleaned up orphaned speech-related handler code
+- **ERC-8004 error message sanitization**: Error responses no longer disclose internal system information
+- **Typed handler 501 messages**: Now include HTTP method, path, and resource name for actionable debugging
+- **Control plane abstract methods audited**: All abstract methods confirmed to follow proper mixin patterns
+
 ### Bug Fixes
 - **Timeout Middleware**: `signal.alarm(0)` bug fixed (alarm not cleared on successful responses)
 - **Observability Imports**: `logging_config` references migrated to canonical `observability.logging` module
 - **SSO Handlers**: Auth handler fixes for SSO flow edge cases
 
-### Overall Health Score: 9.5/10 (up from 9.4/10)
+### Overall Health Score: 9.6/10 (up from 9.5/10)
 
 ---
 
