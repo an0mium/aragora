@@ -190,7 +190,7 @@ class DocumentHandler(BaseHandler):
                 )
             else:
                 return error_response(f"Failed to delete document: {doc_id}", 500)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error deleting document {doc_id}: {e}")
             return error_response(safe_error_message(e, "delete document"), 500)
 
@@ -209,7 +209,7 @@ class DocumentHandler(BaseHandler):
         try:
             docs = store.list_all()
             return json_response({"documents": docs, "count": len(docs)})
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             return error_response(safe_error_message(e, "list documents"), 500)
 
     def _get_supported_formats(self) -> HandlerResult:

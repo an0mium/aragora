@@ -188,7 +188,7 @@ class NodeOperationsMixin:
         try:
             node_id = _run_async(mound.add_node(node))
             saved_node = _run_async(mound.get_node(node_id))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to create node: {e}")
             return error_response("Failed to create node", 500)
 
@@ -205,7 +205,7 @@ class NodeOperationsMixin:
 
         try:
             node = _run_async(mound.get_node(node_id))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to get node: {e}")
             return error_response("Failed to get node", 500)
 
@@ -266,7 +266,7 @@ class NodeOperationsMixin:
                 nodes = [
                     n for n in nodes if getattr(n, "metadata", {}).get("node_type") in node_types
                 ]
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to list nodes: {e}")
             return error_response("Failed to list nodes", 500)
 
@@ -290,7 +290,7 @@ class NodeOperationsMixin:
 
         try:
             stats = _run_async(mound.get_stats())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to get stats: {e}")
             return error_response("Failed to retrieve statistics", 500)
 

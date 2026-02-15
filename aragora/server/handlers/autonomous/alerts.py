@@ -134,7 +134,7 @@ class AlertHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden listing alerts: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error listing alerts: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to list alerts"},

@@ -106,7 +106,7 @@ class DedupOperationsMixin:
                     ],
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error finding duplicates: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -151,7 +151,7 @@ class DedupOperationsMixin:
                     "cluster_count": len(report.clusters),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error generating dedup report: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -208,7 +208,7 @@ class DedupOperationsMixin:
                     "updated_relationships": result.updated_relationships,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error merging duplicates: {e}")
             return error_response(safe_error_message(e), status=500)
 

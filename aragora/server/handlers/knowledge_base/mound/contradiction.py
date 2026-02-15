@@ -216,6 +216,6 @@ class ContradictionOperationsMixin:
         try:
             stats = mound.get_contradiction_stats()
             return json_response(stats)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error getting contradiction stats: {e}")
             return error_response(safe_error_message(e), status=500)

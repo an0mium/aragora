@@ -974,7 +974,7 @@ class ImplementationOperationsMixin:
             diff = hybrid_executor.get_review_diff(max_chars=max_chars)
             review = run_async(hybrid_executor.review_with_codex(diff, timeout=timeout_seconds))
             review_passed = review.get("approved") if isinstance(review, dict) else None
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as exc:
             review = {"approved": None, "error": str(exc)}
             review_passed = None
 
@@ -999,7 +999,7 @@ class ImplementationOperationsMixin:
                 )
                 if not decision.allowed:
                     return error_response(f"Permission denied: {decision.reason}", 403)
-            except Exception as e:
+            except (ImportError, AttributeError, ValueError, TypeError) as e:
                 logger.warning("Permission check for autonomous:approve failed: %s", e)
         return None
 
@@ -1052,6 +1052,6 @@ class ImplementationOperationsMixin:
                         },
                     )
                 )
-            except Exception as exc:
+            except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as exc:
                 logger.debug("Decision integrity routing failed: %s", exc)
         return json_response(response_payload)

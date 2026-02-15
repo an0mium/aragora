@@ -477,7 +477,7 @@ class TeamsOAuthHandler(SecureHandler):
                     me_data = me_response.json()
                     bot_id = me_data.get("id", TEAMS_CLIENT_ID)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.warning(f"Failed to fetch tenant info: {e}")
             tenant_id = tenant_id or "unknown"
             bot_id = bot_id or TEAMS_CLIENT_ID
@@ -628,7 +628,7 @@ class TeamsOAuthHandler(SecureHandler):
         except httpx.HTTPStatusError as e:
             logger.error(f"Teams token refresh failed: status={e.response.status_code}")
             return error_response("Token refresh failed", 500)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Teams token refresh failed: {e}")
             return error_response("Token refresh failed", 500)
 
@@ -698,7 +698,7 @@ class TeamsOAuthHandler(SecureHandler):
         except ImportError as e:
             logger.error(f"Tenant store not available: {e}")
             return error_response("Tenant storage not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to disconnect tenant: {e}")
             return error_response("Failed to disconnect tenant", 500)
 

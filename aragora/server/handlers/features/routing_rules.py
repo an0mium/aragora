@@ -843,7 +843,7 @@ class RoutingRulesHandler(SecureHandler):
                 "rules_evaluated": len(results),
                 "rules_matched": sum(1 for r in results if r.matched),
             }
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to evaluate rules: {e}")
             return {
                 "status": "error",
@@ -874,7 +874,7 @@ class RoutingRulesHandler(SecureHandler):
                 "error": "Routing rules module not available",
                 "code": 503,
             }
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get templates: {e}")
             return {
                 "status": "error",
@@ -923,7 +923,7 @@ class RoutingRulesHandler(SecureHandler):
                 event_type=f"routing_rule_{action}",
                 rule_name=rule_name,
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             # Don't fail the operation if audit logging fails
             logger.warning(f"Failed to audit rule change: {e}")
 

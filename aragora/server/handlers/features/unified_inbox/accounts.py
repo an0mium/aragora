@@ -266,7 +266,7 @@ async def connect_outlook(
                     synced_msg, account.id, EmailProvider.OUTLOOK
                 )
                 schedule_message_persist(tenant_id, unified)
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
                 logger.warning(f"[UnifiedInbox] Error converting message: {e}")
 
         # Create sync service
@@ -307,7 +307,7 @@ async def connect_outlook(
             )
             store = get_integration_store()
             await store.save(integration)
-        except Exception as e:
+        except (ImportError, OSError, ValueError) as e:
             logger.warning(f"[UnifiedInbox] Failed to persist Outlook tokens: {e}")
 
         # Start sync using the authenticated connector
@@ -325,7 +325,7 @@ async def connect_outlook(
         account.status = AccountStatus.CONNECTED
         logger.warning("[UnifiedInbox] OutlookSyncService not available, using mock mode")
         return {"success": True}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning("Outlook connection failed: %s", e)
         return {"success": False, "error": "Outlook connection failed"}
 
@@ -347,5 +347,5 @@ async def disconnect_account(
             if hasattr(sync_service, "stop"):
                 await sync_service.stop()
             logger.info(f"[UnifiedInbox] Stopped sync service for account {account_id}")
-        except Exception as e:
+        except (OSError, ValueError, AttributeError) as e:
             logger.warning(f"[UnifiedInbox] Error stopping sync service: {e}")

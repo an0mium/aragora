@@ -802,7 +802,7 @@ class MonitoringHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting baseline stats: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             circuit_breaker.record_failure()
             logger.error("Error getting baseline stats: %s", e)
             return web.json_response(
@@ -847,7 +847,7 @@ class MonitoringHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting circuit breaker status: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error getting circuit breaker status: %s", e)
             return web.json_response(
                 {"success": False, "error": "Internal server error"},

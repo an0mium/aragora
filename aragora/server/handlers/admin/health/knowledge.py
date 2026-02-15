@@ -565,7 +565,7 @@ class KnowledgeMixin:
                 },
                 "warnings": warnings,
             }
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, RuntimeError, ValueError) as e:
             logger.debug("Confidence decay check error: %s: %s", type(e).__name__, e)
             return {
                 "component": {

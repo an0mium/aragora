@@ -239,5 +239,5 @@ class TelegramMessagesMixin:
                     logger.warning("Telegram sendVoice failed: %s", result.get("description"))
                 else:
                     logger.info("Voice message sent to chat %s", chat_id)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Error sending Telegram voice: %s", e)

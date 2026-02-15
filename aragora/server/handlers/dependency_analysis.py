@@ -433,7 +433,7 @@ async def handle_check_licenses(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error checking licenses")
         return error_response("License check failed", status=500)
 
@@ -459,7 +459,7 @@ async def handle_clear_cache(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError) as e:
         logger.exception("Error clearing cache")
         return error_response("Cache clearing failed", status=500)
 

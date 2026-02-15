@@ -208,7 +208,7 @@ class ForkOperationsMixin:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
             logger.error(
                 "Failed to create fork for %s at round %s: %s: %s",
                 debate_id,
@@ -416,7 +416,7 @@ class ForkOperationsMixin:
                 }
             )
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
             logger.error(
                 "Failed to get followup suggestions for %s: %s: %s",
                 debate_id,
@@ -548,7 +548,7 @@ class ForkOperationsMixin:
                 }
             )
 
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
             logger.error(
                 "Failed to create followup debate for %s: %s: %s",
                 debate_id,
