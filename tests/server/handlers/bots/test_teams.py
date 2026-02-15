@@ -296,9 +296,12 @@ class TestTeamsMessages:
 # =============================================================================
 
 
-@requires_botbuilder
 class TestActivityProcessing:
-    """Tests for Bot Framework activity processing (requires botbuilder SDK)."""
+    """Tests for Bot Framework activity processing.
+
+    botbuilder is stubbed at module level when not installed, so
+    ``patch("botbuilder.schema.Activity")`` resolves in all environments.
+    """
 
     @pytest.mark.asyncio
     async def test_authentication_failure_invalid_token(self):
@@ -432,9 +435,12 @@ class TestActivityProcessing:
 # =============================================================================
 
 
-@requires_botbuilder
 class TestCardActions:
-    """Tests for Teams Adaptive Card action handling (requires botbuilder SDK)."""
+    """Tests for Teams Adaptive Card action handling.
+
+    botbuilder is stubbed at module level when not installed, so
+    ``patch("botbuilder.schema.Activity")`` resolves in all environments.
+    """
 
     @pytest.mark.asyncio
     async def test_handle_card_action_invoke(self):

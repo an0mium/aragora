@@ -388,8 +388,11 @@ class DeadLetterQueue:
             logger.info(f"Enqueued dead letter {msg_id} for {platform}:{destination}")
             return msg_id
 
-        except Exception as e:
-            logger.error(f"Failed to enqueue dead letter: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Dead letter enqueue database error: {type(e).__name__}: {e}")
+            return ""
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.error(f"Dead letter enqueue serialization error: {type(e).__name__}: {e}")
             return ""
 
     def get_pending(self, platform: str | None = None, limit: int = 100) -> list[DeadLetterMessage]:
@@ -443,8 +446,8 @@ class DeadLetterQueue:
                     )
                 return messages
 
-        except Exception as e:
-            logger.error(f"Failed to get pending dead letters: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Dead letter query database error: {type(e).__name__}: {e}")
             return []
 
     def mark_success(self, msg_id: str) -> bool:
