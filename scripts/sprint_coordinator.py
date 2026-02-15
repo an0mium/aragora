@@ -505,7 +505,8 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
     merged_branches = set()
     if merged_result.returncode == 0:
         for line in merged_result.stdout.strip().splitlines():
-            merged_branches.add(line.strip().lstrip("* "))
+            # git branch --merged can prefix with: * (current), + (worktree), spaces
+            merged_branches.add(line.strip().lstrip("*+ "))
 
     removed_count = 0
     kept_count = 0

@@ -1029,5 +1029,269 @@ class TestWorktreeIsolation:
         assert "merge_error" in assignment.result
 
 
+# =============================================================================
+# Rate Limiting Tests
+# =============================================================================
+
+
+class TestRateLimiting:
+    """Verify sliding window rate limiting on agent calls."""
+
+    def test_rate_limit_config_defaults(self):
+        """Default rate limit config is 30 calls per 60 seconds."""
+        orch = HardenedOrchestrator()
+        assert orch.hardened_config.rate_limit_max_calls == 30
+        assert orch.hardened_config.rate_limit_window_seconds == 60
+
+    def test_rate_limit_custom_config(self):
+        """Custom rate limit parameters are applied."""
+        orch = HardenedOrchestrator(
+            rate_limit_max_calls=10,
+            rate_limit_window_seconds=30,
+        )
+        assert orch.hardened_config.rate_limit_max_calls == 10
+        assert orch.hardened_config.rate_limit_window_seconds == 30
+
+    @pytest.mark.asyncio
+    async def test_under_limit_proceeds_immediately(self):
+        """Calls under the rate limit proceed without delay."""
+        import time
+
+        orch = HardenedOrchestrator(rate_limit_max_calls=5)
+
+        start = time.monotonic()
+        for _ in range(3):
+            await orch._enforce_rate_limit()
+        elapsed = time.monotonic() - start
+
+        # Should take near zero time
+        assert elapsed < 1.0
+        assert len(orch._call_timestamps) == 3
+
+    @pytest.mark.asyncio
+    async def test_at_limit_waits(self):
+        """At rate limit, next call waits for oldest to expire."""
+        import time
+
+        orch = HardenedOrchestrator(
+            rate_limit_max_calls=2,
+            rate_limit_window_seconds=1,  # 1 second window
+        )
+
+        # Fill the window
+        await orch._enforce_rate_limit()
+        await orch._enforce_rate_limit()
+
+        # Next call should wait ~1 second
+        start = time.monotonic()
+        await orch._enforce_rate_limit()
+        elapsed = time.monotonic() - start
+
+        assert elapsed >= 0.5  # Allow some tolerance
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_integrated_with_execute(self):
+        """Rate limiting is called during _execute_single_assignment."""
+        orch = HardenedOrchestrator(
+            budget_limit_usd=None,
+            use_worktree_isolation=False,
+            enable_gauntlet_validation=False,
+        )
+
+        assignment = _make_assignment()
+        assignment.status = "running"
+        orch._active_assignments.append(assignment)
+
+        with patch.object(
+            AutonomousOrchestrator,
+            "_execute_single_assignment",
+            new_callable=AsyncMock,
+        ):
+            with patch.object(orch, "_enforce_rate_limit", new_callable=AsyncMock) as mock_rl:
+                await orch._execute_single_assignment(assignment, max_cycles=3)
+                mock_rl.assert_called_once()
+
+
+# =============================================================================
+# Circuit Breaker Tests
+# =============================================================================
+
+
+class TestAgentCircuitBreaker:
+    """Verify per-agent-type circuit breaker protection."""
+
+    def test_circuit_breaker_config_defaults(self):
+        """Default circuit breaker: 3 failures, 60s timeout."""
+        orch = HardenedOrchestrator()
+        assert orch.hardened_config.circuit_breaker_threshold == 3
+        assert orch.hardened_config.circuit_breaker_timeout == 60
+
+    def test_circuit_initially_closed(self):
+        """New agent type starts with circuit closed (allowed)."""
+        orch = HardenedOrchestrator()
+        assert orch._check_agent_circuit_breaker("claude") is True
+
+    def test_circuit_opens_after_threshold_failures(self):
+        """Circuit opens after consecutive failures exceed threshold."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=2)
+
+        # Record 2 failures for "codex"
+        orch._record_agent_outcome("codex", success=False)
+        orch._record_agent_outcome("codex", success=False)
+
+        # Circuit should be open
+        assert orch._check_agent_circuit_breaker("codex") is False
+
+    def test_success_resets_failure_count(self):
+        """A successful outcome resets the failure counter."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=3)
+
+        orch._record_agent_outcome("claude", success=False)
+        orch._record_agent_outcome("claude", success=False)
+        # 2 failures, then a success resets
+        orch._record_agent_outcome("claude", success=True)
+        # One more failure should NOT open the circuit
+        orch._record_agent_outcome("claude", success=False)
+
+        assert orch._check_agent_circuit_breaker("claude") is True
+
+    def test_circuit_breaker_per_agent_type(self):
+        """Circuit breakers are independent per agent type."""
+        orch = HardenedOrchestrator(circuit_breaker_threshold=2)
+
+        # Open circuit for codex
+        orch._record_agent_outcome("codex", success=False)
+        orch._record_agent_outcome("codex", success=False)
+
+        # claude should still be allowed
+        assert orch._check_agent_circuit_breaker("claude") is True
+        assert orch._check_agent_circuit_breaker("codex") is False
+
+    @pytest.mark.asyncio
+    async def test_open_circuit_skips_assignment(self):
+        """Assignment is skipped when agent circuit breaker is open."""
+        orch = HardenedOrchestrator(
+            budget_limit_usd=None,
+            use_worktree_isolation=False,
+            enable_gauntlet_validation=False,
+            circuit_breaker_threshold=1,
+        )
+
+        # Open circuit for claude
+        orch._record_agent_outcome("claude", success=False)
+
+        assignment = _make_assignment(agent_type="claude")
+        orch._active_assignments.append(assignment)
+
+        await orch._execute_single_assignment(assignment, max_cycles=3)
+
+        assert assignment.status == "skipped"
+        assert assignment.result == {"reason": "circuit_breaker_open"}
+
+
+# =============================================================================
+# File-Based Approval Gate Tests
+# =============================================================================
+
+
+class TestApprovalGate:
+    """Verify file-based approval gate for human-in-the-loop."""
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_returns_immediately(self):
+        """When auto_approve is True, approval is granted immediately."""
+        orch = AutonomousOrchestrator(require_human_approval=False)
+        result = await orch.request_approval(
+            gate_id="test-1",
+            description="Test gate",
+        )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_approval_granted_via_marker(self, tmp_path):
+        """Approval is granted when .approved file is created."""
+        orch = AutonomousOrchestrator(require_human_approval=True)
+        orch._approval_gate_dir = tmp_path / "gates"
+        orch._approval_gate_dir.mkdir()
+
+        # Simulate approval in a background task
+        async def approve_soon():
+            await asyncio.sleep(0.2)
+            (tmp_path / "gates" / "gate-42.approved").touch()
+
+        task = asyncio.create_task(approve_soon())
+        result = await orch.request_approval(
+            gate_id="gate-42",
+            description="Deploy to prod?",
+            poll_interval=0.1,
+            timeout=5.0,
+        )
+        await task
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_approval_rejected_via_marker(self, tmp_path):
+        """Approval is rejected when .rejected file is created."""
+        orch = AutonomousOrchestrator(require_human_approval=True)
+        orch._approval_gate_dir = tmp_path / "gates"
+        orch._approval_gate_dir.mkdir()
+
+        # Simulate rejection
+        async def reject_soon():
+            await asyncio.sleep(0.2)
+            (tmp_path / "gates" / "gate-99.rejected").touch()
+
+        task = asyncio.create_task(reject_soon())
+        result = await orch.request_approval(
+            gate_id="gate-99",
+            description="Dangerous change",
+            poll_interval=0.1,
+            timeout=5.0,
+        )
+        await task
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_approval_timeout(self, tmp_path):
+        """Approval times out if no marker is created."""
+        orch = AutonomousOrchestrator(require_human_approval=True)
+        orch._approval_gate_dir = tmp_path / "gates"
+        orch._approval_gate_dir.mkdir()
+
+        result = await orch.request_approval(
+            gate_id="gate-timeout",
+            description="Will timeout",
+            poll_interval=0.05,
+            timeout=0.2,
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_approval_writes_request_file(self, tmp_path):
+        """Request JSON is written to the gate directory."""
+        import json
+
+        orch = AutonomousOrchestrator(require_human_approval=True)
+        orch._approval_gate_dir = tmp_path / "gates"
+        orch._approval_gate_dir.mkdir()
+
+        # Touch approved immediately so we don't wait
+        (tmp_path / "gates" / "gate-json.approved").touch()
+
+        await orch.request_approval(
+            gate_id="gate-json",
+            description="Check request file",
+            metadata={"risk": "high"},
+            poll_interval=0.05,
+            timeout=1.0,
+        )
+
+        # Request file should be cleaned up after approval
+        assert not (tmp_path / "gates" / "gate-json.json").exists()
+
+
 # Bring in AutonomousOrchestrator for patching reference
 from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator

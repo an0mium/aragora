@@ -792,45 +792,23 @@ class HardenedOrchestrator(AutonomousOrchestrator):
     def _check_agent_circuit_breaker(self, agent_type: str) -> bool:
         """Check if the circuit breaker is open for an agent type.
 
-        Uses the resilience CircuitBreaker when available, falls back to
-        a simple failure counter with timeout.
+        Uses a simple failure counter with timeout per agent type.
+        Circuit opens after ``circuit_breaker_threshold`` consecutive failures
+        and stays open for ``circuit_breaker_timeout`` seconds.
 
         Returns:
             True if the agent is allowed to execute, False if circuit is open.
         """
-        config = self.hardened_config
-
-        # Try to use resilience CircuitBreaker
-        if agent_type in self._agent_circuit_breakers:
-            cb = self._agent_circuit_breakers[agent_type]
-            return cb.state != "open"
-
-        if agent_type not in self._agent_circuit_breakers:
-            try:
-                from aragora.resilience.circuit_breaker import CircuitBreaker
-
-                cb = CircuitBreaker(
-                    name=f"agent-{agent_type}",
-                    failure_threshold=config.circuit_breaker_threshold,
-                    recovery_timeout=config.circuit_breaker_timeout,
-                )
-                self._agent_circuit_breakers[agent_type] = cb
-                return True
-            except ImportError:
-                pass
-
-        # Fallback: simple failure counter
         open_until = self._agent_open_until.get(agent_type, 0)
-        if time.monotonic() < open_until:
-            logger.warning(
-                "circuit_breaker_open agent_type=%s failures=%d",
-                agent_type,
-                self._agent_failure_counts[agent_type],
-            )
-            return False
-
-        # If was open and timeout expired, reset to half-open (allow one attempt)
-        if open_until > 0 and time.monotonic() >= open_until:
+        if open_until > 0:
+            if time.monotonic() < open_until:
+                logger.warning(
+                    "circuit_breaker_open agent_type=%s failures=%d",
+                    agent_type,
+                    self._agent_failure_counts[agent_type],
+                )
+                return False
+            # Timeout expired, reset to half-open (allow one attempt)
             self._agent_failure_counts[agent_type] = 0
             self._agent_open_until.pop(agent_type, None)
 
@@ -840,18 +818,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         """Record success/failure for agent circuit breaker tracking."""
         config = self.hardened_config
 
-        # Try resilience CircuitBreaker
-        cb = self._agent_circuit_breakers.get(agent_type)
-        if cb is not None and hasattr(cb, "record_success"):
-            if success:
-                cb.record_success()
-            else:
-                cb.record_failure()
-            return
-
-        # Fallback: simple counter
         if success:
             self._agent_failure_counts[agent_type] = 0
+            self._agent_open_until.pop(agent_type, None)
         else:
             self._agent_failure_counts[agent_type] += 1
             if self._agent_failure_counts[agent_type] >= config.circuit_breaker_threshold:
@@ -1262,6 +1231,206 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             )
         except (ImportError, Exception) as e:
             logger.debug("AuditLog unavailable for reconciliation: %s", e)
+
+    async def _commit_changes(
+        self,
+        worktree_path: Path,
+        assignment: AgentAssignment,
+    ) -> str | None:
+        """Stage and commit changes in the worktree after verification passes.
+
+        Returns the commit SHA on success, None on failure or no changes.
+        """
+        try:
+            # Check for unstaged changes
+            status_result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "status", "--porcelain"],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if not status_result.stdout.strip():
+                logger.info(
+                    "auto_commit_skip no_changes subtask=%s",
+                    assignment.subtask.id,
+                )
+                return None
+
+            # Stage all changes
+            await asyncio.to_thread(
+                subprocess.run,
+                ["git", "add", "-A"],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            # Build commit message
+            subtask_title = assignment.subtask.title
+            track = assignment.subtask.track or "general"
+            msg = (
+                f"feat({track}): {subtask_title}\n\n"
+                f"Auto-committed by HardenedOrchestrator after verification.\n"
+                f"Subtask: {assignment.subtask.id}\n"
+                f"Agent: {assignment.agent_id}"
+            )
+
+            commit_result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "commit", "-m", msg],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if commit_result.returncode != 0:
+                logger.warning(
+                    "auto_commit_failed subtask=%s stderr=%s",
+                    assignment.subtask.id,
+                    commit_result.stderr[:200],
+                )
+                return None
+
+            # Extract SHA from commit output
+            rev_result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "rev-parse", "HEAD"],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            sha = rev_result.stdout.strip()
+            logger.info(
+                "auto_committed subtask=%s sha=%s",
+                assignment.subtask.id,
+                sha[:12],
+            )
+            return sha
+
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "auto_commit_timeout subtask=%s",
+                assignment.subtask.id,
+            )
+            return None
+        except OSError as e:
+            logger.warning(
+                "auto_commit_error subtask=%s error=%s",
+                assignment.subtask.id,
+                e,
+            )
+            return None
+
+    async def _run_merge_gate(
+        self,
+        worktree_path: Path,
+        assignment: AgentAssignment,
+    ) -> bool:
+        """Run broader test suite in worktree before allowing merge.
+
+        Expands file_scope paths to their parent test directories so that
+        related tests are also exercised, not just the ones directly
+        modified.  Falls back to the configured merge_gate_test_dirs if
+        no file scope is available.
+
+        Returns True if tests pass, False otherwise.
+        """
+        # Determine test directories from file scope
+        test_dirs: set[str] = set()
+        if assignment.subtask.file_scope:
+            for fpath in assignment.subtask.file_scope:
+                # Map source file to corresponding test directory
+                # e.g. "aragora/debate/orchestrator.py" → "tests/debate/"
+                parts = Path(fpath).parts
+                if len(parts) >= 2:
+                    # Try tests/<module>/ first
+                    candidate = Path("tests") / parts[1]
+                    test_dir = worktree_path / candidate
+                    if test_dir.exists():
+                        test_dirs.add(str(candidate))
+                        continue
+                # Fallback: use configured defaults
+                for td in self.hardened_config.merge_gate_test_dirs:
+                    test_dirs.add(td)
+
+        if not test_dirs:
+            test_dirs = set(self.hardened_config.merge_gate_test_dirs)
+
+        # Resolve to absolute paths within worktree
+        abs_dirs = []
+        for td in sorted(test_dirs):
+            abs_path = worktree_path / td
+            if abs_path.exists():
+                abs_dirs.append(str(abs_path))
+
+        if not abs_dirs:
+            logger.info(
+                "merge_gate_skip no_test_dirs subtask=%s",
+                assignment.subtask.id,
+            )
+            return True
+
+        logger.info(
+            "merge_gate_running subtask=%s dirs=%s",
+            assignment.subtask.id,
+            abs_dirs,
+        )
+
+        try:
+            result = await asyncio.to_thread(
+                subprocess.run,
+                [
+                    "python",
+                    "-m",
+                    "pytest",
+                    *abs_dirs,
+                    "-x",
+                    "--tb=short",
+                    "-q",
+                    "--timeout=60",
+                ],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=self.hardened_config.merge_gate_timeout,
+            )
+
+            if result.returncode == 0:
+                logger.info(
+                    "merge_gate_passed subtask=%s",
+                    assignment.subtask.id,
+                )
+                return True
+
+            # Log failure summary (last 10 lines of output)
+            output_lines = (result.stdout + result.stderr).strip().split("\n")
+            summary = "\n".join(output_lines[-10:])
+            logger.warning(
+                "merge_gate_failed subtask=%s rc=%d summary:\n%s",
+                assignment.subtask.id,
+                result.returncode,
+                summary,
+            )
+            return False
+
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "merge_gate_timeout subtask=%s timeout=%ds",
+                assignment.subtask.id,
+                self.hardened_config.merge_gate_timeout,
+            )
+            return False
+        except OSError as e:
+            logger.warning(
+                "merge_gate_error subtask=%s error=%s",
+                assignment.subtask.id,
+                e,
+            )
+            return False
 
 
 __all__ = [
