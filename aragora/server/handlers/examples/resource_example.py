@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aragora.protocols import HTTPRequestHandler
 
@@ -168,7 +168,7 @@ class ExampleResourceHandler(ResourceHandler):
 
         # Generate ID and create article
         article_id = f"article-{len(self._storage) + 1}"
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(timezone.utc).isoformat() + "Z"
 
         article = {
             "id": article_id,
@@ -211,7 +211,7 @@ class ExampleResourceHandler(ResourceHandler):
 
         # Update article
         existing = self._storage[resource_id]
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(timezone.utc).isoformat() + "Z"
 
         article = {
             "id": resource_id,
@@ -254,7 +254,7 @@ class ExampleResourceHandler(ResourceHandler):
 
         # Partial update - only update provided fields
         article = self._storage[resource_id].copy()
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(timezone.utc).isoformat() + "Z"
 
         # Only update allowed fields
         if "title" in body:

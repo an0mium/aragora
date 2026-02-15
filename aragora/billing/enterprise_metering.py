@@ -37,7 +37,7 @@ import json
 import logging
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from pathlib import Path
@@ -106,7 +106,7 @@ class TokenUsageRecord:
     error_code: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -149,8 +149,8 @@ class BudgetConfig:
     alert_emails: list[str] = field(default_factory=list)
     auto_suspend_on_exceed: bool = False
     rollover_unused: bool = False
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -222,8 +222,8 @@ class Invoice:
 
     id: str = field(default_factory=lambda: f"INV-{uuid4().hex[:8].upper()}")
     tenant_id: str = ""
-    period_start: datetime = field(default_factory=datetime.utcnow)
-    period_end: datetime = field(default_factory=datetime.utcnow)
+    period_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    period_end: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Amounts
     subtotal: Decimal = Decimal("0")
@@ -242,7 +242,7 @@ class Invoice:
     # Metadata
     currency: str = "USD"
     notes: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -639,7 +639,7 @@ class EnterpriseMeter:
         if not self._initialized:
             await self.initialize()
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if not start_date:
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         if not end_date:
@@ -825,7 +825,7 @@ class EnterpriseMeter:
                 str(config.daily_limit),
                 json.dumps(config.alert_emails),
                 config.auto_suspend_on_exceed,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         self._conn.commit()
@@ -991,7 +991,7 @@ class EnterpriseMeter:
         if not self._initialized:
             await self.initialize()
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         end_date = now + timedelta(days=days_ahead)
 
         # Get historical data (last 30 days)
