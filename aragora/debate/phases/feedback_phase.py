@@ -328,6 +328,9 @@ class FeedbackPhase:
         # 12. Record calibration data for prediction accuracy
         self._record_calibration(ctx)
 
+        # 12b. Bidirectional calibration feedback (consensus-based adjustment)
+        self._apply_calibration_feedback(ctx)
+
         # 13. Update genome fitness for Genesis evolution (delegated to EvolutionFeedback)
         self._evolution_feedback.update_genome_fitness(ctx)
 
@@ -1032,6 +1035,62 @@ class FeedbackPhase:
             )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug(f"Calibration event emission error: {e}")
+
+    def _apply_calibration_feedback(self, ctx: DebateContext) -> None:
+        """Apply bidirectional calibration adjustment based on consensus alignment.
+
+        Agents who vote correctly with high confidence get a positive adjustment.
+        Agents who vote incorrectly with high confidence get a negative adjustment.
+        This creates a feedback loop that rewards well-calibrated agents.
+        """
+        if not self.calibration_tracker:
+            return
+
+        result = ctx.result
+        if not result:
+            return
+
+        # Skip if no consensus was reached
+        if not result.consensus_reached:
+            return
+
+        actual_winner = result.winner
+        if not actual_winner:
+            return
+
+        try:
+            for vote in result.votes:
+                confidence = getattr(vote, "confidence", None)
+                if confidence is None or confidence <= 0.7:
+                    continue
+
+                canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
+                voted_correctly = canonical == actual_winner
+
+                if voted_correctly:
+                    adjustment = 0.02 * confidence
+                else:
+                    adjustment = -0.03 * confidence
+
+                # Use record_prediction with the adjustment encoded as a calibration signal
+                self.calibration_tracker.record_prediction(
+                    agent=vote.agent,
+                    confidence=confidence,
+                    correct=voted_correctly,
+                    domain=ctx.domain,
+                    debate_id=getattr(result, "debate_id", ctx.debate_id),
+                    prediction_type="consensus_feedback",
+                )
+
+                logger.debug(
+                    "[calibration_feedback] %s: %+.3f (confidence=%.2f, correct=%s)",
+                    vote.agent,
+                    adjustment,
+                    confidence,
+                    voted_correctly,
+                )
+        except (TypeError, ValueError, AttributeError, KeyError) as e:
+            logger.warning("[calibration_feedback] Failed: %s", e)
 
     def _record_pulse_outcome(self, ctx: DebateContext) -> None:
         """Record pulse outcome if the debate was on a trending topic.

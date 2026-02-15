@@ -31,6 +31,9 @@ class PromptAssemblyMixin:
     dissent_retriever: Any
     _context_budgeter: Any
 
+    # Methods from PromptBuilder (available via MRO)
+    _get_introspection_context: Any
+
     # Methods from PromptContextMixin (available via MRO)
     get_stance_guidance: Any
     get_agreement_intensity_guidance: Any
@@ -226,6 +229,11 @@ class PromptAssemblyMixin:
         if template_context:
             template_section = template_context
 
+        introspection_section = ""
+        introspection_context = self._get_introspection_context(agent.name)
+        if introspection_context:
+            introspection_section = introspection_context
+
         sections = [
             ContextSection("historical", historical_section.strip()),
             ContextSection("continuum", continuum_section.strip()),
@@ -241,6 +249,7 @@ class PromptAssemblyMixin:
             ContextSection("pulse", pulse_section.strip()),
             ContextSection("audience", audience_section.strip()),
             ContextSection("template", template_section.strip()),
+            ContextSection("introspection", introspection_section.strip()),
         ]
 
         context_block, context_str = self._apply_context_budget(

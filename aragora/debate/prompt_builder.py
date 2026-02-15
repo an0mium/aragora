@@ -294,6 +294,7 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         supermemory_adapter: SupermemoryAdapter | None = None,
         claims_kernel: Any | None = None,
         include_prior_claims: bool = False,
+        enable_introspection: bool = True,
     ) -> None:
         """Initialize prompt builder with debate context.
 
@@ -328,6 +329,9 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
         # Prior claims kernel for injecting related claims from previous debates
         self.claims_kernel = claims_kernel
         self.include_prior_claims = include_prior_claims
+
+        # Agent introspection (self-awareness of reputation, expertise)
+        self.enable_introspection = enable_introspection
 
         # Trending topics for pulse injection (set externally via set_trending_topics)
         self.trending_topics: list[TrendingTopic] = []
@@ -382,6 +386,30 @@ class PromptBuilder(PromptContextMixin, PromptAssemblyMixin):
             keys_to_remove = list(cache.keys())[: self._cache_max_size // 2]
             for key in keys_to_remove:
                 cache.pop(key, None)
+
+    def _get_introspection_context(self, agent_name: str) -> str:
+        """Get introspection context for an agent.
+
+        Returns formatted self-awareness section (reputation, expertise)
+        for injection into agent prompts, or empty string on error.
+        """
+        if not self.enable_introspection:
+            return ""
+        try:
+            from aragora.introspection.api import (
+                get_agent_introspection,
+                format_introspection_section,
+            )
+
+            snapshot = get_agent_introspection(
+                agent_name,
+                memory=self.memory,
+                persona_manager=self.persona_manager,
+            )
+            section = format_introspection_section(snapshot, max_chars=600)
+            return section
+        except Exception:
+            return ""
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:

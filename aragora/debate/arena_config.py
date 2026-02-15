@@ -480,6 +480,9 @@ class ArenaConfig:
         # Explainability
         self.auto_explain = kwargs.pop("auto_explain", False)
 
+        # Agent introspection (self-awareness in prompts)
+        self.enable_introspection = kwargs.pop("enable_introspection", True)
+
         # Decision pipeline (auto-create GitHub issues from plans)
         self.auto_execute_plan = kwargs.pop("auto_execute_plan", False)
 

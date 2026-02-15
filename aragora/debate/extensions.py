@@ -83,7 +83,7 @@ class ArenaExtensions:
     notify_min_confidence: float = 0.0  # Minimum confidence to notify (0 = always)
 
     # Explainability (auto-generate decision explanations)
-    auto_explain: bool = False  # Auto-generate explanation after debate
+    auto_explain: bool = True  # Auto-generate explanation after debate
     explanation_builder: Any = None  # Pre-configured ExplanationBuilder
     _last_explanation: Any = field(default=None, repr=False)
 
@@ -956,7 +956,7 @@ class ExtensionsConfig:
     notification_dispatcher: Any = None
     auto_notify: bool = False
     notify_min_confidence: float = 0.0
-    auto_explain: bool = False
+    auto_explain: bool = True
     explanation_builder: Any = None
     plan_executor: Any = None
     auto_execute_plan: bool = False

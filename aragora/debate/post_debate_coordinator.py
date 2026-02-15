@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 class PostDebateConfig:
     """Configuration for the post-debate processing pipeline."""
 
-    auto_explain: bool = False
-    auto_create_plan: bool = False
+    auto_explain: bool = True
+    auto_create_plan: bool = True
     auto_notify: bool = True
     auto_execute_plan: bool = False
     plan_min_confidence: float = 0.7
