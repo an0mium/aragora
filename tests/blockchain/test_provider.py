@@ -373,9 +373,16 @@ class TestWeb3ProviderGetWeb3:
     @patch("aragora.blockchain.provider._require_web3")
     def test_get_web3_missing_chain_raises(self, _mock_require):
         """get_web3 raises ValueError for unconfigured chain."""
-        provider = Web3Provider()
-        with pytest.raises(ValueError, match="No configuration for chain"):
-            provider.get_web3(999)
+        import aragora.blockchain.provider as _pmod
+
+        _orig = _pmod.Web3
+        _pmod.Web3 = MagicMock()
+        try:
+            provider = Web3Provider()
+            with pytest.raises(ValueError, match="No configuration for chain"):
+                provider.get_web3(999)
+        finally:
+            _pmod.Web3 = _orig
 
     @patch("aragora.blockchain.provider._require_web3")
     def test_get_web3_failover_on_unhealthy(self, _mock_require):
