@@ -7,20 +7,22 @@ stays actionable and does not hide regression.
 
 ## Current Baseline
 
-- Total skip markers: `94`
-- Files with skips: `67`
-- Source: `grep -rc "pytest.mark.skip\|@skip" tests/ --include="*.py"` (excluding conftest.py non-marker references)
+- Total skip markers: `185`
+- Files with skips: `43`
+- Source: `python scripts/audit_test_skips.py --json`
+- CI gate: `tests/.skip_baseline` = `187` (headroom: 2)
 
 ### Category snapshot
 
 | Category | Count | Weekly target |
 |---|---:|---:|
-| `optional_dependency` | 30 | -3 |
-| `missing_feature` | 23 | -3 |
-| `integration_dependency` | 22 | hold |
-| `platform_specific` | 9 | hold |
-| `performance` | 8 | -1 |
-| `known_bug` | 2 | -1 |
+| `missing_feature` | 98 | -5 |
+| `integration_dependency` | 29 | hold |
+| `optional_dependency` | 29 | -3 |
+| `platform_specific` | 14 | hold |
+| `known_bug` | 11 | -2 |
+| `performance` | 3 | hold |
+| `uncategorized` | 1 | -1 |
 
 ### Category details
 
@@ -84,16 +86,20 @@ stays actionable and does not hide regression.
 
 ### High-skip files
 
-No file currently has 10 or more skip markers. The highest-skip files are:
+One file has 10+ skip markers requiring a dedicated cleanup issue:
 
 | File | Count | Categories |
 |---|---:|---|
-| `tests/test_plugin_sandbox.py` | 4 | platform_specific |
-| `tests/test_handlers_tournaments.py` | 4 | missing_feature |
-| `tests/integration/test_knowledge_visibility_sharing.py` | 4 | integration_dependency |
-| `tests/transcription/test_whisper_backend.py` | 3 | optional_dependency |
-| `tests/test_handlers_audio.py` | 3 | missing_feature |
-| `tests/server/handlers/test_playground.py` | 3 | optional_dependency |
+| `tests/sdk/test_openclaw_parity.py` | 15 | missing_feature |
+| `tests/server/handlers/test_inbox_actions.py` | 8 | missing_feature |
+| `tests/knowledge/mound/adapters/test_adapter_compliance.py` | 8 | missing_feature |
+| `tests/sdk/test_contract_parity.py` | 8 | missing_feature |
+| `tests/server/openapi/test_contract_matrix.py` | 7 | missing_feature |
+| `tests/test_plugin_sandbox.py` | 6 | platform_specific |
+| `tests/integration/test_knowledge_visibility_sharing.py` | 6 | integration_dependency |
+| `tests/knowledge/test_mound_facade.py` | 6 | missing_feature |
+| `tests/test_handlers_probes.py` | 5 | missing_feature |
+| `tests/e2e/test_document_pipeline.py` | 5 | missing_feature |
 
 ## Execution Rules
 
@@ -166,3 +172,23 @@ Category changes (393 -> 94):
 - `performance`: 3 -> 8 (+5, reclassified CI-flaky tests from other categories)
 
 No file now has >= 10 skip markers (previous high was 24). The `>=10` cleanup issue rule is fully satisfied.
+
+#### Week 3 reconciliation (2026-02-15)
+
+Reconciled documented count (94) with actual count (185). Discrepancy caused by
+new test files added by agents during Week 2-3 that included skip markers for
+features not yet implemented. All new skips are in `missing_feature` category
+(handler stubs, SDK parity tests, contract matrix tests).
+
+Category changes (94 documented -> 185 actual):
+- `missing_feature`: 23 -> 98 (+75, new handler/SDK parity tests with skip stubs)
+- `integration_dependency`: 22 -> 29 (+7, new integration tests for pending services)
+- `optional_dependency`: 30 -> 29 (-1, removed a stale dependency check)
+- `platform_specific`: 9 -> 14 (+5, new cross-platform tests)
+- `known_bug`: 2 -> 11 (+9, newly identified pre-existing issues documented)
+- `performance`: 8 -> 3 (-5, reclassified or removed)
+- `uncategorized`: 0 -> 1 (+1, needs categorization)
+
+Updated `tests/.skip_baseline` from 187 to 185 (actual count).
+Top contributor: `tests/sdk/test_openclaw_parity.py` (15 skips) -- OpenClaw SDK
+parity tests for endpoints not yet implemented.

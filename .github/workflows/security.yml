@@ -149,7 +149,9 @@ jobs:
       - name: Run Safety check
         id: safety
         run: safety check --full-report
-        continue-on-error: true  # Allow pip-audit to also run
+        # Non-blocking: Allows pip-audit to also run. Both results are aggregated in
+        # "Report Python dependency status" step below, which fails if either tool found vulnerabilities.
+        continue-on-error: true
 
       - name: Security audit dependencies (pip-audit)
         id: pip-audit

@@ -563,6 +563,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MINIMUM_GREEN: 70
           MINIMUM_ORANGE: 55
+        # Non-blocking: PR coverage comment is cosmetic and depends on third-party action
         continue-on-error: true
 
   smoke:
@@ -966,6 +967,8 @@ jobs:
 
       - name: Run tests with JUnit output
         id: tests
+        # Non-blocking: This job is for flakiness analysis (--reruns=2), not a release gate.
+        # Gating tests run in test-fast and test jobs above.
         continue-on-error: true
         run: |
           pytest tests/debate tests/agents tests/server \

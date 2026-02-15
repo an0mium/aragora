@@ -249,6 +249,7 @@ jobs:
           else
             echo "No visual regression tests found, skipping"
           fi
+        # Non-blocking: Visual regression tests are informational and may not exist yet
         continue-on-error: true
 
       - name: Upload visual snapshots

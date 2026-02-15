@@ -100,6 +100,8 @@ jobs:
             --reporter=html,json
         env:
           PLAYWRIGHT_BASE_URL: https://aragora.ai
+        # Non-blocking: Auth flow against production depends on external auth providers and session state;
+        # flaky by nature. Production health check (above) is the blocking gate.
         continue-on-error: true
 
       - name: Run console error analysis
@@ -110,6 +112,7 @@ jobs:
             --reporter=html
         env:
           PLAYWRIGHT_BASE_URL: https://aragora.ai
+        # Non-blocking: Console error analysis is diagnostic, not a release gate
         continue-on-error: true
 
       - name: Upload auth test report

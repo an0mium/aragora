@@ -263,6 +263,7 @@ jobs:
           EOF
             npx playwright test e2e/a11y-check.spec.ts --reporter=html
           fi
+        # Non-blocking: Accessibility audit is informational; auto-generated test may not have required deps
         continue-on-error: true
 
       - name: Upload accessibility report
@@ -348,6 +349,7 @@ jobs:
 
           mkdir -p test-results
           npx playwright test e2e/mobile-check.spec.ts --reporter=html
+        # Non-blocking: Mobile responsiveness is informational; auto-generated test spec
         continue-on-error: true
 
       - name: Upload mobile screenshots

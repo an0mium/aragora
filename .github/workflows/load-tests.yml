@@ -78,6 +78,7 @@ jobs:
 
       - name: Configure AWS credentials
         id: aws-creds
+        # Non-blocking: AWS credentials may not be available in forks/PRs; load tests degrade gracefully
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:

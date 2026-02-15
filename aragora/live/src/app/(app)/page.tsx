@@ -32,6 +32,7 @@ import { useLayout } from '@/context/LayoutContext';
 import { useTheme } from '@/context/ThemeContext';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { LandingPage } from '@/components/LandingPage';
+import { DebateResultPreview, type DebateResponse } from '@/components/DebateResultPreview';
 import type { NomicState } from '@/types/events';
 import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
@@ -214,6 +215,9 @@ export default function Home() {
   const [currentDebateId, setCurrentDebateId] = useState<string | null>(null);
   const [debateTitle, setDebateTitle] = useState<string | null>(null);
 
+  // Pending debate from pre-auth landing page (try-before-login flow)
+  const [pendingDebateResult, setPendingDebateResult] = useState<Record<string, unknown> | null>(null);
+
   // Check if boot was shown before (session storage)
   useEffect(() => {
     const bootShown = sessionStorage.getItem('aragora-boot-shown');
@@ -222,6 +226,19 @@ export default function Home() {
       setShowBoot(false);
     }
   }, []);
+
+  // Restore pending debate result after auth
+  useEffect(() => {
+    if (isAuthenticated) {
+      const pending = sessionStorage.getItem('aragora_pending_debate');
+      if (pending) {
+        try {
+          setPendingDebateResult(JSON.parse(pending));
+        } catch { /* ignore malformed */ }
+        sessionStorage.removeItem('aragora_pending_debate');
+      }
+    }
+  }, [isAuthenticated]);
 
   const handleBootComplete = useCallback(() => {
     setShowBoot(false);
@@ -389,6 +406,20 @@ export default function Home() {
               onError={setError}
             />
             {hasVerdict && <VerdictCard events={events} />}
+            {pendingDebateResult && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-mono text-sm text-[var(--acid-green)]">Your debate result</h2>
+                  <button
+                    onClick={() => setPendingDebateResult(null)}
+                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)]"
+                  >
+                    [dismiss]
+                  </button>
+                </div>
+                <DebateResultPreview result={pendingDebateResult as DebateResponse} />
+              </div>
+            )}
             <PanelErrorBoundary panelName="Recent Debates">
               <DebateListPanel />
             </PanelErrorBoundary>

@@ -32,6 +32,7 @@ jobs:
           echo "Production API: OK ($response)"
 
       - name: Check Staging API (EC2)
+        # Non-blocking: Staging environment may be down during maintenance without affecting production
         continue-on-error: true
         run: |
           # Use /api/health (public, load-balancer friendly)

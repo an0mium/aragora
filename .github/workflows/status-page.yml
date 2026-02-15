@@ -163,6 +163,7 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_OPS_WEBHOOK }}
+        # Non-blocking: Slack notification delivery should not fail the deployment
         continue-on-error: true
 
   provision-monitors:
