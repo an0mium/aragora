@@ -172,7 +172,7 @@ class OrchestrationHandler(SecureHandler):
             safe_source_id(source.source_id)
         except SourceIdValidationError as e:
             logger.warning(f"[SECURITY] Invalid source_id from user {auth_context.user_id}: {e}")
-            return error_response(f"Invalid source_id: {str(e)}", 400)
+            return error_response("Invalid source identifier", 400)
 
         # Check knowledge source type permission
         source_type = source.source_type.lower()
@@ -224,7 +224,7 @@ class OrchestrationHandler(SecureHandler):
             validate_channel_id(channel.channel_id, channel.channel_type.lower())
         except ValueError as e:
             logger.warning(f"[SECURITY] Invalid channel_id from user {auth_context.user_id}: {e}")
-            return error_response(f"Invalid channel_id: {str(e)}", 400)
+            return error_response("Invalid channel identifier", 400)
 
         # Check channel type permission
         channel_type = channel.channel_type.lower()
@@ -270,7 +270,8 @@ class OrchestrationHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
         except Exception as exc:
             logger.debug("Authentication failed for orchestration request: %s", exc)
             return error_response("Authentication required", 401)
@@ -312,7 +313,8 @@ class OrchestrationHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Execute operations require execute permission
         try:
@@ -543,7 +545,7 @@ class OrchestrationHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Orchestration error: {e}")
-            return error_response(f"Orchestration failed: {str(e)}", 500)
+            return error_response("Orchestration failed", 500)
 
     # =========================================================================
     # Core Orchestration Logic

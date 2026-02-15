@@ -936,7 +936,8 @@ class TranscriptionHandler(BaseHandler):
                         "error": str(e),
                     },
                 )
-                return error_response(str(e), 400)
+                logger.warning("Handler error: %s", e)
+                return error_response("Invalid request", 400)
             except Exception as transcribe_error:
                 # Service failure - record for circuit breaker
                 _transcription_circuit_breaker.record_failure()
@@ -996,7 +997,8 @@ class TranscriptionHandler(BaseHandler):
             return error_response(safe_error_message(e, "transcription service"), 503)
         except ValueError as e:
             # Invalid URL
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except (KeyError, TypeError) as e:
             logger.warning(f"Invalid YouTube info request data: {e}")
             return error_response(safe_error_message(e, "video info"), 400)

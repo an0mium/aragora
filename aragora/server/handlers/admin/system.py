@@ -617,7 +617,8 @@ class SystemHandler(BaseHandler):
                 }
             )
         except ImportError as e:
-            return error_response(f"Handler registry not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Service temporarily unavailable", 503)
         except Exception as e:
             logger.exception(f"Handler diagnostics failed: {e}")
             return error_response(safe_error_message(e, "handler diagnostics"), 500)

@@ -188,7 +188,7 @@ class SecurityDebateHandler(SecureHandler):
             result = run_async(_run_debate())
         except Exception as e:
             logger.exception("Security debate failed")
-            return error_response(f"Debate failed: {str(e)}", 500)
+            return error_response("Debate operation failed", 500)
 
         end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000

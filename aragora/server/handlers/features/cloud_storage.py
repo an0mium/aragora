@@ -360,7 +360,8 @@ if HANDLER_BASE_AVAILABLE:
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
 
             if path == "/api/v1/cloud/status":
                 return json_response(get_all_provider_status())
@@ -408,7 +409,8 @@ if HANDLER_BASE_AVAILABLE:
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
 
             body = self.read_json_body(handler)
             if body is None:

@@ -153,7 +153,7 @@ class DRHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling DR request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     @require_permission("dr:read")
     async def _get_status(self) -> HandlerResult:

@@ -137,7 +137,7 @@ class CreateOperationsMixin:
                 return error_response("Rate limit exceeded", 429)
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:
             logger.exception(f"[_create_debate] Rate limit check error: {e}")
-            return error_response(f"Rate limit check failed: {e}", 500)
+            return error_response("Rate limit check failed", 500)
 
         logger.info("[_create_debate] Rate limit passed")
 
@@ -261,7 +261,8 @@ class CreateOperationsMixin:
 
             request = DebateRequest.from_dict(body)
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         # Get debate controller and start debate
         try:
@@ -439,7 +440,7 @@ class CreateOperationsMixin:
         except ContentModerationError as e:
             # Moderation explicitly rejected content
             logger.warning(f"Content moderation error: {e}")
-            return error_response(str(e), 400)
+            return error_response("Invalid request", 400)
         except Exception as e:
             # Unexpected error - log but allow content through (fail-open)
             logger.error(f"Spam check failed unexpectedly: {e}", exc_info=True)

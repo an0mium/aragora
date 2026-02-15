@@ -86,7 +86,7 @@ class CoordinatorHandler(SecureHandler):
             return error_response("Authentication required to access coordinator data", 401)
         except ForbiddenError as e:
             logger.warning(f"Coordinator access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if not COORDINATOR_AVAILABLE:
             return error_response(

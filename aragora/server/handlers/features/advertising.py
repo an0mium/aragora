@@ -350,7 +350,8 @@ class AdvertisingHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
     @rate_limit(requests_per_minute=60)
     async def handle_request(self, request: Any) -> dict[str, Any]:
@@ -456,7 +457,8 @@ class AdvertisingHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         platform = body.get("platform")
         if not platform:
@@ -634,7 +636,8 @@ class AdvertisingHandler(SecureHandler):
                 return self._json_response(200, self._normalize_microsoft_campaign(campaign))
 
         except Exception as e:
-            return self._error_response(404, f"Campaign not found: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(404, "Campaign not found")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -646,7 +649,8 @@ class AdvertisingHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         # --- Validate campaign name ---
         name, err = _validate_campaign_name(body.get("name"))
@@ -751,7 +755,8 @@ class AdvertisingHandler(SecureHandler):
                 )
 
         except Exception as e:
-            return self._error_response(500, f"Failed to create campaign: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to create campaign")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -768,7 +773,8 @@ class AdvertisingHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         connector = await self._get_connector(platform)
         if not connector:
@@ -824,7 +830,8 @@ class AdvertisingHandler(SecureHandler):
             )
 
         except Exception as e:
-            return self._error_response(500, f"Failed to update campaign: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to update campaign")
 
     async def _get_cross_platform_performance(self, request: Any) -> dict[str, Any]:
         """Get performance metrics across all connected platforms."""
@@ -946,7 +953,8 @@ class AdvertisingHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         # --- Validate platforms list ---
         platforms = body.get("platforms", list(_platform_credentials.keys()))

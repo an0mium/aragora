@@ -177,7 +177,8 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         normalized = strip_version_prefix(path)
 

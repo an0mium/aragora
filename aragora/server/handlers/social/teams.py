@@ -333,7 +333,7 @@ class TeamsIntegrationHandler(BaseHandler):
             return error_response("Invalid JSON", 400)
         except Exception as e:
             logger.exception(f"Teams command error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     def _handle_interactive(self, handler: Any) -> HandlerResult:
         """Handle Adaptive Card action submissions."""
@@ -361,7 +361,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Teams interactive error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     async def _handle_notify(self, handler: Any) -> HandlerResult:
         """Send notification to a Teams channel/conversation."""
@@ -399,7 +399,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Teams notify error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     async def _start_debate(
         self,
@@ -710,7 +710,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Leaderboard error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     async def _list_agents(
         self,
@@ -754,7 +754,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"List agents error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     async def _get_recent_debates(
         self,
@@ -796,7 +796,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Recent debates error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     async def _search_debates(
         self,
@@ -849,7 +849,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Search error: {e}")
-            return error_response(f"Error: {str(e)[:100]}", 500)
+            return error_response("Internal server error", 500)
 
     def _build_leaderboard_blocks(self, rankings: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Build Adaptive Card blocks for leaderboard display."""

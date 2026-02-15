@@ -446,7 +446,7 @@ class GDPRMixin:
 
         except (ImportError, ValueError, KeyError, RuntimeError) as e:
             logger.exception(f"Error listing deletions: {e}")
-            return error_response(f"Failed to list deletions: {str(e)}", 500)
+            return error_response("Failed to list deletions", 500)
 
     @require_permission("compliance:gdpr")
     async def _get_deletion(self, request_id: str) -> HandlerResult:
@@ -467,7 +467,7 @@ class GDPRMixin:
 
         except (KeyError, RuntimeError, ValueError) as e:
             logger.exception(f"Error getting deletion: {e}")
-            return error_response(f"Failed to get deletion: {str(e)}", 500)
+            return error_response("Failed to retrieve deletion", 500)
 
     @require_permission("compliance:gdpr")
     async def _cancel_deletion(
@@ -519,10 +519,11 @@ class GDPRMixin:
             )
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except Exception as e:
             logger.exception(f"Error cancelling deletion: {e}")
-            return error_response(f"Failed to cancel deletion: {str(e)}", 500)
+            return error_response("Deletion cancellation failed", 500)
 
     # =========================================================================
     # Coordinated Deletion Endpoints (Backup-Aware GDPR Compliance)
@@ -609,7 +610,7 @@ class GDPRMixin:
 
         except Exception as e:
             logger.exception(f"Error executing coordinated deletion: {e}")
-            return error_response(f"Failed to execute deletion: {str(e)}", 500)
+            return error_response("Deletion execution failed", 500)
 
     @require_permission("compliance:gdpr")
     async def _execute_pending_deletions(self, body: dict[str, Any]) -> HandlerResult:
@@ -670,7 +671,7 @@ class GDPRMixin:
 
         except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Error processing pending deletions: {e}")
-            return error_response(f"Failed to process deletions: {str(e)}", 500)
+            return error_response("Deletion processing failed", 500)
 
     @require_permission("compliance:gdpr")
     async def _list_backup_exclusions(self, query_params: dict[str, str]) -> HandlerResult:
@@ -698,7 +699,7 @@ class GDPRMixin:
 
         except (RuntimeError, ValueError, KeyError) as e:
             logger.exception(f"Error listing backup exclusions: {e}")
-            return error_response(f"Failed to list exclusions: {str(e)}", 500)
+            return error_response("Failed to list exclusions", 500)
 
     @require_permission("compliance:gdpr")
     async def _add_backup_exclusion(self, body: dict[str, Any]) -> HandlerResult:
@@ -747,7 +748,7 @@ class GDPRMixin:
 
         except (RuntimeError, ValueError, KeyError) as e:
             logger.exception(f"Error adding backup exclusion: {e}")
-            return error_response(f"Failed to add exclusion: {str(e)}", 500)
+            return error_response("Exclusion addition failed", 500)
 
     # =========================================================================
     # Helper methods for user data retrieval

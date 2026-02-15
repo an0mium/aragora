@@ -89,7 +89,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get costs: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -139,7 +139,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get breakdown: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -183,7 +183,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get timeline: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -238,7 +238,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get alerts: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -304,7 +304,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to set budget: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -346,7 +346,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to dismiss alert: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -412,7 +412,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get recommendations: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -451,7 +451,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get recommendation: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -501,7 +501,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to apply recommendation: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -540,7 +540,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to dismiss recommendation: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -617,7 +617,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get efficiency: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -663,7 +663,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get forecast: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -719,7 +719,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to simulate forecast: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -785,7 +785,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to export costs: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     # =========================================================================
     # New Endpoints: Usage, Budgets, Constraints, Estimates, Detailed Views
@@ -888,7 +888,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get usage: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -962,7 +962,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to list budgets: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -1040,7 +1040,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to create budget: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -1126,7 +1126,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to check constraints: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -1219,7 +1219,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to estimate cost: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -1297,7 +1297,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get detailed forecast: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="GET",
@@ -1378,7 +1378,7 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to get detailed recommendations: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)
 
     @api_endpoint(
         method="POST",
@@ -1458,4 +1458,4 @@ class CostHandler:
             ImportError,
         ) as e:
             logger.exception(f"Failed to create alert: {e}")
-            return web_error_response(str(e), 500)
+            return web_error_response("Internal server error", 500)

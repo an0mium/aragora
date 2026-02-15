@@ -190,7 +190,7 @@ class DealOperationsMixin:
         except Exception as e:
             logger.warning("CRM get_deal failed for %s/%s: %s", platform, deal_id, e)
             cb.record_failure()
-            return self._error_response(404, f"Deal not found: {e}")
+            return self._error_response(404, "Deal not found")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -214,7 +214,7 @@ class DealOperationsMixin:
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("CRM create_deal: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         # Validate deal fields
         name = body.get("name")
@@ -262,7 +262,7 @@ class DealOperationsMixin:
         except Exception as e:
             logger.error("CRM create_deal failed for %s: %s", platform, e, exc_info=True)
             cb.record_failure()
-            return self._error_response(500, f"Failed to create deal: {e}")
+            return self._error_response(500, "Deal creation failed")
 
         return self._error_response(400, "Unsupported platform")
 

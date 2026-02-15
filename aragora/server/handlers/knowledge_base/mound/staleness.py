@@ -69,7 +69,7 @@ class StalenessOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to get stale knowledge: {e}")
-            return error_response(f"Failed to get stale knowledge: {e}", 500)
+            return error_response("Failed to get stale knowledge", 500)
 
         stale_items_typed: list[StalenessCheck] = stale_items
         return json_response(
@@ -109,7 +109,8 @@ class StalenessOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         validator = data.get("validator", "api")
         new_confidence = data.get("confidence")
@@ -122,7 +123,7 @@ class StalenessOperationsMixin:
             _run_async(mound.mark_validated(node_id, validator, new_confidence))
         except Exception as e:
             logger.error(f"Failed to revalidate node: {e}")
-            return error_response(f"Failed to revalidate node: {e}", 500)
+            return error_response("Failed to revalidate node", 500)
 
         return json_response(
             {
@@ -149,7 +150,8 @@ class StalenessOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         node_ids = data.get("node_ids", [])
         if not node_ids:
@@ -167,7 +169,7 @@ class StalenessOperationsMixin:
             scheduled = _run_async(mound.schedule_revalidation(node_ids, priority))
         except Exception as e:
             logger.error(f"Failed to schedule revalidation: {e}")
-            return error_response(f"Failed to schedule revalidation: {e}", 500)
+            return error_response("Failed to schedule revalidation", 500)
 
         return json_response(
             {

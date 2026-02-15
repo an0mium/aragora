@@ -101,7 +101,7 @@ class CalibrationHandler(SecureHandler):
             return error_response("Authentication required to access calibration data", 401)
         except ForbiddenError as e:
             logger.warning(f"Calibration access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # Handle leaderboard endpoint
         if path == "/api/calibration/leaderboard":

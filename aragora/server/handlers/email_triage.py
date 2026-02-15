@@ -156,7 +156,8 @@ class EmailTriageHandler(BaseHandler):
             )
 
         except (ValueError, TypeError, KeyError) as e:
-            return error_response(f"Invalid rules configuration: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid rules configuration", 400)
 
     def _handle_test_message(self, handler: Any) -> HandlerResult:
         """Test a message against current triage rules."""

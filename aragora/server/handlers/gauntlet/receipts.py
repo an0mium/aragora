@@ -276,7 +276,8 @@ class GauntletReceiptsMixin:
             # Parse signed receipt
             signed_receipt = SignedReceipt.from_dict(data)
         except (KeyError, TypeError, ValueError) as e:
-            return error_response(f"Invalid signed receipt format: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid signed receipt format", 400)
 
         # Initialize verification result
         verification_result = {

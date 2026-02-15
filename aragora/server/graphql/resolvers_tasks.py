@@ -105,8 +105,8 @@ class TaskQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving task {id}: {e}")
-            return ResolverResult(errors=[f"Failed to resolve task: {e}"])
+            logger.warning("GraphQL resolver error in resolve_task: %s", e)
+            return ResolverResult(errors=["Failed to resolve task: internal error"])
 
     @staticmethod
     async def resolve_tasks(
@@ -167,8 +167,8 @@ class TaskQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving tasks: {e}")
-            return ResolverResult(errors=[f"Failed to resolve tasks: {e}"])
+            logger.warning("GraphQL resolver error in resolve_tasks: %s", e)
+            return ResolverResult(errors=["Failed to resolve tasks: internal error"])
 
     @staticmethod
     async def resolve_system_health(ctx: ResolverContext) -> ResolverResult:
@@ -258,8 +258,8 @@ class TaskQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving system health: {e}")
-            return ResolverResult(errors=[f"Failed to resolve system health: {e}"])
+            logger.warning("GraphQL resolver error in resolve_system_health: %s", e)
+            return ResolverResult(errors=["Failed to resolve system health: internal error"])
 
     @staticmethod
     async def resolve_stats(ctx: ResolverContext) -> ResolverResult:
@@ -304,8 +304,8 @@ class TaskQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving stats: {e}")
-            return ResolverResult(errors=[f"Failed to resolve stats: {e}"])
+            logger.warning("GraphQL resolver error in resolve_stats: %s", e)
+            return ResolverResult(errors=["Failed to resolve stats: internal error"])
 
 
 # =============================================================================
@@ -378,8 +378,8 @@ class TaskMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # Task creation, scheduling, or transformation errors
-            logger.exception(f"Error submitting task: {e}")
-            return ResolverResult(errors=[f"Failed to submit task: {e}"])
+            logger.warning("GraphQL resolver error in resolve_submit_task: %s", e)
+            return ResolverResult(errors=["Failed to submit task: internal error"])
 
     @staticmethod
     async def resolve_cancel_task(
@@ -418,8 +418,8 @@ class TaskMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # Task access, cancellation, or transformation errors
-            logger.exception(f"Error cancelling task: {e}")
-            return ResolverResult(errors=[f"Failed to cancel task: {e}"])
+            logger.warning("GraphQL resolver error in resolve_cancel_task: %s", e)
+            return ResolverResult(errors=["Failed to cancel task: internal error"])
 
 
 # =============================================================================

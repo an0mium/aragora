@@ -130,7 +130,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"URL check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     @api_endpoint(
         method="POST",
@@ -204,7 +204,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Batch URL check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     # =========================================================================
     # IP Reputation
@@ -249,7 +249,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"IP check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     @api_endpoint(
         method="POST",
@@ -301,7 +301,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Batch IP check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     # =========================================================================
     # File Hash Lookup
@@ -346,7 +346,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Hash check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     @api_endpoint(
         method="POST",
@@ -398,7 +398,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Batch hash check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     # =========================================================================
     # Email Content Scanning
@@ -456,7 +456,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Email scan failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
     # =========================================================================
     # Service Status
@@ -511,7 +511,7 @@ class ThreatIntelHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Status check failed: {e}")
-            return self.error_response(str(e), status=500)
+            return self.error_response("Internal server error", status=500)
 
 
 # =========================================================================

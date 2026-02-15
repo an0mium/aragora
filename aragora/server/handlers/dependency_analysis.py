@@ -233,7 +233,7 @@ async def handle_analyze_dependencies(
 
     except Exception as e:
         logger.exception("Error analyzing dependencies")
-        return error_response(f"Failed to analyze dependencies: {e}", status=500)
+        return error_response("Dependency analysis failed", status=500)
 
 
 @require_permission("codebase:run")
@@ -290,7 +290,7 @@ async def handle_generate_sbom(
 
     except Exception as e:
         logger.exception("Error generating SBOM")
-        return error_response(f"Failed to generate SBOM: {e}", status=500)
+        return error_response("SBOM generation failed", status=500)
 
 
 @require_permission("codebase:run")
@@ -365,7 +365,7 @@ async def handle_scan_vulnerabilities(
 
     except Exception as e:
         logger.exception("Error scanning vulnerabilities")
-        return error_response(f"Failed to scan vulnerabilities: {e}", status=500)
+        return error_response("Vulnerability scan failed", status=500)
 
 
 @require_permission("codebase:run")
@@ -435,7 +435,7 @@ async def handle_check_licenses(
 
     except Exception as e:
         logger.exception("Error checking licenses")
-        return error_response(f"Failed to check licenses: {e}", status=500)
+        return error_response("License check failed", status=500)
 
 
 @require_permission("admin:cache")
@@ -461,7 +461,7 @@ async def handle_clear_cache(
 
     except Exception as e:
         logger.exception("Error clearing cache")
-        return error_response(f"Failed to clear cache: {e}", status=500)
+        return error_response("Cache clearing failed", status=500)
 
 
 # =============================================================================

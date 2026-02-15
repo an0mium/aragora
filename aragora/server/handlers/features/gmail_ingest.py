@@ -164,7 +164,8 @@ class GmailIngestHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # SECURITY: Extract user_id from JWT token, not from query params
         user_id, org_id, auth_error = self._get_authenticated_user(handler)
@@ -217,7 +218,8 @@ class GmailIngestHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # SECURITY: Extract user_id from JWT token, not from body
         user_id, org_id, auth_error = self._get_authenticated_user(handler)

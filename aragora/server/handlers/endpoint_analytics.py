@@ -246,7 +246,7 @@ class EndpointAnalyticsHandler(SecureHandler):
             return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
             logger.warning(f"Endpoint analytics access denied: {e}")
-            return error_response(str(e), 403, code="PERMISSION_DENIED")
+            return error_response("Permission denied", 403, code="PERMISSION_DENIED")
 
         # Route to specific handlers
         if normalized == "/api/analytics/endpoints":

@@ -323,7 +323,7 @@ class CompositeHandler(BaseHandler):
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in full-context handler: {e}")
-            return self._error_response(f"Invalid data: {e}", 400)
+            return self._error_response("Invalid data", 400)
         except Exception as e:
             logger.exception(f"Unexpected error in full-context handler: {e}")
             return self._error_response("Internal server error", 500)
@@ -380,7 +380,7 @@ class CompositeHandler(BaseHandler):
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in reliability handler: {e}")
-            return self._error_response(f"Invalid data: {e}", 400)
+            return self._error_response("Invalid data", 400)
         except Exception as e:
             logger.exception(f"Unexpected error in reliability handler: {e}")
             return self._error_response("Internal server error", 500)
@@ -439,7 +439,7 @@ class CompositeHandler(BaseHandler):
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Data error in compression-analysis handler: {e}")
-            return self._error_response(f"Invalid data: {e}", 400)
+            return self._error_response("Invalid data", 400)
         except Exception as e:
             logger.exception(f"Unexpected error in compression-analysis handler: {e}")
             return self._error_response("Internal server error", 500)

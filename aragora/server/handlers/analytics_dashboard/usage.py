@@ -75,7 +75,7 @@ class UsageAnalyticsMixin:
 
         except ValueError as e:
             logger.warning(f"Invalid cost metrics parameter: {e}")
-            return error_response(f"Invalid parameter: {e}", 400, code="INVALID_PARAMETER")
+            return error_response("Invalid parameter", 400, code="INVALID_PARAMETER")
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in cost metrics: {e}")
             return error_response(safe_error_message(e, "cost metrics"), 400, code="DATA_ERROR")

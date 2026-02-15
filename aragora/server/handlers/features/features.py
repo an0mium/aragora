@@ -1083,7 +1083,8 @@ class FeaturesHandler(BaseHandler):
             body = handler.rfile.read(content_length) if content_length > 0 else b"{}"
             updates = json_module.loads(body.decode("utf-8"))
         except (json_module.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON body: {e}", status=400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", status=400)
 
         # Validate updates
         valid_keys = set(self.DEFAULT_PREFERENCES.keys())

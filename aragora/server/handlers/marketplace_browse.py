@@ -194,6 +194,7 @@ class MarketplaceBrowseHandler(BaseHandler):
             )
             registry.rate(rating)
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         return json_response({"status": "ok", "template_id": template_id, "score": score})

@@ -601,7 +601,8 @@ class PulseHandler(BaseHandler):
             else:
                 return error_response("Request body is required", 400)
         except (json_module.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         topic = data.get("topic", "")
         if not isinstance(topic, str):
@@ -794,7 +795,8 @@ class PulseHandler(BaseHandler):
                 }
             )
         except RuntimeError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
     @require_auth
     @rate_limit(requests_per_minute=5, limiter_name="scheduler_control")
@@ -914,7 +916,8 @@ class PulseHandler(BaseHandler):
             body = handler.rfile.read(content_length)
             updates = json_module.loads(body.decode("utf-8"))
         except (json_module.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         if not isinstance(updates, dict):
             return error_response("Body must be a JSON object", 400)

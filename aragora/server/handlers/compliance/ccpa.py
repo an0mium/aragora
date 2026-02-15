@@ -276,7 +276,7 @@ class CCPAMixin:
 
         except Exception as e:
             logger.exception(f"CCPA deletion request failed for user {user_id}: {e}")
-            return error_response(f"Failed to process deletion request: {str(e)}", 500)
+            return error_response("Deletion request processing failed", 500)
 
     @track_handler("compliance/ccpa-optout", method="POST")
     @require_permission("compliance:ccpa")
@@ -347,7 +347,7 @@ class CCPAMixin:
 
         except Exception as e:
             logger.exception(f"CCPA opt-out failed for user {user_id}: {e}")
-            return error_response(f"Failed to process opt-out request: {str(e)}", 500)
+            return error_response("Opt-out request processing failed", 500)
 
     @track_handler("compliance/ccpa-correct", method="POST")
     @require_permission("compliance:ccpa")
@@ -453,7 +453,7 @@ class CCPAMixin:
 
         except Exception as e:
             logger.exception(f"Error fetching CCPA status: {e}")
-            return error_response(f"Failed to fetch status: {str(e)}", 500)
+            return error_response("Failed to retrieve status", 500)
 
     # =========================================================================
     # Helper methods for CCPA operations

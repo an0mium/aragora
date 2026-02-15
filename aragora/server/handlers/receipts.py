@@ -1105,7 +1105,8 @@ class ReceiptsHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except Exception as e:
             logger.exception(f"Failed to format receipt: {e}")
             return error_response(safe_error_message(e, "receipt formatting"), 500)

@@ -73,7 +73,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
                 logger.warning(f"Slack status access denied: {e}")
-                return error_response(str(e), 403)
+                return error_response("Permission denied", 403)
             return self._get_status()
 
         # All other endpoints require POST

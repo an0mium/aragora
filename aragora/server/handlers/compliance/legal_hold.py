@@ -112,7 +112,7 @@ class LegalHoldMixin:
 
         except (RuntimeError, AttributeError, KeyError) as e:
             logger.exception(f"Error listing legal holds: {e}")
-            return error_response(f"Failed to list legal holds: {str(e)}", 500)
+            return error_response("Failed to list legal holds", 500)
 
     @track_handler("compliance/legal-hold-create", method="POST")
     @require_permission("compliance:legal")
@@ -186,7 +186,7 @@ class LegalHoldMixin:
 
         except (RuntimeError, ValueError, TypeError) as e:
             logger.exception(f"Error creating legal hold: {e}")
-            return error_response(f"Failed to create legal hold: {str(e)}", 500)
+            return error_response("Legal hold creation failed", 500)
 
     @require_permission("compliance:legal")
     async def _release_legal_hold(
@@ -239,4 +239,4 @@ class LegalHoldMixin:
 
         except (RuntimeError, ValueError, KeyError) as e:
             logger.exception(f"Error releasing legal hold: {e}")
-            return error_response(f"Failed to release legal hold: {str(e)}", 500)
+            return error_response("Legal hold release failed", 500)

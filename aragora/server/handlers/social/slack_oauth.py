@@ -918,7 +918,7 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("httpx not available", 503)
         except Exception as e:
             logger.error(f"[{request_id}] Slack token exchange failed: {e}")
-            return error_response(f"Token exchange failed: {e}", 500)
+            return error_response("Token exchange failed", 500)
 
         if not data.get("ok"):
             error_msg = data.get("error", "Unknown error")
@@ -1235,7 +1235,7 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Workspace storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to list workspaces: {e}")
-            return error_response(f"Failed to list workspaces: {e}", 500)
+            return error_response("Failed to list workspaces", 500)
 
     async def _handle_workspace_status(self, workspace_id: str) -> HandlerResult:
         """
@@ -1296,7 +1296,7 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Workspace storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to get workspace status: {e}")
-            return error_response(f"Failed to get workspace status: {e}", 500)
+            return error_response("Failed to get workspace status", 500)
 
     async def _handle_refresh_token(self, workspace_id: str) -> HandlerResult:
         """
@@ -1350,7 +1350,8 @@ class SlackOAuthHandler(SecureHandler):
                         success=False,
                         error=str(e),
                     )
-                return error_response(f"Token refresh failed: {e}", 502)
+                logger.warning("Handler error: %s", e)
+                return error_response("Token refresh failed", 502)
 
             if not data.get("ok"):
                 error_msg = data.get("error", "Unknown error")
@@ -1402,7 +1403,7 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Workspace storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to refresh token: {e}")
-            return error_response(f"Failed to refresh token: {e}", 500)
+            return error_response("Failed to refresh token", 500)
 
 
 # Handler factory function for registration

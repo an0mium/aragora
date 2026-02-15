@@ -662,7 +662,7 @@ class NotificationsHandler(SecureHandler):
                             loop.close()
                 except Exception as e:
                     logger.error("Failed to save email config for org %s: %s", org_id, e)
-                    return error_response(f"Failed to save configuration: {e}", 500)
+                    return error_response("Failed to save configuration", 500)
 
                 return json_response(
                     {
@@ -698,7 +698,8 @@ class NotificationsHandler(SecureHandler):
                 }
             )
         except ValueError as e:
-            return error_response(f"Invalid configuration: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid configuration", 400)
         except Exception as e:
             logger.error("Failed to configure email: %s", e)
             return error_response("Failed to configure email", 500)
@@ -755,7 +756,7 @@ class NotificationsHandler(SecureHandler):
                             loop.close()
                 except Exception as e:
                     logger.error("Failed to save telegram config for org %s: %s", org_id, e)
-                    return error_response(f"Failed to save configuration: {e}", 500)
+                    return error_response("Failed to save configuration", 500)
 
                 return json_response(
                     {
@@ -783,7 +784,8 @@ class NotificationsHandler(SecureHandler):
                 }
             )
         except ValueError as e:
-            return error_response(f"Invalid configuration: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid configuration", 400)
         except Exception as e:
             logger.error("Failed to configure telegram: %s", e)
             return error_response("Failed to configure telegram", 500)
@@ -840,7 +842,7 @@ class NotificationsHandler(SecureHandler):
                         loop.close()
             except Exception as e:
                 logger.error("Failed to add recipient for org %s: %s", org_id, e)
-                return error_response(f"Failed to add recipient: {e}", 500)
+                return error_response("Failed to add recipient", 500)
 
             return json_response(
                 {
@@ -911,7 +913,7 @@ class NotificationsHandler(SecureHandler):
                         loop.close()
             except Exception as e:
                 logger.error("Failed to remove recipient for org %s: %s", org_id, e)
-                return error_response(f"Failed to remove recipient: {e}", 500)
+                return error_response("Failed to remove recipient", 500)
 
             if removed:
                 return json_response(

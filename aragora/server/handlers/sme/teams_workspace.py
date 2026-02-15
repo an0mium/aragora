@@ -690,7 +690,8 @@ class TeamsWorkspaceHandler(SecureHandler):
             )
             return json_response({"subscription": created.to_dict()}, status=201)
         except ValueError as e:
-            return error_response(str(e), 409)
+            logger.warning("Handler error: %s", e)
+            return error_response("Conflict", 409)
 
     @handle_errors("list Teams subscriptions")
     @require_permission("sme:channels:subscribe")

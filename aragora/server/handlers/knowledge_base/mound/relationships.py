@@ -55,7 +55,7 @@ class RelationshipOperationsMixin:
             node = _run_async(get_node(node_id)) if get_node else None
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
-            return error_response(f"Failed to get node: {e}", 500)
+            return error_response("Failed to get node", 500)
 
         if not node:
             return error_response(f"Node not found: {node_id}", 404)
@@ -81,7 +81,7 @@ class RelationshipOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to get relationships: {e}")
-            return error_response(f"Failed to get relationships: {e}", 500)
+            return error_response("Failed to get relationships", 500)
 
         return json_response(
             {
@@ -124,7 +124,8 @@ class RelationshipOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         from_node_id = data.get("from_node_id")
         to_node_id = data.get("to_node_id")
@@ -161,7 +162,7 @@ class RelationshipOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to create relationship: {e}")
-            return error_response(f"Failed to create relationship: {e}", 500)
+            return error_response("Failed to create relationship", 500)
 
         return json_response(
             {

@@ -97,4 +97,4 @@ class CostDashboardHandler(SecureHandler):
 
         except Exception as e:
             logger.error("Cost dashboard error: %s", e, exc_info=True)
-            return error_response(f"Failed to load dashboard: {e}", 500)
+            return error_response("Dashboard loading failed", 500)

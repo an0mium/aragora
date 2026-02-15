@@ -166,7 +166,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -288,7 +289,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         platform = body.get("platform")
         if not platform:
@@ -450,7 +452,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 )
 
         except Exception as e:
-            return self._error_response(404, f"Dashboard not found: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(404, "Dashboard not found")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -459,7 +462,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         platform = body.get("platform")
         if not platform or platform not in _platform_credentials:
@@ -529,7 +533,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
                     )
 
         except Exception as e:
-            return self._error_response(500, f"Query execution failed: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Query execution failed")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -596,7 +601,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         report_type = body.get("type", "traffic_overview")
         platforms = body.get("platforms", list(_platform_credentials.keys()))
@@ -771,7 +777,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
             )
 
         except Exception as e:
-            return self._error_response(500, f"Failed to fetch realtime data: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to fetch realtime data")
 
     async def _get_events(self, request: Any, platform: str) -> dict[str, Any]:
         """Get event data from a platform."""
@@ -820,7 +827,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
                 )
 
         except Exception as e:
-            return self._error_response(500, f"Failed to fetch events: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to fetch events")
 
         return self._error_response(400, "Platform does not support event queries")
 
@@ -855,7 +863,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
             )
 
         except Exception as e:
-            return self._error_response(500, f"Failed to fetch funnel: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to fetch funnel")
 
     async def _get_retention(self, request: Any, platform: str) -> dict[str, Any]:
         """Get retention analysis from a platform."""
@@ -883,7 +892,8 @@ class AnalyticsPlatformsHandler(SecureHandler):
             )
 
         except Exception as e:
-            return self._error_response(500, f"Failed to fetch retention: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to fetch retention")
 
     # Helper methods
 

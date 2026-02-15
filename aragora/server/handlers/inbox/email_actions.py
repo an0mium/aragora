@@ -134,7 +134,7 @@ async def handle_send_email(
         ConnectionError,
     ) as e:
         logger.exception("Failed to send email")
-        return error_response(f"Send failed: {str(e)}", status=500)
+        return error_response("Email send failed", status=500)
 
 
 @require_permission("email:create")
@@ -192,7 +192,7 @@ async def handle_reply_email(
         ConnectionError,
     ) as e:
         logger.exception("Failed to reply to email")
-        return error_response(f"Reply failed: {str(e)}", status=500)
+        return error_response("Email reply failed", status=500)
 
 
 # =============================================================================
@@ -252,7 +252,7 @@ async def handle_archive_message(
         ConnectionError,
     ) as e:
         logger.exception("Failed to archive message")
-        return error_response(f"Archive failed: {str(e)}", status=500)
+        return error_response("Archive operation failed", status=500)
 
 
 @require_permission("email:delete")
@@ -307,7 +307,7 @@ async def handle_trash_message(
         ConnectionError,
     ) as e:
         logger.exception("Failed to trash message")
-        return error_response(f"Trash failed: {str(e)}", status=500)
+        return error_response("Trash operation failed", status=500)
 
 
 @require_permission("email:update")
@@ -356,7 +356,7 @@ async def handle_restore_message(
         ConnectionError,
     ) as e:
         logger.exception("Failed to restore message")
-        return error_response(f"Restore failed: {str(e)}", status=500)
+        return error_response("Restore operation failed", status=500)
 
 
 # =============================================================================
@@ -446,7 +446,7 @@ async def handle_snooze_message(
         ConnectionError,
     ) as e:
         logger.exception("Failed to snooze message")
-        return error_response(f"Snooze failed: {str(e)}", status=500)
+        return error_response("Snooze operation failed", status=500)
 
 
 # =============================================================================
@@ -505,7 +505,7 @@ async def handle_mark_read(
         ConnectionError,
     ) as e:
         logger.exception("Failed to mark message as read")
-        return error_response(f"Mark read failed: {str(e)}", status=500)
+        return error_response("Mark read operation failed", status=500)
 
 
 @require_permission("email:update")
@@ -554,7 +554,7 @@ async def handle_mark_unread(
         ConnectionError,
     ) as e:
         logger.exception("Failed to mark message as unread")
-        return error_response(f"Mark unread failed: {str(e)}", status=500)
+        return error_response("Mark unread operation failed", status=500)
 
 
 @require_permission("email:update")
@@ -608,7 +608,7 @@ async def handle_star_message(
         ConnectionError,
     ) as e:
         logger.exception("Failed to star message")
-        return error_response(f"Star failed: {str(e)}", status=500)
+        return error_response("Star operation failed", status=500)
 
 
 @require_permission("email:update")
@@ -657,7 +657,7 @@ async def handle_unstar_message(
         ConnectionError,
     ) as e:
         logger.exception("Failed to unstar message")
-        return error_response(f"Unstar failed: {str(e)}", status=500)
+        return error_response("Unstar operation failed", status=500)
 
 
 # =============================================================================
@@ -724,7 +724,7 @@ async def handle_move_to_folder(
         ConnectionError,
     ) as e:
         logger.exception("Failed to move message")
-        return error_response(f"Move failed: {str(e)}", status=500)
+        return error_response("Move operation failed", status=500)
 
 
 @require_permission("email:update")
@@ -779,7 +779,7 @@ async def handle_add_label(
         ConnectionError,
     ) as e:
         logger.exception("Failed to add labels")
-        return error_response(f"Add labels failed: {str(e)}", status=500)
+        return error_response("Add labels operation failed", status=500)
 
 
 @require_permission("email:update")
@@ -834,7 +834,7 @@ async def handle_remove_label(
         ConnectionError,
     ) as e:
         logger.exception("Failed to remove labels")
-        return error_response(f"Remove labels failed: {str(e)}", status=500)
+        return error_response("Remove labels operation failed", status=500)
 
 
 # =============================================================================
@@ -895,7 +895,7 @@ async def handle_batch_archive(
         ConnectionError,
     ) as e:
         logger.exception("Failed to batch archive")
-        return error_response(f"Batch archive failed: {str(e)}", status=500)
+        return error_response("Batch archive failed", status=500)
 
 
 @require_permission("email:delete")
@@ -966,7 +966,7 @@ async def handle_batch_trash(
         ConnectionError,
     ) as e:
         logger.exception("Failed to batch trash")
-        return error_response(f"Batch trash failed: {str(e)}", status=500)
+        return error_response("Batch trash failed", status=500)
 
 
 @require_permission("email:update")
@@ -1058,7 +1058,7 @@ async def handle_batch_modify(
         ConnectionError,
     ) as e:
         logger.exception("Failed to batch modify")
-        return error_response(f"Batch modify failed: {str(e)}", status=500)
+        return error_response("Batch modify failed", status=500)
 
 
 # =============================================================================
@@ -1139,7 +1139,7 @@ async def handle_get_action_logs(
         ConnectionError,
     ) as e:
         logger.exception("Failed to get action logs")
-        return error_response(f"Get logs failed: {str(e)}", status=500)
+        return error_response("Failed to retrieve logs", status=500)
 
 
 @require_permission("admin:audit")
@@ -1205,7 +1205,7 @@ async def handle_export_action_logs(
         ConnectionError,
     ) as e:
         logger.exception("Failed to export action logs")
-        return error_response(f"Export failed: {str(e)}", status=500)
+        return error_response("Export operation failed", status=500)
 
 
 # =============================================================================

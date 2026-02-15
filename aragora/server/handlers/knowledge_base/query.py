@@ -110,7 +110,8 @@ class QueryOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         question = data.get("question", "")
         if not question:
@@ -133,6 +134,6 @@ class QueryOperationsMixin:
             result = _run_async(engine.query(question, workspace_id, options))
         except Exception as e:
             logger.error(f"Query execution failed: {e}")
-            return error_response(f"Query failed: {e}", 500)
+            return error_response("Query execution failed", 500)
 
         return json_response(result.to_dict())

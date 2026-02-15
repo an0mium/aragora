@@ -117,7 +117,7 @@ class EmailDebateHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Email prioritization failed: {e}")
-            return error_response(f"Prioritization failed: {e}", 500)
+            return error_response("Prioritization failed", 500)
 
     async def _prioritize_batch(self, handler) -> HandlerResult:
         """
@@ -194,7 +194,7 @@ class EmailDebateHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Batch prioritization failed: {e}")
-            return error_response(f"Batch prioritization failed: {e}", 500)
+            return error_response("Batch prioritization failed", 500)
 
     async def _triage_inbox(self, handler) -> HandlerResult:
         """
@@ -304,7 +304,7 @@ class EmailDebateHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Inbox triage failed: {e}")
-            return error_response(f"Inbox triage failed: {e}", 500)
+            return error_response("Inbox triage failed", 500)
 
 
 __all__ = ["EmailDebateHandler"]

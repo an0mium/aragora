@@ -98,7 +98,8 @@ class VisibilityOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         visibility_str = data.get("visibility")
         if not visibility_str:
@@ -131,10 +132,11 @@ class VisibilityOperationsMixin:
                 )
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to set visibility: {e}")
-            return error_response(f"Failed to set visibility: {e}", 500)
+            return error_response("Failed to set visibility", 500)
 
         # Track metrics
         workspace_id = getattr(user, "workspace_id", None) or "unknown"
@@ -167,7 +169,7 @@ class VisibilityOperationsMixin:
             node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
-            return error_response(f"Failed to get node: {e}", 500)
+            return error_response("Failed to get node", 500)
 
         if not node:
             return error_response(f"Node not found: {node_id}", 404)
@@ -207,7 +209,8 @@ class VisibilityOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         grantee_type_str = data.get("grantee_type")
         grantee_id = data.get("grantee_id")
@@ -250,10 +253,11 @@ class VisibilityOperationsMixin:
                 )
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to grant access: {e}")
-            return error_response(f"Failed to grant access: {e}", 500)
+            return error_response("Failed to grant access", 500)
 
         # Track metrics
         workspace_id = getattr(user, "workspace_id", None) or "unknown"
@@ -299,7 +303,8 @@ class VisibilityOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         grantee_id = data.get("grantee_id")
         if not grantee_id:
@@ -320,10 +325,11 @@ class VisibilityOperationsMixin:
                 )
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to revoke access: {e}")
-            return error_response(f"Failed to revoke access: {e}", 500)
+            return error_response("Failed to revoke access", 500)
 
         # Track metrics
         workspace_id = getattr(user, "workspace_id", None) or "unknown"
@@ -355,10 +361,11 @@ class VisibilityOperationsMixin:
         try:
             grants = _run_async(mound.get_access_grants(node_id=node_id))
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to list access grants: {e}")
-            return error_response(f"Failed to list access grants: {e}", 500)
+            return error_response("Failed to list access grants", 500)
 
         return json_response(
             {

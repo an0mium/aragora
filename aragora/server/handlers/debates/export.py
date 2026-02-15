@@ -572,7 +572,7 @@ class ExportOperationsMixin:
             return error_response("Database error during export", 500)
         except ValueError as e:
             logger.warning("Export failed for %s - invalid format: %s", debate_id, e)
-            return error_response(f"Invalid export format: {e}", 400)
+            return error_response("Invalid export format", 400)
 
 
 def _format_csv(debate: dict, table: str) -> HandlerResult:

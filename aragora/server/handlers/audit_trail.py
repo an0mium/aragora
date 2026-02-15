@@ -129,7 +129,7 @@ class AuditTrailHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling audit trail request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     @require_permission("audit:read")
     async def _list_audit_trails(self, query_params: dict[str, str]) -> HandlerResult:

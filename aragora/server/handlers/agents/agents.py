@@ -215,7 +215,7 @@ class AgentsHandler(  # type: ignore[misc]
             return error_response("Authentication required to access agent data", 401)
         except ForbiddenError as e:
             logger.warning(f"Agent access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         path = strip_version_prefix(path)
         if path.startswith("/api/agents/") and not path.startswith(

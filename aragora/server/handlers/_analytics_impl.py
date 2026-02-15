@@ -105,7 +105,7 @@ class AnalyticsHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Analytics access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if path == "/api/analytics/disagreements":
             return self._get_disagreement_stats()

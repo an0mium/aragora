@@ -164,7 +164,7 @@ class BackupHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling backup request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     @require_permission("backups:read")
     async def _list_backups(self, query_params: dict[str, str]) -> HandlerResult:
@@ -316,10 +316,11 @@ class BackupHandler(BaseHandler):
             )
 
         except FileNotFoundError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.exception(f"Backup creation failed: {e}")
-            return error_response(f"Backup failed: {str(e)}", 500)
+            return error_response("Backup operation failed", 500)
 
     @require_permission("backups:verify")
     async def _verify_backup(self, backup_id: str) -> HandlerResult:
@@ -417,9 +418,10 @@ class BackupHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except FileNotFoundError as e:
-            return error_response(str(e), 404)
+            return error_response("Resource not found", 404)
 
     @require_permission("backups:delete")
     async def _delete_backup(self, backup_id: str) -> HandlerResult:
@@ -456,7 +458,7 @@ class BackupHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to delete backup: {e}")
-            return error_response(f"Delete failed: {str(e)}", 500)
+            return error_response("Delete operation failed", 500)
 
     @require_permission("backups:delete")
     async def _cleanup_expired(self, body: dict[str, Any]) -> HandlerResult:

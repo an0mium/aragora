@@ -487,7 +487,7 @@ class ExplainabilityHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Explanation error for {debate_id}: {e}")
-            return error_response(f"Failed to generate explanation: {str(e)[:100]}", 500)
+            return error_response("Explanation generation failed", 500)
 
     async def _handle_evidence(
         self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
@@ -522,7 +522,7 @@ class ExplainabilityHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Evidence error for {debate_id}: {e}")
-            return error_response(f"Failed to get evidence: {str(e)[:100]}", 500)
+            return error_response("Evidence retrieval failed", 500)
 
     async def _handle_vote_pivots(
         self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
@@ -555,7 +555,7 @@ class ExplainabilityHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Vote pivot error for {debate_id}: {e}")
-            return error_response(f"Failed to get vote pivots: {str(e)[:100]}", 500)
+            return error_response("Vote pivot retrieval failed", 500)
 
     async def _handle_counterfactuals(
         self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
@@ -586,7 +586,7 @@ class ExplainabilityHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Counterfactual error for {debate_id}: {e}")
-            return error_response(f"Failed to get counterfactuals: {str(e)[:100]}", 500)
+            return error_response("Counterfactual retrieval failed", 500)
 
     async def _handle_summary(
         self, debate_id: str, query_params: dict[str, Any], is_legacy: bool
@@ -665,7 +665,7 @@ h3 {{ color: #666; }}
 
         except Exception as e:
             logger.error(f"Summary error for {debate_id}: {e}")
-            return error_response(f"Failed to generate summary: {str(e)[:100]}", 500)
+            return error_response("Summary generation failed", 500)
 
     async def _handle_export(self, debate_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Handle export request for decision explanation in various formats."""
@@ -716,7 +716,7 @@ h3 {{ color: #666; }}
                 )
         except Exception as e:
             logger.error(f"Export error for {debate_id}: {e}")
-            return error_response(f"Failed to export: {str(e)[:100]}", 500)
+            return error_response("Export operation failed", 500)
 
     # ========================================================================
     # Batch Processing Methods
@@ -746,7 +746,8 @@ h3 {{ color: #666; }}
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         debate_ids = data.get("debate_ids", [])
         if not debate_ids:
@@ -1019,7 +1020,8 @@ h3 {{ color: #666; }}
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         debate_ids = data.get("debate_ids", [])
         if len(debate_ids) < 2:
@@ -1096,7 +1098,7 @@ h3 {{ color: #666; }}
 
         except Exception as e:
             logger.error(f"Compare error: {e}")
-            return error_response(f"Failed to compare debates: {str(e)[:100]}", 500)
+            return error_response("Debate comparison failed", 500)
 
 
 # Handler factory

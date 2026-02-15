@@ -184,7 +184,7 @@ class RBACHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling RBAC request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     # -------------------------------------------------------------------------
     # Permission endpoints
@@ -356,7 +356,8 @@ class RBACHandler(BaseHandler):
                 base_role=base_role,
             )
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         # Register in the checker's custom roles
         checker = get_permission_checker()

@@ -290,7 +290,7 @@ class CRMHandler(
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("CRM connect_platform: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         platform = body.get("platform")
         # Validate platform ID format

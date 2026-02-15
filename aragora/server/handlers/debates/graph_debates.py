@@ -117,7 +117,7 @@ class GraphDebatesHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Graph debates GET access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # Extract debate ID from path if present
         normalized = strip_version_prefix(path)
@@ -205,7 +205,7 @@ class GraphDebatesHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Graph debates POST access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # Rate limit check (5/min - expensive branching operations)
         client_ip = get_client_ip(handler)

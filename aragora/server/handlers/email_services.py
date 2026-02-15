@@ -213,7 +213,7 @@ async def handle_mark_followup(
 
     except Exception as e:
         logger.exception("Error marking follow-up")
-        return error_response(f"Failed to mark follow-up: {e}", status=500)
+        return error_response("Follow-up marking failed", status=500)
 
 
 async def handle_get_pending_followups(
@@ -269,7 +269,7 @@ async def handle_get_pending_followups(
 
     except Exception as e:
         logger.exception("Error getting pending follow-ups")
-        return error_response(f"Failed to get follow-ups: {e}", status=500)
+        return error_response("Failed to retrieve follow-ups", status=500)
 
 
 async def handle_resolve_followup(
@@ -318,7 +318,7 @@ async def handle_resolve_followup(
 
     except Exception as e:
         logger.exception("Error resolving follow-up")
-        return error_response(f"Failed to resolve follow-up: {e}", status=500)
+        return error_response("Follow-up resolution failed", status=500)
 
 
 async def handle_check_replies(
@@ -366,7 +366,7 @@ async def handle_check_replies(
 
     except Exception as e:
         logger.exception("Error checking replies")
-        return error_response(f"Failed to check replies: {e}", status=500)
+        return error_response("Reply check failed", status=500)
 
 
 async def handle_auto_detect_followups(
@@ -412,7 +412,7 @@ async def handle_auto_detect_followups(
 
     except Exception as e:
         logger.exception("Error auto-detecting follow-ups")
-        return error_response(f"Failed to auto-detect: {e}", status=500)
+        return error_response("Auto-detection failed", status=500)
 
 
 # =============================================================================
@@ -518,7 +518,7 @@ async def handle_get_snooze_suggestions(
 
     except Exception as e:
         logger.exception("Error getting snooze suggestions")
-        return error_response(f"Failed to get suggestions: {e}", status=500)
+        return error_response("Failed to retrieve suggestions", status=500)
 
 
 async def handle_apply_snooze(
@@ -587,7 +587,7 @@ async def handle_apply_snooze(
 
     except Exception as e:
         logger.exception("Error applying snooze")
-        return error_response(f"Failed to apply snooze: {e}", status=500)
+        return error_response("Snooze application failed", status=500)
 
 
 async def handle_cancel_snooze(
@@ -634,7 +634,7 @@ async def handle_cancel_snooze(
 
     except Exception as e:
         logger.exception("Error canceling snooze")
-        return error_response(f"Failed to cancel snooze: {e}", status=500)
+        return error_response("Snooze cancellation failed", status=500)
 
 
 async def handle_get_snoozed_emails(
@@ -680,7 +680,7 @@ async def handle_get_snoozed_emails(
 
     except Exception as e:
         logger.exception("Error getting snoozed emails")
-        return error_response(f"Failed to get snoozed: {e}", status=500)
+        return error_response("Failed to retrieve snoozed items", status=500)
 
 
 async def handle_process_due_snoozes(
@@ -735,7 +735,7 @@ async def handle_process_due_snoozes(
 
     except Exception as e:
         logger.exception("Error processing due snoozes")
-        return error_response(f"Failed to process snoozes: {e}", status=500)
+        return error_response("Snooze processing failed", status=500)
 
 
 # =============================================================================
@@ -773,7 +773,7 @@ async def handle_get_categories(
 
     except Exception as e:
         logger.exception("Error getting categories")
-        return error_response(f"Failed to get categories: {e}", status=500)
+        return error_response("Failed to retrieve categories", status=500)
 
 
 async def handle_category_feedback(
@@ -829,7 +829,7 @@ async def handle_category_feedback(
 
     except Exception as e:
         logger.exception("Error recording category feedback")
-        return error_response(f"Failed to record feedback: {e}", status=500)
+        return error_response("Feedback recording failed", status=500)
 
 
 def _get_category_description(category) -> str:
@@ -957,7 +957,8 @@ class EmailServicesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Determine required permission based on operation
         if path in {"/api/v1/email/followups/mark", "/api/v1/email/followups/auto-detect"}:
@@ -1012,7 +1013,8 @@ class EmailServicesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         try:
             self.check_permission(auth_context, "email:read")
@@ -1050,7 +1052,8 @@ class EmailServicesHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         try:
             self.check_permission(auth_context, "email:update")

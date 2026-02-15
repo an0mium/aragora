@@ -86,7 +86,8 @@ class SyncOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         workspace_id = data.get("workspace_id", "default")
         since = data.get("since")
@@ -126,7 +127,7 @@ class SyncOperationsMixin:
                 )
         except (AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to sync from continuum: {e}")
-            return error_response(f"Failed to sync from continuum: {e}", 500)
+            return error_response("Failed to sync from continuum", 500)
 
         return json_response(
             {
@@ -149,7 +150,8 @@ class SyncOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         workspace_id = data.get("workspace_id", "default")
         since = data.get("since")
@@ -189,7 +191,7 @@ class SyncOperationsMixin:
                 )
         except (AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to sync from consensus: {e}")
-            return error_response(f"Failed to sync from consensus: {e}", 500)
+            return error_response("Failed to sync from consensus", 500)
 
         return json_response(
             {
@@ -212,7 +214,8 @@ class SyncOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         workspace_id = data.get("workspace_id", "default")
         since = data.get("since")
@@ -250,7 +253,7 @@ class SyncOperationsMixin:
                 )
         except (AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Failed to sync from facts: {e}")
-            return error_response(f"Failed to sync from facts: {e}", 500)
+            return error_response("Failed to sync from facts", 500)
 
         return json_response(
             {

@@ -374,7 +374,7 @@ class HIPAAMixin:
 
         except Exception as e:
             logger.exception(f"Error fetching PHI access log: {e}")
-            return error_response(f"Failed to fetch access log: {str(e)}", 500)
+            return error_response("Failed to retrieve access log", 500)
 
     @track_handler("compliance/hipaa-breach-assessment", method="POST")
     @require_permission(PERM_HIPAA_BREACHES_REPORT)
@@ -770,7 +770,8 @@ class HIPAAMixin:
             try:
                 id_types = [IdentifierType(t) for t in raw_types]
             except ValueError as e:
-                return error_response(f"Invalid identifier type: {e}", 400)
+                logger.warning("Handler error: %s", e)
+                return error_response("Invalid identifier type", 400)
 
         anonymizer = HIPAAAnonymizer()
 

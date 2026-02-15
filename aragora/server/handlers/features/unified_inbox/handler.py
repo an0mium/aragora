@@ -146,7 +146,7 @@ class UnifiedInboxHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error in unified inbox handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
@@ -167,7 +167,7 @@ class UnifiedInboxHandler(BaseHandler):
             return error_response(result["error"], result.get("status_code", 400))
         except Exception as e:
             logger.exception(f"Error generating Gmail OAuth URL: {e}")
-            return error_response(f"Failed to generate OAuth URL: {str(e)}", 500)
+            return error_response("OAuth URL generation failed", 500)
 
     async def _handle_outlook_oauth_url(self, request: Any, tenant_id: str) -> HandlerResult:
         """Generate Outlook OAuth authorization URL."""
@@ -179,7 +179,7 @@ class UnifiedInboxHandler(BaseHandler):
             return error_response(result["error"], result.get("status_code", 400))
         except Exception as e:
             logger.exception(f"Error generating Outlook OAuth URL: {e}")
-            return error_response(f"Failed to generate OAuth URL: {str(e)}", 500)
+            return error_response("OAuth URL generation failed", 500)
 
     # =========================================================================
     # Connect Account
@@ -246,7 +246,7 @@ class UnifiedInboxHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error connecting account: {e}")
-            return error_response(f"Failed to connect account: {str(e)}", 500)
+            return error_response("Account connection failed", 500)
 
     # =========================================================================
     # List/Disconnect Accounts
@@ -327,7 +327,7 @@ class UnifiedInboxHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error listing messages: {e}")
-            return error_response(f"Failed to list messages: {str(e)}", 500)
+            return error_response("Failed to list messages", 500)
 
     async def _handle_get_message(
         self, request: Any, tenant_id: str, message_id: str
@@ -389,7 +389,7 @@ class UnifiedInboxHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error during triage: {e}")
-            return error_response(f"Triage failed: {str(e)}", 500)
+            return error_response("Triage operation failed", 500)
 
     # =========================================================================
     # Bulk Actions
@@ -415,7 +415,7 @@ class UnifiedInboxHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error executing bulk action: {e}")
-            return error_response(f"Bulk action failed: {str(e)}", 500)
+            return error_response("Bulk action failed", 500)
 
     # =========================================================================
     # Stats & Trends

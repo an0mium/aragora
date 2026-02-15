@@ -727,7 +727,7 @@ class PlaygroundHandler(BaseHandler):
             )
         except (ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Live playground debate failed: {e}")
-            return error_response(f"Live debate failed: {e}", 500)
+            return error_response("Live debate failed", 500)
 
         # Build response in the same shape as mock debates
         response = {

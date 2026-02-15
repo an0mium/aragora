@@ -256,7 +256,7 @@ class CurationOperationsMixin:
             )
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Error setting curation policy: %s", e)
-            return error_response(f"Failed to set curation policy: {e}", 500)
+            return error_response("Failed to set curation policy", 500)
 
     def _handle_curation_status(self, query_params: dict) -> HandlerResult:
         """Get current curation status for a workspace."""
@@ -353,7 +353,7 @@ class CurationOperationsMixin:
 
         except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.exception("Error running curation: %s", e)
-            return error_response(f"Failed to run curation: {e}", 500)
+            return error_response("Failed to run curation", 500)
 
     def _handle_curation_history(self, query_params: dict) -> HandlerResult:
         """Get curation history for a workspace."""

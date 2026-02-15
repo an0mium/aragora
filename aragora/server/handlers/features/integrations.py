@@ -159,7 +159,8 @@ class IntegrationsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", status=401)
         except ForbiddenError as e:
-            return error_response(str(e), status=403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", status=403)
 
     async def _get_user_id(self, handler: Any) -> tuple[str | None, HandlerResult | None]:
         """Extract user_id from auth context, returning an error response if unauthenticated."""
@@ -168,7 +169,8 @@ class IntegrationsHandler(SecureHandler):
         except UnauthorizedError:
             return None, error_response("Authentication required", status=401)
         except ForbiddenError as e:
-            return None, error_response(str(e), status=403)
+            logger.warning("Handler error: %s", e)
+            return None, error_response("Permission denied", status=403)
         return auth_context.user_id, None
 
     def _extract_integration_type(

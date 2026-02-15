@@ -94,7 +94,7 @@ async def handle_checkpoint_pause(
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning("Failed to create pause checkpoint for debate %s: %s", debate_id, e)
-        return error_response(f"Failed to create checkpoint: {e}", 500)
+        return error_response("Checkpoint creation failed", 500)
 
 
 @require_permission("debates:write")
@@ -159,7 +159,7 @@ async def handle_checkpoint_resume(
 
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.warning("Failed to resume debate %s: %s", debate_id, e)
-        return error_response(f"Failed to resume from checkpoint: {e}", 500)
+        return error_response("Checkpoint resume failed", 500)
 
 
 @require_permission("debates:read")
@@ -201,7 +201,7 @@ async def handle_list_checkpoints(
 
     except (OSError, ValueError, TypeError, AttributeError) as e:
         logger.warning("Failed to list checkpoints for debate %s: %s", debate_id, e)
-        return error_response(f"Failed to list checkpoints: {e}", 500)
+        return error_response("Failed to list checkpoints", 500)
 
 
 def register_checkpoint_routes(router: Any) -> None:

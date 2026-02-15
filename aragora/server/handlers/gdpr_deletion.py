@@ -132,7 +132,8 @@ class GDPRDeletionHandler(BaseHandler):
                 reason=reason,
             )
         except ValueError as e:
-            return error_response(str(e), 409)
+            logger.warning("Handler error: %s", e)
+            return error_response("Conflict", 409)
 
         logger.info(
             "Deletion request scheduled for user %s (request_id=%s, grace=%d days)",
@@ -171,7 +172,8 @@ class GDPRDeletionHandler(BaseHandler):
                 reason=reason,
             )
         except ValueError as e:
-            return error_response(str(e), 409)
+            logger.warning("Handler error: %s", e)
+            return error_response("Conflict", 409)
 
         if not cancelled:
             return error_response("Failed to cancel deletion request", 500)

@@ -229,7 +229,7 @@ class FindingWorkflowHandler(BaseHandler):
                 return self._error_response(403, f"Permission denied: {decision.reason}")
         except PermissionDeniedError as e:
             logger.warning(f"Permission denied: {permission_key} for user {context.user_id}: {e}")
-            return self._error_response(403, f"Permission denied: {str(e)}")
+            return self._error_response(403, "Permission denied")
         return None
 
     async def _get_or_create_workflow(self, finding_id: str) -> dict[str, Any]:

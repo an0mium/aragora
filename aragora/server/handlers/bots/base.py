@@ -145,7 +145,7 @@ class BotHandlerMixin:
             return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
             logger.warning(f"{self.bot_platform.title()} status access denied: {e}")
-            return error_response(str(e), 403, code=BotErrorCode.PERMISSION_DENIED)
+            return error_response("Permission denied", 403, code=BotErrorCode.PERMISSION_DENIED)
 
         return self._build_status_response(extra_status)
 
@@ -233,7 +233,8 @@ class BotHandlerMixin:
                 f"{self.bot_platform.title()} operation access denied "
                 f"(permission={permission}): {e}"
             )
-            return error_response(str(e), 403, code=BotErrorCode.PERMISSION_DENIED)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403, code=BotErrorCode.PERMISSION_DENIED)
 
         return await operation(*args, auth_context=auth_context, **kwargs)
 

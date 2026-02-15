@@ -208,7 +208,7 @@ class HealthHandler(SecureHandler):
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
                 logger.warning(f"Health endpoint access denied: {e}")
-                return error_response(str(e), 403)
+                return error_response("Permission denied", 403)
         else:
             # For public routes, attempt optional auth to unlock full response
             try:

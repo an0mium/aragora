@@ -134,7 +134,8 @@ class ComplianceReportHandler(BaseHandler):
         except ImportError:
             return error_response("Compliance report generator not available", 503)
         except (ValueError, TypeError) as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
     def _handle_get_report(self, report_id: str) -> HandlerResult:
         """Retrieve a generated report."""

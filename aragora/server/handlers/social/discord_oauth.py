@@ -313,7 +313,7 @@ class DiscordOAuthHandler(SecureHandler):
             return error_response("httpx not available", 503)
         except Exception as e:
             logger.error(f"Discord token exchange failed: {e}")
-            return error_response(f"Token exchange failed: {e}", 500)
+            return error_response("Token exchange failed", 500)
 
         # Extract token info
         access_token = data.get("access_token")

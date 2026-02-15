@@ -121,7 +121,7 @@ class TelegramWebhooksMixin:
             return error_response("Invalid JSON body", 400)
         except Exception as e:
             logger.error("Failed to set webhook: %s", e)
-            return error_response(f"Failed to set webhook: {str(e)[:100]}", 500)
+            return error_response("Webhook setup failed", 500)
 
     async def _set_webhook_async(self, webhook_url: str) -> None:
         """Set Telegram webhook via API."""

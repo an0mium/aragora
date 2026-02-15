@@ -130,7 +130,7 @@ class PipelineOperationsMixin:
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("CRM sync_lead: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         target_platform = body.get("platform", "hubspot")
 
@@ -192,7 +192,7 @@ class PipelineOperationsMixin:
         except Exception as e:
             logger.error("CRM sync_lead failed: %s", e, exc_info=True)
             cb.record_failure()
-            return self._error_response(500, f"Failed to sync lead: {e}")
+            return self._error_response(500, "Lead sync failed")
 
     async def _enrich_contact(self: CRMHandler, request: Any) -> HandlerResult:
         """Enrich contact data using available sources."""
@@ -200,7 +200,7 @@ class PipelineOperationsMixin:
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("CRM enrich_contact: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         email = body.get("email")
         valid, err = validate_email(email, required=True)
@@ -228,7 +228,7 @@ class PipelineOperationsMixin:
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("CRM search: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         query = body.get("query", "")
 

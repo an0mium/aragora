@@ -351,7 +351,8 @@ class WorkflowTemplatesHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         template_id = data.get("template_id")
         if not template_id:
@@ -403,7 +404,8 @@ class WorkflowTemplatesHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         # Add template_id to data and delegate
         data["template_id"] = template_id
@@ -607,7 +609,8 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         # Map pattern IDs to factory functions
         # Note: These functions are typed as returning dict[str, Any] but actually return
@@ -670,7 +673,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
-            return error_response(f"Failed to instantiate pattern: {e}", 500)
+            return error_response("Pattern instantiation failed", 500)
 
 
 # =============================================================================
@@ -1114,7 +1117,8 @@ class SMEWorkflowsHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         # Import SME workflow factories
         from aragora.workflow.templates.sme import (
@@ -1190,4 +1194,4 @@ class SMEWorkflowsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to create SME workflow: {e}")
-            return error_response(f"Failed to create workflow: {e}", 500)
+            return error_response("Workflow creation failed", 500)

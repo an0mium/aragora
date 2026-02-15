@@ -172,7 +172,7 @@ class AnalyticsMetricsHandler(
             return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
             logger.warning(f"Analytics metrics access denied: {e}")
-            return error_response(str(e), 403, code="PERMISSION_DENIED")
+            return error_response("Permission denied", 403, code="PERMISSION_DENIED")
 
         # Additional RBAC check via rbac.checker if available
         if not RBAC_AVAILABLE:

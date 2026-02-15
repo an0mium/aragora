@@ -187,7 +187,7 @@ class SLOHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error handling SLO request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500, code="INTERNAL_ERROR")
+            return error_response("Internal server error", 500, code="INTERNAL_ERROR")
 
     def _handle_slo_status(self) -> HandlerResult:
         """GET /api/slos/status - Overall SLO compliance status."""
@@ -334,7 +334,7 @@ class SLOHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get targets: {e}")
-            return error_response(f"Failed to get targets: {str(e)}", 500, code="TARGETS_ERROR")
+            return error_response("Failed to retrieve targets", 500, code="TARGETS_ERROR")
 
     def _handle_slo_sub_route(self, slo_name: str, sub_route: str) -> HandlerResult:
         """Handle per-SLO sub-routes: /api/slos/{name}/{sub}."""
@@ -401,7 +401,7 @@ class SLOHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to get SLO sub-route {slo_name}/{sub_route}: {e}")
-            return error_response(f"Failed: {str(e)}", 500, code="SLO_SUB_ROUTE_ERROR")
+            return error_response("Operation failed", 500, code="SLO_SUB_ROUTE_ERROR")
 
     def _calculate_exhaustion_time(self, result: Any) -> str | None:
         """Calculate projected error budget exhaustion time.

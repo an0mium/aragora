@@ -151,7 +151,8 @@ class DevOpsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         try:
             tenant_id = self._get_tenant_id(request)
@@ -234,7 +235,7 @@ class DevOpsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error in devops handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
@@ -944,7 +945,7 @@ class DevOpsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Failed to get on-call for service {service_id}: {e}")
-            return error_response(f"Failed to get on-call: {e}", 500)
+            return error_response("Failed to retrieve on-call info", 500)
 
     # =========================================================================
     # Services
@@ -982,7 +983,7 @@ class DevOpsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Failed to list services: {e}")
-            return error_response(f"Failed to list services: {e}", 500)
+            return error_response("Failed to list services", 500)
 
     async def _handle_get_service(
         self, request: Any, tenant_id: str, service_id: str
@@ -1013,7 +1014,7 @@ class DevOpsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Failed to get service {service_id}: {e}")
-            return error_response(f"Failed to get service: {e}", 500)
+            return error_response("Failed to retrieve service", 500)
 
     # =========================================================================
     # Webhooks

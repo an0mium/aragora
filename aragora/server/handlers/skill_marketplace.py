@@ -245,7 +245,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error searching skills: {e}")
-            return error_response(f"Search failed: {e}", 500)
+            return error_response("Search operation failed", 500)
 
     async def _get_skill(self, skill_id: str) -> HandlerResult:
         """Get skill details."""
@@ -264,7 +264,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error getting skill: {e}")
-            return error_response(f"Failed to get skill: {e}", 500)
+            return error_response("Failed to retrieve skill", 500)
 
     async def _get_versions(self, skill_id: str) -> HandlerResult:
         """Get skill versions."""
@@ -288,7 +288,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error getting versions: {e}")
-            return error_response(f"Failed to get versions: {e}", 500)
+            return error_response("Failed to retrieve versions", 500)
 
     async def _get_ratings(self, skill_id: str, query_params: dict[str, Any]) -> HandlerResult:
         """Get skill ratings."""
@@ -314,7 +314,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error getting ratings: {e}")
-            return error_response(f"Failed to get ratings: {e}", 500)
+            return error_response("Failed to retrieve ratings", 500)
 
     async def _publish_skill(
         self, body: dict[str, Any], auth_context: AuthorizationContext | dict[str, Any]
@@ -391,10 +391,11 @@ class SkillMarketplaceHandler(SecureHandler):
             )
 
         except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Required module not available", 503)
         except Exception as e:
             logger.error(f"Error publishing skill: {e}")
-            return error_response(f"Publish failed: {e}", 500)
+            return error_response("Publish operation failed", 500)
 
     async def _install_skill(
         self,
@@ -442,10 +443,11 @@ class SkillMarketplaceHandler(SecureHandler):
             return json_response(result.to_dict())
 
         except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Required module not available", 503)
         except Exception as e:
             logger.error(f"Error installing skill: {e}")
-            return error_response(f"Installation failed: {e}", 500)
+            return error_response("Installation failed", 500)
 
     async def _uninstall_skill(
         self,
@@ -490,10 +492,11 @@ class SkillMarketplaceHandler(SecureHandler):
             )
 
         except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Required module not available", 503)
         except Exception as e:
             logger.error(f"Error uninstalling skill: {e}")
-            return error_response(f"Uninstallation failed: {e}", 500)
+            return error_response("Uninstallation failed", 500)
 
     async def _rate_skill(
         self,
@@ -525,12 +528,13 @@ class SkillMarketplaceHandler(SecureHandler):
             return json_response(skill_rating.to_dict())
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except ImportError:
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error rating skill: {e}")
-            return error_response(f"Rating failed: {e}", 500)
+            return error_response("Rating submission failed", 500)
 
     async def _set_verification(
         self,
@@ -578,7 +582,7 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error updating verification status: {e}")
-            return error_response(f"Verification update failed: {e}", 500)
+            return error_response("Verification update failed", 500)
 
     async def _list_installed(self, auth_context: AuthorizationContext) -> HandlerResult:
         """List installed skills for the tenant."""
@@ -599,10 +603,11 @@ class SkillMarketplaceHandler(SecureHandler):
             )
 
         except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Required module not available", 503)
         except Exception as e:
             logger.error(f"Error listing installed skills: {e}")
-            return error_response(f"Failed to list skills: {e}", 500)
+            return error_response("Failed to list skills", 500)
 
     async def _get_stats(self) -> HandlerResult:
         """Get marketplace statistics."""
@@ -618,4 +623,4 @@ class SkillMarketplaceHandler(SecureHandler):
             return error_response("Skill marketplace not available", 503)
         except Exception as e:
             logger.error(f"Error getting stats: {e}")
-            return error_response(f"Failed to get stats: {e}", 500)
+            return error_response("Failed to retrieve statistics", 500)

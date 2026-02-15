@@ -341,7 +341,7 @@ class KMCheckpointHandler(BaseHandler):
             )
         except ValueError as e:
             logger.warning("Invalid checkpoint request: %s", e)
-            return error_response(str(e), status=400)
+            return error_response("Invalid request", status=400)
         except FileExistsError:
             return error_response("Checkpoint with this name already exists", status=409)
         except RuntimeError as e:
@@ -504,7 +504,7 @@ class KMCheckpointHandler(BaseHandler):
             )
         except ValueError as e:
             logger.warning("Invalid restore request: %s", e)
-            return error_response(str(e), status=400)
+            return error_response("Invalid request", status=400)
         except RuntimeError as e:
             logger.error("Restore failed: %s", e)
             return error_response("Failed to restore checkpoint", status=500)

@@ -49,7 +49,7 @@ class InteractiveMixin(MessagingMixin):
                 payload = json.loads(payload_str)
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON in Slack interactive payload: {e}")
-                return error_response(f"Invalid JSON payload: {e}", 400)
+                return error_response("Invalid JSON payload", 400)
 
             action_type = payload.get("type")
             user = payload.get("user", {})

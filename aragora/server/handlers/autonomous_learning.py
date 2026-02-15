@@ -556,7 +556,7 @@ class AutonomousLearningHandler(BaseHandler):
             logger.exception("Error handling learning GET request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     @rate_limit(requests_per_minute=30)
     @require_permission("debates:write")
@@ -633,7 +633,7 @@ class AutonomousLearningHandler(BaseHandler):
             logger.exception("Error handling learning POST request: %s", e)
             cb = self._get_circuit_breaker()
             cb.record_failure()
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     @require_permission("learning:read")
     async def _list_sessions(

@@ -151,7 +151,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.exception(f"Error in legal handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
@@ -207,7 +207,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         params = self._get_query_params(request)
         status = params.get("status")
@@ -231,7 +232,7 @@ class LegalHandler:
             )
         except Exception as e:
             logger.error(f"Failed to list envelopes: {e}")
-            return error_response(f"Failed to list envelopes: {e}", 500)
+            return error_response("Failed to list envelopes", 500)
 
     async def _handle_create_envelope(self, request: Any, tenant_id: str) -> HandlerResult:
         """Create and send a new envelope.
@@ -260,7 +261,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         body = await self._get_json_body(request)
 
@@ -351,7 +353,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to create envelope: {e}")
-            return error_response(f"Failed to create envelope: {e}", 500)
+            return error_response("Envelope creation failed", 500)
 
     async def _handle_get_envelope(
         self, request: Any, tenant_id: str, envelope_id: str
@@ -365,7 +367,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         try:
             envelope = await connector.get_envelope(envelope_id)
@@ -376,7 +379,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to get envelope {envelope_id}: {e}")
-            return error_response(f"Failed to get envelope: {e}", 500)
+            return error_response("Failed to retrieve envelope", 500)
 
     async def _handle_void_envelope(
         self, request: Any, tenant_id: str, envelope_id: str
@@ -396,7 +399,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         body = await self._get_json_body(request)
         reason = body.get("reason", "Voided by user")
@@ -413,7 +417,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to void envelope {envelope_id}: {e}")
-            return error_response(f"Failed to void envelope: {e}", 500)
+            return error_response("Envelope voiding failed", 500)
 
     async def _handle_resend_envelope(
         self, request: Any, tenant_id: str, envelope_id: str
@@ -427,7 +431,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         try:
             success = await connector.resend_envelope(envelope_id)
@@ -444,7 +449,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to resend envelope {envelope_id}: {e}")
-            return error_response(f"Failed to resend notifications: {e}", 500)
+            return error_response("Notification resend failed", 500)
 
     # =========================================================================
     # Documents
@@ -462,7 +467,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         try:
             content = await connector.download_document(envelope_id, document_id)
@@ -479,7 +485,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to download document {document_id} from {envelope_id}: {e}")
-            return error_response(f"Failed to download document: {e}", 500)
+            return error_response("Document download failed", 500)
 
     async def _handle_download_certificate(
         self, request: Any, tenant_id: str, envelope_id: str
@@ -493,7 +499,8 @@ class LegalHandler:
             try:
                 await connector.authenticate_jwt()
             except Exception as e:
-                return error_response(f"Authentication failed: {e}", 401)
+                logger.warning("Handler error: %s", e)
+                return error_response("Authentication failed", 401)
 
         try:
             content = await connector.download_certificate(envelope_id)
@@ -508,7 +515,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to download certificate for {envelope_id}: {e}")
-            return error_response(f"Failed to download certificate: {e}", 500)
+            return error_response("Certificate download failed", 500)
 
     # =========================================================================
     # Templates
@@ -565,7 +572,7 @@ class LegalHandler:
 
         except Exception as e:
             logger.error(f"Failed to list DocuSign templates for tenant {tenant_id}: {e}")
-            return error_response(f"Failed to list templates: {e}", 500)
+            return error_response("Failed to list templates", 500)
 
     # =========================================================================
     # Webhooks

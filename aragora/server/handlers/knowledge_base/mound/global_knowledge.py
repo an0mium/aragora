@@ -110,7 +110,8 @@ class GlobalKnowledgeOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         content = data.get("content")
         source = data.get("source")
@@ -144,7 +145,7 @@ class GlobalKnowledgeOperationsMixin:
             track_global_fact(action="store")
         except Exception as e:
             logger.error(f"Failed to store verified fact: {e}")
-            return error_response(f"Failed to store verified fact: {e}", 500)
+            return error_response("Failed to store verified fact", 500)
 
         return json_response(
             {
@@ -187,7 +188,7 @@ class GlobalKnowledgeOperationsMixin:
             track_global_query(has_results=len(items) > 0)
         except Exception as e:
             logger.error(f"Failed to query global knowledge: {e}")
-            return error_response(f"Failed to query global knowledge: {e}", 500)
+            return error_response("Failed to query global knowledge", 500)
 
         return json_response(
             {
@@ -226,7 +227,8 @@ class GlobalKnowledgeOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         item_id = data.get("item_id")
         workspace_id = data.get("workspace_id")
@@ -256,10 +258,11 @@ class GlobalKnowledgeOperationsMixin:
             )
             track_global_fact(action="promote")
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to promote to global: {e}")
-            return error_response(f"Failed to promote to global: {e}", 500)
+            return error_response("Failed to promote to global", 500)
 
         return json_response(
             {
@@ -291,7 +294,7 @@ class GlobalKnowledgeOperationsMixin:
             facts = _run_async(mound.get_system_facts(limit=limit + offset, topics=topics))
         except Exception as e:
             logger.error(f"Failed to get system facts: {e}")
-            return error_response(f"Failed to get system facts: {e}", 500)
+            return error_response("Failed to get system facts", 500)
 
         paginated_facts = facts[offset : offset + limit]
 
@@ -329,7 +332,7 @@ class GlobalKnowledgeOperationsMixin:
             workspace_id: str = mound.get_system_workspace_id()
         except Exception as e:
             logger.error(f"Failed to get system workspace ID: {e}")
-            return error_response(f"Failed to get system workspace ID: {e}", 500)
+            return error_response("Failed to get system workspace ID", 500)
 
         return json_response(
             {

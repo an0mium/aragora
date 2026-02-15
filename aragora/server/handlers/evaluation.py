@@ -225,7 +225,8 @@ class EvaluationHandler(BaseHandler):
             try:
                 dimensions = [EvaluationDimension(d) for d in body["dimensions"]]
             except ValueError as e:
-                return error_response(f"Invalid dimension: {e}", 400)
+                logger.warning("Handler error: %s", e)
+                return error_response("Invalid dimension specified", 400)
 
         config = JudgeConfig(
             use_case=use_case,

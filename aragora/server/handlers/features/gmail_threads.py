@@ -86,7 +86,8 @@ class GmailThreadsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         user_id = query_params.get("user_id", "default")
         state = await get_user_state(user_id)
@@ -139,7 +140,8 @@ class GmailThreadsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Read JSON body from request
         body = self.read_json_body(handler) or {}
@@ -193,7 +195,8 @@ class GmailThreadsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Read JSON body from request
         body = self.read_json_body(handler) or {}
@@ -227,7 +230,8 @@ class GmailThreadsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         user_id = query_params.get("user_id", "default")
         state = await get_user_state(user_id)
@@ -273,7 +277,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] List threads failed: {e}")
-            return error_response(f"Failed to list threads: {e}", 500)
+            return error_response("Failed to list threads", 500)
 
     async def _api_list_threads(
         self,
@@ -379,7 +383,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Get thread failed: {e}")
-            return error_response(f"Failed to get thread: {e}", 500)
+            return error_response("Failed to retrieve thread", 500)
 
     async def _archive_thread(self, state: GmailUserState, thread_id: str) -> HandlerResult:
         """Archive a thread (remove INBOX label from all messages)."""
@@ -407,7 +411,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Trash thread failed: {e}")
-            return error_response(f"Failed to trash thread: {e}", 500)
+            return error_response("Thread trash failed", 500)
 
     async def _api_trash_thread(self, state: GmailUserState, thread_id: str) -> None:
         """Trash thread via Gmail API."""
@@ -461,7 +465,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Modify thread labels failed: {e}")
-            return error_response(f"Failed to modify thread labels: {e}", 500)
+            return error_response("Thread label modification failed", 500)
 
     async def _api_modify_thread_labels(
         self,
@@ -511,7 +515,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] List drafts failed: {e}")
-            return error_response(f"Failed to list drafts: {e}", 500)
+            return error_response("Failed to list drafts", 500)
 
     async def _api_list_drafts(
         self,
@@ -558,7 +562,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Get draft failed: {e}")
-            return error_response(f"Failed to get draft: {e}", 500)
+            return error_response("Failed to retrieve draft", 500)
 
     async def _api_get_draft(self, state: GmailUserState, draft_id: str) -> dict[str, Any]:
         """Get draft via Gmail API."""
@@ -593,7 +597,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Create draft failed: {e}")
-            return error_response(f"Failed to create draft: {e}", 500)
+            return error_response("Draft creation failed", 500)
 
     async def _api_create_draft(
         self,
@@ -658,7 +662,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Update draft failed: {e}")
-            return error_response(f"Failed to update draft: {e}", 500)
+            return error_response("Draft update failed", 500)
 
     async def _api_update_draft(
         self,
@@ -710,7 +714,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Delete draft failed: {e}")
-            return error_response(f"Failed to delete draft: {e}", 500)
+            return error_response("Draft deletion failed", 500)
 
     async def _api_delete_draft(self, state: GmailUserState, draft_id: str) -> None:
         """Delete draft via Gmail API."""
@@ -740,7 +744,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Send draft failed: {e}")
-            return error_response(f"Failed to send draft: {e}", 500)
+            return error_response("Draft send failed", 500)
 
     async def _api_send_draft(self, state: GmailUserState, draft_id: str) -> dict[str, Any]:
         """Send draft via Gmail API."""
@@ -782,7 +786,7 @@ class GmailThreadsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailThreads] Get attachment failed: {e}")
-            return error_response(f"Failed to get attachment: {e}", 500)
+            return error_response("Failed to retrieve attachment", 500)
 
     async def _api_get_attachment(
         self,

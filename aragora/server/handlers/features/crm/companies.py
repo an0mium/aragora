@@ -171,7 +171,7 @@ class CompanyOperationsMixin:
         except Exception as e:
             logger.warning("CRM get_company failed for %s/%s: %s", platform, company_id, e)
             cb.record_failure()
-            return self._error_response(404, f"Company not found: {e}")
+            return self._error_response(404, "Company not found")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -195,7 +195,7 @@ class CompanyOperationsMixin:
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("CRM create_company: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         # Validate company fields
         name = body.get("name")
@@ -234,7 +234,7 @@ class CompanyOperationsMixin:
         except Exception as e:
             logger.error("CRM create_company failed for %s: %s", platform, e, exc_info=True)
             cb.record_failure()
-            return self._error_response(500, f"Failed to create company: {e}")
+            return self._error_response(500, "Company creation failed")
 
         return self._error_response(400, "Unsupported platform")
 

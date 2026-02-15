@@ -264,7 +264,7 @@ class OAuthWizardHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error in OAuth wizard handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     async def _get_wizard_config(self, query_params: dict[str, str]) -> HandlerResult:
         """
@@ -795,7 +795,7 @@ class OAuthWizardHandler(SecureHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to list workspaces for {provider_id}: {e}")
-            return error_response(f"Failed to list workspaces: {str(e)}", 500)
+            return error_response("Failed to list workspaces", 500)
 
     async def _get_slack_workspaces(self) -> list[dict[str, Any]]:
         """Get list of connected Slack workspaces."""
@@ -877,7 +877,7 @@ class OAuthWizardHandler(SecureHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to disconnect {provider_id}: {e}")
-            return error_response(f"Disconnect failed: {str(e)}", 500)
+            return error_response("Disconnect operation failed", 500)
 
     async def _disconnect_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
         """Disconnect a Slack workspace."""

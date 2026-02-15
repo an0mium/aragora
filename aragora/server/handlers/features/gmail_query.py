@@ -99,7 +99,8 @@ class GmailQueryHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         user_id = query_params.get("user_id", "default")
 
@@ -126,7 +127,8 @@ class GmailQueryHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Read JSON body from request
         body = self.read_json_body(handler)
@@ -165,7 +167,7 @@ class GmailQueryHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailQuery] Query failed: {e}")
-            return error_response(f"Query failed: {e}", 500)
+            return error_response("Query execution failed", 500)
 
     async def _run_query(
         self,
@@ -385,7 +387,7 @@ class GmailQueryHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailQuery] Voice query failed: {e}")
-            return error_response(f"Voice query failed: {e}", 500)
+            return error_response("Voice query failed", 500)
 
     async def _transcribe(self, audio_bytes: bytes) -> str | None:
         """Transcribe audio using Whisper."""
@@ -431,7 +433,7 @@ class GmailQueryHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailQuery] Priority inbox failed: {e}")
-            return error_response(f"Failed to get priority inbox: {e}", 500)
+            return error_response("Failed to retrieve priority inbox", 500)
 
     async def _get_prioritized_emails(
         self,
@@ -550,7 +552,7 @@ class GmailQueryHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailQuery] Feedback recording failed: {e}")
-            return error_response(f"Failed to record feedback: {e}", 500)
+            return error_response("Feedback recording failed", 500)
 
 
 # Export for handler registration

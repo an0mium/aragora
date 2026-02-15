@@ -400,7 +400,7 @@ class A2AHandler(BaseHandler):
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
             logger.exception("Invalid JSON in task submission request")
-            return error_response(f"Invalid JSON: {e}", 400)
+            return error_response("Invalid request body", 400)
         except UnicodeDecodeError:
             logger.exception("Invalid UTF-8 encoding in task submission request")
             return error_response("Request body must be valid UTF-8", 400)
@@ -462,7 +462,7 @@ class A2AHandler(BaseHandler):
             return json_response(result.to_dict())
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Task execution failed: {e}")
-            return error_response(f"Task execution failed: {str(e)[:100]}", 500)
+            return error_response("Task execution failed", 500)
 
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task status."""
@@ -500,7 +500,7 @@ class A2AHandler(BaseHandler):
             return error_response(f"Task not found or not cancellable: {task_id}", 404)
         except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Task cancellation failed: {e}")
-            return error_response(f"Cancellation failed: {str(e)[:100]}", 500)
+            return error_response("Task cancellation failed", 500)
 
     def _handle_stream_task(self, task_id: str, handler: Any) -> HandlerResult:
         """Handle streaming task request (returns upgrade required)."""

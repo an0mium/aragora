@@ -433,10 +433,10 @@ class TeamsOAuthHandler(SecureHandler):
             return error_response("httpx not available", 503)
         except httpx.HTTPStatusError as e:
             logger.error(f"Teams token exchange failed: status={e.response.status_code}")
-            return error_response(f"Token exchange failed: {e}", 500)
+            return error_response("Token exchange failed", 500)
         except Exception as e:
             logger.error(f"Teams token exchange failed: {e}")
-            return error_response(f"Token exchange failed: {e}", 500)
+            return error_response("Token exchange failed", 500)
 
         # Extract token info
         access_token = data.get("access_token")
@@ -627,10 +627,10 @@ class TeamsOAuthHandler(SecureHandler):
             return error_response("httpx not available", 503)
         except httpx.HTTPStatusError as e:
             logger.error(f"Teams token refresh failed: status={e.response.status_code}")
-            return error_response(f"Token refresh failed: {e}", 500)
+            return error_response("Token refresh failed", 500)
         except Exception as e:
             logger.error(f"Teams token refresh failed: {e}")
-            return error_response(f"Token refresh failed: {e}", 500)
+            return error_response("Token refresh failed", 500)
 
         # Extract new token info
         access_token = data.get("access_token")
@@ -700,7 +700,7 @@ class TeamsOAuthHandler(SecureHandler):
             return error_response("Tenant storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to disconnect tenant: {e}")
-            return error_response(f"Failed to disconnect tenant: {e}", 500)
+            return error_response("Failed to disconnect tenant", 500)
 
     async def _handle_list_tenants(self) -> HandlerResult:
         """
@@ -756,7 +756,7 @@ class TeamsOAuthHandler(SecureHandler):
             return error_response("Tenant storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to list tenants: {e}")
-            return error_response(f"Failed to list tenants: {e}", 500)
+            return error_response("Failed to list tenants", 500)
 
     async def _handle_get_tenant(self, tenant_id: str) -> HandlerResult:
         """
@@ -819,7 +819,7 @@ class TeamsOAuthHandler(SecureHandler):
             return error_response("Tenant storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to get tenant: {e}")
-            return error_response(f"Failed to get tenant: {e}", 500)
+            return error_response("Failed to get tenant", 500)
 
     async def _handle_tenant_status(self, tenant_id: str) -> HandlerResult:
         """
@@ -886,7 +886,7 @@ class TeamsOAuthHandler(SecureHandler):
             return error_response("Tenant storage not available", 503)
         except Exception as e:
             logger.error(f"Failed to get tenant status: {e}")
-            return error_response(f"Failed to get tenant status: {e}", 500)
+            return error_response("Failed to get tenant status", 500)
 
 
 # Handler factory function for registration

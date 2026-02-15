@@ -275,7 +275,8 @@ class FactsOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         statement = data.get("statement", "")
         if not statement or not statement.strip():
@@ -357,7 +358,8 @@ class FactsOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         store = self._get_fact_store()
 
@@ -480,7 +482,7 @@ class FactsOperationsMixin:
             verified = _run_async(engine.verify_fact(fact_id))
         except Exception as e:
             logger.error(f"Verification failed: {e}")
-            return error_response(f"Verification failed: {e}", 500)
+            return error_response("Verification failed", 500)
 
         return json_response(verified.to_dict())
 
@@ -683,7 +685,8 @@ class FactsOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         target_fact_id = data.get("target_fact_id")
         if not target_fact_id:
@@ -765,7 +768,8 @@ class FactsOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         source_fact_id = data.get("source_fact_id")
         target_fact_id = data.get("target_fact_id")

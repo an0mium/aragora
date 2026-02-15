@@ -83,7 +83,7 @@ class EmailWebhookHandler:
             self._error_count += 1
             self._last_error = str(e)
             logger.exception("SendGrid webhook error")
-            return error_response(f"Internal error: {e}", status=500)
+            return error_response("Internal server error", status=500)
 
     async def _handle_sendgrid_inbound(self, request: web.Request) -> HandlerResult:
         """Handle SendGrid Inbound Parse (multipart form)."""
@@ -270,7 +270,7 @@ class EmailWebhookHandler:
             self._error_count += 1
             self._last_error = str(e)
             logger.exception("Mailgun webhook error")
-            return error_response(f"Internal error: {e}", status=500)
+            return error_response("Internal server error", status=500)
 
     async def handle_ses(self, request: web.Request) -> HandlerResult:
         """
@@ -305,7 +305,7 @@ class EmailWebhookHandler:
             self._error_count += 1
             self._last_error = str(e)
             logger.exception("SES webhook error")
-            return error_response(f"Internal error: {e}", status=500)
+            return error_response("Internal server error", status=500)
 
     async def _confirm_sns_subscription(self, message: dict[str, Any]) -> HandlerResult:
         """Auto-confirm SNS subscription."""

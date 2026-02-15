@@ -205,7 +205,8 @@ class ConnectorsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -420,7 +421,8 @@ class ConnectorsHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         connector_type = body.get("type")
         if not connector_type:
@@ -477,7 +479,8 @@ class ConnectorsHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         # Update allowed fields
         if "name" in body:
@@ -643,7 +646,8 @@ class ConnectorsHandler(SecureHandler):
         try:
             body = await self._get_json_body(request)
         except Exception as e:
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(400, "Invalid request body")
 
         connector_id = body.get("connector_id")
         config = body.get("config", {})

@@ -96,7 +96,7 @@ def _check_permission(
     except PermissionDeniedError as e:
         logger.warning(f"Permission denied: {permission_key} for user {auth_context.user_id}: {e}")
         record_rbac_check(permission_key, granted=False)
-        return error_dict(f"Permission denied: {str(e)}", code="FORBIDDEN", status=403)
+        return error_dict("Permission denied", code="FORBIDDEN", status=403)
 
     return None
 

@@ -154,7 +154,7 @@ class CodebaseAuditHandler(SecureHandler):
                 return error_response("Authentication required for codebase audit", 401)
             except ForbiddenError as e:
                 logger.warning(f"Codebase audit access denied: {e}")
-                return error_response(str(e), 403)
+                return error_response("Permission denied", 403)
 
             tenant_id = self._get_tenant_id(request)
 
@@ -224,7 +224,7 @@ class CodebaseAuditHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error in codebase audit handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
@@ -374,7 +374,7 @@ class CodebaseAuditHandler(SecureHandler):
             # Record failure in circuit breaker
             _codebase_audit_circuit_breaker.record_failure()
             logger.exception(f"Comprehensive scan error: {e}")
-            return error_response(f"Scan failed: {str(e)}", 500)
+            return error_response("Scan operation failed", 500)
 
     # =========================================================================
     # Individual Scan Types
@@ -489,7 +489,7 @@ class CodebaseAuditHandler(SecureHandler):
             # Record failure in circuit breaker
             _codebase_audit_circuit_breaker.record_failure()
             logger.exception(f"{scan_type.value} scan error: {e}")
-            return error_response(f"Scan failed: {str(e)}", 500)
+            return error_response("Scan operation failed", 500)
 
     @rate_limit(requests_per_minute=30, limiter_name="codebase_audit_metrics")
     async def _handle_metrics_analysis(self, request: Any, tenant_id: str) -> HandlerResult:
@@ -537,7 +537,7 @@ class CodebaseAuditHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Metrics analysis error: {e}")
-            return error_response(f"Analysis failed: {str(e)}", 500)
+            return error_response("Analysis operation failed", 500)
 
     # =========================================================================
     # Scan Management
@@ -713,7 +713,7 @@ class CodebaseAuditHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error dismissing finding: {e}")
-            return error_response(f"Dismiss failed: {str(e)}", 500)
+            return error_response("Dismiss operation failed", 500)
 
     async def _handle_create_issue(
         self, request: Any, tenant_id: str, finding_id: str
@@ -778,7 +778,7 @@ class CodebaseAuditHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error creating issue: {e}")
-            return error_response(f"Issue creation failed: {str(e)}", 500)
+            return error_response("Issue creation failed", 500)
 
     # =========================================================================
     # Dashboard

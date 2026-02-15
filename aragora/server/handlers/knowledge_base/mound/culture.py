@@ -77,7 +77,7 @@ class CultureOperationsMixin:
             culture = _run_async(mound.get_culture_profile(workspace_id))
         except Exception as e:
             logger.error(f"Failed to get culture profile: {e}")
-            return error_response(f"Failed to get culture profile: {e}", 500)
+            return error_response("Failed to get culture profile", 500)
 
         return json_response(
             {
@@ -104,7 +104,8 @@ class CultureOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         content = data.get("content", "")
         if not content:
@@ -141,7 +142,7 @@ class CultureOperationsMixin:
             node_id = _run_async(mound.add_node(node))
         except Exception as e:
             logger.error(f"Failed to add culture document: {e}")
-            return error_response(f"Failed to add culture document: {e}", 500)
+            return error_response("Failed to add culture document", 500)
 
         return json_response(
             {
@@ -166,7 +167,8 @@ class CultureOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         node_id = data.get("node_id")
         if not node_id:
@@ -194,7 +196,7 @@ class CultureOperationsMixin:
 
         except Exception as e:
             logger.error(f"Failed to promote to culture: {e}")
-            return error_response(f"Failed to promote to culture: {e}", 500)
+            return error_response("Failed to promote to culture", 500)
 
         return json_response(
             {

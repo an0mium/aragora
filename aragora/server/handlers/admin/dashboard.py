@@ -137,7 +137,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning("Dashboard access denied: %s", e)
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if path == "/api/dashboard/debates":
             domain = query_params.get("domain")
@@ -214,7 +214,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
                 self.check_permission(auth_context, PERM_ADMIN_METRICS_READ)
             except ForbiddenError as e:
                 logger.warning("Metrics access denied: %s", e)
-                return error_response(str(e), 403)
+                return error_response("Permission denied", 403)
             return self._get_quality_metrics()
 
         return None
@@ -238,7 +238,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning("Dashboard access denied: %s", e)
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if path.startswith("/api/v1/dashboard/quick-actions/"):
             parts = path.split("/")

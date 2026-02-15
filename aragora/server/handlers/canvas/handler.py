@@ -278,7 +278,7 @@ class CanvasHandler(SecureHandler):
             )
         except Exception as e:
             logger.error(f"Failed to list canvases: {e}")
-            return error_response(f"Failed to list canvases: {e}", 500)
+            return error_response("Failed to list canvases", 500)
 
     @require_permission("canvas:create")
     def _create_canvas(
@@ -312,7 +312,7 @@ class CanvasHandler(SecureHandler):
             return json_response(canvas.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Failed to create canvas: {e}")
-            return error_response(f"Failed to create canvas: {e}", 500)
+            return error_response("Canvas creation failed", 500)
 
     @require_permission("canvas:read")
     def _get_canvas(
@@ -335,7 +335,7 @@ class CanvasHandler(SecureHandler):
             return json_response(canvas.to_dict())
         except Exception as e:
             logger.error(f"Failed to get canvas: {e}")
-            return error_response(f"Failed to get canvas: {e}", 500)
+            return error_response("Failed to retrieve canvas", 500)
 
     @require_permission("canvas:update")
     def _update_canvas(
@@ -370,7 +370,7 @@ class CanvasHandler(SecureHandler):
             return json_response(canvas.to_dict())
         except Exception as e:
             logger.error(f"Failed to update canvas: {e}")
-            return error_response(f"Failed to update canvas: {e}", 500)
+            return error_response("Canvas update failed", 500)
 
     @require_permission("canvas:delete")
     def _delete_canvas(
@@ -393,7 +393,7 @@ class CanvasHandler(SecureHandler):
             return json_response({"deleted": True, "canvas_id": canvas_id})
         except Exception as e:
             logger.error(f"Failed to delete canvas: {e}")
-            return error_response(f"Failed to delete canvas: {e}", 500)
+            return error_response("Canvas deletion failed", 500)
 
     # =========================================================================
     # Node Operations
@@ -450,7 +450,7 @@ class CanvasHandler(SecureHandler):
             return json_response(node.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Failed to add node: {e}")
-            return error_response(f"Failed to add node: {e}", 500)
+            return error_response("Node addition failed", 500)
 
     @require_permission("canvas:update")
     def _update_node(
@@ -498,7 +498,7 @@ class CanvasHandler(SecureHandler):
             return json_response(node.to_dict())
         except Exception as e:
             logger.error(f"Failed to update node: {e}")
-            return error_response(f"Failed to update node: {e}", 500)
+            return error_response("Node update failed", 500)
 
     @require_permission("canvas:delete")
     def _delete_node(
@@ -522,7 +522,7 @@ class CanvasHandler(SecureHandler):
             return json_response({"deleted": True, "node_id": node_id})
         except Exception as e:
             logger.error(f"Failed to delete node: {e}")
-            return error_response(f"Failed to delete node: {e}", 500)
+            return error_response("Node deletion failed", 500)
 
     # =========================================================================
     # Edge Operations
@@ -579,7 +579,7 @@ class CanvasHandler(SecureHandler):
             return json_response(edge.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Failed to add edge: {e}")
-            return error_response(f"Failed to add edge: {e}", 500)
+            return error_response("Edge addition failed", 500)
 
     @require_permission("canvas:delete")
     def _delete_edge(
@@ -603,7 +603,7 @@ class CanvasHandler(SecureHandler):
             return json_response({"deleted": True, "edge_id": edge_id})
         except Exception as e:
             logger.error(f"Failed to delete edge: {e}")
-            return error_response(f"Failed to delete edge: {e}", 500)
+            return error_response("Edge deletion failed", 500)
 
     # =========================================================================
     # Actions
@@ -651,4 +651,4 @@ class CanvasHandler(SecureHandler):
             )
         except Exception as e:
             logger.error(f"Failed to execute action: {e}")
-            return error_response(f"Failed to execute action: {e}", 500)
+            return error_response("Action execution failed", 500)

@@ -250,7 +250,8 @@ class SelectionHandler(BaseHandler):
         try:
             scorer = plugin_registry.get_scorer(scorer_name)
         except KeyError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         # Detect or use provided domains
         detector = DomainDetector()
@@ -322,7 +323,8 @@ class SelectionHandler(BaseHandler):
             team_selector = plugin_registry.get_team_selector(body.get("team_selector"))
             role_assigner = plugin_registry.get_role_assigner(body.get("role_assigner"))
         except KeyError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         # Detect or use provided domains
         detector = DomainDetector()
@@ -454,7 +456,8 @@ class SelectionHandler(BaseHandler):
         try:
             role_assigner = plugin_registry.get_role_assigner(body.get("role_assigner"))
         except KeyError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         agent_pool = _create_agent_pool()
         agents = [agent_pool[n] for n in agent_names if n in agent_pool]

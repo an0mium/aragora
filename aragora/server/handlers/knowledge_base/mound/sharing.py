@@ -115,7 +115,8 @@ class SharingOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         item_id = data.get("item_id")
         target_type = data.get("target_type")  # "workspace" or "user"
@@ -170,10 +171,11 @@ class SharingOperationsMixin:
                     )
                 )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to share item: {e}")
-            return error_response(f"Failed to share item: {e}", 500)
+            return error_response("Failed to share item", 500)
 
         # Track metrics
         track_share(action="share", target_type=target_type)
@@ -229,7 +231,7 @@ class SharingOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to get shared items: {e}")
-            return error_response(f"Failed to get shared items: {e}", 500)
+            return error_response("Failed to get shared items", 500)
 
         return json_response(
             {
@@ -267,7 +269,8 @@ class SharingOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         item_id = data.get("item_id")
         grantee_id = data.get("grantee_id")
@@ -290,10 +293,11 @@ class SharingOperationsMixin:
                 )
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to revoke share: {e}")
-            return error_response(f"Failed to revoke share: {e}", 500)
+            return error_response("Failed to revoke share", 500)
 
         return json_response(
             {
@@ -335,7 +339,7 @@ class SharingOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to list shares: {e}")
-            return error_response(f"Failed to list shares: {e}", 500)
+            return error_response("Failed to list shares", 500)
 
         return json_response(
             {
@@ -365,7 +369,8 @@ class SharingOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         item_id = data.get("item_id")
         grantee_id = data.get("grantee_id")
@@ -401,10 +406,11 @@ class SharingOperationsMixin:
                 )
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to update share: {e}")
-            return error_response(f"Failed to update share: {e}", 500)
+            return error_response("Failed to update share", 500)
 
         return json_response(
             {

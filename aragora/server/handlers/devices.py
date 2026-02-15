@@ -292,7 +292,8 @@ class DeviceHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Get client IP for rate limiting
         client_ip = get_client_ip(handler)
@@ -397,7 +398,7 @@ class DeviceHandler(SecureHandler):
             )
         except Exception as e:
             logger.error(f"Error getting device health: {e}")
-            return error_response(f"Error getting health: {e}", 500)
+            return error_response("Health check failed", 500)
 
     async def _register_device(
         self,
@@ -553,7 +554,7 @@ class DeviceHandler(SecureHandler):
             return error_response("Session store not available", 503)
         except Exception as e:
             logger.error(f"Error unregistering device: {e}")
-            return error_response(f"Error unregistering device: {e}", 500)
+            return error_response("Device unregistration failed", 500)
 
     async def _get_device(
         self,
@@ -593,7 +594,7 @@ class DeviceHandler(SecureHandler):
             return error_response("Session store not available", 503)
         except Exception as e:
             logger.error(f"Error getting device: {e}")
-            return error_response(f"Error getting device: {e}", 500)
+            return error_response("Failed to retrieve device", 500)
 
     async def _list_user_devices(
         self,
@@ -635,7 +636,7 @@ class DeviceHandler(SecureHandler):
             return error_response("Session store not available", 503)
         except Exception as e:
             logger.error(f"Error listing devices: {e}")
-            return error_response(f"Error listing devices: {e}", 500)
+            return error_response("Failed to list devices", 500)
 
     async def _notify_device(
         self,
@@ -760,7 +761,8 @@ class DeviceHandler(SecureHandler):
             )
 
         except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Required module not available", 503)
         except Exception as e:
             logger.error(f"Error sending notification: {e}")
             return error_response("Error sending notification. Please try again later.", 500)
@@ -929,10 +931,11 @@ class DeviceHandler(SecureHandler):
             )
 
         except ImportError as e:
-            return error_response(f"Required module not available: {e}", 503)
+            logger.warning("Handler error: %s", e)
+            return error_response("Required module not available", 503)
         except Exception as e:
             logger.error(f"Error sending notifications: {e}")
-            return error_response(f"Error sending notifications: {e}", 500)
+            return error_response("Notification delivery failed", 500)
 
     async def _handle_alexa_webhook(
         self,
@@ -978,7 +981,7 @@ class DeviceHandler(SecureHandler):
             return error_response("Alexa connector not available", 503)
         except Exception as e:
             logger.error(f"Error handling Alexa webhook: {e}")
-            return error_response(f"Error processing request: {e}", 500)
+            return error_response("Request processing failed", 500)
 
     async def _handle_google_webhook(
         self,
@@ -1051,7 +1054,7 @@ class DeviceHandler(SecureHandler):
             return error_response("Google Home connector not available", 503)
         except Exception as e:
             logger.error(f"Error handling Google webhook: {e}")
-            return error_response(f"Error processing request: {e}", 500)
+            return error_response("Request processing failed", 500)
 
 
 __all__ = [

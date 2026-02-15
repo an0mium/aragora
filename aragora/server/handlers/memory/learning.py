@@ -78,7 +78,7 @@ class LearningHandler(SecureHandler):
             return error_response("Authentication required to access learning data", 401)
         except ForbiddenError as e:
             logger.warning(f"Learning endpoint access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if path == "/api/v1/learning/cycles":
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)

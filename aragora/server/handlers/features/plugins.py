@@ -632,7 +632,8 @@ class PluginsHandler(BaseHandler):
                 if not is_valid:
                     return error_response(f"Manifest validation failed: {', '.join(errors)}", 400)
             except Exception as e:
-                return error_response(f"Invalid manifest format: {str(e)}", 400)
+                logger.warning("Handler error: %s", e)
+                return error_response("Invalid manifest format", 400)
 
         # Check for duplicate name
         if PLUGINS_AVAILABLE and get_registry:

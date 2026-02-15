@@ -93,7 +93,7 @@ class GraphOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Graph traversal failed: {e}")
-            return error_response(f"Graph traversal failed: {e}", 500)
+            return error_response("Graph traversal failed", 500)
 
         return json_response(
             {
@@ -134,7 +134,7 @@ class GraphOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Graph lineage failed: {e}")
-            return error_response(f"Graph lineage failed: {e}", 500)
+            return error_response("Graph lineage failed", 500)
 
         return json_response(
             {
@@ -187,7 +187,7 @@ class GraphOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Get related nodes failed: {e}")
-            return error_response(f"Get related nodes failed: {e}", 500)
+            return error_response("Get related nodes failed", 500)
 
         return json_response(
             {

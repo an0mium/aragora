@@ -601,7 +601,7 @@ class EmailWebhooksHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error in webhook handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
@@ -836,7 +836,7 @@ class EmailWebhooksHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error creating subscription: {e}")
-            return error_response(f"Failed to create subscription: {str(e)}", 500)
+            return error_response("Subscription creation failed", 500)
 
     async def _create_gmail_subscription(self, subscription: WebhookSubscription) -> dict[str, Any]:
         """Create Gmail Pub/Sub watch."""
@@ -918,7 +918,7 @@ class EmailWebhooksHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Error deleting subscription: {e}")
-            return error_response(f"Failed to delete subscription: {str(e)}", 500)
+            return error_response("Subscription deletion failed", 500)
 
     async def _delete_gmail_subscription(self, subscription: WebhookSubscription) -> None:
         """Delete Gmail Pub/Sub watch."""

@@ -94,7 +94,7 @@ class DashboardOperationsMixin:
             )
         except Exception as e:
             logger.exception(f"Failed to get health status: {e}")
-            return error_response(str(e))
+            return error_response("Internal server error")
 
     @require_permission("debates:read")
     async def handle_dashboard_metrics(self, request: Request) -> HandlerResult:
@@ -127,7 +127,7 @@ class DashboardOperationsMixin:
             )
         except Exception as e:
             logger.exception(f"Failed to get metrics: {e}")
-            return error_response(str(e))
+            return error_response("Internal server error")
 
     @require_permission("debates:read")
     async def handle_dashboard_adapters(self, request: Request) -> HandlerResult:
@@ -212,7 +212,7 @@ class DashboardOperationsMixin:
 
         except Exception as e:
             logger.exception(f"Failed to get adapter status: {e}")
-            return error_response(str(e))
+            return error_response("Internal server error")
 
     @require_permission("debates:read")
     async def handle_dashboard_queries(self, request: Request) -> HandlerResult:
@@ -247,7 +247,7 @@ class DashboardOperationsMixin:
             )
         except Exception as e:
             logger.exception(f"Failed to get query stats: {e}")
-            return error_response(str(e))
+            return error_response("Internal server error")
 
     @require_permission("debates:read")
     async def handle_dashboard_metrics_reset(self, request: Request) -> HandlerResult:
@@ -272,7 +272,7 @@ class DashboardOperationsMixin:
             )
         except Exception as e:
             logger.exception(f"Failed to reset metrics: {e}")
-            return error_response(str(e))
+            return error_response("Internal server error")
 
     @require_permission("debates:read")
     async def handle_dashboard_batcher_stats(self, request: Request) -> HandlerResult:
@@ -310,4 +310,4 @@ class DashboardOperationsMixin:
             )
         except Exception as e:
             logger.exception(f"Failed to get batcher stats: {e}")
-            return error_response(str(e))
+            return error_response("Internal server error")

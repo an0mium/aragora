@@ -915,7 +915,8 @@ class TrainingHandler(BaseHandler):
             status = run_async(pipeline.get_training_status(job_id))
             return json_response(status)
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to get job {job_id}: {e}")
             return error_response(safe_error_message(e, "get training job"), 500)
@@ -941,7 +942,8 @@ class TrainingHandler(BaseHandler):
             pipeline._registry.update_status(job_id, TrainingStatus.CANCELLED)
             return json_response({"success": True, "job_id": job_id, "status": "cancelled"})
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to cancel job {job_id}: {e}")
             return error_response(safe_error_message(e, "cancel training job"), 500)
@@ -972,7 +974,8 @@ class TrainingHandler(BaseHandler):
                 }
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to export data for job {job_id}: {e}")
             return error_response(safe_error_message(e, "export training data"), 500)
@@ -1004,7 +1007,8 @@ class TrainingHandler(BaseHandler):
                 }
             )
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to start training for job {job_id}: {e}")
             return error_response(safe_error_message(e, "start training"), 500)
@@ -1051,7 +1055,8 @@ class TrainingHandler(BaseHandler):
                 }
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except (KeyError, AttributeError) as e:
             logger.exception(f"Failed to complete job {job_id}: {e}")
             return error_response(safe_error_message(e, "complete training job"), 500)

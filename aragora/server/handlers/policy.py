@@ -246,7 +246,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to list policies: {e}")
-            return error_response(f"Failed to list policies: {e}", 500)
+            return error_response("Failed to list policies", 500)
 
     @require_permission("policies:read")
     def _get_policy(self, policy_id: str) -> HandlerResult:
@@ -264,7 +264,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get policy {policy_id}: {e}")
-            return error_response(f"Failed to get policy: {e}", 500)
+            return error_response("Failed to retrieve policy", 500)
 
     @require_permission("policies:create")
     async def _create_policy(self, handler: Any) -> HandlerResult:
@@ -332,7 +332,7 @@ class PolicyHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
         except Exception as e:
             logger.error(f"Failed to create policy: {e}")
-            return error_response(f"Failed to create policy: {e}", 500)
+            return error_response("Policy creation failed", 500)
 
     @require_permission("policies:update")
     async def _update_policy(self, policy_id: str, handler: Any) -> HandlerResult:
@@ -378,7 +378,7 @@ class PolicyHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
         except Exception as e:
             logger.error(f"Failed to update policy {policy_id}: {e}")
-            return error_response(f"Failed to update policy: {e}", 500)
+            return error_response("Policy update failed", 500)
 
     @require_permission("policies:delete")
     def _delete_policy(self, policy_id: str) -> HandlerResult:
@@ -408,7 +408,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to delete policy {policy_id}: {e}")
-            return error_response(f"Failed to delete policy: {e}", 500)
+            return error_response("Policy deletion failed", 500)
 
     @require_permission("policies:update")
     async def _toggle_policy(self, policy_id: str, handler: Any) -> HandlerResult:
@@ -459,7 +459,7 @@ class PolicyHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
         except Exception as e:
             logger.error(f"Failed to toggle policy {policy_id}: {e}")
-            return error_response(f"Failed to toggle policy: {e}", 500)
+            return error_response("Policy toggle failed", 500)
 
     @require_permission("policies:read")
     def _get_policy_violations(self, policy_id: str, query_params: dict[str, Any]) -> HandlerResult:
@@ -497,7 +497,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get violations for policy {policy_id}: {e}")
-            return error_response(f"Failed to get violations: {e}", 500)
+            return error_response("Failed to retrieve violations", 500)
 
     # =========================================================================
     # Violation Handlers
@@ -540,7 +540,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to list violations: {e}")
-            return error_response(f"Failed to list violations: {e}", 500)
+            return error_response("Failed to list violations", 500)
 
     @require_permission("policies:read")
     def _get_violation(self, violation_id: str) -> HandlerResult:
@@ -558,7 +558,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get violation {violation_id}: {e}")
-            return error_response(f"Failed to get violation: {e}", 500)
+            return error_response("Failed to retrieve violation", 500)
 
     @require_permission("policies:update")
     async def _update_violation(self, violation_id: str, handler: Any) -> HandlerResult:
@@ -616,7 +616,7 @@ class PolicyHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
         except Exception as e:
             logger.error(f"Failed to update violation {violation_id}: {e}")
-            return error_response(f"Failed to update violation: {e}", 500)
+            return error_response("Violation update failed", 500)
 
     # =========================================================================
     # Compliance Check
@@ -696,7 +696,7 @@ class PolicyHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
         except Exception as e:
             logger.error(f"Failed to check compliance: {e}")
-            return error_response(f"Failed to check compliance: {e}", 500)
+            return error_response("Compliance check failed", 500)
 
     @require_permission("policies:read")
     def _get_stats(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -749,7 +749,7 @@ class PolicyHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get compliance stats: {e}")
-            return error_response(f"Failed to get stats: {e}", 500)
+            return error_response("Failed to retrieve statistics", 500)
 
 
 # Export for registration

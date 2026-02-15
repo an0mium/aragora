@@ -242,11 +242,11 @@ class GraphQLHandler(BaseHandler):
             result = self._execute(query, variables, operation_name, ctx)
             return json_response(result, status=200 if "errors" not in result else 400)
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"GraphQL execution error: {e}")
+            logger.warning("GraphQL resolver error in handle_post: %s", e)
             return json_response(
                 {
                     "data": None,
-                    "errors": [{"message": f"Internal server error: {e}"}],
+                    "errors": [{"message": "Internal server error. Check server logs for details."}],
                 },
                 status=500,
             )
@@ -326,10 +326,10 @@ class GraphQLHandler(BaseHandler):
             return result
 
         except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-            logger.exception(f"Error executing operation: {e}")
+            logger.warning("GraphQL resolver error in _execute: %s", e)
             return {
                 "data": None,
-                "errors": [{"message": str(e)}],
+                "errors": [{"message": "Operation execution failed. Check server logs for details."}],
             }
 
     def _resolve_operation(
@@ -388,8 +388,8 @@ class GraphQLHandler(BaseHandler):
                     data[field.alias or field_name] = resolved_data
 
             except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-                logger.exception(f"Error resolving field {field_name}: {e}")
-                errors.append(f"Error resolving '{field_name}': {e}")
+                logger.warning("GraphQL resolver error in resolve_field '%s': %s", field_name, e)
+                errors.append(f"Error resolving '{field_name}': internal error")
                 data[field.alias or field_name] = None
 
         return data if data else None, errors

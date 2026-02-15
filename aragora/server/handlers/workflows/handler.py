@@ -427,7 +427,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 "Permission denied: %s for user %s: %s", permission_key, context.user_id, e
             )
             record_rbac_check(permission_key, granted=False)
-            return error_response(f"Permission denied: {str(e)}", 403)
+            return error_response("Permission denied", 403)
         return None
 
     def _get_tenant_id(self, handler: Any, query_params: dict) -> str:
@@ -783,7 +783,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             return json_response(result, status=201)
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Invalid workflow creation request: %s", e)
+            return error_response("Invalid request", 400)
         except OSError as e:
             logger.error("Storage error creating workflow: %s", e)
             return error_response("Storage error", 503)
@@ -818,7 +819,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return json_response(result)
             return error_response(f"Workflow not found: {workflow_id}", 404)
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Invalid workflow update request: %s", e)
+            return error_response("Invalid request", 400)
         except OSError as e:
             logger.error("Storage error updating workflow: %s", e)
             return error_response("Storage error", 503)
@@ -897,7 +899,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             )
             return json_response(result)
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Workflow execution error: %s", e)
+            return error_response("Resource not found", 404)
         except (ConnectionError, TimeoutError) as e:
             logger.error("Connection error executing workflow: %s", e)
             return error_response("Execution service unavailable", 503)
@@ -1288,7 +1291,8 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return json_response({"resolved": True, "request_id": request_id})
             return error_response(f"Approval request not found: {request_id}", 404)
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Invalid approval resolution request: %s", e)
+            return error_response("Invalid request", 400)
         except OSError as e:
             logger.error("Storage error resolving approval: %s", e)
             return error_response("Storage error", 503)

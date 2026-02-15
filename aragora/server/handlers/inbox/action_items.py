@@ -170,7 +170,7 @@ async def handle_extract_action_items(
 
     except Exception as e:
         logger.exception("Failed to extract action items")
-        return error_response(f"Extraction failed: {str(e)}", status=500)
+        return error_response("Action item extraction failed", status=500)
 
 
 @require_permission("inbox:read")
@@ -271,7 +271,7 @@ async def handle_list_pending_actions(
 
     except Exception as e:
         logger.exception("Failed to list pending actions")
-        return error_response(f"List failed: {str(e)}", status=500)
+        return error_response("Failed to list items", status=500)
 
 
 @require_permission("inbox:write")
@@ -323,7 +323,7 @@ async def handle_complete_action(
 
     except Exception as e:
         logger.exception("Failed to complete action")
-        return error_response(f"Complete failed: {str(e)}", status=500)
+        return error_response("Completion update failed", status=500)
 
 
 @require_permission("inbox:write")
@@ -398,7 +398,7 @@ async def handle_update_action_status(
 
     except Exception as e:
         logger.exception("Failed to update action status")
-        return error_response(f"Update failed: {str(e)}", status=500)
+        return error_response("Update operation failed", status=500)
 
 
 @require_permission("inbox:read")
@@ -476,7 +476,7 @@ async def handle_get_due_soon(
 
     except Exception as e:
         logger.exception("Failed to get due soon items")
-        return error_response(f"Query failed: {str(e)}", status=500)
+        return error_response("Query execution failed", status=500)
 
 
 @require_permission("inbox:read")
@@ -572,7 +572,7 @@ async def handle_batch_extract(
 
     except Exception as e:
         logger.exception("Failed batch extraction")
-        return error_response(f"Batch extraction failed: {str(e)}", status=500)
+        return error_response("Batch extraction failed", status=500)
 
 
 # =============================================================================
@@ -633,7 +633,7 @@ async def handle_detect_meeting(
 
     except Exception as e:
         logger.exception("Failed to detect meeting")
-        return error_response(f"Detection failed: {str(e)}", status=500)
+        return error_response("Detection operation failed", status=500)
 
 
 @require_permission("inbox:read")
@@ -733,7 +733,7 @@ async def handle_auto_snooze_meeting(
 
     except Exception as e:
         logger.exception("Failed to auto-snooze meeting")
-        return error_response(f"Auto-snooze failed: {str(e)}", status=500)
+        return error_response("Auto-snooze operation failed", status=500)
 
 
 # =============================================================================

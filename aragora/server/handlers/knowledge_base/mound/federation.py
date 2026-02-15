@@ -63,7 +63,8 @@ class FederationOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         region_id = data.get("region_id")
         endpoint_url = data.get("endpoint_url")
@@ -109,7 +110,7 @@ class FederationOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to register region: {e}")
-            return error_response(f"Failed to register region: {e}", 500)
+            return error_response("Failed to register region", 500)
 
         return json_response(
             {
@@ -142,7 +143,7 @@ class FederationOperationsMixin:
             success = _run_async(mound.unregister_federated_region(region_id))
         except Exception as e:
             logger.error(f"Failed to unregister region: {e}")
-            return error_response(f"Failed to unregister region: {e}", 500)
+            return error_response("Failed to unregister region", 500)
 
         if not success:
             return error_response(f"Region not found: {region_id}", 404)
@@ -170,7 +171,8 @@ class FederationOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         region_id = data.get("region_id")
         workspace_id = data.get("workspace_id")
@@ -206,7 +208,7 @@ class FederationOperationsMixin:
             except Exception as e:
                 metrics_ctx["status"] = "error"
                 logger.error(f"Failed to sync to region: {e}")
-                return error_response(f"Failed to sync to region: {e}", 500)
+                return error_response("Failed to sync to region", 500)
 
         return json_response(
             {
@@ -237,7 +239,8 @@ class FederationOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         region_id = data.get("region_id")
         workspace_id = data.get("workspace_id")
@@ -271,7 +274,7 @@ class FederationOperationsMixin:
             except Exception as e:
                 metrics_ctx["status"] = "error"
                 logger.error(f"Failed to pull from region: {e}")
-                return error_response(f"Failed to pull from region: {e}", 500)
+                return error_response("Failed to pull from region", 500)
 
         return json_response(
             {
@@ -300,7 +303,8 @@ class FederationOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         workspace_id = data.get("workspace_id")
         since_str = data.get("since")
@@ -325,7 +329,7 @@ class FederationOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Failed to sync all regions: {e}")
-            return error_response(f"Failed to sync all regions: {e}", 500)
+            return error_response("Failed to sync all regions", 500)
 
         return json_response(
             {
@@ -360,7 +364,7 @@ class FederationOperationsMixin:
             status = _run_async(mound.get_federation_status())
         except Exception as e:
             logger.error(f"Failed to get federation status: {e}")
-            return error_response(f"Failed to get federation status: {e}", 500)
+            return error_response("Failed to get federation status", 500)
 
         # Track region counts
         enabled_count = sum(1 for r in status.values() if r.get("enabled", False))
@@ -396,7 +400,7 @@ class FederationOperationsMixin:
             status = _run_async(mound.get_federation_status())
         except Exception as e:
             logger.error(f"Failed to list regions: {e}")
-            return error_response(f"Failed to list regions: {e}", 500)
+            return error_response("Failed to list regions", 500)
 
         regions = [
             {

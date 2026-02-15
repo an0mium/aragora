@@ -230,10 +230,11 @@ class DecisionHandler(BaseHandler):
                     request.context.workspace_id = auth_ctx.org_id
 
         except ValueError as e:
-            return error_response(f"Invalid request: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except Exception as e:
             logger.warning(f"Failed to parse decision request: {e}")
-            return error_response(f"Failed to parse request: {e}", 400)
+            return error_response("Failed to parse request", 400)
 
         # Get router
         router = _get_decision_router(self.ctx)
@@ -317,7 +318,8 @@ class DecisionHandler(BaseHandler):
                     "error": str(e),
                 },
             )
-            return error_response(f"Decision failed: {e}", 500)
+            logger.warning("Handler error: %s", e)
+            return error_response("Decision processing failed", 500)
 
     def _get_decision(self, request_id: str) -> HandlerResult:
         """Get a decision result by ID."""
@@ -506,7 +508,7 @@ class DecisionHandler(BaseHandler):
 
         except Exception as e:
             logger.warning(f"Failed to build retry request: {e}")
-            return error_response(f"Failed to create retry request: {e}", 400)
+            return error_response("Retry request creation failed", 400)
 
         # Route the new decision
         try:
@@ -561,7 +563,8 @@ class DecisionHandler(BaseHandler):
                     "retried_from": request_id,
                 },
             )
-            return error_response(f"Decision retry failed: {e}", 500)
+            logger.warning("Handler error: %s", e)
+            return error_response("Decision retry failed", 500)
 
 
 __all__ = ["DecisionHandler"]

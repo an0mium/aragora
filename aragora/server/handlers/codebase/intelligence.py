@@ -201,7 +201,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_analyze_codebase(repo_id, body)
 
     async def get_symbols(
@@ -215,7 +216,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_get_symbols(repo_id, params)
 
     async def get_callgraph(
@@ -229,7 +231,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_get_callgraph(repo_id, params)
 
     async def find_deadcode(
@@ -243,7 +246,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_find_deadcode(repo_id, params)
 
     async def analyze_impact(
@@ -257,7 +261,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_analyze_impact(repo_id, body)
 
     async def understand(
@@ -271,7 +276,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_understand(repo_id, body)
 
     async def audit(self, repo_id: str, body: dict[str, Any], handler: Any = None) -> HandlerResult:
@@ -283,7 +289,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_audit(repo_id, body)
 
     async def get_audit_status(
@@ -297,7 +304,8 @@ class IntelligenceHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         return await handle_get_audit_status(repo_id, audit_id, params)
 
 
@@ -455,7 +463,7 @@ async def handle_analyze_codebase(repo_id: str, body: dict[str, Any]) -> Handler
 
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
-        return error_response(f"Analysis failed: {str(e)}", status=500)
+        return error_response("Analysis operation failed", status=500)
 
 
 # =============================================================================
@@ -547,7 +555,7 @@ async def handle_get_symbols(repo_id: str, params: dict[str, Any]) -> HandlerRes
 
     except Exception as e:
         logger.error(f"Symbol extraction failed: {e}")
-        return error_response(f"Symbol extraction failed: {str(e)}", status=500)
+        return error_response("Symbol extraction failed", status=500)
 
 
 # =============================================================================
@@ -637,7 +645,7 @@ async def handle_get_callgraph(repo_id: str, params: dict[str, Any]) -> HandlerR
 
     except Exception as e:
         logger.error(f"Call graph construction failed: {e}")
-        return error_response(f"Call graph construction failed: {str(e)}", status=500)
+        return error_response("Call graph construction failed", status=500)
 
 
 # =============================================================================
@@ -713,7 +721,7 @@ async def handle_find_deadcode(repo_id: str, params: dict[str, Any]) -> HandlerR
 
     except Exception as e:
         logger.error(f"Dead code analysis failed: {e}")
-        return error_response(f"Dead code analysis failed: {str(e)}", status=500)
+        return error_response("Dead code analysis failed", status=500)
 
 
 # =============================================================================
@@ -786,7 +794,7 @@ async def handle_analyze_impact(repo_id: str, body: dict[str, Any]) -> HandlerRe
 
     except Exception as e:
         logger.error(f"Impact analysis failed: {e}")
-        return error_response(f"Impact analysis failed: {str(e)}", status=500)
+        return error_response("Impact analysis failed", status=500)
 
 
 # =============================================================================
@@ -850,7 +858,7 @@ async def handle_understand(repo_id: str, body: dict[str, Any]) -> HandlerResult
         return error_response("Codebase understanding not available", status=503)
     except Exception as e:
         logger.error(f"Understanding query failed: {e}")
-        return error_response(f"Understanding query failed: {str(e)}", status=500)
+        return error_response("Understanding query failed", status=500)
 
 
 # =============================================================================

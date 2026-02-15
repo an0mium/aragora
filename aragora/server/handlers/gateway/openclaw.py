@@ -217,7 +217,7 @@ async def handle_openclaw_execute(
 
     except Exception as e:
         logger.exception("OpenClaw execute failed")
-        return error_response(f"Execution failed: {str(e)}", status=500)
+        return error_response("Execution failed", status=500)
 
 
 @require_permission("gateway.read")
@@ -252,7 +252,7 @@ async def handle_openclaw_status(
 
     except Exception as e:
         logger.exception("OpenClaw status check failed")
-        return error_response(f"Status check failed: {str(e)}", status=500)
+        return error_response("Status check failed", status=500)
 
 
 # =============================================================================
@@ -319,7 +319,7 @@ async def handle_openclaw_device_register(
 
     except Exception as e:
         logger.exception("Device registration failed")
-        return error_response(f"Registration failed: {str(e)}", status=500)
+        return error_response("Registration failed", status=500)
 
 
 @require_permission("gateway.delete")
@@ -360,7 +360,7 @@ async def handle_openclaw_device_unregister(
 
     except Exception as e:
         logger.exception("Device unregistration failed")
-        return error_response(f"Unregistration failed: {str(e)}", status=500)
+        return error_response("Unregistration failed", status=500)
 
 
 # =============================================================================
@@ -429,7 +429,7 @@ async def handle_openclaw_plugin_install(
 
     except Exception as e:
         logger.exception("Plugin installation failed")
-        return error_response(f"Installation failed: {str(e)}", status=500)
+        return error_response("Installation failed", status=500)
 
 
 @require_permission("gateway.uninstall")
@@ -470,7 +470,7 @@ async def handle_openclaw_plugin_uninstall(
 
     except Exception as e:
         logger.exception("Plugin uninstallation failed")
-        return error_response(f"Uninstallation failed: {str(e)}", status=500)
+        return error_response("Uninstallation failed", status=500)
 
 
 # =============================================================================
@@ -517,7 +517,7 @@ async def handle_openclaw_config(
 
     except Exception as e:
         logger.exception("Failed to get config")
-        return error_response(f"Get config failed: {str(e)}", status=500)
+        return error_response("Failed to retrieve configuration", status=500)
 
 
 # =============================================================================

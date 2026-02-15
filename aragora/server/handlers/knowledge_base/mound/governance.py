@@ -177,7 +177,8 @@ class GovernanceOperationsMixin:
                 }
             )
         except ValueError as e:
-            return error_response(str(e), status=404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", status=404)
         except Exception as e:
             logger.error(f"Error assigning role: {e}")
             return error_response(safe_error_message(e), status=500)

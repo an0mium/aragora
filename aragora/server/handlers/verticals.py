@@ -271,7 +271,8 @@ class VerticalsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         # Check circuit breaker before proceeding
         if not self._circuit_breaker.can_proceed():
@@ -830,7 +831,8 @@ class VerticalsHandler(SecureHandler):
 
         except ValueError as e:
             self._circuit_breaker.record_failure()
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except (KeyError, TypeError, AttributeError) as e:
             self._circuit_breaker.record_failure()
             logger.warning(f"Data error creating agent for {vertical_id}: {e}")

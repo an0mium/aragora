@@ -284,11 +284,11 @@ class ComplianceHandler(
 
         except PermissionDeniedError as e:
             logger.warning(f"Permission denied for compliance request: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         except Exception as e:
             logger.exception(f"Error handling compliance request: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     # Backward compatible timestamp parser (used in tests)
     _parse_timestamp = staticmethod(parse_timestamp)

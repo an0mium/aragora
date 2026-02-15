@@ -83,7 +83,8 @@ class NodeOperationsMixin:
             else:
                 data = {}
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         query = data.get("query", "")
         if not query:
@@ -110,7 +111,7 @@ class NodeOperationsMixin:
             )
         except Exception as e:
             logger.error(f"Mound query failed: {e}")
-            return error_response(f"Query failed: {e}", 500)
+            return error_response("Query execution failed", 500)
 
         return json_response(
             {
@@ -140,7 +141,8 @@ class NodeOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         content = data.get("content", "")
         if not content:
@@ -165,7 +167,8 @@ class NodeOperationsMixin:
                     document_id=source.get("document_id"),
                 )
             except ValueError as e:
-                return error_response(f"Invalid source type: {e}", 400)
+                logger.warning("Handler error: %s", e)
+                return error_response("Invalid source type", 400)
 
         node = KnowledgeNode(
             node_type=node_type,
@@ -187,7 +190,7 @@ class NodeOperationsMixin:
             saved_node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to create node: {e}")
-            return error_response(f"Failed to create node: {e}", 500)
+            return error_response("Failed to create node", 500)
 
         return json_response(saved_node.to_dict() if saved_node else {"id": node_id}, status=201)
 
@@ -204,7 +207,7 @@ class NodeOperationsMixin:
             node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
-            return error_response(f"Failed to get node: {e}", 500)
+            return error_response("Failed to get node", 500)
 
         if not node:
             return error_response(f"Node not found: {node_id}", 404)
@@ -265,7 +268,7 @@ class NodeOperationsMixin:
                 ]
         except Exception as e:
             logger.error(f"Failed to list nodes: {e}")
-            return error_response(f"Failed to list nodes: {e}", 500)
+            return error_response("Failed to list nodes", 500)
 
         return json_response(
             {
@@ -289,6 +292,6 @@ class NodeOperationsMixin:
             stats = _run_async(mound.get_stats())
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")
-            return error_response(f"Failed to get stats: {e}", 500)
+            return error_response("Failed to retrieve statistics", 500)
 
         return json_response(stats)

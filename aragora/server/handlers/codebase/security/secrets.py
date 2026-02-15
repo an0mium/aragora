@@ -141,7 +141,7 @@ async def handle_scan_secrets(
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to start secrets scan: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("secrets:read")
@@ -175,7 +175,7 @@ async def handle_get_secrets_scan_status(
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get secrets scan status: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("secrets:read")
@@ -237,7 +237,7 @@ async def handle_get_secrets(
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get secrets: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("secrets:read")
@@ -301,4 +301,4 @@ async def handle_list_secrets_scans(
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to list secrets scans: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)

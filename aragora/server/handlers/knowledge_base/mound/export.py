@@ -62,7 +62,7 @@ class ExportOperationsMixin:
             )
         except Exception as e:
             logger.error(f"D3 graph export failed: {e}")
-            return error_response(f"D3 graph export failed: {e}", 500)
+            return error_response("D3 graph export failed", 500)
 
         return json_response(
             {
@@ -96,7 +96,7 @@ class ExportOperationsMixin:
             )
         except Exception as e:
             logger.error(f"GraphML export failed: {e}")
-            return error_response(f"GraphML export failed: {e}", 500)
+            return error_response("GraphML export failed", 500)
 
         return HandlerResult(
             status_code=200,
@@ -120,7 +120,8 @@ class ExportOperationsMixin:
             else:
                 return error_response("Request body required", 400)
         except (json.JSONDecodeError, ValueError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         repo_path = data.get("repo_path")
         if not repo_path:
@@ -185,7 +186,8 @@ class ExportOperationsMixin:
             )
 
         except FileNotFoundError as e:
-            return error_response(f"Repository not found: {e}", 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Repository not found", 404)
         except Exception as e:
             logger.error(f"Failed to index repository: {e}")
-            return error_response(f"Failed to index repository: {e}", 500)
+            return error_response("Failed to index repository", 500)

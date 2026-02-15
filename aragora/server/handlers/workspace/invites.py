@@ -272,7 +272,8 @@ class WorkspaceInvitesMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         # Check for existing pending invite
         store = get_invite_store()
@@ -361,7 +362,8 @@ class WorkspaceInvitesMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         # Parse status filter from query
         from urllib.parse import parse_qs, urlparse
@@ -585,7 +587,8 @@ class WorkspaceInvitesMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
         except Exception as e:
             logger.exception(f"Failed to add member via invite: {e}")
             return m.error_response("Failed to join workspace", 500)

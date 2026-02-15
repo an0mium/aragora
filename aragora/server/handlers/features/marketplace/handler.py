@@ -217,7 +217,7 @@ class MarketplaceHandler:
 
         except Exception as e:
             logger.exception(f"Error in marketplace handler: {e}")
-            return error_response(f"Internal error: {e}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""

@@ -529,7 +529,7 @@ class CrudOperationsMixin:
             return error_response("Database error updating debate", 500)
         except ValueError as e:
             logger.warning("Invalid update request for %s: %s", debate_id, e)
-            return error_response(f"Invalid update data: {e}", 400)
+            return error_response("Invalid update data", 400)
 
     @api_endpoint(
         method="DELETE",

@@ -237,7 +237,8 @@ class EvidenceEnrichmentHandler(BaseHandler):
             )
             return json_response(result)
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.error(f"Failed to enrich finding {finding_id}: {e}")
             return error_response(safe_error_message(e, "Enrichment"), 500)

@@ -97,7 +97,7 @@ class MemoryAnalyticsHandler(SecureHandler):
             return error_response("Authentication required to access memory analytics", 401)
         except ForbiddenError as e:
             logger.warning(f"Memory analytics access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if path == "/api/v1/memory/analytics":
             days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
@@ -122,7 +122,7 @@ class MemoryAnalyticsHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Memory analytics POST access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if path == "/api/v1/memory/analytics/snapshot":
             return self._take_snapshot()

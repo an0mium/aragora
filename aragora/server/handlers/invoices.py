@@ -307,7 +307,7 @@ async def handle_upload_invoice(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error processing invoice")
-        return error_response(f"Failed to process invoice: {e}", status=500)
+        return error_response("Invoice processing failed", status=500)
 
 
 # =============================================================================
@@ -393,7 +393,7 @@ async def handle_create_invoice(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error creating invoice")
-        return error_response(f"Failed to create invoice: {e}", status=500)
+        return error_response("Invoice creation failed", status=500)
 
 
 @rate_limit(requests_per_minute=60)  # Read operation
@@ -476,7 +476,7 @@ async def handle_list_invoices(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error listing invoices")
-        return error_response(f"Failed to list invoices: {e}", status=500)
+        return error_response("Failed to list invoices", status=500)
 
 
 @rate_limit(requests_per_minute=60)  # Read operation
@@ -509,7 +509,7 @@ async def handle_get_invoice(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error getting invoice")
-        return error_response(f"Failed to get invoice: {e}", status=500)
+        return error_response("Failed to retrieve invoice", status=500)
 
 
 # =============================================================================
@@ -558,7 +558,7 @@ async def handle_approve_invoice(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error approving invoice")
-        return error_response(f"Failed to approve invoice: {e}", status=500)
+        return error_response("Invoice approval failed", status=500)
 
 
 @rate_limit(requests_per_minute=20)  # Write operation
@@ -602,7 +602,7 @@ async def handle_reject_invoice(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error rejecting invoice")
-        return error_response(f"Failed to reject invoice: {e}", status=500)
+        return error_response("Invoice rejection failed", status=500)
 
 
 @rate_limit(requests_per_minute=60)  # Read operation
@@ -637,7 +637,7 @@ async def handle_get_pending_approvals(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error getting pending approvals")
-        return error_response(f"Failed to get pending approvals: {e}", status=500)
+        return error_response("Failed to retrieve pending approvals", status=500)
 
 
 # =============================================================================
@@ -682,7 +682,7 @@ async def handle_match_to_po(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error matching invoice to PO")
-        return error_response(f"Failed to match invoice: {e}", status=500)
+        return error_response("Invoice matching failed", status=500)
 
 
 # =============================================================================
@@ -727,7 +727,7 @@ async def handle_get_anomalies(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error detecting anomalies")
-        return error_response(f"Failed to detect anomalies: {e}", status=500)
+        return error_response("Anomaly detection failed", status=500)
 
 
 # =============================================================================
@@ -790,11 +790,12 @@ async def handle_schedule_payment(
         )
 
     except ValueError as e:
-        return error_response(str(e), status=400)
+        logger.warning("Handler error: %s", e)
+        return error_response("Invalid request", status=400)
     except Exception as e:
         cb.record_failure()
         logger.exception("Error scheduling payment")
-        return error_response(f"Failed to schedule payment: {e}", status=500)
+        return error_response("Payment scheduling failed", status=500)
 
 
 @rate_limit(requests_per_minute=60)  # Read operation
@@ -855,7 +856,7 @@ async def handle_get_scheduled_payments(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error getting scheduled payments")
-        return error_response(f"Failed to get scheduled payments: {e}", status=500)
+        return error_response("Failed to retrieve scheduled payments", status=500)
 
 
 # =============================================================================
@@ -939,7 +940,7 @@ async def handle_create_purchase_order(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error creating purchase order")
-        return error_response(f"Failed to create purchase order: {e}", status=500)
+        return error_response("Purchase order creation failed", status=500)
 
 
 # =============================================================================
@@ -974,7 +975,7 @@ async def handle_get_invoice_stats(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error getting invoice stats")
-        return error_response(f"Failed to get invoice stats: {e}", status=500)
+        return error_response("Failed to retrieve invoice statistics", status=500)
 
 
 @rate_limit(requests_per_minute=60)  # Read operation
@@ -1010,7 +1011,7 @@ async def handle_get_overdue_invoices(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error getting overdue invoices")
-        return error_response(f"Failed to get overdue invoices: {e}", status=500)
+        return error_response("Failed to retrieve overdue invoices", status=500)
 
 
 # =============================================================================

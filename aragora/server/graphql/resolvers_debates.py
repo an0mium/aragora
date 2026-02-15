@@ -291,8 +291,8 @@ class DebateQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving debate {id}: {e}")
-            return ResolverResult(errors=[f"Failed to resolve debate: {e}"])
+            logger.warning("GraphQL resolver error in resolve_debate: %s", e)
+            return ResolverResult(errors=["Failed to resolve debate: internal error"])
 
     @staticmethod
     async def resolve_debates(
@@ -360,8 +360,8 @@ class DebateQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving debates: {e}")
-            return ResolverResult(errors=[f"Failed to resolve debates: {e}"])
+            logger.warning("GraphQL resolver error in resolve_debates: %s", e)
+            return ResolverResult(errors=["Failed to resolve debates: internal error"])
 
     @staticmethod
     async def resolve_search_debates(
@@ -425,8 +425,8 @@ class DebateQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error searching debates: {e}")
-            return ResolverResult(errors=[f"Failed to search debates: {e}"])
+            logger.warning("GraphQL resolver error in resolve_search_debates: %s", e)
+            return ResolverResult(errors=["Failed to search debates: internal error"])
 
 
 # =============================================================================
@@ -525,8 +525,8 @@ class DebateMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # Request building, routing, or response transformation errors
-            logger.exception(f"Error starting debate: {e}")
-            return ResolverResult(errors=[f"Failed to start debate: {e}"])
+            logger.warning("GraphQL resolver error in resolve_start_debate: %s", e)
+            return ResolverResult(errors=["Failed to start debate: internal error"])
 
     @staticmethod
     async def resolve_submit_vote(
@@ -581,8 +581,8 @@ class DebateMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Vote data access or storage errors
-            logger.exception(f"Error submitting vote: {e}")
-            return ResolverResult(errors=[f"Failed to submit vote: {e}"])
+            logger.warning("GraphQL resolver error in resolve_submit_vote: %s", e)
+            return ResolverResult(errors=["Failed to submit vote: internal error"])
 
     @staticmethod
     async def resolve_cancel_debate(
@@ -644,8 +644,8 @@ class DebateMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # State access, update, or transformation errors
-            logger.exception(f"Error cancelling debate: {e}")
-            return ResolverResult(errors=[f"Failed to cancel debate: {e}"])
+            logger.warning("GraphQL resolver error in resolve_cancel_debate: %s", e)
+            return ResolverResult(errors=["Failed to cancel debate: internal error"])
 
 
 # =============================================================================

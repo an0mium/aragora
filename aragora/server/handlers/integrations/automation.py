@@ -349,7 +349,8 @@ class AutomationHandler(SecureHandler):
         try:
             body = self._get_request_body(handler)
         except Exception as e:
-            return error_response(f"Invalid request body: {e}", status=400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", status=400)
 
         webhook_url = body.get("webhook_url") or body.get("url")
         if not webhook_url:
@@ -368,7 +369,8 @@ class AutomationHandler(SecureHandler):
         try:
             events = [AutomationEventType(e) for e in events_raw]
         except ValueError as e:
-            return error_response(f"Invalid event type: {e}", status=400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid event type", status=400)
 
         platform = body.get("platform", "generic")
         connector = self._connectors.get(platform)
@@ -401,7 +403,7 @@ class AutomationHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[AutomationHandler] Subscribe failed: {e}")
-            return error_response(f"Failed to create subscription: {e}", status=500)
+            return error_response("Subscription creation failed", status=500)
 
     def _unsubscribe(self, webhook_id: str) -> HandlerResult:
         """Remove a webhook subscription."""
@@ -463,7 +465,8 @@ class AutomationHandler(SecureHandler):
         try:
             body = self._get_request_body(handler)
         except Exception as e:
-            return error_response(f"Invalid request body: {e}", status=400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", status=400)
 
         event_raw = body.get("event_type") or body.get("event")
         if not event_raw:

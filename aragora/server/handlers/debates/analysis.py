@@ -155,7 +155,7 @@ class AnalysisOperationsMixin:
             return error_response("Database error retrieving meta critique", 500)
         except ValueError as e:
             logger.warning("Invalid meta critique request for %s: %s", debate_id, e)
-            return error_response(f"Invalid request: {e}", 400)
+            return error_response("Invalid request", 400)
 
     @api_endpoint(
         method="GET",
@@ -269,7 +269,7 @@ class AnalysisOperationsMixin:
             return error_response("Database error retrieving argument graph", 500)
         except ValueError as e:
             logger.warning("Invalid argument graph request for %s: %s", debate_id, e)
-            return error_response(f"Invalid request: {e}", 400)
+            return error_response("Invalid request", 400)
 
     @api_endpoint(
         method="GET",
@@ -380,7 +380,7 @@ class AnalysisOperationsMixin:
             return error_response("Database error retrieving graph stats", 500)
         except ValueError as e:
             logger.warning("Invalid graph stats request for %s: %s", debate_id, e)
-            return error_response(f"Invalid request: {e}", 400)
+            return error_response("Invalid request", 400)
 
 
 def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult:
@@ -442,7 +442,7 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
         return error_response("Database error building graph", 500)
     except ValueError as e:
         logger.warning("Invalid replay data for %s: %s", debate_id, e)
-        return error_response(f"Invalid replay data: {e}", 400)
+        return error_response("Invalid replay data", 400)
 
     def _get_rhetorical_observations(
         self: _DebatesHandlerProtocol, debate_id: str

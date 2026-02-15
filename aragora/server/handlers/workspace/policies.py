@@ -284,7 +284,8 @@ class WorkspacePoliciesMixin:
         try:
             policy = manager.update_policy(policy_id, **body)
         except ValueError as e:
-            return m.error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Resource not found", 404)
 
         # Invalidate cache after updating policy
         m._invalidate_retention_cache(policy_id)
@@ -386,7 +387,8 @@ class WorkspacePoliciesMixin:
         try:
             report = self._run_async(manager.execute_policy(policy_id, dry_run=dry_run))
         except ValueError as e:
-            return m.error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Resource not found", 404)
 
         # Log to audit
         audit_log = self._get_audit_log()

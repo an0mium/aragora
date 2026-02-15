@@ -114,7 +114,7 @@ async def handle_scan_sast(
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"[SAST] Failed to start scan: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sast:read")
@@ -156,7 +156,7 @@ async def handle_get_sast_scan_status(
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"[SAST] Failed to get scan status: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sast:read")
@@ -212,7 +212,7 @@ async def handle_get_sast_findings(
 
     except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"[SAST] Failed to get findings: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sast:read")
@@ -251,4 +251,4 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)

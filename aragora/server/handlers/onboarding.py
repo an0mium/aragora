@@ -628,7 +628,7 @@ async def handle_get_flow(
 
     except Exception as e:
         logger.exception("Failed to get onboarding flow")
-        return error_response(f"Failed to get flow: {str(e)}", status=500)
+        return error_response("Failed to retrieve flow", status=500)
 
 
 @require_permission("onboarding:create")
@@ -733,7 +733,7 @@ async def handle_init_flow(
 
     except Exception as e:
         logger.exception("Failed to initialize onboarding")
-        return error_response(f"Failed to initialize: {str(e)}", status=500)
+        return error_response("Initialization failed", status=500)
 
 
 @require_permission("onboarding:update")
@@ -850,7 +850,7 @@ async def handle_update_step(
 
     except Exception as e:
         logger.exception("Failed to update step")
-        return error_response(f"Failed to update: {str(e)}", status=500)
+        return error_response("Update operation failed", status=500)
 
 
 @require_permission("onboarding:read")
@@ -894,7 +894,7 @@ async def handle_get_templates(
 
     except Exception as e:
         logger.exception("Failed to get templates")
-        return error_response(f"Failed to get templates: {str(e)}", status=500)
+        return error_response("Failed to retrieve templates", status=500)
 
 
 @require_permission("debates:create")
@@ -988,7 +988,7 @@ async def handle_first_debate(
 
     except Exception as e:
         logger.exception("Failed to start first debate")
-        return error_response(f"Failed to start debate: {str(e)}", status=500)
+        return error_response("Debate start failed", status=500)
 
 
 @require_permission("debates:create")
@@ -1106,7 +1106,7 @@ async def handle_quick_debate(
 
     except Exception as e:
         logger.exception("Failed to start quick debate")
-        return error_response(f"Failed to start quick debate: {str(e)}", status=500)
+        return error_response("Quick debate start failed", status=500)
 
 
 @require_permission("onboarding:create")
@@ -1222,7 +1222,7 @@ async def handle_quick_start(
 
     except Exception as e:
         logger.exception("Failed to apply quick-start")
-        return error_response(f"Failed to apply quick-start: {str(e)}", status=500)
+        return error_response("Quick-start application failed", status=500)
 
 
 @require_permission("analytics:read")
@@ -1288,7 +1288,7 @@ async def handle_analytics(
 
     except Exception as e:
         logger.exception("Failed to get analytics")
-        return error_response(f"Failed to get analytics: {str(e)}", status=500)
+        return error_response("Failed to retrieve analytics", status=500)
 
 
 # =============================================================================

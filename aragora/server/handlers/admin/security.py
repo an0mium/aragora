@@ -184,10 +184,10 @@ class SecurityHandler(SecureHandler):
 
         except ImportError as e:
             logger.error(f"Security status import error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
         except Exception as e:
             logger.error(f"Security status error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(
         permission="admin.security.rotate",
@@ -253,10 +253,10 @@ class SecurityHandler(SecureHandler):
 
         except ImportError as e:
             logger.error(f"Key rotation import error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
         except Exception as e:
             logger.error(f"Key rotation error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(
         permission="admin.security.health",
@@ -352,7 +352,7 @@ class SecurityHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"Security health check error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(
         permission="admin.security.keys",
@@ -404,7 +404,7 @@ class SecurityHandler(SecureHandler):
 
         except ImportError as e:
             logger.error(f"List keys import error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
         except Exception as e:
             logger.error(f"List keys error: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)

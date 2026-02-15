@@ -196,7 +196,7 @@ async def handle_upload_receipt(
     except (RuntimeError, OSError, ValueError, TypeError) as e:
         cb.record_failure()
         logger.exception("Error processing receipt")
-        return error_response(f"Failed to process receipt: {e}", status=500)
+        return error_response("Receipt processing failed", status=500)
 
 
 # =============================================================================
@@ -337,7 +337,7 @@ async def handle_create_expense(
     except (RuntimeError, OSError, ValueError, TypeError) as e:
         cb.record_failure()
         logger.exception("Error creating expense")
-        return error_response(f"Failed to create expense: {e}", status=500)
+        return error_response("Expense creation failed", status=500)
 
 
 @rate_limit(requests_per_minute=120)
@@ -434,7 +434,7 @@ async def handle_list_expenses(
     except Exception as e:
         cb.record_failure()
         logger.exception("Error listing expenses")
-        return error_response(f"Failed to list expenses: {e}", status=500)
+        return error_response("Failed to list expenses", status=500)
 
 
 @rate_limit(requests_per_minute=120)
@@ -476,7 +476,7 @@ async def handle_get_expense(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error getting expense")
-        return error_response(f"Failed to get expense: {e}", status=500)
+        return error_response("Failed to retrieve expense", status=500)
 
 
 @rate_limit(requests_per_minute=60)
@@ -600,7 +600,7 @@ async def handle_update_expense(
     except (RuntimeError, OSError, ValueError, TypeError) as e:
         cb.record_failure()
         logger.exception("Error updating expense")
-        return error_response(f"Failed to update expense: {e}", status=500)
+        return error_response("Expense update failed", status=500)
 
 
 @rate_limit(requests_per_minute=30)
@@ -642,7 +642,7 @@ async def handle_delete_expense(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error deleting expense")
-        return error_response(f"Failed to delete expense: {e}", status=500)
+        return error_response("Expense deletion failed", status=500)
 
 
 # =============================================================================
@@ -694,7 +694,7 @@ async def handle_approve_expense(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error approving expense")
-        return error_response(f"Failed to approve expense: {e}", status=500)
+        return error_response("Expense approval failed", status=500)
 
 
 @rate_limit(requests_per_minute=60)
@@ -750,7 +750,7 @@ async def handle_reject_expense(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error rejecting expense")
-        return error_response(f"Failed to reject expense: {e}", status=500)
+        return error_response("Expense rejection failed", status=500)
 
 
 @rate_limit(requests_per_minute=120)
@@ -788,7 +788,7 @@ async def handle_get_pending_approvals(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error getting pending approvals")
-        return error_response(f"Failed to get pending approvals: {e}", status=500)
+        return error_response("Failed to retrieve pending approvals", status=500)
 
 
 # =============================================================================
@@ -857,7 +857,7 @@ async def handle_categorize_expenses(
     except (RuntimeError, OSError, ValueError, TypeError) as e:
         cb.record_failure()
         logger.exception("Error categorizing expenses")
-        return error_response(f"Failed to categorize expenses: {e}", status=500)
+        return error_response("Expense categorization failed", status=500)
 
 
 # =============================================================================
@@ -927,7 +927,7 @@ async def handle_sync_to_qbo(
     except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:
         cb.record_failure()
         logger.exception("Error syncing to QBO")
-        return error_response(f"Failed to sync to QBO: {e}", status=500)
+        return error_response("QBO sync failed", status=500)
 
 
 # =============================================================================
@@ -991,7 +991,7 @@ async def handle_get_expense_stats(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error getting expense stats")
-        return error_response(f"Failed to get expense stats: {e}", status=500)
+        return error_response("Failed to retrieve expense statistics", status=500)
 
 
 @rate_limit(requests_per_minute=30)
@@ -1058,7 +1058,7 @@ async def handle_export_expenses(
     except (RuntimeError, OSError, LookupError) as e:
         cb.record_failure()
         logger.exception("Error exporting expenses")
-        return error_response(f"Failed to export expenses: {e}", status=500)
+        return error_response("Expense export failed", status=500)
 
 
 # =============================================================================

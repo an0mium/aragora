@@ -437,7 +437,7 @@ class ExternalAgentsHandler(BaseHandler):
             # Record failure for circuit breaker
             cb.record_failure()
             logger.error(f"Task submission failed: {e}")
-            return error_response(f"Task submission failed: {str(e)}", 500)
+            return error_response("Task submission failed", 500)
 
     @require_permission(AGENTS_READ_PERMISSION)
     def _get_task(self, task_id: str, user: Any) -> HandlerResult:
@@ -494,7 +494,7 @@ class ExternalAgentsHandler(BaseHandler):
             return error_response(f"Task not found: {task_id}", 404)
         except Exception as e:
             logger.error(f"Failed to get task {task_id}: {e}")
-            return error_response(f"Failed to get task: {str(e)}", 500)
+            return error_response("Failed to retrieve task", 500)
 
     @require_permission(AGENTS_WRITE_PERMISSION)
     def _cancel_task(self, task_id: str, user: Any) -> HandlerResult:
@@ -537,7 +537,7 @@ class ExternalAgentsHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to cancel task {task_id}: {e}")
-            return error_response(f"Failed to cancel task: {str(e)}", 500)
+            return error_response("Task cancellation failed", 500)
 
 
 def _record_metrics(

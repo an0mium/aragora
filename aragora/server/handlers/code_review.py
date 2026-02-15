@@ -172,7 +172,7 @@ async def handle_review_code(
         # Record failure for circuit breaker
         cb.record_failure()
         logger.exception("Error reviewing code")
-        return error_response(f"Failed to review code: {e}", status=500)
+        return error_response("Code review failed", status=500)
 
 
 @rate_limit(requests_per_minute=20, limiter_name="code_review_diff")
@@ -231,7 +231,7 @@ async def handle_review_diff(
         # Record failure for circuit breaker
         cb.record_failure()
         logger.exception("Error reviewing diff")
-        return error_response(f"Failed to review diff: {e}", status=500)
+        return error_response("Diff review failed", status=500)
 
 
 @rate_limit(requests_per_minute=10, limiter_name="code_review_pr")
@@ -293,7 +293,7 @@ async def handle_review_pr(
         # Record failure for circuit breaker
         cb.record_failure()
         logger.exception(f"Error reviewing PR: {data.get('pr_url')}")
-        return error_response(f"Failed to review PR: {e}", status=500)
+        return error_response("PR review failed", status=500)
 
 
 @require_permission(CODE_REVIEW_READ_PERMISSION)
@@ -318,7 +318,7 @@ async def handle_get_review_result(
 
     except Exception as e:
         logger.exception(f"Error getting review result {result_id}")
-        return error_response(f"Failed to get result: {e}", status=500)
+        return error_response("Failed to retrieve result", status=500)
 
 
 @require_permission(CODE_REVIEW_READ_PERMISSION)
@@ -359,7 +359,7 @@ async def handle_get_review_history(
 
     except Exception as e:
         logger.exception("Error getting review history")
-        return error_response(f"Failed to get history: {e}", status=500)
+        return error_response("Failed to retrieve history", status=500)
 
 
 # =============================================================================
@@ -412,7 +412,7 @@ async def handle_quick_security_scan(
 
     except Exception as e:
         logger.exception("Error in security scan")
-        return error_response(f"Failed to scan code: {e}", status=500)
+        return error_response("Code scan failed", status=500)
 
 
 # =============================================================================

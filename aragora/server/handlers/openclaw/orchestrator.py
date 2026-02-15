@@ -99,7 +99,8 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                 }
             )
         except ValueError as e:
-            return error_response(f"Invalid parameter: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid parameter", 400)
         except Exception as e:
             logger.error("Error listing sessions: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)

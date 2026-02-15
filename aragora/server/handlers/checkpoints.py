@@ -440,7 +440,7 @@ class CheckpointHandler(BaseHandler):
 
         except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Failed to create checkpoint for {debate_id}: {e}")
-            return error_response(f"Failed to create checkpoint: {e}", 500)
+            return error_response("Checkpoint creation failed", 500)
 
     async def pause_debate(self, debate_id: str, body: bytes | None) -> HandlerResult:
         """

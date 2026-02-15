@@ -74,7 +74,7 @@ class StorageHealthHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Storage health endpoint access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # Normalize path for routing (support both v1 and non-v1)
         normalized = path.replace("/api/v1/", "/api/")

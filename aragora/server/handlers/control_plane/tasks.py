@@ -945,10 +945,11 @@ class TaskHandlerMixin:
                 if not request.context.workspace_id:
                     request.context.workspace_id = auth_ctx.org_id
         except ValueError as e:
-            return error_response(f"Invalid request: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except Exception as e:
             logger.warning(f"Failed to parse deliberation request: {e}")
-            return error_response(f"Failed to parse request: {e}", 400)
+            return error_response("Failed to parse request", 400)
 
         async_mode = bool(body.get("async", False)) or body.get("mode") == "async"
         priority = body.get("priority", "normal")
@@ -1022,4 +1023,4 @@ class TaskHandlerMixin:
         except Exception as e:
             logger.exception(f"Deliberation failed: {e}")
             record_deliberation_error(request.request_id, str(e))
-            return error_response(f"Deliberation failed: {e}", 500)
+            return error_response("Deliberation failed", 500)

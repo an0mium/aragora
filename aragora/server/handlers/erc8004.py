@@ -31,6 +31,23 @@ from aragora.resilience import with_timeout, get_circuit_breaker
 
 logger = logging.getLogger(__name__)
 
+# Re-export names that tests and downstream modules patch against.
+# Importing eagerly is safe because these modules do not pull in ``web3``.
+from aragora.blockchain.config import get_chain_config as get_chain_config  # noqa: E402
+
+# Optional heavy connectors / adapters -- imported lazily at call-time but
+# made available as module-level attributes so ``unittest.mock.patch`` can
+# target ``aragora.server.handlers.erc8004.ERC8004Connector`` etc.
+try:
+    from aragora.connectors.blockchain import ERC8004Connector as ERC8004Connector  # noqa: E402
+except ImportError:  # pragma: no cover – web3 optional
+    ERC8004Connector = None  # type: ignore[assignment,misc]
+
+try:
+    from aragora.knowledge.mound.adapters.erc8004_adapter import ERC8004Adapter as ERC8004Adapter  # noqa: E402
+except ImportError:  # pragma: no cover – web3 optional
+    ERC8004Adapter = None  # type: ignore[assignment,misc]
+
 # Lazy-loaded components
 _provider = None
 _connector = None
@@ -563,7 +580,8 @@ async def handle_register_agent(
         try:
             signer = WalletSigner.from_env()
         except ValueError as e:
-            return error_response(str(e), status=400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", status=400)
 
         contract = IdentityRegistryContract(provider)
 
@@ -588,7 +606,8 @@ async def handle_register_agent(
             status=201,
         )
     except ValueError as e:
-        return error_response(f"Invalid metadata: {str(e)}", status=400)
+        logger.warning("Handler error: %s", e)
+        return error_response("Invalid metadata format", status=400)
     except ImportError as e:
         logger.warning("ERC-8004 handler error: %s", e)
         return error_response(
@@ -691,7 +710,8 @@ class ERC8004Handler(BaseHandler):
                     skip = _get_int_query_param(query_params, "skip", 0, min_value=0)
                     limit = _get_int_query_param(query_params, "limit", 100, min_value=1)
                 except ValueError as e:
-                    return error_response(str(e), status=400)
+                    logger.warning("Handler error: %s", e)
+                    return error_response("Invalid request", status=400)
                 return handle_list_agents(skip=skip, limit=limit)
             if method == "POST":
                 body = self.read_json_body(handler) or {}

@@ -266,7 +266,7 @@ async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
 
     except Exception as e:
         logger.error(f"Error submitting NPS feedback: {e}")
-        return error_response(str(e), status=500)
+        return error_response("Internal server error", status=500)
 
 
 async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
@@ -329,7 +329,7 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
 
     except Exception as e:
         logger.error(f"Error submitting feedback: {e}")
-        return error_response(str(e), status=500)
+        return error_response("Internal server error", status=500)
 
 
 async def handle_get_nps_summary(ctx: dict[str, Any]) -> HandlerResult:
@@ -360,7 +360,7 @@ async def handle_get_nps_summary(ctx: dict[str, Any]) -> HandlerResult:
 
     except Exception as e:
         logger.error(f"Error getting NPS summary: {e}")
-        return error_response(str(e), status=500)
+        return error_response("Internal server error", status=500)
 
 
 async def handle_get_feedback_prompts(ctx: dict[str, Any]) -> HandlerResult:

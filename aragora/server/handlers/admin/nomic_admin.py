@@ -235,7 +235,7 @@ class NomicAdminMixin:
             return error_response("Nomic recovery module not available", 503)
         except Exception as e:
             logger.error(f"Failed to get circuit breakers: {e}", exc_info=True)
-            return error_response(f"Failed to get circuit breakers: {e}", 500)
+            return error_response("Failed to retrieve circuit breakers", 500)
 
     @api_endpoint(
         method="POST",
@@ -374,7 +374,8 @@ class NomicAdminMixin:
             with open(state_file, "w") as f:
                 json.dump(new_state, f, indent=2)
         except Exception as e:
-            return error_response(f"Failed to write state: {e}", 500)
+            logger.warning("Handler error: %s", e)
+            return error_response("State write failed", 500)
 
         # Track metric
         try:
@@ -513,7 +514,8 @@ class NomicAdminMixin:
             with open(state_file, "w") as f:
                 json.dump(new_state, f, indent=2)
         except Exception as e:
-            return error_response(f"Failed to pause nomic: {e}", 500)
+            logger.warning("Handler error: %s", e)
+            return error_response("Nomic pause failed", 500)
 
         logger.info(f"Admin {auth_ctx.user_id} paused nomic: {reason}")
         audit_admin(
@@ -645,7 +647,8 @@ class NomicAdminMixin:
             with open(state_file, "w") as f:
                 json.dump(new_state, f, indent=2)
         except Exception as e:
-            return error_response(f"Failed to resume nomic: {e}", 500)
+            logger.warning("Handler error: %s", e)
+            return error_response("Nomic resume failed", 500)
 
         logger.info(f"Admin {auth_ctx.user_id} resumed nomic to phase {resume_phase}")
         audit_admin(
@@ -753,7 +756,7 @@ class NomicAdminMixin:
             return error_response("Nomic recovery module not available", 503)
         except Exception as e:
             logger.error(f"Failed to reset circuit breakers: {e}", exc_info=True)
-            return error_response(f"Failed to reset circuit breakers: {e}", 500)
+            return error_response("Circuit breaker reset failed", 500)
 
 
 __all__ = ["NomicAdminMixin", "PERM_ADMIN_NOMIC_WRITE", "PERM_ADMIN_SYSTEM_WRITE"]

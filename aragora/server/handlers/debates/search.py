@@ -174,7 +174,7 @@ class SearchOperationsMixin:
             return error_response("Database error during search", 500)
         except ValueError as e:
             logger.warning("Invalid search query '%s': %s", query, e)
-            return error_response(f"Invalid search query: {e}", 400)
+            return error_response("Invalid search query", 400)
 
 
 __all__ = ["SearchOperationsMixin"]

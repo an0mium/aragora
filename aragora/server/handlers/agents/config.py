@@ -113,7 +113,7 @@ class AgentConfigHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Agent config access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # List all configs
         if path == "/api/v1/agents/configs":
@@ -254,7 +254,7 @@ class AgentConfigHandler(SecureHandler):
             )
         except Exception as e:
             logger.error(f"Failed to create agent from config {name}: {e}")
-            return error_response(f"Failed to create agent: {e}", 500)
+            return error_response("Agent creation failed", 500)
 
     @rate_limit(requests_per_minute=5, limiter_name="config_reload")
     @handle_errors("reload configs")
@@ -279,7 +279,7 @@ class AgentConfigHandler(SecureHandler):
             )
         except Exception as e:
             logger.error(f"Failed to reload configs: {e}")
-            return error_response(f"Reload failed: {e}", 500)
+            return error_response("Reload operation failed", 500)
 
     @rate_limit(requests_per_minute=30, limiter_name="config_search")
     @handle_errors("search configs")

@@ -111,7 +111,8 @@ class PartnerHandler(BaseHandler):
             content_length = int(handler.headers.get("Content-Length", 0))
             body = json.loads(handler.rfile.read(content_length).decode())
         except (ValueError, json.JSONDecodeError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         name = body.get("name")
         email = body.get("email")
@@ -167,7 +168,8 @@ class PartnerHandler(BaseHandler):
             return json_response(stats)
 
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.exception(f"Error getting partner profile: {e}")
             return error_response(safe_error_message(e, "profile"), 500)
@@ -203,7 +205,8 @@ class PartnerHandler(BaseHandler):
             content_length = int(handler.headers.get("Content-Length", 0))
             body = json.loads(handler.rfile.read(content_length).decode())
         except (ValueError, json.JSONDecodeError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         name = body.get("name", "API Key")
         scopes = body.get("scopes")
@@ -235,7 +238,8 @@ class PartnerHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except Exception as e:
             logger.exception(f"Error creating API key: {e}")
             return error_response(safe_error_message(e, "key creation"), 500)
@@ -288,7 +292,8 @@ class PartnerHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
         except Exception as e:
             logger.exception(f"Error rotating API key: {e}")
             return error_response(safe_error_message(e, "key rotation"), 500)
@@ -368,7 +373,8 @@ class PartnerHandler(BaseHandler):
             return json_response(stats)
 
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
         except Exception as e:
             logger.exception(f"Error getting usage: {e}")
             return error_response(safe_error_message(e, "usage"), 500)
@@ -398,7 +404,8 @@ class PartnerHandler(BaseHandler):
             content_length = int(handler.headers.get("Content-Length", 0))
             body = json.loads(handler.rfile.read(content_length).decode())
         except (ValueError, json.JSONDecodeError) as e:
-            return error_response(f"Invalid JSON: {e}", 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request body", 400)
 
         url = body.get("url")
         if not url:

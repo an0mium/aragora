@@ -482,7 +482,8 @@ class MetricsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
         return None
 
     async def handle_post_analyze(
@@ -497,7 +498,8 @@ class MetricsHandler(SecureHandler):
             except UnauthorizedError:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
-                return error_response(str(e), 403)
+                logger.warning("Handler error: %s", e)
+                return error_response("Permission denied", 403)
         """POST /api/v1/codebase/{repo}/metrics/analyze"""
         repo_path = data.get("repo_path")
         if not repo_path:

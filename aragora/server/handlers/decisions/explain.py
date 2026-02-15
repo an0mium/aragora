@@ -218,7 +218,7 @@ Supports multiple output formats via the 'format' query parameter.""",
             return error_response("Authentication required to access decision explanations", 401)
         except ForbiddenError as e:
             logger.warning(f"Decision explain access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # Get nomic_dir from server context
         nomic_dir = self.ctx.get("nomic_dir")

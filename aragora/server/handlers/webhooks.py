@@ -863,7 +863,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             )
         except Exception as e:
             logger.error(f"Error getting SLO webhook status: {e}")
-            return error_response(f"Failed to get SLO status: {e}", 500)
+            return error_response("Failed to retrieve SLO status", 500)
 
     def _handle_slo_test(self, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/slo/test - send test SLO violation notification."""
@@ -923,7 +923,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             return error_response("SLO module not available", 500)
         except Exception as e:
             logger.error(f"Error sending test SLO notification: {e}")
-            return error_response(f"Failed to send test notification: {e}", 500)
+            return error_response("Test notification failed", 500)
 
     # =========================================================================
     # Dead-Letter Queue Handlers
@@ -956,7 +956,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             return error_response("Webhook retry queue not available", 500)
         except Exception as e:
             logger.error(f"Error listing dead letters: {e}")
-            return error_response(f"Failed to list dead letters: {e}", 500)
+            return error_response("Failed to list dead letters", 500)
 
     async def _handle_get_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/dead-letter/:id - get specific dead-letter delivery."""
@@ -983,7 +983,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             return error_response("Webhook retry queue not available", 500)
         except Exception as e:
             logger.error(f"Error getting dead letter: {e}")
-            return error_response(f"Failed to get dead letter: {e}", 500)
+            return error_response("Failed to retrieve dead letter", 500)
 
     async def _handle_retry_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/dead-letter/:id/retry - retry dead-letter delivery."""
@@ -1025,7 +1025,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             return error_response("Webhook retry queue not available", 500)
         except Exception as e:
             logger.error(f"Error retrying dead letter: {e}")
-            return error_response(f"Failed to retry dead letter: {e}", 500)
+            return error_response("Dead letter retry failed", 500)
 
     async def _handle_delete_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/webhooks/dead-letter/:id - remove from dead-letter queue."""
@@ -1064,7 +1064,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             return error_response("Webhook retry queue not available", 500)
         except Exception as e:
             logger.error(f"Error deleting dead letter: {e}")
-            return error_response(f"Failed to delete dead letter: {e}", 500)
+            return error_response("Dead letter deletion failed", 500)
 
     async def _handle_queue_stats(self, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/queue/stats - get queue statistics."""
@@ -1085,7 +1085,7 @@ The webhook secret is only returned once on creation - save it securely.""",
             return error_response("Webhook retry queue not available", 500)
         except Exception as e:
             logger.error(f"Error getting queue stats: {e}")
-            return error_response(f"Failed to get queue stats: {e}", 500)
+            return error_response("Failed to retrieve queue stats", 500)
 
 
 # =============================================================================

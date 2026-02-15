@@ -163,7 +163,7 @@ async def handle_get_dashboard(
 
     except Exception as e:
         logger.exception("Failed to get dashboard")
-        return error_response(f"Dashboard failed: {str(e)}", status=500)
+        return error_response("Dashboard loading failed", status=500)
 
 
 # =============================================================================
@@ -257,7 +257,7 @@ async def handle_get_stats(
 
     except Exception as e:
         logger.exception("Failed to get stats")
-        return error_response(f"Stats failed: {str(e)}", status=500)
+        return error_response("Statistics retrieval failed", status=500)
 
 
 # =============================================================================
@@ -383,7 +383,7 @@ async def handle_get_activity(
 
     except Exception as e:
         logger.exception("Failed to get activity")
-        return error_response(f"Activity failed: {str(e)}", status=500)
+        return error_response("Activity retrieval failed", status=500)
 
 
 # =============================================================================
@@ -475,7 +475,7 @@ async def handle_get_inbox_summary(
 
     except Exception as e:
         logger.exception("Failed to get inbox summary")
-        return error_response(f"Inbox summary failed: {str(e)}", status=500)
+        return error_response("Inbox summary failed", status=500)
 
 
 # =============================================================================
@@ -555,7 +555,7 @@ async def handle_get_quick_actions(
 
     except Exception as e:
         logger.exception("Failed to get quick actions")
-        return error_response(f"Get actions failed: {str(e)}", status=500)
+        return error_response("Failed to retrieve actions", status=500)
 
 
 @require_permission("dashboard:write")
@@ -636,7 +636,7 @@ async def handle_execute_quick_action(
 
     except Exception as e:
         logger.exception("Failed to execute quick action")
-        return error_response(f"Execute action failed: {str(e)}", status=500)
+        return error_response("Action execution failed", status=500)
 
 
 # =============================================================================

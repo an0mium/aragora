@@ -486,7 +486,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to list budgets: {e}")
-            return error_response(f"Failed to list budgets: {str(e)[:100]}", 500)
+            return error_response("Failed to list budgets", 500)
 
     async def _create_budget(self, org_id: str, user_id: str | None, handler: Any) -> HandlerResult:
         """Create a new budget."""
@@ -565,7 +565,7 @@ class BudgetHandler(BaseHandler):
         except Exception as e:
             self._circuit_breaker.record_failure()
             logger.error(f"Failed to create budget: {e}")
-            return error_response(f"Failed to create budget: {str(e)[:100]}", 500)
+            return error_response("Budget creation failed", 500)
 
     def _get_budget(self, budget_id: str, org_id: str) -> HandlerResult:
         """Get budget details."""
@@ -583,7 +583,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get budget: {e}")
-            return error_response(f"Failed to get budget: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve budget", 500)
 
     async def _update_budget(self, budget_id: str, org_id: str, handler: Any) -> HandlerResult:
         """Update a budget."""
@@ -679,7 +679,7 @@ class BudgetHandler(BaseHandler):
         except Exception as e:
             self._circuit_breaker.record_failure()
             logger.error(f"Failed to update budget: {e}")
-            return error_response(f"Failed to update budget: {str(e)[:100]}", 500)
+            return error_response("Budget update failed", 500)
 
     def _delete_budget(self, budget_id: str, org_id: str) -> HandlerResult:
         """Delete (close) a budget."""
@@ -699,7 +699,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to delete budget: {e}")
-            return error_response(f"Failed to delete budget: {str(e)[:100]}", 500)
+            return error_response("Budget deletion failed", 500)
 
     def _get_summary(self, org_id: str) -> HandlerResult:
         """Get budget summary for organization."""
@@ -710,7 +710,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get summary: {e}")
-            return error_response(f"Failed to get summary: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve summary", 500)
 
     async def _check_budget(self, org_id: str, user_id: str | None, handler: Any) -> HandlerResult:
         """Pre-flight cost check."""
@@ -745,7 +745,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to check budget: {e}")
-            return error_response(f"Failed to check budget: {str(e)[:100]}", 500)
+            return error_response("Budget check failed", 500)
 
     def _get_alerts(self, budget_id: str, org_id: str) -> HandlerResult:
         """Get alerts for a budget."""
@@ -771,7 +771,7 @@ class BudgetHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Failed to get alerts: {e}")
-            return error_response(f"Failed to get alerts: {str(e)[:100]}", 500)
+            return error_response("Failed to retrieve alerts", 500)
 
     def _acknowledge_alert(self, alert_id: str, user_id: str | None) -> HandlerResult:
         """Acknowledge a budget alert."""

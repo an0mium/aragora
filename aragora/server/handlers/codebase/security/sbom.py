@@ -117,7 +117,7 @@ async def handle_generate_sbom(
 
     except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to generate SBOM: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sbom:read")
@@ -162,7 +162,7 @@ async def handle_get_sbom(
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to get SBOM: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sbom:read")
@@ -208,7 +208,7 @@ async def handle_list_sboms(
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to list SBOMs: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sbom:read")
@@ -249,7 +249,7 @@ async def handle_download_sbom(
 
     except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Failed to download SBOM: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)
 
 
 @require_permission("security:sbom:read")
@@ -350,4 +350,4 @@ async def handle_compare_sboms(
 
     except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
         logger.exception(f"Failed to compare SBOMs: {e}")
-        return error_response(str(e), 500)
+        return error_response("Internal server error", 500)

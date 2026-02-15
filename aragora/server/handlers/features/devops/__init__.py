@@ -195,9 +195,10 @@ class DevOpsHandler(BaseHandler):
             return error_response("Not found", 404)
 
         except UnauthorizedError as e:
-            return error_response(str(e), 401)
+            logger.warning("Handler error: %s", e)
+            return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
         except Exception as e:
             logger.exception("Unhandled DevOps handler error: %s", e)
             return error_response("Internal server error", 500)

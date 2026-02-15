@@ -538,7 +538,7 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
             )
         except Exception as e:
             logger.error(f"Error handling {event_type} event: {e}")
-            return error_response(f"Handler error: {e}", status=500)
+            return error_response("Request processing failed", status=500)
     else:
         # Unknown event type - acknowledge but don't process
         logger.debug(f"Unhandled event type: {event_type}")

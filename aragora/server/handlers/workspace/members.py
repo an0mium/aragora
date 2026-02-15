@@ -96,10 +96,11 @@ class WorkspaceMembersMixin:
             return {"members": members, "total": len(members)}  # type: ignore[return-value]
 
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
         except Exception as e:
             logger.error("workspace_members.list_error error=%s", str(e))
-            return m.error_response(f"Failed to list members: {e}", 500)
+            return m.error_response("Failed to list members", 500)
 
     @api_endpoint(
         method="POST",
@@ -145,7 +146,8 @@ class WorkspaceMembersMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         # Log to audit
         audit_log = self._get_audit_log()
@@ -201,7 +203,8 @@ class WorkspaceMembersMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         # Log to audit
         audit_log = self._get_audit_log()
@@ -309,7 +312,8 @@ class WorkspaceMembersMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         # Get workspace profile (default to lite)
         workspace_dict = workspace.to_dict()
@@ -400,7 +404,8 @@ class WorkspaceMembersMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         workspace_dict = workspace.to_dict()
         profile_name = workspace_dict.get("rbac_profile", "lite")

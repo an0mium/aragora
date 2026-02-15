@@ -209,7 +209,8 @@ class WorkspaceCrudMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         return m.json_response({"workspace": workspace.to_dict()})
 
@@ -250,7 +251,8 @@ class WorkspaceCrudMixin:
                 )
             )
         except m.AccessDeniedException as e:
-            return m.error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return m.error_response("Permission denied", 403)
 
         # Log to audit
         audit_log = self._get_audit_log()

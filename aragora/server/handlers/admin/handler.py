@@ -372,7 +372,8 @@ class AdminHandler(
                 f"RBAC permission denied: {permission_key} for user {auth_ctx.user_id}: {e}"
             )
             record_rbac_check(permission_key, granted=False)
-            return error_response(f"Permission denied: {str(e)}", 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         return None
 

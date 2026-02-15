@@ -97,7 +97,7 @@ class InsightsHandler(SecureHandler):
             return error_response("Authentication required to access insights", 401)
         except ForbiddenError as e:
             logger.warning(f"Insights access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if normalized == "/api/insights/recent":
             return self._get_recent_insights(query, ctx)
@@ -131,7 +131,7 @@ class InsightsHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Insights POST access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         if normalized == "/api/insights/extract-detailed":
             # Read JSON body from request

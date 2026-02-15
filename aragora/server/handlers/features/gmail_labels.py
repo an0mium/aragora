@@ -80,7 +80,8 @@ class GmailLabelsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         user_id = query_params.get("user_id", "default")
         state = get_user_state(user_id)
@@ -110,7 +111,8 @@ class GmailLabelsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -164,7 +166,8 @@ class GmailLabelsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         body = self.read_json_body(handler)
         if body is None:
@@ -197,7 +200,8 @@ class GmailLabelsHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
         user_id = query_params.get("user_id", "default")
         state = get_user_state(user_id)
@@ -251,7 +255,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] List labels failed: {e}")
-            return error_response(f"Failed to list labels: {e}", 500)
+            return error_response("Failed to list labels", 500)
 
     async def _create_label(self, state: Any, body: dict[str, Any]) -> HandlerResult:
         """Create a new Gmail label."""
@@ -265,7 +269,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Create label failed: {e}")
-            return error_response(f"Failed to create label: {e}", 500)
+            return error_response("Label creation failed", 500)
 
     async def _api_create_label(
         self,
@@ -309,7 +313,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Update label failed: {e}")
-            return error_response(f"Failed to update label: {e}", 500)
+            return error_response("Label update failed", 500)
 
     async def _api_update_label(
         self,
@@ -353,7 +357,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Delete label failed: {e}")
-            return error_response(f"Failed to delete label: {e}", 500)
+            return error_response("Label deletion failed", 500)
 
     async def _api_delete_label(self, state: Any, label_id: str) -> None:
         """Delete label via Gmail API."""
@@ -398,7 +402,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Modify labels failed: {e}")
-            return error_response(f"Failed to modify labels: {e}", 500)
+            return error_response("Label modification failed", 500)
 
     async def _api_modify_labels(
         self,
@@ -449,7 +453,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Mark read failed: {e}")
-            return error_response(f"Failed to mark as read: {e}", 500)
+            return error_response("Mark as read failed", 500)
 
     async def _star_message(
         self,
@@ -475,7 +479,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Star message failed: {e}")
-            return error_response(f"Failed to star message: {e}", 500)
+            return error_response("Star operation failed", 500)
 
     async def _archive_message(self, state: Any, message_id: str) -> HandlerResult:
         """Archive a message (remove INBOX label)."""
@@ -491,7 +495,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Archive failed: {e}")
-            return error_response(f"Failed to archive: {e}", 500)
+            return error_response("Archive operation failed", 500)
 
     async def _trash_message(
         self,
@@ -518,7 +522,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Trash failed: {e}")
-            return error_response(f"Failed to trash: {e}", 500)
+            return error_response("Trash operation failed", 500)
 
     async def _api_trash_message(self, state: Any, message_id: str) -> None:
         """Move message to trash via Gmail API."""
@@ -565,7 +569,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] List filters failed: {e}")
-            return error_response(f"Failed to list filters: {e}", 500)
+            return error_response("Failed to list filters", 500)
 
     async def _api_list_filters(self, state: Any) -> list[dict[str, Any]]:
         """List filters via Gmail API."""
@@ -599,7 +603,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Create filter failed: {e}")
-            return error_response(f"Failed to create filter: {e}", 500)
+            return error_response("Filter creation failed", 500)
 
     async def _api_create_filter(
         self,
@@ -670,7 +674,7 @@ class GmailLabelsHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[GmailLabels] Delete filter failed: {e}")
-            return error_response(f"Failed to delete filter: {e}", 500)
+            return error_response("Filter deletion failed", 500)
 
     async def _api_delete_filter(self, state: Any, filter_id: str) -> None:
         """Delete filter via Gmail API."""

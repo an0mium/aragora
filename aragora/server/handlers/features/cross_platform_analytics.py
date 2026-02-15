@@ -507,7 +507,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
                 return error_response("Authentication required for analytics", 401)
             except ForbiddenError as e:
                 logger.warning(f"Analytics access denied: {e}")
-                return error_response(str(e), 403)
+                return error_response("Permission denied", 403)
 
             tenant_id = self._get_tenant_id(request)
 
@@ -565,7 +565,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error in cross-platform analytics handler: {e}")
-            return error_response(f"Internal error: {str(e)}", 500)
+            return error_response("Internal server error", 500)
 
     def _get_tenant_id(self, request: Any) -> str:
         """Extract tenant ID from request context."""
@@ -960,7 +960,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Query execution error: {e}")
-            return error_response(f"Query failed: {str(e)}", 500)
+            return error_response("Query execution failed", 500)
 
     # =========================================================================
     # Alerts
@@ -1030,7 +1030,7 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
 
         except Exception as e:
             logger.exception(f"Error creating alert: {e}")
-            return error_response(f"Failed to create alert: {str(e)}", 500)
+            return error_response("Alert creation failed", 500)
 
     async def _handle_acknowledge_alert(
         self, request: Any, tenant_id: str, alert_id: str

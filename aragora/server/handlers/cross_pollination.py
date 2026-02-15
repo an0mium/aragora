@@ -77,7 +77,7 @@ class CrossPollinationStatsHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get cross-pollination stats: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationSubscribersHandler(BaseHandler):
@@ -125,7 +125,7 @@ class CrossPollinationSubscribersHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to list subscribers: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationBridgeHandler(BaseHandler):
@@ -167,7 +167,7 @@ class CrossPollinationBridgeHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get bridge status: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationMetricsHandler(BaseHandler):
@@ -207,7 +207,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get metrics: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationResetHandler(BaseHandler):
@@ -242,7 +242,7 @@ class CrossPollinationResetHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to reset stats: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationKMHandler(BaseHandler):
@@ -336,7 +336,7 @@ class CrossPollinationKMHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to get KM status: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationKMSyncHandler(BaseHandler):
@@ -453,7 +453,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
             )
         except Exception as e:
             logger.exception(f"Failed to sync KM adapters: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationKMStalenessHandler(BaseHandler):
@@ -539,7 +539,7 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to run staleness check: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 class CrossPollinationKMCultureHandler(BaseHandler):
@@ -609,7 +609,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
 
         except Exception as e:
             logger.exception(f"Failed to get culture patterns: {e}")
-            return error_response(str(e), status=500)
+            return error_response("Internal server error", status=500)
 
 
 def register_routes(router: Any, server_context: dict[str, Any] | None = None) -> None:

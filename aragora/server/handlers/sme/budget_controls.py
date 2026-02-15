@@ -339,7 +339,7 @@ class BudgetControlsHandler(SecureHandler):
             return json_response({"budget": budget.to_dict()}, status=201)
         except Exception as e:
             logger.error(f"Failed to create budget: {e}")
-            return error_response(f"Failed to create budget: {e}", 500)
+            return error_response("Failed to create budget", 500)
 
     @api_endpoint(
         method="PATCH",
@@ -438,7 +438,7 @@ class BudgetControlsHandler(SecureHandler):
             return json_response({"budget": updated.to_dict()})
         except Exception as e:
             logger.error(f"Failed to update budget: {e}")
-            return error_response(f"Failed to update budget: {e}", 500)
+            return error_response("Failed to update budget", 500)
 
     @api_endpoint(
         method="DELETE",

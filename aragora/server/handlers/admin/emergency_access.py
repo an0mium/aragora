@@ -116,7 +116,8 @@ class EmergencyAccessHandler(SecureHandler):
                 )
             )
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Handler error: %s", e)
+            return error_response("Invalid request", 400)
 
         record = emergency._all_records.get(access_id)
         logger.warning(
@@ -165,7 +166,8 @@ class EmergencyAccessHandler(SecureHandler):
                 emergency.deactivate(access_id=access_id, deactivated_by=deactivated_by)
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Handler error: %s", e)
+            return error_response("Resource not found", 404)
 
         logger.info(
             "Emergency access deactivated via API: access_id=%s by=%s",

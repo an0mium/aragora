@@ -139,7 +139,7 @@ class CollaborationHandlers:
             }
         except Exception as e:
             logger.error(f"Failed to create session: {e}")
-            return error_dict(f"Failed to create session: {e}", code="INTERNAL_ERROR")
+            return error_dict("Failed to create session", code="INTERNAL_ERROR")
 
     async def get_session(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """

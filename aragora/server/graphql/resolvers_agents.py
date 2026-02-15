@@ -120,8 +120,8 @@ class AgentQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving agent {id}: {e}")
-            return ResolverResult(errors=[f"Failed to resolve agent: {e}"])
+            logger.warning("GraphQL resolver error in resolve_agent: %s", e)
+            return ResolverResult(errors=["Failed to resolve agent: internal error"])
 
     @staticmethod
     async def resolve_agents(
@@ -169,8 +169,8 @@ class AgentQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving agents: {e}")
-            return ResolverResult(errors=[f"Failed to resolve agents: {e}"])
+            logger.warning("GraphQL resolver error in resolve_agents: %s", e)
+            return ResolverResult(errors=["Failed to resolve agents: internal error"])
 
     @staticmethod
     async def resolve_leaderboard(
@@ -204,8 +204,8 @@ class AgentQueryResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             # Data access or transformation errors
-            logger.exception(f"Error resolving leaderboard: {e}")
-            return ResolverResult(errors=[f"Failed to resolve leaderboard: {e}"])
+            logger.warning("GraphQL resolver error in resolve_leaderboard: %s", e)
+            return ResolverResult(errors=["Failed to resolve leaderboard: internal error"])
 
 
 # =============================================================================
@@ -273,8 +273,8 @@ class AgentMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # Agent registration or data transformation errors
-            logger.exception(f"Error registering agent: {e}")
-            return ResolverResult(errors=[f"Failed to register agent: {e}"])
+            logger.warning("GraphQL resolver error in resolve_register_agent: %s", e)
+            return ResolverResult(errors=["Failed to register agent: internal error"])
 
     @staticmethod
     async def resolve_unregister_agent(
@@ -303,5 +303,5 @@ class AgentMutationResolvers:
 
         except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             # Agent lookup or unregistration errors
-            logger.exception(f"Error unregistering agent: {e}")
-            return ResolverResult(errors=[f"Failed to unregister agent: {e}"])
+            logger.warning("GraphQL resolver error in resolve_unregister_agent: %s", e)
+            return ResolverResult(errors=["Failed to unregister agent: internal error"])

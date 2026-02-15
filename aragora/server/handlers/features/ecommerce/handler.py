@@ -123,7 +123,8 @@ class EcommerceHandler(SecureHandler):
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
-            return error_response(str(e), 403)
+            logger.warning("Handler error: %s", e)
+            return error_response("Permission denied", 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -309,7 +310,7 @@ class EcommerceHandler(SecureHandler):
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("Ecommerce connect_platform: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         platform = body.get("platform")
         if not platform:
@@ -545,12 +546,12 @@ class EcommerceHandler(SecureHandler):
             logger.error(f"Connection error fetching order {order_id} from {platform}: {e}")
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError as e:
-            return self._error_response(400, f"Invalid order request: {e}")
+            return self._error_response(400, "Invalid order request")
         except Exception as e:
             logger.error(
                 f"Error fetching order {order_id} from {platform}: {type(e).__name__}: {e}"
             )
-            return self._error_response(404, f"Order not found: {e}")
+            return self._error_response(404, "Order not found")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -680,12 +681,12 @@ class EcommerceHandler(SecureHandler):
             logger.error(f"Connection error fetching product {product_id} from {platform}: {e}")
             return self._error_response(503, f"Platform {platform} temporarily unavailable")
         except ValueError as e:
-            return self._error_response(400, f"Invalid product request: {e}")
+            return self._error_response(400, "Invalid product request")
         except Exception as e:
             logger.error(
                 f"Error fetching product {product_id} from {platform}: {type(e).__name__}: {e}"
             )
-            return self._error_response(404, f"Product not found: {e}")
+            return self._error_response(404, "Product not found")
 
         return self._error_response(400, "Unsupported platform")
 
@@ -748,7 +749,7 @@ class EcommerceHandler(SecureHandler):
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("Ecommerce sync_inventory: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         sku = body.get("sku")
         quantity = body.get("quantity")
@@ -937,7 +938,7 @@ class EcommerceHandler(SecureHandler):
             body = await self._get_json_body(request)
         except Exception as e:
             logger.warning("Ecommerce create_shipment: invalid JSON body: %s", e)
-            return self._error_response(400, f"Invalid JSON body: {e}")
+            return self._error_response(400, "Invalid request body")
 
         platform = body.get("platform", "shipstation")
         order_id = body.get("order_id")
@@ -1048,7 +1049,8 @@ class EcommerceHandler(SecureHandler):
                 f"Error creating shipment on {platform} "
                 f"(order: {order_id}): {type(e).__name__}: {e}"
             )
-            return self._error_response(500, f"Failed to create shipment: {e}")
+            logger.warning("Handler error: %s", e)
+            return self._error_response(500, "Failed to create shipment")
 
         return self._error_response(400, "Unsupported platform")
 

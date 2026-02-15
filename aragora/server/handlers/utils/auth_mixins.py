@@ -146,7 +146,8 @@ class SecureEndpointMixin:
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)
         except _ForbiddenError as e:
-            return None, _get_error_response()(str(e), 403)
+            logger.warning("Permission denied: %s", e)
+            return None, _get_error_response()("Permission denied", 403)
         except Exception as e:
             logger.exception(f"Unexpected auth error: {e}")
             return None, _get_error_response()("Authorization failed", 500)
@@ -236,7 +237,8 @@ class SecureEndpointMixin:
         except _UnauthorizedError:
             return None, _get_error_response()("Authentication required", 401)
         except _ForbiddenError as e:
-            return None, _get_error_response()(str(e), 403)
+            logger.warning("Permission denied: %s", e)
+            return None, _get_error_response()("Permission denied", 403)
         except Exception as e:
             logger.exception(f"Unexpected auth error: {e}")
             return None, _get_error_response()("Authorization failed", 500)
@@ -347,7 +349,8 @@ def require_permission(permission: str, handler_arg: int = 0):
                 except _UnauthorizedError:
                     return error_response("Authentication required", 401)
                 except _ForbiddenError as e:
-                    return error_response(str(e), 403)
+                    logger.warning("Handler error: %s", e)
+                    return error_response("Permission denied", 403)
                 except Exception as e:
                     logger.exception(f"Auth error in @require_permission: {e}")
                     return error_response("Authorization failed", 500)

@@ -362,7 +362,7 @@ class StreamingConnectorHandler(BaseHandler):
         except Exception as e:
             self._statuses[connector_type] = "error"
             logger.error(f"Error connecting to {connector_type}: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
 
     def _handle_disconnect(self, connector_type: str) -> HandlerResult:
         """POST /api/streaming/connectors/{type}/disconnect — disconnect."""
@@ -393,7 +393,7 @@ class StreamingConnectorHandler(BaseHandler):
 
         except Exception as e:
             logger.error(f"Error disconnecting from {connector_type}: {e}")
-            return error_response(str(e), 500)
+            return error_response("Internal server error", 500)
 
     def _handle_test(self, connector_type: str) -> HandlerResult:
         """POST /api/streaming/connectors/{type}/test — test connectivity."""

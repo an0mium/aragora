@@ -148,7 +148,7 @@ class MatrixDebatesHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Matrix debates GET access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         normalized = strip_version_prefix(path)
         if normalized.startswith("/api/matrix-debates"):
@@ -234,7 +234,7 @@ class MatrixDebatesHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             logger.warning(f"Matrix debates POST access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response("Permission denied", 403)
 
         # Rate limit check (5/min - expensive parallel operations)
         client_ip = get_client_ip(handler)
