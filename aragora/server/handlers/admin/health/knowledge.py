@@ -100,7 +100,7 @@ class KnowledgeMixin:
                     "staleness_age_threshold_days": config.staleness_age_threshold.days,
                 }
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Knowledge Mound core init failed: %s: %s", type(e).__name__, e)
             components["core"] = {
                 "healthy": False,
@@ -200,7 +200,7 @@ class KnowledgeMixin:
 
             return result
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.debug("KM storage check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
@@ -241,7 +241,7 @@ class KnowledgeMixin:
                 "healthy": True,
                 "status": "not_initialized",
             }
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, RuntimeError) as e:
             logger.debug("Culture accumulator check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,
@@ -268,7 +268,7 @@ class KnowledgeMixin:
                 "healthy": True,
                 "status": "not_initialized",
             }
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.debug("Staleness tracker check error: %s: %s", type(e).__name__, e)
             return {
                 "healthy": True,

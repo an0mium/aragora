@@ -286,7 +286,7 @@ class RLMHandler(BaseHandler):
             if not decision.allowed:
                 return error_response(f"Permission denied: {permission}", 403)
             return None
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", 500)
 
@@ -419,7 +419,7 @@ class RLMHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"RLM query failed: {e}")
             return error_response(safe_error_message(e, "RLM query"), 500)
@@ -479,7 +479,7 @@ class RLMHandler(BaseHandler):
         except ImportError:
             logger.warning(f"PostgresDebateStorage not available for debate {debate_id}")
             return None
-        except Exception as e:  # noqa: BLE001 - Best effort fetch, log warning on failure
+        except (RuntimeError, ValueError, OSError, TimeoutError, KeyError) as e:
             logger.warning(f"Failed to get debate {debate_id}: {e}")
             return None
 
@@ -565,7 +565,7 @@ class RLMHandler(BaseHandler):
             circuit_breaker.record_success()
             return json_response(result)
 
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"RLM compression failed: {e}")
             return error_response(safe_error_message(e, "Compression"), 500)
@@ -653,7 +653,7 @@ class RLMHandler(BaseHandler):
         try:
             result = _run_async(self._get_level_content(debate_id, level_name))
             return json_response(result)
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             logger.error(f"Failed to get context level: {e}")
             return error_response(safe_error_message(e, "Get context level"), 500)
 
@@ -818,7 +818,7 @@ class RLMHandler(BaseHandler):
             )
             circuit_breaker.record_success()
             return json_response(result)
-        except Exception as e:  # noqa: BLE001 - API boundary, log and return error
+        except (RuntimeError, ValueError, OSError, TimeoutError, AttributeError) as e:
             circuit_breaker.record_failure()
             logger.error(f"Knowledge RLM query failed: {e}")
             return error_response(safe_error_message(e, "Query"), 500)
@@ -925,7 +925,7 @@ class RLMHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:  # noqa: BLE001 - Status endpoint, return degraded state on error
+        except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get RLM status: {e}")
             return json_response(
                 {

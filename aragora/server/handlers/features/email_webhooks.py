@@ -918,7 +918,7 @@ class EmailWebhooksHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.exception(f"Error deleting subscription: {e}")
             return error_response("Subscription deletion failed", 500)
 

@@ -139,7 +139,7 @@ class MetricsDashboardMixin:
         if debate_storage and hasattr(debate_storage, "get_statistics"):
             try:
                 metrics["debates"] = debate_storage.get_statistics()
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to get debate stats: {e}")
                 metrics["debates"] = {"error": "unavailable"}
 
@@ -150,7 +150,7 @@ class MetricsDashboardMixin:
             metrics["circuit_breakers"] = get_circuit_breaker_status()
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to get circuit breaker stats: {e}")
 
         # Get cache stats if available
@@ -158,7 +158,7 @@ class MetricsDashboardMixin:
             from aragora.server.handlers.admin.cache import get_cache_stats
 
             metrics["cache"] = get_cache_stats()
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to get cache stats: {e}")
 
         # Get rate limit stats if available
@@ -168,7 +168,7 @@ class MetricsDashboardMixin:
             limiter = get_rate_limiter()
             if limiter and hasattr(limiter, "get_stats"):
                 metrics["rate_limits"] = limiter.get_stats()
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to get rate limit stats: {e}")
 
         return json_response({"metrics": metrics})

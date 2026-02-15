@@ -303,7 +303,7 @@ class EndpointAnalyticsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting endpoint metrics: {e}")
             return error_response(
                 safe_error_message(e, "endpoint metrics"),
@@ -344,7 +344,7 @@ class EndpointAnalyticsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting slowest endpoints: {e}")
             return error_response(
                 safe_error_message(e, "slowest endpoints"),
@@ -377,7 +377,7 @@ class EndpointAnalyticsHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.exception(f"Error getting error endpoints: {e}")
             return error_response(
                 safe_error_message(e, "error endpoints"),

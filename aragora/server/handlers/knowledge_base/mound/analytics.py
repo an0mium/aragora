@@ -81,7 +81,7 @@ class AnalyticsOperationsMixin:
             )
 
             return json_response(report.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error analyzing coverage: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -118,7 +118,7 @@ class AnalyticsOperationsMixin:
             )
 
             return json_response(report.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error analyzing usage: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -186,7 +186,7 @@ class AnalyticsOperationsMixin:
                     "timestamp": event.timestamp.isoformat(),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error recording usage event: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -223,7 +223,7 @@ class AnalyticsOperationsMixin:
             )
 
             return json_response(snapshot.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error capturing quality snapshot: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -260,7 +260,7 @@ class AnalyticsOperationsMixin:
             )
 
             return json_response(trend.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting quality trend: {e}")
             return error_response(safe_error_message(e), status=500)
 
@@ -282,6 +282,6 @@ class AnalyticsOperationsMixin:
         try:
             stats = mound.get_analytics_stats()
             return json_response(stats)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting analytics stats: {e}")
             return error_response(safe_error_message(e), status=500)

@@ -111,7 +111,7 @@ class DealOperationsMixin:
                     normalized = [d for d in normalized if d.get("stage") == stage]
                 return normalized
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Error fetching {platform} deals: {e}")
             cb.record_failure()
 
@@ -187,7 +187,7 @@ class DealOperationsMixin:
                 cb.record_success()
                 return self._json_response(200, self._normalize_hubspot_deal(deal))
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("CRM get_deal failed for %s/%s: %s", platform, deal_id, e)
             cb.record_failure()
             return self._error_response(404, "Deal not found")

@@ -94,7 +94,7 @@ class PipelineOperationsMixin:
                             }
                         )
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.error(f"Error fetching {p} pipelines: {e}")
                 cb.record_failure()
 
@@ -128,7 +128,7 @@ class PipelineOperationsMixin:
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("CRM sync_lead: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -189,7 +189,7 @@ class PipelineOperationsMixin:
                 },
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("CRM sync_lead failed: %s", e, exc_info=True)
             cb.record_failure()
             return self._error_response(500, "Lead sync failed")
@@ -198,7 +198,7 @@ class PipelineOperationsMixin:
         """Enrich contact data using available sources."""
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("CRM enrich_contact: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -226,7 +226,7 @@ class PipelineOperationsMixin:
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("CRM search: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -285,7 +285,7 @@ class PipelineOperationsMixin:
 
                 cb.record_success()
 
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.error(f"Error searching {platform}: {e}")
                 cb.record_failure()
 

@@ -144,7 +144,7 @@ class UnifiedInboxHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in unified inbox handler: {e}")
             return error_response("Internal server error", 500)
 
@@ -165,7 +165,7 @@ class UnifiedInboxHandler(BaseHandler):
             if result["success"]:
                 return success_response(result["data"])
             return error_response(result["error"], result.get("status_code", 400))
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Error generating Gmail OAuth URL: {e}")
             return error_response("OAuth URL generation failed", 500)
 
@@ -177,7 +177,7 @@ class UnifiedInboxHandler(BaseHandler):
             if result["success"]:
                 return success_response(result["data"])
             return error_response(result["error"], result.get("status_code", 400))
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Error generating Outlook OAuth URL: {e}")
             return error_response("OAuth URL generation failed", 500)
 
@@ -244,7 +244,7 @@ class UnifiedInboxHandler(BaseHandler):
             else:
                 return error_response(result.get("error", "Failed to connect account"), 400)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.exception(f"Error connecting account: {e}")
             return error_response("Account connection failed", 500)
 
@@ -325,7 +325,7 @@ class UnifiedInboxHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.exception(f"Error listing messages: {e}")
             return error_response("Failed to list messages", 500)
 
@@ -387,7 +387,7 @@ class UnifiedInboxHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, ConnectionError) as e:
             logger.exception(f"Error during triage: {e}")
             return error_response("Triage operation failed", 500)
 

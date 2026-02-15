@@ -85,7 +85,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting ratings: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error getting ratings: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve ratings"},
@@ -153,7 +153,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting calibration: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error getting calibration: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve calibration data"},
@@ -208,7 +208,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting calibrations: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error getting calibrations: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve calibrations"},
@@ -291,7 +291,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden recording debate outcome: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error recording debate outcome: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to record debate outcome"},
@@ -368,7 +368,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden recording feedback: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error recording feedback: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to record feedback"},
@@ -431,7 +431,7 @@ class LearningHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden getting patterns: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error getting patterns: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve patterns"},

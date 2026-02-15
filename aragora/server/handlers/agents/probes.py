@@ -201,7 +201,7 @@ class ProbesHandler(BaseHandler):
         # Create agent for probing
         try:
             agent = create_agent(model_type, name=agent_name, role="proposer")
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             return json_response(
                 {
                     "error": safe_error_message(e, "create agent"),
@@ -242,7 +242,7 @@ class ProbesHandler(BaseHandler):
                     else:
                         raw_output = target_agent.generate(prompt)
                 return OutputSanitizer.sanitize_agent_output(raw_output, target_agent.name)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Agent probe execution error: %s", e)
                 return "[Agent Error]"
 
@@ -324,7 +324,7 @@ class ProbesHandler(BaseHandler):
         except ImportError:
             # nomic_stream module not available - this is expected in some deployments
             logger.debug("nomic_stream module not available for probe hooks")
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning("Failed to get probe hooks: %s: %s", type(e).__name__, e)
         return None
 
@@ -388,7 +388,7 @@ class ProbesHandler(BaseHandler):
                 )
                 # Invalidate leaderboard cache after ELO update
                 invalidate_leaderboard_cache()
-            except Exception as e:
+            except (KeyError, ValueError, AttributeError, OSError) as e:
                 logger.warning(
                     "ELO update failed for agent %s (non-fatal): %s: %s",
                     agent_name,
@@ -406,7 +406,7 @@ class ProbesHandler(BaseHandler):
                 date_str = datetime.now().strftime("%Y-%m-%d")
                 probe_file = probes_dir / f"{date_str}_{report.report_id}.json"
                 probe_file.write_text(json.dumps(report.to_dict(), indent=2, default=str))
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.warning(
                     "Probe storage failed for %s (non-fatal): %s: %s",
                     agent_name,

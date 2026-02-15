@@ -82,7 +82,7 @@ def check_redis_health(redis_url: str | None = None) -> dict[str, Any]:
 
     except ImportError:
         return {"healthy": True, "configured": True, "warning": "redis package not installed"}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.warning("Redis health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
@@ -161,7 +161,7 @@ def check_security_services(is_production: bool | None = None) -> dict[str, Any]
     except ImportError:
         result["encryption_available"] = False
         result["encryption_warning"] = "Encryption module not available"
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, TypeError) as e:
         logger.warning("Encryption service check failed: %s: %s", type(e).__name__, e)
         result["encryption_available"] = False
         result["encryption_error"] = "Health check failed"
@@ -184,7 +184,7 @@ def check_security_services(is_production: bool | None = None) -> dict[str, Any]
     except ImportError:
         result["audit_logger_configured"] = False
         result["audit_warning"] = "Audit logger module not available"
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError, TypeError) as e:
         logger.warning("Audit logger check failed: %s: %s", type(e).__name__, e)
         result["audit_logger_configured"] = False
         result["audit_error"] = "Health check failed"
@@ -244,7 +244,7 @@ def check_database_health(database_url: str | None = None) -> dict[str, Any]:
 
     except ImportError:
         return {"healthy": True, "configured": True, "status": "check_skipped"}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
         logger.warning("Database health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
@@ -327,7 +327,7 @@ def check_stripe_health() -> dict[str, Any]:
             "configured": True,
             "error": "Connection failed",
         }
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.warning("Stripe health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,
@@ -391,7 +391,7 @@ def check_slack_health() -> dict[str, Any]:
             "configured": True,
             "error": "Request timeout",
         }
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.warning("Slack health check failed: %s: %s", type(e).__name__, e)
         return {
             "healthy": False,

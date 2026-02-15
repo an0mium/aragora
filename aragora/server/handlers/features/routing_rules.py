@@ -121,7 +121,7 @@ def _get_routing_engine():
         try:
             rule = RoutingRule.from_dict(rule_data)
             engine.add_rule(rule)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to load rule {rule_id}: {e}")
 
     return engine
@@ -550,7 +550,7 @@ class RoutingRulesHandler(SecureHandler):
                         continue
 
                     rules.append(rule.to_dict())
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, AttributeError) as e:
                     logger.warning(f"Skipping invalid rule data: {e}")
                     continue
 
@@ -562,7 +562,7 @@ class RoutingRulesHandler(SecureHandler):
                 "rules": rules,
                 "count": len(rules),
             }
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error(f"Failed to list rules: {e}")
             return {
                 "status": "error",

@@ -512,7 +512,7 @@ class DecisionPipelineHandler(SecureHandler):
                             thread_id=thread_id,
                         )
                     )
-            except Exception as e:
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.debug("Plan approval notification skipped: %s", e)
 
         logger.info(
@@ -737,7 +737,7 @@ async def _load_debate_result(debate_id: str, ctx: dict) -> Any | None:
             if trace_path.exists():
                 trace = DebateTrace.load(trace_path)
                 return trace.to_debate_result()
-    except Exception as e:
+    except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
         logger.debug("Failed to load trace for %s: %s", debate_id, e)
 
     # Try storage backend
@@ -747,7 +747,7 @@ async def _load_debate_result(debate_id: str, ctx: dict) -> Any | None:
             result = await storage.get_result(debate_id)
             if result:
                 return result
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
         logger.debug("Failed to load from storage for %s: %s", debate_id, e)
 
     # Try decision cache
@@ -759,7 +759,7 @@ async def _load_debate_result(debate_id: str, ctx: dict) -> Any | None:
             result = cache.get(debate_id)
             if result:
                 return result
-    except Exception as e:
+    except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
         logger.debug("Failed to load from cache for %s: %s", debate_id, e)
 
     return None

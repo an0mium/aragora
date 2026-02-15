@@ -67,7 +67,7 @@ def _persist_receipt(receipt: Any, debate_id: str) -> str | None:
         receipt_dict = receipt.to_dict()
         receipt_dict.setdefault("debate_id", debate_id)
         return store.save(receipt_dict)
-    except Exception as exc:
+    except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
         logger.debug("Receipt persistence failed: %s", exc)
         return None
 
@@ -81,7 +81,7 @@ def _persist_plan(plan: Any, debate_id: str) -> None:
         # Wrap ImplementPlan as a DecisionPlan for the store
         decision_plan = DecisionPlanFactory.from_implement_plan(plan, debate_id=debate_id)
         store_plan(decision_plan)
-    except Exception as exc:
+    except (ImportError, KeyError, ValueError, OSError, AttributeError, TypeError) as exc:
         logger.debug("Plan persistence failed: %s", exc)
 
 
@@ -99,7 +99,7 @@ def _check_execution_budget(debate_id: str, ctx: dict[str, Any]) -> tuple[bool, 
         if not result.get("allowed", True):
             return False, result.get("message", "Budget exceeded")
         return True, ""
-    except Exception as exc:
+    except (KeyError, ValueError, AttributeError, TypeError) as exc:
         logger.debug("Budget check failed (allowing): %s", exc)
         return True, ""
 

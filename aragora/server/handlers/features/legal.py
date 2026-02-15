@@ -447,7 +447,7 @@ class LegalHandler:
             else:
                 return error_response("Failed to resend notifications", 500)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to resend envelope {envelope_id}: {e}")
             return error_response("Notification resend failed", 500)
 
@@ -466,7 +466,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 
@@ -483,7 +483,7 @@ class LegalHandler:
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to download document {document_id} from {envelope_id}: {e}")
             return error_response("Document download failed", 500)
 
@@ -498,7 +498,7 @@ class LegalHandler:
         if not connector.is_authenticated:
             try:
                 await connector.authenticate_jwt()
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                 logger.warning("Handler error: %s", e)
                 return error_response("Authentication failed", 401)
 
@@ -513,7 +513,7 @@ class LegalHandler:
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Failed to download certificate for {envelope_id}: {e}")
             return error_response("Certificate download failed", 500)
 
@@ -570,7 +570,7 @@ class LegalHandler:
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
             logger.error(f"Failed to list DocuSign templates for tenant {tenant_id}: {e}")
             return error_response("Failed to list templates", 500)
 

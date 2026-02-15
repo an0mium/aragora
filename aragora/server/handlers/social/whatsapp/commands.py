@@ -82,7 +82,7 @@ def command_status() -> str:
         store = EloSystem()
         agents = store.get_all_ratings()
         return f"*Aragora Status*\n\nStatus: Online\nAgents: {len(agents)} registered"
-    except Exception as e:
+    except (ImportError, KeyError, TypeError, AttributeError, ValueError) as e:
         logger.warning(f"Failed to get status: {e}")
         return "*Aragora Status*\n\nStatus: Online"
 
@@ -108,7 +108,7 @@ def command_agents() -> str:
             lines.append(f"{i + 1}. *{name}* - ELO: {elo:.0f} | Wins: {wins}")
 
         return "\n".join(lines)
-    except Exception as e:
+    except (ImportError, KeyError, TypeError, AttributeError, ValueError) as e:
         logger.warning(f"Failed to list agents: {e}")
         return "Could not fetch agent list."
 
@@ -371,7 +371,7 @@ async def run_debate_async(
             evidence_store=evidence_store,
         )
 
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.error(f"WhatsApp debate failed: {e}", exc_info=True)
         record_debate_failed("whatsapp")
         await send_text_message(
@@ -533,7 +533,7 @@ async def run_gauntlet_async(
             # Record successful gauntlet completion
             record_gauntlet_completed("whatsapp", passed)
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
         logger.error(f"WhatsApp gauntlet failed: {e}", exc_info=True)
         record_gauntlet_failed("whatsapp")
         await send_text_message(
@@ -600,7 +600,7 @@ def command_search(query: str) -> str:
     except ImportError:
         logger.warning("Storage not available for search")
         return "Search service temporarily unavailable."
-    except Exception as e:
+    except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
         logger.exception(f"Unexpected search error: {e}")
         return "Sorry, an error occurred while processing your request."
 
@@ -641,7 +641,7 @@ def command_recent() -> str:
     except ImportError:
         logger.warning("Storage not available for recent debates")
         return "Recent debates service temporarily unavailable."
-    except Exception as e:
+    except (KeyError, TypeError, AttributeError, ValueError, RuntimeError) as e:
         logger.exception(f"Unexpected recent debates error: {e}")
         return "Sorry, an error occurred while processing your request."
 
@@ -698,7 +698,7 @@ def command_receipt(debate_id: str) -> str:
             # Manual formatting if receipt module unavailable
             return _format_debate_as_receipt(debate)
 
-    except Exception as e:
+    except (ImportError, KeyError, TypeError, AttributeError, ValueError, OSError) as e:
         logger.exception(f"Unexpected receipt error: {e}")
         return "Sorry, an error occurred while processing your request."
 

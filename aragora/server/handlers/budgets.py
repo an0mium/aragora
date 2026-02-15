@@ -784,7 +784,7 @@ class BudgetHandler(BaseHandler):
 
             return json_response({"acknowledged": True, "alert_id": alert_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to acknowledge alert: {e}")
             return error_response("Alert acknowledgment failed", 500)
 
@@ -831,7 +831,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to add override: {e}")
             return error_response("Override addition failed", 500)
 
@@ -857,7 +857,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to remove override: {e}")
             return error_response("Override removal failed", 500)
 
@@ -880,7 +880,7 @@ class BudgetHandler(BaseHandler):
 
             return json_response(updated.to_dict())
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to reset budget: {e}")
             return error_response("Budget reset failed", 500)
 
@@ -950,7 +950,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to get transactions: {e}")
             return error_response("Failed to retrieve transactions", 500)
 
@@ -999,7 +999,7 @@ class BudgetHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
             logger.error(f"Failed to get trends: {e}")
             return error_response("Failed to retrieve trends", 500)
 

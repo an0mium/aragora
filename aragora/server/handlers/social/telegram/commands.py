@@ -275,7 +275,7 @@ class TelegramCommandsMixin:
             store = EloSystem()
             agents = store.get_all_ratings()
             return f"*Aragora Status*\n\nStatus: Online\nAgents: {len(agents)} registered"
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Failed to get status: %s", e)
             return "*Aragora Status*\n\nStatus: Online"
 
@@ -301,7 +301,7 @@ class TelegramCommandsMixin:
                 lines.append(f"{medal} *{name}* - ELO: {elo:.0f} | Wins: {wins}")
 
             return "\n".join(lines)
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Failed to list agents: %s", e)
             return "Could not fetch agent list."
 
@@ -458,7 +458,7 @@ class TelegramCommandsMixin:
 
             except ImportError:
                 logger.debug("Binding router not available, using default agents")
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError) as e:
                 logger.debug("Binding resolution failed: %s, using default agents", e)
 
             agents = get_agents_by_names(agent_names)
@@ -568,7 +568,7 @@ class TelegramCommandsMixin:
                 evidence_store=evidence_store,
             )
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.error("Telegram debate failed: %s", e, exc_info=True)
             record_debate_failed("telegram")
             await self._send_message_async(
@@ -724,7 +724,7 @@ class TelegramCommandsMixin:
                 # Record successful gauntlet completion
                 record_gauntlet_completed("telegram", passed)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError) as e:
             logger.error("Telegram gauntlet failed: %s", e, exc_info=True)
             record_gauntlet_failed("telegram")
             await self._send_message_async(
@@ -783,7 +783,7 @@ class TelegramCommandsMixin:
         except ImportError:
             logger.warning("Storage not available for search")
             return "Search service temporarily unavailable."
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Unexpected search error: {e}")
             return "Sorry, an error occurred while processing your request."
 
@@ -819,7 +819,7 @@ class TelegramCommandsMixin:
         except ImportError:
             logger.warning("Storage not available for recent debates")
             return "Recent debates service temporarily unavailable."
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Unexpected recent debates error: {e}")
             return "Sorry, an error occurred while processing your request."
 

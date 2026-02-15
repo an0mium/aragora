@@ -160,7 +160,7 @@ class GauntletReceiptsMixin:
                     export_format=export_format,
                     file_size=size_bytes,
                 )
-            except Exception as e:
+            except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
                 logger.debug(f"Receipt export webhook skipped: {e}")
 
         if format_type == "html":
@@ -367,7 +367,7 @@ class GauntletReceiptsMixin:
             computed_hash = ""
             try:
                 computed_hash = receipt._calculate_hash()
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError) as e:
                 logger.debug(f"Error calculating receipt hash: {e}")
                 computed_hash = ""
 
@@ -388,7 +388,7 @@ class GauntletReceiptsMixin:
                     error_message="; ".join(verification_result.get("errors", []))
                     or "verification failed",
                 )
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
             logger.debug(f"Receipt verification webhook skipped: {e}")
 
         # Return appropriate status code
@@ -479,7 +479,7 @@ class GauntletReceiptsMixin:
                     rounds=rounds,
                     findings_count=findings_count,
                 )
-            except Exception as e:
+            except (ImportError, ConnectionError, OSError, ValueError, AttributeError) as e:
                 logger.debug(f"Receipt webhook notification skipped: {e}")
 
             # Auto-ingest receipt to Knowledge Mound for cross-debate learning
@@ -522,7 +522,7 @@ class GauntletReceiptsMixin:
                         logger.debug(f"Receipt KM ingestion returned non-success: {error_msg}")
             except ImportError:
                 logger.debug("Knowledge Mound not available for receipt ingestion")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.debug(f"Receipt KM ingestion skipped: {e}")
 
             # Optional auto-signing
@@ -543,7 +543,7 @@ class GauntletReceiptsMixin:
 
         except ImportError as e:
             logger.debug(f"Receipt persistence skipped (module not available): {e}")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
             logger.warning(f"Failed to auto-persist receipt for {gauntlet_id}: {e}")
 
     def _risk_level_from_score(self, robustness_score: float) -> str:

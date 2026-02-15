@@ -134,7 +134,7 @@ class VisibilityOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to set visibility: {e}")
             return error_response("Failed to set visibility", 500)
 

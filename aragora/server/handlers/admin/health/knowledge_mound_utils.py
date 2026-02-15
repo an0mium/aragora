@@ -383,7 +383,7 @@ def check_codebase_context() -> dict[str, Any]:
                 info["note"] = "manifest_read_error"
 
         return info
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError) as e:
         logger.debug("Codebase context check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -440,7 +440,7 @@ def check_bidirectional_adapters() -> dict[str, Any]:
             "status": "partial",
             "error": "Some adapters not available",
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.debug("Bidirectional adapters check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -480,7 +480,7 @@ def check_control_plane_adapter() -> dict[str, Any]:
             "status": "not_available",
             "error": "Module not available",
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.debug("Control plane adapter check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -513,7 +513,7 @@ def check_km_metrics() -> dict[str, Any]:
             "status": "not_available",
             "prometheus_integration": False,
         }
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.debug("KM metrics check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,
@@ -589,7 +589,7 @@ def check_confidence_decay_scheduler() -> tuple[dict[str, Any], list[str]]:
             "status": "not_available",
             "note": "Confidence decay module not installed",
         }, warnings
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.debug("Confidence decay scheduler check error: %s: %s", type(e).__name__, e)
         return {
             "healthy": True,

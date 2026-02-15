@@ -384,7 +384,7 @@ class MatrixDebatesHandler(SecureHandler):
         except ImportError as e:
             logger.warning(f"Matrix debate module not available, using fallback: {e}")
             return await self._run_matrix_debate_fallback(handler, data)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.exception(f"Matrix debate failed: {e}")
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
@@ -492,7 +492,7 @@ class MatrixDebatesHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.exception(f"Matrix debate fallback failed: {e}")
             return error_response(safe_error_message(e, "matrix debate"), 500)
 
@@ -548,10 +548,10 @@ class MatrixDebatesHandler(SecureHandler):
                     # if the name is not a valid agent type
                     agent = create_agent(cast(AgentType, name))
                     agents.append(agent)
-                except Exception as e:
+                except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
                     logger.warning(f"Failed to create agent {name}: {e}")
             return agents
-        except Exception as e:
+        except (ImportError, ValueError, TypeError) as e:
             logger.warning(f"Failed to load agents: {e}")
             return []
 
@@ -567,7 +567,7 @@ class MatrixDebatesHandler(SecureHandler):
                 return error_response("Matrix debate not found", 404)
 
             return json_response(matrix)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get matrix debate {matrix_id}: {e}")
             return error_response("Failed to retrieve matrix debate", 500)
 
@@ -595,7 +595,7 @@ class MatrixDebatesHandler(SecureHandler):
         try:
             scenarios = await storage.get_matrix_scenarios(matrix_id)
             return json_response({"matrix_id": matrix_id, "scenarios": scenarios})
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get scenarios for {matrix_id}: {e}")
             return error_response("Failed to retrieve scenarios", 500)
 
@@ -629,6 +629,6 @@ class MatrixDebatesHandler(SecureHandler):
                     "conditional_conclusions": conclusions.get("conditional", []),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get conclusions for {matrix_id}: {e}")
             return error_response("Failed to retrieve conclusions", 500)

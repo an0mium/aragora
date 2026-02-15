@@ -63,7 +63,7 @@ def _check_inbox_permission(
             logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
             return error_response(f"Permission denied: {decision.reason}", status=403)
         return None
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.error(f"RBAC check failed: {e}")
         return error_response("Authorization check failed", status=500)
 
@@ -168,7 +168,7 @@ async def handle_extract_action_items(
 
         return success_response(result.to_dict())
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
         logger.exception("Failed to extract action items")
         return error_response("Action item extraction failed", status=500)
 
@@ -269,7 +269,7 @@ async def handle_list_pending_actions(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception("Failed to list pending actions")
         return error_response("Failed to list items", status=500)
 
@@ -321,7 +321,7 @@ async def handle_complete_action(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to complete action")
         return error_response("Completion update failed", status=500)
 
@@ -396,7 +396,7 @@ async def handle_update_action_status(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to update action status")
         return error_response("Update operation failed", status=500)
 
@@ -474,7 +474,7 @@ async def handle_get_due_soon(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception("Failed to get due soon items")
         return error_response("Query execution failed", status=500)
 
@@ -550,7 +550,7 @@ async def handle_batch_extract(
                 total_items += result.total_count
                 total_high_priority += result.high_priority_count
 
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to extract from email {email.id}: {e}")
                 results.append(
                     {

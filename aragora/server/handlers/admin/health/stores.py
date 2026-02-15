@@ -483,7 +483,7 @@ class StoresMixin:
                 "healthy": True,
                 "status": "module_not_available",
             }
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Health check failed for %s: %s", "decision_result_store", e)
             return {
                 "healthy": False,

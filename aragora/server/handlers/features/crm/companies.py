@@ -98,7 +98,7 @@ class CompanyOperationsMixin:
                 cb.record_success()
                 return [self._normalize_hubspot_company(c) for c in companies]
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error(f"Error fetching {platform} companies: {e}")
             cb.record_failure()
 
@@ -168,7 +168,7 @@ class CompanyOperationsMixin:
                 cb.record_success()
                 return self._json_response(200, self._normalize_hubspot_company(company))
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("CRM get_company failed for %s/%s: %s", platform, company_id, e)
             cb.record_failure()
             return self._error_response(404, "Company not found")
@@ -193,7 +193,7 @@ class CompanyOperationsMixin:
 
         try:
             body = await self._get_json_body(request)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.warning("CRM create_company: invalid JSON body: %s", e)
             return self._error_response(400, "Invalid request body")
 
@@ -231,7 +231,7 @@ class CompanyOperationsMixin:
                 cb.record_success()
                 return self._json_response(201, self._normalize_hubspot_company(company))
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("CRM create_company failed for %s: %s", platform, e, exc_info=True)
             cb.record_failure()
             return self._error_response(500, "Company creation failed")

@@ -295,7 +295,7 @@ Supports multiple output formats via the 'format' query parameter.""",
 
                 trace = DebateTrace.load(trace_path)
                 debate_result = trace.to_debate_result()
-            except Exception as e:
+            except (ImportError, OSError, ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Failed to load trace for {request_id}: {e}")
 
         # Try to load from replays
@@ -386,7 +386,7 @@ Supports multiple output formats via the 'format' query parameter.""",
                 analyzer = BeliefPropagationAnalyzer(network)
                 cruxes = analyzer.identify_debate_cruxes(top_k=5)
                 reasoning["crux_claims"] = cruxes
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Failed to build belief network: {e}")
 
         return reasoning
@@ -562,7 +562,7 @@ Supports multiple output formats via the 'format' query parameter.""",
                     rounds_used=max((m.round for m in messages), default=1),
                     participants=list({m.agent for m in messages}),
                 )
-        except Exception as e:
+        except (ImportError, OSError, json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
             logger.warning(f"Failed to load replay: {e}")
 
         return None
