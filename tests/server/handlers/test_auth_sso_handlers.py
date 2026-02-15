@@ -254,7 +254,7 @@ class TestSSOLogin:
         from aragora.server.handlers.auth.sso_handlers import handle_sso_login
 
         # Make provider raise exception
-        mock_sso_provider.get_authorization_url = AsyncMock(side_effect=Exception("Provider error"))
+        mock_sso_provider.get_authorization_url = AsyncMock(side_effect=OSError("Provider error"))
 
         with patch(
             "aragora.server.handlers.auth.sso_handlers._get_sso_provider",

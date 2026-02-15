@@ -747,7 +747,7 @@ class TestSkillMarketplaceErrorHandling:
         """Search error returns 500."""
         with patch("aragora.skills.marketplace.get_marketplace") as mock_marketplace:
             mock_mp = MagicMock()
-            mock_mp.search = AsyncMock(side_effect=Exception("Database error"))
+            mock_mp.search = AsyncMock(side_effect=OSError("Database error"))
             mock_marketplace.return_value = mock_mp
 
             result = await skill_handler._search_skills({})
