@@ -1548,7 +1548,7 @@ class TestExceptionHandling:
         """Signup exception should return 500."""
         with patch(
             "aragora.server.handlers.auth.signup_handlers._hash_password",
-            side_effect=RuntimeError("Hashing service unavailable"),
+            side_effect=TypeError("Hashing service unavailable"),
         ):
             result = await handle_signup(valid_signup_data)
 
@@ -1578,7 +1578,7 @@ class TestExceptionHandling:
         """Setup organization exception should return 500."""
         with patch(
             "secrets.token_hex",
-            side_effect=RuntimeError("Random generation failed"),
+            side_effect=TypeError("Random generation failed"),
         ):
             result = await handle_setup_organization(
                 {"name": "Test Org"},
@@ -1595,7 +1595,7 @@ class TestExceptionHandling:
         """Invite exception should return 500."""
         with patch(
             "aragora.server.handlers.auth.signup_handlers._generate_verification_token",
-            side_effect=RuntimeError("Token generation failed"),
+            side_effect=TypeError("Token generation failed"),
         ):
             with patch(
                 "aragora.server.handlers.auth.signup_handlers._check_permission",

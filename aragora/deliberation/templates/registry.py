@@ -175,9 +175,9 @@ class TemplateRegistry:
     ) -> builtins.list[DeliberationTemplate]:
         """Recommend templates for a given question.
 
-        Scores each template by keyword overlap with name, description,
-        tags, and example_topics. If domain is provided, templates whose
-        category matches the domain receive a score boost.
+        Uses TF-IDF cosine similarity when sklearn is available, falling
+        back to keyword set intersection otherwise. If domain is provided,
+        templates whose category matches the domain receive a score boost.
 
         Args:
             question: The user's question or topic
@@ -191,6 +191,76 @@ class TemplateRegistry:
         if not question:
             return []
 
+        try:
+            return self._recommend_tfidf(question, domain, limit)
+        except Exception:
+            # Fallback to keyword matching if sklearn unavailable or any error
+            return self._recommend_keywords(question, domain, limit)
+
+    def _recommend_tfidf(
+        self,
+        question: str,
+        domain: str | None,
+        limit: int,
+    ) -> builtins.list[DeliberationTemplate]:
+        """Recommend templates using TF-IDF cosine similarity.
+
+        Builds a TF-IDF matrix over all template text (name, description,
+        tags, example_topics) and computes cosine similarity with the query.
+
+        Raises:
+            ImportError: If sklearn is not installed (triggers keyword fallback)
+        """
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.metrics.pairwise import cosine_similarity
+
+        templates = list(self._templates.values())
+        if not templates:
+            return []
+
+        # Build corpus from template text
+        corpus: builtins.list[str] = []
+        for t in templates:
+            text_parts = [t.name.replace("_", " "), t.description]
+            text_parts.extend(t.tags)
+            if t.example_topics:
+                text_parts.extend(t.example_topics)
+            corpus.append(" ".join(text_parts).lower())
+
+        # Add query as last document
+        corpus.append(question.lower())
+
+        vectorizer = TfidfVectorizer(stop_words="english", max_features=500)
+        tfidf_matrix = vectorizer.fit_transform(corpus)
+
+        # Compute similarity between query (last) and all templates
+        query_vec = tfidf_matrix[-1]
+        similarities = cosine_similarity(query_vec, tfidf_matrix[:-1]).flatten()
+
+        # Apply domain boost
+        scored: builtins.list[tuple[float, DeliberationTemplate]] = []
+        for sim, template in zip(similarities, templates):
+            score = float(sim)
+            if domain and template.category.value == domain:
+                score += 0.3  # domain boost
+            if score > 0.01:  # minimum threshold
+                scored.append((score, template))
+
+        scored.sort(key=lambda x: (-x[0], x[1].name))
+        return [t for _, t in scored[:limit]]
+
+    def _recommend_keywords(
+        self,
+        question: str,
+        domain: str | None,
+        limit: int,
+    ) -> builtins.list[DeliberationTemplate]:
+        """Recommend templates using keyword set intersection.
+
+        This is the fallback scoring method when sklearn is not available.
+        Scores each template by keyword overlap with name, description,
+        tags, and example_topics.
+        """
         # Extract keywords from question
         keywords = set(question.lower().split())
         # Remove very short/common words
@@ -280,9 +350,10 @@ def load_templates_from_yaml(path: Path) -> int:
 
 
 def match_templates(goal: str, limit: int = 5) -> list[DeliberationTemplate]:
-    """Fuzzy-match deliberation templates against a goal string.
+    """Match deliberation templates against a goal string using TF-IDF similarity.
 
-    Scores templates by keyword overlap with the goal across
+    Uses TF-IDF cosine similarity (when sklearn is available) or keyword
+    overlap as fallback to score templates against the goal across
     name, description, tags, and example_topics. Returns the
     top matches sorted by relevance.
 
