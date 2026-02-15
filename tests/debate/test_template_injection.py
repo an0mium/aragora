@@ -10,6 +10,41 @@ import pytest
 from aragora.debate.protocol import DebateProtocol
 
 
+@pytest.fixture(autouse=True)
+def _reset_template_registry_state():
+    """Reset the global template registry and prompt builder caches between tests.
+
+    The deliberation template registry is a module-level singleton whose
+    ``_initialized`` flag and ``_templates`` dict persist across tests. When
+    other tests in the suite trigger ``_ensure_initialized()`` before these
+    tests run, the builtin templates get loaded and the real ``get_template``
+    can return unexpected results if a patch doesn't take effect correctly.
+
+    Similarly, the prompt builder module has LRU caches that can carry stale
+    entries across tests.
+
+    This fixture resets both to guarantee a clean slate for every test.
+    """
+    from aragora.debate.prompt_builder import clear_all_prompt_caches
+    from aragora.deliberation.templates.registry import _global_registry
+
+    # Capture original state
+    orig_templates = dict(_global_registry._templates)
+    orig_initialized = _global_registry._initialized
+
+    # Reset before the test
+    _global_registry._templates.clear()
+    _global_registry._initialized = False
+    clear_all_prompt_caches()
+
+    yield
+
+    # Restore original state after the test so other tests are unaffected
+    _global_registry._templates = orig_templates
+    _global_registry._initialized = orig_initialized
+    clear_all_prompt_caches()
+
+
 @dataclass
 class FakeAgent:
     name: str = "test_agent"
