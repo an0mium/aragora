@@ -69,6 +69,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [KnowledgeChat](#knowledgechat)
 - [Laboratory](#laboratory)
 - [Marketplace](#marketplace)
+- [MarketplaceBrowse](#marketplacebrowse)
 - [Metrics](#metrics)
 - [Metrics Endpoint](#metrics-endpoint)
 - [Ml](#ml)
@@ -102,6 +103,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [SMESuccessDashboard](#smesuccessdashboard)
 - [SMEUsageDashboard](#smeusagedashboard)
 - [SSO](#sso)
+- [TemplateDiscovery](#templatediscovery)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
 - [Tournaments](#tournaments)
@@ -2025,6 +2027,28 @@ Health and circuit breaker status
 
 ---
 
+## MarketplaceBrowse
+
+Handler for marketplace template browsing endpoints.
+
+### `GET` `/api/v1/marketplace/templates`
+
+GET /api/v1/marketplace/templates
+
+### `GET` `/api/v1/marketplace/templates/*`
+
+GET /api/v1/marketplace/templates/*
+
+### `GET` `/api/v1/marketplace/featured`
+
+Return featured templates
+
+### `GET` `/api/v1/marketplace/popular`
+
+Return popular templates sorted by downloads
+
+---
+
 ## Metrics
 
 Handler for operational metrics endpoints.
@@ -3204,6 +3228,28 @@ GET /api/sso/status
 ### `GET` `/api/sso/metadata`
 
 GET /api/sso/metadata
+
+---
+
+## TemplateDiscovery
+
+Handler for template discovery endpoints.
+
+### `GET` `/api/v1/templates`
+
+GET /api/v1/templates
+
+### `GET` `/api/v1/templates/categories`
+
+Return categories with counts
+
+### `GET` `/api/v1/templates/recommend`
+
+Recommend templates for a given question
+
+### `GET` `/api/v1/templates/*`
+
+GET /api/v1/templates/*
 
 ---
 
