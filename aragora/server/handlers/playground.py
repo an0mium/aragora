@@ -699,7 +699,9 @@ class PlaygroundHandler(BaseHandler):
     ) -> HandlerResult:
         """Execute a live debate using real agents with budget/timeout caps."""
         try:
-            from aragora.server.debate_controller import DebateController
+            import importlib.util
+            if importlib.util.find_spec("aragora.server.debate_controller") is None:
+                raise ImportError("debate_controller not found")
         except ImportError:
             logger.warning("DebateController not available for live playground")
             return error_response("Live playground unavailable", 503)

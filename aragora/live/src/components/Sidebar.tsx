@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useProgressiveMode, ProgressiveMode } from '@/context/ProgressiveModeContext';
 import { ModeSelector } from '@/components/ui/FeatureCard';
 import { useEdgeSwipe, useSwipeGesture } from '@/hooks/useSwipeGesture';
+import { useOnboardingStore, selectIsOnboardingNeeded } from '@/store/onboardingStore';
 
 interface NavItem {
   label: string;
@@ -47,6 +48,7 @@ const browseItems: NavItem[] = [
   { label: 'Knowledge', href: '/knowledge', icon: '?', minMode: 'standard' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
   { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
+  { label: 'Marketplace', href: '/marketplace', icon: '$', minMode: 'standard' },
   { label: 'Gallery', href: '/gallery', icon: '*' },
   { label: 'About', href: '/about', icon: 'i' },
 ];
@@ -58,8 +60,8 @@ const toolsItems: NavItem[] = [
   { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'advanced' },
   { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'advanced' },
   { label: 'Analytics', href: '/analytics', icon: '~', minMode: 'advanced' },
-  { label: 'Templates', href: '/templates', icon: '[', minMode: 'advanced' },
-  { label: 'Autonomous', href: '/autonomous', icon: '!', minMode: 'advanced' },
+  { label: 'Templates', href: '/templates', icon: '[', minMode: 'standard' },
+  { label: 'Autonomous', href: '/autonomous', icon: '!', minMode: 'expert' },
 ];
 
 // Advanced section - power user features
@@ -69,9 +71,9 @@ const advancedItems: NavItem[] = [
   { label: 'Introspection', href: '/introspection', icon: '?', minMode: 'expert' },
   { label: 'Verticals', href: '/verticals', icon: '/', minMode: 'advanced' },
   { label: 'Integrations', href: '/integrations', icon: ':', minMode: 'advanced' },
-  { label: 'Agent Network', href: '/network', icon: '~', minMode: 'advanced' },
+  { label: 'Agent Network', href: '/network', icon: '~', minMode: 'expert' },
   { label: 'Capability Probe', href: '/probe', icon: '^', minMode: 'expert' },
-  { label: 'Red Team', href: '/red-team', icon: '!', minMode: 'advanced' },
+  { label: 'Red Team', href: '/red-team', icon: '!', minMode: 'expert' },
   { label: 'Op Modes', href: '/modes', icon: '#', minMode: 'expert' },
 ];
 
@@ -85,6 +87,8 @@ export function Sidebar() {
   const { isOpen, close, open } = useSidebar();
   const { isAuthenticated, user, logout } = useAuth();
   const { isFeatureVisible, modeLabel } = useProgressiveMode();
+  const onboardingState = useOnboardingStore();
+  const showOnboarding = selectIsOnboardingNeeded(onboardingState);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
 
