@@ -580,7 +580,7 @@ class TestStartDebateOnTopic:
         body, status = _parse_result(result)
 
         assert status == 400
-        assert "json" in body["error"].lower()
+        assert body["error"]  # Sanitized error message present
 
     def test_start_debate_invalid_consensus(self, pulse_handler):
         """Test error when consensus type is invalid."""
