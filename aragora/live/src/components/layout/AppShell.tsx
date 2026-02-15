@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useLayout } from '@/context/LayoutContext';
+import { useProgressiveMode, type ProgressiveMode } from '@/context/ProgressiveModeContext';
 import { TopBar } from './TopBar';
 import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
@@ -17,31 +18,32 @@ type QuickLink = {
   href: string;
   external?: boolean;
   accent?: boolean;
+  minMode: ProgressiveMode;
 };
 
 const QUICK_LINKS: QuickLink[] = [
-  { label: 'DEBATE', href: '/arena' },
-  { label: 'DOCS', href: '/documents' },
-  { label: 'WORKFLOWS', href: '/workflows' },
-  { label: 'CONNECTORS', href: '/connectors' },
-  { label: 'TEMPLATES', href: '/templates' },
-  { label: 'MEMORY', href: '/memory' },
-  { label: 'KNOWLEDGE', href: '/knowledge' },
-  { label: 'DEBATES', href: '/debates' },
-  { label: 'AGENTS', href: '/agents' },
-  { label: 'ANALYTICS', href: '/analytics' },
-  { label: 'GALLERY', href: '/gallery' },
-  { label: 'LEADERBOARD', href: '/leaderboard' },
-  { label: 'REVIEWS', href: '/reviews' },
-  { label: 'GAUNTLET', href: '/gauntlet' },
-  { label: 'GENESIS', href: '/genesis' },
-  { label: 'INTROSPECTION', href: '/introspection' },
-  { label: 'INBOX', href: '/inbox' },
-  { label: 'TOURNAMENTS', href: '/tournaments' },
-  { label: 'PRICING', href: '/pricing' },
-  { label: 'STATUS', href: '/status' },
-  { label: 'ABOUT', href: '/about' },
-  { label: 'LIVE', href: 'https://live.aragora.ai', external: true, accent: true },
+  { label: 'DEBATE', href: '/arena', minMode: 'simple' },
+  { label: 'DEBATES', href: '/debates', minMode: 'simple' },
+  { label: 'AGENTS', href: '/agents', minMode: 'simple' },
+  { label: 'KNOWLEDGE', href: '/knowledge', minMode: 'simple' },
+  { label: 'ANALYTICS', href: '/analytics', minMode: 'standard' },
+  { label: 'DOCS', href: '/documents', minMode: 'standard' },
+  { label: 'TEMPLATES', href: '/templates', minMode: 'standard' },
+  { label: 'WORKFLOWS', href: '/workflows', minMode: 'standard' },
+  { label: 'CONNECTORS', href: '/connectors', minMode: 'advanced' },
+  { label: 'MEMORY', href: '/memory', minMode: 'advanced' },
+  { label: 'GALLERY', href: '/gallery', minMode: 'advanced' },
+  { label: 'LEADERBOARD', href: '/leaderboard', minMode: 'advanced' },
+  { label: 'REVIEWS', href: '/reviews', minMode: 'advanced' },
+  { label: 'GAUNTLET', href: '/gauntlet', minMode: 'advanced' },
+  { label: 'INBOX', href: '/inbox', minMode: 'advanced' },
+  { label: 'TOURNAMENTS', href: '/tournaments', minMode: 'advanced' },
+  { label: 'PRICING', href: '/pricing', minMode: 'advanced' },
+  { label: 'GENESIS', href: '/genesis', minMode: 'expert' },
+  { label: 'INTROSPECTION', href: '/introspection', minMode: 'expert' },
+  { label: 'STATUS', href: '/status', minMode: 'expert' },
+  { label: 'ABOUT', href: '/about', minMode: 'expert' },
+  { label: 'LIVE', href: 'https://live.aragora.ai', external: true, accent: true, minMode: 'expert' },
 ];
 
 export function AppShell({ children }: AppShellProps) {
@@ -52,6 +54,9 @@ export function AppShell({ children }: AppShellProps) {
     leftSidebarWidth,
     rightSidebarWidth,
   } = useLayout();
+  const { isFeatureVisible } = useProgressiveMode();
+
+  const visibleLinks = QUICK_LINKS.filter((link) => isFeatureVisible(link.minMode));
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -85,7 +90,7 @@ export function AppShell({ children }: AppShellProps) {
                 className="breadcrumb-links flex-1 overflow-x-auto whitespace-nowrap"
               >
                 <div className="flex items-center gap-3 pr-2 text-xs font-mono text-text-muted">
-                  {QUICK_LINKS.map((link) => {
+                  {visibleLinks.map((link) => {
                     if (link.external) {
                       return (
                         <a

@@ -157,6 +157,12 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
             <a href="#how-it-works" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
               [HOW IT WORKS]
             </a>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors hidden sm:block"
+            >
+              [TRY NOW]
+            </button>
             <a href="https://github.com/an0mium/aragora" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
               [GITHUB]
             </a>

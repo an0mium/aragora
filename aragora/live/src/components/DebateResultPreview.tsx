@@ -223,8 +223,11 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
         </div>
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="bg-[var(--surface)] border border-[var(--border)] p-6 text-center shadow-lg">
-            <p className="font-mono text-sm text-[var(--text)] mb-4">
+            <p className="font-mono text-sm text-[var(--text)] mb-2">
               Sign up to download the full decision receipt
+            </p>
+            <p className="font-mono text-xs text-[var(--text-muted)] mb-4">
+              Including evidence chains, dissenting views, and cryptographic audit trail
             </p>
             <div className="flex gap-3 justify-center">
               <Link

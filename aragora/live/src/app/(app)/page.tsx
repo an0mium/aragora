@@ -360,10 +360,25 @@ export default function Home() {
 
   // Simple mode: clean dashboard with just debate input + recent debates
   if (progressiveMode === 'simple' && isAuthenticated) {
+    const isNewUser = prefsLoaded && !preferences.hasSeenOnboarding;
     return (
       <FeaturesProvider apiBase={apiBase}>
         <main className="min-h-screen bg-bg text-text relative z-10">
           <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+            {isNewUser && (
+              <div className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/50 p-4 flex items-start justify-between gap-3">
+                <p className="font-mono text-sm text-[var(--text-muted)]">
+                  Welcome to Aragora. Start your first decision below — agents will debate and deliver a verdict.
+                </p>
+                <button
+                  onClick={() => markOnboardingComplete()}
+                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] shrink-0"
+                  aria-label="Dismiss welcome message"
+                >
+                  [x]
+                </button>
+              </div>
+            )}
             <HeroSection
               error={error}
               activeDebateId={currentDebateId}
