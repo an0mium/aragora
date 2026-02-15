@@ -1,6 +1,6 @@
 #!/bin/bash
 # Aragora Docker Entrypoint
-# Runs database migrations before starting the server.
+# Waits for dependencies, runs database migrations, then starts the server.
 #
 # Usage: Set as ENTRYPOINT in Dockerfile, or call directly.
 # Environment:
@@ -10,8 +10,39 @@
 set -e
 
 echo "[entrypoint] Aragora server starting..."
+echo "[entrypoint] ARAGORA_ENV=${ARAGORA_ENV:-not set}"
 
-# Run migrations unless explicitly skipped
+# --------------------------------------------------------------------------
+# Wait for PostgreSQL (if configured)
+# --------------------------------------------------------------------------
+if [ -n "${DATABASE_URL}" ] || [ -n "${ARAGORA_POSTGRES_DSN}" ]; then
+    # Extract host and port from DATABASE_URL for a simple TCP check.
+    # Format: postgresql://user:pass@host:port/dbname
+    DB_URL="${DATABASE_URL:-${ARAGORA_POSTGRES_DSN}}"
+    DB_HOST=$(echo "$DB_URL" | sed -n 's|.*@\([^:/]*\).*|\1|p')
+    DB_PORT=$(echo "$DB_URL" | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+    DB_PORT=${DB_PORT:-5432}
+
+    if [ -n "$DB_HOST" ]; then
+        echo "[entrypoint] Waiting for PostgreSQL at ${DB_HOST}:${DB_PORT}..."
+        RETRIES=0
+        MAX_RETRIES=30
+        while ! python -c "import socket; s=socket.create_connection(('${DB_HOST}', ${DB_PORT}), timeout=2); s.close()" 2>/dev/null; do
+            RETRIES=$((RETRIES + 1))
+            if [ "$RETRIES" -ge "$MAX_RETRIES" ]; then
+                echo "[entrypoint] WARNING: PostgreSQL not reachable after ${MAX_RETRIES} attempts. Continuing anyway."
+                break
+            fi
+            echo "[entrypoint] PostgreSQL not ready (attempt ${RETRIES}/${MAX_RETRIES}), retrying in 2s..."
+            sleep 2
+        done
+        echo "[entrypoint] PostgreSQL is reachable."
+    fi
+fi
+
+# --------------------------------------------------------------------------
+# Run database migrations (unless explicitly skipped)
+# --------------------------------------------------------------------------
 if [ "${SKIP_MIGRATIONS}" != "1" ]; then
     if [ -n "${DATABASE_URL}" ] || [ -n "${ARAGORA_POSTGRES_DSN}" ]; then
         echo "[entrypoint] Running database migrations..."
@@ -27,7 +58,9 @@ else
     echo "[entrypoint] SKIP_MIGRATIONS=1, skipping migrations."
 fi
 
-# Seed demo data if requested
+# --------------------------------------------------------------------------
+# Optional: Seed demo data
+# --------------------------------------------------------------------------
 if [ "${ARAGORA_SEED_DEMO}" = "true" ]; then
     echo "[entrypoint] Seeding demo data..."
     if [ -f "scripts/seed_demo.py" ]; then

@@ -1,4 +1,7 @@
-name: Publish SDK to npm
+name: Publish SDK to npm (Legacy)
+
+# DEPRECATED: Use publish-sdk-typescript.yml instead.
+# This workflow is kept for backward compatibility with existing tag triggers.
 
 on:
   push:
@@ -7,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.1.0)'
+        description: 'Version to publish (e.g., 2.7.5) -- prefer publish-sdk-typescript.yml'
         required: true
         type: string
 
@@ -47,6 +50,9 @@ jobs:
       - name: Update version (if manual trigger)
         if: github.event_name == 'workflow_dispatch'
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version --allow-same-version
+
+      - name: Dry run -- validate package
+        run: npm pack --dry-run
 
       - name: Check version not already published
         id: version-check

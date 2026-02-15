@@ -35,8 +35,12 @@ services:
       - ARAGORA_CANONICAL_STORE_PERSIST=1
       - ARAGORA_STORE_DIR=/app/data/.aragora_beads
 
-      # CORS (adjust for your frontend URL)
-      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-}
+      # Disable Redis/Postgres requirement
+      - ARAGORA_REDIS_URL=
+      - ARAGORA_MODE=minimal
+
+      # CORS (allow all origins for easy local testing)
+      - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}
 
       # Optional: API token for authentication
       - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
@@ -44,6 +48,9 @@ services:
       # Debate defaults
       - ARAGORA_DEFAULT_ROUNDS=3
       - ARAGORA_DEBATE_TIMEOUT=900
+
+      # Logging
+      - ARAGORA_LOG_LEVEL=${ARAGORA_LOG_LEVEL:-INFO}
 
     volumes:
       # Persist data (debates, ELO ratings, memory)
@@ -55,8 +62,8 @@ services:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 40s
 
 volumes:
   aragora-data:

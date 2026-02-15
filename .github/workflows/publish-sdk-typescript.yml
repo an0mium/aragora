@@ -1,0 +1,156 @@
+name: Publish TypeScript SDK to npm
+
+# Publishes `@aragora/sdk` from sdk/typescript/ to npm.
+# Triggers on version tags or manual dispatch.
+
+on:
+  push:
+    tags:
+      - 'sdk-ts-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 2.7.5)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run only (skip actual publish)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-ts-sdk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    name: Test TypeScript SDK (Node ${{ matrix.node-version }})
+    strategy:
+      fail-fast: true
+      matrix:
+        node-version: ['18', '20', '22']
+
+    defaults:
+      run:
+        working-directory: sdk/typescript
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  build-and-publish:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: sdk/typescript
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag: sdk-ts-v1.2.3 -> 1.2.3
+            VERSION="${GITHUB_REF_NAME#sdk-ts-v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Update version
+        run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+
+      - name: Build
+        run: npm run build
+
+      - name: Dry run -- validate package
+        run: |
+          npm pack --dry-run
+          echo ""
+          echo "=== Package contents ==="
+          npm pack --dry-run 2>&1 | tail -20
+
+      - name: Check version not already published
+        if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
+        run: |
+          PACKAGE_NAME=$(npm pkg get name | tr -d '"')
+          LOCAL=$(npm pkg get version | tr -d '"')
+          PUBLISHED=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "none")
+          if [ "$PUBLISHED" = "$LOCAL" ]; then
+            echo "::error::Version $LOCAL already published to npm"
+            exit 1
+          fi
+          echo "Publishing $PACKAGE_NAME@$LOCAL (current published: $PUBLISHED)"
+
+      - name: Publish to npm
+        if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry run summary
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "::notice::DRY RUN complete. Package built and validated but NOT published."
+          echo "Package: @aragora/sdk@${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: TypeScript SDK v${{ steps.version.outputs.version }}
+          body: |
+            ## TypeScript SDK v${{ steps.version.outputs.version }}
+
+            Install with:
+            ```bash
+            npm install @aragora/sdk@${{ steps.version.outputs.version }}
+            ```
+
+            See [documentation](https://docs.aragora.ai/guides/sdk) for usage.
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'rc') }}
