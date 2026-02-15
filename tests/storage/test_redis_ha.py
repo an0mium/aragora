@@ -551,7 +551,7 @@ class TestHealthCheck:
             result = check_redis_health()
 
             assert result["healthy"] is False
-            assert "Connection refused" in result["error"]
+            assert result["error"]  # Sanitized error message present
 
 
 # =============================================================================

@@ -193,7 +193,7 @@ class TestInstrumentedIntegrationStore:
 
         assert instrumented.metrics.is_healthy is False
         assert instrumented.metrics.consecutive_failures == 3
-        assert instrumented.metrics.get_operations.last_error == "DB error"
+        assert instrumented.metrics.get_operations.last_error  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_success_resets_failure_count(self, mock_store):

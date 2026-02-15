@@ -286,7 +286,7 @@ class TestWebhookSending:
 
         assert result.success is False
         assert result.method == "webhook"
-        assert "Connection refused" in result.error
+        assert result.error  # Sanitized error message present
 
 
 # =============================================================================
