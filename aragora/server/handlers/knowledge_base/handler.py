@@ -101,7 +101,7 @@ class KnowledgeHandler(
         if self._fact_store is None:
             try:
                 self._fact_store = FactStore()
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, ImportError) as e:
                 logger.warning(f"Failed to create FactStore, using in-memory: {e}")
                 self._fact_store = InMemoryFactStore()
         return self._fact_store

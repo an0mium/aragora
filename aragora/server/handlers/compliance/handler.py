@@ -286,7 +286,7 @@ class ComplianceHandler(
             logger.warning(f"Permission denied for compliance request: {e}")
             return error_response("Permission denied", 403)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling compliance request: {e}")
             return error_response("Internal server error", 500)
 

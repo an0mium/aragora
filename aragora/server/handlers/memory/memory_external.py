@@ -38,7 +38,7 @@ class MemoryExternalMixin:
 
         try:
             client = get_client(config)
-        except Exception as exc:  # pragma: no cover - external dependency
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - external dependency
             logger.debug(f"Supermemory client init failed: {exc}")
             return None
 

@@ -126,8 +126,8 @@ async def parse_json_body(
 
         return parsed, None
 
-    except Exception as e:
-        # Catch any other unexpected errors (e.g., encoding issues)
+    except (OSError, UnicodeDecodeError, AttributeError, RuntimeError) as e:
+        # Catch encoding issues, I/O errors, and request object errors
         logger.warning("Unexpected error parsing JSON body in %s: %s", context, e)
         return None, web.json_response(
             {"error": "Failed to parse request body", "code": "PARSE_ERROR"},
@@ -229,7 +229,8 @@ async def parse_json_body_allow_array(
 
         return parsed, None
 
-    except Exception as e:
+    except (OSError, UnicodeDecodeError, AttributeError, RuntimeError) as e:
+        # Catch encoding issues, I/O errors, and request object errors
         logger.warning("Unexpected error parsing JSON body in %s: %s", context, e)
         return None, web.json_response(
             {"error": "Failed to parse request body", "code": "PARSE_ERROR"},

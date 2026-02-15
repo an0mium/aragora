@@ -484,7 +484,7 @@ class TeamsBot:
                 org_id=tenant_id if tenant_id else None,
                 roles={"teams_user"},
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.debug(f"Could not build auth context from activity: {e}")
             return None
 

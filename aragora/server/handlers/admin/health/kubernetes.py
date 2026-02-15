@@ -371,7 +371,7 @@ def readiness_dependencies(handler: Any) -> HandlerResult:
         checks["postgresql"] = {"error": "timeout", "error_type": "timeout"}
         if require_database:
             ready = False
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # broad catch: last-resort handler
         logger.warning(f"PostgreSQL readiness check failed: {type(e).__name__}: {e}")
         checks["postgresql"] = {"error": "PostgreSQL check failed"}
 

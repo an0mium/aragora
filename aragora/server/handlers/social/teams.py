@@ -397,7 +397,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
             logger.exception(f"Teams notify error: {e}")
             return error_response("Internal server error", 500)
 
@@ -708,7 +708,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "rankings": rankings})
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Leaderboard error: {e}")
             return error_response("Internal server error", 500)
 
@@ -752,7 +752,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "agents": agent_list})
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"List agents error: {e}")
             return error_response("Internal server error", 500)
 
@@ -794,7 +794,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "debates": debates})
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Recent debates error: {e}")
             return error_response("Internal server error", 500)
 

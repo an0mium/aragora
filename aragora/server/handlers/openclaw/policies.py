@@ -304,7 +304,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error getting health: %s", e)
             return json_response(
                 {
@@ -325,7 +325,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
             metrics["timestamp"] = datetime.now(timezone.utc).isoformat()
 
             return json_response(metrics)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error getting metrics: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -359,7 +359,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "offset": offset,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error getting audit log: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -381,7 +381,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error getting stats: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 

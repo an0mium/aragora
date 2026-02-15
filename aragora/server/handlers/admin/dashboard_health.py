@@ -40,7 +40,7 @@ def get_system_health() -> dict[str, Any]:
         if _cache:
             health["cache_entries"] = len(_cache)
 
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning("System health error: %s: %s", type(e).__name__, e)
 
     return health
@@ -173,7 +173,7 @@ def get_connector_health() -> dict[str, Any]:
 
     except ImportError:
         logger.debug("Connector scheduler not available")
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning("Connector health error: %s: %s", type(e).__name__, e)
 
     return result

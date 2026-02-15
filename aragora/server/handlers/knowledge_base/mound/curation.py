@@ -52,7 +52,7 @@ class CurationOperationsMixin:
             read_func = getattr(base_module, "read_json_body", None)
             if callable(read_func):
                 return read_func(handler)
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError) as e:
             logger.debug("Failed to resolve patched read_json_body: %s", e)
         return self.read_json_body(handler)
 
@@ -90,7 +90,7 @@ class CurationOperationsMixin:
                 logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
                 return error_response(f"Permission denied: {decision.reason}", 403)
             return None
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"RBAC check failed: {e}")
             return error_response("Authorization check failed", 500)
 

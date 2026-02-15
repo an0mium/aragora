@@ -497,7 +497,7 @@ class BillingHandler(SecureHandler):
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to log audit event: {e}")
 
     @handle_errors("get audit log")

@@ -111,7 +111,7 @@ class SearchOperationsMixin:
 
         try:
             results = _run_async(engine.search(query, workspace_id, limit))
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Search failed: {e}")
             return error_response("Search operation failed", 500)
 

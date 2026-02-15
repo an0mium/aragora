@@ -141,7 +141,7 @@ def record_cost(
                 asyncio.run(tracker.record(usage))
 
             logger.debug(f"[CostHandler] Recorded cost: ${cost:.6f} for {feature}")
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
             logger.error(f"[CostHandler] Failed to record cost: {e}")
     else:
         logger.debug("[CostHandler] CostTracker not available, cost not persisted")
@@ -178,7 +178,7 @@ def _get_active_alerts(tracker, workspace_id: str) -> list[dict[str, Any]]:
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                 )
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.debug(f"[CostHandler] Could not get alerts: {e}")
     return alerts
 
@@ -300,7 +300,7 @@ async def get_cost_summary(
                 alerts=_get_active_alerts(tracker, workspace_id),
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             if demo_mode:
                 logger.warning(
                     f"[CostHandler] CostTracker query failed, using mock "

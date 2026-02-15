@@ -91,7 +91,7 @@ class GraphOperationsMixin:
                     max_nodes=max_nodes,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Graph traversal failed: {e}")
             return error_response("Graph traversal failed", 500)
 
@@ -132,7 +132,7 @@ class GraphOperationsMixin:
                     depth=depth,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Graph lineage failed: {e}")
             return error_response("Graph lineage failed", 500)
 
@@ -185,7 +185,7 @@ class GraphOperationsMixin:
                     max_nodes=limit,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Get related nodes failed: {e}")
             return error_response("Get related nodes failed", 500)
 

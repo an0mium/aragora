@@ -217,7 +217,7 @@ async def queue_code_review_debate(
     except ImportError:
         logger.debug("DecisionRouter not available for GitHub code review")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
         logger.error(f"Error queuing code review debate: {e}")
         return None
 
@@ -316,7 +316,7 @@ async def queue_issue_triage_debate(
     except ImportError:
         logger.debug("DecisionRouter not available for GitHub issue triage")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
         logger.error(f"Error queuing issue triage debate: {e}")
         return None
 
@@ -512,7 +512,7 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
     # Parse payload
     try:
         payload = ctx.get("body", {})
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Failed to parse webhook payload: {e}")
         return error_response("Invalid JSON payload", status=400)
 
@@ -536,7 +536,7 @@ async def handle_github_webhook(ctx: dict[str, Any]) -> HandlerResult:
                     **result,
                 }
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Error handling {event_type} event: {e}")
             return error_response("Request processing failed", status=500)
     else:

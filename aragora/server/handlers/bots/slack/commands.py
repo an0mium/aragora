@@ -156,7 +156,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                                 "text": f"Permission denied: {decision.reason}",
                             }
                         )
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError) as e:
                 logger.debug("RBAC check failed for command: %s", e)
             return None
 

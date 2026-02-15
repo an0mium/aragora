@@ -347,7 +347,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             user, err = self.require_auth_or_error(handler)
             if err:
                 return err
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"Authentication failed for knowledge mound: {e}")
             return error_response("Authentication required", 401)
         return None

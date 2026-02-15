@@ -31,7 +31,7 @@ from aragora.nomic.branch_coordinator import (
 from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
-pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning:aragora.nomic.parallel_orchestrator")
+pytestmark = pytest.mark.filterwarnings("ignore:ParallelOrchestrator is deprecated:DeprecationWarning")
 
 
 @pytest.fixture(autouse=True)

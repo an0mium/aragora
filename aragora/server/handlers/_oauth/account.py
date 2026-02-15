@@ -135,7 +135,7 @@ class AccountManagementMixin:
             state_vals = parse_qs(parsed.query).get("state")
             if state_vals:
                 state = state_vals[0]
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to parse state from OAuth URL: {e}")
             state = None
 

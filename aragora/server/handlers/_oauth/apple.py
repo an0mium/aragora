@@ -124,7 +124,7 @@ class AppleOAuthMixin:
                 id_token = token_data.get("id_token", id_token)
 
             user_info = self._parse_apple_id_token(id_token, user_data)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, json.JSONDecodeError, ImportError) as e:
             logger.error(f"Apple OAuth processing failed: {e}")
             return self._redirect_with_error("Failed to process Apple sign-in")
 

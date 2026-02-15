@@ -371,7 +371,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
                     performance["avg_elo"] = round(
                         sum(r["elo"] for r in all_ratings) / len(all_ratings), 1
                     )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.warning("Agent performance error: %s: %s", type(e).__name__, e)
 
         return performance
@@ -418,7 +418,7 @@ class DashboardHandler(DashboardActionsMixin, DashboardViewsMixin, SecureHandler
 
         except ImportError:
             logger.debug("Consensus memory not available")
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.warning("Consensus insights error: %s: %s", type(e).__name__, e)
 
         return insights

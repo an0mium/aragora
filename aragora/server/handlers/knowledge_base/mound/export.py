@@ -94,7 +94,7 @@ class ExportOperationsMixin:
                     limit=limit,
                 )
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"GraphML export failed: {e}")
             return error_response("GraphML export failed", 500)
 
@@ -188,6 +188,6 @@ class ExportOperationsMixin:
         except FileNotFoundError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Repository not found", 404)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError, ImportError) as e:
             logger.error(f"Failed to index repository: {e}")
             return error_response("Failed to index repository", 500)

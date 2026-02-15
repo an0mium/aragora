@@ -351,7 +351,7 @@ def require_permission(permission: str, handler_arg: int = 0):
                 except _ForbiddenError as e:
                     logger.warning("Handler error: %s", e)
                     return error_response("Permission denied", 403)
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
                     logger.exception(f"Auth error in @require_permission: {e}")
                     return error_response("Authorization failed", 500)
 

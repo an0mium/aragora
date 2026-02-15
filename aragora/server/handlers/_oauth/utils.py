@@ -524,7 +524,7 @@ class OAuthPermissionHelper:
                     permission_used=permission,
                     fallback_used=False,
                 )
-        except Exception as e:
+        except (ValueError, AttributeError, TypeError, KeyError, ImportError) as e:
             logger.debug(f"Permission check failed for {permission}: {e}")
 
         # Try fallback if provided
@@ -540,7 +540,7 @@ class OAuthPermissionHelper:
                         fallback_used=True,
                     )
                 error = fallback_error
-            except Exception as e:
+            except (ValueError, AttributeError, TypeError, KeyError, ImportError) as e:
                 logger.debug(f"Fallback permission check failed for {fallback_permission}: {e}")
 
         return PermissionCheckResult(
