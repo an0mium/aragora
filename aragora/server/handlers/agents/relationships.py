@@ -18,7 +18,6 @@ from ..base import (
     SAFE_AGENT_PATTERN,
     BaseHandler,
     HandlerResult,
-    error_response,
     get_int_param,
     json_response,
 )

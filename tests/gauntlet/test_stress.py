@@ -307,19 +307,19 @@ class TestGauntletCancellation:
     @pytest.mark.asyncio
     async def test_cancellation_during_run(self):
         """Test that gauntlet can be cancelled mid-run."""
-        slow_agent = MagicMock()
-
-        async def very_slow(*args, **kwargs):
-            await asyncio.sleep(10)
-            return "Never reached"
-
-        slow_agent.generate = very_slow
-
         config = GauntletConfig(agents=["slow"])
         runner = GauntletRunner(
             config=config,
-            agent_factory=lambda name: slow_agent,
+            agent_factory=lambda name: MagicMock(),
         )
+
+        # Patch _run_red_team to actually block; the default returns
+        # immediately if RedTeamMode import fails, completing before cancel.
+        async def slow_phase(*args, **kwargs):
+            await asyncio.sleep(10)
+            return MagicMock()
+
+        runner._run_red_team = slow_phase
 
         # Start the task
         task = asyncio.create_task(runner.run("Test content", "cancellation test"))

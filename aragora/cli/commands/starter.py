@@ -21,7 +21,6 @@ import asyncio
 import json
 import os
 import sys
-import tempfile
 import time
 import webbrowser
 from pathlib import Path
