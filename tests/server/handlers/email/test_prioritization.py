@@ -130,7 +130,7 @@ class TestHandlePrioritizeEmail:
         ):
             result = await _handle_prioritize_email(SAMPLE_EMAIL)
         assert result["success"] is False
-        assert "scoring failed" in result["error"]
+        assert result["error"]  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_decorator_is_applied(self):
@@ -219,7 +219,7 @@ class TestHandleEmailFeedback:
         ):
             result = await _handle_email_feedback("msg_1", "archived")
         assert result["success"] is False
-        assert "db error" in result["error"]
+        assert result["error"]  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_decorator_is_applied(self):

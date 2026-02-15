@@ -113,7 +113,7 @@ class TestHandleGetContext:
         ):
             result = await _handle_get_context("user@test.com")
         assert result["success"] is False
-        assert "service down" in result["error"]
+        assert result["error"]  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_decorator_is_applied(self):

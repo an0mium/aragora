@@ -128,7 +128,7 @@ class TestHandleCategorizeEmail:
         ):
             result = await _handle_categorize_email(SAMPLE_EMAIL)
         assert result["success"] is False
-        assert "model down" in result["error"]
+        assert result["error"]  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_decorator_is_applied(self):

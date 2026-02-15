@@ -181,7 +181,7 @@ class TestRunQuickScan:
 
         assert result["status"] == "failed"
         assert result["error"] is not None
-        assert "does not exist" in result["error"]
+        assert result["error"]  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_run_quick_scan_stores_result(self):

@@ -200,4 +200,4 @@ class TestHandleUpdateConfig:
         ):
             result = await handle_update_config("u1", {"vip_domains": ["x.com"]})
         assert result["success"] is False
-        assert "db error" in result["error"]
+        assert result["error"]  # Sanitized error message present

@@ -121,6 +121,7 @@ MANAGED_SECRETS = frozenset(
         "SUPERMEMORY_API_KEY",
         "KIMI_API_KEY",
         "ELEVENLABS_API_KEY",
+        "FAL_API_KEY",
         "AZURE_CLIENT_SECRET",
         "SUPABASE_PROJECT_ID",
         # Monitoring

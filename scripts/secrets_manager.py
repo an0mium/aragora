@@ -313,6 +313,42 @@ def _validate_supermemory(key: str) -> bool:
         return True
 
 
+def _validate_elevenlabs(key: str) -> bool:
+    """Validate ElevenLabs API key."""
+    if not key or len(key) < 16:
+        return False
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://api.elevenlabs.io/v1/user",
+            headers={"xi-api-key": key},
+            timeout=15.0,
+        )
+        return resp.status_code == 200
+    except Exception:
+        # Network issues - assume valid if format looks OK
+        return len(key) >= 16
+
+
+def _validate_fal(key: str) -> bool:
+    """Validate fal.ai API key."""
+    if not key or len(key) < 10:
+        return False
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "https://rest.alpha.fal.ai/tokens/current",
+            headers={"Authorization": f"Key {key}"},
+            timeout=15.0,
+        )
+        return resp.status_code == 200
+    except Exception:
+        # Network issues - assume valid if format looks OK
+        return len(key) >= 10
+
+
 def _validate_govinfo(key: str) -> bool:
     """Validate GovInfo API key (api.data.gov)."""
     if not key or len(key) < 20:
@@ -526,10 +562,25 @@ SECRETS: list[SecretDefinition] = [
         env_var="ELEVENLABS_API_KEY",
         category=SecretCategory.LLM_API,
         aws_bundle_key="ELEVENLABS_API_KEY",
+        aws_individual_path="aragora/api/elevenlabs",
         github_secret_name="ELEVENLABS_API_KEY",
         provider="elevenlabs",
         dashboard_url="https://elevenlabs.io/app/settings/api-keys",
+        validator=_validate_elevenlabs,
         description="ElevenLabs TTS API key",
+        rotation_days=90,
+    ),
+    SecretDefinition(
+        name="fal.ai",
+        env_var="FAL_API_KEY",
+        category=SecretCategory.LLM_API,
+        aws_bundle_key="FAL_API_KEY",
+        aws_individual_path="aragora/api/fal",
+        github_secret_name="FAL_API_KEY",
+        provider="fal",
+        dashboard_url="https://fal.ai/dashboard/keys",
+        validator=_validate_fal,
+        description="fal.ai API key for AI model inference (image/video/audio generation)",
         rotation_days=90,
     ),
     SecretDefinition(
