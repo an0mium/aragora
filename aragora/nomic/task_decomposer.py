@@ -216,7 +216,11 @@ class TaskDecomposer:
         # expansion to produce concrete subtasks from templates and track configs.
         # This handles abstract goals like "maximize utility for SMEs" that lack
         # file mentions and specific keywords but are still genuinely complex.
-        if complexity_score < self.config.complexity_threshold:
+        # Skip expansion for goals that are specific but just score low on
+        # complexity (e.g. "add retry logic to connectors" — actionable as-is).
+        if complexity_score < self.config.complexity_threshold and not self._is_specific_goal(
+            task_description
+        ):
             expanded = self._expand_vague_goal(task_description)
             if expanded is not None:
                 logger.info(

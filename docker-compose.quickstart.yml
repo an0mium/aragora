@@ -1,0 +1,59 @@
+# Aragora Quickstart - Zero Config
+#
+# Try aragora in under 5 minutes:
+#   docker compose -f docker-compose.quickstart.yml up
+#   open http://localhost:3000
+#
+# No API keys needed. Uses mock agents for instant debates.
+# Add ANTHROPIC_API_KEY to .env for real AI agents.
+
+services:
+  aragora:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aragora-api
+    ports:
+      - "8080:8080"
+      - "8765:8765"
+    environment:
+      # Offline mode: SQLite + mock agents, no external dependencies needed
+      - ARAGORA_OFFLINE=true
+      - ARAGORA_DEMO_MODE=true
+      - ARAGORA_DB_BACKEND=sqlite
+      - ARAGORA_ENV=development
+      - ARAGORA_BIND_HOST=0.0.0.0
+      - ARAGORA_ALLOWED_ORIGINS=*
+      - ARAGORA_LOG_LEVEL=INFO
+      # Optional: add real AI providers for live debates
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - aragora-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./aragora/live
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080
+        NEXT_PUBLIC_WS_URL: ws://localhost:8765/ws
+    container_name: aragora-dashboard
+    ports:
+      - "3000:3000"
+    depends_on:
+      aragora:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  aragora-data:
