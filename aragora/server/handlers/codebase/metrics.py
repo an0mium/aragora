@@ -381,7 +381,7 @@ async def handle_get_file_metrics(
             "analysis_id": latest.scan_id,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to get file metrics: {e}")
         return {
             "success": False,

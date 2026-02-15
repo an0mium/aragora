@@ -181,7 +181,7 @@ class GoogleOAuthMixin:
             logger.info("OAuth callback: looking up user by OAuth ID...")
             user = await _maybe_await(self._find_user_by_oauth(user_store, user_info))
             logger.info(f"OAuth callback: find_user_by_oauth returned {'user' if user else 'None'}")
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
             logger.error("OAuth callback: _find_user_by_oauth failed: %s", e, exc_info=True)
             error_name = type(e).__name__
             if error_name in ("InterfaceError", "ConnectionDoesNotExistError", "TimeoutError"):
@@ -203,7 +203,7 @@ class GoogleOAuthMixin:
                 logger.info(
                     f"OAuth callback: get_user_by_email returned {'user' if user else 'None'}"
                 )
-            except Exception as e:
+            except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
                 logger.error("OAuth callback: get_user_by_email failed: %s", e, exc_info=True)
                 return self._redirect_with_error(
                     "A database error occurred during login. Please try again."

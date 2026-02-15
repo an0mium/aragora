@@ -665,7 +665,7 @@ async def handle_delete_routing_rule(
                 "error": "Rule not found",
             }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
         logger.exception(f"Failed to delete routing rule: {e}")
         return {
             "success": False,

@@ -165,7 +165,7 @@ class PlanManagementHandler(BaseHandler):
                 return json_response(plan)
             else:
                 return json_response({"id": plan_id, "plan": str(plan)})
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("Get plan failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get plan", 500)
 

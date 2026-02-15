@@ -284,7 +284,7 @@ def _check_requirement(requirement: str) -> tuple[bool, str | None]:
 
     try:
         return check_func()
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, AttributeError, OSError) as e:
         logger.warning("Requirement check failed: %s", e)
         return False, "Check failed"
 
@@ -344,7 +344,7 @@ def _check_lean() -> tuple[bool, str | None]:
         return False, "Lean backend not available"
     except ImportError:
         return False, "Lean verification module not available"
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         return False, f"Lean initialization error: {e}"
 
 
