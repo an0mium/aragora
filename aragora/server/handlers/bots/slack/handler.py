@@ -158,7 +158,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
             # Fall back to specific permission
             return self._check_permission(team_id, user_id, permission_key, channel_id)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.debug("Admin check failed: %s", e)
             return self._check_permission(team_id, user_id, permission_key, channel_id)
 
@@ -387,7 +387,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
         except (ImportError, AttributeError, RuntimeError) as e:
             agent_count = 0
             error_msg = type(e).__name__
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, OSError) as e:
             logger.exception(f"Unexpected error getting status: {e}")
             agent_count = 0
             error_msg = "unexpected error"
@@ -449,7 +449,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
                     "text": "Error fetching agents. Please try again later.",
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, OSError) as e:
             logger.exception(f"Unexpected error getting agents: {e}")
             return json_response(
                 {

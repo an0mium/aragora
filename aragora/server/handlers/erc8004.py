@@ -386,7 +386,7 @@ async def handle_blockchain_sync(
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.error(f"Blockchain sync error: {e}")
         return error_response("Blockchain sync failed. Check server logs for details.")
 
@@ -413,7 +413,7 @@ async def handle_blockchain_health() -> HandlerResult:
         try:
             adapter = _get_adapter()
             adapter_status = adapter.get_health_status()
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
             logger.warning("ERC-8004 adapter health check error: %s", e)
             adapter_status = {"error": "Adapter unavailable. Check server logs for details."}
 
@@ -432,7 +432,7 @@ async def handle_blockchain_health() -> HandlerResult:
                 "Install with: pip install aragora[blockchain]",
             }
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError, AttributeError) as e:
         logger.warning("ERC-8004 health check error: %s", e)
         return json_response(
             {
@@ -511,7 +511,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
             try:
                 identity = contract.get_agent(token_id)
                 agents.append(_serialize_identity(identity))
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, LookupError, ValueError, RuntimeError) as e:
                 logger.debug(f"Could not fetch agent {token_id}: {e}")
 
         return json_response(
@@ -530,7 +530,7 @@ async def handle_list_agents(skip: int = 0, limit: int = 100) -> HandlerResult:
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.error(f"Error listing agents: {e}")
         return error_response("Listing error. Check server logs for details.", status=500)
 
@@ -615,7 +615,7 @@ async def handle_register_agent(
             "Install with: pip install aragora[blockchain]",
             status=501,
         )
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
         logger.error(f"Error registering agent: {e}")
         return error_response("Registration error. Check server logs for details.", status=500)
 

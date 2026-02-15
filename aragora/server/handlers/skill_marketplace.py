@@ -580,7 +580,7 @@ class SkillMarketplaceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error updating verification status: {e}")
             return error_response("Verification update failed", 500)
 
@@ -605,7 +605,7 @@ class SkillMarketplaceHandler(SecureHandler):
         except ImportError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Required module not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error listing installed skills: {e}")
             return error_response("Failed to list skills", 500)
 
@@ -621,6 +621,6 @@ class SkillMarketplaceHandler(SecureHandler):
 
         except ImportError:
             return error_response("Skill marketplace not available", 503)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error(f"Error getting stats: {e}")
             return error_response("Failed to retrieve statistics", 500)

@@ -416,6 +416,14 @@ class FeedbackLoop:
                     "original_agent": assignment.agent_type,
                 }
 
+        # CI failures -> adjust implementation
+        if error_type == "ci_failure":
+            return {
+                "action": "retry_implement",
+                "reason": "CI test failures require implementation adjustment",
+                "hints": error_info.get("ci_failures", []),
+            }
+
         # Test failures -> adjust implementation
         if error_type == "test_failure":
             return {
@@ -485,6 +493,11 @@ class AutonomousOrchestrator:
         curriculum_config: Any | None = None,
         branch_coordinator: Any | None = None,
         hierarchy: HierarchyConfig | None = None,
+        hierarchical_coordinator: Any | None = None,
+        enable_gauntlet_gate: bool = False,
+        use_decision_plan: bool = False,
+        enable_convoy_tracking: bool = False,
+        workspace_manager: Any | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -503,6 +516,15 @@ class AutonomousOrchestrator:
             curriculum_config: Optional curriculum configuration
             branch_coordinator: Optional BranchCoordinator for worktree isolation
             hierarchy: Optional Planner/Worker/Judge hierarchy configuration
+            hierarchical_coordinator: Optional HierarchicalCoordinator for
+                plan-execute-judge cycle delegation
+            enable_gauntlet_gate: Insert adversarial gauntlet step between
+                design and implement phases
+            use_decision_plan: Use DecisionPlanFactory to generate risk-aware
+                workflows from debate results (falls back to standard workflow)
+            enable_convoy_tracking: Track orchestration lifecycle with
+                Convoy/Bead persistence for crash recovery
+            workspace_manager: Optional WorkspaceManager for convoy/bead tracking
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
@@ -515,8 +537,13 @@ class AutonomousOrchestrator:
         self.max_parallel_tasks = max_parallel_tasks
         self.on_checkpoint = on_checkpoint
         self.use_debate_decomposition = use_debate_decomposition
+        self.enable_gauntlet_gate = enable_gauntlet_gate
+        self.use_decision_plan = use_decision_plan
+        self.enable_convoy_tracking = enable_convoy_tracking
+        self.workspace_manager = workspace_manager
 
         self.hierarchy = hierarchy or HierarchyConfig()
+        self.hierarchical_coordinator = hierarchical_coordinator
         self.router = AgentRouter(self.track_configs)
         self.feedback_loop = FeedbackLoop()
         if enable_curriculum:
@@ -531,10 +558,16 @@ class AutonomousOrchestrator:
             except Exception as e:
                 logger.debug("SOAR curriculum unavailable: %s" % e)
 
+        # Concurrency semaphore for parallel task execution
+        self._semaphore = asyncio.Semaphore(max_parallel_tasks)
+
         # State
         self._active_assignments: list[AgentAssignment] = []
         self._completed_assignments: list[AgentAssignment] = []
         self._orchestration_id: str | None = None
+        # Convoy/bead IDs for tracking (populated when convoy tracking enabled)
+        self._convoy_id: str | None = None
+        self._bead_ids: dict[str, str] = {}  # subtask_id -> bead_id
 
     async def execute_goal(
         self,
@@ -568,6 +601,13 @@ class AutonomousOrchestrator:
 
         self._checkpoint("started", {"goal": goal, "tracks": tracks})
 
+        # Delegate to HierarchicalCoordinator if provided
+        if self.hierarchical_coordinator is not None:
+            h_result = await self.hierarchical_coordinator.coordinate(
+                goal=goal, tracks=tracks, context=context,
+            )
+            return self._hierarchical_to_orchestration_result(h_result, goal, start_time)
+
         try:
             # Step 1: Decompose the goal
             decomposition = await self._decompose_goal(goal, tracks)
@@ -590,6 +630,10 @@ class AutonomousOrchestrator:
             assignments = self._create_assignments(decomposition, tracks)
             self._checkpoint("assigned", {"assignment_count": len(assignments)})
 
+            # Step 2b: Create convoy for tracking if enabled
+            if self.enable_convoy_tracking:
+                await self._create_convoy_for_goal(goal, assignments)
+
             # Step 3: Execute assignments
             await self._execute_assignments(assignments, max_cycles)
 
@@ -611,6 +655,10 @@ class AutonomousOrchestrator:
                 summary=self._generate_summary(assignments),
             )
 
+            # Step 4b: Complete convoy tracking
+            if self.enable_convoy_tracking and self._convoy_id:
+                await self._complete_convoy(failed == 0)
+
             self._checkpoint("completed", {"result": result.summary})
             logger.info(
                 "orchestration_completed",
@@ -629,6 +677,13 @@ class AutonomousOrchestrator:
                 orchestration_id=self._orchestration_id,
                 error=str(e),
             )
+
+            # Fail the convoy on exception
+            if self.enable_convoy_tracking and self._convoy_id:
+                try:
+                    await self._complete_convoy(success=False, error=str(e))
+                except Exception:
+                    logger.debug("Failed to update convoy on error")
 
             return OrchestrationResult(
                 goal=goal,
@@ -699,12 +754,20 @@ class AutonomousOrchestrator:
         assignments: list[AgentAssignment],
         max_cycles: int,
     ) -> None:
-        """Execute assignments with parallel coordination."""
+        """Execute assignments with parallel coordination.
+
+        When a BranchCoordinator is configured, creates isolated worktree
+        branches before execution and merges completed branches afterward.
+        """
+        # Create worktree branches for isolation if coordinator is available
+        if self.branch_coordinator is not None:
+            await self._create_branches_for_assignments(assignments)
+
         pending = list(assignments)
         running: list[asyncio.Task] = []
 
         while pending or running:
-            # Start new tasks up to max parallel
+            # Start new tasks up to max parallel (semaphore enforces limit)
             while pending and len(running) < self.max_parallel_tasks:
                 assignment = pending.pop(0)
 
@@ -728,7 +791,9 @@ class AutonomousOrchestrator:
                 assignment.started_at = datetime.now(timezone.utc)
                 self._active_assignments.append(assignment)
 
-                task = asyncio.create_task(self._execute_single_assignment(assignment, max_cycles))
+                task = asyncio.create_task(
+                    self._execute_with_semaphore(assignment, max_cycles)
+                )
                 running.append(task)
 
             if not running:
@@ -748,6 +813,19 @@ class AutonomousOrchestrator:
                 except Exception as e:
                     logger.exception(f"Task failed: {e}")
 
+        # Merge completed branches and cleanup worktrees
+        if self.branch_coordinator is not None:
+            await self._merge_and_cleanup(assignments)
+
+    async def _execute_with_semaphore(
+        self,
+        assignment: AgentAssignment,
+        max_cycles: int,
+    ) -> None:
+        """Acquire the concurrency semaphore then execute the assignment."""
+        async with self._semaphore:
+            await self._execute_single_assignment(assignment, max_cycles)
+
     async def _execute_single_assignment(
         self,
         assignment: AgentAssignment,
@@ -762,6 +840,9 @@ class AutonomousOrchestrator:
             track=assignment.track.value,
             agent=assignment.agent_type,
         )
+
+        # Update bead status to RUNNING
+        await self._update_bead_status(subtask.id, "running")
 
         try:
             # Build workflow for this subtask
@@ -781,6 +862,7 @@ class AutonomousOrchestrator:
             if result.success:
                 assignment.status = "completed"
                 assignment.result = {"workflow_result": result.final_output}
+                await self._update_bead_status(subtask.id, "done")
             else:
                 # Handle failure with feedback loop
                 feedback = self.feedback_loop.analyze_failure(
@@ -793,6 +875,9 @@ class AutonomousOrchestrator:
                 if feedback["action"] == "escalate":
                     assignment.status = "failed"
                     assignment.result = {"error": result.error, "feedback": feedback}
+                    await self._update_bead_status(
+                        subtask.id, "failed", error=result.error
+                    )
                 elif feedback["action"] == "reassign_agent":
                     # Anti-fragile: try a different agent type
                     alt_agent = self._select_alternative_agent(assignment)
@@ -809,6 +894,7 @@ class AutonomousOrchestrator:
                         await self._execute_single_assignment(assignment, max_cycles)
                     else:
                         assignment.status = "failed"
+                        await self._update_bead_status(subtask.id, "failed")
                 else:
                     # Retry based on feedback
                     assignment.attempt_count += 1
@@ -816,6 +902,7 @@ class AutonomousOrchestrator:
                         await self._execute_single_assignment(assignment, max_cycles)
                     else:
                         assignment.status = "failed"
+                        await self._update_bead_status(subtask.id, "failed")
 
         except Exception as e:
             logger.exception(
@@ -825,6 +912,7 @@ class AutonomousOrchestrator:
             )
             assignment.status = "failed"
             assignment.result = {"error": str(e)}
+            await self._update_bead_status(subtask.id, "failed", error=str(e))
 
         finally:
             assignment.completed_at = datetime.now(timezone.utc)
@@ -902,13 +990,33 @@ class AutonomousOrchestrator:
         # Create workflow with phases aligned to nomic loop gold path
         #
         # With hierarchy enabled, the workflow becomes:
-        #   design (planner) -> plan_approval (judge) -> implement (worker)
+        #   design (planner) -> plan_approval (judge) -> [gauntlet] -> implement (worker)
         #   -> verify -> judge_review (judge)
         #
-        # Without hierarchy, the workflow is the standard:
+        # With gauntlet gate enabled (no hierarchy):
+        #   design -> gauntlet -> implement -> verify
+        #
+        # Without either:
         #   design -> implement -> verify
 
         hierarchy_enabled = self.hierarchy.enabled
+
+        # Determine the step that follows design (before implement)
+        # Priority: plan_approval (hierarchy) > gauntlet > implement
+        if hierarchy_enabled:
+            design_next = ["plan_approval"]
+        elif self.enable_gauntlet_gate:
+            design_next = ["gauntlet"]
+        else:
+            design_next = ["implement"]
+
+        # The step that feeds into implement
+        if self.enable_gauntlet_gate and hierarchy_enabled:
+            plan_approval_next = ["gauntlet"]
+        elif hierarchy_enabled:
+            plan_approval_next = ["implement"]
+        else:
+            plan_approval_next = ["implement"]
 
         # Override agent types when hierarchy is active
         design_agent = self.hierarchy.planner_agent if hierarchy_enabled else assignment.agent_type
@@ -931,7 +1039,7 @@ class AutonomousOrchestrator:
                     "prompt_template": "design",
                     "task": subtask.description,
                 },
-                next_steps=["plan_approval"] if hierarchy_enabled else ["implement"],
+                next_steps=design_next,
             ),
         ]
 
@@ -955,6 +1063,35 @@ class AutonomousOrchestrator:
                         "gate": True,
                         "blocking": self.hierarchy.plan_gate_blocking,
                         "max_revisions": self.hierarchy.max_plan_revisions,
+                    },
+                    next_steps=plan_approval_next,
+                )
+            )
+
+        # Insert gauntlet adversarial validation step between design and implement
+        if self.enable_gauntlet_gate:
+            # Use stricter threshold for high-complexity subtasks
+            severity_threshold = (
+                "medium" if subtask.estimated_complexity == "high" else "high"
+            )
+            steps.append(
+                StepDefinition(
+                    id="gauntlet",
+                    name="Adversarial Validation",
+                    step_type="gauntlet",
+                    config={
+                        "input_key": "content",
+                        "severity_threshold": severity_threshold,
+                        "require_passing": True,
+                        "attack_categories": [
+                            "prompt_injection",
+                            "hallucination",
+                            "safety",
+                        ],
+                        "probe_categories": [
+                            "reasoning",
+                            "consistency",
+                        ],
                     },
                     next_steps=["implement"],
                 )
@@ -1070,6 +1207,361 @@ class AutonomousOrchestrator:
                 lines.append(f"  {task}")
 
         return "\n".join(lines)
+
+    # =========================================================================
+    # Branch coordination helpers
+    # =========================================================================
+
+    async def _create_branches_for_assignments(
+        self,
+        assignments: list[AgentAssignment],
+    ) -> None:
+        """Create worktree branches for each unique track in the assignments.
+
+        Groups assignments by track and creates one branch per track so
+        multiple assignments targeting the same track share a worktree.
+        """
+        if self.branch_coordinator is None:
+            return
+
+        from aragora.nomic.meta_planner import PrioritizedGoal
+        from aragora.nomic.meta_planner import Track as MetaTrack
+
+        seen_tracks: set[str] = set()
+        for assignment in assignments:
+            track_value = assignment.track.value
+            if track_value in seen_tracks:
+                continue
+            seen_tracks.add(track_value)
+
+            # Map orchestrator Track to meta_planner Track
+            try:
+                meta_track = MetaTrack(track_value)
+            except ValueError:
+                meta_track = MetaTrack.DEVELOPER
+
+            await self.branch_coordinator.create_track_branch(
+                track=meta_track,
+                goal=assignment.subtask.description[:60],
+            )
+            logger.info(
+                "worktree_created",
+                track=track_value,
+                subtask_id=assignment.subtask.id,
+            )
+
+    async def _merge_and_cleanup(
+        self,
+        assignments: list[AgentAssignment],
+    ) -> None:
+        """Merge completed branches back to base and cleanup worktrees."""
+        if self.branch_coordinator is None:
+            return
+
+        completed_tracks: set[str] = set()
+        failed_tracks: set[str] = set()
+        for assignment in assignments:
+            if assignment.status == "completed":
+                completed_tracks.add(assignment.track.value)
+            elif assignment.status == "failed":
+                failed_tracks.add(assignment.track.value)
+
+        # Merge branches where all assignments in the track completed
+        for branch, wt_path in dict(
+            getattr(self.branch_coordinator, "_worktree_paths", {})
+        ).items():
+            # Check if any track in this branch completed and none failed
+            track_value = None
+            for t in completed_tracks:
+                if t in branch:
+                    track_value = t
+                    break
+
+            if track_value and track_value not in failed_tracks:
+                merge_result = await self.branch_coordinator.safe_merge(branch)
+                if merge_result.success:
+                    logger.info(
+                        "branch_merged",
+                        branch=branch,
+                        commit_sha=merge_result.commit_sha,
+                    )
+                else:
+                    logger.warning(
+                        "branch_merge_failed",
+                        branch=branch,
+                        error=merge_result.error,
+                    )
+
+        # Cleanup all worktrees
+        if hasattr(self.branch_coordinator, "cleanup_all_worktrees"):
+            removed = self.branch_coordinator.cleanup_all_worktrees()
+        elif hasattr(self.branch_coordinator, "cleanup_worktrees"):
+            removed = self.branch_coordinator.cleanup_worktrees()
+        else:
+            removed = 0
+        if removed:
+            logger.info("worktrees_cleaned", count=removed)
+
+    # =========================================================================
+    # DecisionPlan integration
+    # =========================================================================
+
+    def _build_workflow_from_plan(
+        self,
+        assignment: AgentAssignment,
+        debate_result: Any,
+    ) -> WorkflowDefinition | None:
+        """Build a risk-aware workflow using DecisionPlanFactory.
+
+        When ``use_decision_plan`` is enabled and a debate result is available,
+        creates a DecisionPlan which includes risk assessment, verification
+        plan, and approval routing based on risk level.
+
+        Returns None if the factory is unavailable or the debate result is
+        missing, in which case the caller should fall back to
+        ``_build_subtask_workflow``.
+        """
+        if not self.use_decision_plan or debate_result is None:
+            return None
+
+        try:
+            from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
+            from aragora.pipeline.decision_plan.core import ApprovalMode
+
+            plan = DecisionPlanFactory.from_debate_result(
+                debate_result,
+                approval_mode=ApprovalMode.RISK_BASED,
+                repo_path=self.aragora_path,
+            )
+
+            # Convert the plan's implement tasks to workflow steps
+            steps: list[StepDefinition] = []
+            if plan.implement_plan and plan.implement_plan.tasks:
+                for i, task in enumerate(plan.implement_plan.tasks):
+                    step_id = f"plan_task_{task.id}"
+                    next_id = (
+                        f"plan_task_{plan.implement_plan.tasks[i + 1].id}"
+                        if i + 1 < len(plan.implement_plan.tasks)
+                        else "verify"
+                    )
+                    steps.append(
+                        StepDefinition(
+                            id=step_id,
+                            name=f"Implement: {task.description[:50]}",
+                            step_type="implementation",
+                            config={
+                                "task_id": task.id,
+                                "description": task.description,
+                                "files": task.files,
+                                "complexity": task.complexity,
+                                "repo_path": str(self.aragora_path),
+                                "agent_type": assignment.agent_type,
+                            },
+                            next_steps=[next_id],
+                        )
+                    )
+
+            # Add verification step
+            test_paths = self._infer_test_paths(assignment.subtask.file_scope)
+            steps.append(
+                StepDefinition(
+                    id="verify",
+                    name="Verify Changes",
+                    step_type="verification",
+                    config={
+                        "run_tests": True,
+                        "test_paths": test_paths,
+                    },
+                    next_steps=[],
+                ),
+            )
+
+            # Add approval gate if plan requires human approval
+            if plan.requires_human_approval:
+                # Insert approval step before implementation
+                approval_step = StepDefinition(
+                    id="risk_approval",
+                    name="Risk-Based Approval Gate",
+                    step_type="agent",
+                    config={
+                        "agent_type": "claude",
+                        "prompt_template": "review",
+                        "task": (
+                            f"Risk review for: {assignment.subtask.description}\n"
+                            f"Risk level: {plan.risk_register.max_risk_level if plan.risk_register else 'unknown'}\n"
+                            "Review and approve/reject."
+                        ),
+                        "gate": True,
+                        "blocking": True,
+                    },
+                    next_steps=[steps[0].id] if steps else [],
+                )
+                steps.insert(0, approval_step)
+
+            entry = steps[0].id if steps else "verify"
+            return WorkflowDefinition(
+                id=f"plan_{assignment.subtask.id}",
+                name=f"DecisionPlan: {assignment.subtask.title}",
+                description=assignment.subtask.description,
+                steps=steps,
+                entry_step=entry,
+            )
+
+        except ImportError:
+            logger.debug("DecisionPlanFactory not available, using standard workflow")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to build DecisionPlan workflow: {e}")
+            return None
+
+    # =========================================================================
+    # Convoy/Bead tracking helpers
+    # =========================================================================
+
+    async def _create_convoy_for_goal(
+        self,
+        goal: str,
+        assignments: list[AgentAssignment],
+    ) -> None:
+        """Create a convoy and beads for tracking the orchestration lifecycle."""
+        if not self.enable_convoy_tracking or self.workspace_manager is None:
+            return
+
+        try:
+            # Create a rig for this orchestration
+            rig = await self.workspace_manager.create_rig(
+                name=f"orch-{self._orchestration_id}",
+            )
+
+            # Create bead specs from assignments
+            bead_specs = [
+                {
+                    "title": a.subtask.title,
+                    "description": a.subtask.description,
+                    "payload": {
+                        "subtask_id": a.subtask.id,
+                        "track": a.track.value,
+                        "agent_type": a.agent_type,
+                    },
+                }
+                for a in assignments
+            ]
+
+            convoy = await self.workspace_manager.create_convoy(
+                rig_id=rig.rig_id,
+                name=f"Goal: {goal[:50]}",
+                description=goal,
+                bead_specs=bead_specs,
+            )
+
+            self._convoy_id = convoy.convoy_id
+            await self.workspace_manager.start_convoy(convoy.convoy_id)
+
+            # Map subtask IDs to bead IDs for status updates
+            beads = await self.workspace_manager._bead_manager.list_beads(
+                convoy_id=convoy.convoy_id,
+            )
+            for bead in beads:
+                subtask_id = bead.payload.get("subtask_id", "")
+                if subtask_id:
+                    self._bead_ids[subtask_id] = bead.bead_id
+
+            logger.info(
+                "convoy_created",
+                convoy_id=convoy.convoy_id,
+                bead_count=len(beads),
+            )
+
+        except Exception as e:
+            logger.warning("Failed to create convoy: %s", e)
+
+    async def _update_bead_status(
+        self,
+        subtask_id: str,
+        status: str,
+        error: str | None = None,
+    ) -> None:
+        """Update bead status for a subtask."""
+        if not self.enable_convoy_tracking or self.workspace_manager is None:
+            return
+
+        bead_id = self._bead_ids.get(subtask_id)
+        if not bead_id:
+            return
+
+        try:
+            if status == "running":
+                await self.workspace_manager._bead_manager.start_bead(bead_id)
+            elif status == "done":
+                await self.workspace_manager.complete_bead(bead_id)
+            elif status == "failed":
+                await self.workspace_manager.fail_bead(bead_id, error or "Unknown error")
+        except Exception as e:
+            logger.debug("Failed to update bead %s: %s", bead_id, e)
+
+    async def _complete_convoy(
+        self,
+        success: bool,
+        error: str | None = None,
+    ) -> None:
+        """Mark the convoy as completed or failed."""
+        if not self.enable_convoy_tracking or self.workspace_manager is None:
+            return
+        if not self._convoy_id:
+            return
+
+        try:
+            if success:
+                await self.workspace_manager.complete_convoy(self._convoy_id)
+            else:
+                tracker = self.workspace_manager._convoy_tracker
+                await tracker.fail_convoy(self._convoy_id, error or "Orchestration failed")
+        except Exception as e:
+            logger.debug("Failed to complete convoy: %s", e)
+
+    def _hierarchical_to_orchestration_result(
+        self,
+        h_result: Any,
+        goal: str,
+        start_time: datetime,
+    ) -> OrchestrationResult:
+        """Convert HierarchicalResult to OrchestrationResult for backward compat."""
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+        # Convert worker reports to AgentAssignments
+        assignments: list[AgentAssignment] = []
+        for report in h_result.worker_reports:
+            subtask = SubTask(
+                id=report.assignment_id,
+                title=report.subtask_title,
+                description="",
+            )
+            assignment = AgentAssignment(
+                subtask=subtask,
+                track=Track.DEVELOPER,
+                agent_type=self.config.judge_agent
+                if hasattr(self, "config") and hasattr(self.config, "judge_agent")
+                else "claude",
+                status="completed" if report.success else "failed",
+                result=report.output,
+            )
+            assignments.append(assignment)
+
+        completed = sum(1 for r in h_result.worker_reports if r.success)
+        failed = sum(1 for r in h_result.worker_reports if not r.success)
+
+        return OrchestrationResult(
+            goal=goal,
+            total_subtasks=len(h_result.worker_reports),
+            completed_subtasks=completed,
+            failed_subtasks=failed,
+            skipped_subtasks=0,
+            assignments=assignments,
+            duration_seconds=duration,
+            success=h_result.success,
+            summary=f"Hierarchical coordination: {completed}/{len(h_result.worker_reports)} tasks completed "
+            f"in {h_result.cycles_used} cycles",
+        )
 
     # =========================================================================
     # Convenience Methods

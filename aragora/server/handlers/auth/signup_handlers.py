@@ -62,7 +62,7 @@ def _check_permission(
             logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
             return error_response(f"Permission denied: {decision.reason}", status=403)
         return None
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
         logger.error(f"RBAC check failed: {e}")
         return error_response("Authorization check failed", status=500)
 
@@ -266,7 +266,7 @@ async def handle_signup(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, ImportError, OSError) as e:
         logger.exception("Signup failed")
         return error_response(f"Signup failed: {safe_error_message(e, 'signup')}", status=500)
 
@@ -339,7 +339,7 @@ async def handle_verify_email(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, ImportError) as e:
         logger.exception("Email verification failed")
         return error_response(
             f"Email verification failed: {safe_error_message(e, 'email verification')}",
@@ -392,7 +392,7 @@ async def handle_resend_verification(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Resend verification failed")
         return error_response(safe_error_message(e, "resend verification"), status=500)
 
@@ -479,7 +479,7 @@ async def handle_setup_organization(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Organization setup failed")
         return error_response(
             f"Organization setup failed: {safe_error_message(e, 'org setup')}",
@@ -586,7 +586,7 @@ async def handle_invite(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Invite failed")
         return error_response(
             f"Invite failed: {safe_error_message(e, 'invite')}",
@@ -630,7 +630,7 @@ async def handle_check_invite(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Check invite failed")
         return error_response(safe_error_message(e, "invite check"), status=500)
 
@@ -698,7 +698,7 @@ async def handle_accept_invite(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Accept invite failed")
         return error_response(safe_error_message(e, "accept invite"), status=500)
 
@@ -753,7 +753,7 @@ async def handle_onboarding_complete(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Onboarding completion failed")
         return error_response(safe_error_message(e, "onboarding completion"), status=500)
 
@@ -807,7 +807,7 @@ async def handle_onboarding_status(
             }
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:
         logger.exception("Onboarding status check failed")
         return error_response(safe_error_message(e, "status check"), status=500)
 

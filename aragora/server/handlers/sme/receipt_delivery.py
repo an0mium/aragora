@@ -271,7 +271,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                         created_by=db_user.id,
                     )
                     created_subscriptions.append(subscription.to_dict())
-                except Exception as e:
+                except (KeyError, ValueError, OSError) as e:
                     logger.warning("Subscription creation failed for %s/%s: %s", channel_type, channel_id, e)
                     errors.append(
                         {
@@ -447,7 +447,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.exception(f"Test delivery failed: {e}")
 
             # Record failure in history
@@ -546,7 +546,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                 "message_id": result.timestamp,
                 "channel": result.channel_id,
             }
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("%s receipt delivery failed: %s", "Slack", e)
             return {"success": False, "error": "Internal server error"}
 
@@ -596,7 +596,7 @@ class ReceiptDeliveryHandler(SecureHandler):
 
             result = asyncio.run(send())
             return {"success": True, "message_id": result.message_id}
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.warning("%s receipt delivery failed: %s", "Teams", e)
             return {"success": False, "error": "Internal server error"}
 
@@ -625,7 +625,7 @@ class ReceiptDeliveryHandler(SecureHandler):
                 server.send_message(msg)
 
             return {"success": True, "email_sent_to": email_address}
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning("%s receipt delivery failed: %s", "Email", e)
             return {"success": False, "error": "Internal server error"}
 

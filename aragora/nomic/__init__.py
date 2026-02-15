@@ -102,6 +102,19 @@ from aragora.nomic.autonomous_orchestrator import (
     reset_orchestrator,
 )
 
+# Parallel orchestration (production-grade multi-agent execution)
+from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
+
+# Hierarchical coordination (Planner/Worker/Judge cycle)
+from aragora.nomic.hierarchical_coordinator import (
+    CoordinationPhase,
+    CoordinatorConfig,
+    HierarchicalCoordinator,
+    HierarchicalResult,
+    JudgeVerdict,
+    WorkerReport,
+)
+
 # Meta-planning (debate-driven goal prioritization)
 from aragora.nomic.meta_planner import (
     MetaPlanner,
@@ -118,6 +131,7 @@ from aragora.nomic.branch_coordinator import (
     CoordinationResult,
     MergeResult,
     TrackAssignment,
+    WorktreeInfo,
 )
 
 # Legacy NomicLoop API (compatibility)
@@ -416,6 +430,7 @@ __all__ = [
     # Autonomous orchestration
     "HardenedOrchestrator",
     "AutonomousOrchestrator",
+    "ParallelOrchestrator",
     "AgentRouter",
     "FeedbackLoop",
     "Track",
@@ -424,6 +439,13 @@ __all__ = [
     "OrchestrationResult",
     "get_orchestrator",
     "reset_orchestrator",
+    # Hierarchical coordination
+    "HierarchicalCoordinator",
+    "CoordinatorConfig",
+    "CoordinationPhase",
+    "HierarchicalResult",
+    "JudgeVerdict",
+    "WorkerReport",
     # Meta-planning
     "MetaPlanner",
     "MetaPlannerConfig",
@@ -433,6 +455,7 @@ __all__ = [
     "BranchCoordinator",
     "BranchCoordinatorConfig",
     "TrackAssignment",
+    "WorktreeInfo",
     "ConflictReport",
     "MergeResult",
     "CoordinationResult",

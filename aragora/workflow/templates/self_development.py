@@ -361,6 +361,7 @@ def _register_self_dev_handlers():
                         "branch_name": a.branch_name,
                         "track": a.goal.track.value,
                         "goal": a.goal.description,
+                        "worktree_path": str(a.worktree_path) if a.worktree_path else None,
                     }
                     for a in assignments
                 ],
@@ -377,13 +378,17 @@ def _register_self_dev_handlers():
             coordinator = BranchCoordinator()
             merged = []
             failed = []
+            use_worktrees = coordinator.config.use_worktrees
 
             for branch_info in branches_data:
                 branch_name = branch_info.get("branch_name")
                 if not branch_name:
                     continue
 
-                result = await coordinator.safe_merge(branch_name)
+                if use_worktrees and branch_info.get("worktree_path"):
+                    result = await coordinator.merge_worktree_back(branch_name)
+                else:
+                    result = await coordinator.safe_merge(branch_name)
                 if result.success:
                     merged.append(branch_name)
                 else:
@@ -395,8 +400,9 @@ def _register_self_dev_handlers():
                         }
                     )
 
-            # Cleanup merged branches
-            coordinator.cleanup_branches(merged)
+            # Cleanup merged branches (worktree cleanup already handled by merge_worktree_back)
+            if not use_worktrees:
+                coordinator.cleanup_branches(merged)
 
             return {
                 "merged": merged,

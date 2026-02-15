@@ -151,7 +151,7 @@ def _get_sso_provider(provider_type: str = "oidc"):
 
             return None
 
-        except Exception as e:
+        except (ImportError, ConnectionError, ValueError, TypeError) as e:
             logger.warning(f"Failed to initialize SSO provider {provider_type}: {e}")
             return None
 
@@ -218,7 +218,7 @@ async def handle_sso_login(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError, OSError) as e:
         logger.exception("SSO login initiation failed")
         return error_response(safe_error_message(e, "SSO login"), status=500)
 

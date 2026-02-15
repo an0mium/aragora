@@ -1375,7 +1375,7 @@ class ReceiptsHandler(BaseHandler):
                     store.store_signature(receipt_id, signature, algorithm)
                     results.append({"receipt_id": receipt_id, "status": "signed"})
                     signed_count += 1
-                except Exception as e:
+                except (ValueError, TypeError, OSError) as e:
                     logger.warning("Failed to sign receipt %s: %s", receipt_id, e)
                     results.append({"receipt_id": receipt_id, "status": "error", "error": "Signing failed"})
                     failed_count += 1
@@ -1465,7 +1465,7 @@ class ReceiptsHandler(BaseHandler):
                     zip_file.writestr(filename, content)
                     exported_count += 1
 
-                except Exception as e:
+                except (ImportError, KeyError, ValueError, TypeError, OSError) as e:
                     logger.warning(f"Failed to export receipt {receipt_id}: {e}")
                     failed_ids.append(receipt_id)
 

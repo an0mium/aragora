@@ -35,6 +35,17 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class WorktreeInfo:
+    """Metadata for a managed git worktree."""
+
+    branch_name: str
+    worktree_path: Path
+    track: str | None = None
+    created_at: datetime | None = None
+    assignment_id: str | None = None
+
+
+@dataclass
 class TrackAssignment:
     """Assignment of a goal to a track for parallel execution."""
 
@@ -96,6 +107,7 @@ class BranchCoordinatorConfig:
     max_parallel_branches: int = 3
     worktree_base_dir: Path | None = None  # Default: {repo}/.worktrees/
     use_worktrees: bool = True  # Use git worktree for isolation
+    enable_semantic_conflicts: bool = False  # Enable AST-based semantic conflict detection
 
 
 class BranchCoordinator:
@@ -110,6 +122,7 @@ class BranchCoordinator:
         repo_path: Path | None = None,
         config: BranchCoordinatorConfig | None = None,
         on_conflict: Callable[[ConflictReport], None] | None = None,
+        semantic_conflict_detector: Any | None = None,
     ):
         self.repo_path = repo_path or Path.cwd()
         self.config = config or BranchCoordinatorConfig()
@@ -120,6 +133,24 @@ class BranchCoordinator:
         )
         # Map branch name -> worktree path
         self._worktree_paths: dict[str, Path] = {}
+        # Map branch name -> WorktreeInfo metadata
+        self._active_worktrees: dict[str, WorktreeInfo] = {}
+        # Semantic conflict detection (AST-based)
+        self.semantic_conflict_detector = semantic_conflict_detector
+        if self.config.enable_semantic_conflicts and semantic_conflict_detector is None:
+            try:
+                from aragora.nomic.semantic_conflict_detector import SemanticConflictDetector
+                self.semantic_conflict_detector = SemanticConflictDetector(self.repo_path)
+            except ImportError:
+                logger.debug("SemanticConflictDetector not available")
+
+    async def __aenter__(self) -> BranchCoordinator:
+        """Enter async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: Any) -> None:
+        """Exit async context manager, cleaning up all worktrees."""
+        self.cleanup_all_worktrees()
 
     def _run_git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
         """Run a git command."""
@@ -127,6 +158,19 @@ class BranchCoordinator:
         return subprocess.run(
             cmd,
             cwd=self.repo_path,
+            capture_output=True,
+            text=True,
+            check=check,
+        )
+
+    def _worktree_git(
+        self, worktree_path: Path, *args: str, check: bool = True,
+    ) -> subprocess.CompletedProcess:
+        """Run a git command in a worktree directory."""
+        cmd = ["git"] + list(args)
+        return subprocess.run(
+            cmd,
+            cwd=worktree_path,
             capture_output=True,
             text=True,
             check=check,
@@ -157,6 +201,95 @@ class BranchCoordinator:
             Path to the worktree directory, or None if not using worktrees
         """
         return self._worktree_paths.get(branch_name)
+
+    def list_worktrees(self) -> list[WorktreeInfo]:
+        """List all git worktrees with metadata.
+
+        Parses ``git worktree list --porcelain`` and cross-references with
+        tracked worktrees for enriched metadata.
+
+        Returns:
+            List of WorktreeInfo objects for each worktree.
+        """
+        result = self._run_git("worktree", "list", "--porcelain", check=False)
+        if result.returncode != 0:
+            return []
+
+        worktrees: list[WorktreeInfo] = []
+        current_path: Path | None = None
+        current_branch: str | None = None
+
+        for line in result.stdout.split("\n"):
+            line = line.strip()
+            if line.startswith("worktree "):
+                current_path = Path(line[len("worktree "):])
+                current_branch = None
+            elif line.startswith("branch refs/heads/"):
+                current_branch = line[len("branch refs/heads/"):]
+            elif line == "" and current_path is not None and current_branch is not None:
+                tracked = self._active_worktrees.get(current_branch)
+                if tracked:
+                    worktrees.append(tracked)
+                else:
+                    worktrees.append(
+                        WorktreeInfo(
+                            branch_name=current_branch,
+                            worktree_path=current_path,
+                        )
+                    )
+                current_path = None
+                current_branch = None
+
+        # Handle last entry if output doesn't end with blank line
+        if current_path is not None and current_branch is not None:
+            tracked = self._active_worktrees.get(current_branch)
+            if tracked:
+                worktrees.append(tracked)
+            else:
+                worktrees.append(
+                    WorktreeInfo(
+                        branch_name=current_branch,
+                        worktree_path=current_path,
+                    )
+                )
+
+        return worktrees
+
+    async def merge_worktree_back(
+        self,
+        branch: str,
+        target: str | None = None,
+        cleanup: bool = True,
+    ) -> MergeResult:
+        """Merge a worktree branch back to target and optionally clean up.
+
+        Args:
+            branch: Branch name to merge.
+            target: Target branch (default: base_branch from config).
+            cleanup: If True, remove the worktree after successful merge.
+
+        Returns:
+            MergeResult with merge status.
+        """
+        merge_result = await self.safe_merge(branch, target)
+        if merge_result.success and cleanup:
+            self._remove_worktree(branch)
+            self._active_worktrees.pop(branch, None)
+        return merge_result
+
+    def cleanup_all_worktrees(self) -> int:
+        """Remove all tracked worktrees and prune stale entries.
+
+        Returns:
+            Number of worktrees removed.
+        """
+        removed = 0
+        for branch in list(self._worktree_paths):
+            self._remove_worktree(branch)
+            removed += 1
+        self._active_worktrees.clear()
+        self._run_git("worktree", "prune", check=False)
+        return removed
 
     async def create_track_branch(
         self,
@@ -220,6 +353,11 @@ class BranchCoordinator:
 
         self._active_branches.append(branch_name)
         self._worktree_paths[branch_name] = worktree_path
+        self._active_worktrees[branch_name] = WorktreeInfo(
+            branch_name=branch_name,
+            worktree_path=worktree_path,
+            created_at=datetime.now(timezone.utc),
+        )
         return branch_name
 
     async def _create_checkout_branch(self, branch_name: str, base: str) -> str:
@@ -461,6 +599,24 @@ class BranchCoordinator:
             if self.on_conflict:
                 self.on_conflict(conflict)
 
+        # Semantic conflict detection (AST-based)
+        if self.semantic_conflict_detector and branches:
+            try:
+                semantic_conflicts = self.semantic_conflict_detector.detect(
+                    branches, self.config.base_branch,
+                )
+                for sc in semantic_conflicts:
+                    if sc.confidence > 0.7:
+                        logger.warning(
+                            "semantic_conflict type=%s confidence=%.2f files=%s: %s",
+                            sc.conflict_type.value,
+                            sc.confidence,
+                            sc.affected_files,
+                            sc.description[:100],
+                        )
+            except Exception as e:
+                logger.debug("Semantic conflict detection failed: %s", e)
+
         # Run nomic loops in parallel
         if run_nomic_fn:
             tasks = []
@@ -469,7 +625,12 @@ class BranchCoordinator:
                     task = asyncio.create_task(self._run_assignment(assignment, run_nomic_fn))
                     tasks.append(task)
 
-            await asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            except BaseException:
+                # Clean up worktrees to prevent orphans on unexpected failure
+                self.cleanup_all_worktrees()
+                raise
 
         # Attempt to merge completed branches
         merged_count = 0
@@ -632,6 +793,7 @@ class BranchCoordinator:
     def _remove_worktree(self, branch_name: str) -> None:
         """Remove a git worktree for a branch if it exists."""
         worktree_path = self._worktree_paths.pop(branch_name, None)
+        self._active_worktrees.pop(branch_name, None)
         if worktree_path and worktree_path.exists():
             self._run_git("worktree", "remove", str(worktree_path), check=False)
             logger.info(f"Removed worktree: {worktree_path}")
@@ -648,6 +810,7 @@ __all__ = [
     "BranchCoordinator",
     "BranchCoordinatorConfig",
     "TrackAssignment",
+    "WorktreeInfo",
     "ConflictReport",
     "MergeResult",
     "CoordinationResult",

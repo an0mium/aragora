@@ -1,0 +1,42 @@
+name: Nomic Branch CI
+
+on:
+  push:
+    branches: ['dev/**']
+
+concurrency:
+  group: nomic-ci-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  targeted-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for diff
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev,test]"
+          pip install pytest-timeout
+      - name: Determine changed files
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- '*.py' | tr '\n' ' ')
+          echo "files=$CHANGED" >> $GITHUB_OUTPUT
+      - name: Run targeted tests
+        run: |
+          python scripts/nomic_ci_test_selector.py \
+            --changed-files ${{ steps.changes.outputs.files }} \
+            --run
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nomic-ci-results-${{ github.sha }}
+          path: .nomic-ci-result.json
+          retention-days: 7

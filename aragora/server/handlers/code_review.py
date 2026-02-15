@@ -168,7 +168,7 @@ async def handle_review_code(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         # Record failure for circuit breaker
         cb.record_failure()
         logger.exception("Error reviewing code")
@@ -227,7 +227,7 @@ async def handle_review_diff(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         # Record failure for circuit breaker
         cb.record_failure()
         logger.exception("Error reviewing diff")
@@ -289,7 +289,7 @@ async def handle_review_pr(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         # Record failure for circuit breaker
         cb.record_failure()
         logger.exception(f"Error reviewing PR: {data.get('pr_url')}")
@@ -316,7 +316,7 @@ async def handle_get_review_result(
 
         return success_response({"result": result})
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception(f"Error getting review result {result_id}")
         return error_response("Failed to retrieve result", status=500)
 
@@ -357,7 +357,7 @@ async def handle_get_review_history(
             }
         )
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError) as e:
         logger.exception("Error getting review history")
         return error_response("Failed to retrieve history", status=500)
 
@@ -410,7 +410,7 @@ async def handle_quick_security_scan(
             }
         )
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
         logger.exception("Error in security scan")
         return error_response("Code scan failed", status=500)
 

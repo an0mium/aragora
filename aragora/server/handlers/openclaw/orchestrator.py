@@ -101,7 +101,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid parameter", 400)
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, OSError) as e:
             logger.error("Error listing sessions: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -127,7 +127,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                 return error_response("Access denied", 403)
 
             return json_response(session.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error getting session %s: %s", session_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -172,7 +172,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
             logger.info("Created session %s for user %s", session.id, user_id)
             return json_response(session.to_dict(), status=201)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error creating session: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -212,7 +212,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
             logger.info("Closed session %s", session_id)
             return json_response({"closed": True, "session_id": session_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error closing session %s: %s", session_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -252,7 +252,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
             logger.info("Ended session %s", session_id)
             return json_response({"success": True, "session_id": session_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error ending session %s: %s", session_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -284,7 +284,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                     return error_response("Access denied", 403)
 
             return json_response(action.to_dict())
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error getting action %s: %s", action_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -376,7 +376,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
             )
             return json_response(action.to_dict(), status=202)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error executing action: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -423,7 +423,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
             logger.info("Cancelled action %s", action_id)
             return json_response({"cancelled": True, "action_id": action_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Error cancelling action %s: %s", action_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 

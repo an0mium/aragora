@@ -340,7 +340,7 @@ class SSOHandler(SecureHandler):
                 handler,
                 error_response(safe_error_message(e, "SSO login"), 400, code="SSO_INVALID_REQUEST"),
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected SSO login error: {e}")
             return self._format_response(
                 handler,
@@ -521,7 +521,7 @@ class SSOHandler(SecureHandler):
                     safe_error_message(e, "authentication"), 400, code="SSO_INVALID_DATA"
                 ),
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, ImportError, AttributeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected SSO callback error: {e}")
 
             # Handle specific errors
@@ -638,7 +638,7 @@ class SSOHandler(SecureHandler):
                     }
                 ),
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, AttributeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected SSO logout error: {e}")
             return self._format_response(
                 handler,
@@ -715,7 +715,7 @@ class SSOHandler(SecureHandler):
                     f"Invalid metadata configuration: {e}", 400, code="METADATA_CONFIG_ERROR"
                 ),
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError, AttributeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Unexpected metadata generation error: {e}")
             return self._format_response(
                 handler,
@@ -823,7 +823,7 @@ class SSOHandler(SecureHandler):
 
             return True
 
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.warning(f"SSO redirect validation error: {e}")
             return False
 

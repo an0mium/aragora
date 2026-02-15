@@ -529,7 +529,7 @@ class ConsensusHandler(BaseHandler):
             try:
                 retriever = DissentRetriever(memory)
                 records = retriever.find_risk_warnings(topic, domain=domain, limit=limit)
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError) as e:
                 logger.warning("DissentRetriever.find_risk_warnings failed: %s", e)
                 records = []
         else:
@@ -550,7 +550,7 @@ class ConsensusHandler(BaseHandler):
                     from aragora.memory.consensus import DissentRecord
 
                     records.append(DissentRecord.from_dict(json.loads(row[0])))
-                except Exception as e:
+                except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Failed to parse risk warning record: {e}")
 
         def _safe_dissent_type_str(dt: Any) -> str:

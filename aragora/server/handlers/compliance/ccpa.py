@@ -274,7 +274,7 @@ class CCPAMixin:
 
             return json_response(result)
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.exception(f"CCPA deletion request failed for user {user_id}: {e}")
             return error_response("Deletion request processing failed", 500)
 
@@ -345,7 +345,7 @@ class CCPAMixin:
 
             return json_response(result)
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.exception(f"CCPA opt-out failed for user {user_id}: {e}")
             return error_response("Opt-out request processing failed", 500)
 
@@ -451,7 +451,7 @@ class CCPAMixin:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.exception(f"Error fetching CCPA status: {e}")
             return error_response("Failed to retrieve status", 500)
 
@@ -539,7 +539,7 @@ class CCPAMixin:
                 },
                 "preferences": "[Retrieved from preferences store]",
             }
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             logger.warning(f"Error getting specific PI: {e}")
             return {"error": "Unable to retrieve specific PI"}
 
@@ -589,7 +589,7 @@ class CCPAMixin:
                 resource_id=user_id,
                 metadata=preference,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.warning(f"Failed to store CCPA preference: {e}")
 
     async def _log_ccpa_request(
@@ -608,7 +608,7 @@ class CCPAMixin:
                     **kwargs,
                 },
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.warning(f"Failed to log CCPA request: {e}")
 
 

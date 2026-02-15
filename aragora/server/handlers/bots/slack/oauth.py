@@ -7,6 +7,7 @@ This module handles OAuth2 installation flow for Slack apps including:
 - Token storage and management
 """
 
+import json
 import logging
 import os
 from typing import Any
@@ -115,7 +116,7 @@ async def handle_slack_oauth_callback(request: Any) -> HandlerResult:
         except ImportError:
             logger.error("httpx not available for OAuth exchange")
             return error_response("OAuth exchange failed: missing dependencies", 500)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.error("Failed to exchange OAuth code: %s", e)
             return error_response("OAuth exchange failed", 500)
 
@@ -174,7 +175,7 @@ async def handle_slack_oauth_callback(request: Any) -> HandlerResult:
             }
         )
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
         logger.exception("Unexpected error in OAuth callback: %s", e)
         return error_response("OAuth callback failed", 500)
 
@@ -219,7 +220,7 @@ async def handle_slack_oauth_revoke(request: Any) -> HandlerResult:
 
         return json_response({"success": True, "team_id": team_id})
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, json.JSONDecodeError) as e:
         logger.exception("Unexpected error in revoke handler: %s", e)
         return error_response("Revocation failed", 500)
 

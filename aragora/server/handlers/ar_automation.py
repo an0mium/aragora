@@ -163,7 +163,7 @@ async def handle_create_invoice(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception("Error creating invoice")
         return error_response("Invoice creation failed", status=500)
 
@@ -235,7 +235,7 @@ async def handle_list_invoices(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception("Error listing invoices")
         return error_response("Failed to list invoices", status=500)
 
@@ -278,7 +278,7 @@ async def handle_get_invoice(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response("Failed to retrieve invoice", status=500)
 
@@ -330,7 +330,7 @@ async def handle_send_invoice(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, ConnectionError, OSError) as e:
         logger.exception(f"Error sending invoice {invoice_id}")
         return error_response("Invoice delivery failed", status=500)
 
@@ -397,7 +397,7 @@ async def handle_send_reminder(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, ConnectionError, OSError) as e:
         logger.exception(f"Error sending reminder for invoice {invoice_id}")
         return error_response("Reminder delivery failed", status=500)
 
@@ -478,7 +478,7 @@ async def handle_record_payment(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, ArithmeticError, OSError) as e:
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response("Payment recording failed", status=500)
 
@@ -523,7 +523,7 @@ async def handle_get_aging_report(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception("Error generating aging report")
         return error_response("Aging report generation failed", status=500)
 
@@ -563,7 +563,7 @@ async def handle_get_collections(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception("Error getting collection suggestions")
         return error_response("Failed to retrieve suggestions", status=500)
 
@@ -635,7 +635,7 @@ async def handle_add_customer(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception("Error adding customer")
         return error_response("Customer creation failed", status=500)
 
@@ -680,7 +680,7 @@ async def handle_get_customer_balance(
     except CircuitOpenError as e:
         logger.warning("Handler error: %s", e)
         return error_response("AR service temporarily unavailable", status=503)
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError, OSError) as e:
         logger.exception(f"Error getting balance for customer {customer_id}")
         return error_response("Failed to retrieve balance", status=500)
 

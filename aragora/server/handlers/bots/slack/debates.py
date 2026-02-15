@@ -97,7 +97,7 @@ async def start_slack_debate(
                     "response_url": response_url,
                 },
             )
-        except Exception as exc:
+        except (RuntimeError, KeyError, AttributeError, OSError) as exc:
             logger.debug("Failed to register Slack debate origin: %s", exc)
 
         # Route through DecisionRouter in the background to keep Slack responsive.
@@ -119,7 +119,7 @@ async def start_slack_debate(
                 result = done_task.result()
             except asyncio.CancelledError:
                 return
-            except Exception as exc:  # pragma: no cover - defensive logging
+            except (RuntimeError, ValueError, KeyError, AttributeError, OSError) as exc:  # pragma: no cover - defensive logging
                 logger.error(
                     "DecisionRouter task failed for Slack debate %s: %s",
                     request.request_id,

@@ -579,7 +579,7 @@ class GenesisHandler(BaseHandler):
 
             return json_response(result)
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "population"), 500)
 
     def _get_genome_descendants(
@@ -682,5 +682,5 @@ class GenesisHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, AttributeError, OSError) as e:
             return error_response(_safe_error_message(e, "genome_descendants"), 500)

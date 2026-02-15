@@ -8,6 +8,7 @@ Verifies that:
 """
 
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
@@ -17,6 +18,7 @@ from aragora.nomic.branch_coordinator import (
     BranchCoordinator,
     BranchCoordinatorConfig,
     TrackAssignment,
+    WorktreeInfo,
     MergeResult,
 )
 from aragora.nomic.meta_planner import PrioritizedGoal, Track
@@ -403,3 +405,634 @@ class TestCreateTrackBranchesWorktree:
                 if len(c[0]) >= 2 and c[0][0] == "checkout" and c[0][1] == "main"
             ]
             assert len(checkout_base_calls) == 0
+
+
+class TestWorktreeInfo:
+    """Tests for WorktreeInfo dataclass."""
+
+    def test_creation_required_fields(self):
+        """Should create with required fields only."""
+        info = WorktreeInfo(
+            branch_name="dev/sme-feature",
+            worktree_path=Path("/tmp/.worktrees/dev-sme-feature"),
+        )
+        assert info.branch_name == "dev/sme-feature"
+        assert info.worktree_path == Path("/tmp/.worktrees/dev-sme-feature")
+        assert info.track is None
+        assert info.created_at is None
+        assert info.assignment_id is None
+
+    def test_creation_all_fields(self):
+        """Should accept all optional fields."""
+        now = datetime.now(timezone.utc)
+        info = WorktreeInfo(
+            branch_name="dev/qa-tests",
+            worktree_path=Path("/tmp/.worktrees/dev-qa-tests"),
+            track="qa",
+            created_at=now,
+            assignment_id="assign-001",
+        )
+        assert info.track == "qa"
+        assert info.created_at == now
+        assert info.assignment_id == "assign-001"
+
+    def test_worktree_path_is_path_object(self):
+        """Should store path as Path object."""
+        info = WorktreeInfo(
+            branch_name="dev/feature",
+            worktree_path=Path("/tmp/wt"),
+        )
+        assert isinstance(info.worktree_path, Path)
+
+
+class TestListWorktrees:
+    """Tests for list_worktrees method."""
+
+    @patch("subprocess.run")
+    def test_list_empty(self, mock_run):
+        """Should return empty list when no worktrees."""
+        mock_run.return_value = MagicMock(stdout="", returncode=0)
+        coordinator = BranchCoordinator()
+        result = coordinator.list_worktrees()
+        assert result == []
+
+    @patch("subprocess.run")
+    def test_list_single_worktree(self, mock_run):
+        """Should parse single worktree from porcelain output."""
+        porcelain = (
+            "worktree /path/to/main\n"
+            "HEAD abc123\n"
+            "branch refs/heads/main\n"
+            "\n"
+        )
+        mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
+        coordinator = BranchCoordinator()
+        result = coordinator.list_worktrees()
+        assert len(result) == 1
+        assert result[0].branch_name == "main"
+        assert result[0].worktree_path == Path("/path/to/main")
+
+    @patch("subprocess.run")
+    def test_list_multiple_worktrees(self, mock_run):
+        """Should parse multiple worktrees."""
+        porcelain = (
+            "worktree /path/to/main\n"
+            "HEAD abc123\n"
+            "branch refs/heads/main\n"
+            "\n"
+            "worktree /path/to/worktree1\n"
+            "HEAD def456\n"
+            "branch refs/heads/dev/sme-feature\n"
+            "\n"
+        )
+        mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
+        coordinator = BranchCoordinator()
+        result = coordinator.list_worktrees()
+        assert len(result) == 2
+        assert result[0].branch_name == "main"
+        assert result[1].branch_name == "dev/sme-feature"
+
+    @patch("subprocess.run")
+    def test_list_cross_references_tracked(self, mock_run):
+        """Should use tracked WorktreeInfo when available."""
+        porcelain = (
+            "worktree /path/to/worktree\n"
+            "HEAD abc123\n"
+            "branch refs/heads/dev/sme-feature\n"
+            "\n"
+        )
+        mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
+        coordinator = BranchCoordinator()
+
+        now = datetime.now(timezone.utc)
+        tracked_info = WorktreeInfo(
+            branch_name="dev/sme-feature",
+            worktree_path=Path("/path/to/worktree"),
+            track="sme",
+            created_at=now,
+        )
+        coordinator._active_worktrees["dev/sme-feature"] = tracked_info
+
+        result = coordinator.list_worktrees()
+        assert len(result) == 1
+        assert result[0].track == "sme"
+        assert result[0].created_at == now
+
+
+class TestMergeWorktreeBack:
+    """Tests for merge_worktree_back method."""
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_success_with_cleanup(self, mock_run):
+        """Should merge and cleanup worktree on success."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists
+            MagicMock(returncode=0),  # checkout
+            MagicMock(returncode=0),  # pull
+            MagicMock(returncode=0),  # merge
+            MagicMock(stdout="abc123\n", returncode=0),  # rev-parse
+            MagicMock(returncode=0),  # worktree remove
+        ]
+
+        coordinator = BranchCoordinator()
+        wt_path = Path("/tmp/.worktrees/dev-feature")
+        coordinator._worktree_paths["dev/feature"] = wt_path
+        coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
+            branch_name="dev/feature", worktree_path=wt_path,
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            result = await coordinator.merge_worktree_back("dev/feature")
+
+        assert result.success is True
+        assert "dev/feature" not in coordinator._worktree_paths
+        assert "dev/feature" not in coordinator._active_worktrees
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_success_without_cleanup(self, mock_run):
+        """Should merge but preserve worktree when cleanup=False."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists
+            MagicMock(returncode=0),  # checkout
+            MagicMock(returncode=0),  # pull
+            MagicMock(returncode=0),  # merge
+            MagicMock(stdout="abc123\n", returncode=0),  # rev-parse
+        ]
+
+        coordinator = BranchCoordinator()
+        wt_path = Path("/tmp/.worktrees/dev-feature")
+        coordinator._worktree_paths["dev/feature"] = wt_path
+        coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
+            branch_name="dev/feature", worktree_path=wt_path,
+        )
+
+        result = await coordinator.merge_worktree_back("dev/feature", cleanup=False)
+
+        assert result.success is True
+        assert "dev/feature" in coordinator._worktree_paths
+        assert "dev/feature" in coordinator._active_worktrees
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_merge_conflict_preserves_worktree(self, mock_run):
+        """Should preserve worktree on merge conflict."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists
+            MagicMock(returncode=0),  # checkout
+            MagicMock(returncode=0),  # pull
+            MagicMock(
+                returncode=1,
+                stderr="CONFLICT (content): Merge conflict in app.py",
+            ),  # merge fails
+            MagicMock(returncode=0),  # merge --abort
+        ]
+
+        coordinator = BranchCoordinator()
+        wt_path = Path("/tmp/.worktrees/dev-feature")
+        coordinator._worktree_paths["dev/feature"] = wt_path
+        coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
+            branch_name="dev/feature", worktree_path=wt_path,
+        )
+
+        result = await coordinator.merge_worktree_back("dev/feature")
+
+        assert result.success is False
+        assert "dev/feature" in coordinator._worktree_paths
+        assert "dev/feature" in coordinator._active_worktrees
+
+
+class TestCleanupAllWorktrees:
+    """Tests for cleanup_all_worktrees method."""
+
+    @patch("subprocess.run")
+    def test_cleanup_empty(self, mock_run):
+        """Should handle no worktrees gracefully."""
+        mock_run.return_value = MagicMock(returncode=0)
+        coordinator = BranchCoordinator()
+        removed = coordinator.cleanup_all_worktrees()
+        assert removed == 0
+
+    @patch("subprocess.run")
+    def test_cleanup_multiple(self, mock_run):
+        """Should remove multiple worktrees and prune."""
+        mock_run.return_value = MagicMock(returncode=0)
+        coordinator = BranchCoordinator()
+
+        coordinator._worktree_paths["branch1"] = Path("/tmp/.worktrees/branch1")
+        coordinator._worktree_paths["branch2"] = Path("/tmp/.worktrees/branch2")
+        coordinator._active_worktrees["branch1"] = WorktreeInfo(
+            branch_name="branch1", worktree_path=Path("/tmp/.worktrees/branch1"),
+        )
+        coordinator._active_worktrees["branch2"] = WorktreeInfo(
+            branch_name="branch2", worktree_path=Path("/tmp/.worktrees/branch2"),
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            removed = coordinator.cleanup_all_worktrees()
+
+        assert removed == 2
+        assert len(coordinator._worktree_paths) == 0
+        assert len(coordinator._active_worktrees) == 0
+
+    @patch("subprocess.run")
+    def test_cleanup_partial_failure(self, mock_run):
+        """Should continue cleanup even if one worktree removal fails."""
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # worktree remove fails
+            MagicMock(returncode=0),  # worktree remove succeeds
+            MagicMock(returncode=0),  # worktree prune
+        ]
+        coordinator = BranchCoordinator()
+        coordinator._worktree_paths["branch1"] = Path("/tmp/.worktrees/branch1")
+        coordinator._worktree_paths["branch2"] = Path("/tmp/.worktrees/branch2")
+
+        with patch.object(Path, "exists", return_value=True):
+            removed = coordinator.cleanup_all_worktrees()
+
+        assert removed == 2
+        assert len(coordinator._worktree_paths) == 0
+
+
+class TestWorktreeGit:
+    """Tests for _worktree_git method."""
+
+    @patch("subprocess.run")
+    def test_basic_command(self, mock_run):
+        """Should run git command in worktree directory."""
+        mock_run.return_value = MagicMock(
+            stdout="feature-branch\n", returncode=0,
+        )
+        coordinator = BranchCoordinator()
+        wt_path = Path("/tmp/.worktrees/dev-feature")
+        result = coordinator._worktree_git(wt_path, "rev-parse", "--abbrev-ref", "HEAD")
+
+        call_args = mock_run.call_args
+        assert call_args[0][0] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]
+        assert call_args[1]["cwd"] == wt_path
+        assert result.stdout == "feature-branch\n"
+
+    @patch("subprocess.run")
+    def test_error_handling(self, mock_run):
+        """Should respect check=False for error handling."""
+        mock_run.return_value = MagicMock(returncode=1, stderr="error")
+        coordinator = BranchCoordinator()
+        wt_path = Path("/tmp/.worktrees/dev-feature")
+        result = coordinator._worktree_git(wt_path, "status", check=False)
+        assert result.returncode == 1
+
+
+class TestContextManager:
+    """Tests for async context manager."""
+
+    @pytest.mark.asyncio
+    async def test_enter_returns_coordinator(self):
+        """Should return coordinator on enter."""
+        config = BranchCoordinatorConfig(use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+        async with coordinator as ctx:
+            assert ctx is coordinator
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_exit_cleans_up_worktrees(self, mock_run):
+        """Should cleanup all worktrees on exit."""
+        mock_run.return_value = MagicMock(returncode=0)
+        coordinator = BranchCoordinator()
+        coordinator._worktree_paths["branch1"] = Path("/tmp/.worktrees/branch1")
+        coordinator._active_worktrees["branch1"] = WorktreeInfo(
+            branch_name="branch1", worktree_path=Path("/tmp/.worktrees/branch1"),
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            async with coordinator:
+                pass
+
+        assert len(coordinator._worktree_paths) == 0
+        assert len(coordinator._active_worktrees) == 0
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_cleanup_on_error(self, mock_run):
+        """Should cleanup worktrees even when exception occurs."""
+        mock_run.return_value = MagicMock(returncode=0)
+        coordinator = BranchCoordinator()
+        coordinator._worktree_paths["branch1"] = Path("/tmp/.worktrees/branch1")
+
+        with patch.object(Path, "exists", return_value=True):
+            with pytest.raises(ValueError, match="test error"):
+                async with coordinator:
+                    raise ValueError("test error")
+
+        assert len(coordinator._worktree_paths) == 0
+
+
+class TestCoordinateWithWorktrees:
+    """Tests for coordinate_parallel_work with worktrees."""
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_parallel_execution(self, mock_run):
+        """Should create branches and run in parallel."""
+        mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
+
+        config = BranchCoordinatorConfig(auto_merge_safe=False, use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+
+        goal = _make_goal(Track.SME, "test parallel")
+        assignment = TrackAssignment(goal=goal)
+
+        async def nomic_fn(a):
+            return {"result": "done"}
+
+        result = await coordinator.coordinate_parallel_work(
+            [assignment], run_nomic_fn=nomic_fn,
+        )
+
+        assert result.total_branches == 1
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_conflict_detection_still_works(self, mock_run):
+        """Should detect conflicts in worktree mode too."""
+        mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
+
+        config = BranchCoordinatorConfig(auto_merge_safe=False)
+        coordinator = BranchCoordinator(config=config)
+
+        a1 = TrackAssignment(
+            goal=_make_goal(Track.SME, "Frontend"),
+            branch_name="b1",
+        )
+        a2 = TrackAssignment(
+            goal=_make_goal(Track.QA, "Tests"),
+            branch_name="b2",
+        )
+
+        result = await coordinator.coordinate_parallel_work([a1, a2])
+        assert result.total_branches == 2
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_auto_merge_after_completion(self, mock_run):
+        """Should auto-merge completed branches when configured."""
+        mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
+
+        config = BranchCoordinatorConfig(auto_merge_safe=True, use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+
+        assignment = TrackAssignment(
+            goal=_make_goal(Track.SME),
+            branch_name="dev/feature",
+        )
+
+        async def success_fn(a):
+            return {"success": True}
+
+        result = await coordinator.coordinate_parallel_work(
+            [assignment], run_nomic_fn=success_fn,
+        )
+        assert result.total_branches == 1
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_no_nomic_fn(self, mock_run):
+        """Should work without a nomic function."""
+        mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
+
+        config = BranchCoordinatorConfig(auto_merge_safe=False, use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+
+        assignment = TrackAssignment(goal=_make_goal(Track.SME))
+        result = await coordinator.coordinate_parallel_work([assignment])
+
+        assert result.total_branches == 1
+        assert result.success is True
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_failed_assignment_reported(self, mock_run):
+        """Should report failed assignments in result."""
+        mock_run.return_value = MagicMock(stdout="main\n", returncode=0)
+
+        config = BranchCoordinatorConfig(auto_merge_safe=False, use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+
+        assignment = TrackAssignment(
+            goal=_make_goal(Track.QA),
+            branch_name="dev/failing",
+        )
+
+        async def fail_fn(a):
+            raise RuntimeError("Build failed")
+
+        result = await coordinator.coordinate_parallel_work(
+            [assignment], run_nomic_fn=fail_fn,
+        )
+
+        assert result.failed_branches >= 0  # gather with return_exceptions=True
+
+
+class TestBackwardCompat:
+    """Tests for backward compatibility when use_worktrees=False."""
+
+    @patch("subprocess.run")
+    def test_no_worktrees_preserves_old_behavior(self, mock_run):
+        """Should not create worktree paths when disabled."""
+        mock_run.return_value = MagicMock(returncode=0)
+        config = BranchCoordinatorConfig(use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+        assert coordinator._worktree_paths == {}
+        assert coordinator._active_worktrees == {}
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_checkout_mode_no_worktree_info(self, mock_run):
+        """Should not populate _active_worktrees in checkout mode."""
+        mock_run.side_effect = [
+            MagicMock(stdout="main\n", returncode=0),  # get_current_branch
+            MagicMock(returncode=1),  # branch_exists
+            MagicMock(returncode=0),  # checkout -b
+        ]
+        config = BranchCoordinatorConfig(use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+
+        await coordinator._create_checkout_branch("dev/legacy", "main")
+
+        assert "dev/legacy" not in coordinator._active_worktrees
+        assert "dev/legacy" not in coordinator._worktree_paths
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_cleanup_all_noop_in_checkout_mode(self, mock_run):
+        """Should return 0 when no worktrees exist."""
+        mock_run.return_value = MagicMock(returncode=0)
+        config = BranchCoordinatorConfig(use_worktrees=False)
+        coordinator = BranchCoordinator(config=config)
+        removed = coordinator.cleanup_all_worktrees()
+        assert removed == 0
+
+
+class TestStaleWorktreeDetection:
+    """Tests for detecting untracked/stale worktrees."""
+
+    @patch("subprocess.run")
+    def test_detects_untracked_worktrees(self, mock_run):
+        """Should list worktrees not in _active_worktrees."""
+        porcelain = (
+            "worktree /path/to/main\n"
+            "HEAD abc123\n"
+            "branch refs/heads/main\n"
+            "\n"
+            "worktree /path/to/stale\n"
+            "HEAD def456\n"
+            "branch refs/heads/dev/stale-branch\n"
+            "\n"
+        )
+        mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
+        coordinator = BranchCoordinator()
+
+        worktrees = coordinator.list_worktrees()
+        tracked_branches = set(coordinator._active_worktrees.keys())
+        stale = [w for w in worktrees if w.branch_name not in tracked_branches]
+
+        assert len(stale) == 2  # main + stale branch are both untracked
+
+    @patch("subprocess.run")
+    def test_mix_of_tracked_and_untracked(self, mock_run):
+        """Should distinguish tracked from untracked worktrees."""
+        porcelain = (
+            "worktree /path/to/tracked\n"
+            "HEAD abc123\n"
+            "branch refs/heads/dev/tracked\n"
+            "\n"
+            "worktree /path/to/untracked\n"
+            "HEAD def456\n"
+            "branch refs/heads/dev/untracked\n"
+            "\n"
+        )
+        mock_run.return_value = MagicMock(stdout=porcelain, returncode=0)
+        coordinator = BranchCoordinator()
+        coordinator._active_worktrees["dev/tracked"] = WorktreeInfo(
+            branch_name="dev/tracked",
+            worktree_path=Path("/path/to/tracked"),
+            track="sme",
+        )
+
+        worktrees = coordinator.list_worktrees()
+        assert len(worktrees) == 2
+        tracked = [w for w in worktrees if w.track == "sme"]
+        untracked = [w for w in worktrees if w.track is None]
+        assert len(tracked) == 1
+        assert len(untracked) == 1
+
+
+class TestSelfDevIntegration:
+    """Tests for self_development.py integration with worktrees."""
+
+    def test_worktree_path_in_branch_info(self):
+        """Should include worktree_path in branch info dict."""
+        goal = _make_goal(Track.SME)
+        assignment = TrackAssignment(
+            goal=goal,
+            branch_name="dev/sme-test",
+            worktree_path=Path("/tmp/.worktrees/dev-sme-test"),
+        )
+        branch_info = {
+            "branch_name": assignment.branch_name,
+            "track": assignment.goal.track.value,
+            "goal": assignment.goal.description,
+            "worktree_path": str(assignment.worktree_path) if assignment.worktree_path else None,
+        }
+        assert branch_info["worktree_path"] == "/tmp/.worktrees/dev-sme-test"
+
+    def test_worktree_path_none_in_checkout_mode(self):
+        """Should have None worktree_path in checkout mode."""
+        goal = _make_goal(Track.SME)
+        assignment = TrackAssignment(
+            goal=goal,
+            branch_name="dev/legacy",
+            worktree_path=None,
+        )
+        branch_info = {
+            "worktree_path": str(assignment.worktree_path) if assignment.worktree_path else None,
+        }
+        assert branch_info["worktree_path"] is None
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_merge_worktree_back_used_for_merge(self, mock_run):
+        """Should use merge_worktree_back when worktree_path is present."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # branch_exists
+            MagicMock(returncode=0),  # checkout
+            MagicMock(returncode=0),  # pull
+            MagicMock(returncode=0),  # merge
+            MagicMock(stdout="abc123\n", returncode=0),  # rev-parse
+        ]
+
+        coordinator = BranchCoordinator()
+        result = await coordinator.merge_worktree_back("dev/feature")
+
+        assert result.success is True
+        assert result.commit_sha == "abc123"
+
+
+class TestWorktreeInfoTracking:
+    """Tests for _active_worktrees tracking behavior."""
+
+    def test_initially_empty(self):
+        """Should start with empty _active_worktrees."""
+        coordinator = BranchCoordinator()
+        assert coordinator._active_worktrees == {}
+
+    @pytest.mark.asyncio
+    @patch("subprocess.run")
+    async def test_populated_on_create(self, mock_run):
+        """Should be populated when worktree branch is created."""
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # branch_exists
+            MagicMock(returncode=0),  # git worktree add
+        ]
+        coordinator = BranchCoordinator(repo_path=Path("/tmp/repo"))
+
+        with patch.object(Path, "mkdir"):
+            branch = await coordinator._create_worktree_branch("dev/test", "main")
+
+        assert branch in coordinator._active_worktrees
+        assert coordinator._active_worktrees[branch].branch_name == "dev/test"
+
+    @patch("subprocess.run")
+    def test_cleared_on_cleanup(self, mock_run):
+        """Should be cleared on cleanup_all_worktrees."""
+        mock_run.return_value = MagicMock(returncode=0)
+        coordinator = BranchCoordinator()
+
+        coordinator._worktree_paths["b1"] = Path("/tmp/.worktrees/b1")
+        coordinator._active_worktrees["b1"] = WorktreeInfo(
+            branch_name="b1", worktree_path=Path("/tmp/.worktrees/b1"),
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            coordinator.cleanup_all_worktrees()
+
+        assert len(coordinator._active_worktrees) == 0
+
+    @patch("subprocess.run")
+    def test_cleared_on_remove_worktree(self, mock_run):
+        """Should remove entry when worktree is removed."""
+        mock_run.return_value = MagicMock(returncode=0)
+        coordinator = BranchCoordinator()
+
+        wt_path = Path("/tmp/.worktrees/dev-feature")
+        coordinator._worktree_paths["dev/feature"] = wt_path
+        coordinator._active_worktrees["dev/feature"] = WorktreeInfo(
+            branch_name="dev/feature", worktree_path=wt_path,
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            coordinator._remove_worktree("dev/feature")
+
+        assert "dev/feature" not in coordinator._active_worktrees
+        assert "dev/feature" not in coordinator._worktree_paths

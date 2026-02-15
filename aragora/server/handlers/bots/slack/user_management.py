@@ -153,7 +153,7 @@ def build_auth_context_from_slack(
             workspace_id=team_id,
             roles=roles,
         )
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
         logger.debug("Could not build auth context from Slack data: %s", e)
         return None
 
@@ -217,7 +217,7 @@ def check_user_permission(
             return error_response(f"Permission denied: {decision.reason}", 403)
 
         return None  # Permission granted
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.error("RBAC check failed for Slack request: %s", e)
         # Fail closed in production, open in dev
         env = os.environ.get("ARAGORA_ENV", "production").lower()
@@ -262,7 +262,7 @@ def check_user_permission_or_admin(
 
         # Fall back to specific permission
         return check_user_permission(team_id, user_id, permission_key, channel_id)
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.debug("Admin check failed: %s", e)
         return check_user_permission(team_id, user_id, permission_key, channel_id)
 

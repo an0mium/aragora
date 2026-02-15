@@ -66,7 +66,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "total": len(rules),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError) as e:
             logger.error("Error getting policy rules: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -123,7 +123,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
             result = rule.to_dict() if hasattr(rule, "to_dict") else rule
             return json_response(result, status=201)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error adding policy rule: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 

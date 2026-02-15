@@ -283,7 +283,7 @@ class ExternalAgentsHandler(BaseHandler):
                     "total": len(adapters),
                 }
             )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.error(f"Failed to list adapters: {e}")
             return error_response("Failed to list adapters", 500)
 
@@ -309,7 +309,7 @@ class ExternalAgentsHandler(BaseHandler):
                     adapter = spec.adapter_class(config)
                     health = _call_run_coro(adapter.health_check())
                     results.append(health.to_dict())
-                except Exception as e:
+                except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                     logger.warning("Health check failed for adapter %s: %s", spec.name, e)
                     results.append(
                         {
@@ -325,7 +325,7 @@ class ExternalAgentsHandler(BaseHandler):
                     "total": len(results),
                 }
             )
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.error(f"Health check failed: {e}")
             return error_response("Health check failed", 500)
 
@@ -434,7 +434,7 @@ class ExternalAgentsHandler(BaseHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             # Record failure for circuit breaker
             cb.record_failure()
             logger.error(f"Task submission failed: {e}")
@@ -493,7 +493,7 @@ class ExternalAgentsHandler(BaseHandler):
 
         except KeyError:
             return error_response(f"Task not found: {task_id}", 404)
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to get task {task_id}: {e}")
             return error_response("Failed to retrieve task", 500)
 
@@ -536,7 +536,7 @@ class ExternalAgentsHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to cancel task {task_id}: {e}")
             return error_response("Task cancellation failed", 500)
 
@@ -557,5 +557,5 @@ def _record_metrics(
                 record_external_agent_duration(adapter, task_type, duration)
     except ImportError:
         pass  # Prometheus not available
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError) as e:
         logger.debug(f"Metrics recording failed: {e}")

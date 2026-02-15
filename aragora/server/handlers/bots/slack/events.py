@@ -129,7 +129,7 @@ async def _hydrate_slack_attachments(
                     attachment["content_type"] = file_obj.content_type
                 if not attachment.get("size") and getattr(file_obj, "size", None):
                     attachment["size"] = file_obj.size
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             logger.debug("Failed to download Slack file %s: %s", file_id, e)
 
     return attachments
@@ -229,7 +229,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                                     "text": "You do not have permission to execute commands.",
                                 }
                             )
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
                     logger.debug("RBAC check failed for app_mention: %s", e)
 
             logger.info(f"Slack mention from {user} in {channel}: {text[:100]}")
@@ -298,7 +298,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                     asyncio.create_task(router.route(request))
                 except ImportError:
                     logger.debug("DecisionRouter not available for Slack app_mention")
-                except Exception as e:
+                except (RuntimeError, ValueError, KeyError, AttributeError, TypeError) as e:
                     logger.error("Failed to route Slack app_mention: %s", e)
 
             # Parse command from mention
@@ -339,7 +339,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                         action="uninstall",
                         platform="slack",
                     )
-                except Exception as e:
+                except (ImportError, RuntimeError, OSError, KeyError, AttributeError) as e:
                     logger.error(f"Failed to handle app_uninstalled for {team_id}: {e}")
 
             return json_response({"ok": True})
@@ -361,7 +361,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
                     store = get_slack_workspace_store()
                     store.revoke_token(team_id)
                     logger.info(f"Slack tokens revoked for workspace {team_id}")
-                except Exception as e:
+                except (ImportError, RuntimeError, OSError, KeyError, AttributeError) as e:
                     logger.error(f"Failed to handle tokens_revoked for {team_id}: {e}")
 
             return json_response({"ok": True})

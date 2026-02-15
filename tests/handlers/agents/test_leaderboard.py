@@ -263,7 +263,7 @@ class TestSafeFetchSection:
 
         assert data["test_key"] == {"fallback": True}
         assert "test_key" in errors
-        assert "Fetch failed" in errors["test_key"]
+        assert "Data fetch failed" in errors["test_key"]
 
 
 # =============================================================================

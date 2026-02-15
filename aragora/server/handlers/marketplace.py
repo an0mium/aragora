@@ -735,7 +735,7 @@ class MarketplaceHandler(BaseHandler):
 
             return self.json_response({"success": True, "stars": stars})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error starring template %s: %s", template_id, e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -761,7 +761,7 @@ class MarketplaceHandler(BaseHandler):
 
             return self.json_response({"categories": categories})
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error listing categories: %s", e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -803,7 +803,7 @@ class MarketplaceHandler(BaseHandler):
                 headers={"Content-Disposition": f'attachment; filename="{template_id}.json"'},
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError, UnicodeEncodeError) as e:
             self._circuit_breaker.record_failure()
             logger.exception("Error exporting template %s: %s", template_id, e)
             return self.json_error("Internal server error", HTTPStatus.INTERNAL_SERVER_ERROR)

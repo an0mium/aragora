@@ -139,7 +139,7 @@ def _get_credential_rotation_limiter() -> CredentialRotationRateLimiter:
         )
         if override is not None and override is not _get_credential_rotation_limiter:
             return override()
-    except Exception as e:
+    except (ImportError, AttributeError, TypeError) as e:
         logger.debug("Failed to resolve credential rotation limiter override: %s", e)
 
     global _credential_rotation_limiter
@@ -197,7 +197,7 @@ class CredentialHandlerMixin(OpenClawMixinBase):
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Invalid parameter", 400)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:
             logger.error("Error listing credentials: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -274,7 +274,7 @@ class CredentialHandlerMixin(OpenClawMixinBase):
             logger.info("Stored credential %s (%s) for user %s", credential.id, name, user_id)
             return json_response(credential.to_dict(), status=201)
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:
             logger.error("Error storing credential: %s", e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -368,7 +368,7 @@ class CredentialHandlerMixin(OpenClawMixinBase):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:
             logger.error("Error rotating credential %s: %s", credential_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 
@@ -407,7 +407,7 @@ class CredentialHandlerMixin(OpenClawMixinBase):
             logger.info("Deleted credential %s", credential_id)
             return json_response({"deleted": True, "credential_id": credential_id})
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:
             logger.error("Error deleting credential %s: %s", credential_id, e)
             return error_response(safe_error_message(e, "gateway"), 500)
 

@@ -81,6 +81,9 @@ class PlanningContext:
     historical_learnings: list[HistoricalLearning] = field(default_factory=list)
     past_failures_to_avoid: list[str] = field(default_factory=list)
     past_successes_to_build_on: list[str] = field(default_factory=list)
+    # CI feedback
+    ci_failures: list[str] = field(default_factory=list)
+    ci_flaky_tests: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -333,6 +336,19 @@ RECENT ISSUES:
             topic += f"""
 FAILING TESTS:
 {chr(10).join(f"- {failure}" for failure in context.test_failures[:5])}
+"""
+
+        # Add CI feedback
+        if context.ci_failures:
+            topic += f"""
+CI FAILURES (recent CI pipeline failures to address):
+{chr(10).join(f"- {f}" for f in context.ci_failures[:5])}
+"""
+
+        if context.ci_flaky_tests:
+            topic += f"""
+FLAKY TESTS (intermittent CI failures to stabilize):
+{chr(10).join(f"- {t}" for t in context.ci_flaky_tests[:5])}
 """
 
         # Add historical learnings (cross-cycle learning)

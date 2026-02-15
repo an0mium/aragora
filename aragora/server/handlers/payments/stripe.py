@@ -798,7 +798,7 @@ async def handle_get_transaction(
     except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Data error getting transaction: {e}")
         return web_error_response("Invalid transaction request", 400)
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.exception(f"Unexpected error getting transaction: {e}")
         return web_error_response("Internal payment error", 500)
 
@@ -870,7 +870,7 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
     except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Data error in Stripe webhook: {e}")
         return web_error_response("Invalid webhook data", 400)
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.exception(f"Unexpected error handling Stripe webhook: {e}")
         return web_error_response("Webhook processing error", 500)
 
@@ -938,6 +938,6 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
     except (ValueError, KeyError, TypeError) as e:
         logger.error(f"Data error in Authorize.net webhook: {e}")
         return web_error_response("Invalid webhook data", 400)
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.exception(f"Unexpected error handling Authorize.net webhook: {e}")
         return web_error_response("Webhook processing error", 500)

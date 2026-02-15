@@ -498,7 +498,7 @@ class CloudStorageHandler(BaseHandler):
                 "Cloud storage service temporarily unavailable",
                 503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling cloud storage GET request: {e}")
             cb = self._get_circuit_breaker()
             cb.record_failure()
@@ -555,7 +555,7 @@ class CloudStorageHandler(BaseHandler):
                 "Cloud storage service temporarily unavailable",
                 503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling cloud storage POST request: {e}")
             cb = self._get_circuit_breaker()
             cb.record_failure()
@@ -606,7 +606,7 @@ class CloudStorageHandler(BaseHandler):
                 "Cloud storage service temporarily unavailable",
                 503,
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling cloud storage DELETE request: {e}")
             cb = self._get_circuit_breaker()
             cb.record_failure()
@@ -697,7 +697,7 @@ class CloudStorageHandler(BaseHandler):
             )
         except FileNotFoundError:
             return error_response("File not found in storage", 404)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
             logger.error(f"Failed to download file {file_id}: {e}")
@@ -756,7 +756,7 @@ class CloudStorageHandler(BaseHandler):
                 content_type=content_type,
                 metadata={"owner": owner_id, "checksum": checksum},
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
             logger.error(f"Failed to upload file: {e}")
@@ -802,7 +802,7 @@ class CloudStorageHandler(BaseHandler):
         backend = self._get_backend()
         try:
             await backend.delete_file(file_meta.bucket, file_meta.path)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
             logger.error(f"Failed to delete file {file_id} from storage: {e}")
@@ -852,7 +852,7 @@ class CloudStorageHandler(BaseHandler):
                 expires_in_seconds=expires_in,
                 method=method,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             cb = self._get_circuit_breaker()
             cb.record_failure()
             logger.error(f"Failed to generate presigned URL: {e}")

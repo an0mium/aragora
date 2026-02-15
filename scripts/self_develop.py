@@ -148,6 +148,8 @@ async def run_orchestration(
     use_debate: bool = False,
     use_worktree: bool = False,
     use_hardened: bool = False,
+    use_parallel: bool = False,
+    enable_gauntlet: bool = True,
     budget_limit: float | None = None,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration."""
@@ -158,7 +160,18 @@ async def run_orchestration(
         "use_debate_decomposition": use_debate,
     }
 
-    if use_hardened or use_worktree:
+    if use_parallel:
+        from aragora.nomic.parallel_orchestrator import ParallelOrchestrator
+
+        orchestrator = ParallelOrchestrator(
+            use_worktrees=use_worktree,
+            enable_gauntlet=enable_gauntlet,
+            enable_convoy_tracking=True,
+            budget_limit_usd=budget_limit,
+            **common_kwargs,
+        )
+        mode_label = "PARALLEL"
+    elif use_hardened or use_worktree:
         from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
         orchestrator = HardenedOrchestrator(
@@ -166,21 +179,33 @@ async def run_orchestration(
             budget_limit_usd=budget_limit,
             **common_kwargs,
         )
+        mode_label = "HARDENED"
     else:
         orchestrator = AutonomousOrchestrator(**common_kwargs)
+        mode_label = "STANDARD"
 
-    print_header("STARTING ORCHESTRATION")
+    print_header(f"STARTING ORCHESTRATION ({mode_label})")
     print(f"Goal: {goal}")
     print(f"Tracks: {tracks if tracks else 'all'}")
     print(f"Max cycles per subtask: {max_cycles}")
     print(f"Max parallel tasks: {max_parallel}")
     print(f"Require approval: {require_approval}")
+    if use_parallel:
+        print(f"Worktree isolation: {use_worktree}")
+        print(f"Gauntlet gate: {enable_gauntlet}")
+        print(f"Convoy tracking: enabled")
 
-    return await orchestrator.execute_goal(
+    result = await orchestrator.execute_goal(
         goal=goal,
         tracks=tracks,
         max_cycles=max_cycles,
     )
+
+    # Clean up worktrees if using parallel orchestrator
+    if use_parallel and hasattr(orchestrator, "cleanup"):
+        await orchestrator.cleanup()
+
+    return result
 
 
 def main() -> int:
@@ -256,10 +281,26 @@ Examples:
         help="Enable mode enforcement, gauntlet validation, prompt defense, audit reconciliation",
     )
     parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Use ParallelOrchestrator with worktree isolation, gauntlet gate, and convoy tracking",
+    )
+    parser.add_argument(
+        "--gauntlet",
+        action="store_true",
+        default=True,
+        help="Enable adversarial gauntlet gate between design and implement (default: on, use --no-gauntlet to disable)",
+    )
+    parser.add_argument(
+        "--no-gauntlet",
+        action="store_true",
+        help="Disable adversarial gauntlet gate",
+    )
+    parser.add_argument(
         "--budget-limit",
         type=float,
         default=None,
-        help="Maximum cost in USD for the entire run (requires --hardened)",
+        help="Maximum cost in USD for the entire run (requires --hardened or --parallel)",
     )
     parser.add_argument(
         "-v",
@@ -297,6 +338,12 @@ Examples:
         print_decomposition(result)
         return 0
 
+    # Resolve gauntlet flag (--no-gauntlet overrides --gauntlet)
+    enable_gauntlet = not args.no_gauntlet
+
+    # --parallel implies --worktree unless explicitly disabled
+    use_worktree = args.worktree or args.parallel
+
     # Full run
     try:
         result = asyncio.run(
@@ -307,8 +354,10 @@ Examples:
                 max_parallel=args.max_parallel,
                 require_approval=args.require_approval,
                 use_debate=args.debate,
-                use_worktree=args.worktree,
+                use_worktree=use_worktree,
                 use_hardened=args.hardened,
+                use_parallel=args.parallel,
+                enable_gauntlet=enable_gauntlet,
                 budget_limit=args.budget_limit,
             )
         )

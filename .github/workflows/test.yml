@@ -48,8 +48,8 @@ on:
     - cron: '0 4 * * *'
 
 concurrency:
-  group: tests-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: tests-${{ github.ref }}${{ startsWith(github.ref, 'refs/heads/dev/') && format('-{0}', github.sha) || '' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/dev/') }}
 
 jobs:
   # ============================================================

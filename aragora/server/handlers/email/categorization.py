@@ -112,7 +112,7 @@ async def handle_categorize_email(
             "result": result.to_dict(),
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.exception(f"Failed to categorize email: {e}")
         return {
             "success": False,
@@ -187,7 +187,7 @@ async def handle_categorize_batch(
             "stats": stats,
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.exception(f"Failed to categorize batch: {e}")
         return {
             "success": False,
@@ -242,7 +242,7 @@ async def handle_feedback_batch(
                     response_time_minutes=response_time,
                 )
                 results.append({"email_id": email_id, "action": action, "recorded": True})
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, OSError) as e:
                 logger.warning("Feedback recording failed for email %s: %s", email_id, e)
                 errors.append({"email_id": email_id, "error": "Internal server error"})
 
@@ -254,7 +254,7 @@ async def handle_feedback_batch(
             "error_details": errors if errors else None,
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.exception(f"Failed to record batch feedback: {e}")
         return {
             "success": False,
@@ -305,7 +305,7 @@ async def handle_apply_category_label(
             "success": False,
             "error": f"Invalid category: {category}",
         }
-    except Exception as e:
+    except (TypeError, RuntimeError, OSError, ConnectionError) as e:
         logger.exception(f"Failed to apply category label: {e}")
         return {
             "success": False,

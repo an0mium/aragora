@@ -151,7 +151,7 @@ class DRHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
             logger.exception(f"Error handling DR request: {e}")
             return error_response("Internal server error", 500)
 
@@ -364,7 +364,7 @@ class DRHandler(BaseHandler):
                     400,
                 )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.exception(f"DR drill failed: {e}")
             drill_results["success"] = False
             drill_results["error"] = "DR drill failed"
@@ -502,7 +502,7 @@ class DRHandler(BaseHandler):
                     check["status"] = "warning"
                     check["details"] = "RBAC module not available"
                     check["recommendation"] = "Enable RBAC for production deployments"
-            except Exception as e:
+            except (TypeError, ValueError, KeyError) as e:
                 check["status"] = "failed"
                 check["details"] = f"Permission check error: {e}"
                 validation_results["valid"] = False
@@ -530,7 +530,7 @@ class DRHandler(BaseHandler):
                     check["status"] = "warning"
                     check["details"] = "Backup encryption not enabled"
                     check["recommendation"] = "Enable encryption for production backups"
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError) as e:
                 check["status"] = "failed"
                 check["details"] = f"Encryption check error: {e}"
                 validation_results["valid"] = False
@@ -552,7 +552,7 @@ class DRHandler(BaseHandler):
                     check["status"] = "failed"
                     check["details"] = f"Backup directory not found: {backup_dir}"
                     validation_results["valid"] = False
-            except Exception as e:
+            except (OSError, PermissionError) as e:
                 check["status"] = "failed"
                 check["details"] = f"Storage access error: {e}"
                 validation_results["valid"] = False

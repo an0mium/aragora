@@ -47,6 +47,7 @@ class VerifyPhase:
         enable_consistency_check: bool = True,
         enable_pr_review: bool = False,
         pr_review_runner: Any | None = None,
+        ci_collector: Any | None = None,
     ):
         """
         Initialize the verify phase.
@@ -64,6 +65,7 @@ class VerifyPhase:
             enable_consistency_check: Whether to run consistency check (default True)
             enable_pr_review: Whether to run autonomous PR review on diff
             pr_review_runner: Optional PRReviewRunner instance (created on demand if None)
+            ci_collector: Optional CIResultCollector for CI feedback integration
         """
         self.aragora_path = aragora_path
         self.codex = codex
@@ -77,6 +79,7 @@ class VerifyPhase:
         self.enable_consistency_check = enable_consistency_check
         self.enable_pr_review = enable_pr_review
         self.pr_review_runner = pr_review_runner
+        self.ci_collector = ci_collector
 
     async def execute(self) -> VerifyResult:
         """
@@ -122,7 +125,19 @@ class VerifyPhase:
                 if not pr_review_result.get("passed") and pr_review_result.get("has_critical"):
                     all_passed = False
 
-        # 6. Consistency check (if enabled and auditor available)
+        # 6. CI result check (if collector available)
+        if all_passed and self.ci_collector:
+            ci_result = await self._check_ci_results()
+            if ci_result:
+                checks.append(ci_result)
+                # CI failures are warnings, not blockers (unless critical)
+                if (
+                    not ci_result.get("passed")
+                    and ci_result.get("severity") == "critical"
+                ):
+                    all_passed = False
+
+        # 7. Consistency check (if enabled and auditor available)
         if all_passed and self.enable_consistency_check and self.consistency_auditor:
             consistency_result = await self._check_consistency()
             checks.append(consistency_result)
@@ -493,6 +508,80 @@ Be concise - this is a quality gate, not a full review."""
                 "note": "Check skipped due to error",
             }
 
+
+    async def _check_ci_results(self) -> dict | None:
+        """Check CI results for the current branch if a collector is available.
+
+        Returns:
+            Check result dict, or None if no CI results are available.
+        """
+        self._log("  [ci] Checking CI results...")
+        try:
+            # Get current branch and HEAD sha
+            branch_proc = await asyncio.create_subprocess_exec(
+                "git", "rev-parse", "--abbrev-ref", "HEAD",
+                cwd=self.aragora_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            branch_out, _ = await branch_proc.communicate()
+            branch = branch_out.decode().strip() if branch_out else ""
+
+            sha_proc = await asyncio.create_subprocess_exec(
+                "git", "rev-parse", "HEAD",
+                cwd=self.aragora_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            sha_out, _ = await sha_proc.communicate()
+            sha = sha_out.decode().strip() if sha_out else ""
+
+            if not branch or not sha:
+                self._log("    [ci] Could not determine branch/sha")
+                return None
+
+            # Non-blocking: get latest result
+            result = self.ci_collector.get_latest_result(branch)
+            if result is None:
+                self._log("    [ci] No CI results available")
+                return None
+
+            if result.conclusion == "success":
+                self._log("    [ci] CI passed")
+                self._stream_emit("on_verification_result", "ci", True, "CI passed")
+                return {
+                    "check": "ci",
+                    "passed": True,
+                    "output": f"CI passed for {branch}@{sha[:8]}",
+                }
+
+            # CI failed
+            failure_count = 0
+            if result.test_summary:
+                failure_count = result.test_summary.failed
+
+            self._log(f"    [ci] CI {result.conclusion} ({failure_count} failures)")
+            self._stream_emit(
+                "on_verification_result", "ci", False,
+                f"CI {result.conclusion}",
+            )
+            return {
+                "check": "ci",
+                "passed": False,
+                "severity": "critical" if failure_count > 10 else "warning",
+                "output": f"CI {result.conclusion}: {failure_count} test failures",
+                "conclusion": result.conclusion,
+            }
+
+        except Exception as e:
+            self._log(f"    [ci] Check failed: {e}")
+            # Don't block on CI check failure
+            return {
+                "check": "ci",
+                "passed": True,
+                "error": str(e),
+                "note": "CI check skipped due to error",
+            }
 
     async def _pr_review(self) -> dict | None:
         """Run autonomous PR review on current git diff.
