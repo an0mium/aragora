@@ -1,0 +1,148 @@
+name: Offline Golden Path
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/cli/test_offline_golden_path.py'
+      - 'pyproject.toml'
+      - '.github/workflows/smoke-offline.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/cli/test_offline_golden_path.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-offline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-demo:
+    name: Offline Demo Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install aragora in isolated environment
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+
+      - name: Run offline golden-path unit tests
+        run: |
+          pytest tests/cli/test_offline_golden_path.py -v --timeout=60 --tb=short
+        env:
+          PYTHONPATH: .
+
+      - name: Run demo command with network blocked
+        env:
+          ARAGORA_OFFLINE: "1"
+          # Clear all API keys to prove no network is needed
+          ANTHROPIC_API_KEY: ""
+          OPENAI_API_KEY: ""
+          OPENROUTER_API_KEY: ""
+          MISTRAL_API_KEY: ""
+          GEMINI_API_KEY: ""
+          XAI_API_KEY: ""
+          GROK_API_KEY: ""
+        run: |
+          # Create a network-blocking wrapper using iptables
+          # On GitHub Actions we have sudo access
+          #
+          # Block ALL outgoing TCP connections except loopback to prove
+          # the demo command makes zero network calls.
+          sudo iptables -A OUTPUT -o lo -j ACCEPT
+          sudo iptables -A OUTPUT -p tcp --dport 53 -j REJECT
+          sudo iptables -A OUTPUT -p udp --dport 53 -j REJECT
+          sudo iptables -A OUTPUT -p tcp -m state --state NEW -j REJECT
+
+          # Run the demo command -- must succeed with network blocked
+          python -m aragora.cli.demo --list
+          python -m aragora.cli.demo microservices 2>&1 | tee /tmp/demo_output.txt
+          DEMO_EXIT=$?
+
+          # Restore network
+          sudo iptables -F OUTPUT
+
+          # Verify demo succeeded
+          if [ $DEMO_EXIT -ne 0 ]; then
+            echo "FAIL: Demo command exited with code $DEMO_EXIT"
+            exit 1
+          fi
+
+          # Verify output contains expected markers
+          if ! grep -q "ARAGORA DEMO" /tmp/demo_output.txt; then
+            echo "FAIL: Demo output missing ARAGORA DEMO banner"
+            exit 1
+          fi
+
+          if ! grep -q "DECISION SUMMARY" /tmp/demo_output.txt; then
+            echo "FAIL: Demo output missing DECISION SUMMARY"
+            exit 1
+          fi
+
+          echo "OK: Demo completed successfully with network blocked"
+
+      - name: Run 'aragora ask --demo' with network blocked
+        env:
+          ARAGORA_OFFLINE: "1"
+          ANTHROPIC_API_KEY: ""
+          OPENAI_API_KEY: ""
+          OPENROUTER_API_KEY: ""
+          MISTRAL_API_KEY: ""
+          GEMINI_API_KEY: ""
+          XAI_API_KEY: ""
+          GROK_API_KEY: ""
+        run: |
+          # Block network again
+          sudo iptables -A OUTPUT -o lo -j ACCEPT
+          sudo iptables -A OUTPUT -p tcp --dport 53 -j REJECT
+          sudo iptables -A OUTPUT -p udp --dport 53 -j REJECT
+          sudo iptables -A OUTPUT -p tcp -m state --state NEW -j REJECT
+
+          # Run ask --demo which uses the debate engine with demo agents
+          aragora ask "Should we use microservices?" --demo --rounds 1 2>&1 | tee /tmp/ask_demo_output.txt
+          ASK_EXIT=$?
+
+          # Restore network
+          sudo iptables -F OUTPUT
+
+          if [ $ASK_EXIT -ne 0 ]; then
+            echo "FAIL: 'aragora ask --demo' exited with code $ASK_EXIT"
+            exit 1
+          fi
+
+          echo "OK: 'aragora ask --demo' completed successfully with network blocked"
+
+      - name: Verify no network calls were attempted
+        run: |
+          # Check that no urllib/httpx/requests calls leaked through
+          # by scanning demo output for common network error patterns
+          if grep -iE "connection refused|network unreachable|Name resolution|getaddrinfo" /tmp/demo_output.txt; then
+            echo "FAIL: Network calls were attempted during offline demo"
+            exit 1
+          fi
+          echo "OK: No network call evidence found in demo output"
+
+      - name: Offline demo summary
+        if: always()
+        run: |
+          echo "## Offline Golden Path Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Validates that Aragora demo/offline mode works with zero network:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`aragora demo\` runs with iptables blocking all outbound TCP" >> $GITHUB_STEP_SUMMARY
+          echo "- \`aragora ask --demo\` runs without API keys" >> $GITHUB_STEP_SUMMARY
+          echo "- No network error patterns in output" >> $GITHUB_STEP_SUMMARY
+          echo "- Golden-path unit tests pass" >> $GITHUB_STEP_SUMMARY

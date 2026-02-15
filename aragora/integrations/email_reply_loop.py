@@ -427,8 +427,12 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
             await _postgres_email_store.initialize()
             logger.info("PostgreSQL email reply store initialized")
             return _postgres_email_store
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"PostgreSQL email reply store connection failed: {type(e).__name__}: {e}")
+            return None
         except Exception as e:
-            logger.warning(f"PostgreSQL email reply store not available: {e}")
+            # asyncpg and psycopg raise their own exception hierarchies
+            logger.warning(f"PostgreSQL email reply store not available: {type(e).__name__}: {e}")
             return None
 
 
@@ -525,14 +529,16 @@ def register_email_origin(
             except RuntimeError:
                 # Not in async context - run synchronously
                 asyncio.run(pg_store.save(origin))
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.warning(f"PostgreSQL email origin storage connection error: {type(e).__name__}: {e}")
         except Exception as e:
-            logger.warning(f"PostgreSQL email origin storage failed: {e}")
+            logger.warning(f"PostgreSQL email origin storage failed: {type(e).__name__}: {e}")
     else:
         # Persist to SQLite for durability (always available)
         try:
             _get_sqlite_email_store().save(origin)
-        except Exception as e:
-            logger.warning(f"SQLite email origin storage failed: {e}")
+        except sqlite3.Error as e:
+            logger.warning(f"SQLite email origin storage failed: {type(e).__name__}: {e}")
 
     # Persist to Redis for distributed deployments
     redis_success = False
@@ -577,8 +583,10 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
             if origin:
                 _reply_origins[in_reply_to] = origin  # Cache locally
                 return origin
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.debug(f"Redis email origin lookup connection error: {type(e).__name__}: {e}")
         except Exception as e:
-            logger.debug(f"Redis email origin lookup not available: {e}")
+            logger.debug(f"Redis email origin lookup not available: {type(e).__name__}: {e}")
 
         # Try PostgreSQL if configured
         pg_store = await _get_postgres_email_store()
@@ -588,8 +596,10 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                 if origin:
                     _reply_origins[in_reply_to] = origin  # Cache locally
                     return origin
+            except (ConnectionError, TimeoutError, OSError) as e:
+                logger.debug(f"PostgreSQL email origin lookup connection error: {type(e).__name__}: {e}")
             except Exception as e:
-                logger.debug(f"PostgreSQL email origin lookup failed: {e}")
+                logger.debug(f"PostgreSQL email origin lookup failed: {type(e).__name__}: {e}")
         else:
             # Fall back to SQLite
             try:
@@ -597,8 +607,8 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                 if origin:
                     _reply_origins[in_reply_to] = origin  # Cache locally
                     return origin
-            except Exception as e:
-                logger.debug(f"SQLite email origin lookup failed: {e}")
+            except sqlite3.Error as e:
+                logger.debug(f"SQLite email origin lookup failed: {type(e).__name__}: {e}")
 
         return None
 
