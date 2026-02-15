@@ -1295,3 +1295,164 @@ class TestApprovalGate:
 
 # Bring in AutonomousOrchestrator for patching reference
 from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+
+# =============================================================================
+# Phase 2: Security Hardening Tests
+# =============================================================================
+
+
+class TestCanaryTokens:
+    """Tests for canary token injection and leak detection."""
+
+    def test_canary_token_generated_by_default(self):
+        """Canary token is auto-generated when enabled."""
+        orch = HardenedOrchestrator(enable_canary_tokens=True)
+        assert orch._canary_token.startswith("CANARY-")
+        assert len(orch._canary_token) > 10
+
+    def test_canary_token_disabled(self):
+        """No canary token when disabled."""
+        orch = HardenedOrchestrator(enable_canary_tokens=False)
+        assert orch._canary_token == ""
+
+    def test_get_canary_directive(self):
+        """Canary directive contains the token."""
+        orch = HardenedOrchestrator(enable_canary_tokens=True)
+        directive = orch.get_canary_directive()
+        assert orch._canary_token in directive
+        assert "CONFIDENTIAL-SYSTEM-TOKEN" in directive
+        assert "Never reproduce" in directive
+
+    def test_get_canary_directive_disabled(self):
+        """Empty directive when canary tokens disabled."""
+        orch = HardenedOrchestrator(enable_canary_tokens=False)
+        assert orch.get_canary_directive() == ""
+
+    def test_check_canary_leak_detected(self):
+        """Leak is detected when canary appears in output."""
+        orch = HardenedOrchestrator(enable_canary_tokens=True)
+        token = orch._canary_token
+        assert orch._check_canary_leak(f"Here is the output {token} leaked")
+
+    def test_check_canary_leak_clean(self):
+        """No leak when canary is absent from output."""
+        orch = HardenedOrchestrator(enable_canary_tokens=True)
+        assert not orch._check_canary_leak("Normal output without any tokens")
+
+    def test_check_canary_leak_disabled(self):
+        """No leak detection when disabled."""
+        orch = HardenedOrchestrator(enable_canary_tokens=False)
+        assert not orch._check_canary_leak("CANARY-anything")
+
+
+class TestOutputValidation:
+    """Tests for output validation before commit."""
+
+    @pytest.mark.asyncio
+    async def test_output_validation_disabled(self, tmp_path):
+        """Validation passes when disabled."""
+        orch = HardenedOrchestrator(enable_output_validation=False)
+        assignment = _make_assignment(status="completed")
+        result = await orch._validate_output(assignment, tmp_path)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_output_validation_canary_leak_rejects(self, tmp_path):
+        """Output rejected when canary token appears in result."""
+        orch = HardenedOrchestrator(
+            enable_output_validation=True,
+            enable_canary_tokens=True,
+        )
+        assignment = _make_assignment(status="completed")
+        # Inject canary into assignment result
+        assignment.result = {"output": f"leaked {orch._canary_token}"}
+
+        result = await orch._validate_output(assignment, tmp_path)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_output_validation_clean_passes(self, tmp_path):
+        """Clean output passes validation."""
+        orch = HardenedOrchestrator(
+            enable_output_validation=True,
+            enable_canary_tokens=True,
+        )
+        assignment = _make_assignment(status="completed")
+        assignment.result = {"output": "normal clean output"}
+
+        # Mock subprocess to return empty diff
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            mock_run_result = MagicMock()
+            mock_run_result.stdout = ""
+            mock_thread.return_value = mock_run_result
+            result = await orch._validate_output(assignment, tmp_path)
+            assert result is True
+
+
+class TestReviewGate:
+    """Tests for cross-agent code review gate."""
+
+    @pytest.mark.asyncio
+    async def test_review_gate_disabled(self, tmp_path):
+        """Review passes when disabled."""
+        orch = HardenedOrchestrator(enable_review_gate=False)
+        assignment = _make_assignment(status="completed")
+        result = await orch._run_review_gate(assignment, tmp_path)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_review_gate_clean_diff(self, tmp_path):
+        """Clean diff gets high score and passes."""
+        orch = HardenedOrchestrator(
+            enable_review_gate=True,
+            review_gate_min_score=5,
+        )
+        assignment = _make_assignment(status="completed")
+
+        # Mock subprocess to return clean diff
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            mock_stat = MagicMock()
+            mock_stat.stdout = " file.py | 5 +++++\n 1 file changed"
+            mock_diff = MagicMock()
+            mock_diff.stdout = "+def hello():\n+    return 'world'\n"
+            mock_thread.side_effect = [mock_stat, mock_diff]
+
+            result = await orch._run_review_gate(assignment, tmp_path)
+            assert result is True
+            assert assignment.result["review_gate_score"] == 10
+
+    @pytest.mark.asyncio
+    async def test_review_gate_hardcoded_secrets_deducts(self, tmp_path):
+        """Hardcoded secrets in diff deduct from score."""
+        orch = HardenedOrchestrator(
+            enable_review_gate=True,
+            review_gate_min_score=8,
+        )
+        assignment = _make_assignment(status="completed")
+
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            mock_stat = MagicMock()
+            mock_stat.stdout = " config.py | 3 +++\n 1 file changed"
+            mock_diff = MagicMock()
+            mock_diff.stdout = '+api_key = "sk-1234567890"\n+password = "hunter2"\n'
+            mock_thread.side_effect = [mock_stat, mock_diff]
+
+            result = await orch._run_review_gate(assignment, tmp_path)
+            # Score should be deducted for hardcoded secrets
+            assert assignment.result["review_gate_score"] < 8
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_review_gate_empty_diff(self, tmp_path):
+        """Empty diff passes review gate."""
+        orch = HardenedOrchestrator(enable_review_gate=True)
+        assignment = _make_assignment(status="completed")
+
+        with patch("aragora.nomic.hardened_orchestrator.asyncio.to_thread") as mock_thread:
+            mock_stat = MagicMock()
+            mock_stat.stdout = ""
+            mock_thread.return_value = mock_stat
+
+            result = await orch._run_review_gate(assignment, tmp_path)
+            assert result is True
