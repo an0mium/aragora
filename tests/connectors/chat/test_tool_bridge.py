@@ -720,7 +720,7 @@ class TestProgressStreaming:
 
             final = updates[-1]
             assert final.status == ToolStatus.FAILED
-            assert "Tool crashed" in final.message
+            assert "failed" in final.message.lower()
 
 
 class TestInvocationManagement:

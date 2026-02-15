@@ -260,10 +260,11 @@ class StripeClient:
             error_body = e.read().decode("utf-8")
             try:
                 error_data = json.loads(error_body)
-                error_msg = error_data.get("error", {}).get("message", str(e))
+                error_msg = error_data.get("error", {}).get("message", "Stripe API request failed")
                 error_code = error_data.get("error", {}).get("code", "")
             except json.JSONDecodeError:
-                error_msg = str(e)
+                logger.warning("Stripe API error (HTTP %s): %s", e.code, e)
+                error_msg = "Stripe API request failed"
                 error_code = ""
             raise StripeAPIError(error_msg, error_code, e.code)
         except URLError as e:

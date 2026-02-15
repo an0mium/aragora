@@ -249,7 +249,7 @@ class TestBudgetAlertNotifier:
 
         assert len(results) == 1
         assert results[0].status == NotificationStatus.FAILED
-        assert "Connection failed" in results[0].error
+        assert "failed" in results[0].error.lower()
 
     @pytest.mark.asyncio
     async def test_deliver_alert_multiple_channels(self, sample_alert, mock_subscription_store):

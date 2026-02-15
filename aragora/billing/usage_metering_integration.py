@@ -224,7 +224,7 @@ async def record_agent_tokens(
         return {
             "record_id": None,
             "total_cost": "0",
-            "error": str(e),
+            "error": "Failed to record agent token usage",
         }
 
 
@@ -277,7 +277,7 @@ async def record_api_call(
         logger.warning(f"Failed to record API call: {e}")
         return {
             "record_id": None,
-            "error": str(e),
+            "error": "Failed to record API call",
         }
 
 

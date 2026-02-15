@@ -121,7 +121,7 @@ class BillingNotifier:
 
         except Exception as e:
             logger.error(f"Failed to send email to {to_email}: {e}")
-            return NotificationResult(success=False, method="email", error=str(e))
+            return NotificationResult(success=False, method="email", error="Email delivery failed")
 
     def _send_webhook(self, payload: dict) -> NotificationResult:
         """Send notification via webhook."""
@@ -148,7 +148,7 @@ class BillingNotifier:
 
         except URLError as e:
             logger.error(f"Failed to send webhook: {e}")
-            return NotificationResult(success=False, method="webhook", error=str(e))
+            return NotificationResult(success=False, method="webhook", error="Webhook delivery failed")
 
     def notify_payment_failed(
         self,

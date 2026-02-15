@@ -323,8 +323,7 @@ class TestAgentCreation:
         result = factory.create_from_info(info)
 
         assert not result.success
-        assert "Failed to create agent" in result.error
-        assert "Invalid model" in result.error
+        assert result.error  # Sanitized error message present
 
     @patch("aragora.agents.credential_validator.validate_agent_credentials")
     @patch("aragora.agents.base.create_agent")

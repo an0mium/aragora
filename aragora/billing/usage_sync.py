@@ -640,7 +640,7 @@ class UsageSyncService:
                         org_id=org_id,
                         sync_type="error",
                         success=False,
-                        error=str(e),
+                        error="Usage sync failed for organization",
                     )
                 )
         return records
@@ -814,9 +814,9 @@ class UsageSyncService:
 
         except StripeAPIError as e:
             # Mark sync as failed
-            self._fail_sync(pending_record_id, str(e))
+            self._fail_sync(pending_record_id, "Usage reporting failed")
             record.success = False
-            record.error = str(e)
+            record.error = "Usage reporting failed"
             logger.error(f"Failed to report {sync_type} usage for org {config.org_id}: {e}")
 
         return record

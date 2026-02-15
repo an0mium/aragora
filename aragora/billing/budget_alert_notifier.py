@@ -231,7 +231,7 @@ class BudgetAlertNotifier:
                 channel_type=channel_type,
                 channel_id=subscription.channel_id,
                 status=NotificationStatus.FAILED,
-                error=str(e),
+                error="Alert delivery failed",
             )
 
     def _format_alert_message(self, alert: BudgetAlert) -> dict[str, Any]:
