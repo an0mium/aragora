@@ -553,7 +553,7 @@ async def handle_get_symbols(repo_id: str, params: dict[str, Any]) -> HandlerRes
             }
         )
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error(f"Symbol extraction failed: {e}")
         return error_response("Symbol extraction failed", status=500)
 

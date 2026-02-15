@@ -383,10 +383,10 @@ class GraphDebatesHandler(SecureHandler):
                     # Cast to AgentType - validation already done in handle_post
                     agent = create_agent(model_type=cast(AgentType, name), name=name)
                     agents.append(agent)
-                except Exception as e:
+                except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
                     logger.warning(f"Failed to create agent {name}: {e}")
             return agents
-        except Exception as e:
+        except (ImportError, ValueError, TypeError) as e:
             logger.warning(f"Failed to load agents: {e}")
             return []
 

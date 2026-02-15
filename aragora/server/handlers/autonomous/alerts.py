@@ -317,7 +317,7 @@ class AlertHandler:
         except ForbiddenError as e:
             logger.warning("Forbidden setting threshold: %s", e)
             return web.json_response({"success": False, "error": "Permission denied"}, status=403)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error setting threshold: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to set alert threshold"},
