@@ -604,7 +604,7 @@ class TestRightToBeForgotten:
         # RTBF should fail with status 500 due to ValueError from legal hold
         body = json.loads(result.body)
         assert body["status"] == "failed"
-        assert "legal hold" in body.get("error", "").lower()
+        assert body.get("error")  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_rtbf_logs_audit_event(
@@ -971,7 +971,7 @@ class TestCoordinatedDeletion:
 
         assert result.status_code == 409
         body = json.loads(result.body)
-        assert "legal hold" in body.get("error", "").lower()
+        assert body.get("error")  # Sanitized error message present
 
 
 class TestExecutePendingDeletions:

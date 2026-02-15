@@ -792,7 +792,7 @@ class TestCCPAErrorHandling:
     async def test_delete_handles_scheduler_error(self, ccpa_handler, mock_legal_hold_manager):
         """Delete handles scheduler errors."""
         mock_deletion_scheduler = MagicMock()
-        mock_deletion_scheduler.schedule_deletion.side_effect = RuntimeError(
+        mock_deletion_scheduler.schedule_deletion.side_effect = OSError(
             "Scheduler unavailable"
         )
 
@@ -820,7 +820,7 @@ class TestCCPAErrorHandling:
     async def test_opt_out_handles_store_error(self, ccpa_handler):
         """Opt-out handles audit store errors."""
         mock_audit_store = MagicMock()
-        mock_audit_store.log_event.side_effect = RuntimeError("Store service down")
+        mock_audit_store.log_event.side_effect = OSError("Store service down")
 
         with patch(
             "aragora.server.handlers.compliance.ccpa.get_audit_store",
