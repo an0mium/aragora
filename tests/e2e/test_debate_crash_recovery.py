@@ -349,11 +349,8 @@ class TestGUPPHookRecovery:
 
     async def test_hook_queue_recovery_finds_pending_work(self, temp_bead_dir):
         """Test that hook queue recovery finds pending beads."""
-        try:
-            from aragora.nomic.beads import Bead, BeadStatus, BeadStore, BeadType
-            from aragora.nomic.hook_queue import HookEntryStatus, HookQueue
-        except ImportError:
-            pytest.skip("Bead/HookQueue modules not available")
+        from aragora.nomic.beads import Bead, BeadStatus, BeadStore, BeadType
+        from aragora.nomic.hook_queue import HookEntryStatus, HookQueue
 
         # Create bead store and initialize
         bead_store = BeadStore(bead_dir=Path(temp_bead_dir), git_enabled=False)
@@ -387,11 +384,8 @@ class TestGUPPHookRecovery:
 
     async def test_hook_recovery_skips_completed_beads(self, temp_bead_dir):
         """Test that completed beads are not recovered."""
-        try:
-            from aragora.nomic.beads import Bead, BeadStatus, BeadStore, BeadType
-            from aragora.nomic.hook_queue import HookQueue
-        except ImportError:
-            pytest.skip("Bead/HookQueue modules not available")
+        from aragora.nomic.beads import Bead, BeadStatus, BeadStore, BeadType
+        from aragora.nomic.hook_queue import HookQueue
 
         # Create bead store and initialize
         bead_store = BeadStore(bead_dir=Path(temp_bead_dir), git_enabled=False)

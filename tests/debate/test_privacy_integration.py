@@ -59,6 +59,7 @@ def _make_mixin(enable_privacy: bool = False, method: str = "redact") -> PromptA
         "_inject_belief_context",
         "_inject_calibration_context",
         "get_deliberation_template_context",
+        "_get_introspection_context",
     ]:
         setattr(mixin, method_name, MagicMock(return_value=""))
 

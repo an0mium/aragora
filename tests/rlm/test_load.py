@@ -321,8 +321,7 @@ class TestRLMDebateIntegration:
         """Test PromptBuilder RLM context integration."""
         from aragora.debate.prompt_builder import PromptBuilder, HAS_RLM as PB_HAS_RLM
 
-        if not PB_HAS_RLM:
-            pytest.skip("PromptBuilder RLM support not available")
+        assert PB_HAS_RLM, "PromptBuilder RLM support should be available"
 
         # Create mock protocol and environment
         mock_protocol = MagicMock()

@@ -135,48 +135,36 @@ class TestChannelGovernanceStoresMigration:
     """Tests for the channel governance stores migration."""
 
     def test_import_channel_governance(self):
-        try:
-            from aragora.migrations.versions import (
-                v20260120000000_channel_governance_stores as mod,
-            )
+        from aragora.migrations.versions import (
+            v20260120000000_channel_governance_stores as mod,
+        )
 
-            assert hasattr(mod, "migration")
-        except ImportError:
-            pytest.skip("Channel governance migration not available")
+        assert hasattr(mod, "migration")
 
     def test_channel_governance_version(self):
-        try:
-            from aragora.migrations.versions.v20260120000000_channel_governance_stores import (
-                migration,
-            )
+        from aragora.migrations.versions.v20260120000000_channel_governance_stores import (
+            migration,
+        )
 
-            assert migration.version == 20260120000000
-        except ImportError:
-            pytest.skip("Channel governance migration not available")
+        assert migration.version == 20260120000000
 
 
 class TestMarketplaceWebhooksBatchMigration:
     """Tests for the marketplace webhooks batch migration."""
 
     def test_import_marketplace_webhooks(self):
-        try:
-            from aragora.migrations.versions import (
-                v20260120100000_marketplace_webhooks_batch as mod,
-            )
+        from aragora.migrations.versions import (
+            v20260120100000_marketplace_webhooks_batch as mod,
+        )
 
-            assert hasattr(mod, "migration")
-        except ImportError:
-            pytest.skip("Marketplace webhooks migration not available")
+        assert hasattr(mod, "migration")
 
     def test_marketplace_webhooks_version(self):
-        try:
-            from aragora.migrations.versions.v20260120100000_marketplace_webhooks_batch import (
-                migration,
-            )
+        from aragora.migrations.versions.v20260120100000_marketplace_webhooks_batch import (
+            migration,
+        )
 
-            assert migration.version == 20260120100000
-        except ImportError:
-            pytest.skip("Marketplace webhooks migration not available")
+        assert migration.version == 20260120100000
 
 
 # ---------------------------------------------------------------------------

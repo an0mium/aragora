@@ -143,6 +143,9 @@ EXEMPT_HANDLERS = frozenset(
         # Notification preferences/history (user-scoped, uses session auth)
         "NotificationPreferencesHandler",
         "NotificationHistoryHandler",
+        # Public template/marketplace discovery (rate-limited, read-only browsing)
+        "TemplateDiscoveryHandler",
+        "MarketplaceBrowseHandler",
     }
 )
 
@@ -285,8 +288,7 @@ def scan_handlers_directory() -> list[HandlerInfo]:
     """Scan all Python files in handlers directory for handler classes."""
     handlers_dir = Path(__file__).parent.parent.parent.parent / "aragora" / "server" / "handlers"
 
-    if not handlers_dir.exists():
-        pytest.skip(f"Handlers directory not found: {handlers_dir}")
+    assert handlers_dir.exists(), f"Handlers directory should exist: {handlers_dir}"
 
     all_handlers: list[HandlerInfo] = []
 

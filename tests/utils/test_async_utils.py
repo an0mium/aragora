@@ -175,8 +175,7 @@ class TestRunGitCommand:
         """Runs git status in a git repo."""
         # Initialize a git repo
         returncode, _, _ = await run_command(["git", "init"], cwd=tmp_path)
-        if returncode != 0:
-            pytest.skip("git not available")
+        assert returncode == 0, "git should be available"
 
         success, output = await run_git_command(["status"], cwd=tmp_path)
         assert success
@@ -254,8 +253,7 @@ class TestIntegration:
         """Full git workflow test."""
         # Initialize repo
         init_code, _, _ = await run_command(["git", "init"], cwd=tmp_path)
-        if init_code != 0:
-            pytest.skip("git not available")
+        assert init_code == 0, "git should be available"
 
         # Check status via run_git_command
         success, output = await run_git_command(["status", "-s"], cwd=tmp_path)

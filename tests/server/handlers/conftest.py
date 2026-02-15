@@ -1761,6 +1761,5 @@ def computer_use_handler_class():
         handlers_dir, "aragora", "server", "handlers", "computer_use_handler.py"
     )
     handler_class = _safe_import_handler(module_path, "ComputerUseHandler")
-    if handler_class is None:
-        pytest.skip("ComputerUseHandler could not be imported")
+    assert handler_class is not None, "ComputerUseHandler should be importable"
     return handler_class

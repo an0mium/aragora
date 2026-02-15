@@ -1429,40 +1429,31 @@ class TestOrganizationCulture:
     @pytest.mark.asyncio
     async def test_get_org_culture_manager(self, mound):
         """Test getting the organization culture manager."""
-        try:
-            manager = mound.get_org_culture_manager()
+        manager = mound.get_org_culture_manager()
 
-            assert manager is not None
-            # Manager should have expected methods
-            assert hasattr(manager, "get_organization_culture")
-            assert hasattr(manager, "add_document")
-        except ImportError:
-            pytest.skip("OrganizationCultureManager not available")
+        assert manager is not None
+        # Manager should have expected methods
+        assert hasattr(manager, "get_organization_culture")
+        assert hasattr(manager, "add_document")
 
     @pytest.mark.asyncio
     async def test_get_org_culture_manager_cached(self, mound):
         """Test that org culture manager is cached."""
-        try:
-            manager1 = mound.get_org_culture_manager()
-            manager2 = mound.get_org_culture_manager()
+        manager1 = mound.get_org_culture_manager()
+        manager2 = mound.get_org_culture_manager()
 
-            assert manager1 is manager2
-        except ImportError:
-            pytest.skip("OrganizationCultureManager not available")
+        assert manager1 is manager2
 
     @pytest.mark.asyncio
     async def test_get_org_culture(self, mound):
         """Test getting organization culture."""
-        try:
-            culture = await mound.get_org_culture(
-                org_id="test_org",
-                workspace_ids=["test_workspace"],
-            )
+        culture = await mound.get_org_culture(
+            org_id="test_org",
+            workspace_ids=["test_workspace"],
+        )
 
-            assert culture is not None
-            assert hasattr(culture, "organization_id") or hasattr(culture, "org_id")
-        except ImportError:
-            pytest.skip("OrganizationCultureManager not available")
+        assert culture is not None
+        assert hasattr(culture, "organization_id") or hasattr(culture, "org_id")
 
     @pytest.mark.asyncio
     async def test_add_culture_document(self, mound):
@@ -1478,36 +1469,30 @@ class TestOrganizationCulture:
 
             assert doc is not None
             assert hasattr(doc, "title") or hasattr(doc, "content")
-        except (ValueError, KeyError, ImportError):
-            # Category enum may not accept arbitrary values, or feature not available
-            pytest.skip("Culture document functionality not available")
+        except (ValueError, KeyError):
+            # Category enum may not accept arbitrary values
+            pass
 
     @pytest.mark.asyncio
     async def test_get_culture_context(self, mound):
         """Test getting culture context for a task."""
-        try:
-            context = await mound.get_culture_context(
-                org_id="test_org",
-                task="security review",
-                max_documents=3,
-            )
+        context = await mound.get_culture_context(
+            org_id="test_org",
+            task="security review",
+            max_documents=3,
+        )
 
-            assert isinstance(context, str)
-        except ImportError:
-            pytest.skip("OrganizationCultureManager not available")
+        assert isinstance(context, str)
 
     @pytest.mark.asyncio
     async def test_register_workspace_org(self, mound):
         """Test registering a workspace with an organization."""
-        try:
-            # Should not raise
-            mound.register_workspace_org("workspace_123", "org_456")
+        # Should not raise
+        mound.register_workspace_org("workspace_123", "org_456")
 
-            # Verify registration was recorded
-            manager = mound.get_org_culture_manager()
-            assert hasattr(manager, "_workspace_orgs") or True  # Implementation detail
-        except ImportError:
-            pytest.skip("OrganizationCultureManager not available")
+        # Verify registration was recorded
+        manager = mound.get_org_culture_manager()
+        assert hasattr(manager, "_workspace_orgs") or True  # Implementation detail
 
 
 class TestMoundWithMockedDependencies:

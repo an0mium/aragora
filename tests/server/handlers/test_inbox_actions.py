@@ -302,12 +302,9 @@ class TestVipAndBlock:
         prioritizer.config.vip_addresses = set()
         svc = ConcreteInboxActions(prioritizer=prioritizer)
 
-        try:
-            from aragora.server.handlers.inbox_command import _email_cache
+        from aragora.server.handlers.inbox_command import _email_cache
 
-            _email_cache["email-1"] = {"from": "vip@company.com"}
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        _email_cache["email-1"] = {"from": "vip@company.com"}
 
         result = await svc._mark_sender_vip("email-1", {})
         assert result["vip"] is True
@@ -319,12 +316,9 @@ class TestVipAndBlock:
         prioritizer.config.auto_archive_senders = set()
         svc = ConcreteInboxActions(prioritizer=prioritizer)
 
-        try:
-            from aragora.server.handlers.inbox_command import _email_cache
+        from aragora.server.handlers.inbox_command import _email_cache
 
-            _email_cache["email-1"] = {"from": "spam@example.com"}
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        _email_cache["email-1"] = {"from": "spam@example.com"}
 
         result = await svc._block_sender("email-1", {})
         assert result["blocked"] is True
@@ -340,25 +334,16 @@ class TestSanitizeActionParams:
     """Tests for _sanitize_action_params."""
 
     def test_snooze_valid_duration(self, actions):
-        try:
-            params = actions._sanitize_action_params("snooze", {"duration": "1d"})
-            assert params["duration"] == "1d"
-        except ImportError:
-            pytest.skip("inbox_command not available for allowed durations")
+        params = actions._sanitize_action_params("snooze", {"duration": "1d"})
+        assert params["duration"] == "1d"
 
     def test_snooze_invalid_duration_defaults(self, actions):
-        try:
-            params = actions._sanitize_action_params("snooze", {"duration": "99y"})
-            assert params["duration"] == "1d"  # Safe default
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        params = actions._sanitize_action_params("snooze", {"duration": "99y"})
+        assert params["duration"] == "1d"  # Safe default
 
     def test_archive_returns_empty(self, actions):
-        try:
-            params = actions._sanitize_action_params("archive", {"anything": "value"})
-            assert params == {}
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        params = actions._sanitize_action_params("archive", {"anything": "value"})
+        assert params == {}
 
 
 # ===========================================================================
@@ -371,37 +356,28 @@ class TestGetEmailsByFilter:
 
     @pytest.mark.asyncio
     async def test_invalid_filter_returns_empty(self, actions):
-        try:
-            result = await actions._get_emails_by_filter("nonexistent_filter")
-            assert result == []
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        result = await actions._get_emails_by_filter("nonexistent_filter")
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_all_filter_returns_all(self, actions):
-        try:
-            from aragora.server.handlers.inbox_command import _email_cache
+        from aragora.server.handlers.inbox_command import _email_cache
 
-            _email_cache["e1"] = {"priority": "high", "unread": True}
-            _email_cache["e2"] = {"priority": "low", "unread": False}
+        _email_cache["e1"] = {"priority": "high", "unread": True}
+        _email_cache["e2"] = {"priority": "low", "unread": False}
 
-            result = await actions._get_emails_by_filter("all")
-            assert len(result) == 2
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        result = await actions._get_emails_by_filter("all")
+        assert len(result) == 2
 
     @pytest.mark.asyncio
     async def test_low_filter(self, actions):
-        try:
-            from aragora.server.handlers.inbox_command import _email_cache
+        from aragora.server.handlers.inbox_command import _email_cache
 
-            _email_cache["e1"] = {"priority": "low", "unread": True}
-            _email_cache["e2"] = {"priority": "high", "unread": True}
-            _email_cache["e3"] = {"priority": "defer", "unread": True}
+        _email_cache["e1"] = {"priority": "low", "unread": True}
+        _email_cache["e2"] = {"priority": "high", "unread": True}
+        _email_cache["e3"] = {"priority": "defer", "unread": True}
 
-            result = await actions._get_emails_by_filter("low")
-            assert "e1" in result
-            assert "e3" in result  # defer is in ["low", "defer"]
-            assert "e2" not in result
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        result = await actions._get_emails_by_filter("low")
+        assert "e1" in result
+        assert "e3" in result  # defer is in ["low", "defer"]
+        assert "e2" not in result

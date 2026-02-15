@@ -113,13 +113,10 @@ class TestDemoEmails:
             assert email["priority"] == "critical"
 
     def test_demo_emails_populates_cache(self, service):
-        try:
-            from aragora.server.handlers.inbox_command import _email_cache
+        from aragora.server.handlers.inbox_command import _email_cache
 
-            service._get_demo_emails(limit=10, offset=0, priority_filter=None)
-            assert len(_email_cache) > 0
-        except ImportError:
-            pytest.skip("inbox_command not available")
+        service._get_demo_emails(limit=10, offset=0, priority_filter=None)
+        assert len(_email_cache) > 0
 
 
 # ===========================================================================

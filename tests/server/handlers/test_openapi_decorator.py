@@ -418,62 +418,53 @@ class TestPydanticIntegration:
 
     def test_pydantic_request_model(self):
         """Test that Pydantic models generate request body schema."""
-        try:
-            from pydantic import BaseModel
+        from pydantic import BaseModel
 
-            class TestRequest(BaseModel):
-                name: str
-                value: int
+        class TestRequest(BaseModel):
+            name: str
+            value: int
 
-            @api_endpoint(
-                path="/api/test",
-                method="POST",
-                summary="Test",
-                tags=[],
-                request_model=TestRequest,
-            )
-            def handler():
-                pass
+        @api_endpoint(
+            path="/api/test",
+            method="POST",
+            summary="Test",
+            tags=[],
+            request_model=TestRequest,
+        )
+        def handler():
+            pass
 
-            endpoints = get_registered_endpoints()
-            assert endpoints[0].request_body is not None
-            assert "content" in endpoints[0].request_body
-        except ImportError:
-            pytest.skip("pydantic not installed")
+        endpoints = get_registered_endpoints()
+        assert endpoints[0].request_body is not None
+        assert "content" in endpoints[0].request_body
 
     def test_pydantic_response_model(self):
         """Test that Pydantic models generate response schema."""
-        try:
-            from pydantic import BaseModel
+        from pydantic import BaseModel
 
-            class TestResponse(BaseModel):
-                id: str
+        class TestResponse(BaseModel):
+            id: str
 
-            @api_endpoint(
-                path="/api/test",
-                method="GET",
-                summary="Test",
-                tags=[],
-                response_model=TestResponse,
-            )
-            def handler():
-                pass
+        @api_endpoint(
+            path="/api/test",
+            method="GET",
+            summary="Test",
+            tags=[],
+            response_model=TestResponse,
+        )
+        def handler():
+            pass
 
-            endpoints = get_registered_endpoints()
-            assert "200" in endpoints[0].responses
-        except ImportError:
-            pytest.skip("pydantic not installed")
+        endpoints = get_registered_endpoints()
+        assert "200" in endpoints[0].responses
 
     def test_json_body_with_pydantic_model(self):
         """Test json_body helper with Pydantic model."""
-        try:
-            from pydantic import BaseModel
+        from pydantic import BaseModel
 
-            class MyModel(BaseModel):
-                field: str
+        class MyModel(BaseModel):
+            field: str
 
-            body = json_body(MyModel)
-            assert "content" in body
-            assert "MyModel request" in body["description"]
-        except ImportError:
-            pytest.skip("pydantic not installed")
+        body = json_body(MyModel)
+        assert "content" in body
+        assert "MyModel request" in body["description"]

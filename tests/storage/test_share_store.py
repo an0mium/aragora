@@ -494,28 +494,24 @@ class TestShareLinkStoreIntegration:
 
     def test_with_real_share_settings(self, memory_store):
         """Should work with actual ShareSettings class."""
-        try:
-            from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
+        from aragora.server.handlers.social.sharing import ShareSettings, DebateVisibility
 
-            settings = ShareSettings(
-                debate_id="real-debate-123",
-                visibility=DebateVisibility.PUBLIC,
-                share_token="real_token_abcdef",
-                owner_id="real-user-1",
-                org_id="real-org-1",
-                allow_comments=True,
-                allow_forking=True,
-            )
+        settings = ShareSettings(
+            debate_id="real-debate-123",
+            visibility=DebateVisibility.PUBLIC,
+            share_token="real_token_abcdef",
+            owner_id="real-user-1",
+            org_id="real-org-1",
+            allow_comments=True,
+            allow_forking=True,
+        )
 
-            memory_store.save(settings)
+        memory_store.save(settings)
 
-            retrieved = memory_store.get("real-debate-123")
-            assert retrieved is not None
-            assert retrieved.debate_id == "real-debate-123"
-            assert retrieved.visibility == DebateVisibility.PUBLIC
-            assert retrieved.owner_id == "real-user-1"
-            assert retrieved.allow_comments is True
-            assert retrieved.allow_forking is True
-
-        except ImportError:
-            pytest.skip("ShareSettings not available")
+        retrieved = memory_store.get("real-debate-123")
+        assert retrieved is not None
+        assert retrieved.debate_id == "real-debate-123"
+        assert retrieved.visibility == DebateVisibility.PUBLIC
+        assert retrieved.owner_id == "real-user-1"
+        assert retrieved.allow_comments is True
+        assert retrieved.allow_forking is True

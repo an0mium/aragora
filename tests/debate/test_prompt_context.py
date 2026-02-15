@@ -385,48 +385,39 @@ class TestGetVerticalContext:
 
     def test_auto_detect_vertical_from_task(self):
         """Test vertical auto-detection from task description."""
-        # Use the actual vertical module to test auto-detection flow
-        try:
-            from aragora.agents.vertical_personas import Vertical, VerticalPersonaManager
+        from aragora.agents.vertical_personas import Vertical, VerticalPersonaManager
 
-            mock_manager = MagicMock(spec=VerticalPersonaManager)
+        mock_manager = MagicMock(spec=VerticalPersonaManager)
 
-            # Mock the detect method to return LEGAL vertical
-            mock_manager.detect_vertical_from_task.return_value = Vertical.LEGAL
+        # Mock the detect method to return LEGAL vertical
+        mock_manager.detect_vertical_from_task.return_value = Vertical.LEGAL
 
-            # Mock config
-            mock_config = MagicMock()
-            mock_config.vertical = Vertical.LEGAL
-            mock_config.description = "Legal analysis"
-            mock_config.compliance_frameworks = ["aba_ethics", "gdpr"]
-            mock_config.expertise_domains = ["legal", "compliance"]
-            mock_config.requires_high_accuracy = True
-            mock_config.max_temperature = 0.5
-            mock_manager.get_vertical_config.return_value = mock_config
+        # Mock config
+        mock_config = MagicMock()
+        mock_config.vertical = Vertical.LEGAL
+        mock_config.description = "Legal analysis"
+        mock_config.compliance_frameworks = ["aba_ethics", "gdpr"]
+        mock_config.expertise_domains = ["legal", "compliance"]
+        mock_config.requires_high_accuracy = True
+        mock_config.max_temperature = 0.5
+        mock_manager.get_vertical_config.return_value = mock_config
 
-            builder = PromptContextBuilder(vertical_persona_manager=mock_manager)
-            result = builder.get_vertical_context(task="Review this contract")
+        builder = PromptContextBuilder(vertical_persona_manager=mock_manager)
+        result = builder.get_vertical_context(task="Review this contract")
 
-            # Should attempt auto-detection
-            mock_manager.detect_vertical_from_task.assert_called_once_with("Review this contract")
-            assert "Legal" in result
-
-        except ImportError:
-            pytest.skip("vertical_personas module not available")
+        # Should attempt auto-detection
+        mock_manager.detect_vertical_from_task.assert_called_once_with("Review this contract")
+        assert "Legal" in result
 
     def test_general_vertical_returns_empty(self):
         """Test returns empty string for GENERAL vertical."""
-        try:
-            from aragora.agents.vertical_personas import Vertical, VerticalPersonaManager
+        from aragora.agents.vertical_personas import Vertical, VerticalPersonaManager
 
-            # Create builder with GENERAL vertical
-            builder = PromptContextBuilder(vertical=Vertical.GENERAL)
-            result = builder.get_vertical_context()
+        # Create builder with GENERAL vertical
+        builder = PromptContextBuilder(vertical=Vertical.GENERAL)
+        result = builder.get_vertical_context()
 
-            assert result == ""
-
-        except ImportError:
-            pytest.skip("vertical_personas module not available")
+        assert result == ""
 
     def test_import_error_returns_empty(self, basic_builder):
         """Test returns empty string on import error."""

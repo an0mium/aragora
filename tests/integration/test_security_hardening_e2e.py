@@ -309,26 +309,20 @@ class TestDecisionRouterIntegration:
 
     def test_decision_router_accessible(self):
         """Test that DecisionRouter is properly exported."""
-        try:
-            from aragora.core import get_decision_router, DecisionRouter
+        from aragora.core import get_decision_router, DecisionRouter
 
-            assert get_decision_router is not None
-            assert DecisionRouter is not None
-        except ImportError:
-            pytest.skip("DecisionRouter not available")
+        assert get_decision_router is not None
+        assert DecisionRouter is not None
 
     def test_decision_request_creation(self):
         """Test creating a DecisionRequest."""
-        try:
-            from aragora.core.decision import (
-                DecisionRequest,
-                DecisionType,
-                RequestContext,
-                InputSource,
-                ResponseChannel,
-            )
-        except ImportError:
-            pytest.skip("Decision module not available")
+        from aragora.core.decision import (
+            DecisionRequest,
+            DecisionType,
+            RequestContext,
+            InputSource,
+            ResponseChannel,
+        )
 
         # Create request with DEBATE type
         request = DecisionRequest(
@@ -344,10 +338,7 @@ class TestDecisionRouterIntegration:
     @pytest.mark.asyncio
     async def test_chat_router_debate_starter(self):
         """Test the chat router's debate starter integration."""
-        try:
-            from aragora.server.handlers.chat.router import _create_decision_router_debate_starter
-        except ImportError:
-            pytest.skip("Chat router not available")
+        from aragora.server.handlers.chat.router import _create_decision_router_debate_starter
 
         starter = _create_decision_router_debate_starter()
         assert starter is not None
@@ -379,17 +370,14 @@ class TestDecisionRouterIntegration:
     @pytest.mark.asyncio
     async def test_decision_router_attachment_ingestion(self, tmp_path, monkeypatch):
         """Attachment content should be persisted into document/evidence stores."""
-        try:
-            from aragora.core.decision import (
-                DecisionConfig,
-                DecisionRequest,
-                DecisionRouter,
-                DecisionType,
-            )
-            from aragora.evidence.store import InMemoryEvidenceStore
-            from aragora.server.documents import DocumentStore
-        except ImportError:
-            pytest.skip("Decision module not available")
+        from aragora.core.decision import (
+            DecisionConfig,
+            DecisionRequest,
+            DecisionRouter,
+            DecisionType,
+        )
+        from aragora.evidence.store import InMemoryEvidenceStore
+        from aragora.server.documents import DocumentStore
 
         monkeypatch.setattr(
             "aragora.agents.get_agents_by_names",

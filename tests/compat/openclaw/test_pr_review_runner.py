@@ -685,8 +685,7 @@ class TestSkillMdIntegration:
             Path(__file__).parent.parent.parent.parent
             / "aragora/compat/openclaw/skills/pr-reviewer/SKILL.md"
         )
-        if not skill_path.exists():
-            pytest.skip("SKILL.md not found")
+        assert skill_path.exists(), "SKILL.md should exist"
 
         parsed = OpenClawSkillParser.parse_file(skill_path)
         assert parsed.name == "pr-reviewer"
@@ -707,8 +706,7 @@ class TestSkillMdIntegration:
             Path(__file__).parent.parent.parent.parent
             / "aragora/compat/openclaw/skills/pr-reviewer/policy.yaml"
         )
-        if not policy_path.exists():
-            pytest.skip("policy.yaml not found")
+        assert policy_path.exists(), "policy.yaml should exist"
 
         policy = load_policy(policy_path)
         assert policy.name == "pr-reviewer"

@@ -602,10 +602,7 @@ class TestAttackTypes:
 
     def test_attack_category_classification(self, handler):
         """Test _get_attack_category returns correct categories."""
-        try:
-            from aragora.modes.redteam import AttackType
-        except ImportError:
-            pytest.skip("redteam module not available")
+        from aragora.modes.redteam import AttackType
 
         # Logic attacks
         for at in [

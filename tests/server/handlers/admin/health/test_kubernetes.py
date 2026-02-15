@@ -138,6 +138,7 @@ class TestReadinessProbeFast:
 
     def test_readiness_fast_returns_ready(self):
         """Fast readiness probe returns 200 when ready."""
+        import aragora.server.unified_server as usrv
         from aragora.server.handlers.admin.health.kubernetes import readiness_probe_fast
 
         handler = MockHandler(
@@ -148,8 +149,20 @@ class TestReadinessProbeFast:
         mock_degraded = MagicMock()
         mock_degraded.is_degraded.return_value = False
 
-        with patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}):
-            result = readiness_probe_fast(handler)
+        route_index_mock = MagicMock()
+        route_index_mock._exact_routes = {"/health": ("_h", None)}
+
+        old_ready = usrv._server_ready
+        usrv._server_ready = True
+        try:
+            with patch.dict("sys.modules", {"aragora.server.degraded_mode": mock_degraded}), \
+                 patch(
+                     "aragora.server.handler_registry.core.get_route_index",
+                     return_value=route_index_mock,
+                 ):
+                result = readiness_probe_fast(handler)
+        finally:
+            usrv._server_ready = old_ready
 
         assert result.status_code == 200
         body = json.loads(result.body.decode("utf-8"))

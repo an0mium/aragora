@@ -275,8 +275,7 @@ class TestTokenExpiration:
 
     def test_refresh_token_generates_new_access_token(self, auth_handler, test_user):
         """E2E: Refresh token should generate a new access token."""
-        if not hasattr(auth_handler, "_handle_refresh"):
-            pytest.skip("Handler does not support token refresh")
+        assert hasattr(auth_handler, "_handle_refresh"), "Handler should support token refresh"
 
         # First login to get tokens
         login_request = create_mock_request(
@@ -482,9 +481,7 @@ class TestOAuthFlow:
 
         handler = OAuthHandler({})
 
-        # Check if handler has the method to list providers
-        if not hasattr(handler, "_handle_list_providers"):
-            pytest.skip("OAuth handler does not support listing providers")
+        assert hasattr(handler, "_handle_list_providers"), "OAuth handler should support listing providers"
 
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 54321)

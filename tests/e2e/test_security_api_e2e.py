@@ -64,14 +64,8 @@ class TestSecurityServiceDirect:
         from aragora.security.encryption import get_encryption_service
 
         service = get_encryption_service()
-
-        # Check if list_keys is available
-        if hasattr(service, "list_keys"):
-            keys = service.list_keys()
-            assert len(keys) >= 1
-        else:
-            # Some implementations may not have list_keys
-            pytest.skip("list_keys not available")
+        keys = service.list_keys()
+        assert len(keys) >= 1
 
     def test_encryption_round_trip_health(self, encryption_key):
         """Test encryption service can perform round-trip."""
@@ -443,18 +437,15 @@ class TestSecurityHardeningVerification:
 
     def test_key_rotation_scheduler_available(self):
         """Verify key rotation scheduler is importable."""
-        try:
-            from aragora.ops.key_rotation import (
-                KeyRotationScheduler,
-                KeyRotationConfig,
-                get_key_rotation_scheduler,
-            )
+        from aragora.ops.key_rotation import (
+            KeyRotationScheduler,
+            KeyRotationConfig,
+            get_key_rotation_scheduler,
+        )
 
-            config = KeyRotationConfig()
-            assert config.rotation_interval_days == 90
-            assert config.alert_days_before == 7
-        except ImportError:
-            pytest.skip("Key rotation module not available")
+        config = KeyRotationConfig()
+        assert config.rotation_interval_days == 90
+        assert config.alert_days_before == 7
 
     def test_security_metrics_available(self):
         """Verify security metrics are defined."""

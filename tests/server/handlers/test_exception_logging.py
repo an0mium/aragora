@@ -166,8 +166,7 @@ class TestInvoicesLogging:
         from pathlib import Path
 
         invoices_path = Path("aragora/server/handlers/invoices.py")
-        if not invoices_path.exists():
-            pytest.skip("Invoices handler not found")
+        assert invoices_path.exists(), "Invoices handler should exist"
 
         content = invoices_path.read_text()
 
@@ -200,8 +199,7 @@ class TestExceptionPatternsNotSilent:
         from pathlib import Path
 
         handlers_dir = Path("aragora/server/handlers")
-        if not handlers_dir.exists():
-            pytest.skip("Handler directory not found")
+        assert handlers_dir.exists(), "Handler directory should exist"
 
         # Pattern for truly silent handlers (except followed directly by pass/return/continue)
         # with no logging in between

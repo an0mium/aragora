@@ -200,25 +200,21 @@ class TestVerifyReceipt:
 
     def test_verify_receipt_with_valid_integrity(self, client, mock_receipt_store):
         """Verify receipt with matching checksum succeeds."""
-        # Create a receipt using the actual DecisionReceipt class for correct checksum
-        try:
-            from aragora.export.decision_receipt import DecisionReceipt
+        from aragora.export.decision_receipt import DecisionReceipt
 
-            receipt = DecisionReceipt(
-                receipt_id="rcpt_integrity_test",
-                gauntlet_id="gauntlet-test",
-                verdict="APPROVED",
-                confidence=0.9,
-            )
-            receipt_dict = receipt.to_dict()
-            mock_receipt_store.get.return_value = receipt_dict
+        receipt = DecisionReceipt(
+            receipt_id="rcpt_integrity_test",
+            gauntlet_id="gauntlet-test",
+            verdict="APPROVED",
+            confidence=0.9,
+        )
+        receipt_dict = receipt.to_dict()
+        mock_receipt_store.get.return_value = receipt_dict
 
-            response = client.get("/api/v2/receipts/rcpt_integrity_test/verify")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["integrity_valid"] is True
-        except ImportError:
-            pytest.skip("DecisionReceipt not available")
+        response = client.get("/api/v2/receipts/rcpt_integrity_test/verify")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["integrity_valid"] is True
 
 
 class TestExportReceipt:
