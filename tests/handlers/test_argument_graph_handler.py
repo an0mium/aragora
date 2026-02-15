@@ -45,17 +45,19 @@ class MockTrace:
 
     @classmethod
     def load(cls, path):
-        return cls(MockDebateResult(
-            task="Test debate topic",
-            messages=[
-                MockMessage("claude", "I propose we use microservices", "proposer", 1),
-                MockMessage("gpt4", "I suggest a monolith instead", "proposer", 1),
-                MockMessage("claude", "Microservices scale better", "revision", 2),
-            ],
-            critiques=[
-                MockCritique("gpt4", "claude", 0.8, "Too complex for small teams"),
-            ],
-        ))
+        return cls(
+            MockDebateResult(
+                task="Test debate topic",
+                messages=[
+                    MockMessage("claude", "I propose we use microservices", "proposer", 1),
+                    MockMessage("gpt4", "I suggest a monolith instead", "proposer", 1),
+                    MockMessage("claude", "Microservices scale better", "revision", 2),
+                ],
+                critiques=[
+                    MockCritique("gpt4", "claude", 0.8, "Too complex for small teams"),
+                ],
+            )
+        )
 
 
 class EmptyTrace:
@@ -144,7 +146,15 @@ class TestArgumentGraph:
 
         body = result[0]
         graph = body["graph"]
-        valid_types = {"proposal", "critique", "evidence", "concession", "rebuttal", "vote", "consensus"}
+        valid_types = {
+            "proposal",
+            "critique",
+            "evidence",
+            "concession",
+            "rebuttal",
+            "vote",
+            "consensus",
+        }
         for node in graph["nodes"]:
             assert node["node_type"] in valid_types
 

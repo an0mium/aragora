@@ -798,13 +798,13 @@ class TestGetSummary:
             ],
         )
 
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path",
-            return_value="/tmp/test.db",
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path",
+                return_value="/tmp/test.db",
+            ),
         ):
             result = handler._get_summary()
 
@@ -828,13 +828,13 @@ class TestGetSummary:
             cursor_fetchall=[[], [], []],
         )
 
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path",
-            return_value="/tmp/test.db",
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path",
+                return_value="/tmp/test.db",
+            ),
         ):
             result = handler._get_summary()
 
@@ -850,13 +850,13 @@ class TestGetSummary:
     def test_db_error_returns_500(self, handler):
         mock_cls = MagicMock(side_effect=Exception("db crash"))
 
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path",
-            return_value="/tmp/test.db",
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path",
+                return_value="/tmp/test.db",
+            ),
         ):
             result = handler._get_summary()
 
@@ -874,13 +874,13 @@ class TestGetSummary:
         mock_inst.connection.return_value = mock_conn
         mock_cls.return_value = mock_inst
 
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path",
-            return_value="/tmp/test.db",
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path",
+                return_value="/tmp/test.db",
+            ),
         ):
             result = handler._get_summary()
 

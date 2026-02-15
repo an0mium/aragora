@@ -59,6 +59,7 @@ EXPECTED_OPERATION_COUNT = sum(len(m) for m in CANONICAL_ROUTES.values())
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _extract_openapi_paths(filepath: Path) -> dict[str, list[str]]:
     """Extract path -> [methods] from the OPENCLAW_ENDPOINTS dict literal."""
     content = filepath.read_text()
@@ -252,9 +253,7 @@ class TestPythonSDKParity:
         if not _PY_SDK.exists():
             pytest.skip("Python SDK not found")
         content = _PY_SDK.read_text()
-        assert '"new_value"' in content, (
-            "Python SDK rotate_credential should use 'new_value' field"
-        )
+        assert '"new_value"' in content, "Python SDK rotate_credential should use 'new_value' field"
 
     def test_audit_has_filter_params(self) -> None:
         """audit() must accept event_type, user_id, session_id, start_time, end_time."""
@@ -283,12 +282,28 @@ class TestAsyncPythonSDKParity:
 
         # The core 22 gateway methods that MUST exist in the async class
         core_methods = {
-            "list_sessions", "create_session", "get_session", "end_session",
-            "delete_session", "execute_action", "get_action", "cancel_action",
-            "list_credentials", "store_credential", "rotate_credential",
-            "delete_credential", "get_policy_rules", "add_policy_rule",
-            "remove_policy_rule", "list_approvals", "approve_action",
-            "deny_action", "health", "metrics", "audit", "stats",
+            "list_sessions",
+            "create_session",
+            "get_session",
+            "end_session",
+            "delete_session",
+            "execute_action",
+            "get_action",
+            "cancel_action",
+            "list_credentials",
+            "store_credential",
+            "rotate_credential",
+            "delete_credential",
+            "get_policy_rules",
+            "add_policy_rule",
+            "remove_policy_rule",
+            "list_approvals",
+            "approve_action",
+            "deny_action",
+            "health",
+            "metrics",
+            "audit",
+            "stats",
         }
 
         async_methods: set[str] = set()
@@ -348,9 +363,7 @@ class TestTypeScriptSDKParity:
             pytest.skip("TypeScript SDK not found")
         content = _TS_SDK.read_text()
         # Check the ExecuteActionRequest interface
-        interface_match = re.search(
-            r"interface ExecuteActionRequest\s*\{([^}]+)\}", content
-        )
+        interface_match = re.search(r"interface ExecuteActionRequest\s*\{([^}]+)\}", content)
         assert interface_match, "ExecuteActionRequest interface not found"
         fields = interface_match.group(1)
         assert "input_data" in fields, "ExecuteActionRequest should have input_data"
@@ -364,9 +377,7 @@ class TestTypeScriptSDKParity:
         match = re.search(r"rotateCredential\([^)]+?body\?*:\s*\{([^}]+)\}", content)
         assert match, "rotateCredential method not found"
         body_fields = match.group(1)
-        assert "new_value" in body_fields, (
-            "rotateCredential should use new_value field"
-        )
+        assert "new_value" in body_fields, "rotateCredential should use new_value field"
 
     def test_audit_has_filter_options(self) -> None:
         """audit() must accept event_type, user_id, session_id, start_time, end_time."""
@@ -453,13 +464,9 @@ class TestCrossSDKConsistency:
                 f"{label} uses internal /api/gateway/openclaw/ prefix"
             )
             # Should contain the public /api/v1/openclaw/ prefix
-            assert "/api/v1/openclaw/" in content, (
-                f"{label} missing /api/v1/openclaw/ prefix"
-            )
+            assert "/api/v1/openclaw/" in content, f"{label} missing /api/v1/openclaw/ prefix"
             # Should contain the public /api/v1/openclaw/ prefix
-            assert "/api/v1/openclaw/" in content, (
-                f"{label} missing /api/v1/openclaw/ prefix"
-            )
+            assert "/api/v1/openclaw/" in content, f"{label} missing /api/v1/openclaw/ prefix"
 
     def test_server_handler_normalizes_all_prefixes(self) -> None:
         """Server handler must accept all 3 path prefixes."""

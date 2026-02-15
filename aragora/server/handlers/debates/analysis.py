@@ -238,19 +238,23 @@ class AnalysisOperationsMixin:
 
             if output_format == "mermaid":
                 mermaid_code = cartographer.export_mermaid()
-                return json_response({
-                    "debate_id": debate_id,
-                    "format": "mermaid",
-                    "graph": mermaid_code,
-                })
+                return json_response(
+                    {
+                        "debate_id": debate_id,
+                        "format": "mermaid",
+                        "graph": mermaid_code,
+                    }
+                )
 
             # Default: JSON graph
             graph_json = json_mod.loads(cartographer.export_json())
-            return json_response({
-                "debate_id": debate_id,
-                "format": "json",
-                "graph": graph_json,
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "format": "json",
+                    "graph": graph_json,
+                }
+            )
 
         except RecordNotFoundError:
             return error_response(f"Debate not found: {debate_id}", 404)

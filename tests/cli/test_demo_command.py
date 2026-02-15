@@ -13,7 +13,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-pytest.importorskip("aragora_debate", reason="aragora_debate package is required for CLI demo tests")
+pytest.importorskip(
+    "aragora_debate", reason="aragora_debate package is required for CLI demo tests"
+)
 
 from aragora.cli.demo import (
     DEMO_TASKS,
@@ -126,7 +128,13 @@ class TestPrintBanner:
 
 class TestPrintResult:
     def test_prints_verdict_and_confidence(self, capsys):
-        from aragora_debate.types import DebateResult, DecisionReceipt, Verdict, Consensus, ConsensusMethod
+        from aragora_debate.types import (
+            DebateResult,
+            DecisionReceipt,
+            Verdict,
+            Consensus,
+            ConsensusMethod,
+        )
 
         receipt = DecisionReceipt(
             receipt_id="DR-TEST-abc123",
@@ -208,7 +216,10 @@ class TestRunDemo:
 class TestMain:
     def test_list_flag(self, capsys):
         args = argparse.Namespace(
-            list_demos=True, server=False, topic=None, name=None,
+            list_demos=True,
+            server=False,
+            topic=None,
+            name=None,
         )
         main(args)
         captured = capsys.readouterr()
@@ -218,7 +229,10 @@ class TestMain:
     @patch("aragora.cli.demo._run_server_demo")
     def test_server_flag(self, mock_server):
         args = argparse.Namespace(
-            list_demos=False, server=True, topic=None, name=None,
+            list_demos=False,
+            server=True,
+            topic=None,
+            name=None,
         )
         main(args)
         mock_server.assert_called_once()
@@ -231,8 +245,10 @@ class TestMain:
         mock_asyncio.run.return_value = (mock_result, 0.1)
 
         args = argparse.Namespace(
-            list_demos=False, server=False,
-            topic="Should we use Rust?", name=None,
+            list_demos=False,
+            server=False,
+            topic="Should we use Rust?",
+            name=None,
         )
         main(args)
         mock_asyncio.run.assert_called_once()
@@ -240,7 +256,10 @@ class TestMain:
     @patch("aragora.cli.demo.run_demo")
     def test_named_demo(self, mock_run_demo):
         args = argparse.Namespace(
-            list_demos=False, server=False, topic=None, name="auth",
+            list_demos=False,
+            server=False,
+            topic=None,
+            name="auth",
         )
         main(args)
         mock_run_demo.assert_called_once_with("auth", receipt_path=None)
@@ -248,7 +267,10 @@ class TestMain:
     @patch("aragora.cli.demo.run_demo")
     def test_defaults_to_microservices(self, mock_run_demo):
         args = argparse.Namespace(
-            list_demos=False, server=False, topic=None, name=None,
+            list_demos=False,
+            server=False,
+            topic=None,
+            name=None,
         )
         main(args)
         mock_run_demo.assert_called_once_with(_DEFAULT_DEMO, receipt_path=None)
@@ -267,9 +289,7 @@ class TestDemoIntegration:
         import asyncio
         from aragora.cli.demo import _run_demo_debate
 
-        result, elapsed = asyncio.run(
-            _run_demo_debate("Should we adopt microservices?")
-        )
+        result, elapsed = asyncio.run(_run_demo_debate("Should we adopt microservices?"))
 
         assert result is not None
         assert result.consensus is not None
@@ -288,9 +308,7 @@ class TestDemoIntegration:
         import asyncio
         from aragora.cli.demo import _run_demo_debate
 
-        result, _ = asyncio.run(
-            _run_demo_debate("Design a cache system")
-        )
+        result, _ = asyncio.run(_run_demo_debate("Design a cache system"))
 
         assert len(result.proposals) == 4  # 4 agents
         assert len(result.votes) > 0
@@ -302,9 +320,7 @@ class TestDemoIntegration:
         import asyncio
         from aragora.cli.demo import _run_demo_debate
 
-        result, _ = asyncio.run(
-            _run_demo_debate("Should we use Kubernetes?")
-        )
+        result, _ = asyncio.run(_run_demo_debate("Should we use Kubernetes?"))
 
         assert result.receipt is not None
         assert result.receipt.receipt_id.startswith("DR-")
