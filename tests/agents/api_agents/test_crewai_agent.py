@@ -770,7 +770,7 @@ class TestCrewAIKickoff:
             result = await agent.kickoff("Test task")
 
         assert result["success"] is False
-        assert "Unexpected error" in result["output"]
+        assert result["output"] == "Crew execution failed"
 
 
 class TestCrewAIGetCrewStatus:

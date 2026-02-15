@@ -1141,7 +1141,7 @@ class TestChromaHealth:
 
         assert health["status"] == "unhealthy"
         assert health["backend"] == "chroma"
-        assert "disk error" in health["error"]
+        assert health["error"] == "Health check failed"
 
     @pytest.mark.asyncio
     async def test_health_check_disconnected(self, config, mock_chroma_env):

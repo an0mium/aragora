@@ -149,7 +149,7 @@ class TestKMMetrics:
 
         stats = metrics.get_stats(OperationType.DELETE)
         assert stats["error_count"] == 1
-        assert "Test error" in stats["last_error"]
+        assert "Operation failed: ValueError" in stats["last_error"]
 
     def test_record_cache_hit(self):
         """Test recording cache hit."""

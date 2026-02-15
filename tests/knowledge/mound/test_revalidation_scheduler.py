@@ -1012,7 +1012,7 @@ class TestRevalidateViaEvidence:
             result = await _revalidate_via_evidence("node-1", {}, mock_knowledge_mound)
 
             assert result["success"] is False
-            assert "connection" in result["error"].lower() or "evidence" in result["error"].lower()
+            assert "Evidence collection failed" in result["error"]
 
 
 class TestFlagForExpertReview:
@@ -1103,7 +1103,7 @@ class TestErrorHandlingAndRecovery:
             result = await handle_revalidation_task(payload, mock_knowledge_mound)
 
             assert result["success"] is False
-            assert "Debate failed" in result["error"]
+            assert "Revalidation failed" in result["error"]
 
 
 class TestCallbackInvocation:

@@ -1131,7 +1131,7 @@ class TestPredictionCommitment:
 
         assert result["status"] == "local_only"
         assert "error" in result
-        assert "RPC error" in result["error"]
+        assert "On-chain commitment failed" in result["error"]
 
     @pytest.mark.asyncio
     async def test_commitment_tag2_is_topic_hash(self):
@@ -1267,7 +1267,7 @@ class TestErrorHandling:
 
         assert result.records_updated == 0
         assert len(result.errors) > 0
-        assert any("Transaction reverted" in e for e in result.errors)
+        assert any("Failed to push reputation" in e for e in result.errors)
 
     @pytest.mark.asyncio
     async def test_handles_calibration_errors(self):
@@ -1329,4 +1329,4 @@ class TestErrorHandling:
                 result = await adapter.sync_from_km(push_elo_ratings=True, push_receipts=False)
 
         assert len(result.errors) > 0
-        assert any("Database error" in e for e in result.errors)
+        assert any("Error processing agent" in e for e in result.errors)

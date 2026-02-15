@@ -498,7 +498,7 @@ class TestAutoGenConversationManagement:
             result = await agent.initiate_chat("Hello")
 
         assert result["success"] is False
-        assert "Network error" in result["response"]
+        assert result["response"] == "Chat initiation failed"
 
     @pytest.mark.asyncio
     async def test_continue_chat_success(self):

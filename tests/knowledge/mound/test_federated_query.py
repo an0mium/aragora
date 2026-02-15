@@ -281,7 +281,7 @@ class TestFederatedQueryAggregator:
         result = await agg.query("topic")
 
         assert QuerySource.BELIEF in result.sources_failed
-        assert "Test error" in result.errors[QuerySource.BELIEF.value]
+        assert "Query failed: ValueError" in result.errors[QuerySource.BELIEF.value]
 
     @pytest.mark.asyncio
     async def test_deduplication(self):

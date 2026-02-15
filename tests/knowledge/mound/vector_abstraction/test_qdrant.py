@@ -1025,7 +1025,7 @@ class TestQdrantHealth:
 
         assert health["status"] == "unhealthy"
         assert health["backend"] == "qdrant"
-        assert "unreachable" in health["error"]
+        assert health["error"] == "Health check failed"
 
     @pytest.mark.asyncio
     async def test_health_check_disconnected(self, config, mock_qdrant_env):

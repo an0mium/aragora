@@ -475,10 +475,10 @@ async def _revalidate_via_debate(
         }
 
     except ImportError as e:
-        logger.warning(f"Debate components not available: {e}")
+        logger.warning("Debate components not available: %s", e)
         return {
             "success": False,
-            "error": f"Debate components not available: {e}",
+            "error": "Debate components not available",
         }
     except Exception as e:
         logger.exception("Revalidation debate failed: %s", e)
@@ -526,15 +526,16 @@ async def _revalidate_via_evidence(
             }
 
     except (RuntimeError, ConnectionError, TimeoutError) as e:
+        logger.warning("Evidence collection failed: %s", e)
         return {
             "success": False,
-            "error": f"Evidence collection failed: {e}",
+            "error": "Evidence collection failed",
         }
     except Exception as e:
-        logger.exception(f"Unexpected evidence collection error: {e}")
+        logger.exception("Unexpected evidence collection error: %s", e)
         return {
             "success": False,
-            "error": f"Unexpected evidence collection error: {e}",
+            "error": "Unexpected evidence collection error",
         }
 
 

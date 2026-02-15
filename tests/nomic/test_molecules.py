@@ -1560,7 +1560,7 @@ class TestMoleculeEngineExecutorRegistration:
 
         # The error should be captured in the molecule's error_message
         assert molecule.error_message is not None
-        assert "No executor" in molecule.error_message
+        assert "failed" in molecule.error_message.lower()
         # Step result should contain the error
         step_id = molecule.steps[0].id
         assert "error" in result.step_results.get(step_id, {})
@@ -1771,7 +1771,7 @@ class TestErrorHandling:
         result = await engine.execute(molecule)
 
         assert result.success is False
-        assert "Executor crashed" in molecule.steps[0].error_message
+        assert "Step execution failed" in molecule.steps[0].error_message
 
     @pytest.mark.asyncio
     async def test_empty_molecule_execution(self, temp_dir, reset_engine):
@@ -1928,4 +1928,4 @@ class TestAuditTrail:
 
         await engine.execute(molecule)
 
-        assert molecule.steps[0].error_message == "Specific error message"
+        assert molecule.steps[0].error_message == "Step execution failed: ValueError"

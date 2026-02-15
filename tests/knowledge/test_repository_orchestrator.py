@@ -535,7 +535,7 @@ class TestRepositoryOrchestratorIndexRepository:
 
             assert result.files_indexed == 0
             assert len(result.errors) == 1
-            assert "Crawl failed" in result.errors[0]
+            assert "Repository indexing failed" in result.errors[0]
 
             progress = orchestrator.get_progress("/repo")
             assert progress.status == "failed"

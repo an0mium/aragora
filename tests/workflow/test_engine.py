@@ -459,7 +459,7 @@ class TestWorkflowExecutionLifecycle:
         result = await engine.execute(definition)
 
         assert result.success is False
-        assert "no entry step" in result.error.lower()
+        assert "workflow execution failed" in result.error.lower()
 
     @pytest.mark.asyncio
     async def test_final_output_is_last_step_output(self, engine):
@@ -953,7 +953,7 @@ class TestErrorHandling:
         result = await engine.execute(definition)
 
         assert result.success is False
-        assert "Custom error message" in result.steps[0].error
+        assert result.steps[0].error == "Step execution failed"
 
 
 # =============================================================================

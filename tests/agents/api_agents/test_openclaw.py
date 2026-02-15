@@ -437,7 +437,7 @@ class TestOpenClawExecuteTask:
             result = await agent.execute_task("Test task")
 
         assert result["success"] is False
-        assert "Network error" in result["output"]
+        assert result["output"] == "Task execution failed"
 
 
 class TestOpenClawSendMessage:
@@ -543,7 +543,7 @@ class TestOpenClawSendMessage:
             result = await agent.send_message("slack", "Hello")
 
         assert result["success"] is False
-        assert "API error" in result["error"]
+        assert result["error"] == "Message send failed"
 
 
 class TestOpenClawIsAvailable:

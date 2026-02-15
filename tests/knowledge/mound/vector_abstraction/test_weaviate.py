@@ -1029,7 +1029,7 @@ class TestWeaviateHealth:
 
         assert health["status"] == "unhealthy"
         assert health["backend"] == "weaviate"
-        assert "unreachable" in health["error"]
+        assert health["error"] == "Health check failed"
 
     @pytest.mark.asyncio
     async def test_health_check_disconnected(self, config, mock_weaviate_env):

@@ -469,7 +469,7 @@ class TestCheckExecutionBudget:
     def test_tracker_exception_allows(self) -> None:
         """Budget check exception is non-fatal and defaults to allow."""
         tracker = MagicMock()
-        tracker.check_debate_budget.side_effect = RuntimeError("DB down")
+        tracker.check_debate_budget.side_effect = TypeError("DB down")
         allowed, msg = _check_execution_budget("debate-1", {"cost_tracker": tracker})
         assert allowed is True
 
@@ -547,7 +547,7 @@ class TestReceiptPersistence:
         receipt = _FakeReceipt()
         with patch(
             "aragora.storage.receipt_store.get_receipt_store",
-            side_effect=RuntimeError("store unavailable"),
+            side_effect=OSError("store unavailable"),
         ):
             result = _persist_receipt(receipt, "test-debate-001")
         assert result is None

@@ -400,7 +400,7 @@ class TestMemoryReadStepExecution:
 
         assert result["items"] == []
         assert result["total_count"] == 0
-        assert "Database connection lost" in result["error"]
+        assert result["error"] == "Memory read failed"
 
     @pytest.mark.asyncio
     async def test_default_query_type_is_hybrid(self):
@@ -1513,7 +1513,7 @@ class TestMemoryWriteStepExecution:
             result = await step.execute(ctx)
 
         assert result["success"] is False
-        assert "Storage engine crashed" in result["error"]
+        assert result["error"] == "Memory write failed"
 
     @pytest.mark.asyncio
     async def test_workflow_metadata_injected(self):

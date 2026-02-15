@@ -637,6 +637,7 @@ class TestHierarchicalDispatchHandler:
     @pytest.mark.asyncio
     async def test_dispatch_handles_agent_errors(self):
         """Test that dispatch handles agent errors gracefully."""
+        import aragora.workflow.patterns.hierarchical  # noqa: F401 - ensure handlers registered
         from aragora.workflow.nodes.task import get_task_handler
 
         handler = get_task_handler("hierarchical_dispatch")
@@ -660,7 +661,7 @@ class TestHierarchicalDispatchHandler:
 
             assert len(result["failed"]) == 1
             assert result["failed"][0]["success"] is False
-            assert "API Error" in result["failed"][0]["error"]
+            assert result["failed"][0]["error"] == "Subtask processing failed"
 
     @pytest.mark.asyncio
     async def test_dispatch_formats_results(self):

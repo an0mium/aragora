@@ -304,7 +304,7 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        except (KeyError, ValueError, TypeError, OSError) as e:
+        except (KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
             logger.error("Error getting health: %s", e)
             return json_response(
                 {

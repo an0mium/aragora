@@ -388,7 +388,7 @@ class TestFederationScheduler:
         run = await scheduler.trigger_sync(schedule.schedule_id)
 
         assert run.status == "error"
-        assert "Sync failed" in run.error_message
+        assert "Federation sync failed" in run.error_message
         assert schedule.error_count == 1
         assert schedule.consecutive_errors == 1
 

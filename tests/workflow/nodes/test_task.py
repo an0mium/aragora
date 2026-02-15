@@ -405,7 +405,7 @@ class TestHTTPExecution:
             result = await step.execute(ctx)
 
         assert result["success"] is False
-        assert "Connection refused" in result["error"]
+        assert result["error"] == "HTTP request failed"
 
     @pytest.mark.asyncio
     async def test_http_non_json_response(self):
@@ -460,7 +460,7 @@ class TestHTTPExecution:
             result = await step.execute(ctx)
 
         assert result["success"] is False
-        assert "HTTPClientPool" in result["error"]
+        assert result["error"] == "HTTP request failed"
 
 
 # ============================================================================
@@ -1176,7 +1176,7 @@ class TestErrorHandling:
             result = await step.execute(ctx)
 
             assert result["success"] is False
-            assert "Handler crashed" in result["error"]
+            assert result["error"] == "Task execution failed"
         finally:
             _task_handlers.pop(test_name, None)
 

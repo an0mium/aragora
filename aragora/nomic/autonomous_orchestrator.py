@@ -691,7 +691,7 @@ class AutonomousOrchestrator:
 
         except Exception as e:
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-            logger.warning("orchestration_failed orchestration_id=%s: %s", self._orchestration_id, e)
+            logger.warning("orchestration_failed", orchestration_id=self._orchestration_id, error_type=type(e).__name__)
 
             # Fail the convoy on exception
             if self.enable_convoy_tracking and self._convoy_id:
@@ -1014,7 +1014,7 @@ class AutonomousOrchestrator:
                         await self._update_bead_status(subtask.id, "failed")
 
         except Exception as e:
-            logger.warning("assignment_failed subtask_id=%s: %s", subtask.id, e)
+            logger.warning("assignment_failed", subtask_id=subtask.id, error_type=type(e).__name__)
             assignment.status = "failed"
             assignment.result = {"error": f"Assignment execution failed: {type(e).__name__}"}
             await self._update_bead_status(subtask.id, "failed", error=f"Assignment failed: {type(e).__name__}")

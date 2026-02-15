@@ -458,7 +458,7 @@ class TestDebateStepExecution:
                         result = await step.execute(ctx)
 
         assert result["success"] is False
-        assert "Arena crashed" in result["error"]
+        assert result["error"] == "Debate execution failed"
 
     @pytest.mark.asyncio
     async def test_config_merged_with_current_step_config(self):
@@ -1508,7 +1508,7 @@ class TestQuickDebateStepExecution:
                 result = await step.execute(ctx)
 
         assert result["success"] is False
-        assert "Unexpected failure" in result["error"]
+        assert result["error"] == "Multi-agent query failed"
 
     @pytest.mark.asyncio
     async def test_agent_generate_exception_captured(self):
@@ -1533,7 +1533,7 @@ class TestQuickDebateStepExecution:
         assert result["success"] is False
         assert result["agents_responded"] == 0
         assert result["responses"][0]["success"] is False
-        assert "Agent timed out" in result["responses"][0]["error"]
+        assert result["responses"][0]["error"] == "Agent response failed"
 
 
 # ============================================================================

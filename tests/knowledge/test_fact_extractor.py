@@ -1106,4 +1106,4 @@ class TestEdgeCases:
             )
 
         assert len(result.errors) == 1
-        assert "Test error" in result.errors[0]
+        assert "Fact extraction failed" in result.errors[0]
