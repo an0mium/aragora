@@ -318,6 +318,38 @@ class TaskDecomposer:
 
         return max(1, min(10, round(total)))
 
+    _SPECIFIC_ACTION_VERBS = {
+        "add", "remove", "fix", "update", "refactor", "implement", "replace",
+        "rename", "extract", "move", "split", "merge", "delete", "create",
+        "migrate", "convert", "wrap", "inject", "enable", "disable",
+    }
+
+    _SPECIFIC_TECHNICAL_TERMS = {
+        "retry", "backoff", "timeout", "cache", "queue", "pool", "lock",
+        "mutex", "batch", "stream", "parse", "serialize", "validate",
+        "sanitize", "encrypt", "decrypt", "hash", "compress", "paginate",
+        "throttle", "debounce", "middleware", "decorator", "hook",
+        "callback", "handler", "endpoint", "route", "model", "schema",
+        "migration", "fixture", "mock", "stub", "factory", "singleton",
+    }
+
+    def _is_specific_goal(self, goal: str) -> bool:
+        """Check if a goal is specific enough to skip vague expansion.
+
+        A goal is specific if it contains concrete action verbs AND technical
+        terms that indicate the user knows exactly what they want, even if it
+        doesn't mention file paths (which would raise the complexity score).
+        """
+        words = set(goal.lower().split())
+        has_action = bool(words & self._SPECIFIC_ACTION_VERBS)
+        has_technical = bool(words & self._SPECIFIC_TECHNICAL_TERMS)
+        # Also check for module/area references (connectors, agents, etc.)
+        has_module = bool(
+            words & {c.lower() for c in DECOMPOSITION_CONCEPTS}
+        )
+        # Specific if it has an action verb + either technical term or module ref
+        return has_action and (has_technical or has_module)
+
     def _score_to_level(self, score: int) -> str:
         """Convert numeric score to complexity level."""
         if score <= 3:

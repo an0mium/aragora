@@ -25,6 +25,13 @@ aragora demo
 aragora quickstart --demo
 ```
 
+**Or run with Docker (includes dashboard UI):**
+
+```bash
+docker compose -f docker-compose.quickstart.yml up
+# Open http://localhost:3000
+```
+
 <details>
 <summary>What you'll see (click to expand)</summary>
 

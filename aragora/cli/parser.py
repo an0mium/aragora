@@ -124,6 +124,7 @@ Examples:
     _add_handlers_parser(subparsers)
     _add_coordinate_parser(subparsers)
     _add_self_improve_parser(subparsers)
+    _add_worktree_parser(subparsers)
 
     return parser
 

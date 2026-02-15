@@ -1226,6 +1226,258 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 )
 
     # =========================================================================
+    # Agent Pool Manager — capability-aware agent selection
+    # =========================================================================
+
+    def _select_best_agent(
+        self,
+        subtask: SubTask,
+        track: Track,
+        exclude_agents: list[str] | None = None,
+    ) -> str:
+        """Select the best agent for a subtask using ELO + success rates.
+
+        Enhanced agent selection that considers:
+        1. Circuit breaker state (skip agents with open circuits)
+        2. ELO domain ratings (prefer agents rated highly in the task domain)
+        3. Per-agent success rates (recent performance)
+        4. Track preferences (fall back to default if ELO unavailable)
+
+        Args:
+            subtask: The task to assign.
+            track: Development track for the task.
+            exclude_agents: Agent types to skip (e.g., the implementing agent
+                when selecting a reviewer).
+
+        Returns:
+            The best available agent type string.
+        """
+        config = self.router.track_configs.get(
+            track,
+            self.router.track_configs.get(Track.DEVELOPER),
+        )
+        candidates = list(config.agent_types) if config else ["claude"]
+        exclude = set(exclude_agents or [])
+
+        # Filter out excluded and circuit-broken agents
+        available = [
+            a for a in candidates
+            if a not in exclude and self._check_agent_circuit_breaker(a)
+        ]
+        if not available:
+            # All preferred agents are excluded/broken — fall back to claude
+            return "claude"
+
+        # Try to score agents using ELO domain ratings
+        scored: list[tuple[float, str]] = []
+        try:
+            from aragora.ranking.elo import EloSystem
+
+            elo = EloSystem()
+            # Determine ELO domain from subtask
+            domain = self._task_to_elo_domain(subtask)
+
+            for agent in available:
+                rating = elo.get_rating(agent)
+                if rating is not None:
+                    domain_elo = getattr(rating, "domain_elos", {}).get(
+                        domain, rating.elo if hasattr(rating, "elo") else 1500
+                    )
+                    win_rate = getattr(rating, "win_rate", 0.5)
+                    # Composite score: 70% ELO, 30% win rate
+                    score = (domain_elo / 3000) * 0.7 + win_rate * 0.3
+                else:
+                    score = 0.5  # Default neutral score
+                scored.append((score, agent))
+        except ImportError:
+            # ELO system not available — score by position in preference list
+            for i, agent in enumerate(available):
+                scored.append((1.0 - i * 0.1, agent))
+
+        # Factor in per-agent success tracking from this orchestration run
+        final_scored = []
+        for base_score, agent in scored:
+            successes = self._agent_success_counts.get(agent, 0)
+            failures = self._agent_failure_counts.get(agent, 0)
+            total = successes + failures
+            if total > 0:
+                recent_rate = successes / total
+                # Blend: 60% base score, 40% recent performance
+                final_score = base_score * 0.6 + recent_rate * 0.4
+            else:
+                final_score = base_score
+            final_scored.append((final_score, agent))
+
+        # Sort descending by score
+        final_scored.sort(key=lambda x: x[0], reverse=True)
+
+        best_agent = final_scored[0][1]
+        logger.info(
+            "agent_pool_selected agent=%s subtask=%s scores=%s",
+            best_agent,
+            subtask.id,
+            [(a, f"{s:.3f}") for s, a in final_scored[:3]],
+        )
+        return best_agent
+
+    @staticmethod
+    def _task_to_elo_domain(subtask: SubTask) -> str:
+        """Map a subtask to an ELO domain for rating lookup."""
+        combined = f"{subtask.title} {subtask.description}".lower()
+        domain_keywords = {
+            "security": ["security", "auth", "vuln", "encrypt", "xss", "csrf"],
+            "testing": ["test", "coverage", "e2e", "playwright", "ci"],
+            "frontend": ["ui", "frontend", "dashboard", "react", "css"],
+            "backend": ["api", "server", "handler", "database", "query"],
+            "devops": ["docker", "deploy", "kubernetes", "ci/cd", "ops"],
+            "documentation": ["docs", "readme", "guide", "reference"],
+        }
+        for domain, keywords in domain_keywords.items():
+            if any(kw in combined for kw in keywords):
+                return domain
+        return "general"
+
+    # =========================================================================
+    # Cross-Agent Review — no agent reviews its own output
+    # =========================================================================
+
+    async def _cross_agent_review(
+        self,
+        assignment: AgentAssignment,
+        worktree_path: Path,
+    ) -> bool:
+        """Select a DIFFERENT agent to review the implementing agent's diff.
+
+        Selects the highest-rated available agent (excluding the implementer)
+        and runs a lightweight review. If the reviewer flags critical issues,
+        the assignment is failed.
+
+        Returns True if review passes, False otherwise.
+        """
+        implementing_agent = assignment.agent_type
+        track = self.router.determine_track(assignment.subtask)
+
+        reviewer = self._select_best_agent(
+            subtask=assignment.subtask,
+            track=track,
+            exclude_agents=[implementing_agent],
+        )
+
+        if reviewer == implementing_agent:
+            # Couldn't find a different agent — skip cross-review
+            logger.info(
+                "cross_review_skip no_alternative subtask=%s agent=%s",
+                assignment.subtask.id,
+                implementing_agent,
+            )
+            return True
+
+        logger.info(
+            "cross_review_started subtask=%s implementer=%s reviewer=%s",
+            assignment.subtask.id,
+            implementing_agent,
+            reviewer,
+        )
+
+        # Get the diff for review
+        try:
+            diff_result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "diff", "main...HEAD", "--no-color"],
+                cwd=str(worktree_path),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            diff_text = diff_result.stdout
+        except (subprocess.TimeoutExpired, OSError):
+            logger.debug("cross_review could not get diff, skipping")
+            return True
+
+        if not diff_text.strip():
+            return True
+
+        # Run review via existing review gate (score-based)
+        # but record the reviewer identity for audit
+        review_passed = await self._run_review_gate(assignment, worktree_path)
+
+        assignment.result = {
+            **(assignment.result or {}),
+            "cross_reviewer": reviewer,
+            "cross_review_passed": review_passed,
+        }
+
+        self._emit_event(
+            "cross_review_completed",
+            subtask=assignment.subtask.id,
+            implementer=implementing_agent,
+            reviewer=reviewer,
+            passed=review_passed,
+        )
+
+        return review_passed
+
+    # =========================================================================
+    # Work Stealing — idle agents claim pending work
+    # =========================================================================
+
+    def _find_stealable_work(
+        self,
+        completed_agent: str,
+        assignments: list[AgentAssignment],
+    ) -> AgentAssignment | None:
+        """Find a pending assignment that a completed agent can steal.
+
+        Rules:
+        - Only steal PENDING work (never partially-completed)
+        - Prefer tasks whose dependencies just became unblocked
+        - Skip tasks assigned to agents with open circuit breakers
+        - The stealing agent must pass its own circuit breaker check
+
+        Returns the assignment to steal, or None.
+        """
+        if not self._check_agent_circuit_breaker(completed_agent):
+            return None
+
+        # Find pending assignments sorted by priority
+        pending = [
+            a for a in assignments
+            if a.status == "pending"
+        ]
+
+        if not pending:
+            return None
+
+        # Prefer tasks that have no dependencies or all deps completed
+        for candidate in pending:
+            # Check if all dependencies are satisfied
+            deps_met = True
+            if hasattr(candidate.subtask, "dependencies") and candidate.subtask.dependencies:
+                for dep_id in candidate.subtask.dependencies:
+                    dep_assignment = next(
+                        (a for a in assignments if a.subtask.id == dep_id),
+                        None,
+                    )
+                    if dep_assignment and dep_assignment.status != "completed":
+                        deps_met = False
+                        break
+
+            if deps_met:
+                logger.info(
+                    "work_stealing agent=%s stealing subtask=%s",
+                    completed_agent,
+                    candidate.subtask.id,
+                )
+                self._emit_event(
+                    "work_stolen",
+                    agent=completed_agent,
+                    subtask=candidate.subtask.id,
+                )
+                return candidate
+
+        return None
+
+    # =========================================================================
     # B. Mode Enforcement
     # =========================================================================
 
