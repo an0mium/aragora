@@ -36,6 +36,7 @@ class PostDebateConfig:
     auto_create_plan: bool = True
     auto_notify: bool = True
     auto_execute_plan: bool = False
+    auto_build_integrity_package: bool = False
     plan_min_confidence: float = 0.7
     plan_approval_mode: str = "risk_based"
 
@@ -53,6 +54,7 @@ class PostDebateResult:
     plan: dict[str, Any] | None = None
     notification_sent: bool = False
     execution_result: dict[str, Any] | None = None
+    integrity_package: dict[str, Any] | None = None
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -116,6 +118,12 @@ class PostDebateCoordinator:
         # Step 4: Execute plan if approved
         if self.config.auto_execute_plan and result.plan:
             result.execution_result = self._step_execute_plan(result.plan, result.explanation)
+
+        # Step 5: Build decision integrity package
+        if self.config.auto_build_integrity_package:
+            result.integrity_package = self._step_build_integrity_package(
+                debate_id, debate_result
+            )
 
         return result
 
@@ -257,6 +265,46 @@ class PostDebateCoordinator:
             return None
         except Exception as e:
             logger.warning("Plan execution failed: %s", e)
+            return None
+
+    def _step_build_integrity_package(
+        self,
+        debate_id: str,
+        debate_result: Any,
+    ) -> dict[str, Any] | None:
+        """Step 5: Build a DecisionIntegrityPackage from the debate result."""
+        try:
+            from aragora.core_types import DebateResult
+            from aragora.pipeline.decision_integrity import build_integrity_package_from_result
+
+            # Coerce to DebateResult if needed
+            if isinstance(debate_result, DebateResult):
+                dr = debate_result
+            else:
+                dr = DebateResult(
+                    debate_id=debate_id,
+                    task=str(getattr(debate_result, "task", "")),
+                    final_answer=str(getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))),
+                    confidence=float(getattr(debate_result, "confidence", 0.0)),
+                    consensus_reached=bool(getattr(debate_result, "consensus", None)),
+                    participants=[
+                        str(a) for a in (getattr(debate_result, "participants", []) or [])
+                    ],
+                )
+
+            package = build_integrity_package_from_result(
+                dr,
+                include_receipt=True,
+                include_plan=False,
+            )
+
+            logger.info("Decision integrity package built for %s", debate_id)
+            return package.to_dict()
+        except ImportError:
+            logger.debug("Decision integrity pipeline not available")
+            return None
+        except Exception as e:
+            logger.warning("Integrity package generation failed: %s", e)
             return None
 
 

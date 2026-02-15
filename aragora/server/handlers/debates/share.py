@@ -24,7 +24,6 @@ from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
-    require_auth,
 )
 
 logger = logging.getLogger(__name__)

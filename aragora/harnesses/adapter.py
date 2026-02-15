@@ -17,6 +17,7 @@ from aragora.harnesses.base import (
 
 if TYPE_CHECKING:
     from aragora.audit.document_auditor import AuditFinding
+    from aragora.implement.types import TaskResult
 
 logger = logging.getLogger(__name__)
 

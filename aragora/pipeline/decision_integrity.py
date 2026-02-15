@@ -300,6 +300,41 @@ async def capture_context_snapshot(
     return snapshot
 
 
+def build_integrity_package_from_result(
+    debate_result: DebateResult,
+    *,
+    include_receipt: bool = True,
+    include_plan: bool = True,
+    plan_strategy: str = "single_task",
+    repo_path: Path | None = None,
+) -> DecisionIntegrityPackage:
+    """Build a DecisionIntegrityPackage directly from a DebateResult.
+
+    Synchronous adapter for use in PostDebateCoordinator where the
+    DebateResult is already available (no dict coercion needed).
+
+    Args:
+        debate_result: A DebateResult from a completed debate.
+        include_receipt: Whether to generate a DecisionReceipt.
+        include_plan: Whether to generate an implementation plan.
+        plan_strategy: "single_task" (default).
+        repo_path: Repository root (defaults to cwd).
+    """
+    receipt = DecisionReceipt.from_debate_result(debate_result) if include_receipt else None
+
+    plan: ImplementPlan | None = None
+    if include_plan:
+        repo_root = repo_path or Path.cwd()
+        design = debate_result.final_answer or debate_result.task
+        plan = create_single_task_plan(design=design, repo_path=repo_root)
+
+    return DecisionIntegrityPackage(
+        debate_id=debate_result.debate_id or "",
+        receipt=receipt,
+        plan=plan,
+    )
+
+
 async def build_decision_integrity_package(
     debate: dict[str, Any],
     *,
