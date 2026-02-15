@@ -583,8 +583,8 @@ class DeadLetterQueue:
 
                 return stats
 
-        except Exception as e:
-            logger.error(f"Failed to get DLQ stats: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"DLQ stats database error: {type(e).__name__}: {e}")
             return {"total": 0, "by_status": {}, "by_platform": {}, "error": str(e)}
 
 

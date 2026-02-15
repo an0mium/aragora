@@ -420,6 +420,9 @@ class CostTracker:
         self._alert_callbacks: list[AlertCallback] = []
         self._sent_alerts: set[str] = set()  # Deduplicate alerts
 
+        # Advisory cache (workspace_id -> last advisory)
+        self._last_advisory: dict[str, CostAdvisory] = {}
+
         # Aggregated stats (refreshed periodically)
         self._workspace_stats: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
@@ -1301,6 +1304,7 @@ async def record_usage(
 
 
 __all__ = [
+    "CostAdvisory",
     "CostTracker",
     "TokenUsage",
     "Budget",

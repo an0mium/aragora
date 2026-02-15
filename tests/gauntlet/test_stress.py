@@ -27,12 +27,9 @@ from aragora.gauntlet.config import GauntletConfig
 from aragora.gauntlet.result import GauntletResult, SeverityLevel
 from aragora.gauntlet.runner import GauntletRunner
 
-# Skip all tests in this file if GAUNTLET_STRESS_TESTS is not set
-# These tests can make API calls or take significant time
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("GAUNTLET_STRESS_TESTS"),
-    reason="Set GAUNTLET_STRESS_TESTS=1 to run stress tests",
-)
+# These tests use fully mocked agents (no real API calls) but exercise
+# concurrent/load paths, so they are tagged as slow for CI filtering.
+pytestmark = pytest.mark.slow
 
 
 class TestGauntletStress:

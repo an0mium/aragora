@@ -230,8 +230,11 @@ class AragoraDebateTool(BaseTool):
             else:
                 return f"No consensus reached after {result.get('rounds', max_rounds)} rounds."
 
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"[AragoraDebateTool] connection error: {type(e).__name__}: {e}")
+            return f"Error running debate (connection): {e}"
         except Exception as e:
-            logger.error(f"[AragoraDebateTool] Error: {e}")
+            logger.error(f"[AragoraDebateTool] error: {type(e).__name__}: {e}")
             return f"Error running debate: {e}"
 
 

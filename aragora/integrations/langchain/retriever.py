@@ -168,6 +168,9 @@ class AragoraRetriever(_ActualBaseRetriever):
 
             return documents
 
-        except Exception as e:
-            logger.error(f"[AragoraRetriever] Error: {e}")
+        except (ConnectionError, TimeoutError, OSError) as e:
+            logger.error(f"[AragoraRetriever] connection error: {type(e).__name__}: {e}")
+            return []
+        except (ValueError, KeyError) as e:
+            logger.error(f"[AragoraRetriever] response parse error: {type(e).__name__}: {e}")
             return []
