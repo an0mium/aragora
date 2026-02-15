@@ -755,7 +755,6 @@ class TestErrorHandling:
         # 503 is returned for connection/IO errors, 400/500 for other errors
         assert result.status_code in (400, 500, 503)
 
-    @requires_botbuilder
     @pytest.mark.asyncio
     async def test_audit_webhook_auth_failure_called(self):
         """Should audit authentication failures."""

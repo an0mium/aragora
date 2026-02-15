@@ -8,6 +8,10 @@ import pytest
 
 from aragora.server.handlers.budgets import BudgetHandler
 
+# Patch target for get_cost_tracker (imported locally inside handler methods)
+_COST_TRACKER_PATCH = "aragora.billing.cost_tracker.get_cost_tracker"
+_RUN_ASYNC_PATCH = "aragora.server.http_utils.run_async"
+
 
 @pytest.fixture
 def handler():
@@ -38,10 +42,7 @@ class TestAgentCosts:
             "total_tokens_out": 200,
             "total_api_calls": 3,
         }
-        with patch(
-            "aragora.server.handlers.budgets.get_cost_tracker",
-            return_value=mock_tracker,
-        ):
+        with patch(_COST_TRACKER_PATCH, return_value=mock_tracker):
             result = handler._get_agent_costs("test-org", mock_http_handler)
 
         body = result[0]
@@ -56,24 +57,29 @@ class TestAgentCosts:
             "total_cost_usd": "0",
             "cost_by_agent": {},
         }
-        with patch(
-            "aragora.server.handlers.budgets.get_cost_tracker",
-            return_value=mock_tracker,
-        ):
+        with patch(_COST_TRACKER_PATCH, return_value=mock_tracker):
             result = handler._get_agent_costs("test-org", mock_http_handler)
 
         body = result[0]
         assert body["count"] == 0
         assert body["agents"] == {}
 
-    def test_agent_costs_module_unavailable(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.budgets.get_cost_tracker",
-            side_effect=ImportError("no module"),
-        ):
-            result = handler._get_agent_costs("test-org", mock_http_handler)
+    def test_agent_costs_with_workspace_param(self, handler):
+        """Workspace can be specified via query param."""
+        mock_handler = MagicMock()
+        mock_handler.path = "/api/v1/costs/agents?workspace_id=ws-123"
 
-        assert result[1] == 503
+        mock_tracker = MagicMock()
+        mock_tracker.get_workspace_stats.return_value = {
+            "total_cost_usd": "2.00",
+            "cost_by_agent": {"gemini": "2.00"},
+        }
+        with patch(_COST_TRACKER_PATCH, return_value=mock_tracker):
+            result = handler._get_agent_costs("test-org", mock_handler)
+
+        body = result[0]
+        assert body["workspace_id"] == "ws-123"
+        mock_tracker.get_workspace_stats.assert_called_once_with("ws-123")
 
 
 class TestCostAnomalies:
@@ -82,17 +88,11 @@ class TestCostAnomalies:
     def test_anomalies_returns_list(self, handler, mock_http_handler):
         mock_http_handler.path = "/api/v1/costs/anomalies"
         mock_tracker = MagicMock()
-        anomaly_data = [
-            {"type": "spike", "severity": "warning", "actual": 5.0, "expected": 1.0}
-        ]
-        mock_tracker.detect_and_store_anomalies = MagicMock(return_value=anomaly_data)
+        anomaly_data = [{"type": "spike", "severity": "warning", "actual": 5.0, "expected": 1.0}]
 
-        with patch(
-            "aragora.server.handlers.budgets.get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.budgets.run_async",
-            return_value=anomaly_data,
+        with (
+            patch(_COST_TRACKER_PATCH, return_value=mock_tracker),
+            patch(_RUN_ASYNC_PATCH, return_value=anomaly_data),
         ):
             result = handler._get_cost_anomalies("test-org", mock_http_handler)
 
@@ -105,12 +105,9 @@ class TestCostAnomalies:
         mock_http_handler.path = "/api/v1/costs/anomalies"
         mock_tracker = MagicMock()
 
-        with patch(
-            "aragora.server.handlers.budgets.get_cost_tracker",
-            return_value=mock_tracker,
-        ), patch(
-            "aragora.server.handlers.budgets.run_async",
-            return_value=[],
+        with (
+            patch(_COST_TRACKER_PATCH, return_value=mock_tracker),
+            patch(_RUN_ASYNC_PATCH, return_value=[]),
         ):
             result = handler._get_cost_anomalies("test-org", mock_http_handler)
 
@@ -119,14 +116,20 @@ class TestCostAnomalies:
         assert body["anomalies"] == []
         assert "no anomalies" in body["advisory"].lower()
 
-    def test_anomalies_module_unavailable(self, handler, mock_http_handler):
-        with patch(
-            "aragora.server.handlers.budgets.get_cost_tracker",
-            side_effect=ImportError("no module"),
+    def test_anomalies_runtime_error_returns_empty(self, handler, mock_http_handler):
+        """RuntimeError from run_async should return empty anomalies."""
+        mock_http_handler.path = "/api/v1/costs/anomalies"
+        mock_tracker = MagicMock()
+
+        with (
+            patch(_COST_TRACKER_PATCH, return_value=mock_tracker),
+            patch(_RUN_ASYNC_PATCH, side_effect=RuntimeError("no loop")),
         ):
             result = handler._get_cost_anomalies("test-org", mock_http_handler)
 
-        assert result[1] == 503
+        body = result[0]
+        assert body["count"] == 0
+        assert body["anomalies"] == []
 
 
 class TestCanHandle:
