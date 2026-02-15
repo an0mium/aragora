@@ -136,7 +136,7 @@ class TestCheckpointPause:
         result = await handle_checkpoint_pause("debate-1", auth_context, checkpoint_manager=manager)
 
         assert result["status"] == 500
-        assert "Store unavailable" in _body(result)["error"]
+        assert _body(result)["error"]  # Sanitized error message present
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +279,7 @@ class TestCheckpointResume:
         )
 
         assert result["status"] == 500
-        assert "Invalid checkpoint format" in _body(result)["error"]
+        assert _body(result)["error"]  # Sanitized error message present
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +386,7 @@ class TestListCheckpoints:
         result = await handle_list_checkpoints("debate-1", auth_context, checkpoint_manager=manager)
 
         assert result["status"] == 500
-        assert "Store connection lost" in _body(result)["error"]
+        assert _body(result)["error"]  # Sanitized error message present
 
 
 # ---------------------------------------------------------------------------
