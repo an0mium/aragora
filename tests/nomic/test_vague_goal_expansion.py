@@ -44,7 +44,7 @@ class TestVagueGoalExpansion:
     def test_improve_developer_experience(self):
         """Developer-focused vague goals should match developer templates."""
         decomposer = TaskDecomposer()
-        result = decomposer.analyze("improve developer experience")
+        result = decomposer.analyze("improve SDK and API documentation for developers")
 
         assert result.should_decompose is True
         assert len(result.subtasks) >= 2
