@@ -304,7 +304,7 @@ def get_rate_limit_metrics() -> dict[str, Any]:
 
     except Exception as e:
         logger.debug(f"Failed to collect rate limit metrics: {e}")
-        return {"prometheus_available": True, "error": str(e)}
+        return {"prometheus_available": True, "error": "Failed to collect rate limit metrics"}
 
 
 __all__ = [

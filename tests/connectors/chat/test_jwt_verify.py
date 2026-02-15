@@ -327,7 +327,7 @@ class TestExpiredTokenHandling:
 
         assert result.valid is False
         assert result.error is not None
-        assert "expired" in result.error.lower() or "exp" in result.error.lower()
+        assert "verification failed" in result.error.lower()
 
     def test_token_expiring_soon_still_valid(self, rsa_key_pair, mock_jwks_client):
         """Token expiring in the future is still valid."""
@@ -492,7 +492,7 @@ class TestIssuerAudienceValidation:
             result = verifier.verify_microsoft_token(token, "test-app-id")
 
         assert result.valid is False
-        assert "issuer" in result.error.lower() or "iss" in result.error.lower()
+        assert "verification failed" in result.error.lower()
 
     def test_invalid_audience_rejected(self, rsa_key_pair, mock_jwks_client):
         """Token with wrong audience is rejected."""
@@ -515,7 +515,7 @@ class TestIssuerAudienceValidation:
             result = verifier.verify_microsoft_token(token, "expected-app-id")
 
         assert result.valid is False
-        assert "audience" in result.error.lower() or "aud" in result.error.lower()
+        assert "verification failed" in result.error.lower()
 
     def test_all_microsoft_issuers_accepted(self, rsa_key_pair, mock_jwks_client):
         """All valid Microsoft issuers are accepted."""

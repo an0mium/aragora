@@ -404,7 +404,7 @@ class DatabaseBatchJobStore(BatchJobStore):
                         (row_batch_id,),
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to delete expired batch {row_batch_id}: {e}")
+                    logger.warning("Failed to delete expired batch %s: %s", row_batch_id, e)
                 continue
             jobs.append(self._row_to_job(db_row))
         return jobs
@@ -476,7 +476,7 @@ def get_batch_job_store() -> BatchJobStore:
                         logger.info("batch_job_store_initialized", extra={"backend": "redis"})
                         return _batch_store
             except Exception as e:
-                logger.warning("redis_batch_store_unavailable", extra={"error": str(e)})
+                logger.warning("Redis batch store unavailable: %s", e)
             _batch_store = _create_sqlite_store(
                 "Redis not available for explainability batch store"
             )
@@ -498,7 +498,7 @@ def get_batch_job_store() -> BatchJobStore:
                 logger.info("batch_job_store_initialized", extra={"backend": "postgresql"})
                 return _batch_store
             except Exception as e:
-                logger.warning("postgres_batch_store_unavailable", extra={"error": str(e)})
+                logger.warning("PostgreSQL batch store unavailable: %s", e)
                 _batch_store = _create_sqlite_store(
                     "PostgreSQL unavailable for explainability batch store"
                 )
@@ -526,7 +526,7 @@ def get_batch_job_store() -> BatchJobStore:
                 logger.info("batch_job_store_initialized", extra={"backend": "redis"})
                 return _batch_store
     except Exception as e:
-        logger.debug("redis_batch_store_unavailable", extra={"error": str(e)})
+        logger.debug("Redis batch store unavailable: %s", e)
 
     # Fallback to SQLite, then memory
     try:
@@ -534,7 +534,7 @@ def get_batch_job_store() -> BatchJobStore:
         logger.info("batch_job_store_initialized", extra={"backend": "sqlite"})
         return _batch_store
     except Exception as e:
-        logger.warning("sqlite_batch_store_unavailable", extra={"error": str(e)})
+        logger.warning("SQLite batch store unavailable: %s", e)
 
     if not _warned_memory:
         logger.warning(

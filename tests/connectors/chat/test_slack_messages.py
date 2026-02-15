@@ -728,7 +728,7 @@ class TestSendToResponseUrl:
             result = await connector._send_to_response_url("https://hooks.slack.com/test", "text")
 
         assert result.success is False
-        assert "bad value" in result.error
+        assert "error" in result.error.lower() or "unexpected" in result.error.lower()
 
     @pytest.mark.asyncio
     async def test_httpx_not_available(self, connector):

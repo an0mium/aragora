@@ -327,14 +327,14 @@ class JWTVerifier:
             return JWTVerificationResult(
                 valid=False,
                 claims={},
-                error=str(e),
+                error="Token verification failed",
             )
         except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Unexpected error verifying Microsoft token: {e}")
             return JWTVerificationResult(
                 valid=False,
                 claims={},
-                error=str(e),
+                error="Token verification failed due to an unexpected error",
             )
 
     def verify_google_token(
@@ -428,14 +428,14 @@ class JWTVerifier:
             return JWTVerificationResult(
                 valid=False,
                 claims={},
-                error=str(e),
+                error="Token verification failed",
             )
         except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Unexpected error verifying Google token: {e}")
             return JWTVerificationResult(
                 valid=False,
                 claims={},
-                error=str(e),
+                error="Token verification failed due to an unexpected error",
             )
 
 

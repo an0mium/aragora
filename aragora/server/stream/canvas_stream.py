@@ -266,8 +266,8 @@ class CanvasStreamServer:
                 logger.debug(f"Unknown message type: {msg_type}")
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.error(f"Error handling message: {e}")
-            await self._send_error(websocket, str(e))
+            logger.error(f"Error handling canvas message: {e}")
+            await self._send_error(websocket, "Failed to process canvas operation")
 
     async def _handle_node_create(
         self,

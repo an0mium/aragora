@@ -1175,7 +1175,7 @@ class TestErrorHandling:
             result = await crm_handler._connect_platform(mock_request)
 
             assert result["status_code"] == 400
-            assert "invalid json" in result["body"]["error"].lower()
+            assert "invalid" in result["body"]["error"].lower()
 
     @pytest.mark.asyncio
     async def test_invalid_json_body_create_contact(self, crm_handler, mock_request):

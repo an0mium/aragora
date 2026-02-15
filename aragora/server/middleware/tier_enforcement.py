@@ -380,7 +380,7 @@ def get_quota_status(
 
     except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error(f"Failed to get quota status for org {org_id}: {e}")
-        return {"error": str(e)}
+        return {"error": "Failed to retrieve quota status"}
 
 
 __all__ = [

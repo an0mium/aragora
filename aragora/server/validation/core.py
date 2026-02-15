@@ -49,7 +49,7 @@ def validate_json_body(
         data = json.loads(body.decode("utf-8"))
         return ValidationResult(is_valid=True, data=data)
     except json.JSONDecodeError as e:
-        return ValidationResult(is_valid=False, error=f"Invalid JSON: {str(e)}")
+        return ValidationResult(is_valid=False, error="Invalid JSON in request body")
     except UnicodeDecodeError:
         return ValidationResult(is_valid=False, error="Invalid UTF-8 encoding in request body")
 

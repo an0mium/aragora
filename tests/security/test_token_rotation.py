@@ -255,10 +255,7 @@ class TestTokenRotationManagerAWS:
 
         assert result.success is False
         assert "aws" in result.errors
-        assert (
-            "not available" in result.errors["aws"].lower()
-            or "boto3" in result.errors["aws"].lower()
-        )
+        assert "failed to store token" in result.errors["aws"].lower()
 
     @patch("aragora.security.token_rotation._BOTO3_AVAILABLE", True)
     @patch("aragora.security.token_rotation.boto3")

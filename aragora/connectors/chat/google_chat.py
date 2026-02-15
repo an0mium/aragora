@@ -222,7 +222,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
             logger.error(f"Google Chat send_message error: {e}")
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Message send failed")
 
     async def update_message(
         self,
@@ -281,7 +281,7 @@ class GoogleChatConnector(ChatPlatformConnector):
         except (httpx.HTTPError, ValueError, RuntimeError, OSError) as e:
             self._record_failure(e)
             logger.error(f"Google Chat update_message error: {e}")
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Message update failed")
 
     async def delete_message(
         self,

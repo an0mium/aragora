@@ -409,7 +409,7 @@ class RedisRateLimiter:
 
         except REDIS_CONNECTION_ERRORS as e:
             logger.error(f"Redis stats error: {e}")
-            return {"available": False, "error": str(e)}
+            return {"available": False, "error": "Redis connection error"}
 
     def get_client_key(self, handler: Any) -> str:
         """

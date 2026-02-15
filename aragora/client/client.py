@@ -337,11 +337,13 @@ class AragoraClient:
                     )
                     time_module.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("GET connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here, but handle gracefully
         if last_error:
-            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
+            logger.debug("GET retries exhausted: %s", last_error)
+            raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0) from last_error
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     def _post(
@@ -405,11 +407,13 @@ class AragoraClient:
                     )
                     time_module.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("POST connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here, but handle gracefully
         if last_error:
-            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
+            logger.debug("POST retries exhausted: %s", last_error)
+            raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0) from last_error
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     def _delete(self, path: str, params: dict | None = None) -> dict:
@@ -457,11 +461,13 @@ class AragoraClient:
                     )
                     time_module.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("DELETE connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here, but handle gracefully
         if last_error:
-            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
+            logger.debug("DELETE retries exhausted: %s", last_error)
+            raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0) from last_error
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _delete_async(self, path: str, params: dict | None = None) -> dict:
@@ -515,11 +521,14 @@ class AragoraClient:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("DELETE async connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here
+        if last_error:
+            logger.debug("DELETE async retries exhausted: %s", last_error)
         raise AragoraAPIError(
-            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+            "Request failed after retries", "RETRY_EXHAUSTED", 0
         )
 
     def _put(self, path: str, data: dict, headers: dict | None = None) -> dict:
@@ -569,11 +578,13 @@ class AragoraClient:
                     )
                     time_module.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("PUT connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here, but handle gracefully
         if last_error:
-            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
+            logger.debug("PUT retries exhausted: %s", last_error)
+            raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0) from last_error
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _put_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
@@ -631,11 +642,14 @@ class AragoraClient:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("PUT async connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here
+        if last_error:
+            logger.debug("PUT async retries exhausted: %s", last_error)
         raise AragoraAPIError(
-            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+            "Request failed after retries", "RETRY_EXHAUSTED", 0
         )
 
     def _patch(self, path: str, data: dict, headers: dict | None = None) -> dict:
@@ -685,11 +699,13 @@ class AragoraClient:
                     )
                     time_module.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("PATCH connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here, but handle gracefully
         if last_error:
-            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
+            logger.debug("PATCH retries exhausted: %s", last_error)
+            raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0) from last_error
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _patch_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
@@ -747,23 +763,26 @@ class AragoraClient:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("PATCH async connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here
+        if last_error:
+            logger.debug("PATCH async retries exhausted: %s", last_error)
         raise AragoraAPIError(
-            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
+            "Request failed after retries", "RETRY_EXHAUSTED", 0
         )
 
     def _handle_http_error(self, e: Any) -> NoReturn:
         """Handle HTTP errors with specific error classes."""
         try:
             body = json.loads(e.read().decode())
-            error_msg = body.get("error", str(e))
+            error_msg = body.get("error", "Request failed")
             error_code = body.get("code", "HTTP_ERROR")
         except Exception as parse_err:
-            # Failed to parse error response body - use raw error
-            logger.debug(f"Could not parse HTTP error body: {parse_err}")
-            error_msg = str(e)
+            # Failed to parse error response body - use generic message
+            logger.debug("Could not parse HTTP error body: %s (original: %s)", parse_err, e)
+            error_msg = "Request failed"
             error_code = "HTTP_ERROR"
 
         # Map HTTP status codes to specific error classes
@@ -859,12 +878,14 @@ class AragoraClient:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("GET async connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here
+        logger.debug("GET async retries exhausted: %s", last_error)
         raise AragoraAPIError(
-            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
-        )
+            "Request failed after retries", "RETRY_EXHAUSTED", 0
+        ) from last_error
 
     async def _post_async(
         self,
@@ -934,12 +955,14 @@ class AragoraClient:
                     )
                     await asyncio.sleep(delay)
                     continue
-                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
+                logger.debug("POST async connection error: %s", e)
+                raise AragoraAPIError("Connection error", "CONNECTION_ERROR", 0) from e
 
         # Should not reach here
+        logger.debug("POST async retries exhausted: %s", last_error)
         raise AragoraAPIError(
-            str(last_error) if last_error else "Unknown error", "RETRY_EXHAUSTED", 0
-        )
+            "Request failed after retries", "RETRY_EXHAUSTED", 0
+        ) from last_error
 
     def health(self) -> HealthCheck:
         """Check API health."""

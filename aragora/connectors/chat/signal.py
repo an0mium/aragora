@@ -408,7 +408,7 @@ class SignalConnector(ChatPlatformConnector):
             logger.error(f"Failed to send voice message: {e}")
             return SendMessageResponse(
                 success=False,
-                error=str(e),
+                error="Voice message send failed",
             )
 
     async def send_typing_indicator(
@@ -946,10 +946,11 @@ class SignalConnector(ChatPlatformConnector):
                         "error": f"HTTP {response.status_code}",
                     }
         except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
+            logger.warning("Signal test_connection failed: %s", e)
             return {
                 "platform": self.platform_name,
                 "success": False,
-                "error": str(e),
+                "error": "Connection test failed",
             }
 
     async def list_groups(self) -> list[dict[str, Any]]:

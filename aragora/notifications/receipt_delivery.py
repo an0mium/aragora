@@ -268,7 +268,7 @@ async def _deliver_via_email(
             channel="email",
             recipient=recipient,
             receipt_id=receipt.receipt_id,
-            error=str(e),
+            error="Email delivery failed",
         )
 
 
@@ -440,7 +440,7 @@ async def _deliver_via_slack(
             channel="slack",
             recipient=channel,
             receipt_id=receipt.receipt_id,
-            error=str(e),
+            error="Slack delivery failed",
         )
 
 
@@ -544,7 +544,7 @@ async def _deliver_via_webhook(
             channel="webhook",
             recipient=webhook_url,
             receipt_id=receipt.receipt_id,
-            error=str(e),
+            error="Webhook delivery failed",
         )
 
 

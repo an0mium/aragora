@@ -605,7 +605,7 @@ class KeyRotationScheduler:
                 AttributeError,
             ) as e:
                 job.status = RotationStatus.FAILED
-                job.error = str(e)
+                job.error = "Key rotation failed due to an internal error"
                 job.completed_at = datetime.now(timezone.utc)
 
                 self._stats.total_rotations += 1
@@ -621,7 +621,7 @@ class KeyRotationScheduler:
                         {
                             "job_id": job.id,
                             "key_id": job.key_id,
-                            "error": str(e),
+                            "error": "Key rotation failed due to an internal error",
                             "retries": job.retries,
                         },
                     )

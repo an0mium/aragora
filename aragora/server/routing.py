@@ -85,8 +85,8 @@ def _convert_int(value: str) -> int:
                 f"value out of bounds ({_MIN_INT_VALUE} to {_MAX_INT_VALUE})",
             )
         return result
-    except ValueError as e:
-        raise ParameterConversionError("unknown", value, "int", str(e))
+    except ValueError:
+        raise ParameterConversionError("unknown", value, "int", "invalid integer value")
 
 
 def _convert_float(value: str) -> float:
@@ -108,8 +108,8 @@ def _convert_float(value: str) -> float:
                 "unknown", value, "float", f"value out of bounds (magnitude <= {_MAX_FLOAT_VALUE})"
             )
         return result
-    except ValueError as e:
-        raise ParameterConversionError("unknown", value, "float", str(e))
+    except ValueError:
+        raise ParameterConversionError("unknown", value, "float", "invalid float value")
 
 
 # Parameter validation patterns

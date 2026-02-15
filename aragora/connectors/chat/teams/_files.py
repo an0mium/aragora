@@ -246,7 +246,7 @@ class TeamsFilesMixin:
                 content_type=content_type,
                 size=len(content),
                 content=content,
-                metadata={"error": str(e)},
+                metadata={"error": "Upload timed out"},
             )
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
@@ -258,7 +258,7 @@ class TeamsFilesMixin:
                 content_type=content_type,
                 size=len(content),
                 content=content,
-                metadata={"error": str(e)},
+                metadata={"error": "Connection failed"},
             )
         except (
             httpx.HTTPError,
@@ -277,7 +277,7 @@ class TeamsFilesMixin:
                 content_type=content_type,
                 size=len(content),
                 content=content,
-                metadata={"error": str(e)},
+                metadata={"error": "Upload failed"},
             )
 
     async def download_file(
@@ -387,7 +387,7 @@ class TeamsFilesMixin:
                 filename="",
                 content_type="application/octet-stream",
                 size=0,
-                metadata={"error": str(e)},
+                metadata={"error": "Download timed out"},
             )
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
@@ -398,7 +398,7 @@ class TeamsFilesMixin:
                 filename="",
                 content_type="application/octet-stream",
                 size=0,
-                metadata={"error": str(e)},
+                metadata={"error": "Connection failed"},
             )
         except (
             httpx.HTTPError,
@@ -416,5 +416,5 @@ class TeamsFilesMixin:
                 filename="",
                 content_type="application/octet-stream",
                 size=0,
-                metadata={"error": str(e)},
+                metadata={"error": "Download failed"},
             )

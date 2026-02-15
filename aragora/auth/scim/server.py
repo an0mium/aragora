@@ -658,7 +658,7 @@ class SCIMServer:
             logger.error("SCIM: Error creating user: %s", e)
             error = SCIMError(
                 status=400,
-                detail=str(e),
+                detail="Invalid user data in request",
                 scim_type=SCIMErrorType.INVALID_VALUE,
             )
             return error.to_dict(), 400
@@ -719,7 +719,7 @@ class SCIMServer:
             logger.error("SCIM: Error replacing user %s: %s", user_id, e)
             error = SCIMError(
                 status=400,
-                detail=str(e),
+                detail="Invalid user data in request",
                 scim_type=SCIMErrorType.INVALID_VALUE,
             )
             return error.to_dict(), 400
@@ -766,7 +766,7 @@ class SCIMServer:
             logger.error("SCIM: Error patching user %s: %s", user_id, e)
             error = SCIMError(
                 status=400,
-                detail=str(e),
+                detail="Invalid patch operation for user",
                 scim_type=SCIMErrorType.INVALID_VALUE,
             )
             return error.to_dict(), 400
@@ -842,7 +842,7 @@ class SCIMServer:
             logger.error("SCIM: Error creating group: %s", e)
             error = SCIMError(
                 status=400,
-                detail=str(e),
+                detail="Invalid group data in request",
                 scim_type=SCIMErrorType.INVALID_VALUE,
             )
             return error.to_dict(), 400
@@ -888,7 +888,7 @@ class SCIMServer:
             logger.error("SCIM: Error replacing group %s: %s", group_id, e)
             error = SCIMError(
                 status=400,
-                detail=str(e),
+                detail="Invalid group data in request",
                 scim_type=SCIMErrorType.INVALID_VALUE,
             )
             return error.to_dict(), 400
@@ -949,7 +949,7 @@ class SCIMServer:
             logger.error("SCIM: Error patching group %s: %s", group_id, e)
             error = SCIMError(
                 status=400,
-                detail=str(e),
+                detail="Invalid patch operation for group",
                 scim_type=SCIMErrorType.INVALID_VALUE,
             )
             return error.to_dict(), 400

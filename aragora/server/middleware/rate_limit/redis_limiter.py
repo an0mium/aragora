@@ -536,7 +536,8 @@ class RedisRateLimiter:
             aggregated["instance_count"] = len(aggregated["instances"])
 
         except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
-            aggregated["error"] = str(e)
+            logger.warning("Failed to get distributed metrics: %s", e)
+            aggregated["error"] = "Failed to retrieve distributed metrics"
 
         return aggregated
 
@@ -576,7 +577,8 @@ class RedisRateLimiter:
 
             return base_stats
         except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
-            base_stats["error"] = str(e)
+            logger.warning("Failed to get Redis rate limit stats: %s", e)
+            base_stats["error"] = "Failed to retrieve Redis statistics"
             base_stats["fallback_stats"] = self._fallback.get_stats()
             return base_stats
 

@@ -312,7 +312,8 @@ class RedisBroadcastBridge:
                 await self._redis.ping()
                 result["ping_ms"] = (time.time() - start) * 1000
             except (ConnectionError, OSError, TimeoutError) as e:
-                result["error"] = str(e)
+                logger.warning("Redis bridge health check failed: %s", e)
+                result["error"] = "Redis health check failed"
                 result["connected"] = False
 
         return result

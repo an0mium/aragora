@@ -583,7 +583,7 @@ class VoiceStreamHandler:
                 {
                     "type": "error",
                     "code": "config_error",
-                    "message": str(e),
+                    "message": "Voice transcription configuration error",
                 }
             )
 
@@ -593,7 +593,7 @@ class VoiceStreamHandler:
                 {
                     "type": "error",
                     "code": "transcription_failed",
-                    "message": f"Transcription failed: {e}",
+                    "message": "Transcription failed",
                 }
             )
 
@@ -740,7 +740,7 @@ class VoiceStreamHandler:
                 {
                     "type": "error",
                     "code": "tts_failed",
-                    "message": f"TTS synthesis failed: {e}",
+                    "message": "TTS synthesis failed",
                 }
             )
 

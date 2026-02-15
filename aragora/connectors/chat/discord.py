@@ -181,7 +181,7 @@ class DiscordConnector(ChatPlatformConnector):
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord send_message error: {e}")
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Message send failed")
 
     async def update_message(
         self,
@@ -233,7 +233,7 @@ class DiscordConnector(ChatPlatformConnector):
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord update_message error: {e}")
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Message update failed")
 
     async def delete_message(
         self,
@@ -401,7 +401,7 @@ class DiscordConnector(ChatPlatformConnector):
         except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord interaction response error: {e}")
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Interaction response failed")
 
     async def upload_file(
         self,

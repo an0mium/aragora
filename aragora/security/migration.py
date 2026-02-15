@@ -187,7 +187,7 @@ class EncryptionMigrator:
 
                 except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
                     result.failed_records += 1
-                    result.errors.append(f"Error migrating {record_id}: {str(e)}")
+                    result.errors.append(f"Error migrating record: {record_id}")
                     logger.warning(f"Failed to migrate record {record_id}: {e}")
 
             result.completed_at = datetime.now(timezone.utc)
@@ -201,7 +201,7 @@ class EncryptionMigrator:
             )
 
         except (TypeError, RuntimeError, OSError, ValueError) as e:
-            result.errors.append(f"Migration failed: {str(e)}")
+            result.errors.append("Migration failed due to an internal error")
             result.failed_records = result.total_records
             logger.error(f"Migration failed for {store_name}: {e}")
 
@@ -246,7 +246,7 @@ def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
         )
     except ImportError as e:
         logger.warning(f"Integration store not available: {e}")
-        return MigrationResult(store_name="integration_store", errors=[str(e)])
+        return MigrationResult(store_name="integration_store", errors=["Integration store not available"])
 
 
 def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
@@ -277,7 +277,7 @@ def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
         )
     except ImportError as e:
         logger.warning(f"Gmail token store not available: {e}")
-        return MigrationResult(store_name="gmail_token_store", errors=[str(e)])
+        return MigrationResult(store_name="gmail_token_store", errors=["Gmail token store not available"])
 
 
 def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
@@ -317,7 +317,7 @@ def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
         )
     except ImportError as e:
         logger.warning(f"Sync store not available: {e}")
-        return MigrationResult(store_name="sync_store", errors=[str(e)])
+        return MigrationResult(store_name="sync_store", errors=["Sync store not available"])
 
 
 @dataclass
@@ -539,7 +539,7 @@ def rotate_and_reencrypt_store(
 
             except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
                 result.failed_records += 1
-                result.errors.append(f"Error re-encrypting {record_id}: {str(e)}")
+                result.errors.append(f"Error re-encrypting record: {record_id}")
                 logger.warning(f"Failed to re-encrypt record {record_id}: {e}")
 
         result.completed_at = datetime.now(timezone.utc)
@@ -553,7 +553,7 @@ def rotate_and_reencrypt_store(
         )
 
     except (TypeError, RuntimeError, OSError, ValueError) as e:
-        result.errors.append(f"Re-encryption failed: {str(e)}")
+        result.errors.append("Re-encryption failed due to an internal error")
         result.failed_records = result.total_records
         logger.error(f"Key rotation re-encryption failed for {store_name}: {e}")
 
@@ -667,7 +667,7 @@ def rotate_encryption_key(
                 result.errors.extend(store_result.errors)
 
             except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
-                result.errors.append(f"Store {store_name} failed: {str(e)}")
+                result.errors.append(f"Store {store_name} re-encryption failed")
                 logger.error(f"Key rotation failed for store {store_name}: {e}")
 
         result.completed_at = datetime.now(timezone.utc)
@@ -680,7 +680,7 @@ def rotate_encryption_key(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, ImportError, AttributeError) as e:
-        result.errors.append(f"Key rotation failed: {str(e)}")
+        result.errors.append("Key rotation failed due to an internal error")
         logger.error(f"Key rotation failed: {e}")
 
     return result

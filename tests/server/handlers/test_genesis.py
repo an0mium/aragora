@@ -351,7 +351,7 @@ class TestGetGenesisStats:
             patch("aragora.server.handlers.genesis.GENESIS_AVAILABLE", True),
             patch(
                 "aragora.server.handlers.genesis.GenesisLedger",
-                side_effect=RuntimeError("DB connection failed"),
+                side_effect=OSError("DB connection failed"),
             ),
         ):
             result = handler.handle("/api/genesis/stats", {}, http_handler)

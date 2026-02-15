@@ -349,7 +349,7 @@ class SAMLProvider(SSOProvider):
                     "SAML library authentication error",
                     extra={"error": str(e), "error_type": type(e).__name__},
                 )
-                raise SSOAuthenticationError(f"Invalid SAML response: {e}")
+                raise SSOAuthenticationError("Invalid SAML response")
         else:
             # SECURITY: The simplified parser does NOT validate XML signatures.
             # Only allow it in development with explicit opt-in.
@@ -517,12 +517,13 @@ class SAMLProvider(SSOProvider):
             return user
 
         except ET.ParseError as e:
-            raise SSOAuthenticationError(f"Invalid SAML response XML: {e}")
+            logger.error("SAML response XML parse error: %s", e)
+            raise SSOAuthenticationError("Invalid SAML response XML")
         except SSOAuthenticationError:
             raise
         except (ValueError, KeyError, AttributeError, binascii.Error, zlib.error) as e:
             logger.error(f"SAML authentication error: {e}")
-            raise SSOAuthenticationError(f"SAML authentication failed: {e}")
+            raise SSOAuthenticationError("SAML authentication failed")
 
     async def _authenticate_with_library(
         self,
@@ -575,7 +576,7 @@ class SAMLProvider(SSOProvider):
         except (ValueError, RuntimeError, KeyError, AttributeError, TypeError) as e:
             # Catch XML parsing errors, validation errors, and other library exceptions
             logger.error(f"SAML library authentication error: {e}")
-            raise SSOAuthenticationError(f"Invalid SAML response: {e}")
+            raise SSOAuthenticationError("Invalid SAML response")
 
         # Get user data
         name_id = auth.get_nameid()

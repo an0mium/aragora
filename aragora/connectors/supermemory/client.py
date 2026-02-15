@@ -176,7 +176,8 @@ class SupermemoryClient:
                 recoverable=False,
             )
         except (OSError, ConnectionError, TimeoutError, ValueError) as e:
-            raise SupermemoryConnectionError(f"Failed to initialize Supermemory: {e}")
+            logger.warning("Failed to initialize Supermemory: %s", e)
+            raise SupermemoryConnectionError("Failed to initialize Supermemory") from e
 
     def _filter_content(self, content: str) -> str:
         """Apply privacy filter to content if enabled."""
@@ -239,11 +240,12 @@ class SupermemoryClient:
                 success=True,
             )
         except (ConnectionError, TimeoutError, OSError) as e:
-            raise SupermemoryConnectionError(str(e))
+            logger.warning("Supermemory connection error: %s", e)
+            raise SupermemoryConnectionError("Connection failed") from e
         except (ValueError, KeyError, TypeError, RuntimeError) as e:
             error_msg = str(e).lower()
             if "rate limit" in error_msg or "429" in error_msg:
-                raise SupermemoryRateLimitError(str(e))
+                raise SupermemoryRateLimitError("Rate limit exceeded") from e
             elif "unauthorized" in error_msg or "401" in error_msg:
                 raise SupermemoryError("Invalid API key", recoverable=False)
             else:
@@ -252,7 +254,7 @@ class SupermemoryClient:
                     memory_id="",
                     container_tag=tag,
                     success=False,
-                    error=str(e),
+                    error="Memory add failed",
                 )
 
     @with_retry(max_retries=3, delay=1.0)
@@ -316,11 +318,12 @@ class SupermemoryClient:
                 search_time_ms=search_time_ms,
             )
         except (ConnectionError, TimeoutError, OSError) as e:
-            raise SupermemoryConnectionError(str(e))
+            logger.warning("Supermemory search connection error: %s", e)
+            raise SupermemoryConnectionError("Connection failed") from e
         except (ValueError, KeyError, TypeError, RuntimeError) as e:
             error_msg = str(e).lower()
             if "rate limit" in error_msg or "429" in error_msg:
-                raise SupermemoryRateLimitError(str(e))
+                raise SupermemoryRateLimitError("Rate limit exceeded") from e
             else:
                 logger.error(f"Search failed: {e}")
                 return SearchResponse(
@@ -373,16 +376,18 @@ class SupermemoryClient:
                 "service": "supermemory",
             }
         except SupermemoryError as e:
+            logger.warning("Supermemory health check failed: %s", e)
             return {
                 "healthy": False,
-                "error": str(e),
+                "error": "Health check failed",
                 "recoverable": e.recoverable,
                 "service": "supermemory",
             }
         except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
+            logger.warning("Supermemory health check error: %s", e)
             return {
                 "healthy": False,
-                "error": str(e),
+                "error": "Health check failed",
                 "service": "supermemory",
             }
 

@@ -508,7 +508,7 @@ class DebateQueue:
         except (RuntimeError, ValueError, TimeoutError, asyncio.CancelledError) as e:
             logger.error(f"Failed to process item {item.item_id}: {e}")
             item.status = ItemStatus.FAILED
-            item.error = str(e)
+            item.error = "Debate execution failed"
         finally:
             item.completed_at = time.time()
 

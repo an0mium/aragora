@@ -307,11 +307,12 @@ class DebateFactory:
             ) as e:
                 error_msg = f"Failed to create agent {spec.provider}: {e}"
                 logger.error(error_msg)
-                result.failed.append((spec.provider, str(e)))
+                safe_msg = f"Agent creation failed for {spec.provider}"
+                result.failed.append((spec.provider, safe_msg))
 
                 # Emit error event if emitter available
                 if self.stream_emitter and debate_id:
-                    self._emit_agent_error(spec.provider, str(e), debate_id)
+                    self._emit_agent_error(spec.provider, safe_msg, debate_id)
 
         return result
 

@@ -162,7 +162,7 @@ class SlackProvider(NotificationProvider):
                 channel=self.channel,
                 recipient=recipient,
                 notification_id=notification.id,
-                error=str(e),
+                error="Slack notification delivery failed",
             )
 
     def _build_message(self, notification: Notification) -> dict:
@@ -351,7 +351,7 @@ class EmailProvider(NotificationProvider):
                 channel=self.channel,
                 recipient=recipient,
                 notification_id=notification.id,
-                error=str(e),
+                error="Email notification delivery failed",
             )
 
     def _send_email(self, notification: Notification, recipient: str) -> None:
@@ -589,7 +589,7 @@ class WebhookProvider(NotificationProvider):
                 channel=self.channel,
                 recipient=recipient,
                 notification_id=notification.id,
-                error=str(e),
+                error="Webhook notification delivery failed",
             )
 
     async def send_to_matching(

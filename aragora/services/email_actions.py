@@ -375,6 +375,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email send failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -390,7 +391,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.SEND,
                 message_ids=[],
-                error=str(e),
+                error="Send failed",
             )
 
     async def reply(
@@ -451,6 +452,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email reply failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -466,7 +468,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.REPLY,
                 message_ids=[message_id],
-                error=str(e),
+                error="Reply failed",
             )
 
     # =========================================================================
@@ -515,6 +517,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email archive failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -530,7 +533,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.ARCHIVE,
                 message_ids=[message_id],
-                error=str(e),
+                error="Archive failed",
             )
 
     async def trash(
@@ -575,6 +578,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email trash failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -590,7 +594,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.TRASH,
                 message_ids=[message_id],
-                error=str(e),
+                error="Trash failed",
             )
 
     # =========================================================================
@@ -649,6 +653,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email snooze failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -664,7 +669,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.SNOOZE,
                 message_ids=[message_id],
-                error=str(e),
+                error="Snooze failed",
             )
 
     # =========================================================================
@@ -704,6 +709,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email mark_read failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -719,7 +725,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.MARK_READ,
                 message_ids=[message_id],
-                error=str(e),
+                error="Mark read failed",
             )
 
     async def star(
@@ -755,6 +761,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email star failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -770,7 +777,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.STAR,
                 message_ids=[message_id],
-                error=str(e),
+                error="Star failed",
             )
 
     async def move_to_folder(
@@ -808,6 +815,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email move_to_folder failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -823,7 +831,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.MOVE_TO_FOLDER,
                 message_ids=[message_id],
-                error=str(e),
+                error="Move to folder failed",
             )
 
     # =========================================================================
@@ -864,6 +872,7 @@ class EmailActionsService:
 
         except Exception as e:
             duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            logger.warning("Email batch_archive failed: %s", e)
 
             await self._log_action(
                 user_id=user_id,
@@ -879,7 +888,7 @@ class EmailActionsService:
                 success=False,
                 action_type=ActionType.BATCH_ARCHIVE,
                 message_ids=message_ids,
-                error=str(e),
+                error="Batch archive failed",
             )
 
     # =========================================================================

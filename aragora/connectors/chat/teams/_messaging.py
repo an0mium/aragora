@@ -187,12 +187,12 @@ class TeamsMessagingMixin:
             classified = _tc._classify_teams_error(f"Timeout: {e}")
             logger.error(f"Teams send_message timeout: {e}")
             self._record_failure(classified)
-            raise ConnectorTimeoutError(str(e), connector_name="teams") from e
+            raise ConnectorTimeoutError("Request timed out", connector_name="teams") from e
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
             logger.error(f"Teams send_message connection error: {e}")
             self._record_failure(classified)
-            raise ConnectorNetworkError(str(e), connector_name="teams") from e
+            raise ConnectorNetworkError("Connection failed", connector_name="teams") from e
         except (
             httpx.HTTPError,
             RuntimeError,
@@ -206,7 +206,7 @@ class TeamsMessagingMixin:
             self._record_failure(classified)
             return SendMessageResponse(
                 success=False,
-                error=str(e),
+                error="Message send failed",
             )
 
     async def update_message(
@@ -281,12 +281,12 @@ class TeamsMessagingMixin:
             classified = _tc._classify_teams_error(f"Timeout: {e}")
             logger.error(f"Teams update_message timeout: {e}")
             self._record_failure(classified)
-            raise ConnectorTimeoutError(str(e), connector_name="teams") from e
+            raise ConnectorTimeoutError("Request timed out", connector_name="teams") from e
         except httpx.ConnectError as e:
             classified = _tc._classify_teams_error(f"Connection error: {e}")
             logger.error(f"Teams update_message connection error: {e}")
             self._record_failure(classified)
-            raise ConnectorNetworkError(str(e), connector_name="teams") from e
+            raise ConnectorNetworkError("Connection failed", connector_name="teams") from e
         except (
             httpx.HTTPError,
             RuntimeError,
@@ -298,7 +298,7 @@ class TeamsMessagingMixin:
             classified = _tc._classify_teams_error(str(e))
             logger.error(f"Teams update_message error: {e}")
             self._record_failure(classified)
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Message update failed")
 
     async def delete_message(
         self,
@@ -512,4 +512,4 @@ class TeamsMessagingMixin:
             OSError,
         ) as e:
             logger.error(f"Teams response URL error: {e}")
-            return SendMessageResponse(success=False, error=str(e))
+            return SendMessageResponse(success=False, error="Response URL delivery failed")

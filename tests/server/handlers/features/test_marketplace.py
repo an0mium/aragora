@@ -395,7 +395,7 @@ class TestListTemplates:
     def test_list_templates_exception_handling(self, handler, get_handler):
         """Test error handling when registry raises exception."""
         mock_reg = MagicMock()
-        mock_reg.search.side_effect = Exception("Database error")
+        mock_reg.search.side_effect = OSError("Database error")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_reg):
             handler.set_request_context(get_handler, {})
@@ -448,7 +448,7 @@ class TestGetTemplate:
     def test_get_template_exception_handling(self, handler, get_handler):
         """Test error handling when registry raises exception."""
         mock_reg = MagicMock()
-        mock_reg.get.side_effect = Exception("Database error")
+        mock_reg.get.side_effect = OSError("Database error")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_reg):
             handler.set_request_context(get_handler, {})
@@ -766,7 +766,7 @@ class TestGetRatings:
     def test_get_ratings_exception_handling(self, handler, get_handler):
         """Test error handling when registry raises exception."""
         mock_reg = MagicMock()
-        mock_reg.get_ratings.side_effect = Exception("Database error")
+        mock_reg.get_ratings.side_effect = OSError("Database error")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_reg):
             handler.set_request_context(get_handler, {})
@@ -861,7 +861,7 @@ class TestListCategories:
     def test_list_categories_exception_handling(self, handler, get_handler):
         """Test error handling when registry raises exception."""
         mock_reg = MagicMock()
-        mock_reg.list_categories.side_effect = Exception("Database error")
+        mock_reg.list_categories.side_effect = OSError("Database error")
 
         with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_reg):
             handler.set_request_context(get_handler, {})

@@ -284,7 +284,7 @@ class TokenRotationManager:
                     result.errors[store] = f"Unknown store: {store}"
             except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as e:
                 logger.error("Failed to store %s token in %s: %s", token_type.value, store, e)
-                result.errors[store] = str(e)
+                result.errors[store] = f"Failed to store token in {store}"
 
         result.success = len(result.errors) == 0
         result.rotated_at = datetime.now(timezone.utc)

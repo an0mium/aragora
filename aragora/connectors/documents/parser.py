@@ -313,7 +313,7 @@ class DocumentParser:
             return ParsedDocument(
                 content="",
                 format=format,
-                errors=[str(e)],
+                errors=["Document parsing failed"],
             )
 
     def _parse_pdf(self, content: bytes) -> ParsedDocument:
@@ -379,7 +379,8 @@ class DocumentParser:
         except ImportError:
             pass  # Fall through to pypdf
         except (ValueError, KeyError, OSError, TypeError) as e:
-            errors.append(f"pdfplumber error: {e}")
+            logger.debug("pdfplumber error: %s", e)
+            errors.append("PDF parsing error (pdfplumber)")
 
         # Fallback to pypdf
         try:
@@ -420,7 +421,8 @@ class DocumentParser:
         except ImportError:
             errors.append("No PDF parser available (install pypdf or pdfplumber)")
         except (ValueError, KeyError, OSError, TypeError) as e:
-            errors.append(f"pypdf error: {e}")
+            logger.debug("pypdf error: %s", e)
+            errors.append("PDF parsing error (pypdf)")
 
         return ParsedDocument(
             content="",
@@ -495,7 +497,8 @@ class DocumentParser:
         except ImportError:
             errors.append("python-docx not installed (pip install python-docx)")
         except (ValueError, KeyError, OSError, TypeError, AttributeError) as e:
-            errors.append(f"docx parse error: {e}")
+            logger.debug("docx parse error: %s", e)
+            errors.append("Word document parsing error")
 
         return ParsedDocument(
             content="",
@@ -569,7 +572,8 @@ class DocumentParser:
         except ImportError:
             errors.append("openpyxl not installed (pip install openpyxl)")
         except (ValueError, KeyError, OSError, TypeError, IndexError) as e:
-            errors.append(f"Excel parse error: {e}")
+            logger.debug("Excel parse error: %s", e)
+            errors.append("Excel spreadsheet parsing error")
 
         return ParsedDocument(
             content="",
@@ -654,7 +658,8 @@ class DocumentParser:
         except ImportError:
             errors.append("python-pptx not installed (pip install python-pptx)")
         except (ValueError, KeyError, OSError, TypeError, AttributeError) as e:
-            errors.append(f"PowerPoint parse error: {e}")
+            logger.debug("PowerPoint parse error: %s", e)
+            errors.append("PowerPoint parsing error")
 
         return ParsedDocument(
             content="",
@@ -700,10 +705,11 @@ class DocumentParser:
                 errors=["beautifulsoup4 not installed for HTML parsing"],
             )
         except (ValueError, TypeError, UnicodeDecodeError) as e:
+            logger.debug("HTML parse error: %s", e)
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.HTML,
-                errors=[str(e)],
+                errors=["HTML parsing failed"],
             )
 
     def _parse_json(self, content: bytes) -> ParsedDocument:
@@ -721,10 +727,11 @@ class DocumentParser:
                 metadata={"keys": list(data.keys()) if isinstance(data, dict) else []},
             )
         except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as e:
+            logger.debug("JSON parse error: %s", e)
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.JSON,
-                errors=[str(e)],
+                errors=["JSON parsing failed"],
             )
 
     def _parse_yaml(self, content: bytes) -> ParsedDocument:
@@ -750,10 +757,11 @@ class DocumentParser:
                 errors=["pyyaml not installed"],
             )
         except (ValueError, TypeError, UnicodeDecodeError) as e:
+            logger.debug("YAML parse error: %s", e)
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.YAML,
-                errors=[str(e)],
+                errors=["YAML parsing failed"],
             )
 
     def _parse_xml(self, content: bytes) -> ParsedDocument:
@@ -782,10 +790,11 @@ class DocumentParser:
                 metadata={"root_tag": root.tag},
             )
         except (ValueError, TypeError, UnicodeDecodeError) as e:
+            logger.debug("XML parse error: %s", e)
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.XML,
-                errors=[str(e)],
+                errors=["XML parsing failed"],
             )
 
     def _parse_csv(self, content: bytes) -> ParsedDocument:
@@ -807,10 +816,11 @@ class DocumentParser:
                 metadata={"rows": len(rows), "columns": len(rows[0]) if rows else 0},
             )
         except (ValueError, TypeError, UnicodeDecodeError, IndexError) as e:
+            logger.debug("CSV parse error: %s", e)
             return ParsedDocument(
                 content=content.decode("utf-8", errors="ignore")[: self.max_content_size],
                 format=DocumentFormat.CSV,
-                errors=[str(e)],
+                errors=["CSV parsing failed"],
             )
 
     def _parse_jupyter(self, content: bytes) -> ParsedDocument:
@@ -902,7 +912,7 @@ class DocumentParser:
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.IPYNB,
-                errors=[str(e)],
+                errors=["Jupyter notebook parsing failed"],
             )
 
     def _parse_epub(self, content: bytes) -> ParsedDocument:
@@ -978,7 +988,7 @@ class DocumentParser:
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.EPUB,
-                errors=[str(e)],
+                errors=["EPUB parsing failed"],
             )
 
     def _parse_mobi(self, content: bytes) -> ParsedDocument:
@@ -1033,7 +1043,7 @@ class DocumentParser:
             return ParsedDocument(
                 content="",
                 format=DocumentFormat.MOBI,
-                errors=[str(e)],
+                errors=["MOBI parsing failed"],
             )
 
     def _parse_archive(self, content: bytes, format: DocumentFormat) -> ParsedDocument:
@@ -1131,7 +1141,7 @@ class DocumentParser:
             return ParsedDocument(
                 content="",
                 format=format,
-                errors=[str(e)],
+                errors=["Archive parsing failed"],
             )
 
     def _parse_text(

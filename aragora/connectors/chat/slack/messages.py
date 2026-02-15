@@ -263,7 +263,7 @@ class SlackMessagesMixin:
                 logger.error(f"[slack] send_ephemeral network error after all retries: {e}")
 
             except (RuntimeError, OSError, ValueError, TypeError) as e:
-                last_error = str(e)
+                last_error = "Unexpected error"
                 logger.exception(f"[slack] send_ephemeral unexpected error: {e}")
                 # Don't retry unexpected errors
                 break
@@ -397,11 +397,11 @@ class SlackMessagesMixin:
                     await _exponential_backoff(0, base=0.5)
                     continue
                 logger.error(f"[slack] response_url network error: {e}")
-                return SendMessageResponse(success=False, error=f"Connection error: {e}")
+                return SendMessageResponse(success=False, error="Connection error")
 
             except (RuntimeError, OSError, ValueError, TypeError) as e:
                 logger.exception(f"[slack] response_url unexpected error: {e}")
-                return SendMessageResponse(success=False, error=str(e))
+                return SendMessageResponse(success=False, error="Unexpected error")
 
         return SendMessageResponse(success=False, error="Request failed")
 

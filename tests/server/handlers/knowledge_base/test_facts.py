@@ -592,7 +592,7 @@ class TestCreateFact:
 
         assert result.status_code == 400
         body = parse_response(result)
-        assert "json" in body["error"].lower()
+        assert "invalid" in body["error"].lower()
 
     def test_create_fact_no_body(self, handler, mock_store):
         """Should return 400 when request body is empty."""

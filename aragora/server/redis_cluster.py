@@ -693,7 +693,8 @@ class RedisClusterClient:
                 "node_count": len(nodes.strip().split("\n")) if isinstance(nodes, str) else 0,
             }
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-            return {"mode": "cluster", "cluster": True, "error": str(e)}
+            logger.warning("Failed to get cluster info: %s", e)
+            return {"mode": "cluster", "cluster": True, "error": "Failed to retrieve cluster info"}
 
     def get_slot_for_key(self, key: str) -> int:
         """Calculate cluster slot for key.
@@ -780,7 +781,8 @@ class RedisClusterClient:
                 stats["connected_clients"] = info.get("connected_clients", 0)
                 stats["used_memory_human"] = info.get("used_memory_human", "unknown")
             except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
-                stats["info_error"] = str(e)
+                logger.warning("Failed to retrieve Redis info: %s", e)
+                stats["info_error"] = "Failed to retrieve Redis info"
 
         return stats
 

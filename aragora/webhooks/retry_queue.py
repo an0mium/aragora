@@ -745,7 +745,7 @@ class WebhookRetryQueue:
 
             except Exception as e:
                 # Unexpected error - treat as failed attempt
-                delivery.last_error = str(e)
+                delivery.last_error = "Unexpected delivery error"
 
                 if delivery.should_dead_letter():
                     delivery.status = DeliveryStatus.DEAD_LETTER
@@ -822,11 +822,13 @@ class WebhookRetryQueue:
                         return False, response.status, f"HTTP {response.status}"
 
         except aiohttp.ClientError as e:
-            return False, 0, f"Connection error: {e}"
+            logger.debug("Webhook connection error: %s", e)
+            return False, 0, "Connection error"
         except asyncio.TimeoutError:
             return False, 0, "Request timed out"
         except Exception as e:
-            return False, 0, str(e)
+            logger.debug("Webhook delivery error: %s", e)
+            return False, 0, "Delivery failed"
 
     async def _send_webhook_sync(self, delivery: WebhookDelivery) -> tuple[bool, int, str | None]:
         """
@@ -885,11 +887,13 @@ class WebhookRetryQueue:
             except HTTPError as e:
                 return False, e.code, f"HTTP {e.code}: {e.reason}"
             except URLError as e:
-                return False, 0, f"Connection error: {e.reason}"
+                logger.debug("Webhook sync connection error: %s", e.reason)
+                return False, 0, "Connection error"
             except TimeoutError:
                 return False, 0, "Request timed out"
             except Exception as e:
-                return False, 0, str(e)
+                logger.debug("Webhook sync delivery error: %s", e)
+                return False, 0, "Delivery failed"
 
         # Run in thread pool to avoid blocking
         loop = asyncio.get_running_loop()

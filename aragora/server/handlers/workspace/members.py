@@ -99,7 +99,7 @@ class WorkspaceMembersMixin:
             logger.warning("Handler error: %s", e)
             return m.error_response("Permission denied", 403)
         except Exception as e:
-            logger.error("workspace_members.list_error error=%s", str(e))
+            logger.error("Failed to list workspace members: %s", e)
             return m.error_response("Failed to list members", 500)
 
     @api_endpoint(

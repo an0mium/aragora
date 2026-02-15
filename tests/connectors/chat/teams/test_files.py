@@ -423,7 +423,7 @@ class TestUploadFile:
             )
 
             assert result.id == ""
-            assert "Connection refused" in result.metadata.get("error", "")
+            assert "connection" in result.metadata.get("error", "").lower() or "failed" in result.metadata.get("error", "").lower()
             connector._record_failure_mock.assert_called_once()
 
     @pytest.mark.asyncio

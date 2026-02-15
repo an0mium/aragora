@@ -579,7 +579,7 @@ class DecisionRoutingMiddleware:
 
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Decision routing failed",
                 "request_id": context.request_id,
             }
         except Exception as e:  # nosec - Top-level request handler: catch-all prevents unhandled 500s
@@ -590,7 +590,7 @@ class DecisionRoutingMiddleware:
 
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Internal routing error",
                 "request_id": context.request_id,
             }
 
@@ -748,7 +748,7 @@ class DecisionRoutingMiddleware:
             logger.error(f"Fallback routing failed: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Fallback routing failed",
             }
 
 

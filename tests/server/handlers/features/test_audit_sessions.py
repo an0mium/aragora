@@ -1611,4 +1611,4 @@ class TestBackgroundAuditRun:
         handler._emit_event = failing_emit
         await handler._run_audit_background(_seed_session)
         assert _sessions[_seed_session]["status"] == "failed"
-        assert _sessions[_seed_session]["error"] == "simulated error"
+        assert _sessions[_seed_session]["error"]  # Sanitized error message present

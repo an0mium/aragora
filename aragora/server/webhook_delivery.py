@@ -723,7 +723,8 @@ class WebhookDeliveryManager:
             self._metrics.failed_deliveries += 1
             return False
         except (ConnectionError, OSError, RuntimeError, ValueError) as e:
-            delivery.last_error = str(e)[:200]
+            logger.warning("Webhook delivery attempt failed: %s", e)
+            delivery.last_error = "Delivery failed"
             self._metrics.failed_deliveries += 1
             return False
 

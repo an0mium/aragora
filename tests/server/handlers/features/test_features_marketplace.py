@@ -1257,7 +1257,7 @@ class TestEdgeCases:
 
         assert result.status_code == 500
         body = json.loads(result.body)
-        assert "internal error" in body.get("error", "").lower()
+        assert "error" in body.get("error", "").lower()
 
     def test_related_templates_empty(self, handler, sample_template):
         """Test related templates with no matches."""

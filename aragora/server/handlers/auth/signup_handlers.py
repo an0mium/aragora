@@ -339,7 +339,7 @@ async def handle_verify_email(
             }
         )
 
-    except (ValueError, KeyError, TypeError, ImportError) as e:
+    except (ValueError, KeyError, TypeError, ImportError, RuntimeError, OSError) as e:
         logger.exception("Email verification failed")
         return error_response(
             f"Email verification failed: {safe_error_message(e, 'email verification')}",

@@ -113,7 +113,8 @@ async def health_detailed(request: Request) -> dict[str, Any]:
                 "debates_count": count,
             }
         except (OSError, RuntimeError, ValueError, ConnectionError) as e:
-            subsystems["storage"] = {"status": "unhealthy", "error": str(e)}
+            logger.warning("Storage health check failed: %s", e)
+            subsystems["storage"] = {"status": "unhealthy", "error": "Storage health check failed"}
     else:
         subsystems["storage"] = {"status": "not_initialized"}
 

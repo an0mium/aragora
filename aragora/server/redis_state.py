@@ -435,7 +435,8 @@ class RedisStateManager:
                 result["ping_ms"] = (time.time() - start) * 1000
                 result["active_debates"] = await self.get_active_debate_count()
             except (ConnectionError, OSError, TimeoutError) as e:
-                result["error"] = str(e)
+                logger.warning("Redis state health check failed: %s", e)
+                result["error"] = "Redis health check failed"
                 result["connected"] = False
 
         return result

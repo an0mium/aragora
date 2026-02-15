@@ -648,13 +648,13 @@ class OIDCProvider(SSOProvider):
 
         except json.JSONDecodeError as e:
             logger.error(f"Token exchange failed - invalid JSON response: {e}")
-            raise SSOAuthenticationError(f"Token exchange failed - invalid response: {e}")
+            raise SSOAuthenticationError("Token exchange failed - invalid response from provider")
         except (OSError, TimeoutError) as e:
             logger.error(f"Token exchange failed - network error: {e}")
-            raise SSOAuthenticationError(f"Token exchange failed - network error: {e}")
+            raise SSOAuthenticationError("Token exchange failed - network error")
         except ValueError as e:
             logger.error(f"Token exchange failed - invalid data: {e}")
-            raise SSOAuthenticationError(f"Token exchange failed: {e}")
+            raise SSOAuthenticationError("Token exchange failed")
 
     async def _get_user_info(
         self, tokens: dict[str, Any], expected_nonce: str | None = None
@@ -717,19 +717,19 @@ class OIDCProvider(SSOProvider):
                 # SECURITY: Explicit production guard - NEVER allow fallback in production
                 if is_production:
                     logger.error(
-                        f"ID token validation failed in PRODUCTION mode: {e}. "
-                        "Fallback is BLOCKED for security."
+                        "ID token validation failed in PRODUCTION mode: %s. "
+                        "Fallback is BLOCKED for security.", e
                     )
                     raise SSOAuthenticationError(
-                        f"ID token validation failed: {e}. "
+                        "ID token validation failed. "
                         "Token validation is required in production mode."
                     )
 
                 # SECURITY: Even in non-production, require explicit opt-in
                 if not fallback_allowed:
-                    logger.error(f"ID token validation failed: {e}")
+                    logger.error("ID token validation failed: %s", e)
                     raise SSOAuthenticationError(
-                        f"ID token validation failed: {e}. "
+                        "ID token validation failed. "
                         "Set ARAGORA_ENV=development and ARAGORA_ALLOW_DEV_AUTH_FALLBACK=1 "
                         "to allow fallback to userinfo endpoint (NOT recommended for production)."
                     )
