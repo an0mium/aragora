@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, TYPE_CHECKING
 
@@ -67,7 +67,7 @@ class WorkspaceInvite:
         """Check if the invite is still valid (pending and not expired)."""
         if self.status != InviteStatus.PENDING:
             return False
-        return datetime.utcnow() < self.expires_at
+        return datetime.now(timezone.utc) < self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -106,7 +106,7 @@ class InviteStore:
         """Create a new invite."""
         invite_id = f"inv_{secrets.token_hex(8)}"
         token = secrets.token_urlsafe(32)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         invite = WorkspaceInvite(
             id=invite_id,
@@ -158,7 +158,7 @@ class InviteStore:
         invite.status = status
         if accepted_by:
             invite.accepted_by = accepted_by
-            invite.accepted_at = datetime.utcnow()
+            invite.accepted_at = datetime.now(timezone.utc)
         return True
 
     def delete(self, invite_id: str) -> bool:
@@ -383,7 +383,7 @@ class WorkspaceInvitesMixin:
         invites = store.list_for_workspace(workspace_id, status)
 
         # Update expired invites
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for invite in invites:
             if invite.status == InviteStatus.PENDING and invite.expires_at < now:
                 store.update_status(invite.id, InviteStatus.EXPIRED)
@@ -505,7 +505,7 @@ class WorkspaceInvitesMixin:
             )
 
         # Extend expiration
-        invite.expires_at = datetime.utcnow() + timedelta(days=7)
+        invite.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
         # In production, this would trigger email sending
         logger.info(
@@ -549,7 +549,7 @@ class WorkspaceInvitesMixin:
 
         # Check if invite is still valid
         if not invite.is_valid():
-            if invite.status == InviteStatus.EXPIRED or datetime.utcnow() >= invite.expires_at:
+            if invite.status == InviteStatus.EXPIRED or datetime.now(timezone.utc) >= invite.expires_at:
                 store.update_status(invite.id, InviteStatus.EXPIRED)
                 return m.error_response("This invite has expired", 410)
             return m.error_response(

@@ -26,7 +26,7 @@ import logging
 import re
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from aiohttp import web
@@ -445,7 +445,7 @@ class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
                     "emails": emails,
                     "total": stats["total"],
                     "stats": stats,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
         except (web.HTTPUnauthorized, web.HTTPForbidden):

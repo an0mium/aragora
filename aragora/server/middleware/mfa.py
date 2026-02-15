@@ -457,7 +457,8 @@ def enforce_admin_mfa_policy(
                     now = datetime.now(timezone.utc)
                     # Ensure timezone-aware comparison
                     if grace_start.tzinfo is None:
-                        now = datetime.utcnow()
+                        grace_start = grace_start.replace(tzinfo=timezone.utc)
+                        grace_end = grace_start + timedelta(days=grace_period_days)
 
                     if now < grace_end:
                         days_remaining = (grace_end - now).days

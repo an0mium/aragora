@@ -7,7 +7,7 @@ Contains action dispatch, individual action handlers, and filter logic.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
@@ -168,7 +168,7 @@ class InboxActionsMixin:
             "1w": timedelta(weeks=1),
         }
         delta = duration_map.get(duration, timedelta(days=1))
-        snooze_until = datetime.utcnow() + delta
+        snooze_until = datetime.now(timezone.utc) + delta
 
         if self.gmail_connector and hasattr(self.gmail_connector, "snooze_message"):
             try:

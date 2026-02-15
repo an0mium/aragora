@@ -7,7 +7,7 @@ Contains email fetching, prioritization, stats, and reprioritization.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
@@ -95,9 +95,9 @@ class InboxServicesMixin:
                         "suggested_labels": result.suggested_labels,
                         "auto_archive": result.auto_archive,
                         "timestamp": (
-                            getattr(email_data, "date", datetime.utcnow()).isoformat()
+                            getattr(email_data, "date", datetime.now(timezone.utc)).isoformat()
                             if email_data
-                            else datetime.utcnow().isoformat()
+                            else datetime.now(timezone.utc).isoformat()
                         ),
                         "unread": getattr(email_data, "unread", True) if email_data else True,
                     }
@@ -125,7 +125,7 @@ class InboxServicesMixin:
                         "snippet": getattr(e, "snippet", "")[:200],
                         "priority": "medium",
                         "confidence": 0.5,
-                        "timestamp": getattr(e, "date", datetime.utcnow()).isoformat(),
+                        "timestamp": getattr(e, "date", datetime.now(timezone.utc)).isoformat(),
                         "unread": getattr(e, "unread", True),
                     }
                     for i, e in enumerate(emails[offset : offset + limit])
@@ -155,7 +155,7 @@ class InboxServicesMixin:
                 "reasoning": "VIP sender; deadline detected; reply expected",
                 "tier_used": "tier_1_rules",
                 "category": "Work",
-                "timestamp": (datetime.utcnow() - timedelta(hours=2)).isoformat(),
+                "timestamp": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
                 "unread": True,
             },
             {
@@ -168,7 +168,7 @@ class InboxServicesMixin:
                 "reasoning": "Client sender; reply expected",
                 "tier_used": "tier_1_rules",
                 "category": "Work",
-                "timestamp": (datetime.utcnow() - timedelta(hours=5)).isoformat(),
+                "timestamp": (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat(),
                 "unread": True,
             },
             {
@@ -181,7 +181,7 @@ class InboxServicesMixin:
                 "reasoning": "Automated notification; work-related",
                 "tier_used": "tier_1_rules",
                 "category": "Updates",
-                "timestamp": (datetime.utcnow() - timedelta(hours=8)).isoformat(),
+                "timestamp": (datetime.now(timezone.utc) - timedelta(hours=8)).isoformat(),
                 "unread": True,
             },
             {
@@ -194,7 +194,7 @@ class InboxServicesMixin:
                 "reasoning": "Newsletter detected; auto-archive candidate",
                 "tier_used": "tier_1_rules",
                 "category": "Newsletter",
-                "timestamp": (datetime.utcnow() - timedelta(days=1)).isoformat(),
+                "timestamp": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
                 "unread": False,
                 "auto_archive": True,
             },
@@ -208,7 +208,7 @@ class InboxServicesMixin:
                 "reasoning": "Internal sender; informational",
                 "tier_used": "tier_1_rules",
                 "category": "Work",
-                "timestamp": (datetime.utcnow() - timedelta(days=1)).isoformat(),
+                "timestamp": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
                 "unread": False,
             },
         ]
