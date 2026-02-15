@@ -228,7 +228,7 @@ class GoogleOAuthMixin:
                     logger.info(f"OAuth callback: creating new OAuth user for {user_info.email}...")
                     user = await _maybe_await(self._create_oauth_user(user_store, user_info))
                     logger.info(f"OAuth callback: created user {user.id if user else 'FAILED'}")
-                except Exception as e:
+                except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
                     logger.error("OAuth callback: _create_oauth_user failed: %s", e, exc_info=True)
                     return self._redirect_with_error(
                         "Failed to create your account. Please try again."
@@ -246,7 +246,7 @@ class GoogleOAuthMixin:
                 await update_async(user.id, last_login_at=datetime.now(timezone.utc))
             else:
                 user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler (DB driver exceptions not importable)
             logger.error(f"OAuth callback: update_user failed: {e}", exc_info=True)
             # Non-fatal, continue
 
@@ -277,7 +277,7 @@ class GoogleOAuthMixin:
                 "Server configuration error: JWT secret not configured. "
                 "Please contact the administrator."
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             logger.error(f"OAuth callback: create_token_pair failed: {e}", exc_info=True)
             return self._redirect_with_error(
                 f"Failed to create authentication tokens: {type(e).__name__}"

@@ -434,7 +434,7 @@ async def handle_list_analyses(
             "offset": offset,
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         logger.exception(f"Failed to list analyses: {e}")
         return {
             "success": False,

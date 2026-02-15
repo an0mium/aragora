@@ -262,7 +262,7 @@ class RelationshipHandler(BaseHandler):
                     return RelationshipTracker(elo_db_path=str(db_path))
             # Fall back to default
             return RelationshipTracker()
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(f"Failed to create RelationshipTracker: {e}")
             return None
 
@@ -413,7 +413,7 @@ class RelationshipHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (OSError, KeyError, ValueError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "relationships_summary"), 500)
 
     @require_tracker
@@ -491,7 +491,7 @@ class RelationshipHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (OSError, KeyError, ValueError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "relationships_graph"), 500)
 
     @require_tracker
@@ -544,7 +544,7 @@ class RelationshipHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (OSError, KeyError, ValueError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "relationship_pair_detail"), 500)
 
     def _empty_stats_response(self) -> HandlerResult:

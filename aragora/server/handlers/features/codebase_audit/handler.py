@@ -222,7 +222,7 @@ class CodebaseAuditHandler(SecureHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except Exception as e:  # broad catch: last-resort handler
             logger.exception(f"Error in codebase audit handler: {e}")
             return error_response("Internal server error", 500)
 

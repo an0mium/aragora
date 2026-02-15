@@ -108,7 +108,7 @@ class FederationOperationsMixin:
                     sync_scope=sync_scope,
                 )
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to register region: {e}")
             return error_response("Failed to register region", 500)
 
@@ -141,7 +141,7 @@ class FederationOperationsMixin:
 
         try:
             success = _run_async(mound.unregister_federated_region(region_id))
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to unregister region: {e}")
             return error_response("Failed to unregister region", 500)
 

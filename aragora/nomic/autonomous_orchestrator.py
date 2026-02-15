@@ -57,9 +57,7 @@ class BudgetExceededError(RuntimeError):
     def __init__(self, limit: float, spent: float):
         self.limit = limit
         self.spent = spent
-        super().__init__(
-            f"Budget ${limit:.2f} exceeded (spent ${spent:.2f})"
-        )
+        super().__init__(f"Budget ${limit:.2f} exceeded (spent ${spent:.2f})")
 
 
 class Track(Enum):
@@ -790,6 +788,19 @@ class AutonomousOrchestrator:
         while pending or running:
             # Start new tasks up to max parallel (semaphore enforces limit)
             while pending and len(running) < self.max_parallel_tasks:
+                # Budget hard cutoff: don't start new tasks if budget exceeded
+                if self.budget_limit is not None and self._total_cost_usd > self.budget_limit:
+                    logger.warning(
+                        "budget_exceeded limit=%.2f spent=%.2f remaining_tasks=%d",
+                        self.budget_limit,
+                        self._total_cost_usd,
+                        len(pending),
+                    )
+                    for p in pending:
+                        p.status = "skipped"
+                    pending.clear()
+                    break
+
                 assignment = pending.pop(0)
 
                 # Check for conflicts

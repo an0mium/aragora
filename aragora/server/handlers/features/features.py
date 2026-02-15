@@ -494,7 +494,7 @@ def _check_supermemory() -> tuple[bool, str | None]:
         if not config or not config.api_key:
             return False, "SUPERMEMORY_API_KEY not set"
         return True, None
-    except Exception as exc:
+    except (ValueError, TypeError, AttributeError, OSError) as exc:
         return False, f"Supermemory config error: {exc}"
 
 
@@ -1042,7 +1042,7 @@ class FeaturesHandler(BaseHandler):
                 if user_prefs:
                     # Merge with defaults (user prefs override)
                     preferences.update(user_prefs)
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.warning(f"Failed to load user preferences: {e}")
 
         # Get feature availability for context
@@ -1115,7 +1115,7 @@ class FeaturesHandler(BaseHandler):
                 existing.update(updates)
                 user_store.set_user_preferences(user_ctx.user_id, existing)
                 logger.info(f"Updated preferences for user {user_ctx.user_id}")
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
                 logger.error(f"Failed to save user preferences: {e}")
                 return error_response(
                     "Failed to save preferences",

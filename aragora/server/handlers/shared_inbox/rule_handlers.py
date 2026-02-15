@@ -728,7 +728,7 @@ async def handle_test_routing_rule(
             "rule": rule.to_dict(),
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:  # broad catch: last-resort handler
         logger.exception(f"Failed to test routing rule: {e}")
         return {
             "success": False,

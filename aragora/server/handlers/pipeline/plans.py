@@ -214,7 +214,7 @@ class PlanManagementHandler(BaseHandler):
                     "plan": result_dict,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("Approve plan failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to approve plan", 500)
 
@@ -238,7 +238,7 @@ class PlanManagementHandler(BaseHandler):
                     generator = PRGenerator(artifact)
                     memo = generator.generate_decision_memo()
                     memo_md = memo.to_markdown()
-                except (ImportError, Exception) as e:
+                except (ImportError, ValueError, TypeError, AttributeError) as e:
                     logger.debug("PRGenerator unavailable: %s", e)
 
             # Fallback: build simple memo from plan data
@@ -252,7 +252,7 @@ class PlanManagementHandler(BaseHandler):
                     "format": "markdown",
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.error("Get memo failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to generate memo", 500)
 
