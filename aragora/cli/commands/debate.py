@@ -1039,6 +1039,23 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
     explain = getattr(args, "explain", False)
 
+    # Apply preset configuration if specified
+    preset_kwargs: dict[str, Any] = {}
+    preset_name = getattr(args, "preset", None)
+    if preset_name:
+        from aragora.debate.presets import get_preset
+
+        preset_kwargs = get_preset(preset_name)
+        print(f"[preset] Applied '{preset_name}' configuration preset")
+
+    # Create spectator stream if --spectate is specified
+    spectate_kwargs: dict[str, Any] = {}
+    if getattr(args, "spectate", False):
+        from aragora.spectate.stream import SpectatorStream
+
+        spectate_fmt = getattr(args, "spectate_format", "auto")
+        spectate_kwargs["spectator"] = SpectatorStream(enabled=True, format=spectate_fmt)
+
     result = asyncio.run(
         run_debate(
             task=args.task,
@@ -1058,6 +1075,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
             auto_select_config=auto_select_config,
             offline=offline or force_local,
             auto_explain=explain,
+            **preset_kwargs,
+            **spectate_kwargs,
         )
     )
 

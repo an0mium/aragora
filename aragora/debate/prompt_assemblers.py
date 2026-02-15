@@ -54,6 +54,44 @@ class PromptAssemblyMixin:
     _estimate_tokens: Any
     _apply_context_budget: Any
 
+    def _anonymize_if_enabled(self, text: str) -> str:
+        """Apply privacy anonymization to prompt text if enabled in protocol.
+
+        Uses HIPAAAnonymizer to redact PII (names, SSNs, emails, etc.) from
+        debate prompts before they are sent to agents.
+        """
+        if not getattr(self.protocol, "enable_privacy_anonymization", False):
+            return text
+        try:
+            from aragora.privacy.anonymization import (
+                AnonymizationMethod,
+                HIPAAAnonymizer,
+            )
+
+            method_name = getattr(self.protocol, "privacy_anonymization_method", "redact")
+            method_map = {
+                "redact": AnonymizationMethod.REDACT,
+                "hash": AnonymizationMethod.HASH,
+                "pseudonymize": AnonymizationMethod.PSEUDONYMIZE,
+                "generalize": AnonymizationMethod.GENERALIZE,
+                "suppress": AnonymizationMethod.SUPPRESS,
+            }
+            method = method_map.get(method_name, AnonymizationMethod.REDACT)
+            anonymizer = HIPAAAnonymizer()
+            result = anonymizer.anonymize(text, method=method)
+            if result.fields_anonymized:
+                logger.info(
+                    "Privacy anonymization applied: %d fields redacted",
+                    len(result.fields_anonymized),
+                )
+            return result.anonymized_content
+        except ImportError:
+            logger.debug("Privacy anonymization module not available")
+            return text
+        except Exception as e:
+            logger.warning("Privacy anonymization failed, using original text: %s", e)
+            return text
+
     def build_proposal_prompt(
         self,
         agent: Agent,
@@ -210,7 +248,7 @@ class PromptAssemblyMixin:
             sections=sections,
         )
 
-        return f"""You are acting as a {agent.role} in a multi-agent debate (decision stress-test).{stance_section}{role_section}{persona_section}{flip_section}
+        prompt = f"""You are acting as a {agent.role} in a multi-agent debate (decision stress-test).{stance_section}{role_section}{persona_section}{flip_section}
 {context_block}
 Task: {self.env.task}{context_str}{research_status}
 
@@ -221,6 +259,8 @@ IMPORTANT: If this task mentions a specific website, company, product, or curren
 
 Please provide your best proposal to address this task. Be thorough and specific.
 Your proposal will be critiqued by other agents, so anticipate potential objections.{self.get_language_constraint()}"""
+
+        return self._anonymize_if_enabled(prompt)
 
     def build_revision_prompt(
         self,
@@ -305,7 +345,7 @@ Your proposal will be critiqued by other agents, so anticipate potential objecti
         ]
         context_block, _ = self._apply_context_budget(env_context="", sections=sections)
 
-        return f"""You are revising your proposal based on critiques from other agents.{round_phase_section}{role_section}{persona_section}{flip_section}
+        prompt = f"""You are revising your proposal based on critiques from other agents.{round_phase_section}{role_section}{persona_section}{flip_section}
 
 {intensity_guidance}{stance_section}{context_block}
 
@@ -320,6 +360,8 @@ Critiques Received:
 Please provide a revised proposal that addresses the valid critiques.
 Use evidence citations [EVID-N] to support strengthened claims.
 Explain what you changed and why. If you disagree with a critique, explain your reasoning.{self.get_language_constraint()}"""
+
+        return self._anonymize_if_enabled(prompt)
 
     def build_judge_prompt(
         self,

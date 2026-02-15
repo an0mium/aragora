@@ -630,6 +630,31 @@ class ArenaConfig:
         """Create a new ArenaConfigBuilder for fluent construction."""
         return ArenaConfigBuilder()
 
+    @classmethod
+    def from_preset(
+        cls,
+        name: str,
+        overrides: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> ArenaConfig:
+        """Create an ArenaConfig from a named preset.
+
+        Presets provide sensible defaults for common use cases (sme, enterprise,
+        minimal, audit). Overrides and kwargs take precedence over preset values.
+
+        Args:
+            name: Preset name (sme, enterprise, minimal, audit).
+            overrides: Optional dict of overrides.
+            **kwargs: Additional overrides as keyword arguments.
+
+        Returns:
+            Configured ArenaConfig instance.
+        """
+        from aragora.debate.presets import apply_preset
+
+        merged = apply_preset(name, overrides=overrides, **kwargs)
+        return cls(**merged)
+
     # =========================================================================
     # to_arena_kwargs (preserved from original)
     # =========================================================================

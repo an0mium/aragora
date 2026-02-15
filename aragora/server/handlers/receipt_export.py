@@ -7,7 +7,6 @@ Provides an endpoint to export decision receipts in multiple formats:
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 

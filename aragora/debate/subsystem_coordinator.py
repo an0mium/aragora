@@ -165,6 +165,12 @@ class SubsystemCoordinator:
     analytics_coordinator: Any | None = None  # AnalyticsCoordinator (source)
     team_selector: Any | None = None  # TeamSelector (target)
 
+    # Performance → Selection Feedback Loop (auto-creates SelectionFeedbackLoop)
+    enable_performance_feedback: bool = True  # Auto-create SelectionFeedbackLoop if None
+    feedback_loop_weight: float = 0.15  # Weight for feedback adjustments (0.0-1.0)
+    feedback_loop_decay: float = 0.9  # Decay factor for old feedback
+    feedback_loop_min_debates: int = 3  # Min debates before applying feedback
+
     # Novelty → Selection Feedback Bridge
     novelty_selection_bridge: Any | None = None  # NoveltySelectionBridge
     enable_novelty_selection: bool = True  # Auto-create if novelty_tracker available
@@ -401,6 +407,10 @@ class SubsystemCoordinator:
         if self.enable_analytics_selection and self.analytics_selection_bridge is None:
             self._auto_init_analytics_selection_bridge()
 
+        # Selection Feedback Loop (must be before bridges that consume it)
+        if self.enable_performance_feedback and self.selection_feedback_loop is None:
+            self._auto_init_selection_feedback_loop()
+
         # Novelty → Selection Feedback bridge
         if self.enable_novelty_selection and self.novelty_selection_bridge is None:
             self._auto_init_novelty_selection_bridge()
@@ -631,6 +641,36 @@ class SubsystemCoordinator:
         except (TypeError, ValueError, RuntimeError) as e:
             logger.debug("AnalyticsSelectionBridge auto-init failed: %s", e)
             self._init_errors.append(f"AnalyticsSelectionBridge init failed: {e}")
+
+    def _auto_init_selection_feedback_loop(self) -> None:
+        """Auto-initialize SelectionFeedbackLoop for performance-based selection weights.
+
+        Creates a SelectionFeedbackLoop when enable_performance_feedback is True
+        and no pre-configured loop was provided. Uses feedback_loop_weight,
+        feedback_loop_decay, and feedback_loop_min_debates from coordinator config.
+        """
+        try:
+            from aragora.debate.selection_feedback import (
+                FeedbackLoopConfig,
+                SelectionFeedbackLoop,
+            )
+
+            config = FeedbackLoopConfig(
+                performance_to_selection_weight=self.feedback_loop_weight,
+                feedback_decay_factor=self.feedback_loop_decay,
+                min_debates_for_feedback=self.feedback_loop_min_debates,
+            )
+            self.selection_feedback_loop = SelectionFeedbackLoop(
+                config=config,
+                elo_system=self.elo_system,
+                calibration_tracker=self.calibration_tracker,
+            )
+            logger.debug("Auto-initialized SelectionFeedbackLoop")
+        except ImportError:
+            logger.debug("SelectionFeedbackLoop not available")
+        except (TypeError, ValueError, RuntimeError) as e:
+            logger.debug("SelectionFeedbackLoop auto-init failed: %s", e)
+            self._init_errors.append(f"SelectionFeedbackLoop init failed: {e}")
 
     def _auto_init_novelty_selection_bridge(self) -> None:
         """Auto-initialize NoveltySelectionBridge for novelty-based selection feedback."""

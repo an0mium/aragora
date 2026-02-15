@@ -317,6 +317,22 @@ def _add_ask_parser(subparsers) -> None:
         action="store_true",
         help="Generate and display decision explanation (evidence chains, vote pivots)",
     )
+    ask_parser.add_argument(
+        "--preset",
+        choices=["sme", "enterprise", "minimal", "audit"],
+        help="Apply a configuration preset (sme, enterprise, minimal, audit)",
+    )
+    ask_parser.add_argument(
+        "--spectate",
+        action="store_true",
+        help="Enable real-time debate visualization in the terminal",
+    )
+    ask_parser.add_argument(
+        "--spectate-format",
+        choices=["auto", "ansi", "plain", "json"],
+        default="auto",
+        help="Spectator output format (default: auto)",
+    )
     ask_parser.set_defaults(func=_lazy("aragora.cli.commands.debate", "cmd_ask"))
 
 
@@ -1187,6 +1203,22 @@ Examples:
         "--notify",
         action="store_true",
         help="Send notification on debate completion (Slack/Email/Webhook)",
+    )
+    decide_parser.add_argument(
+        "--preset",
+        choices=["sme", "enterprise", "minimal", "audit"],
+        help="Apply a configuration preset (sme, enterprise, minimal, audit)",
+    )
+    decide_parser.add_argument(
+        "--spectate",
+        action="store_true",
+        help="Enable real-time debate visualization in the terminal",
+    )
+    decide_parser.add_argument(
+        "--spectate-format",
+        choices=["auto", "ansi", "plain", "json"],
+        default="auto",
+        help="Spectator output format (default: auto)",
     )
     decide_parser.set_defaults(func=_lazy("aragora.cli.commands.decide", "cmd_decide"))
 

@@ -13,7 +13,7 @@ from typing import Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.rbac.models import AuthorizationContext
-from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 

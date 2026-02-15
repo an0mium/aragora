@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 from collections.abc import Callable
 
 from aragora.events.types import StreamEvent

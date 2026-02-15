@@ -16,7 +16,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from aragora.explainability.builder import ExplanationBuilder
 from aragora.explainability.decision import Decision

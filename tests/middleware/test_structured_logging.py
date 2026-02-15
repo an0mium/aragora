@@ -1456,6 +1456,27 @@ class TestModuleExports:
 class TestIntegration:
     """Integration tests combining multiple components."""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_root_logger(self):
+        """Save and restore root logger state for isolation.
+
+        The integration tests call configure_structured_logging() which
+        replaces root logger handlers.  Without cleanup the leaked
+        handlers cause assertion failures in later test classes that
+        expect a clean root logger (e.g. TestConfigureStructuredLogging).
+        """
+        root = logging.getLogger()
+        original_handlers = root.handlers[:]
+        original_level = root.level
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+        yield
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+        for h in original_handlers:
+            root.addHandler(h)
+        root.setLevel(original_level)
+
     def test_full_request_logging_flow(self, log_stream):
         """Test complete request logging from start to end."""
         # Configure logging to capture output

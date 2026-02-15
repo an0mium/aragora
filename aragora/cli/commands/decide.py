@@ -39,6 +39,7 @@ async def run_decide(
     template: str | None = None,
     mode: str = "standard",
     verbose: bool = False,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """Run the full decision pipeline: debate → plan → execute.
 
@@ -128,6 +129,7 @@ async def run_decide(
         supermemory_context_container_tag=supermemory_context_container_tag,
         supermemory_max_context_items=supermemory_max_context_items,
         enable_belief_guidance=enable_belief_guidance,
+        **kwargs,
     )
     result["debate_result"] = debate_result
 
