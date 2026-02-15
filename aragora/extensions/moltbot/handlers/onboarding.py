@@ -386,7 +386,8 @@ class MoltbotOnboardingHandler(BaseHandler):
                 initial_data=body.get("initial_data"),
             )
         except ValueError as e:
-            return error_response(str(e), 404)
+            logger.warning("Failed to start onboarding session: %s", e)
+            return error_response("Flow not found or invalid parameters", 404)
 
         return json_response(
             {"success": True, "session": self._serialize_session(session)},

@@ -267,7 +267,7 @@ class VoiceProcessor:
 
         except Exception as e:
             logger.error(f"STT error: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Speech-to-text processing failed"}
 
     def _detect_intent(self, text: str) -> str | None:
         """Simple intent detection from transcript."""
@@ -338,7 +338,7 @@ class VoiceProcessor:
 
         except Exception as e:
             logger.error(f"TTS error: {e}")
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": "Text-to-speech synthesis failed"}
 
     # ========== Provider Management ==========
 

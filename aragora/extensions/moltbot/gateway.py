@@ -471,7 +471,8 @@ class LocalGateway:
                 device.errors += 1
                 self._devices[device.id] = device
                 await self._mirror_registry_device(device)
-                return {"success": False, "error": str(e)}
+                logger.error("Command handler failed for device %s: %s", device.id, e)
+                return {"success": False, "error": "Command execution failed"}
 
         # Default: simulate successful command
         device.messages_sent += 1
