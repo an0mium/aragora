@@ -1481,6 +1481,106 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         return None
 
     # =========================================================================
+    # OpenClaw Integration — computer-use execution mode
+    # =========================================================================
+
+    _COMPUTER_USE_KEYWORDS = frozenset([
+        "browser", "ui", "visual", "click", "screenshot", "playwright",
+        "selenium", "headless", "webpage", "css", "dom", "element",
+    ])
+
+    @classmethod
+    def _is_computer_use_task(cls, subtask: SubTask) -> bool:
+        """Detect whether a subtask requires computer-use (browser control).
+
+        Checks task title and description for UI/browser keywords.
+        """
+        combined = f"{subtask.title} {subtask.description}".lower()
+        return any(kw in combined for kw in cls._COMPUTER_USE_KEYWORDS)
+
+    async def _execute_computer_use(
+        self,
+        assignment: AgentAssignment,
+        worktree_path: Path,
+    ) -> None:
+        """Execute a computer-use task via OpenClaw bridge.
+
+        Routes browser/UI tasks through the ComputerUseBridge, which
+        translates between OpenClaw browser actions and Aragora's
+        computer-use action system.
+
+        Falls back to normal execution if OpenClaw bridge is unavailable.
+        """
+        try:
+            from aragora.compat.openclaw.computer_use_bridge import (
+                ComputerUseBridge,
+            )
+
+            bridge = ComputerUseBridge()
+
+            logger.info(
+                "computer_use_started subtask=%s agent=%s",
+                assignment.subtask.id,
+                assignment.agent_type,
+            )
+            self._emit_event(
+                "computer_use_started",
+                subtask=assignment.subtask.id,
+            )
+
+            # Build action sequence from subtask description
+            actions = bridge.plan_actions(assignment.subtask.description)
+
+            results = []
+            for action in actions[:20]:  # Cap actions for safety
+                result = await bridge.execute_action(
+                    action,
+                    timeout=self.hardened_config.sandbox_timeout,
+                )
+                results.append(result)
+
+                # Log screenshots for audit trail
+                if hasattr(result, "screenshot_path") and result.screenshot_path:
+                    logger.info(
+                        "computer_use_screenshot subtask=%s path=%s",
+                        assignment.subtask.id,
+                        result.screenshot_path,
+                    )
+
+                # Stop on failure
+                if not getattr(result, "success", True):
+                    logger.warning(
+                        "computer_use_action_failed subtask=%s action=%s",
+                        assignment.subtask.id,
+                        action,
+                    )
+                    break
+
+            assignment.result = {
+                **(assignment.result or {}),
+                "execution_mode": "computer_use",
+                "actions_executed": len(results),
+            }
+            assignment.status = "completed"
+
+            self._emit_event(
+                "computer_use_completed",
+                subtask=assignment.subtask.id,
+                actions=len(results),
+            )
+
+        except ImportError:
+            logger.info(
+                "computer_use_fallback subtask=%s reason=bridge_unavailable",
+                assignment.subtask.id,
+            )
+            # Fall back to normal code execution
+            assignment.result = {
+                **(assignment.result or {}),
+                "execution_mode": "code_fallback",
+            }
+
+    # =========================================================================
     # B. Mode Enforcement
     # =========================================================================
 
@@ -1645,15 +1745,19 @@ class HardenedOrchestrator(AutonomousOrchestrator):
                 path=str(ctx.worktree_path),
             )
 
-            # Override aragora_path for this assignment's workflow
-            original_path = self.aragora_path
-            self.aragora_path = ctx.worktree_path
+            # Route computer-use tasks through OpenClaw bridge
+            if self._is_computer_use_task(assignment.subtask):
+                await self._execute_computer_use(assignment, ctx.worktree_path)
+            else:
+                # Override aragora_path for this assignment's workflow
+                original_path = self.aragora_path
+                self.aragora_path = ctx.worktree_path
 
-            try:
-                # Build and execute workflow (repo_path will use worktree)
-                await super()._execute_single_assignment(assignment, max_cycles)
-            finally:
-                self.aragora_path = original_path
+                try:
+                    # Build and execute workflow (repo_path will use worktree)
+                    await super()._execute_single_assignment(assignment, max_cycles)
+                finally:
+                    self.aragora_path = original_path
 
             # Record budget spend (cost incurred regardless of merge outcome)
             self._record_budget_spend(assignment)

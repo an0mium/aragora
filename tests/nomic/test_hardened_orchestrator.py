@@ -1824,3 +1824,100 @@ class TestWorkStealing:
         assert len(events) == 1
         assert events[0]["agent"] == "claude"
         assert events[0]["subtask"] == "steal-me"
+
+
+# =============================================================================
+# Phase 4: OpenClaw Integration Tests
+# =============================================================================
+
+
+class TestComputerUseDetection:
+    """Tests for computer-use task detection and routing."""
+
+    def test_browser_task_detected(self):
+        """Tasks mentioning browser are detected as computer-use."""
+        sub = _make_subtask(
+            title="Test browser rendering",
+            description="Verify the login page renders correctly",
+        )
+        assert HardenedOrchestrator._is_computer_use_task(sub) is True
+
+    def test_ui_task_detected(self):
+        """Tasks mentioning UI are detected as computer-use."""
+        sub = _make_subtask(
+            title="Visual regression check",
+            description="Compare UI screenshots before and after change",
+        )
+        assert HardenedOrchestrator._is_computer_use_task(sub) is True
+
+    def test_playwright_task_detected(self):
+        """Tasks mentioning Playwright are detected as computer-use."""
+        sub = _make_subtask(
+            title="Run Playwright e2e tests",
+            description="Execute the end-to-end test suite",
+        )
+        assert HardenedOrchestrator._is_computer_use_task(sub) is True
+
+    def test_code_task_not_detected(self):
+        """Pure code tasks are not detected as computer-use."""
+        sub = _make_subtask(
+            title="Refactor API handler",
+            description="Clean up the debate creation endpoint",
+        )
+        assert HardenedOrchestrator._is_computer_use_task(sub) is False
+
+    def test_click_task_detected(self):
+        """Tasks mentioning click are detected as computer-use."""
+        sub = _make_subtask(
+            title="Test button click",
+            description="Verify the submit button works",
+        )
+        assert HardenedOrchestrator._is_computer_use_task(sub) is True
+
+    @pytest.mark.asyncio
+    async def test_computer_use_fallback(self, tmp_path):
+        """When bridge is unavailable, falls back gracefully."""
+        orch = HardenedOrchestrator()
+        assignment = _make_assignment(status="pending")
+        assignment.subtask = _make_subtask(
+            title="Test browser rendering",
+            description="Check the UI",
+        )
+
+        with patch.dict("sys.modules", {
+            "aragora.compat.openclaw.computer_use_bridge": None,
+        }):
+            await orch._execute_computer_use(assignment, tmp_path)
+            assert assignment.result.get("execution_mode") == "code_fallback"
+
+    @pytest.mark.asyncio
+    async def test_computer_use_success(self, tmp_path):
+        """Successful computer-use execution records actions."""
+        orch = HardenedOrchestrator(spectate_stream=True)
+        assignment = _make_assignment(status="pending")
+        assignment.subtask = _make_subtask(
+            title="Test browser page",
+            description="Navigate to homepage",
+        )
+
+        mock_bridge = MagicMock()
+        mock_bridge.plan_actions.return_value = [MagicMock(), MagicMock()]
+        mock_action_result = MagicMock()
+        mock_action_result.success = True
+        mock_action_result.screenshot_path = None
+        mock_bridge.execute_action = AsyncMock(return_value=mock_action_result)
+
+        with patch(
+            "aragora.compat.openclaw.computer_use_bridge.ComputerUseBridge",
+            return_value=mock_bridge,
+        ):
+            await orch._execute_computer_use(assignment, tmp_path)
+            assert assignment.status == "completed"
+            assert assignment.result["execution_mode"] == "computer_use"
+            assert assignment.result["actions_executed"] == 2
+
+            events = [
+                e for e in orch._spectate_events
+                if e["type"] == "computer_use_completed"
+            ]
+            assert len(events) == 1
