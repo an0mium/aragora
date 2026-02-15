@@ -1921,3 +1921,106 @@ class TestComputerUseDetection:
                 if e["type"] == "computer_use_completed"
             ]
             assert len(events) == 1
+
+
+# =============================================================================
+# Phase 5: Cross-Cycle Learning & Calibration Tests
+# =============================================================================
+
+
+class TestCrossCycleLearning:
+    """Tests for orchestration outcome recording."""
+
+    @pytest.mark.asyncio
+    async def test_record_outcome_with_km(self):
+        """Records outcome to KnowledgeMound when available."""
+        orch = HardenedOrchestrator()
+        result = OrchestrationResult(
+            goal="Test goal",
+            total_subtasks=3,
+            completed_subtasks=2,
+            failed_subtasks=1,
+            skipped_subtasks=0,
+            assignments=[
+                _make_assignment(agent_type="claude", status="completed"),
+                _make_assignment(agent_type="codex", status="completed"),
+                _make_assignment(agent_type="claude", status="failed"),
+            ],
+            duration_seconds=42.0,
+            success=False,
+        )
+
+        mock_adapter = MagicMock()
+        mock_adapter.record_cycle = AsyncMock()
+
+        with patch(
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
+            return_value=mock_adapter,
+        ):
+            await orch._record_orchestration_outcome("Test goal", result)
+            mock_adapter.record_cycle.assert_called_once()
+            call_kwargs = mock_adapter.record_cycle.call_args.kwargs
+            assert call_kwargs["objective"] == "Test goal"
+            assert call_kwargs["success"] is False
+            assert call_kwargs["completed"] == 2
+            assert call_kwargs["failed"] == 1
+            assert len(call_kwargs["what_worked"]) == 2
+            assert len(call_kwargs["what_failed"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_record_outcome_without_km(self):
+        """Gracefully skips recording when KM unavailable."""
+        orch = HardenedOrchestrator()
+        result = OrchestrationResult(
+            goal="Test",
+            total_subtasks=1,
+            completed_subtasks=1,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[_make_assignment(status="completed")],
+            duration_seconds=5.0,
+            success=True,
+        )
+
+        with patch.dict("sys.modules", {
+            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
+        }):
+            # Should not raise
+            await orch._record_orchestration_outcome("Test", result)
+
+
+class TestCalibrationFeedback:
+    """Tests for calibration-weighted agent selection."""
+
+    def test_calibration_boosts_well_calibrated_agent(self):
+        """Agent with better calibration gets higher score."""
+        orch = HardenedOrchestrator()
+
+        mock_tracker = MagicMock()
+        # claude: Brier=0.1 (well-calibrated → score 0.9)
+        # codex: Brier=0.5 (poorly calibrated → score 0.5)
+        def mock_brier(agent):
+            return {"claude": 0.1, "codex": 0.5}.get(agent)
+
+        mock_tracker.get_brier_score = mock_brier
+
+        subtask = _make_subtask(description="Implement new API endpoint")
+
+        with patch(
+            "aragora.agents.calibration.CalibrationTracker",
+            return_value=mock_tracker,
+        ):
+            agent = orch._select_best_agent(subtask, Track.DEVELOPER)
+            # Claude should be preferred (better calibration)
+            assert agent == "claude"
+
+    def test_calibration_unavailable_still_works(self):
+        """Selection works when CalibrationTracker is unavailable."""
+        orch = HardenedOrchestrator()
+        subtask = _make_subtask(description="Simple change")
+
+        with patch.dict("sys.modules", {
+            "aragora.agents.calibration": None,
+        }):
+            agent = orch._select_best_agent(subtask, Track.DEVELOPER)
+            assert agent in ("claude", "codex")

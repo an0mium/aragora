@@ -534,6 +534,9 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         if self.hardened_config.enable_audit_reconciliation:
             self._reconcile_audits(result.assignments)
 
+        # Cross-cycle learning: record outcome for future runs
+        await self._record_orchestration_outcome(goal, result)
+
         self._emit_event(
             "orchestration_completed",
             success=result.success,
@@ -542,6 +545,88 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         )
 
         return result
+
+    async def _record_orchestration_outcome(
+        self,
+        goal: str,
+        result: OrchestrationResult,
+    ) -> None:
+        """Record orchestration outcome in KnowledgeMound for cross-cycle learning.
+
+        Stores the goal, decomposition, assignment outcomes, agent performance,
+        and what worked/failed so future runs can learn from this cycle.
+        """
+        try:
+            from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
+                get_nomic_cycle_adapter,
+            )
+
+            adapter = get_nomic_cycle_adapter()
+
+            # Build outcome record
+            what_worked = []
+            what_failed = []
+            agent_performance: dict[str, dict[str, Any]] = {}
+
+            for assignment in result.assignments:
+                agent = assignment.agent_type
+                if agent not in agent_performance:
+                    agent_performance[agent] = {
+                        "completed": 0,
+                        "failed": 0,
+                        "tracks": set(),
+                    }
+
+                if assignment.status == "completed":
+                    agent_performance[agent]["completed"] += 1
+                    what_worked.append(
+                        f"{assignment.subtask.title} (agent={agent})"
+                    )
+                else:
+                    agent_performance[agent]["failed"] += 1
+                    what_failed.append(
+                        f"{assignment.subtask.title} (agent={agent}, "
+                        f"status={assignment.status})"
+                    )
+
+                agent_performance[agent]["tracks"].add(
+                    str(assignment.track)
+                )
+
+            # Serialize tracks sets for storage
+            serializable_perf = {
+                agent: {
+                    **data,
+                    "tracks": list(data["tracks"]),
+                }
+                for agent, data in agent_performance.items()
+            }
+
+            await adapter.record_cycle(
+                objective=goal[:500],
+                success=result.success,
+                completed=result.completed_subtasks,
+                failed=result.failed_subtasks,
+                duration_seconds=result.duration_seconds,
+                what_worked=what_worked[:10],
+                what_failed=what_failed[:10],
+                agent_performance=serializable_perf,
+            )
+
+            logger.info(
+                "cross_cycle_recorded goal=%s success=%s completed=%d failed=%d",
+                goal[:80],
+                result.success,
+                result.completed_subtasks,
+                result.failed_subtasks,
+            )
+
+        except ImportError:
+            logger.debug(
+                "KnowledgeMound unavailable, skipping cross-cycle recording"
+            )
+        except Exception as e:
+            logger.debug("cross_cycle_record_error: %s", e)
 
     # =========================================================================
     # G. MetaPlanner Integration
@@ -1297,6 +1382,20 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             for i, agent in enumerate(available):
                 scored.append((1.0 - i * 0.1, agent))
 
+        # Factor in calibration accuracy (Brier score) if available
+        calibration_scores: dict[str, float] = {}
+        try:
+            from aragora.agents.calibration import CalibrationTracker
+
+            tracker = CalibrationTracker()
+            for agent in available:
+                brier = tracker.get_brier_score(agent)
+                if brier is not None:
+                    # Lower Brier = better calibration → higher score
+                    calibration_scores[agent] = 1.0 - min(brier, 1.0)
+        except (ImportError, AttributeError):
+            pass
+
         # Factor in per-agent success tracking from this orchestration run
         final_scored = []
         for base_score, agent in scored:
@@ -1305,8 +1404,12 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             total = successes + failures
             if total > 0:
                 recent_rate = successes / total
-                # Blend: 60% base score, 40% recent performance
-                final_score = base_score * 0.6 + recent_rate * 0.4
+                # Blend: 50% base score, 30% recent, 20% calibration
+                cal = calibration_scores.get(agent, 0.5)
+                final_score = base_score * 0.5 + recent_rate * 0.3 + cal * 0.2
+            elif agent in calibration_scores:
+                cal = calibration_scores[agent]
+                final_score = base_score * 0.8 + cal * 0.2
             else:
                 final_score = base_score
             final_scored.append((final_score, agent))
