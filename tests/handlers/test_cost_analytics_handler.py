@@ -89,10 +89,12 @@ class TestCostAnomalies:
         mock_http_handler.path = "/api/v1/costs/anomalies"
         mock_tracker = MagicMock()
         anomaly_data = [{"type": "spike", "severity": "warning", "actual": 5.0, "expected": 1.0}]
+        mock_advisory = MagicMock()
+        mock_advisory.to_dict.return_value = {"level": "warning", "message": "Spending spike"}
 
         with (
             patch(_COST_TRACKER_PATCH, return_value=mock_tracker),
-            patch(_RUN_ASYNC_PATCH, return_value=anomaly_data),
+            patch(_RUN_ASYNC_PATCH, return_value=(anomaly_data, mock_advisory)),
         ):
             result = handler._get_cost_anomalies("test-org", mock_http_handler)
 
@@ -107,7 +109,7 @@ class TestCostAnomalies:
 
         with (
             patch(_COST_TRACKER_PATCH, return_value=mock_tracker),
-            patch(_RUN_ASYNC_PATCH, return_value=[]),
+            patch(_RUN_ASYNC_PATCH, return_value=([], None)),
         ):
             result = handler._get_cost_anomalies("test-org", mock_http_handler)
 

@@ -813,6 +813,10 @@ class TestProviderRetryPolicies:
         "knowledge_mound",
         "control_plane",
         "memory",
+        "discord",
+        "github_cli",
+        "slack",
+        "teams",
     ]
 
     def test_has_expected_providers(self):
@@ -820,7 +824,7 @@ class TestProviderRetryPolicies:
             assert provider in PROVIDER_RETRY_POLICIES, f"Missing provider: {provider}"
 
     def test_provider_count(self):
-        assert len(PROVIDER_RETRY_POLICIES) == 9
+        assert len(PROVIDER_RETRY_POLICIES) == 13
 
     def test_all_values_are_retry_configs(self):
         for name, config in PROVIDER_RETRY_POLICIES.items():
