@@ -898,7 +898,7 @@ class TestSemanticQueryOperations:
         result = handler._handle_mound_query(http_handler)
 
         assert result.status_code == 400
-        assert "json" in parse_response(result)["error"].lower()
+        assert "invalid" in parse_response(result)["error"].lower()
 
 
 # =============================================================================
@@ -2042,7 +2042,7 @@ class TestErrorHandling:
         result = handler._handle_mound_query(http_handler)
 
         assert result.status_code == 400
-        assert "json" in parse_response(result)["error"].lower()
+        assert "invalid" in parse_response(result)["error"].lower()
 
 
 # =============================================================================

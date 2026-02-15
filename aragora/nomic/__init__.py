@@ -296,6 +296,10 @@ def __getattr__(name):
         from aragora.nomic import preflight
 
         return getattr(preflight, name)
+    elif name == "HardenedOrchestrator":
+        from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
+
+        return HardenedOrchestrator
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -410,6 +414,7 @@ __all__ = [
     "analyze_task",
     "get_task_decomposer",
     # Autonomous orchestration
+    "HardenedOrchestrator",
     "AutonomousOrchestrator",
     "AgentRouter",
     "FeedbackLoop",

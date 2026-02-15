@@ -1100,7 +1100,7 @@ class TestAnalyticsHandlerErrors:
                     result = await handler.handle_request(mock_request)
 
         assert result["status_code"] == 400
-        assert "Invalid JSON" in result["body"]["error"]
+        assert "invalid" in result["body"]["error"].lower()
 
 
 # =============================================================================

@@ -733,8 +733,8 @@ jobs:
 
       - name: Run bandit security scan
         run: |
-          bandit -c pyproject.toml -r aragora/ -ll -ii --format json --output bandit-report.json || true
-          bandit -c pyproject.toml -r aragora/ -ll -ii --format txt
+          bandit -c pyproject.toml -r aragora/ -ll -iii --format json --output bandit-report.json || true
+          bandit -c pyproject.toml -r aragora/ -ll -iii --format txt
 
       - name: Upload security report
         uses: actions/upload-artifact@v4

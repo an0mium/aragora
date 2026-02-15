@@ -146,14 +146,28 @@ async def run_orchestration(
     max_parallel: int,
     require_approval: bool,
     use_debate: bool = False,
+    use_worktree: bool = False,
+    use_hardened: bool = False,
+    budget_limit: float | None = None,
 ) -> OrchestrationResult:
     """Run the autonomous orchestration."""
-    orchestrator = AutonomousOrchestrator(
-        require_human_approval=require_approval,
-        max_parallel_tasks=max_parallel,
-        on_checkpoint=create_checkpoint_handler(require_approval),
-        use_debate_decomposition=use_debate,
-    )
+    common_kwargs = {
+        "require_human_approval": require_approval,
+        "max_parallel_tasks": max_parallel,
+        "on_checkpoint": create_checkpoint_handler(require_approval),
+        "use_debate_decomposition": use_debate,
+    }
+
+    if use_hardened or use_worktree:
+        from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
+
+        orchestrator = HardenedOrchestrator(
+            use_worktree_isolation=use_worktree,
+            budget_limit_usd=budget_limit,
+            **common_kwargs,
+        )
+    else:
+        orchestrator = AutonomousOrchestrator(**common_kwargs)
 
     print_header("STARTING ORCHESTRATION")
     print(f"Goal: {goal}")
@@ -232,6 +246,22 @@ Examples:
         help="Use multi-agent debate for goal decomposition (slower but works with abstract goals)",
     )
     parser.add_argument(
+        "--worktree",
+        action="store_true",
+        help="Use git worktree isolation for parallel agent execution",
+    )
+    parser.add_argument(
+        "--hardened",
+        action="store_true",
+        help="Enable mode enforcement, gauntlet validation, prompt defense, audit reconciliation",
+    )
+    parser.add_argument(
+        "--budget-limit",
+        type=float,
+        default=None,
+        help="Maximum cost in USD for the entire run (requires --hardened)",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -277,6 +307,9 @@ Examples:
                 max_parallel=args.max_parallel,
                 require_approval=args.require_approval,
                 use_debate=args.debate,
+                use_worktree=args.worktree,
+                use_hardened=args.hardened,
+                budget_limit=args.budget_limit,
             )
         )
         print_result(result)
