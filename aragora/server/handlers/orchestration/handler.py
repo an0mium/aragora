@@ -494,8 +494,8 @@ class OrchestrationHandler(SecureHandler):
                     num_rounds=request.max_rounds,
                     model_types=request.agents if request.agents else None,
                 )
-            except Exception:
-                pass  # Cost estimation is best-effort
+            except Exception as exc:
+                logger.warning("Cost estimation failed (non-blocking): %s", exc)
 
             # Handle dry_run - return estimate only
             if request.dry_run:

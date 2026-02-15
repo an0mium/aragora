@@ -22,6 +22,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _reset_secret_cache():
+    """Reset SecretManager singleton to prevent cached API keys from polluting tests.
+
+    When tests in other directories trigger SecretManager initialization with real
+    API keys, those keys get cached and override test-level os.environ patches.
+    """
+    from aragora.config.secrets import reset_secret_manager
+
+    reset_secret_manager()
+    yield
+    reset_secret_manager()
+
+
 from aragora.memory.embeddings import (
     EmbeddingProvider,
     GeminiEmbedding,
