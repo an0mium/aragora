@@ -355,14 +355,13 @@ class TestTypeScriptSDKParity:
         fields = interface_match.group(1)
         assert "input_data" in fields, "ExecuteActionRequest should have input_data"
 
-    @pytest.mark.xfail(reason="TS SDK field may be pending merge from worktree", strict=False)
     def test_rotate_credential_uses_new_value(self) -> None:
         """rotateCredential must accept new_value, not value."""
         if not _TS_SDK.exists():
             pytest.skip("TypeScript SDK not found")
         content = _TS_SDK.read_text()
-        # Find the rotateCredential method signature
-        match = re.search(r"rotateCredential\([^)]+body:\s*\{([^}]+)\}", content)
+        # Find the rotateCredential method signature (body may be optional with ?)
+        match = re.search(r"rotateCredential\([^)]+?body\?*:\s*\{([^}]+)\}", content)
         assert match, "rotateCredential method not found"
         body_fields = match.group(1)
         assert "new_value" in body_fields, (
