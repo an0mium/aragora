@@ -206,9 +206,7 @@ class TestSubsystemCoordinatorKMProperties:
         assert coord.has_km_bidirectional is True
 
         # Only one (disable auto-init of coordinator)
-        coord_partial = SubsystemCoordinator(
-            knowledge_mound=Mock(), enable_km_coordinator=False
-        )
+        coord_partial = SubsystemCoordinator(knowledge_mound=Mock(), enable_km_coordinator=False)
         assert coord_partial.has_km_bidirectional is False
 
     def test_active_km_adapters_count(self):

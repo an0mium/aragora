@@ -47,6 +47,7 @@ def call_handler(handler, path, params, req):
             loop = None
         if loop and loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 return pool.submit(asyncio.run, result).result()
         return asyncio.run(result)
@@ -226,10 +227,16 @@ def admin_handler():
     handler._auth_context = AuthorizationContext(
         user_id="test-admin",
         permissions={
-            "debates:read", "debates:create", "debates:update", "debates:delete",
-            "agents:read", "agents:update",
-            "analytics:read", "metrics:read",
-            "system:read", "system:admin",
+            "debates:read",
+            "debates:create",
+            "debates:update",
+            "debates:delete",
+            "agents:read",
+            "agents:update",
+            "analytics:read",
+            "metrics:read",
+            "system:read",
+            "system:admin",
         },
         roles={"admin"},
     )
@@ -250,6 +257,7 @@ def _bypass_auth(monkeypatch):
 
     try:
         from aragora.rbac import decorators
+
         original = decorators._get_context_from_args
 
         def patched(args, kwargs, context_param):
@@ -262,12 +270,14 @@ def _bypass_auth(monkeypatch):
 
     try:
         from aragora.server.handlers.utils import auth as utils_auth
+
         monkeypatch.setattr(utils_auth, "get_auth_context", mock_get_auth_context)
     except (ImportError, AttributeError):
         pass
 
     try:
         from aragora.server.handlers import secure
+
         monkeypatch.setattr(secure, "get_auth_context", mock_get_auth_context)
     except (ImportError, AttributeError):
         pass
@@ -390,7 +400,9 @@ class TestDebateAgentCoordination:
 
         result = call_handler(
             handler_ensemble["agents"],
-            "/api/agent/claude/head-to-head/gemini", {}, admin_handler,
+            "/api/agent/claude/head-to-head/gemini",
+            {},
+            admin_handler,
         )
         assert result.status_code == 200
 
@@ -407,7 +419,10 @@ class TestDebateAgentCoordination:
         integrated_elo.record_match("recent-2", ["gpt4", "gemini"], {"gpt4": 1.0, "gemini": 0.0})
 
         result = call_handler(
-            handler_ensemble["agents"], "/api/matches/recent", {"limit": "10"}, admin_handler,
+            handler_ensemble["agents"],
+            "/api/matches/recent",
+            {"limit": "10"},
+            admin_handler,
         )
         assert result.status_code == 200
 
@@ -443,7 +458,10 @@ class TestDataConsistency:
             debate_factory(f"consistency-{i}", ["claude", "gemini"])
 
         result1 = call_handler(
-            handler_ensemble["debates"], "/api/debates", {"limit": "100"}, admin_handler,
+            handler_ensemble["debates"],
+            "/api/debates",
+            {"limit": "100"},
+            admin_handler,
         )
         data1 = json.loads(result1.body)
         debates_count = data1.get("count", len(data1.get("debates", [])))
@@ -455,7 +473,10 @@ class TestDataConsistency:
         created = debate_factory("retrieval-test", ["claude", "gemini"], task="Test task")
 
         result = call_handler(
-            handler_ensemble["debates"], "/api/debates/slug/retrieval-test", {}, admin_handler,
+            handler_ensemble["debates"],
+            "/api/debates/slug/retrieval-test",
+            {},
+            admin_handler,
         )
 
         if result.status_code == 200:
@@ -562,9 +583,7 @@ class TestEventFlow:
 class TestConcurrentAccess:
     """Tests for thread safety under concurrent access."""
 
-    def test_concurrent_reads_consistent(
-        self, handler_ensemble, debate_factory, admin_handler
-    ):
+    def test_concurrent_reads_consistent(self, handler_ensemble, debate_factory, admin_handler):
         """Concurrent reads should return consistent data."""
         for i in range(10):
             debate_factory(f"concurrent-{i}", ["claude", "gemini"])
@@ -577,7 +596,10 @@ class TestConcurrentAccess:
         def read_debates():
             try:
                 result = call_handler(
-                    handler_ensemble["debates"], "/api/debates", {"limit": "100"}, req,
+                    handler_ensemble["debates"],
+                    "/api/debates",
+                    {"limit": "100"},
+                    req,
                 )
                 data = json.loads(result.body)
                 count = data.get("count", len(data.get("debates", [])))
@@ -637,9 +659,7 @@ class TestConcurrentAccess:
 
         assert len(results) == 9
 
-    def test_write_read_consistency(
-        self, handler_ensemble, integrated_storage, admin_handler
-    ):
+    def test_write_read_consistency(self, handler_ensemble, integrated_storage, admin_handler):
         """Reads after writes should see updated data."""
         result1 = call_handler(handler_ensemble["debates"], "/api/debates", {}, admin_handler)
         initial_count = json.loads(result1.body).get("count", 0)

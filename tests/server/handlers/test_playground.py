@@ -202,10 +202,22 @@ class TestDebateEndpoint:
 
         # Required top-level fields
         required_fields = [
-            "id", "topic", "status", "rounds_used", "consensus_reached",
-            "confidence", "verdict", "duration_seconds", "participants",
-            "proposals", "critiques", "votes", "dissenting_views",
-            "final_answer", "receipt", "receipt_hash",
+            "id",
+            "topic",
+            "status",
+            "rounds_used",
+            "consensus_reached",
+            "confidence",
+            "verdict",
+            "duration_seconds",
+            "participants",
+            "proposals",
+            "critiques",
+            "votes",
+            "dissenting_views",
+            "final_answer",
+            "receipt",
+            "receipt_hash",
         ]
         for field in required_fields:
             assert field in data, f"Missing field: {field}"
@@ -369,13 +381,18 @@ class TestGracefulDegradation:
         """When aragora-debate is not installed, returns 503."""
         h = mock_http_handler({})
 
-        with patch.dict("sys.modules", {
-            "aragora_debate.styled_mock": None,
-            "aragora_debate.arena": None,
-            "aragora_debate.types": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora_debate.styled_mock": None,
+                "aragora_debate.arena": None,
+                "aragora_debate.types": None,
+            },
+        ):
             # Force the import to fail by patching builtins.__import__
-            original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+            original_import = (
+                __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+            )
 
             def failing_import(name, *args, **kwargs):
                 if name.startswith("aragora_debate"):

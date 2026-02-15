@@ -305,9 +305,7 @@ class TestHandleRouting:
 
         mock_handler = _make_mock_handler()
         with patch.object(_evaluation_limiter, "is_allowed", return_value=False):
-            result = handler.handle(
-                "/api/v1/evaluate/dimensions", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/evaluate/dimensions", {}, mock_handler)
             assert result.status_code == 429
 
 
@@ -345,7 +343,9 @@ class TestEvaluateResponse:
             JudgeConfig=mock_config_cls,
             EvaluationDimension=MockDimension,
         ):
-            with patch.object(handler, "read_json_body", return_value={"response": "Some response"}):
+            with patch.object(
+                handler, "read_json_body", return_value={"response": "Some response"}
+            ):
                 result = await handler._evaluate_response(mock_handler)
                 assert result.status_code == 400
 
@@ -530,18 +530,14 @@ class TestHandlePostRouting:
                 "read_json_body",
                 return_value={"query": "Q", "response": "R"},
             ):
-                result = await handler.handle_post(
-                    "/api/v1/evaluate", {}, mock_handler
-                )
+                result = await handler.handle_post("/api/v1/evaluate", {}, mock_handler)
                 assert result is not None
                 assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handle_post_unmatched_returns_none(self, handler):
         mock_handler = _make_mock_handler("POST")
-        result = await handler.handle_post(
-            "/api/v1/evaluate/unknown", {}, mock_handler
-        )
+        result = await handler.handle_post("/api/v1/evaluate/unknown", {}, mock_handler)
         assert result is None
 
     @pytest.mark.asyncio
@@ -550,7 +546,5 @@ class TestHandlePostRouting:
 
         mock_handler = _make_mock_handler("POST")
         with patch.object(_evaluation_limiter, "is_allowed", return_value=False):
-            result = await handler.handle_post(
-                "/api/v1/evaluate", {}, mock_handler
-            )
+            result = await handler.handle_post("/api/v1/evaluate", {}, mock_handler)
             assert result.status_code == 429

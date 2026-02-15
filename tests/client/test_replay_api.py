@@ -115,9 +115,7 @@ class TestReplayAPIList:
         assert result[0].replay_id == "rpl-001"
         assert result[0].debate_id == "deb-100"
         assert result[0].agent_count == 3
-        mock_client._get.assert_called_once_with(
-            "/api/replays", params={"limit": 20}
-        )
+        mock_client._get.assert_called_once_with("/api/replays", params={"limit": 20})
 
     def test_list_with_custom_limit(
         self,
@@ -232,9 +230,7 @@ class TestReplayAPIListAsync:
         sample_replay_summary: dict,
     ):
         """Test list_async() returns ReplaySummary objects."""
-        mock_client._get_async = AsyncMock(
-            return_value={"replays": [sample_replay_summary]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"replays": [sample_replay_summary]})
 
         result = await replay_api.list_async()
 
@@ -424,9 +420,7 @@ class TestReplayAPIDeleteAsync:
         result = await replay_api.delete_async("rpl-async-del")
 
         assert result is True
-        mock_client._delete_async.assert_called_once_with(
-            "/api/replays/rpl-async-del"
-        )
+        mock_client._delete_async.assert_called_once_with("/api/replays/rpl-async-del")
 
 
 # ============================================================================
@@ -520,9 +514,7 @@ class TestReplayAPIExportAsync:
         mock_client: MagicMock,
     ):
         """Test export_async() with default json format."""
-        mock_client._get_async = AsyncMock(
-            return_value={"data": '{"replay_id": "rpl-async"}'}
-        )
+        mock_client._get_async = AsyncMock(return_value={"data": '{"replay_id": "rpl-async"}'})
 
         result = await replay_api.export_async("rpl-async")
 

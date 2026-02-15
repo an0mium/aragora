@@ -875,7 +875,11 @@ class TestExternalAgentsErrorHandling:
         mock_user = MagicMock(id="user-1")
         with (
             patch.object(external_agents_handler, "require_auth_or_error") as mock_auth,
-            patch.object(external_agents_handler, "require_permission_or_error", return_value=(mock_user, None)),
+            patch.object(
+                external_agents_handler,
+                "require_permission_or_error",
+                return_value=(mock_user, None),
+            ),
             patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,
         ):
             mock_auth.return_value = (mock_user, None)
@@ -1040,7 +1044,11 @@ class TestExternalAgentsEdgeCases:
 
         with (
             patch.object(external_agents_handler, "require_auth_or_error") as mock_auth,
-            patch.object(external_agents_handler, "require_permission_or_error", return_value=(dict_user, None)),
+            patch.object(
+                external_agents_handler,
+                "require_permission_or_error",
+                return_value=(dict_user, None),
+            ),
             patch.object(external_agents_handler, "set_request_context"),
             patch.object(external_agents_handler, "read_json_body_validated") as mock_read_body,
             patch("aragora.server.handlers.external_agents.ExternalAgentRegistry") as mock_registry,

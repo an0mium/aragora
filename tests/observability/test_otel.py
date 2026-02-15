@@ -842,11 +842,13 @@ class TestCreateOtlpExporter:
         has_any_exporter = False
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # noqa: F401
+
             has_any_exporter = True
         except ImportError:
             pass
         try:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: F401
+
             has_any_exporter = True
         except ImportError:
             pass
@@ -864,11 +866,13 @@ class TestCreateOtlpExporter:
         has_any_exporter = False
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter  # noqa: F401
+
             has_any_exporter = True
         except ImportError:
             pass
         try:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: F401
+
             has_any_exporter = True
         except ImportError:
             pass

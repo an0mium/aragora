@@ -30,27 +30,27 @@ class TestOpenClawRBACDecorators:
         handle_method = OpenClawGatewayHandler.handle
         # The @require_permission decorator wraps the function;
         # check that the wrapper attributes exist
-        assert hasattr(handle_method, "__wrapped__") or hasattr(
-            handle_method, "_permission"
-        ), "GET handle() missing @require_permission decorator"
+        assert hasattr(handle_method, "__wrapped__") or hasattr(handle_method, "_permission"), (
+            "GET handle() missing @require_permission decorator"
+        )
 
     def test_post_handler_has_require_permission(self):
         """POST handler should have openclaw:write permission decorator."""
         from aragora.server.handlers.openclaw.gateway import OpenClawGatewayHandler
 
         handle_post = OpenClawGatewayHandler.handle_post
-        assert hasattr(handle_post, "__wrapped__") or hasattr(
-            handle_post, "_permission"
-        ), "POST handle_post() missing @require_permission decorator"
+        assert hasattr(handle_post, "__wrapped__") or hasattr(handle_post, "_permission"), (
+            "POST handle_post() missing @require_permission decorator"
+        )
 
     def test_delete_handler_has_require_permission(self):
         """DELETE handler should have openclaw:delete permission decorator."""
         from aragora.server.handlers.openclaw.gateway import OpenClawGatewayHandler
 
         handle_delete = OpenClawGatewayHandler.handle_delete
-        assert hasattr(handle_delete, "__wrapped__") or hasattr(
-            handle_delete, "_permission"
-        ), "DELETE handle_delete() missing @require_permission decorator"
+        assert hasattr(handle_delete, "__wrapped__") or hasattr(handle_delete, "_permission"), (
+            "DELETE handle_delete() missing @require_permission decorator"
+        )
 
     def test_post_handler_uses_openclaw_permission_not_debates(self):
         """POST handler should use openclaw:write, not debates:write."""
@@ -181,9 +181,7 @@ class TestNavigateActionSSRF:
         from aragora.security.ssrf_protection import SSRFValidationError
 
         with pytest.raises(SSRFValidationError):
-            ComputerUseBridge.from_openclaw(
-                "navigate", {"url": "http://127.0.0.1:9090/admin"}
-            )
+            ComputerUseBridge.from_openclaw("navigate", {"url": "http://127.0.0.1:9090/admin"})
 
     def test_from_openclaw_navigate_allows_valid_url(self):
         """ComputerUseBridge.from_openclaw should accept valid public URLs."""
@@ -192,9 +190,7 @@ class TestNavigateActionSSRF:
             NavigateAction,
         )
 
-        action = ComputerUseBridge.from_openclaw(
-            "navigate", {"url": "https://example.com/page"}
-        )
+        action = ComputerUseBridge.from_openclaw("navigate", {"url": "https://example.com/page"})
         assert isinstance(action, NavigateAction)
         assert action.url == "https://example.com/page"
 
@@ -251,7 +247,9 @@ class TestHealthEndpointInfoLeak:
         elif isinstance(response_body, dict):
             data = response_body
         else:
-            data = json.loads(response_body.decode() if isinstance(response_body, bytes) else str(response_body))
+            data = json.loads(
+                response_body.decode() if isinstance(response_body, bytes) else str(response_body)
+            )
 
         assert "status" in data
         assert "timestamp" in data
@@ -282,7 +280,9 @@ class TestHealthEndpointInfoLeak:
         elif isinstance(response_body, dict):
             data = response_body
         else:
-            data = json.loads(response_body.decode() if isinstance(response_body, bytes) else str(response_body))
+            data = json.loads(
+                response_body.decode() if isinstance(response_body, bytes) else str(response_body)
+            )
 
         assert data["status"] == "error"
         assert data["healthy"] is False
@@ -310,7 +310,9 @@ class TestHealthEndpointInfoLeak:
         elif isinstance(response_body, dict):
             data = response_body
         else:
-            data = json.loads(response_body.decode() if isinstance(response_body, bytes) else str(response_body))
+            data = json.loads(
+                response_body.decode() if isinstance(response_body, bytes) else str(response_body)
+            )
 
         # Should only contain status and timestamp
         assert "status" in data
@@ -337,6 +339,8 @@ class TestHealthEndpointInfoLeak:
         elif isinstance(response_body, dict):
             data = response_body
         else:
-            data = json.loads(response_body.decode() if isinstance(response_body, bytes) else str(response_body))
+            data = json.loads(
+                response_body.decode() if isinstance(response_body, bytes) else str(response_body)
+            )
 
         assert data["status"] in ("healthy", "degraded")

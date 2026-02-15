@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 import json
 
 
-
 class TestHandlerRegistry:
     """Test HANDLER_REGISTRY configuration."""
 
@@ -49,7 +48,6 @@ class TestHandlerRegistry:
 
         # In a properly configured environment, handlers should be available
         assert HANDLERS_AVAILABLE is True
-
 
     def test_handler_classes_are_valid(self):
         """Handler classes should have required methods."""
@@ -214,7 +212,6 @@ class TestHandlerValidation:
         assert len(errors) > 0
         assert any("exception" in e.lower() for e in errors)
 
-
     def test_validate_all_handlers(self):
         """validate_all_handlers should check all registry entries."""
         from aragora.server.handler_registry import (
@@ -317,7 +314,6 @@ class TestAPIVersioning:
 class TestHandlerCanHandlePaths:
     """Test that handlers correctly implement can_handle."""
 
-
     def test_health_handler_paths(self):
         """HealthHandler should handle health paths."""
         from aragora.server.handler_registry import HealthHandler
@@ -329,7 +325,6 @@ class TestHandlerCanHandlePaths:
         assert handler.can_handle("/api/v1/health")
         assert not handler.can_handle("/api/v1/debates")
 
-
     def test_debates_handler_paths(self):
         """DebatesHandler should handle debate paths."""
         from aragora.server.handler_registry import DebatesHandler
@@ -340,7 +335,6 @@ class TestHandlerCanHandlePaths:
         assert handler.can_handle("/api/v1/debates/123")
         assert handler.can_handle("/api/v1/search")
         assert not handler.can_handle("/api/v1/agents")
-
 
     def test_control_plane_handler_paths(self):
         """ControlPlaneHandler should handle control plane paths."""
@@ -358,7 +352,6 @@ class TestHandlerCanHandlePaths:
 
 class TestHandlerRoutes:
     """Test handler ROUTES attribute."""
-
 
     def test_handlers_have_routes(self):
         """Handlers should define ROUTES for exact matching."""
@@ -380,7 +373,6 @@ class TestHandlerRoutes:
 
         # Most handlers should have ROUTES defined
         assert handlers_with_routes > 30
-
 
     def test_routes_are_valid_paths(self):
         """ROUTES entries should be valid API paths."""
@@ -407,7 +399,6 @@ class TestHandlerRoutes:
 
 class TestHandlerInstantiation:
     """Test handler instantiation with context."""
-
 
     def test_handlers_accept_context(self):
         """Handlers should accept context dict."""
@@ -437,7 +428,6 @@ class TestHandlerInstantiation:
 
         # Most handlers should instantiate without errors
         assert instantiated > 40
-
 
     def test_handler_has_ctx_attribute(self):
         """Instantiated handlers should have ctx attribute."""
@@ -480,7 +470,6 @@ class TestKnowledgeHandler:
         handler_names = [attr for attr, _ in HANDLER_REGISTRY]
         assert "_knowledge_handler" in handler_names
 
-
     def test_knowledge_handler_paths(self):
         """KnowledgeHandler should handle knowledge paths."""
         from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
@@ -505,7 +494,6 @@ class TestWorkflowHandler:
         handler_names = [attr for attr, _ in HANDLER_REGISTRY]
         assert "_workflow_handler" in handler_names
 
-
     def test_workflow_handler_exists(self):
         """WorkflowHandler should be importable."""
         from aragora.server.handlers.workflows.handler import WorkflowHandler
@@ -522,7 +510,6 @@ class TestFeaturesHandler:
 
         handler_names = [attr for attr, _ in HANDLER_REGISTRY]
         assert "_features_handler" in handler_names
-
 
     def test_features_handler_paths(self):
         """FeaturesHandler should handle features paths."""

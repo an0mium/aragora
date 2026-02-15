@@ -229,9 +229,7 @@ class TestGetFlag:
     """Tests for GET /api/v1/admin/feature-flags/:name."""
 
     def test_get_existing_flag(self, handler, mock_handler, registry):
-        result = handler.handle(
-            "/api/v1/admin/feature-flags/test_flag_active", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/admin/feature-flags/test_flag_active", {}, mock_handler)
         assert result is not None
         assert result.status_code == 200
         body = parse_body(result)
@@ -240,9 +238,7 @@ class TestGetFlag:
         assert body["type"] == "bool"
 
     def test_get_flag_not_found(self, handler, mock_handler, registry):
-        result = handler.handle(
-            "/api/v1/admin/feature-flags/nonexistent_flag", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/admin/feature-flags/nonexistent_flag", {}, mock_handler)
         assert result.status_code == 404
         body = parse_body(result)
         assert "not found" in body.get("error", "").lower()
@@ -252,9 +248,7 @@ class TestGetFlag:
         registry.get_value("test_flag_active")
         registry.get_value("test_flag_active")
 
-        result = handler.handle(
-            "/api/v1/admin/feature-flags/test_flag_active", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/admin/feature-flags/test_flag_active", {}, mock_handler)
         body = parse_body(result)
         assert "usage" in body
         # access_count includes calls from _list (get_value) + 2 explicit
@@ -270,18 +264,14 @@ class TestGetFlag:
         assert body["replacement"] == "test_flag_active"
 
     def test_get_int_flag(self, handler, mock_handler, registry):
-        result = handler.handle(
-            "/api/v1/admin/feature-flags/test_int_flag", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/admin/feature-flags/test_int_flag", {}, mock_handler)
         body = parse_body(result)
         assert body["value"] == 42
         assert body["type"] == "int"
 
     def test_get_flag_empty_name(self, handler, mock_handler, registry):
         """Trailing slash without flag name returns 400."""
-        result = handler.handle(
-            "/api/v1/admin/feature-flags/", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/admin/feature-flags/", {}, mock_handler)
         assert result.status_code == 400
 
 
@@ -302,9 +292,7 @@ class TestSetFlag:
 
     def test_set_bool_flag(self, handler, registry):
         mock_h = self._make_put_handler({"value": True})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/test_flag_alpha", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/test_flag_alpha", {}, mock_h)
         assert result is not None
         assert result.status_code == 200
         body = parse_body(result)
@@ -314,34 +302,26 @@ class TestSetFlag:
 
     def test_set_int_flag(self, handler, registry):
         mock_h = self._make_put_handler({"value": 100})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/test_int_flag", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/test_int_flag", {}, mock_h)
         assert result.status_code == 200
         body = parse_body(result)
         assert body["value"] == 100
 
     def test_set_flag_type_mismatch(self, handler, registry):
         mock_h = self._make_put_handler({"value": "not_a_bool"})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/test_flag_active", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/test_flag_active", {}, mock_h)
         assert result.status_code == 400
         body = parse_body(result)
         assert "expects bool" in body.get("error", "")
 
     def test_set_flag_not_found(self, handler, registry):
         mock_h = self._make_put_handler({"value": True})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/nonexistent", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/nonexistent", {}, mock_h)
         assert result.status_code == 404
 
     def test_set_flag_missing_value(self, handler, registry):
         mock_h = self._make_put_handler({"other": "data"})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/test_flag_active", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/test_flag_active", {}, mock_h)
         assert result.status_code == 400
         body = parse_body(result)
         assert "value" in body.get("error", "").lower()
@@ -351,9 +331,7 @@ class TestSetFlag:
         mock_h.headers = {"Content-Type": "application/json", "Content-Length": "0"}
         mock_h.rfile = MagicMock()
         mock_h.rfile.read.return_value = b""
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/test_flag_active", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/test_flag_active", {}, mock_h)
         assert result.status_code == 400
 
     def test_set_flag_sets_env_var(self, handler, registry):
@@ -364,9 +342,7 @@ class TestSetFlag:
         # Clean up env
         old_val = os.environ.pop(env_var, None)
         try:
-            handler.handle_put(
-                "/api/v1/admin/feature-flags/test_flag_alpha", {}, mock_h
-            )
+            handler.handle_put("/api/v1/admin/feature-flags/test_flag_alpha", {}, mock_h)
             assert os.environ.get(env_var) == "True"
         finally:
             if old_val is not None:
@@ -376,17 +352,13 @@ class TestSetFlag:
 
     def test_set_flag_response_includes_previous_default(self, handler, registry):
         mock_h = self._make_put_handler({"value": True})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/test_flag_alpha", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/test_flag_alpha", {}, mock_h)
         body = parse_body(result)
         assert body["previous_default"] is False
 
     def test_put_empty_flag_name(self, handler, registry):
         mock_h = self._make_put_handler({"value": True})
-        result = handler.handle_put(
-            "/api/v1/admin/feature-flags/", {}, mock_h
-        )
+        result = handler.handle_put("/api/v1/admin/feature-flags/", {}, mock_h)
         assert result.status_code == 400
 
 
@@ -394,30 +366,18 @@ class TestUnavailable:
     """Tests for when feature flag system is not available."""
 
     def test_list_unavailable(self, handler, mock_handler):
-        with patch(
-            "aragora.server.handlers.admin.feature_flags.FLAGS_AVAILABLE", False
-        ):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags", {}, mock_handler
-            )
+        with patch("aragora.server.handlers.admin.feature_flags.FLAGS_AVAILABLE", False):
+            result = handler.handle("/api/v1/admin/feature-flags", {}, mock_handler)
             assert result.status_code == 503
 
     def test_get_unavailable(self, handler, mock_handler):
-        with patch(
-            "aragora.server.handlers.admin.feature_flags.FLAGS_AVAILABLE", False
-        ):
-            result = handler.handle(
-                "/api/v1/admin/feature-flags/test", {}, mock_handler
-            )
+        with patch("aragora.server.handlers.admin.feature_flags.FLAGS_AVAILABLE", False):
+            result = handler.handle("/api/v1/admin/feature-flags/test", {}, mock_handler)
             assert result.status_code == 503
 
     def test_put_unavailable(self, handler, mock_handler):
-        with patch(
-            "aragora.server.handlers.admin.feature_flags.FLAGS_AVAILABLE", False
-        ):
-            result = handler.handle_put(
-                "/api/v1/admin/feature-flags/test", {}, mock_handler
-            )
+        with patch("aragora.server.handlers.admin.feature_flags.FLAGS_AVAILABLE", False):
+            result = handler.handle_put("/api/v1/admin/feature-flags/test", {}, mock_handler)
             assert result.status_code == 503
 
 

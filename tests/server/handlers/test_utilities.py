@@ -131,10 +131,12 @@ class TestGetRequestId:
         assert get_request_id(handler) == "corr-789"
 
     def test_priority_order(self):
-        handler = _make_handler({
-            "X-Request-ID": "first",
-            "X-Trace-ID": "second",
-        })
+        handler = _make_handler(
+            {
+                "X-Request-ID": "first",
+                "X-Trace-ID": "second",
+            }
+        )
         assert get_request_id(handler) == "first"
 
     def test_none_handler(self):

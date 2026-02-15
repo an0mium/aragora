@@ -258,9 +258,11 @@ class TestCleanupFunctionality:
         This test calls the real method to verify production behavior.
         """
         # Restore real method temporarily and start the thread
-        real_start = AuthConfig._start_cleanup_thread.__wrapped__ if hasattr(
-            AuthConfig._start_cleanup_thread, "__wrapped__"
-        ) else None
+        real_start = (
+            AuthConfig._start_cleanup_thread.__wrapped__
+            if hasattr(AuthConfig._start_cleanup_thread, "__wrapped__")
+            else None
+        )
         # Directly start the thread using the instance method from auth module
         auth_config._cleanup_stop_event.clear()
         auth_config._cleanup_thread = threading.Thread(

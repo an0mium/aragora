@@ -593,9 +593,7 @@ class TestPublishTemplate:
             "tags": ["test"],
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -613,9 +611,7 @@ class TestPublishTemplate:
             "workflow_definition": {},
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = False
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -627,9 +623,7 @@ class TestPublishTemplate:
             # Missing description, category, pattern, workflow_definition
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -646,9 +640,7 @@ class TestPublishTemplate:
             "workflow_definition": {},
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -663,9 +655,7 @@ class TestPublishTemplate:
             "workflow_definition": {},
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -673,9 +663,7 @@ class TestPublishTemplate:
 
     def test_publish_template_invalid_json_body(self, handler):
         mock = make_mock_handler(method="POST", body=b"not-json{{{")
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -686,9 +674,7 @@ class TestPublishTemplate:
     def test_publish_template_body_too_large(self, handler):
         mock = make_mock_handler(method="POST", body=b"x")
         mock.headers["Content-Length"] = "200000"  # Over 100KB limit
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -704,9 +690,7 @@ class TestPublishTemplate:
             "workflow_definition": {},
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = seeded_handler._publish_template(mock, "127.0.0.1")
 
@@ -721,9 +705,7 @@ class TestPublishTemplate:
             "workflow_definition": "not-a-dict",
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -740,9 +722,7 @@ class TestPublishTemplate:
             "workflow_definition": {},
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -757,9 +737,7 @@ class TestPublishTemplate:
             "workflow_definition": {},
         }
         mock = self._make_publish_handler(data)
-        with patch(
-            "aragora.server.handlers.template_marketplace._publish_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._publish_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = handler._publish_template(mock, "127.0.0.1")
 
@@ -772,9 +750,7 @@ class TestRateTemplate:
     def test_rate_template_success(self, seeded_handler):
         data = {"rating": 4, "user_id": "user-1"}
         mock = make_mock_handler(method="POST", body=json_body(data))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = seeded_handler._rate_template("security/code-audit", mock, "127.0.0.1")
 
@@ -787,9 +763,7 @@ class TestRateTemplate:
     def test_rate_template_not_found(self, seeded_handler):
         data = {"rating": 5}
         mock = make_mock_handler(method="POST", body=json_body(data))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = seeded_handler._rate_template("nonexistent/template", mock, "127.0.0.1")
 
@@ -798,9 +772,7 @@ class TestRateTemplate:
     def test_rate_template_invalid_rating(self, seeded_handler):
         data = {"rating": 10}
         mock = make_mock_handler(method="POST", body=json_body(data))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = seeded_handler._rate_template("security/code-audit", mock, "127.0.0.1")
 
@@ -809,9 +781,7 @@ class TestRateTemplate:
     def test_rate_template_non_numeric_rating(self, seeded_handler):
         data = {"rating": "great"}
         mock = make_mock_handler(method="POST", body=json_body(data))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = seeded_handler._rate_template("security/code-audit", mock, "127.0.0.1")
 
@@ -821,18 +791,14 @@ class TestRateTemplate:
         """Updating an existing rating should adjust the average."""
         data = {"rating": 5, "user_id": "user-x"}
         mock1 = make_mock_handler(method="POST", body=json_body(data))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = True
             seeded_handler._rate_template("security/code-audit", mock1, "127.0.0.1")
 
         # Update to a lower rating
         data2 = {"rating": 2, "user_id": "user-x"}
         mock2 = make_mock_handler(method="POST", body=json_body(data2))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = True
             result = seeded_handler._rate_template("security/code-audit", mock2, "127.0.0.1")
 
@@ -843,9 +809,7 @@ class TestRateTemplate:
     def test_rate_template_rate_limited(self, seeded_handler):
         data = {"rating": 3}
         mock = make_mock_handler(method="POST", body=json_body(data))
-        with patch(
-            "aragora.server.handlers.template_marketplace._rate_limiter"
-        ) as limiter:
+        with patch("aragora.server.handlers.template_marketplace._rate_limiter") as limiter:
             limiter.is_allowed.return_value = False
             result = seeded_handler._rate_template("security/code-audit", mock, "127.0.0.1")
 

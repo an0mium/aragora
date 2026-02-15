@@ -87,7 +87,7 @@ class KMAdapterStatusHandler(BaseHandler):
             try:
                 status = coordinator.get_status()
                 coordinator_status = status.get("adapters", {})
-            except Exception:
+            except (AttributeError, TypeError, ValueError, RuntimeError):
                 logger.debug("Could not get coordinator status", exc_info=True)
 
         # Build adapter list from specs

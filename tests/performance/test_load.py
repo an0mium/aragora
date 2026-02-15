@@ -155,7 +155,12 @@ def _bypass_auth(handler_instance):
             attr = getattr(handler_instance, attr_name, None)
             if callable(attr) and hasattr(attr, "__wrapped__"):
                 import types
-                setattr(handler_instance, attr_name, types.MethodType(attr.__wrapped__, handler_instance))
+
+                setattr(
+                    handler_instance,
+                    attr_name,
+                    types.MethodType(attr.__wrapped__, handler_instance),
+                )
     return handler_instance
 
 

@@ -39,8 +39,6 @@ import asyncio
 # =============================================================================
 
 
-
-
 def _run(coro):
     """Run an async coroutine synchronously for tests."""
     if asyncio.iscoroutine(coro):
@@ -50,6 +48,7 @@ def _run(coro):
         finally:
             loop.close()
     return coro
+
 
 @pytest.fixture
 def system_handler(handler_context):
@@ -89,18 +88,36 @@ def mock_http_handler():
         user_id="test-admin",
         roles={"owner", "admin"},
         permissions={
-            "admin:debug", "admin:maintenance", "admin:write",
-            "admin:security", "admin:system",
-            "admin.debug", "admin.maintenance", "admin.write",
-            "admin.security", "admin.system",
-            "monitoring:metrics", "monitoring:resilience",
-            "monitoring.metrics", "monitoring.resilience",
-            "docs:read", "docs.read",
-            "nomic:read", "nomic:admin", "nomic.read", "nomic.admin",
-            "health:read", "health.read",
-            "system:read", "system.read",
-            "auth:read", "auth:write", "auth.read", "auth.write",
-            "introspection:export_history", "history:read",
+            "admin:debug",
+            "admin:maintenance",
+            "admin:write",
+            "admin:security",
+            "admin:system",
+            "admin.debug",
+            "admin.maintenance",
+            "admin.write",
+            "admin.security",
+            "admin.system",
+            "monitoring:metrics",
+            "monitoring:resilience",
+            "monitoring.metrics",
+            "monitoring.resilience",
+            "docs:read",
+            "docs.read",
+            "nomic:read",
+            "nomic:admin",
+            "nomic.read",
+            "nomic.admin",
+            "health:read",
+            "health.read",
+            "system:read",
+            "system.read",
+            "auth:read",
+            "auth:write",
+            "auth.read",
+            "auth.write",
+            "introspection:export_history",
+            "history:read",
         },
     )
     return handler
@@ -255,8 +272,10 @@ class TestHealthEndpoints:
         async def mock_auth_ctx(req, require_auth=True):
             return mock_http_handler._auth_context
 
-        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
-             patch.object(handler, "check_permission", return_value=None):
+        with (
+            patch.object(handler, "get_auth_context", mock_auth_ctx),
+            patch.object(handler, "check_permission", return_value=None),
+        ):
             result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
@@ -283,8 +302,10 @@ class TestHealthEndpoints:
         async def mock_auth_ctx(req, require_auth=True):
             return mock_http_handler._auth_context
 
-        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
-             patch.object(handler, "check_permission", return_value=None):
+        with (
+            patch.object(handler, "get_auth_context", mock_auth_ctx),
+            patch.object(handler, "check_permission", return_value=None),
+        ):
             result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         body = json.loads(result.body)
@@ -306,8 +327,10 @@ class TestHealthEndpoints:
         async def mock_auth_ctx(req, require_auth=True):
             return mock_http_handler._auth_context
 
-        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
-             patch.object(handler, "check_permission", return_value=None):
+        with (
+            patch.object(handler, "get_auth_context", mock_auth_ctx),
+            patch.object(handler, "check_permission", return_value=None),
+        ):
             result = _run(handler.handle("/api/v1/health/detailed", {}, mock_http_handler))
 
         assert result is not None
@@ -333,8 +356,10 @@ class TestHealthEndpoints:
         async def mock_auth_ctx(req, require_auth=True):
             return mock_http_handler._auth_context
 
-        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
-             patch.object(handler, "check_permission", return_value=None):
+        with (
+            patch.object(handler, "get_auth_context", mock_auth_ctx),
+            patch.object(handler, "check_permission", return_value=None),
+        ):
             result = _run(handler.handle("/api/v1/health/deep", {}, mock_http_handler))
 
         assert result is not None
@@ -411,7 +436,9 @@ class TestNomicEndpoints:
         with tempfile.TemporaryDirectory() as tmpdir:
             nomic_dir = Path(tmpdir)
             # Create state with old timestamp
-            old_time = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
             state_file = nomic_dir / "nomic_state.json"
             state_file.write_text(
                 json.dumps(
@@ -512,7 +539,9 @@ class TestHistoryEndpoints:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = _run(handler.handle("/api/history/cycles", {"loop_id": "loop_1"}, mock_http_handler))
+            result = _run(
+                handler.handle("/api/history/cycles", {"loop_id": "loop_1"}, mock_http_handler)
+            )
 
             body = json.loads(result.body)
             assert len(body["cycles"]) == 2
@@ -598,7 +627,9 @@ class TestHistoryEndpoints:
             mock_config.api_token = "secret"
             mock_config.validate_token.return_value = False
 
-            with patch("aragora.server.handlers.admin.system.extract_user_from_request") as mock_auth:
+            with patch(
+                "aragora.server.handlers.admin.system.extract_user_from_request"
+            ) as mock_auth:
                 mock_user = Mock()
                 mock_user.is_authenticated = False
                 mock_auth.return_value = mock_user
@@ -630,9 +661,9 @@ class TestSystemMaintenance:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = _run(handler.handle(
-                "/api/system/maintenance", {"task": "status"}, mock_http_handler
-            ))
+            result = _run(
+                handler.handle("/api/system/maintenance", {"task": "status"}, mock_http_handler)
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -645,7 +676,9 @@ class TestSystemMaintenance:
         ctx = {"nomic_dir": temp_nomic_dir_with_files}
         handler = SystemHandler(ctx)
 
-        result = _run(handler.handle("/api/system/maintenance", {"task": "invalid"}, mock_http_handler))
+        result = _run(
+            handler.handle("/api/system/maintenance", {"task": "invalid"}, mock_http_handler)
+        )
 
         assert result is not None
         assert result.status_code == 400
@@ -1178,9 +1211,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = _run(handler.handle(
-                "/api/system/maintenance", {"task": "vacuum"}, mock_http_handler
-            ))
+            result = _run(
+                handler.handle("/api/system/maintenance", {"task": "vacuum"}, mock_http_handler)
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -1200,9 +1233,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = _run(handler.handle(
-                "/api/system/maintenance", {"task": "analyze"}, mock_http_handler
-            ))
+            result = _run(
+                handler.handle("/api/system/maintenance", {"task": "analyze"}, mock_http_handler)
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -1222,9 +1255,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = _run(handler.handle(
-                "/api/system/maintenance", {"task": "checkpoint"}, mock_http_handler
-            ))
+            result = _run(
+                handler.handle("/api/system/maintenance", {"task": "checkpoint"}, mock_http_handler)
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -1246,7 +1279,9 @@ class TestMaintenanceTasks:
             ctx = {"nomic_dir": temp_nomic_dir_with_files}
             handler = SystemHandler(ctx)
 
-            result = _run(handler.handle("/api/system/maintenance", {"task": "full"}, mock_http_handler))
+            result = _run(
+                handler.handle("/api/system/maintenance", {"task": "full"}, mock_http_handler)
+            )
 
             assert result is not None
             assert result.status_code == 200
@@ -1265,7 +1300,9 @@ class TestMaintenanceTasks:
         ctx = {"nomic_dir": None}
         handler = SystemHandler(ctx)
 
-        result = _run(handler.handle("/api/system/maintenance", {"task": "status"}, mock_http_handler))
+        result = _run(
+            handler.handle("/api/system/maintenance", {"task": "status"}, mock_http_handler)
+        )
 
         assert result is not None
         assert result.status_code == 503
@@ -1292,9 +1329,11 @@ class TestValidation:
             handler = SystemHandler(ctx)
 
             # Try with path traversal attempt
-            result = _run(handler.handle(
-                "/api/history/cycles", {"loop_id": "../etc/passwd"}, mock_http_handler
-            ))
+            result = _run(
+                handler.handle(
+                    "/api/history/cycles", {"loop_id": "../etc/passwd"}, mock_http_handler
+                )
+            )
 
             assert result is not None
             assert result.status_code == 400
@@ -1312,9 +1351,11 @@ class TestValidation:
             handler = SystemHandler(ctx)
 
             # Try with special characters
-            result = _run(handler.handle(
-                "/api/history/events", {"loop_id": "loop<script>"}, mock_http_handler
-            ))
+            result = _run(
+                handler.handle(
+                    "/api/history/events", {"loop_id": "loop<script>"}, mock_http_handler
+                )
+            )
 
             assert result is not None
             assert result.status_code == 400
@@ -1337,7 +1378,9 @@ class TestValidation:
         handler = NomicHandler(ctx)
 
         # Request more than max
-        result = _run(handler.handle("/api/nomic/risk-register", {"limit": "9999"}, mock_http_handler))
+        result = _run(
+            handler.handle("/api/nomic/risk-register", {"limit": "9999"}, mock_http_handler)
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -1370,8 +1413,10 @@ class TestHealthDegradation:
         async def mock_auth_ctx(req, require_auth=True):
             return mock_http_handler._auth_context
 
-        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
-             patch.object(handler, "check_permission", return_value=None):
+        with (
+            patch.object(handler, "get_auth_context", mock_auth_ctx),
+            patch.object(handler, "check_permission", return_value=None),
+        ):
             result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None
@@ -1397,8 +1442,10 @@ class TestHealthDegradation:
         async def mock_auth_ctx(req, require_auth=True):
             return mock_http_handler._auth_context
 
-        with patch.object(handler, "get_auth_context", mock_auth_ctx), \
-             patch.object(handler, "check_permission", return_value=None):
+        with (
+            patch.object(handler, "get_auth_context", mock_auth_ctx),
+            patch.object(handler, "check_permission", return_value=None),
+        ):
             result = _run(handler.handle("/api/v1/health", {}, mock_http_handler))
 
         assert result is not None

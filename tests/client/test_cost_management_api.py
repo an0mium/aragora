@@ -109,14 +109,18 @@ class TestGetSummary:
             "/api/costs", params={"workspace_id": "default", "range": "7d"}
         )
 
-    def test_get_summary_custom_params(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_summary_custom_params(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_SUMMARY
         api.get_summary(workspace_id="ws-custom", time_range="30d")
         mock_client._get.assert_called_once_with(
             "/api/costs", params={"workspace_id": "ws-custom", "range": "30d"}
         )
 
-    def test_get_summary_parses_nested(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_summary_parses_nested(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_SUMMARY
         result = api.get_summary()
         assert len(result.cost_by_provider) == 1
@@ -129,13 +133,17 @@ class TestGetSummary:
         assert result.alerts[0].id == "alert-001"
 
     @pytest.mark.asyncio
-    async def test_get_summary_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_summary_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_SUMMARY)
         result = await api.get_summary_async()
         assert isinstance(result, CostSummary)
         assert result.total_cost == 150.75
 
-    def test_get_summary_empty_data(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_summary_empty_data(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         result = api.get_summary()
         assert result.total_cost == 0.0
@@ -150,7 +158,9 @@ class TestGetSummary:
 
 
 class TestGetBreakdown:
-    def test_get_breakdown_default(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_breakdown_default(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {
             "breakdown": [SAMPLE_BREAKDOWN_ITEM],
             "total": 42.5,
@@ -167,7 +177,9 @@ class TestGetBreakdown:
             params={"workspace_id": "default", "range": "7d", "group_by": "provider"},
         )
 
-    def test_get_breakdown_custom_group(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_breakdown_custom_group(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"breakdown": [], "total": 0.0}
         api.get_breakdown(group_by="model", time_range="24h", workspace_id="ws-x")
         params = mock_client._get.call_args[1]["params"]
@@ -182,7 +194,9 @@ class TestGetBreakdown:
         assert total == 0.0
 
     @pytest.mark.asyncio
-    async def test_get_breakdown_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_breakdown_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(
             return_value={"breakdown": [SAMPLE_BREAKDOWN_ITEM], "total": 42.5}
         )
@@ -207,7 +221,9 @@ class TestGetTimeline:
         assert total == 12.3
         assert average == 12.3
 
-    def test_get_timeline_custom_params(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_timeline_custom_params(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"timeline": [], "total": 0.0, "average": 0.0}
         api.get_timeline(workspace_id="ws-y", time_range="90d")
         mock_client._get.assert_called_once_with(
@@ -223,7 +239,9 @@ class TestGetTimeline:
         assert average == 0.0
 
     @pytest.mark.asyncio
-    async def test_get_timeline_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_timeline_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(
             return_value={"timeline": [SAMPLE_DAILY_COST], "total": 12.3, "average": 12.3}
         )
@@ -246,7 +264,9 @@ class TestAlerts:
             "/api/costs/alerts", params={"workspace_id": "default"}
         )
 
-    def test_get_alerts_custom_workspace(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_alerts_custom_workspace(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"alerts": []}
         api.get_alerts(workspace_id="ws-z")
         mock_client._get.assert_called_once_with(
@@ -259,7 +279,9 @@ class TestAlerts:
         assert alerts == []
 
     @pytest.mark.asyncio
-    async def test_get_alerts_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_alerts_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"alerts": [SAMPLE_ALERT]})
         alerts = await api.get_alerts_async()
         assert len(alerts) == 1
@@ -274,7 +296,9 @@ class TestAlerts:
             {"workspace_id": "default"},
         )
 
-    def test_dismiss_alert_custom_workspace(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_dismiss_alert_custom_workspace(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {}
         api.dismiss_alert("alert-002", workspace_id="ws-abc")
         mock_client._post.assert_called_once_with(
@@ -283,7 +307,9 @@ class TestAlerts:
         )
 
     @pytest.mark.asyncio
-    async def test_dismiss_alert_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_dismiss_alert_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={})
         result = await api.dismiss_alert_async("alert-001")
         assert result is True
@@ -304,7 +330,9 @@ class TestBudget:
         assert "daily_limit" not in body
         assert "name" not in body
 
-    def test_set_budget_with_daily_limit(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_set_budget_with_daily_limit(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_BUDGET_RESPONSE
         api.set_budget(500.0, daily_limit=25.0)
         body = mock_client._post.call_args[0][1]
@@ -316,13 +344,17 @@ class TestBudget:
         body = mock_client._post.call_args[0][1]
         assert body["name"] == "Q1 Budget"
 
-    def test_set_budget_custom_workspace(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_set_budget_custom_workspace(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_BUDGET_RESPONSE
         api.set_budget(1000.0, workspace_id="ws-custom")
         body = mock_client._post.call_args[0][1]
         assert body["workspace_id"] == "ws-custom"
 
-    def test_set_budget_fallback_values(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_set_budget_fallback_values(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {}
         result = api.set_budget(300.0, workspace_id="ws-x")
         assert result.workspace_id == "ws-x"
@@ -330,7 +362,9 @@ class TestBudget:
         assert result.daily_limit is None
 
     @pytest.mark.asyncio
-    async def test_set_budget_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_set_budget_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_BUDGET_RESPONSE)
         result = await api.set_budget_async(500.0, daily_limit=25.0, name="Monthly")
         assert isinstance(result, Budget)
@@ -353,27 +387,35 @@ class TestRecommendations:
             "/api/costs/recommendations", params={"workspace_id": "default"}
         )
 
-    def test_get_recommendations_with_filters(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_recommendations_with_filters(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"recommendations": []}
         api.get_recommendations(status="applied", type_filter="caching")
         params = mock_client._get.call_args[1]["params"]
         assert params["status"] == "applied"
         assert params["type"] == "caching"
 
-    def test_get_recommendations_no_filters(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_recommendations_no_filters(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"recommendations": []}
         api.get_recommendations()
         params = mock_client._get.call_args[1]["params"]
         assert "status" not in params
         assert "type" not in params
 
-    def test_get_recommendations_empty(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_recommendations_empty(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         recs = api.get_recommendations()
         assert recs == []
 
     @pytest.mark.asyncio
-    async def test_get_recommendations_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_recommendations_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(
             return_value={"recommendations": [SAMPLE_RECOMMENDATION]}
         )
@@ -387,39 +429,43 @@ class TestRecommendations:
         result = api.apply_recommendation("rec-001")
         assert isinstance(result, CostRecommendation)
         assert result.status == "applied"
-        mock_client._post.assert_called_once_with(
-            "/api/costs/recommendations/rec-001/apply", {}
-        )
+        mock_client._post.assert_called_once_with("/api/costs/recommendations/rec-001/apply", {})
 
-    def test_apply_recommendation_with_user(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_apply_recommendation_with_user(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"recommendation": SAMPLE_RECOMMENDATION}
         api.apply_recommendation("rec-001", user_id="user-42")
         body = mock_client._post.call_args[0][1]
         assert body["user_id"] == "user-42"
 
-    def test_apply_recommendation_flat_response(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_apply_recommendation_flat_response(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_RECOMMENDATION
         result = api.apply_recommendation("rec-001")
         assert result.id == "rec-001"
 
     @pytest.mark.asyncio
-    async def test_apply_recommendation_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
-        mock_client._post_async = AsyncMock(
-            return_value={"recommendation": SAMPLE_RECOMMENDATION}
-        )
+    async def test_apply_recommendation_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
+        mock_client._post_async = AsyncMock(return_value={"recommendation": SAMPLE_RECOMMENDATION})
         result = await api.apply_recommendation_async("rec-001")
         assert isinstance(result, CostRecommendation)
 
-    def test_dismiss_recommendation(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_dismiss_recommendation(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {}
         result = api.dismiss_recommendation("rec-001")
         assert result is True
-        mock_client._post.assert_called_once_with(
-            "/api/costs/recommendations/rec-001/dismiss", {}
-        )
+        mock_client._post.assert_called_once_with("/api/costs/recommendations/rec-001/dismiss", {})
 
     @pytest.mark.asyncio
-    async def test_dismiss_recommendation_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_dismiss_recommendation_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={})
         result = await api.dismiss_recommendation_async("rec-001")
         assert result is True
@@ -442,7 +488,9 @@ class TestEfficiency:
             params={"workspace_id": "default", "range": "7d"},
         )
 
-    def test_get_efficiency_custom_params(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_efficiency_custom_params(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_EFFICIENCY
         api.get_efficiency(workspace_id="ws-eff", time_range="24h")
         mock_client._get.assert_called_once_with(
@@ -450,7 +498,9 @@ class TestEfficiency:
             params={"workspace_id": "ws-eff", "range": "24h"},
         )
 
-    def test_get_efficiency_flat_data(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_efficiency_flat_data(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         flat = {
             "cost_per_1k_tokens": 0.02,
             "tokens_per_call": 800.0,
@@ -465,7 +515,9 @@ class TestEfficiency:
         assert result.total_tokens == 100000
 
     @pytest.mark.asyncio
-    async def test_get_efficiency_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_efficiency_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_EFFICIENCY)
         result = await api.get_efficiency_async()
         assert isinstance(result, EfficiencyMetrics)
@@ -488,7 +540,9 @@ class TestForecast:
             params={"workspace_id": "default", "days": 30},
         )
 
-    def test_get_forecast_custom_params(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_forecast_custom_params(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_FORECAST
         api.get_forecast(workspace_id="ws-fc", days=90)
         mock_client._get.assert_called_once_with(
@@ -496,7 +550,9 @@ class TestForecast:
             params={"workspace_id": "ws-fc", "days": 90},
         )
 
-    def test_get_forecast_empty_ci(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_forecast_empty_ci(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {
             "workspace_id": "default",
             "forecast_days": 7,
@@ -506,7 +562,9 @@ class TestForecast:
         result = api.get_forecast()
         assert result.confidence_interval == (0.0, 0.0)
 
-    def test_get_forecast_defaults(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_get_forecast_defaults(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         result = api.get_forecast()
         assert result.workspace_id == "default"
@@ -516,7 +574,9 @@ class TestForecast:
         assert result.daily_projections == []
 
     @pytest.mark.asyncio
-    async def test_get_forecast_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_get_forecast_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_FORECAST)
         result = await api.get_forecast_async()
         assert result.projected_cost == 450.0
@@ -534,7 +594,9 @@ class TestSimulateScenario:
             {"workspace_id": "ws-123", "scenario": scenario, "days": 30},
         )
 
-    def test_simulate_scenario_custom_days(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    def test_simulate_scenario_custom_days(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_FORECAST
         scenario = {"name": "test"}
         api.simulate_scenario("ws-1", scenario, days=60)
@@ -542,7 +604,9 @@ class TestSimulateScenario:
         assert body["days"] == 60
 
     @pytest.mark.asyncio
-    async def test_simulate_scenario_async(self, api: CostManagementAPI, mock_client: AragoraClient) -> None:
+    async def test_simulate_scenario_async(
+        self, api: CostManagementAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_FORECAST)
         scenario = {"name": "scale_down"}
         result = await api.simulate_scenario_async("ws-123", scenario, days=14)
@@ -702,9 +766,7 @@ class TestDataclasses:
         assert metrics.model_utilization == []
 
     def test_cost_forecast_defaults(self) -> None:
-        forecast = CostForecast(
-            workspace_id="ws-1", forecast_days=30, projected_cost=300.0
-        )
+        forecast = CostForecast(workspace_id="ws-1", forecast_days=30, projected_cost=300.0)
         assert forecast.confidence_interval == (0.0, 0.0)
         assert forecast.trend == "stable"
         assert forecast.daily_projections == []

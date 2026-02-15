@@ -51,7 +51,9 @@ def _make_workspace_stats(
             "claude": "5.00",
             "gpt-4": "3.00",
             "gemini": "2.00",
-        } if agent_costs is None else agent_costs,
+        }
+        if agent_costs is None
+        else agent_costs,
         "cost_by_model": {},
     }
 
@@ -274,9 +276,7 @@ class TestCostBreakdownEndpoint:
     def test_many_agents(self, mock_get_tracker):
         agents = {f"agent_{i}": f"{i}.00" for i in range(10)}
         mock_tracker = MagicMock()
-        mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(
-            agent_costs=agents
-        )
+        mock_tracker.get_workspace_stats.return_value = _make_workspace_stats(agent_costs=agents)
         mock_tracker.get_budget.return_value = None
         mock_get_tracker.return_value = mock_tracker
 

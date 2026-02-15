@@ -77,7 +77,9 @@ class TestDecisionsCreate:
         assert body["context"]["user_id"] == "u1"
         assert body["context"]["key"] == "val"
 
-    def test_create_with_response_channels(self, api: DecisionsAPI, mock_client: AragoraClient) -> None:
+    def test_create_with_response_channels(
+        self, api: DecisionsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_RESULT
         channels = [ResponseChannel(platform="slack", target="#general")]
         api.create("topic", response_channels=channels)

@@ -171,7 +171,9 @@ class TestLeaderboardView:
     @pytest.mark.asyncio
     async def test_validates_domain_parameter(self, handler):
         """Validates domain parameter for security."""
-        result = await handler.handle("/api/leaderboard-view", {"domain": ["../../../etc/passwd"]}, None)
+        result = await handler.handle(
+            "/api/leaderboard-view", {"domain": ["../../../etc/passwd"]}, None
+        )
 
         assert result.status_code == 400
         data = json.loads(result.body)

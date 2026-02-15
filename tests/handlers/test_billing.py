@@ -1376,7 +1376,9 @@ class TestUsageExport:
                     mock_ctx = MockAuthContext("", is_authenticated=False)
                     mock_extract.return_value = mock_ctx
 
-                    result = billing_handler.handle("/api/v1/billing/usage/export", {}, mock_handler)
+                    result = billing_handler.handle(
+                        "/api/v1/billing/usage/export", {}, mock_handler
+                    )
 
                     assert result.status_code == 401
         finally:

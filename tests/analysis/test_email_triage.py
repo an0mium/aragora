@@ -14,7 +14,8 @@ from aragora.analysis.email_triage import TriageConfig, TriageRuleEngine
 def sample_config_path(tmp_path: Path) -> Path:
     """Create a sample triage YAML config."""
     config = tmp_path / "email_triage.yaml"
-    config.write_text(textwrap.dedent("""\
+    config.write_text(
+        textwrap.dedent("""\
         priority_rules:
           high:
             - label: "orders"
@@ -51,7 +52,8 @@ def sample_config_path(tmp_path: Path) -> Path:
 
         sync:
           interval_minutes: 5
-    """))
+    """)
+    )
     return config
 
 

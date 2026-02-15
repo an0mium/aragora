@@ -168,9 +168,16 @@ class TestCruxDetectionAPI:
 
         crux = result[0]["cruxes"][0]
         expected_fields = {
-            "claim_id", "statement", "author", "crux_score",
-            "influence_score", "disagreement_score", "uncertainty_score",
-            "centrality_score", "affected_claims", "contesting_agents",
+            "claim_id",
+            "statement",
+            "author",
+            "crux_score",
+            "influence_score",
+            "disagreement_score",
+            "uncertainty_score",
+            "centrality_score",
+            "affected_claims",
+            "contesting_agents",
             "resolution_impact",
         }
         assert expected_fields.issubset(set(crux.keys()))

@@ -304,7 +304,7 @@ def generate_unified_essay(
     # Title and metadata
     lines.append(f"# {title}")
     lines.append("")
-    lines.append(f"*Synthesized from conversations across multiple AI systems*")
+    lines.append("*Synthesized from conversations across multiple AI systems*")
     lines.append(f"*Generated: {datetime.now().strftime('%B %d, %Y')}*")
     lines.append("")
     lines.append("---")

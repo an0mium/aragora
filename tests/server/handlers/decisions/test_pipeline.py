@@ -96,7 +96,9 @@ def test_create_plan_rejects_invalid_approval_mode() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result"
+        ) as mock_build,
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
 
@@ -124,7 +126,9 @@ def test_create_plan_rejects_invalid_max_auto_risk() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result"
+        ) as mock_build,
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
 
@@ -152,7 +156,9 @@ def test_create_plan_rejects_invalid_budget_limit_usd() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result"
+        ) as mock_build,
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
 
@@ -180,7 +186,9 @@ def test_create_plan_rejects_non_object_metadata() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result"
+        ) as mock_build,
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
 
@@ -222,7 +230,9 @@ def test_execute_plan_accepts_execution_overrides() -> None:
 
     with (
         patch("aragora.pipeline.executor.get_plan", return_value=mock_plan),
-        patch("aragora.pipeline.executor.PlanExecutor", return_value=mock_executor) as mock_exec_cls,
+        patch(
+            "aragora.pipeline.executor.PlanExecutor", return_value=mock_executor
+        ) as mock_exec_cls,
         patch("asyncio.get_event_loop", return_value=mock_loop),
     ):
         result = handler._handle_execute_plan("plan-1", request, user)
@@ -332,7 +342,10 @@ def test_create_plan_normalizes_profile_execution_mode_alias() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result", return_value=mock_plan) as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+            return_value=mock_plan,
+        ) as mock_build,
         patch("aragora.pipeline.executor.store_plan"),
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
@@ -360,7 +373,9 @@ def test_create_plan_rejects_invalid_channel_targets_shape() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result"
+        ) as mock_build,
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
 
@@ -387,7 +402,9 @@ def test_create_plan_rejects_invalid_thread_id_by_platform_shape() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result") as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result"
+        ) as mock_build,
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
 
@@ -424,7 +441,10 @@ def test_create_plan_normalizes_channel_targets_and_thread_map() -> None:
             "aragora.server.handlers.decisions.pipeline._load_debate_result",
             return_value=object(),
         ),
-        patch("aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result", return_value=mock_plan) as mock_build,
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_debate_result",
+            return_value=mock_plan,
+        ) as mock_build,
         patch("aragora.pipeline.executor.store_plan"),
     ):
         result = handler._handle_create_plan(request, SimpleNamespace(user_id="user-1"))
@@ -444,9 +464,10 @@ def test_approve_plan_records_actor_reason_and_timestamp() -> None:
     plan = DecisionPlan(id="plan-approve-1", debate_id="deb-1", task="Ship it")
     plan.status = PlanStatus.AWAITING_APPROVAL
 
-    with patch("aragora.pipeline.executor.get_plan", return_value=plan), patch(
-        "aragora.pipeline.executor.store_plan"
-    ) as mock_store:
+    with (
+        patch("aragora.pipeline.executor.get_plan", return_value=plan),
+        patch("aragora.pipeline.executor.store_plan") as mock_store,
+    ):
         result = handler._handle_approve_plan(plan.id, request, user)
 
     assert result.status_code == 200
@@ -466,9 +487,10 @@ def test_reject_plan_records_actor_reason_and_timestamp() -> None:
     plan = DecisionPlan(id="plan-reject-1", debate_id="deb-2", task="Deploy change")
     plan.status = PlanStatus.CREATED
 
-    with patch("aragora.pipeline.executor.get_plan", return_value=plan), patch(
-        "aragora.pipeline.executor.store_plan"
-    ) as mock_store:
+    with (
+        patch("aragora.pipeline.executor.get_plan", return_value=plan),
+        patch("aragora.pipeline.executor.store_plan") as mock_store,
+    ):
         result = handler._handle_reject_plan(plan.id, request, user)
 
     assert result.status_code == 200

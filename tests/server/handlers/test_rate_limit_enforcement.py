@@ -405,9 +405,7 @@ class TestWhatsAppWebhookRateLimits:
             rate_limit_mod._limiters.clear()
 
         # Save original module references so we can restore them in teardown
-        whatsapp_modules = {
-            k: v for k, v in sys.modules.items() if "whatsapp" in k.lower()
-        }
+        whatsapp_modules = {k: v for k, v in sys.modules.items() if "whatsapp" in k.lower()}
 
         # Save the parent package's whatsapp attribute.  importlib.reload()
         # sets bots.whatsapp to the new module, so we must restore it too.

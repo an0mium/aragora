@@ -413,9 +413,7 @@ class TestUpdateSubscriptionAsync:
     """Tests for update_subscription_async() method."""
 
     @pytest.mark.asyncio
-    async def test_update_subscription_async(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    async def test_update_subscription_async(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test async updating subscription."""
         mock_client._post_async = AsyncMock(
             return_value={
@@ -463,9 +461,7 @@ class TestCancelSubscription:
         assert isinstance(result, Subscription)
         assert result.cancel_at_period_end is True
 
-    def test_cancel_subscription_immediately(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    def test_cancel_subscription_immediately(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test cancelling subscription immediately."""
         mock_client._delete.return_value = {
             "id": "sub-789",
@@ -490,9 +486,7 @@ class TestCancelSubscriptionAsync:
     """Tests for cancel_subscription_async() method."""
 
     @pytest.mark.asyncio
-    async def test_cancel_subscription_async(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    async def test_cancel_subscription_async(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test async cancelling subscription."""
         mock_client._delete_async = AsyncMock(
             return_value={
@@ -659,9 +653,7 @@ class TestGetUsageForecastAsync:
     """Tests for get_usage_forecast_async() method."""
 
     @pytest.mark.asyncio
-    async def test_get_usage_forecast_async(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    async def test_get_usage_forecast_async(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test async getting usage forecast."""
         mock_client._get_async = AsyncMock(
             return_value={
@@ -724,9 +716,7 @@ class TestListInvoices:
         assert invoices[0].paid_at == "2026-01-15T10:01:00Z"
         assert invoices[1].paid_at is None
 
-    def test_list_invoices_custom_pagination(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    def test_list_invoices_custom_pagination(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test listing invoices with custom pagination."""
         mock_client._get.return_value = {
             "invoices": [
@@ -813,9 +803,7 @@ class TestListInvoicesAsync:
         self, billing_api: BillingAPI, mock_client: MagicMock
     ):
         """Test async listing invoices with custom pagination."""
-        mock_client._get_async = AsyncMock(
-            return_value={"invoices": [], "total": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"invoices": [], "total": 0})
 
         invoices, total = await billing_api.list_invoices_async(limit=20, offset=40)
 
@@ -868,9 +856,7 @@ class TestGetInvoiceAsync:
 
         result = await billing_api.get_invoice_async("inv-async-detail")
 
-        mock_client._get_async.assert_called_once_with(
-            "/api/v1/billing/invoices/inv-async-detail"
-        )
+        mock_client._get_async.assert_called_once_with("/api/v1/billing/invoices/inv-async-detail")
         assert isinstance(result, Invoice)
         assert result.currency == "EUR"
         assert result.status == "pending"
@@ -981,9 +967,7 @@ class TestAddPaymentMethod:
         assert result["id"] == "pm-new"
         assert result["is_default"] is True
 
-    def test_add_payment_method_not_default(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    def test_add_payment_method_not_default(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test adding a payment method without setting as default."""
         mock_client._post.return_value = {
             "id": "pm-secondary",
@@ -1006,9 +990,7 @@ class TestAddPaymentMethodAsync:
     """Tests for add_payment_method_async() method."""
 
     @pytest.mark.asyncio
-    async def test_add_payment_method_async(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    async def test_add_payment_method_async(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test async adding a payment method."""
         mock_client._post_async = AsyncMock(
             return_value={"id": "pm-async-new", "type": "card", "last4": "7777"}
@@ -1077,9 +1059,7 @@ class TestRemovePaymentMethodAsync:
 class TestBillingAPIIntegration:
     """Integration-like tests for BillingAPI."""
 
-    def test_full_subscription_workflow(
-        self, billing_api: BillingAPI, mock_client: MagicMock
-    ):
+    def test_full_subscription_workflow(self, billing_api: BillingAPI, mock_client: MagicMock):
         """Test full workflow: list plans -> subscribe -> check usage -> cancel."""
         # List plans
         mock_client._get.return_value = {

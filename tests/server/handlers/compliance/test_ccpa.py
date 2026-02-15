@@ -563,8 +563,16 @@ class TestCCPACorrect:
                 {
                     "user_id": "consumer-123",
                     "corrections": [
-                        {"field": "email", "current_value": "old@example.com", "corrected_value": "new@example.com"},
-                        {"field": "phone", "current_value": "+1111111111", "corrected_value": "+1234567890"},
+                        {
+                            "field": "email",
+                            "current_value": "old@example.com",
+                            "corrected_value": "new@example.com",
+                        },
+                        {
+                            "field": "phone",
+                            "current_value": "+1111111111",
+                            "corrected_value": "+1234567890",
+                        },
                     ],
                 }
             )
@@ -585,7 +593,11 @@ class TestCCPACorrect:
                 {
                     "user_id": "consumer-123",
                     "corrections": [
-                        {"field": "name", "current_value": "Jane Doe", "corrected_value": "John Doe"},
+                        {
+                            "field": "name",
+                            "current_value": "Jane Doe",
+                            "corrected_value": "John Doe",
+                        },
                     ],
                     "supporting_documentation": "proof_of_name_change.pdf",
                 }
@@ -606,7 +618,11 @@ class TestCCPACorrect:
                 {
                     "user_id": "consumer-123",
                     "corrections": [
-                        {"field": "email", "current_value": "old@example.com", "corrected_value": "new@example.com"},
+                        {
+                            "field": "email",
+                            "current_value": "old@example.com",
+                            "corrected_value": "new@example.com",
+                        },
                     ],
                 }
             )

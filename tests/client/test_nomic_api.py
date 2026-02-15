@@ -114,9 +114,7 @@ class TestNomicAPIHealthAsync:
     @pytest.mark.asyncio
     async def test_health_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test health_async() returns nomic loop health."""
-        mock_client._get_async = AsyncMock(
-            return_value={"healthy": False, "stalled": True}
-        )
+        mock_client._get_async = AsyncMock(return_value={"healthy": False, "stalled": True})
 
         result = await nomic_api.health_async()
 
@@ -183,9 +181,7 @@ class TestNomicAPILog:
         result = nomic_api.log()
 
         assert len(result["lines"]) == 2
-        mock_client._get.assert_called_once_with(
-            "/api/v1/nomic/log", params={"lines": 100}
-        )
+        mock_client._get.assert_called_once_with("/api/v1/nomic/log", params={"lines": 100})
 
     def test_log_custom_lines(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test log() with custom lines parameter."""
@@ -194,9 +190,7 @@ class TestNomicAPILog:
         result = nomic_api.log(lines=50)
 
         assert result["total"] == 1
-        mock_client._get.assert_called_once_with(
-            "/api/v1/nomic/log", params={"lines": 50}
-        )
+        mock_client._get.assert_called_once_with("/api/v1/nomic/log", params={"lines": 50})
 
 
 class TestNomicAPILogAsync:
@@ -205,30 +199,22 @@ class TestNomicAPILogAsync:
     @pytest.mark.asyncio
     async def test_log_async_default(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test log_async() with default lines parameter."""
-        mock_client._get_async = AsyncMock(
-            return_value={"lines": ["async log line"], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"lines": ["async log line"], "total": 1})
 
         result = await nomic_api.log_async()
 
         assert result["lines"] == ["async log line"]
-        mock_client._get_async.assert_called_once_with(
-            "/api/v1/nomic/log", params={"lines": 100}
-        )
+        mock_client._get_async.assert_called_once_with("/api/v1/nomic/log", params={"lines": 100})
 
     @pytest.mark.asyncio
     async def test_log_async_custom_lines(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test log_async() with custom lines parameter."""
-        mock_client._get_async = AsyncMock(
-            return_value={"lines": [], "total": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"lines": [], "total": 0})
 
         result = await nomic_api.log_async(lines=25)
 
         assert result["total"] == 0
-        mock_client._get_async.assert_called_once_with(
-            "/api/v1/nomic/log", params={"lines": 25}
-        )
+        mock_client._get_async.assert_called_once_with("/api/v1/nomic/log", params={"lines": 25})
 
 
 # ============================================================================
@@ -274,9 +260,7 @@ class TestNomicAPIRiskRegisterAsync:
     @pytest.mark.asyncio
     async def test_risk_register_async_default(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test risk_register_async() with default limit."""
-        mock_client._get_async = AsyncMock(
-            return_value={"risks": [{"id": "r-async"}], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"risks": [{"id": "r-async"}], "total": 1})
 
         result = await nomic_api.risk_register_async()
 
@@ -328,9 +312,7 @@ class TestNomicAPIWitnessStatusAsync:
     @pytest.mark.asyncio
     async def test_witness_status_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test witness_status_async() returns witness patrol status."""
-        mock_client._get_async = AsyncMock(
-            return_value={"active": False, "patrol_count": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"active": False, "patrol_count": 0})
 
         result = await nomic_api.witness_status_async()
 
@@ -408,9 +390,7 @@ class TestNomicAPIProposalsAsync:
     @pytest.mark.asyncio
     async def test_proposals_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test proposals_async() returns pending proposals."""
-        mock_client._get_async = AsyncMock(
-            return_value={"proposals": [], "total": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"proposals": [], "total": 0})
 
         result = await nomic_api.proposals_async()
 
@@ -471,9 +451,7 @@ class TestNomicAPIStart:
         result = nomic_api.start()
 
         assert result["status"] == "started"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/start", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/start", data={})
 
     def test_start_with_config(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test start() with custom configuration."""
@@ -488,21 +466,15 @@ class TestNomicAPIStart:
 
         assert result["status"] == "started"
         assert result["config"]["cycles"] == 5
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/start", data=config
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/start", data=config)
 
-    def test_start_none_config_sends_empty_dict(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    def test_start_none_config_sends_empty_dict(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test start(config=None) sends empty dict as data."""
         mock_client._post.return_value = {"status": "started"}
 
         nomic_api.start(config=None)
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/start", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/start", data={})
 
 
 class TestNomicAPIStartAsync:
@@ -511,31 +483,23 @@ class TestNomicAPIStartAsync:
     @pytest.mark.asyncio
     async def test_start_async_no_config(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test start_async() with no configuration."""
-        mock_client._post_async = AsyncMock(
-            return_value={"status": "started", "cycle": 1}
-        )
+        mock_client._post_async = AsyncMock(return_value={"status": "started", "cycle": 1})
 
         result = await nomic_api.start_async()
 
         assert result["status"] == "started"
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/start", data={}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/start", data={})
 
     @pytest.mark.asyncio
     async def test_start_async_with_config(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test start_async() with configuration."""
         config = {"cycles": 10}
-        mock_client._post_async = AsyncMock(
-            return_value={"status": "started", "config": config}
-        )
+        mock_client._post_async = AsyncMock(return_value={"status": "started", "config": config})
 
         result = await nomic_api.start_async(config=config)
 
         assert result["config"]["cycles"] == 10
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/start", data=config
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/start", data=config)
 
 
 # ============================================================================
@@ -553,9 +517,7 @@ class TestNomicAPIStop:
         result = nomic_api.stop()
 
         assert result["status"] == "stopped"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/stop", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/stop", data={})
 
     def test_stop_with_payload(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test stop() with payload (e.g., reason)."""
@@ -565,21 +527,15 @@ class TestNomicAPIStop:
         result = nomic_api.stop(payload=payload)
 
         assert result["status"] == "stopped"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/stop", data=payload
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/stop", data=payload)
 
-    def test_stop_none_payload_sends_empty_dict(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    def test_stop_none_payload_sends_empty_dict(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test stop(payload=None) sends empty dict."""
         mock_client._post.return_value = {"status": "stopped"}
 
         nomic_api.stop(payload=None)
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/stop", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/stop", data={})
 
 
 class TestNomicAPIStopAsync:
@@ -588,16 +544,12 @@ class TestNomicAPIStopAsync:
     @pytest.mark.asyncio
     async def test_stop_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test stop_async() stops the nomic loop."""
-        mock_client._post_async = AsyncMock(
-            return_value={"status": "stopped"}
-        )
+        mock_client._post_async = AsyncMock(return_value={"status": "stopped"})
 
         result = await nomic_api.stop_async()
 
         assert result["status"] == "stopped"
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/stop", data={}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/stop", data={})
 
     @pytest.mark.asyncio
     async def test_stop_async_with_payload(self, nomic_api: NomicAPI, mock_client: MagicMock):
@@ -607,9 +559,7 @@ class TestNomicAPIStopAsync:
 
         await nomic_api.stop_async(payload=payload)
 
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/stop", data=payload
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/stop", data=payload)
 
 
 # ============================================================================
@@ -628,9 +578,7 @@ class TestNomicAPIPause:
 
         assert result["status"] == "paused"
         assert result["phase"] == "debate"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/pause", {}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/pause", {})
 
 
 class TestNomicAPIPauseAsync:
@@ -639,16 +587,12 @@ class TestNomicAPIPauseAsync:
     @pytest.mark.asyncio
     async def test_pause_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test pause_async() pauses the nomic loop."""
-        mock_client._post_async = AsyncMock(
-            return_value={"status": "paused", "phase": "implement"}
-        )
+        mock_client._post_async = AsyncMock(return_value={"status": "paused", "phase": "implement"})
 
         result = await nomic_api.pause_async()
 
         assert result["status"] == "paused"
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/pause", {}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/pause", {})
 
 
 # ============================================================================
@@ -666,9 +610,7 @@ class TestNomicAPIResume:
         result = nomic_api.resume()
 
         assert result["status"] == "running"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/resume", {}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/resume", {})
 
 
 class TestNomicAPIResumeAsync:
@@ -677,16 +619,12 @@ class TestNomicAPIResumeAsync:
     @pytest.mark.asyncio
     async def test_resume_async(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test resume_async() resumes the nomic loop."""
-        mock_client._post_async = AsyncMock(
-            return_value={"status": "running", "phase": "design"}
-        )
+        mock_client._post_async = AsyncMock(return_value={"status": "running", "phase": "design"})
 
         result = await nomic_api.resume_async()
 
         assert result["status"] == "running"
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/resume", {}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/resume", {})
 
 
 # ============================================================================
@@ -708,9 +646,7 @@ class TestNomicAPISkipPhase:
 
         assert result["skipped"] == "debate"
         assert result["current_phase"] == "design"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/skip-phase", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/skip-phase", data={})
 
     def test_skip_phase_with_payload(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test skip_phase() with payload (e.g., reason for skipping)."""
@@ -720,9 +656,7 @@ class TestNomicAPISkipPhase:
         result = nomic_api.skip_phase(payload=payload)
 
         assert result["skipped"] == "implement"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/skip-phase", data=payload
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/skip-phase", data=payload)
 
     def test_skip_phase_none_payload_sends_empty_dict(
         self, nomic_api: NomicAPI, mock_client: MagicMock
@@ -732,9 +666,7 @@ class TestNomicAPISkipPhase:
 
         nomic_api.skip_phase(payload=None)
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/control/skip-phase", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/control/skip-phase", data={})
 
 
 class TestNomicAPISkipPhaseAsync:
@@ -750,19 +682,13 @@ class TestNomicAPISkipPhaseAsync:
         result = await nomic_api.skip_phase_async()
 
         assert result["skipped"] == "context"
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/control/skip-phase", data={}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/control/skip-phase", data={})
 
     @pytest.mark.asyncio
-    async def test_skip_phase_async_with_payload(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    async def test_skip_phase_async_with_payload(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test skip_phase_async() with payload."""
         payload = {"reason": "timeout"}
-        mock_client._post_async = AsyncMock(
-            return_value={"skipped": "design"}
-        )
+        mock_client._post_async = AsyncMock(return_value={"skipped": "design"})
 
         await nomic_api.skip_phase_async(payload=payload)
 
@@ -802,9 +728,7 @@ class TestNomicAPIApproveProposal:
         result = nomic_api.approve_proposal()
 
         assert result["approved"] is True
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/proposals/approve", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/proposals/approve", data={})
 
     def test_approve_proposal_none_id(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test approve_proposal(proposal_id=None) sends empty payload."""
@@ -812,9 +736,7 @@ class TestNomicAPIApproveProposal:
 
         nomic_api.approve_proposal(proposal_id=None)
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/proposals/approve", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/proposals/approve", data={})
 
 
 class TestNomicAPIApproveProposalAsync:
@@ -838,17 +760,13 @@ class TestNomicAPIApproveProposalAsync:
         )
 
     @pytest.mark.asyncio
-    async def test_approve_proposal_async_no_id(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    async def test_approve_proposal_async_no_id(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test approve_proposal_async() without a proposal_id."""
         mock_client._post_async = AsyncMock(return_value={"approved": True})
 
         await nomic_api.approve_proposal_async()
 
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/proposals/approve", data={}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/proposals/approve", data={})
 
 
 # ============================================================================
@@ -859,18 +777,14 @@ class TestNomicAPIApproveProposalAsync:
 class TestNomicAPIRejectProposal:
     """Tests for NomicAPI.reject_proposal() method."""
 
-    def test_reject_proposal_with_id_and_reason(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    def test_reject_proposal_with_id_and_reason(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test reject_proposal() with both proposal_id and reason."""
         mock_client._post.return_value = {
             "rejected": True,
             "proposal_id": "prop-99",
         }
 
-        result = nomic_api.reject_proposal(
-            proposal_id="prop-99", reason="Too risky"
-        )
+        result = nomic_api.reject_proposal(proposal_id="prop-99", reason="Too risky")
 
         assert result["rejected"] is True
         mock_client._post.assert_called_once_with(
@@ -889,9 +803,7 @@ class TestNomicAPIRejectProposal:
             data={"proposal_id": "prop-50"},
         )
 
-    def test_reject_proposal_with_reason_only(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    def test_reject_proposal_with_reason_only(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test reject_proposal() with only reason, no proposal_id."""
         mock_client._post.return_value = {"rejected": True}
 
@@ -908,18 +820,14 @@ class TestNomicAPIRejectProposal:
 
         nomic_api.reject_proposal()
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/nomic/proposals/reject", data={}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/nomic/proposals/reject", data={})
 
 
 class TestNomicAPIRejectProposalAsync:
     """Tests for NomicAPI.reject_proposal_async() method."""
 
     @pytest.mark.asyncio
-    async def test_reject_proposal_async_full(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    async def test_reject_proposal_async_full(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test reject_proposal_async() with proposal_id and reason."""
         mock_client._post_async = AsyncMock(
             return_value={"rejected": True, "proposal_id": "prop-async-rej"}
@@ -936,17 +844,13 @@ class TestNomicAPIRejectProposalAsync:
         )
 
     @pytest.mark.asyncio
-    async def test_reject_proposal_async_no_args(
-        self, nomic_api: NomicAPI, mock_client: MagicMock
-    ):
+    async def test_reject_proposal_async_no_args(self, nomic_api: NomicAPI, mock_client: MagicMock):
         """Test reject_proposal_async() with no arguments."""
         mock_client._post_async = AsyncMock(return_value={"rejected": True})
 
         await nomic_api.reject_proposal_async()
 
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/nomic/proposals/reject", data={}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/nomic/proposals/reject", data={})
 
 
 # ============================================================================
@@ -1008,9 +912,7 @@ class TestNomicAPIIntegration:
 
         # Reject second proposal
         mock_client._post.return_value = {"rejected": True, "proposal_id": "prop-2"}
-        reject_result = nomic_api.reject_proposal(
-            proposal_id="prop-2", reason="Not a priority"
-        )
+        reject_result = nomic_api.reject_proposal(proposal_id="prop-2", reason="Not a priority")
         assert reject_result["rejected"] is True
 
     def test_monitoring_workflow(self, nomic_api: NomicAPI, mock_client: MagicMock):

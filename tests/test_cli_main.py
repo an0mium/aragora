@@ -285,9 +285,7 @@ class TestPlansExecuteParser:
 
     def test_parse_plans_execute_allows_fabric_mode(self):
         parser = self._build_plans_parser()
-        args = parser.parse_args(
-            ["plans", "execute", "plan_123", "--execution-mode", "fabric"]
-        )
+        args = parser.parse_args(["plans", "execute", "plan_123", "--execution-mode", "fabric"])
         assert args.command == "plans"
         assert args.plans_action == "execute"
         assert args.execution_mode == "fabric"

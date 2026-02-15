@@ -343,7 +343,9 @@ class TestTournamentsList:
         assert params["limit"] == 5
         assert params["offset"] == 10
 
-    def test_list_no_status_param_omitted(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_list_no_status_param_omitted(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"tournaments": []}
         api.list()
         params = mock_client._get.call_args[1]["params"]
@@ -361,7 +363,9 @@ class TestTournamentsList:
         results = api.list()
         assert results == []
 
-    def test_list_missing_tournaments_key(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_list_missing_tournaments_key(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         results = api.list()
         assert results == []
@@ -377,7 +381,9 @@ class TestTournamentsList:
         assert results[1].name == "Daily Sprint"
 
     @pytest.mark.asyncio
-    async def test_list_async_with_status(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_list_async_with_status(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"tournaments": []})
         await api.list_async(status="running")
         params = mock_client._get_async.call_args[1]["params"]
@@ -390,7 +396,9 @@ class TestTournamentsList:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_list_async_missing_key(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_list_async_missing_key(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         results = await api.list_async()
         assert results == []
@@ -473,13 +481,17 @@ class TestTournamentsGetStandings:
         standings = api.get_standings("tourn-001")
         assert standings == []
 
-    def test_get_standings_missing_key(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_get_standings_missing_key(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         standings = api.get_standings("tourn-001")
         assert standings == []
 
     @pytest.mark.asyncio
-    async def test_get_standings_async(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_get_standings_async(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(
             return_value={"standings": [SAMPLE_STANDING, SAMPLE_STANDING_2]}
         )
@@ -489,13 +501,17 @@ class TestTournamentsGetStandings:
         mock_client._get_async.assert_called_once_with("/api/tournaments/tourn-001/standings")
 
     @pytest.mark.asyncio
-    async def test_get_standings_async_empty(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_get_standings_async_empty(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"standings": []})
         standings = await api.get_standings_async("tourn-001")
         assert standings == []
 
     @pytest.mark.asyncio
-    async def test_get_standings_async_missing_key(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_get_standings_async_missing_key(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         standings = await api.get_standings_async("tourn-001")
         assert standings == []
@@ -529,13 +545,17 @@ class TestTournamentsCreate:
         body = mock_client._post.call_args[0][1]
         assert body["topic"] == "machine learning"
 
-    def test_create_topic_omitted_when_none(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_create_topic_omitted_when_none(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_SUMMARY
         api.create("No Topic", agents=["a"])
         body = mock_client._post.call_args[0][1]
         assert "topic" not in body
 
-    def test_create_with_rounds_per_match(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_create_with_rounds_per_match(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_SUMMARY
         api.create("Custom Rounds", agents=["a", "b"], rounds_per_match=5)
         body = mock_client._post.call_args[0][1]
@@ -547,7 +567,9 @@ class TestTournamentsCreate:
         body = mock_client._post.call_args[0][1]
         assert body["metadata"] == {"season": 3, "league": "pro"}
 
-    def test_create_metadata_omitted_when_none(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_create_metadata_omitted_when_none(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_SUMMARY
         api.create("No Meta", agents=["a"])
         body = mock_client._post.call_args[0][1]
@@ -587,7 +609,9 @@ class TestTournamentsCreate:
         assert body["agents"] == ["claude", "gpt4"]
 
     @pytest.mark.asyncio
-    async def test_create_async_with_all_options(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_create_async_with_all_options(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_SUMMARY)
         await api.create_async(
             name="Full Async",
@@ -604,14 +628,18 @@ class TestTournamentsCreate:
         assert body["metadata"] == {"env": "prod"}
 
     @pytest.mark.asyncio
-    async def test_create_async_topic_omitted(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_create_async_topic_omitted(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_SUMMARY)
         await api.create_async("No Topic", agents=["a"])
         body = mock_client._post_async.call_args[0][1]
         assert "topic" not in body
 
     @pytest.mark.asyncio
-    async def test_create_async_metadata_omitted(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_create_async_metadata_omitted(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_SUMMARY)
         await api.create_async("No Meta", agents=["a"])
         body = mock_client._post_async.call_args[0][1]
@@ -638,26 +666,34 @@ class TestTournamentsCancel:
         result = api.cancel("tourn-001")
         assert result is False
 
-    def test_cancel_uses_correct_path(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_cancel_uses_correct_path(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"cancelled": True}
         api.cancel("my-special-tourn")
         mock_client._post.assert_called_once_with("/api/tournaments/my-special-tourn/cancel", {})
 
     @pytest.mark.asyncio
-    async def test_cancel_async_success(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_cancel_async_success(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"cancelled": True})
         result = await api.cancel_async("tourn-001")
         assert result is True
         mock_client._post_async.assert_called_once_with("/api/tournaments/tourn-001/cancel", {})
 
     @pytest.mark.asyncio
-    async def test_cancel_async_failure(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_cancel_async_failure(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"cancelled": False})
         result = await api.cancel_async("tourn-001")
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_cancel_async_missing_key(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    async def test_cancel_async_missing_key(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={})
         result = await api.cancel_async("tourn-001")
         assert result is False
@@ -679,7 +715,9 @@ class TestTournamentWorkflows:
         assert full.name == summary.name
         assert len(full.standings) == 2
 
-    def test_create_get_standings_cancel(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
+    def test_create_get_standings_cancel(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
         """Simulate full lifecycle: create, check standings, then cancel."""
         mock_client._post.return_value = {
             "id": "tourn-live",
@@ -735,9 +773,7 @@ class TestTournamentWorkflows:
         assert tournament.format == "round_robin"
         assert len(tournament.standings) == 2
 
-        mock_client._get_async = AsyncMock(
-            return_value={"standings": [SAMPLE_STANDING]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"standings": [SAMPLE_STANDING]})
         standings = await api.get_standings_async(summary.id)
         assert len(standings) == 1
 
@@ -752,7 +788,15 @@ class TestTournamentWorkflows:
 class TestEdgeCases:
     def test_standing_negative_elo_change(self) -> None:
         standing = TournamentStanding.from_dict(
-            {"agent_id": "loser", "rank": 5, "wins": 0, "losses": 5, "draws": 0, "points": 0.0, "elo_change": -50.0}
+            {
+                "agent_id": "loser",
+                "rank": 5,
+                "wins": 0,
+                "losses": 5,
+                "draws": 0,
+                "points": 0.0,
+                "elo_change": -50.0,
+            }
         )
         assert standing.elo_change == -50.0
 
@@ -770,7 +814,14 @@ class TestEdgeCases:
 
     def test_tournament_many_standings(self) -> None:
         standings_data = [
-            {"agent_id": f"agent_{i}", "rank": i, "wins": 10 - i, "losses": i, "draws": 0, "points": float(30 - 3 * i)}
+            {
+                "agent_id": f"agent_{i}",
+                "rank": i,
+                "wins": 10 - i,
+                "losses": i,
+                "draws": 0,
+                "points": float(30 - 3 * i),
+            }
             for i in range(10)
         ]
         data = {**SAMPLE_TOURNAMENT, "standings": standings_data}
@@ -795,11 +846,18 @@ class TestEdgeCases:
         standing = TournamentStanding.from_dict(data)
         assert standing.agent_id == "claude"
 
-    def test_tournament_with_special_characters_in_id(self, api: TournamentsAPI, mock_client: AragoraClient) -> None:
-        mock_client._get.return_value = {**SAMPLE_TOURNAMENT, "id": "tourn-with-dashes-and_underscores"}
+    def test_tournament_with_special_characters_in_id(
+        self, api: TournamentsAPI, mock_client: AragoraClient
+    ) -> None:
+        mock_client._get.return_value = {
+            **SAMPLE_TOURNAMENT,
+            "id": "tourn-with-dashes-and_underscores",
+        }
         result = api.get("tourn-with-dashes-and_underscores")
         assert result.id == "tourn-with-dashes-and_underscores"
-        mock_client._get.assert_called_once_with("/api/tournaments/tourn-with-dashes-and_underscores")
+        mock_client._get.assert_called_once_with(
+            "/api/tournaments/tourn-with-dashes-and_underscores"
+        )
 
     def test_api_init_stores_client(self, mock_client: AragoraClient) -> None:
         api = TournamentsAPI(mock_client)
@@ -807,7 +865,15 @@ class TestEdgeCases:
 
     def test_float_points_precision(self) -> None:
         standing = TournamentStanding.from_dict(
-            {"agent_id": "precise", "rank": 1, "wins": 3, "losses": 1, "draws": 2, "points": 11.333333, "elo_change": 0.001}
+            {
+                "agent_id": "precise",
+                "rank": 1,
+                "wins": 3,
+                "losses": 1,
+                "draws": 2,
+                "points": 11.333333,
+                "elo_change": 0.001,
+            }
         )
         assert standing.points == 11.333333
         assert standing.elo_change == 0.001

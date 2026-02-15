@@ -241,9 +241,7 @@ class TestQueryDebateRLM:
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler(_json_body={"query": "What was decided?"})
         unwrapped = _unwrap_method(rlm_handler._query_debate_rlm)
-        result = unwrapped(
-            rlm_handler, "/api/invalid-path", mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, "/api/invalid-path", mock_handler, user="test")
         assert result.status_code == 400
 
 
@@ -259,9 +257,7 @@ class TestCompressDebate:
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler(_json_body={})
         unwrapped = _unwrap_method(rlm_handler._compress_debate)
-        result = unwrapped(
-            rlm_handler, "/api/invalid-path", mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, "/api/invalid-path", mock_handler, user="test")
         assert result.status_code == 400
 
     def test_uses_default_options(self, rlm_handler):
@@ -301,9 +297,7 @@ class TestGetContextLevel:
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler()
         unwrapped = _unwrap_method(rlm_handler._get_context_level)
-        result = unwrapped(
-            rlm_handler, "/api/invalid-path", mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, "/api/invalid-path", mock_handler, user="test")
         assert result.status_code == 400
 
     def test_returns_400_for_invalid_level(self, rlm_handler):
@@ -328,9 +322,7 @@ class TestRefinementStatus:
         """Returns 400 for invalid debate ID."""
         mock_handler = MockHandler()
         unwrapped = _unwrap_method(rlm_handler._get_refinement_status)
-        result = unwrapped(
-            rlm_handler, "/api/invalid", mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, "/api/invalid", mock_handler, user="test")
         assert result.status_code == 400
 
     def test_returns_status_for_valid_debate(self, rlm_handler):
@@ -359,18 +351,14 @@ class TestKnowledgeQuery:
         """Returns 400 when request body is missing."""
         mock_handler = MockHandler(_json_body=None)
         unwrapped = _unwrap_method(rlm_handler._query_knowledge_rlm)
-        result = unwrapped(
-            rlm_handler, mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, mock_handler, user="test")
         assert result.status_code == 400
 
     def test_returns_400_without_workspace_id(self, rlm_handler):
         """Returns 400 when workspace_id is missing."""
         mock_handler = MockHandler(_json_body={"query": "What are the requirements?"})
         unwrapped = _unwrap_method(rlm_handler._query_knowledge_rlm)
-        result = unwrapped(
-            rlm_handler, mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, mock_handler, user="test")
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "workspace_id" in data.get("error", "")
@@ -379,9 +367,7 @@ class TestKnowledgeQuery:
         """Returns 400 when query is missing."""
         mock_handler = MockHandler(_json_body={"workspace_id": "ws_123"})
         unwrapped = _unwrap_method(rlm_handler._query_knowledge_rlm)
-        result = unwrapped(
-            rlm_handler, mock_handler, user="test"
-        )
+        result = unwrapped(rlm_handler, mock_handler, user="test")
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "query" in data.get("error", "")

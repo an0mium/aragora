@@ -579,7 +579,9 @@ class TestConnectorConfiguration:
         handler = SocialMediaHandler(server_context=handler_ctx)
 
         with patch.object(handler, "read_json_body", return_value={}):
-            result = handler.handle_post("/api/v1/debates/test/publish/twitter", {}, mock_http_handler)
+            result = handler.handle_post(
+                "/api/v1/debates/test/publish/twitter", {}, mock_http_handler
+            )
 
         body = json.loads(result.body)
         assert "hint" in body
@@ -591,7 +593,9 @@ class TestConnectorConfiguration:
         handler = SocialMediaHandler(server_context=handler_ctx)
 
         with patch.object(handler, "read_json_body", return_value={}):
-            result = handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_http_handler)
+            result = handler.handle_post(
+                "/api/v1/debates/test/publish/youtube", {}, mock_http_handler
+            )
 
         body = json.loads(result.body)
         assert "hint" in body
@@ -760,7 +764,9 @@ class TestPublishingResponseFormat:
         handler = SocialMediaHandler(server_context=handler_ctx)
 
         with patch.object(handler, "read_json_body", return_value={}):
-            result = handler.handle_post("/api/v1/debates/test/publish/twitter", {}, mock_http_handler)
+            result = handler.handle_post(
+                "/api/v1/debates/test/publish/twitter", {}, mock_http_handler
+            )
 
         body = json.loads(result.body)
         assert "error" in body

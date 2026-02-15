@@ -84,9 +84,7 @@ SAMPLE_MEMBERSHIP = {
 
 class TestDataclasses:
     def test_organization_defaults(self) -> None:
-        org = Organization(
-            id="o1", name="Test", slug="test", tier="free", owner_id="u1"
-        )
+        org = Organization(id="o1", name="Test", slug="test", tier="free", owner_id="u1")
         assert org.member_count == 0
         assert org.debates_used == 0
         assert org.debates_limit == 0
@@ -149,12 +147,8 @@ class TestDataclasses:
         assert inv.accepted_at is None
 
     def test_user_organization_membership_defaults(self) -> None:
-        org = Organization(
-            id="o1", name="T", slug="t", tier="free", owner_id="u1"
-        )
-        mem = UserOrganizationMembership(
-            user_id="u1", org_id="o1", organization=org, role="member"
-        )
+        org = Organization(id="o1", name="T", slug="t", tier="free", owner_id="u1")
+        mem = UserOrganizationMembership(user_id="u1", org_id="o1", organization=org, role="member")
         assert mem.is_default is False
         assert mem.joined_at is None
 
@@ -191,9 +185,7 @@ class TestOrganizationGet:
         assert org.id == "org-abc123"
 
     @pytest.mark.asyncio
-    async def test_get_async(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    async def test_get_async(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._get_async = AsyncMock(return_value={"organization": SAMPLE_ORG})
         org = await api.get_async("org-abc123")
         assert org.id == "org-abc123"
@@ -210,39 +202,27 @@ class TestOrganizationGet:
 
 
 class TestOrganizationUpdate:
-    def test_update_name(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_name(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._put.return_value = {"organization": {**SAMPLE_ORG, "name": "New Name"}}
         org = api.update("org-abc123", name="New Name")
         assert org.name == "New Name"
-        mock_client._put.assert_called_once_with(
-            "/api/v1/org/org-abc123", {"name": "New Name"}
-        )
+        mock_client._put.assert_called_once_with("/api/v1/org/org-abc123", {"name": "New Name"})
 
-    def test_update_settings(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_settings(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         new_settings = {"max_agents": 10}
-        mock_client._put.return_value = {
-            "organization": {**SAMPLE_ORG, "settings": new_settings}
-        }
+        mock_client._put.return_value = {"organization": {**SAMPLE_ORG, "settings": new_settings}}
         org = api.update("org-abc123", settings=new_settings)
         assert org.settings == new_settings
         body = mock_client._put.call_args[0][1]
         assert body == {"settings": new_settings}
 
-    def test_update_both(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_both(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._put.return_value = {"organization": SAMPLE_ORG}
         api.update("org-abc123", name="N", settings={"k": "v"})
         body = mock_client._put.call_args[0][1]
         assert body == {"name": "N", "settings": {"k": "v"}}
 
-    def test_update_nothing(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_nothing(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         """Passing no optional args sends an empty body."""
         mock_client._put.return_value = {"organization": SAMPLE_ORG}
         api.update("org-abc123")
@@ -250,9 +230,7 @@ class TestOrganizationUpdate:
         assert body == {}
 
     @pytest.mark.asyncio
-    async def test_update_async(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    async def test_update_async(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._put_async = AsyncMock(
             return_value={"organization": {**SAMPLE_ORG, "name": "Async Name"}}
         )
@@ -278,9 +256,7 @@ class TestOrganizationUpdate:
 
 
 class TestListMembers:
-    def test_list_members(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_list_members(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"members": [SAMPLE_MEMBER]}
         members = api.list_members("org-abc123")
         assert len(members) == 1
@@ -291,9 +267,7 @@ class TestListMembers:
         assert members[0].role == "admin"
         mock_client._get.assert_called_once_with("/api/v1/org/org-abc123/members")
 
-    def test_list_members_empty(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_list_members_empty(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"members": []}
         members = api.list_members("org-abc123")
         assert members == []
@@ -306,9 +280,7 @@ class TestListMembers:
         members = api.list_members("org-abc123")
         assert members == []
 
-    def test_list_members_multiple(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_list_members_multiple(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         second_member = {
             "id": "user-m2",
             "email": "carol@acme.com",
@@ -325,18 +297,14 @@ class TestListMembers:
     async def test_list_members_async(
         self, api: OrganizationsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"members": [SAMPLE_MEMBER]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"members": [SAMPLE_MEMBER]})
         members = await api.list_members_async("org-abc123")
         assert len(members) == 1
         assert members[0].email == "alice@acme.com"
 
 
 class TestInviteMember:
-    def test_invite_default_role(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_invite_default_role(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {"invitation_id": "inv-new", "expires_in": 72}
         result = api.invite_member("org-abc123", "bob@example.com")
         assert result == {"invitation_id": "inv-new", "expires_in": 72}
@@ -345,9 +313,7 @@ class TestInviteMember:
             {"email": "bob@example.com", "role": "member"},
         )
 
-    def test_invite_admin_role(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_invite_admin_role(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {"invitation_id": "inv-adm"}
         api.invite_member("org-abc123", "admin@example.com", role="admin")
         body = mock_client._post.call_args[0][1]
@@ -367,15 +333,11 @@ class TestInviteMember:
 
 
 class TestRemoveMember:
-    def test_remove_member(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_remove_member(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._delete.return_value = {}
         result = api.remove_member("org-abc123", "user-m1")
         assert result is True
-        mock_client._delete.assert_called_once_with(
-            "/api/v1/org/org-abc123/members/user-m1"
-        )
+        mock_client._delete.assert_called_once_with("/api/v1/org/org-abc123/members/user-m1")
 
     @pytest.mark.asyncio
     async def test_remove_member_async(
@@ -384,15 +346,11 @@ class TestRemoveMember:
         mock_client._delete_async = AsyncMock(return_value={})
         result = await api.remove_member_async("org-abc123", "user-m1")
         assert result is True
-        mock_client._delete_async.assert_called_once_with(
-            "/api/v1/org/org-abc123/members/user-m1"
-        )
+        mock_client._delete_async.assert_called_once_with("/api/v1/org/org-abc123/members/user-m1")
 
 
 class TestUpdateMemberRole:
-    def test_update_member_role(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_member_role(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._put.return_value = {"user_id": "user-m1", "role": "admin"}
         result = api.update_member_role("org-abc123", "user-m1", "admin")
         assert result["role"] == "admin"
@@ -404,9 +362,7 @@ class TestUpdateMemberRole:
     async def test_update_member_role_async(
         self, api: OrganizationsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._put_async = AsyncMock(
-            return_value={"user_id": "user-m1", "role": "member"}
-        )
+        mock_client._put_async = AsyncMock(return_value={"user_id": "user-m1", "role": "member"})
         result = await api.update_member_role_async("org-abc123", "user-m1", "member")
         assert result["role"] == "member"
 
@@ -417,9 +373,7 @@ class TestUpdateMemberRole:
 
 
 class TestListInvitations:
-    def test_list_invitations(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_list_invitations(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"invitations": [SAMPLE_INVITATION]}
         invitations = api.list_invitations("org-abc123")
         assert len(invitations) == 1
@@ -433,9 +387,7 @@ class TestListInvitations:
         assert inv.invited_by == "user-owner-1"
         assert inv.expires_at.year == 2026
         assert inv.created_at is not None
-        mock_client._get.assert_called_once_with(
-            "/api/v1/org/org-abc123/invitations"
-        )
+        mock_client._get.assert_called_once_with("/api/v1/org/org-abc123/invitations")
 
     def test_list_invitations_empty(
         self, api: OrganizationsAPI, mock_client: AragoraClient
@@ -455,24 +407,18 @@ class TestListInvitations:
     async def test_list_invitations_async(
         self, api: OrganizationsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"invitations": [SAMPLE_INVITATION]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"invitations": [SAMPLE_INVITATION]})
         invitations = await api.list_invitations_async("org-abc123")
         assert len(invitations) == 1
         assert invitations[0].email == "bob@example.com"
 
 
 class TestRevokeInvitation:
-    def test_revoke_invitation(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_revoke_invitation(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._delete.return_value = {}
         result = api.revoke_invitation("org-abc123", "inv-001")
         assert result is True
-        mock_client._delete.assert_called_once_with(
-            "/api/v1/org/org-abc123/invitations/inv-001"
-        )
+        mock_client._delete.assert_called_once_with("/api/v1/org/org-abc123/invitations/inv-001")
 
     @pytest.mark.asyncio
     async def test_revoke_invitation_async(
@@ -507,26 +453,20 @@ class TestGetPendingInvitations:
     async def test_get_pending_invitations_async(
         self, api: OrganizationsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"invitations": [SAMPLE_INVITATION]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"invitations": [SAMPLE_INVITATION]})
         invitations = await api.get_pending_invitations_async()
         assert len(invitations) == 1
 
 
 class TestAcceptInvitation:
-    def test_accept_invitation(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_accept_invitation(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {
             "organization": SAMPLE_ORG,
             "role": "member",
         }
         result = api.accept_invitation("tok-abc")
         assert result["role"] == "member"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/invitations/tok-abc/accept", {}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/invitations/tok-abc/accept", {})
 
     @pytest.mark.asyncio
     async def test_accept_invitation_async(
@@ -537,9 +477,7 @@ class TestAcceptInvitation:
         )
         result = await api.accept_invitation_async("tok-abc")
         assert result["role"] == "member"
-        mock_client._post_async.assert_called_once_with(
-            "/api/v1/invitations/tok-abc/accept", {}
-        )
+        mock_client._post_async.assert_called_once_with("/api/v1/invitations/tok-abc/accept", {})
 
 
 # ===========================================================================
@@ -583,18 +521,14 @@ class TestListUserOrganizations:
     async def test_list_user_organizations_async(
         self, api: OrganizationsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"organizations": [SAMPLE_MEMBERSHIP]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"organizations": [SAMPLE_MEMBERSHIP]})
         memberships = await api.list_user_organizations_async()
         assert len(memberships) == 1
         assert memberships[0].organization.slug == "acme-corp"
 
 
 class TestSwitchOrganization:
-    def test_switch_organization(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_switch_organization(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {"organization": SAMPLE_ORG}
         org = api.switch_organization("org-abc123")
         assert isinstance(org, Organization)
@@ -614,9 +548,7 @@ class TestSwitchOrganization:
     async def test_switch_organization_async(
         self, api: OrganizationsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._post_async = AsyncMock(
-            return_value={"organization": SAMPLE_ORG}
-        )
+        mock_client._post_async = AsyncMock(return_value={"organization": SAMPLE_ORG})
         org = await api.switch_organization_async("org-abc123")
         assert org.id == "org-abc123"
 
@@ -645,15 +577,11 @@ class TestSetDefaultOrganization:
 
 
 class TestLeaveOrganization:
-    def test_leave_organization(
-        self, api: OrganizationsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_leave_organization(self, api: OrganizationsAPI, mock_client: AragoraClient) -> None:
         mock_client._delete.return_value = {}
         result = api.leave_organization("org-abc123")
         assert result is True
-        mock_client._delete.assert_called_once_with(
-            "/api/v1/user/organizations/org-abc123"
-        )
+        mock_client._delete.assert_called_once_with("/api/v1/user/organizations/org-abc123")
 
     @pytest.mark.asyncio
     async def test_leave_organization_async(
@@ -662,9 +590,7 @@ class TestLeaveOrganization:
         mock_client._delete_async = AsyncMock(return_value={})
         result = await api.leave_organization_async("org-abc123")
         assert result is True
-        mock_client._delete_async.assert_called_once_with(
-            "/api/v1/user/organizations/org-abc123"
-        )
+        mock_client._delete_async.assert_called_once_with("/api/v1/user/organizations/org-abc123")
 
 
 # ===========================================================================
@@ -893,9 +819,7 @@ class TestOrganizationWorkflows:
             "role": "member",
             "is_default": False,
         }
-        mock_client._get.return_value = {
-            "organizations": [SAMPLE_MEMBERSHIP, second_membership]
-        }
+        mock_client._get.return_value = {"organizations": [SAMPLE_MEMBERSHIP, second_membership]}
         memberships = api.list_user_organizations()
         assert len(memberships) == 2
         target_org_id = memberships[1].org_id
@@ -964,33 +888,23 @@ class TestOrganizationWorkflows:
     ) -> None:
         """Full async workflow: get org -> list members -> invite -> update role."""
         # Get org
-        mock_client._get_async = AsyncMock(
-            return_value={"organization": SAMPLE_ORG}
-        )
+        mock_client._get_async = AsyncMock(return_value={"organization": SAMPLE_ORG})
         org = await api.get_async("org-abc123")
         assert org.name == "Acme Corp"
 
         # List members
-        mock_client._get_async = AsyncMock(
-            return_value={"members": [SAMPLE_MEMBER]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"members": [SAMPLE_MEMBER]})
         members = await api.list_members_async("org-abc123")
         assert len(members) == 1
 
         # Invite
-        mock_client._post_async = AsyncMock(
-            return_value={"invitation_id": "inv-async-1"}
-        )
+        mock_client._post_async = AsyncMock(return_value={"invitation_id": "inv-async-1"})
         inv_result = await api.invite_member_async("org-abc123", "new@test.com")
         assert inv_result["invitation_id"] == "inv-async-1"
 
         # Update role
-        mock_client._put_async = AsyncMock(
-            return_value={"user_id": "user-m1", "role": "admin"}
-        )
-        role_result = await api.update_member_role_async(
-            "org-abc123", "user-m1", "admin"
-        )
+        mock_client._put_async = AsyncMock(return_value={"user_id": "user-m1", "role": "admin"})
+        role_result = await api.update_member_role_async("org-abc123", "user-m1", "admin")
         assert role_result["role"] == "admin"
 
 

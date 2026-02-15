@@ -136,8 +136,20 @@ class TestTopicOutcomesEndpoint:
 
         mock_store = MagicMock()
         mock_store.fetch_all.return_value = [
-            ("rec-1", "abc123", "AI regulation", "hackernews", "tech", 500,
-             "debate-1", 1700000000.0, 1, 0.85, 3, "run-1")
+            (
+                "rec-1",
+                "abc123",
+                "AI regulation",
+                "hackernews",
+                "tech",
+                500,
+                "debate-1",
+                1700000000.0,
+                1,
+                0.85,
+                3,
+                "run-1",
+            )
         ]
         mock_store._row_to_record.return_value = mock_record
         mock_get_store.return_value = mock_store
@@ -254,9 +266,7 @@ class TestHandleRouting:
         mock_get_manager.return_value = None
 
         handler = PulseHandler(server_context={})
-        result = handler.handle(
-            "/api/v1/pulse/topics/abc123/outcomes", {}, MagicMock()
-        )
+        result = handler.handle("/api/v1/pulse/topics/abc123/outcomes", {}, MagicMock())
 
         assert result is not None
         # 404 because no outcomes found

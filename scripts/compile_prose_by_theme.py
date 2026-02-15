@@ -317,7 +317,7 @@ def main():
     print(f"Loading: {args.input}")
     themed = compile_by_theme(args.input, min_quality=args.min_quality)
 
-    print(f"\nThemes found:")
+    print("\nThemes found:")
     for theme_id, passages in sorted(themed.items(), key=lambda x: -len(x[1])):
         theme_name = THEMES[theme_id]["name"]
         print(f"  {theme_name}: {len(passages)} passages")

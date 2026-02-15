@@ -133,9 +133,7 @@ class TestDecisionPipelineHappyPath:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.ALWAYS
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.ALWAYS)
 
             store.create(plan)
             loaded = store.get(plan.id)
@@ -158,9 +156,7 @@ class TestDecisionPipelineHappyPath:
             result = _make_debate_result()
 
             # Step 2: Factory creates plan
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.ALWAYS
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.ALWAYS)
             assert plan.status == PlanStatus.AWAITING_APPROVAL
 
             # Step 3: Persist
@@ -201,9 +197,7 @@ class TestDecisionPipelineHappyPath:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.ALWAYS
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.ALWAYS)
             store.create(plan)
 
             # Mock the notification module (doesn't exist yet)
@@ -261,9 +255,7 @@ class TestAutoApprovePath:
     def test_auto_approved_plan(self):
         """Plan with NEVER approval mode starts as APPROVED."""
         result = _make_debate_result(confidence=0.95, consensus_reached=True)
-        plan = DecisionPlanFactory.from_debate_result(
-            result, approval_mode=ApprovalMode.NEVER
-        )
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
         assert plan.status == PlanStatus.APPROVED
         assert plan.requires_human_approval is False
 
@@ -273,9 +265,7 @@ class TestAutoApprovePath:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.NEVER
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
             store.create(plan)
 
             mock_executor = AsyncMock()
@@ -300,9 +290,7 @@ class TestRejectionPath:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.ALWAYS
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.ALWAYS)
             store.create(plan)
 
             plan.reject("reviewer-1", reason="Too risky for production")
@@ -323,9 +311,7 @@ class TestRejectionPath:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.ALWAYS
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.ALWAYS)
             store.create(plan)
 
             store.update_status(plan.id, PlanStatus.REJECTED, rejection_reason="No")
@@ -359,9 +345,7 @@ class TestErrorCases:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.ALWAYS
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.ALWAYS)
             store.create(plan)
 
             bridge = ExecutionBridge(plan_store=store, executor=AsyncMock())
@@ -374,9 +358,7 @@ class TestErrorCases:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.NEVER
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
             store.create(plan)
 
             mock_executor = AsyncMock()
@@ -397,9 +379,7 @@ class TestErrorCases:
         with tempfile.TemporaryDirectory() as tmp:
             store = _make_plan_store(tmp)
             result = _make_debate_result()
-            plan = DecisionPlanFactory.from_debate_result(
-                result, approval_mode=ApprovalMode.NEVER
-            )
+            plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.NEVER)
             store.create(plan)
 
             mock_executor = AsyncMock()
@@ -436,9 +416,7 @@ class TestRiskBasedApproval:
     def test_low_confidence_requires_approval(self):
         """Low-confidence result requires human approval in RISK_BASED mode."""
         result = _make_debate_result(confidence=0.4, consensus_reached=False)
-        plan = DecisionPlanFactory.from_debate_result(
-            result, approval_mode=ApprovalMode.RISK_BASED
-        )
+        plan = DecisionPlanFactory.from_debate_result(result, approval_mode=ApprovalMode.RISK_BASED)
         # Low confidence + no consensus → risks → requires approval
         assert plan.status == PlanStatus.AWAITING_APPROVAL
         assert plan.requires_human_approval is True
@@ -459,15 +437,11 @@ class TestPlanListing:
 
             # Create two plans: one awaiting, one approved
             r1 = _make_debate_result(debate_id="debate-list-1")
-            p1 = DecisionPlanFactory.from_debate_result(
-                r1, approval_mode=ApprovalMode.ALWAYS
-            )
+            p1 = DecisionPlanFactory.from_debate_result(r1, approval_mode=ApprovalMode.ALWAYS)
             store.create(p1)
 
             r2 = _make_debate_result(debate_id="debate-list-2")
-            p2 = DecisionPlanFactory.from_debate_result(
-                r2, approval_mode=ApprovalMode.NEVER
-            )
+            p2 = DecisionPlanFactory.from_debate_result(r2, approval_mode=ApprovalMode.NEVER)
             store.create(p2)
 
             awaiting = store.list(status=PlanStatus.AWAITING_APPROVAL)
@@ -485,9 +459,7 @@ class TestPlanListing:
 
             for i in range(3):
                 r = _make_debate_result(debate_id=f"debate-count-{i}")
-                p = DecisionPlanFactory.from_debate_result(
-                    r, approval_mode=ApprovalMode.ALWAYS
-                )
+                p = DecisionPlanFactory.from_debate_result(r, approval_mode=ApprovalMode.ALWAYS)
                 store.create(p)
 
             assert store.count() == 3

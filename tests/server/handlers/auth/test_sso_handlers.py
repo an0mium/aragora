@@ -379,7 +379,9 @@ class TestHandleSsoCallback:
         # Verify user was created in Aragora DB with SSO email
         mock_user_store.create_user.assert_called_once()
         call_kwargs = mock_user_store.create_user.call_args
-        assert call_kwargs[1]["email"] == "user@example.com" or call_kwargs[0][0] == "user@example.com"
+        assert (
+            call_kwargs[1]["email"] == "user@example.com" or call_kwargs[0][0] == "user@example.com"
+        )
         # Verify JWT uses Aragora user ID, not SSO provider ID
         mock_jwt.assert_called_once_with(user_id="aragora_user_456", email="user@example.com")
 

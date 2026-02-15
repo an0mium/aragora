@@ -322,7 +322,9 @@ class TestCalibrationLeaderboardEndpoint:
         """Test ROUTES includes leaderboard endpoint."""
         assert "/api/calibration/leaderboard" in handler.ROUTES
 
-    @pytest.mark.xfail(reason="Handler patching requires complex setup; tested via integration tests")
+    @pytest.mark.xfail(
+        reason="Handler patching requires complex setup; tested via integration tests"
+    )
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True)
     @patch("aragora.server.handlers.agents.calibration.EloSystem")
     def test_leaderboard_returns_json(self, mock_elo_cls, handler):
@@ -352,7 +354,9 @@ class TestCalibrationLeaderboardEndpoint:
         assert "agents" in body
         assert "metric" in body
 
-    @pytest.mark.xfail(reason="Handler patching requires complex setup; tested via integration tests")
+    @pytest.mark.xfail(
+        reason="Handler patching requires complex setup; tested via integration tests"
+    )
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False)
     def test_leaderboard_unavailable_without_elo(self, handler):
         """Test leaderboard returns 503 without ELO system."""

@@ -76,12 +76,20 @@ class TestMemoryEntry:
     def test_red_line_flag(self):
         """red_line defaults to False and can be toggled."""
         normal = MemoryEntry(
-            id="n", tier="fast", content="x",
-            importance=0.5, surprise_score=0.0, success_rate=0.5,
+            id="n",
+            tier="fast",
+            content="x",
+            importance=0.5,
+            surprise_score=0.0,
+            success_rate=0.5,
         )
         critical = MemoryEntry(
-            id="c", tier="fast", content="y",
-            importance=0.5, surprise_score=0.0, success_rate=0.5,
+            id="c",
+            tier="fast",
+            content="y",
+            importance=0.5,
+            surprise_score=0.0,
+            success_rate=0.5,
             red_line=True,
         )
         assert normal.red_line is False
@@ -99,10 +107,22 @@ class TestMemoryREPLContext:
     @staticmethod
     def _make_entries() -> list[MemoryEntry]:
         return [
-            MemoryEntry(id="a", tier="fast", content="alpha", importance=0.8,
-                        surprise_score=0.2, success_rate=0.9),
-            MemoryEntry(id="b", tier="slow", content="beta", importance=0.4,
-                        surprise_score=0.7, success_rate=0.5),
+            MemoryEntry(
+                id="a",
+                tier="fast",
+                content="alpha",
+                importance=0.8,
+                surprise_score=0.2,
+                success_rate=0.9,
+            ),
+            MemoryEntry(
+                id="b",
+                tier="slow",
+                content="beta",
+                importance=0.4,
+                surprise_score=0.7,
+                success_rate=0.5,
+            ),
         ]
 
     def test_construction(self):
@@ -177,8 +197,13 @@ class TestLoadMemoryContext:
         del continuum.get_tier
         del continuum.retrieve
         continuum.get_entries.return_value = [
-            {"id": "m1", "content": "entry one", "importance": 0.9,
-             "surprise_score": 0.1, "success_rate": 0.8},
+            {
+                "id": "m1",
+                "content": "entry one",
+                "importance": 0.9,
+                "surprise_score": 0.1,
+                "success_rate": 0.8,
+            },
         ]
         ctx = load_memory_context(continuum)
         assert ctx.total_entries >= 1
@@ -188,8 +213,13 @@ class TestLoadMemoryContext:
         """Uses search() when a query is provided and search() exists."""
         continuum = MagicMock()
         continuum.search.return_value = [
-            {"id": "s1", "content": "searched result", "importance": 0.7,
-             "surprise_score": 0.3, "success_rate": 0.6},
+            {
+                "id": "s1",
+                "content": "searched result",
+                "importance": 0.7,
+                "surprise_score": 0.3,
+                "success_rate": 0.6,
+            },
         ]
         ctx = load_memory_context(continuum, query="searched")
         # search should have been called at least once (per tier)
@@ -200,10 +230,17 @@ class TestLoadMemoryContext:
         """Uses get_tier() when get_entries and search are absent."""
         continuum = MagicMock(spec=[])
         # Manually add only get_tier
-        continuum.get_tier = MagicMock(return_value=[
-            {"id": "t1", "content": "tier item", "importance": 0.5,
-             "surprise_score": 0.0, "success_rate": 0.5},
-        ])
+        continuum.get_tier = MagicMock(
+            return_value=[
+                {
+                    "id": "t1",
+                    "content": "tier item",
+                    "importance": 0.5,
+                    "surprise_score": 0.0,
+                    "success_rate": 0.5,
+                },
+            ]
+        )
         ctx = load_memory_context(continuum)
         assert ctx.total_entries >= 1
 
@@ -236,15 +273,39 @@ class TestLoadMemoryContext:
 def _sample_context() -> MemoryREPLContext:
     """Build a small MemoryREPLContext for helper function tests."""
     entries = [
-        MemoryEntry(id="h1", tier="fast", content="rate limit config",
-                    importance=0.9, surprise_score=0.1, success_rate=0.8,
-                    red_line=True),
-        MemoryEntry(id="h2", tier="fast", content="cache invalidation",
-                    importance=0.4, surprise_score=0.8, success_rate=0.5),
-        MemoryEntry(id="h3", tier="slow", content="retry policy",
-                    importance=0.7, surprise_score=0.5, success_rate=0.6),
-        MemoryEntry(id="h4", tier="glacial", content="Rate LIMIT override",
-                    importance=0.6, surprise_score=0.3, success_rate=0.7),
+        MemoryEntry(
+            id="h1",
+            tier="fast",
+            content="rate limit config",
+            importance=0.9,
+            surprise_score=0.1,
+            success_rate=0.8,
+            red_line=True,
+        ),
+        MemoryEntry(
+            id="h2",
+            tier="fast",
+            content="cache invalidation",
+            importance=0.4,
+            surprise_score=0.8,
+            success_rate=0.5,
+        ),
+        MemoryEntry(
+            id="h3",
+            tier="slow",
+            content="retry policy",
+            importance=0.7,
+            surprise_score=0.5,
+            success_rate=0.6,
+        ),
+        MemoryEntry(
+            id="h4",
+            tier="glacial",
+            content="Rate LIMIT override",
+            importance=0.6,
+            surprise_score=0.3,
+            success_rate=0.7,
+        ),
     ]
     by_tier: dict[str, list[MemoryEntry]] = {
         "fast": [entries[0], entries[1]],
@@ -296,8 +357,14 @@ class TestFilterRedLine:
 
     def test_no_red_line(self):
         entries = [
-            MemoryEntry(id="x", tier="fast", content="safe",
-                        importance=0.5, surprise_score=0.0, success_rate=0.5),
+            MemoryEntry(
+                id="x",
+                tier="fast",
+                content="safe",
+                importance=0.5,
+                surprise_score=0.0,
+                success_rate=0.5,
+            ),
         ]
         assert filter_red_line(entries) == []
 
@@ -343,9 +410,14 @@ class TestGetMemoryHelpers:
     def test_returns_expected_names(self):
         helpers = get_memory_helpers()
         expected = {
-            "MemoryEntry", "MemoryREPLContext", "load_memory_context",
-            "get_tier", "filter_by_importance", "filter_red_line",
-            "search_memory", "sort_by_surprise",
+            "MemoryEntry",
+            "MemoryREPLContext",
+            "load_memory_context",
+            "get_tier",
+            "filter_by_importance",
+            "filter_red_line",
+            "search_memory",
+            "sort_by_surprise",
         }
         assert expected.issubset(set(helpers.keys()))
 
@@ -372,11 +444,13 @@ class TestLogToAudit:
     @staticmethod
     def _make_rlm() -> "AragoraRLM":
         from aragora.rlm.bridge import AragoraRLM
+
         return AragoraRLM()
 
     @staticmethod
     def _make_result() -> "RLMResult":
         from aragora.rlm.types import RLMResult
+
         return RLMResult(
             answer="test answer",
             confidence=0.85,
@@ -427,6 +501,7 @@ class TestInjectMemoryHelpers:
     @staticmethod
     def _make_rlm() -> "AragoraRLM":
         from aragora.rlm.bridge import AragoraRLM
+
         return AragoraRLM()
 
     def test_returns_context_and_helpers(self):
@@ -434,8 +509,13 @@ class TestInjectMemoryHelpers:
         rlm = self._make_rlm()
         continuum = MagicMock()
         continuum.get_entries.return_value = [
-            {"id": "im1", "content": "injected", "importance": 0.5,
-             "surprise_score": 0.0, "success_rate": 0.5},
+            {
+                "id": "im1",
+                "content": "injected",
+                "importance": 0.5,
+                "surprise_score": 0.0,
+                "success_rate": 0.5,
+            },
         ]
         # Remove search/get_tier/retrieve so get_entries is used
         del continuum.search
@@ -476,6 +556,7 @@ class TestInjectKnowledgeHelpers:
     @staticmethod
     def _make_rlm() -> "AragoraRLM":
         from aragora.rlm.bridge import AragoraRLM
+
         return AragoraRLM()
 
     def test_returns_context_and_helpers(self):
@@ -511,6 +592,7 @@ class TestInjectKnowledgeHelpers:
         """
         from aragora.rlm.knowledge_helpers import load_knowledge_context
         import inspect
+
         sig = inspect.signature(load_knowledge_context)
         param_names = list(sig.parameters.keys())
         assert "query" not in param_names
@@ -526,16 +608,20 @@ class TestModuleExports:
 
     def test_memory_entry_exported(self):
         from aragora.rlm import MemoryEntry as ME
+
         assert ME is MemoryEntry
 
     def test_memory_repl_context_exported(self):
         from aragora.rlm import MemoryREPLContext as MRC
+
         assert MRC is MemoryREPLContext
 
     def test_load_memory_context_exported(self):
         from aragora.rlm import load_memory_context as lmc
+
         assert lmc is load_memory_context
 
     def test_get_memory_helpers_exported(self):
         from aragora.rlm import get_memory_helpers as gmh
+
         assert gmh is get_memory_helpers

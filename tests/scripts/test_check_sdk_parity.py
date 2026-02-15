@@ -56,9 +56,7 @@ def test_strict_allows_missing_routes_with_explicit_override(monkeypatch):
 
 def test_strict_threshold_still_enforced(monkeypatch):
     _patch_report(monkeypatch, missing=0, py_cov=75.0, ts_cov=88.0)
-    monkeypatch.setattr(
-        sys, "argv", ["check_sdk_parity.py", "--strict", "--threshold", "90"]
-    )
+    monkeypatch.setattr(sys, "argv", ["check_sdk_parity.py", "--strict", "--threshold", "90"])
     assert check_sdk_parity.main() == 1
 
 

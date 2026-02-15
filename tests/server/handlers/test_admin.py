@@ -497,7 +497,9 @@ class TestAdminImpersonate:
     @patch("aragora.server.handlers.admin.users._get_session_manager_from_handler")
     @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
     @patch("aragora.server.handlers.admin.handler.create_access_token")
-    def test_impersonate_success(self, mock_token, mock_auth, mock_session_mgr, admin_handler, user_store):
+    def test_impersonate_success(
+        self, mock_token, mock_auth, mock_session_mgr, admin_handler, user_store
+    ):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
         mock_token.return_value = "impersonation_token_123"
         mock_mgr = MagicMock()
@@ -519,7 +521,9 @@ class TestAdminImpersonate:
     @patch("aragora.server.handlers.admin.handler.check_permission", mock_check_permission_allowed)
     @patch("aragora.server.handlers.admin.users._get_session_manager_from_handler")
     @patch("aragora.server.handlers.admin.handler.extract_user_from_request")
-    def test_impersonate_user_not_found(self, mock_auth, mock_session_mgr, admin_handler, user_store):
+    def test_impersonate_user_not_found(
+        self, mock_auth, mock_session_mgr, admin_handler, user_store
+    ):
         mock_auth.return_value = MockAuthContext(user_id="admin-123", role="admin")
         mock_mgr = MagicMock()
         mock_mgr.is_session_mfa_fresh.return_value = True

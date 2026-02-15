@@ -50,9 +50,14 @@ class MockReceipt:
     timestamp: str = "2026-01-15T10:00:00Z"
     input_summary: str = "Test input"
     input_hash: str = "input_hash_123"
-    risk_summary: dict = field(default_factory=lambda: {
-        "critical": 1, "high": 2, "medium": 3, "low": 5,
-    })
+    risk_summary: dict = field(
+        default_factory=lambda: {
+            "critical": 1,
+            "high": 2,
+            "medium": 3,
+            "low": 5,
+        }
+    )
     attacks_attempted: int = 10
     attacks_successful: int = 2
     probes_run: int = 15
@@ -60,14 +65,22 @@ class MockReceipt:
     verdict: str = "CONDITIONAL"
     confidence: float = 0.85
     robustness_score: float = 0.78
-    vulnerability_details: list[dict] = field(default_factory=lambda: [
-        {"severity": "critical", "title": "SQL Injection", "description": "Found SQL injection in input parsing"},
-        {"severity": "high", "title": "XSS", "description": "Cross-site scripting possible"},
-    ])
+    vulnerability_details: list[dict] = field(
+        default_factory=lambda: [
+            {
+                "severity": "critical",
+                "title": "SQL Injection",
+                "description": "Found SQL injection in input parsing",
+            },
+            {"severity": "high", "title": "XSS", "description": "Cross-site scripting possible"},
+        ]
+    )
     verdict_reasoning: str = "Some vulnerabilities detected but mitigations available"
     dissenting_views: list[str] = field(default_factory=lambda: ["Agent X disagrees"])
     consensus_proof: MockConsensusProof | None = field(default_factory=MockConsensusProof)
-    provenance_chain: list[MockProvenanceRecord] = field(default_factory=lambda: [MockProvenanceRecord()])
+    provenance_chain: list[MockProvenanceRecord] = field(
+        default_factory=lambda: [MockProvenanceRecord()]
+    )
     schema_version: str = "1.0"
     artifact_hash: str = "artifact_abc123"
     signature: str | None = None
@@ -267,5 +280,7 @@ class TestReceiptExportHandler:
     def test_receipt_not_found(self, mock_store_fn, handler_no_store):
         mock_store_fn.return_value = None
         http = _make_mock_handler()
-        result = handler_no_store.handle("/api/v1/receipts/MISSING/export", {"format": "json"}, http)
+        result = handler_no_store.handle(
+            "/api/v1/receipts/MISSING/export", {"format": "json"}, http
+        )
         assert result.status_code == 404

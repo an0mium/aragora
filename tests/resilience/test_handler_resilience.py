@@ -40,6 +40,7 @@ def _mock_aiohttp_response(status: int, text: str = "ok"):
 # Provider retry policy registration tests
 # ---------------------------------------------------------------------------
 
+
 class TestProviderPolicies:
     """Verify new provider retry policies are registered."""
 
@@ -63,6 +64,7 @@ class TestProviderPolicies:
 # ---------------------------------------------------------------------------
 # Slack integration resilience tests
 # ---------------------------------------------------------------------------
+
 
 class TestSlackResilience:
     """Test circuit breaker on SlackIntegration._send_message."""
@@ -197,6 +199,7 @@ class TestSlackResilience:
 # Discord integration resilience tests
 # ---------------------------------------------------------------------------
 
+
 class TestDiscordResilience:
     """Test circuit breaker on DiscordIntegration._send_webhook."""
 
@@ -272,9 +275,7 @@ class TestDiscordResilience:
         mock_session.post.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_timeout_records_failure(
-        self, discord, circuit_breaker: CircuitBreaker
-    ) -> None:
+    async def test_timeout_records_failure(self, discord, circuit_breaker: CircuitBreaker) -> None:
         """Timeout records failure on circuit breaker."""
 
         @asynccontextmanager
@@ -296,6 +297,7 @@ class TestDiscordResilience:
 # ---------------------------------------------------------------------------
 # Teams integration resilience tests
 # ---------------------------------------------------------------------------
+
 
 class TestTeamsResilience:
     """Test circuit breaker on TeamsIntegration._send_card."""
@@ -407,6 +409,7 @@ class TestTeamsResilience:
 # GitHub connector resilience tests
 # ---------------------------------------------------------------------------
 
+
 class TestGitHubResilience:
     """Test circuit breaker on GitHubConnector._run_gh (already integrated via BaseConnector)."""
 
@@ -443,6 +446,7 @@ class TestGitHubResilience:
 # ---------------------------------------------------------------------------
 # Cross-integration circuit breaker isolation tests
 # ---------------------------------------------------------------------------
+
 
 class TestCircuitBreakerIsolation:
     """Verify each service gets an independent circuit breaker."""

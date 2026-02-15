@@ -19,7 +19,9 @@ from typing import Any
 
 import pytest
 
-pytest.importorskip("aragora_debate", reason="aragora_debate package is required for debate benchmarks")
+pytest.importorskip(
+    "aragora_debate", reason="aragora_debate package is required for debate benchmarks"
+)
 
 from aragora_debate import Debate, create_agent
 from aragora_debate.receipt import ReceiptBuilder
@@ -121,6 +123,7 @@ class TestMicroBenchmarks:
     @pytest.mark.asyncio
     async def test_receipt_generation(self) -> None:
         """Benchmark receipt generation via full debate + receipt extraction."""
+
         async def run_and_extract() -> None:
             debate = _make_debate(n_agents=3, rounds=1)
             result = await debate.run()
@@ -144,9 +147,8 @@ class TestMicroBenchmarks:
                 debate.add_agent(create_agent("mock", name=f"a-{i}", vote_for="a-0"))
 
             times = await _async_timed_runs(
-                lambda: Debate(
-                    topic="Benchmark", rounds=1, consensus=method
-                ).add_agent(create_agent("mock", name="x", vote_for="x"))
+                lambda: Debate(topic="Benchmark", rounds=1, consensus=method)
+                .add_agent(create_agent("mock", name="x", vote_for="x"))
                 .add_agent(create_agent("mock", name="y", vote_for="x"))
                 .run(),
                 iterations=50,
@@ -278,8 +280,10 @@ async def _run_all_benchmarks() -> None:
         await _make_debate(5, 2).run()
     snap2 = tracemalloc.take_snapshot()
     tracemalloc.stop()
-    growth = (sum(s.size for s in snap2.statistics("lineno")) -
-              sum(s.size for s in snap1.statistics("lineno"))) / (1024 * 1024)
+    growth = (
+        sum(s.size for s in snap2.statistics("lineno"))
+        - sum(s.size for s in snap1.statistics("lineno"))
+    ) / (1024 * 1024)
 
     print()
     print(f"  Memory growth (50 debates): {growth:.2f} MB")

@@ -387,7 +387,9 @@ class TestHandle:
             "convergence_status": "converged",
         }
 
-        result = self.handler.handle("/api/debates/test-123/convergence", {}, self.mock_http_handler)
+        result = self.handler.handle(
+            "/api/debates/test-123/convergence", {}, self.mock_http_handler
+        )
 
         assert result is not None
         assert result.status_code == 200

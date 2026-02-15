@@ -153,7 +153,12 @@ class TestRequestRouting:
         req = _MockRequest(method="GET", path="/api/v1/audit/workflow/states")
         with (
             patch(f"{MODULE}.extract_user_from_request", return_value=_AdminJWT()),
-            patch.object(h, "_get_workflow_states", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}),
+            patch.object(
+                h,
+                "_get_workflow_states",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ),
         ):
             result = await h.handle_request(req)
         assert result["status"] == 200
@@ -164,7 +169,12 @@ class TestRequestRouting:
         req = _MockRequest(method="GET", path="/api/v1/audit/presets")
         with (
             patch(f"{MODULE}.extract_user_from_request", return_value=_AdminJWT()),
-            patch.object(h, "_get_presets", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}),
+            patch.object(
+                h,
+                "_get_presets",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ),
         ):
             result = await h.handle_request(req)
         assert result["status"] == 200
@@ -175,7 +185,12 @@ class TestRequestRouting:
         req = _MockRequest(method="GET", path="/api/v1/audit/types")
         with (
             patch(f"{MODULE}.extract_user_from_request", return_value=_AdminJWT()),
-            patch.object(h, "_get_audit_types", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}),
+            patch.object(
+                h,
+                "_get_audit_types",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ),
         ):
             result = await h.handle_request(req)
         assert result["status"] == 200
@@ -192,10 +207,17 @@ class TestRequestRouting:
     @pytest.mark.asyncio
     async def test_finding_id_parsing_for_status(self):
         h = _make_handler()
-        req = _MockRequest(method="PATCH", path="/api/v1/audit/findings/my-finding/status", body={"status": "open"})
+        req = _MockRequest(
+            method="PATCH", path="/api/v1/audit/findings/my-finding/status", body={"status": "open"}
+        )
         with (
             patch(f"{MODULE}.extract_user_from_request", return_value=_AdminJWT()),
-            patch.object(h, "_update_status", new_callable=AsyncMock, return_value={"status": 200, "body": "{}"}) as mock_us,
+            patch.object(
+                h,
+                "_update_status",
+                new_callable=AsyncMock,
+                return_value={"status": 200, "body": "{}"},
+            ) as mock_us,
         ):
             await h.handle_request(req)
         mock_us.assert_awaited_once()
@@ -280,7 +302,6 @@ class TestUpdateStatusSuccess:
 
 
 class TestAssignment:
-
     @pytest.mark.asyncio
     async def test_assign_success(self):
         h = _make_handler()
@@ -353,7 +374,6 @@ class TestAssignment:
 
 
 class TestComments:
-
     @pytest.mark.asyncio
     async def test_add_comment_success(self):
         h = _make_handler()
@@ -413,7 +433,6 @@ class TestComments:
 
 
 class TestHistory:
-
     @pytest.mark.asyncio
     async def test_get_history_returns_full_data(self):
         h = _make_handler()
@@ -447,7 +466,6 @@ class TestHistory:
 
 
 class TestPriority:
-
     @pytest.mark.asyncio
     async def test_set_priority_valid(self):
         h = _make_handler()
@@ -493,7 +511,6 @@ class TestPriority:
 
 
 class TestDueDate:
-
     @pytest.mark.asyncio
     async def test_set_due_date_success(self):
         h = _make_handler()
@@ -545,7 +562,6 @@ class TestDueDate:
 
 
 class TestLinkAndDuplicate:
-
     @pytest.mark.asyncio
     async def test_link_finding_success(self):
         h = _make_handler()
@@ -626,7 +642,6 @@ class TestLinkAndDuplicate:
 
 
 class TestBulkActions:
-
     @pytest.mark.asyncio
     async def test_bulk_assign_success(self):
         h = _make_handler()
@@ -699,7 +714,6 @@ class TestBulkActions:
 
 
 class TestAssignmentsAndOverdue:
-
     @pytest.mark.asyncio
     async def test_get_my_assignments(self):
         h = _make_handler()
@@ -749,7 +763,6 @@ class TestAssignmentsAndOverdue:
 
 
 class TestStaticEndpoints:
-
     @pytest.mark.asyncio
     async def test_get_workflow_states_fallback(self):
         """When workflow module is unavailable, fallback states are returned."""
@@ -798,7 +811,6 @@ class TestStaticEndpoints:
 
 
 class TestPermissionDenials:
-
     @pytest.mark.no_auto_auth
     @pytest.mark.asyncio
     async def test_unauthenticated_user_gets_401(self):
@@ -817,7 +829,6 @@ class TestPermissionDenials:
 
 
 class TestGetOrCreateWorkflow:
-
     @pytest.mark.asyncio
     async def test_creates_new_when_not_found(self):
         h = _make_handler()

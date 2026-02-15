@@ -247,7 +247,10 @@ def handler(mock_server_context, mock_result_store):
 
     # Create patches that we'll apply
     with (
-        patch("aragora.server.handlers.decision._decision_result_store.get", return_value=mock_result_store),
+        patch(
+            "aragora.server.handlers.decision._decision_result_store.get",
+            return_value=mock_result_store,
+        ),
         patch("aragora.server.handlers.decision._get_result", side_effect=mock_result_store.get),
         patch("aragora.server.handlers.decision._save_result", side_effect=mock_result_store.save),
         patch(
@@ -431,7 +434,8 @@ class TestListDecisions:
         mock_handler = create_mock_handler()
 
         with patch(
-            "aragora.server.handlers.decision._decision_result_store.get", return_value=mock_result_store
+            "aragora.server.handlers.decision._decision_result_store.get",
+            return_value=mock_result_store,
         ):
             result = h.handle("/api/v1/decisions", {}, mock_handler)
             assert result.status_code == 200
@@ -446,7 +450,8 @@ class TestListDecisions:
         mock_handler = create_mock_handler()
 
         with patch(
-            "aragora.server.handlers.decision._decision_result_store.get", return_value=mock_result_store
+            "aragora.server.handlers.decision._decision_result_store.get",
+            return_value=mock_result_store,
         ):
             result = h.handle("/api/v1/decisions", {"limit": "5"}, mock_handler)
             assert result.status_code == 200

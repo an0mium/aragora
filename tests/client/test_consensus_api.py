@@ -303,7 +303,9 @@ class TestFindSimilar:
         assert params["domain"] == "architecture"
         assert params["topic"] == "caching"
 
-    def test_find_similar_with_all_params(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_find_similar_with_all_params(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"debates": []}
         api.find_similar("topic", domain="security", min_confidence=0.5, limit=5)
         params = mock_client._get.call_args[1]["params"]
@@ -312,23 +314,31 @@ class TestFindSimilar:
         assert params["min_confidence"] == 0.5
         assert params["limit"] == 5
 
-    def test_find_similar_no_domain_omits_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_find_similar_no_domain_omits_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"debates": []}
         api.find_similar("topic")
         params = mock_client._get.call_args[1]["params"]
         assert "domain" not in params
 
-    def test_find_similar_empty_response(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_find_similar_empty_response(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"debates": []}
         results = api.find_similar("no matches")
         assert results == []
 
-    def test_find_similar_missing_debates_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_find_similar_missing_debates_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         results = api.find_similar("topic")
         assert results == []
 
-    def test_find_similar_multiple_results(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_find_similar_multiple_results(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         debate2 = {**SAMPLE_SIMILAR_DEBATE, "id": "deb-002", "similarity": 0.75}
         mock_client._get.return_value = {"debates": [SAMPLE_SIMILAR_DEBATE, debate2]}
         results = api.find_similar("rate limiting")
@@ -339,9 +349,7 @@ class TestFindSimilar:
 
     @pytest.mark.asyncio
     async def test_find_similar_async(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"debates": [SAMPLE_SIMILAR_DEBATE]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"debates": [SAMPLE_SIMILAR_DEBATE]})
         results = await api.find_similar_async("rate limiting")
         assert len(results) == 1
         assert results[0].topic == "Rate limiter design"
@@ -351,14 +359,18 @@ class TestFindSimilar:
         )
 
     @pytest.mark.asyncio
-    async def test_find_similar_async_with_domain(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_find_similar_async_with_domain(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"debates": []})
         await api.find_similar_async("topic", domain="ops")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["domain"] == "ops"
 
     @pytest.mark.asyncio
-    async def test_find_similar_async_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_find_similar_async_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         results = await api.find_similar_async("topic")
         assert results == []
@@ -395,40 +407,48 @@ class TestGetSettled:
         assert params["limit"] == 5
         assert params["domain"] == "security"
 
-    def test_get_settled_no_domain_omits_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_settled_no_domain_omits_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"topics": []}
         api.get_settled()
         params = mock_client._get.call_args[1]["params"]
         assert "domain" not in params
 
-    def test_get_settled_empty_response(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_settled_empty_response(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"topics": []}
         results = api.get_settled()
         assert results == []
 
-    def test_get_settled_missing_topics_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_settled_missing_topics_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         results = api.get_settled()
         assert results == []
 
     @pytest.mark.asyncio
     async def test_get_settled_async(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"topics": [SAMPLE_SETTLED_TOPIC]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"topics": [SAMPLE_SETTLED_TOPIC]})
         results = await api.get_settled_async()
         assert len(results) == 1
         assert results[0].confidence == 0.95
 
     @pytest.mark.asyncio
-    async def test_get_settled_async_with_domain(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_settled_async_with_domain(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"topics": []})
         await api.get_settled_async(domain="ops")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["domain"] == "ops"
 
     @pytest.mark.asyncio
-    async def test_get_settled_async_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_settled_async_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         results = await api.get_settled_async()
         assert results == []
@@ -463,7 +483,9 @@ class TestGetDissents:
         params = mock_client._get.call_args[1]["params"]
         assert params["type"] == "fundamental_disagreement"
 
-    def test_get_dissents_with_all_params(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_dissents_with_all_params(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"dissents": []}
         api.get_dissents(topic="caching", dissent_type="risk_warning", limit=5)
         params = mock_client._get.call_args[1]["params"]
@@ -471,14 +493,18 @@ class TestGetDissents:
         assert params["type"] == "risk_warning"
         assert params["limit"] == 5
 
-    def test_get_dissents_no_optional_params_omits_keys(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_dissents_no_optional_params_omits_keys(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"dissents": []}
         api.get_dissents()
         params = mock_client._get.call_args[1]["params"]
         assert "topic" not in params
         assert "type" not in params
 
-    def test_get_dissents_empty_response(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_dissents_empty_response(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"dissents": []}
         results = api.get_dissents()
         assert results == []
@@ -497,15 +523,15 @@ class TestGetDissents:
 
     @pytest.mark.asyncio
     async def test_get_dissents_async(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"dissents": [SAMPLE_DISSENT]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"dissents": [SAMPLE_DISSENT]})
         results = await api.get_dissents_async()
         assert len(results) == 1
         assert results[0].content == "Consider sliding window instead"
 
     @pytest.mark.asyncio
-    async def test_get_dissents_async_with_filters(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_dissents_async_with_filters(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"dissents": []})
         await api.get_dissents_async(topic="t", dissent_type="minor_quibble", limit=3)
         params = mock_client._get_async.call_args[1]["params"]
@@ -514,7 +540,9 @@ class TestGetDissents:
         assert params["limit"] == 3
 
     @pytest.mark.asyncio
-    async def test_get_dissents_async_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_dissents_async_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         results = await api.get_dissents_async()
         assert results == []
@@ -537,19 +565,25 @@ class TestGetRiskWarnings:
             params={"limit": 10},
         )
 
-    def test_get_risk_warnings_with_topic(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_risk_warnings_with_topic(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"warnings": []}
         api.get_risk_warnings(topic="scaling")
         params = mock_client._get.call_args[1]["params"]
         assert params["topic"] == "scaling"
 
-    def test_get_risk_warnings_custom_limit(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_risk_warnings_custom_limit(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"warnings": []}
         api.get_risk_warnings(limit=50)
         params = mock_client._get.call_args[1]["params"]
         assert params["limit"] == 50
 
-    def test_get_risk_warnings_no_topic_omits_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_risk_warnings_no_topic_omits_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"warnings": []}
         api.get_risk_warnings()
         params = mock_client._get.call_args[1]["params"]
@@ -560,29 +594,35 @@ class TestGetRiskWarnings:
         results = api.get_risk_warnings()
         assert results == []
 
-    def test_get_risk_warnings_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_risk_warnings_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         results = api.get_risk_warnings()
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_get_risk_warnings_async(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"warnings": [SAMPLE_RISK_WARNING]}
-        )
+    async def test_get_risk_warnings_async(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
+        mock_client._get_async = AsyncMock(return_value={"warnings": [SAMPLE_RISK_WARNING]})
         results = await api.get_risk_warnings_async()
         assert len(results) == 1
         assert results[0].id == "rw-001"
 
     @pytest.mark.asyncio
-    async def test_get_risk_warnings_async_with_topic(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_risk_warnings_async_with_topic(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"warnings": []})
         await api.get_risk_warnings_async(topic="scaling")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["topic"] == "scaling"
 
     @pytest.mark.asyncio
-    async def test_get_risk_warnings_async_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_risk_warnings_async_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         results = await api.get_risk_warnings_async()
         assert results == []
@@ -594,7 +634,9 @@ class TestGetRiskWarnings:
 
 
 class TestGetContrarianViews:
-    def test_get_contrarian_views_default(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_contrarian_views_default(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         contrarian = {**SAMPLE_DISSENT, "dissent_type": "fundamental_disagreement"}
         mock_client._get.return_value = {"views": [contrarian]}
         results = api.get_contrarian_views()
@@ -605,24 +647,32 @@ class TestGetContrarianViews:
             params={"limit": 10},
         )
 
-    def test_get_contrarian_views_custom_limit(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_contrarian_views_custom_limit(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"views": []}
         api.get_contrarian_views(limit=25)
         params = mock_client._get.call_args[1]["params"]
         assert params["limit"] == 25
 
-    def test_get_contrarian_views_empty(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_contrarian_views_empty(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"views": []}
         results = api.get_contrarian_views()
         assert results == []
 
-    def test_get_contrarian_views_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_get_contrarian_views_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         results = api.get_contrarian_views()
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_get_contrarian_views_async(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_contrarian_views_async(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         contrarian = {**SAMPLE_DISSENT, "dissent_type": "fundamental_disagreement"}
         mock_client._get_async = AsyncMock(return_value={"views": [contrarian]})
         results = await api.get_contrarian_views_async()
@@ -630,14 +680,18 @@ class TestGetContrarianViews:
         assert results[0].dissent_type == "fundamental_disagreement"
 
     @pytest.mark.asyncio
-    async def test_get_contrarian_views_async_custom_limit(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_contrarian_views_async_custom_limit(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"views": []})
         await api.get_contrarian_views_async(limit=3)
         params = mock_client._get_async.call_args[1]["params"]
         assert params["limit"] == 3
 
     @pytest.mark.asyncio
-    async def test_get_contrarian_views_async_missing_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_contrarian_views_async_missing_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         results = await api.get_contrarian_views_async()
         assert results == []
@@ -677,7 +731,9 @@ class TestGetStats:
         assert stats.avg_confidence == 0.85
 
     @pytest.mark.asyncio
-    async def test_get_stats_async_empty(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    async def test_get_stats_async_empty(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={})
         stats = await api.get_stats_async()
         assert stats.total_consensuses == 0
@@ -722,11 +778,7 @@ class TestWorkflows:
         """Get risk warnings and contrarian views for a full risk picture."""
         mock_client._get.side_effect = [
             {"warnings": [SAMPLE_RISK_WARNING]},
-            {
-                "views": [
-                    {**SAMPLE_DISSENT, "dissent_type": "fundamental_disagreement"}
-                ]
-            },
+            {"views": [{**SAMPLE_DISSENT, "dissent_type": "fundamental_disagreement"}]},
         ]
         warnings = api.get_risk_warnings(topic="rate limiting")
         contrarian = api.get_contrarian_views()
@@ -786,7 +838,9 @@ class TestEdgeCases:
         debate = SimilarDebate.from_dict(data)
         assert debate.confidence == "not_a_float"
 
-    def test_dissent_type_param_maps_to_type_key(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_dissent_type_param_maps_to_type_key(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         """The dissent_type Python param maps to 'type' in the API params."""
         mock_client._get.return_value = {"dissents": []}
         api.get_dissents(dissent_type="edge_case_concern")
@@ -800,7 +854,9 @@ class TestEdgeCases:
         params = mock_client._get.call_args[1]["params"]
         assert params["limit"] == 0
 
-    def test_settled_high_confidence_threshold(self, api: ConsensusAPI, mock_client: AragoraClient) -> None:
+    def test_settled_high_confidence_threshold(
+        self, api: ConsensusAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"topics": []}
         api.get_settled(min_confidence=1.0)
         params = mock_client._get.call_args[1]["params"]

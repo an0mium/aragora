@@ -281,9 +281,7 @@ class TestPulseAPITrending:
         assert results[0].title == "AI Safety"
         assert results[0].score == 0.95
         assert results[1].title == "Climate Change"
-        mock_client._get.assert_called_once_with(
-            "/api/pulse/trending", params={"limit": 20}
-        )
+        mock_client._get.assert_called_once_with("/api/pulse/trending", params={"limit": 20})
 
     def test_trending_with_category(self, pulse_api: PulseAPI, mock_client: MagicMock):
         """Test trending() passes category filter."""
@@ -404,9 +402,7 @@ class TestPulseAPISuggest:
         assert results[0].difficulty == "hard"
         assert results[0].estimated_rounds == 4
         assert results[0].suggested_agents == ["claude", "codex"]
-        mock_client._get.assert_called_once_with(
-            "/api/pulse/suggest", params={"count": 5}
-        )
+        mock_client._get.assert_called_once_with("/api/pulse/suggest", params={"count": 5})
 
     def test_suggest_with_domain(self, pulse_api: PulseAPI, mock_client: MagicMock):
         """Test suggest() passes domain filter."""
@@ -650,9 +646,7 @@ class TestPulseAPIRefreshAsync:
 class TestPulseAPIIntegration:
     """Integration-like tests for PulseAPI."""
 
-    def test_trending_to_suggestion_workflow(
-        self, pulse_api: PulseAPI, mock_client: MagicMock
-    ):
+    def test_trending_to_suggestion_workflow(self, pulse_api: PulseAPI, mock_client: MagicMock):
         """Test workflow: get trending -> get suggestions for related domain."""
         # Step 1: Get trending topics
         mock_client._get.return_value = {
@@ -684,9 +678,7 @@ class TestPulseAPIIntegration:
         assert len(suggestions) == 1
         assert "Zero Trust" in suggestions[0].topic
 
-    def test_refresh_then_analytics_workflow(
-        self, pulse_api: PulseAPI, mock_client: MagicMock
-    ):
+    def test_refresh_then_analytics_workflow(self, pulse_api: PulseAPI, mock_client: MagicMock):
         """Test workflow: refresh sources -> check analytics."""
         # Step 1: Refresh
         mock_client._post.return_value = {"refreshed": True}
@@ -709,8 +701,7 @@ class TestPulseAPIIntegration:
         """Test trending() correctly deserializes multiple topics."""
         mock_client._get.return_value = {
             "topics": [
-                {"title": f"Topic {i}", "source": "test", "score": 1.0 - i * 0.1}
-                for i in range(5)
+                {"title": f"Topic {i}", "source": "test", "score": 1.0 - i * 0.1} for i in range(5)
             ]
         }
 

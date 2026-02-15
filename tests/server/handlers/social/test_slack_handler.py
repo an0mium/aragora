@@ -1889,8 +1889,14 @@ class TestSlashCommandDebate:
                 signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
-            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter",
+                return_value=None,
+            ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -1933,8 +1939,14 @@ class TestSlashCommandDebate:
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.server.handlers.social._slack_impl.create_tracked_task"),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter",
+                return_value=None,
+            ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -1985,8 +1997,14 @@ class TestSlashCommandGauntlet:
                 signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
-            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter",
+                return_value=None,
+            ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -2028,8 +2046,14 @@ class TestSlashCommandGauntlet:
                 signing_secret,
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
-            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter",
+                return_value=None,
+            ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
@@ -2090,8 +2114,14 @@ class TestSlashCommandLeaderboard:
             ),
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter", return_value=None),
-            patch("aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter", return_value=None),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_workspace_rate_limiter",
+                return_value=None,
+            ),
+            patch(
+                "aragora.server.handlers.social._slack_impl.commands._get_user_rate_limiter",
+                return_value=None,
+            ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)

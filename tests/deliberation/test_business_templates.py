@@ -80,7 +80,9 @@ class TestBusinessTemplatesRegistered:
 class TestBusinessTemplateCategory:
     """Tests that all business templates have the correct category."""
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_has_business_category(self, template):
         """Each business template has category BUSINESS."""
         assert template.category == TemplateCategory.BUSINESS
@@ -89,22 +91,30 @@ class TestBusinessTemplateCategory:
 class TestBusinessTemplateFields:
     """Tests for field correctness on each business template."""
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_has_default_agents(self, template):
         """Each business template has at least one default agent."""
         assert len(template.default_agents) >= 1
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_has_personas(self, template):
         """Each business template defines personas."""
         assert len(template.personas) >= 2
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_has_business_tag(self, template):
         """Each business template is tagged 'business'."""
         assert "business" in template.tags
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_has_description(self, template):
         """Each business template has a non-empty description."""
         assert len(template.description) > 10
@@ -139,7 +149,9 @@ class TestBusinessTemplateFields:
 class TestBusinessTemplateSerialization:
     """Tests for to_dict/from_dict roundtrip."""
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_to_dict_roundtrip(self, template):
         """Template survives to_dict -> from_dict roundtrip."""
         data = template.to_dict()
@@ -151,20 +163,31 @@ class TestBusinessTemplateSerialization:
         assert restored.max_rounds == template.max_rounds
         assert restored.tags == template.tags
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_to_dict_category_value(self, template):
         """to_dict produces category as string 'business'."""
         data = template.to_dict()
         assert data["category"] == "business"
 
-    @pytest.mark.parametrize("template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES])
+    @pytest.mark.parametrize(
+        "template", BUSINESS_TEMPLATES, ids=[t.name for t in BUSINESS_TEMPLATES]
+    )
     def test_to_dict_has_required_keys(self, template):
         """to_dict output has all required keys."""
         data = template.to_dict()
         required_keys = [
-            "name", "description", "category", "default_agents",
-            "team_strategy", "consensus_threshold", "max_rounds",
-            "output_format", "personas", "tags",
+            "name",
+            "description",
+            "category",
+            "default_agents",
+            "team_strategy",
+            "consensus_threshold",
+            "max_rounds",
+            "output_format",
+            "personas",
+            "tags",
         ]
         for key in required_keys:
             assert key in data, f"Missing key: {key}"

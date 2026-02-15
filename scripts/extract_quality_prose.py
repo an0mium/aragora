@@ -402,7 +402,7 @@ def extract_quality_prose(
     passages.sort(key=lambda p: -p.overall_quality)
 
     if verbose:
-        print(f"\nExtraction Statistics:")
+        print("\nExtraction Statistics:")
         print(f"  Total conversations: {stats['total_conversations']}")
         print(f"  Filtered as tutoring: {stats['filtered_tutoring']}")
         print(f"  Messages scanned: {stats['total_messages_scanned']}")
@@ -539,7 +539,7 @@ def main():
     print(f"Total words: {total_words:,}")
     print(f"Avg quality score: {output_data['metadata']['avg_quality']:.3f}")
 
-    print(f"\nTop 10 passages by quality:")
+    print("\nTop 10 passages by quality:")
     for i, p in enumerate(passages[:10], 1):
         preview = p.text[:80].replace("\n", " ") + "..."
         print(f"  {i}. [{p.role}] (q={p.overall_quality:.2f}) {preview}")

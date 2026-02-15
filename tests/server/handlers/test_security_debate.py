@@ -174,9 +174,7 @@ class TestPostSecurityDebate:
             assert result.status_code == 400
 
     def test_post_findings_not_array(self, handler):
-        with patch.object(
-            handler, "get_json_body", return_value={"findings": "not-an-array"}
-        ):
+        with patch.object(handler, "get_json_body", return_value={"findings": "not-an-array"}):
             result = handler.post_api_v1_audit_security_debate()
             assert result.status_code == 400
 
@@ -194,10 +192,13 @@ class TestPostSecurityDebate:
                 wraps=handler.post_api_v1_audit_security_debate,
             ):
                 # Simulate ImportError by patching the import within the method
-                with patch.dict("sys.modules", {
-                    "aragora.debate.security_debate": None,
-                    "aragora.events.security_events": None,
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.debate.security_debate": None,
+                        "aragora.events.security_events": None,
+                    },
+                ):
                     result = handler.post_api_v1_audit_security_debate()
                     assert result.status_code == 500
 
@@ -232,9 +233,7 @@ class TestPostSecurityDebate:
         mock_finding_obj = MagicMock()
         mock_finding_obj.severity = mock_severity_cls.CRITICAL
 
-        with patch.object(
-            handler, "get_json_body", return_value={"findings": findings}
-        ):
+        with patch.object(handler, "get_json_body", return_value={"findings": findings}):
             with patch.dict("sys.modules", {}):
                 with patch(
                     "aragora.server.handlers.security_debate.run_async",
@@ -248,10 +247,13 @@ class TestPostSecurityDebate:
                     mock_sec_events.SecurityFinding = MagicMock(return_value=mock_finding_obj)
                     mock_sec_events.SecurityEvent = MagicMock(return_value=mock_security_event)
 
-                    with patch.dict("sys.modules", {
-                        "aragora.debate.security_debate": mock_sec_debate,
-                        "aragora.events.security_events": mock_sec_events,
-                    }):
+                    with patch.dict(
+                        "sys.modules",
+                        {
+                            "aragora.debate.security_debate": mock_sec_debate,
+                            "aragora.events.security_events": mock_sec_events,
+                        },
+                    ):
                         result = handler.post_api_v1_audit_security_debate()
                         assert result.status_code == 200
                         data = _parse_body(result)
@@ -270,9 +272,7 @@ class TestHandleRouting:
 
     def test_handle_get_debate_id(self, handler):
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/audit/security/debate/abc-123", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/audit/security/debate/abc-123", {}, mock_handler)
         assert result is not None
         assert result.status_code == 200
         data = _parse_body(result)
@@ -281,16 +281,12 @@ class TestHandleRouting:
     def test_handle_unmatched_returns_none(self, handler):
         mock_handler = _make_mock_handler()
         # The base path alone doesn't match GET (no ID segment)
-        result = handler.handle(
-            "/api/v1/audit/security/debate", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/audit/security/debate", {}, mock_handler)
         assert result is None
 
     def test_handle_too_short_path(self, handler):
         mock_handler = _make_mock_handler()
-        result = handler.handle(
-            "/api/v1/audit/security", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/audit/security", {}, mock_handler)
         assert result is None
 
 
@@ -305,24 +301,18 @@ class TestHandlePostRouting:
     def test_handle_post_debate(self, handler):
         mock_handler = _make_mock_handler("POST")
         with patch.object(handler, "get_json_body", return_value=None):
-            result = handler.handle_post(
-                "/api/v1/audit/security/debate", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/audit/security/debate", {}, mock_handler)
             assert result is not None
             assert result.status_code == 400  # No body
 
     def test_handle_post_unmatched_returns_none(self, handler):
         mock_handler = _make_mock_handler("POST")
-        result = handler.handle_post(
-            "/api/v1/audit/security/debate/abc-123", {}, mock_handler
-        )
+        result = handler.handle_post("/api/v1/audit/security/debate/abc-123", {}, mock_handler)
         assert result is None
 
     def test_handle_post_trailing_slash(self, handler):
         mock_handler = _make_mock_handler("POST")
         with patch.object(handler, "get_json_body", return_value=None):
-            result = handler.handle_post(
-                "/api/v1/audit/security/debate/", {}, mock_handler
-            )
+            result = handler.handle_post("/api/v1/audit/security/debate/", {}, mock_handler)
             # Trailing slash stripped should still match
             assert result is not None

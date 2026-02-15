@@ -102,6 +102,7 @@ def handler():
 def _reset_rate_limiter():
     """Reset the rate limiter between tests."""
     import aragora.server.handlers.introspection as mod
+
     mod._introspection_limiter = mod.RateLimiter(requests_per_minute=1000)
     yield
 
@@ -209,15 +210,14 @@ class TestGetAgentIntrospection:
 
     def test_get_agent_success(self, handler):
         mock_snapshot = MockIntrospectionSnapshot("claude")
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler._get_agent_introspection("claude")
             assert result.status_code == 200
@@ -225,23 +225,20 @@ class TestGetAgentIntrospection:
             assert data["agent_name"] == "claude"
 
     def test_get_agent_not_found(self, handler):
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=None,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=None,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler._get_agent_introspection("nonexistent")
             assert result.status_code == 404
 
     def test_get_agent_module_unavailable(self, handler):
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
             result = handler._get_agent_introspection("claude")
             assert result.status_code == 503
 
@@ -256,15 +253,14 @@ class TestGetAllIntrospection:
 
     def test_get_all_success(self, handler):
         mock_snapshot = MockIntrospectionSnapshot("claude")
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler._get_all_introspection()
             assert result.status_code == 200
@@ -273,9 +269,7 @@ class TestGetAllIntrospection:
             assert data["count"] > 0
 
     def test_get_all_module_unavailable(self, handler):
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
             result = handler._get_all_introspection()
             assert result.status_code == 503
 
@@ -290,15 +284,14 @@ class TestGetLeaderboard:
 
     def test_leaderboard_success(self, handler):
         mock_snapshot = MockIntrospectionSnapshot("claude", 0.85)
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler._get_introspection_leaderboard(10)
             assert result.status_code == 200
@@ -308,15 +301,14 @@ class TestGetLeaderboard:
 
     def test_leaderboard_respects_limit(self, handler):
         mock_snapshot = MockIntrospectionSnapshot("claude")
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler._get_introspection_leaderboard(2)
             assert result.status_code == 200
@@ -324,9 +316,7 @@ class TestGetLeaderboard:
             assert len(data["leaderboard"]) <= 2
 
     def test_leaderboard_module_unavailable(self, handler):
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", False):
             result = handler._get_introspection_leaderboard(10)
             assert result.status_code == 503
 
@@ -355,12 +345,15 @@ class TestGetAgentAvailability:
             assert "claude" in data["details"]
 
     def test_availability_module_unavailable(self, handler):
-        with patch(
-            "aragora.agents.credential_validator.get_agent_credential_status",
-            side_effect=ImportError("not available"),
-        ), patch.dict(
-            "sys.modules",
-            {"aragora.agents.credential_validator": None},
+        with (
+            patch(
+                "aragora.agents.credential_validator.get_agent_credential_status",
+                side_effect=ImportError("not available"),
+            ),
+            patch.dict(
+                "sys.modules",
+                {"aragora.agents.credential_validator": None},
+            ),
         ):
             # The handler catches ImportError at the module level
             # We need to simulate the import failure inside the method
@@ -380,15 +373,14 @@ class TestHandleRouting:
     def test_handle_all(self, handler):
         mock_handler = _make_mock_handler()
         mock_snapshot = MockIntrospectionSnapshot("claude")
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler.handle.__wrapped__(handler, "/api/introspection/all", {}, mock_handler)
             assert result is not None
@@ -397,24 +389,27 @@ class TestHandleRouting:
     def test_handle_leaderboard(self, handler):
         mock_handler = _make_mock_handler()
         mock_snapshot = MockIntrospectionSnapshot("claude")
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
-            result = handler.handle.__wrapped__(handler, "/api/introspection/leaderboard", {}, mock_handler)
+            result = handler.handle.__wrapped__(
+                handler, "/api/introspection/leaderboard", {}, mock_handler
+            )
             assert result is not None
             assert result.status_code == 200
 
     def test_handle_agents_list(self, handler):
         mock_handler = _make_mock_handler()
         with patch.object(handler, "_get_critique_store", return_value=None):
-            result = handler.handle.__wrapped__(handler, "/api/introspection/agents", {}, mock_handler)
+            result = handler.handle.__wrapped__(
+                handler, "/api/introspection/agents", {}, mock_handler
+            )
             assert result is not None
             assert result.status_code == 200
 
@@ -424,22 +419,23 @@ class TestHandleRouting:
             "aragora.agents.credential_validator.get_agent_credential_status",
             return_value={"claude": MockCredentialStatus(True)},
         ):
-            result = handler.handle.__wrapped__(handler, "/api/introspection/agents/availability", {}, mock_handler)
+            result = handler.handle.__wrapped__(
+                handler, "/api/introspection/agents/availability", {}, mock_handler
+            )
             assert result is not None
             assert result.status_code == 200
 
     def test_handle_specific_agent(self, handler):
         mock_handler = _make_mock_handler()
         mock_snapshot = MockIntrospectionSnapshot("claude")
-        with patch(
-            "aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.introspection.get_agent_introspection",
-            return_value=mock_snapshot,
-        ), patch.object(
-            handler, "_get_critique_store", return_value=None
-        ), patch.object(
-            handler, "_get_persona_manager", return_value=None
+        with (
+            patch("aragora.server.handlers.introspection.INTROSPECTION_AVAILABLE", True),
+            patch(
+                "aragora.server.handlers.introspection.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+            patch.object(handler, "_get_critique_store", return_value=None),
+            patch.object(handler, "_get_persona_manager", return_value=None),
         ):
             result = handler.handle.__wrapped__(
                 handler, "/api/introspection/agents/claude", {}, mock_handler
@@ -449,20 +445,17 @@ class TestHandleRouting:
 
     def test_handle_unmatched_returns_none(self, handler):
         mock_handler = _make_mock_handler()
-        result = handler.handle.__wrapped__(
-            handler, "/api/introspection/unknown", {}, mock_handler
-        )
+        result = handler.handle.__wrapped__(handler, "/api/introspection/unknown", {}, mock_handler)
         assert result is None
 
     def test_handle_rate_limited(self, handler):
         import aragora.server.handlers.introspection as mod
+
         mod._introspection_limiter = mod.RateLimiter(requests_per_minute=0)
 
         mock_handler = _make_mock_handler()
         with patch.object(mod._introspection_limiter, "is_allowed", return_value=False):
-            result = handler.handle.__wrapped__(
-                handler, "/api/introspection/all", {}, mock_handler
-            )
+            result = handler.handle.__wrapped__(handler, "/api/introspection/all", {}, mock_handler)
             assert result is not None
             assert result.status_code == 429
 
@@ -476,15 +469,11 @@ class TestDependencyGetters:
     """Tests for dependency getter methods."""
 
     def test_get_critique_store_unavailable(self, handler):
-        with patch(
-            "aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.CRITIQUE_STORE_AVAILABLE", False):
             assert handler._get_critique_store() is None
 
     def test_get_persona_manager_unavailable(self, handler):
-        with patch(
-            "aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.introspection.PERSONA_MANAGER_AVAILABLE", False):
             assert handler._get_persona_manager() is None
 
     def test_get_known_agents_with_store(self, handler):

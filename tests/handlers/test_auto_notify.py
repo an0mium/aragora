@@ -21,15 +21,11 @@ class TestOrchestrationRequestNotifyDefault:
         assert req.notify is True
 
     def test_notify_opt_out_via_dict(self):
-        req = OrchestrationRequest.from_dict(
-            {"question": "Test question", "notify": False}
-        )
+        req = OrchestrationRequest.from_dict({"question": "Test question", "notify": False})
         assert req.notify is False
 
     def test_notify_explicit_true_via_dict(self):
-        req = OrchestrationRequest.from_dict(
-            {"question": "Test question", "notify": True}
-        )
+        req = OrchestrationRequest.from_dict({"question": "Test question", "notify": True})
         assert req.notify is True
 
 

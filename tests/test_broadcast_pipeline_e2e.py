@@ -16,7 +16,6 @@ from unittest.mock import Mock, MagicMock, AsyncMock, patch
 import tempfile
 
 
-
 # ============================================================================
 # Test Fixtures
 # ============================================================================
@@ -64,7 +63,6 @@ def temp_output_dir():
 class TestScriptGeneration:
     """Tests for debate-to-script conversion."""
 
-
     def test_generate_script_from_debate(self, mock_debate):
         """Test generating broadcast script from debate."""
         from aragora.broadcast.script_gen import generate_script
@@ -74,7 +72,6 @@ class TestScriptGeneration:
         assert script is not None
         assert len(script.segments) > 0
 
-
     def test_script_includes_all_speakers(self, mock_debate):
         """Test script includes all debate participants."""
         from aragora.broadcast.script_gen import generate_script
@@ -83,7 +80,6 @@ class TestScriptGeneration:
 
         speakers = set(seg.speaker for seg in script.segments)
         assert "claude" in speakers or "narrator" in speakers
-
 
     def test_script_has_intro_and_outro(self, mock_debate):
         """Test script has introduction and conclusion."""
@@ -107,7 +103,6 @@ class TestAudioGeneration:
     """Tests for audio synthesis."""
 
     @pytest.mark.asyncio
-
     async def test_audio_engine_initialization(self):
         """Test audio engine can be initialized."""
         from aragora.broadcast.audio_engine import AudioEngine
@@ -116,7 +111,6 @@ class TestAudioGeneration:
         assert engine is not None
 
     @pytest.mark.asyncio
-
     async def test_generate_audio_for_segment(self):
         """Test generating audio for a script segment."""
         from aragora.broadcast.audio_engine import AudioEngine
@@ -133,7 +127,6 @@ class TestAudioGeneration:
             )
 
             assert result is not None
-
 
     def test_voice_mapping(self):
         """Test agent to voice mapping."""
@@ -156,14 +149,12 @@ class TestAudioGeneration:
 class TestVideoGeneration:
     """Tests for video generation (requires FFmpeg)."""
 
-
     def test_video_generator_available(self):
         """Test video generator module is available."""
         from aragora.broadcast.video_gen import VideoGenerator
 
         generator = VideoGenerator()
         assert generator is not None
-
 
     def test_check_ffmpeg_available(self):
         """Test FFmpeg availability check."""
@@ -182,7 +173,6 @@ class TestVideoGeneration:
 class TestRSSGeneration:
     """Tests for RSS feed generation."""
 
-
     def test_create_rss_episode(self, mock_debate):
         """Test creating an RSS episode entry."""
         from aragora.broadcast.rss_gen import create_episode
@@ -196,7 +186,6 @@ class TestRSSGeneration:
         assert episode["title"] is not None
         assert episode["audio_url"] == "https://example.com/audio.mp3"
         assert episode["duration"] == 120
-
 
     def test_generate_rss_feed(self):
         """Test generating full RSS feed XML."""
@@ -231,7 +220,6 @@ class TestBroadcastPipeline:
     """Integration tests for the full broadcast pipeline."""
 
     @pytest.mark.asyncio
-
     async def test_full_pipeline_execution(self, mock_debate, temp_output_dir):
         """Test running the complete broadcast pipeline."""
         from aragora.broadcast.pipeline import BroadcastPipeline
@@ -261,7 +249,6 @@ class TestBroadcastPipeline:
             assert result.success or result.error_message is not None
 
     @pytest.mark.asyncio
-
     async def test_pipeline_with_video(self, mock_debate, temp_output_dir):
         """Test pipeline with video generation enabled."""
         from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
@@ -297,7 +284,6 @@ class TestBroadcastPipeline:
             assert result.video_path is not None or mock_video.called
 
     @pytest.mark.asyncio
-
     async def test_pipeline_step_tracking(self, mock_debate, temp_output_dir):
         """Test that pipeline reports completed steps."""
         from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
@@ -328,7 +314,6 @@ class TestBroadcastPipeline:
 class TestBroadcastHandlerIntegration:
     """Integration tests for broadcast API handlers."""
 
-
     def test_handler_routes(self):
         """Test broadcast handler routes are registered."""
         from aragora.server.handlers.features import BroadcastHandler
@@ -339,7 +324,6 @@ class TestBroadcastHandlerIntegration:
         assert len(handler.ROUTES) > 0
 
     @pytest.mark.asyncio
-
     async def test_get_pipeline(self, mock_storage):
         """Test getting pipeline from handler."""
         from aragora.server.handlers.features import BroadcastHandler
@@ -360,7 +344,6 @@ class TestBroadcastHandlerIntegration:
 class TestBroadcastStorage:
     """Tests for broadcast file storage."""
 
-
     def test_storage_path_generation(self, temp_output_dir):
         """Test storage path generation for broadcasts."""
         from aragora.broadcast.storage import BroadcastStorage
@@ -370,7 +353,6 @@ class TestBroadcastStorage:
         path = storage.get_audio_path("debate-123")
 
         assert "debate-123" in str(path)
-
 
     def test_storage_saves_audio(self, temp_output_dir):
         """Test saving audio file to storage."""
@@ -395,7 +377,6 @@ class TestBroadcastErrorHandling:
     """Tests for error handling in broadcast pipeline."""
 
     @pytest.mark.asyncio
-
     async def test_pipeline_handles_tts_failure(self, mock_debate, temp_output_dir):
         """Test pipeline propagates TTS service failure."""
         from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
@@ -416,7 +397,6 @@ class TestBroadcastErrorHandling:
                 await pipeline.run("test-debate-123", options=options)
 
             assert "TTS" in str(exc_info.value) or "unavailable" in str(exc_info.value)
-
 
     def test_rss_handles_missing_fields(self):
         """Test RSS generator handles debates with missing fields."""

@@ -204,8 +204,7 @@ class TestConsensusMemoryLeaderboardChain:
 
             # Capture initial ELO values (floats, not mutable AgentRating objects)
             initial_elos = {
-                agent.name: elo_system.get_rating(agent.name).elo
-                for agent in mock_agents
+                agent.name: elo_system.get_rating(agent.name).elo for agent in mock_agents
             }
 
             # Run debate
@@ -223,14 +222,11 @@ class TestConsensusMemoryLeaderboardChain:
 
             # Verify ratings changed
             final_elos = {
-                agent.name: elo_system.get_rating(agent.name).elo
-                for agent in mock_agents
+                agent.name: elo_system.get_rating(agent.name).elo for agent in mock_agents
             }
 
             # At least one rating should have changed
-            assert any(
-                initial_elos[name] != final_elos[name] for name in initial_elos
-            )
+            assert any(initial_elos[name] != final_elos[name] for name in initial_elos)
 
 
 # =============================================================================

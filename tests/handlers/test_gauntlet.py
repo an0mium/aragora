@@ -219,7 +219,9 @@ class TestGauntletHandlerInit:
 
     def test_handler_sets_broadcast_fn_if_emitter(self, mock_server_context):
         """Handler sets broadcast function if stream_emitter is provided."""
-        with patch("aragora.server.handlers.gauntlet.handler.set_gauntlet_broadcast_fn") as mock_set:
+        with patch(
+            "aragora.server.handlers.gauntlet.handler.set_gauntlet_broadcast_fn"
+        ) as mock_set:
             handler = GauntletHandler(mock_server_context)
             mock_set.assert_called_once()
 

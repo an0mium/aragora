@@ -152,11 +152,11 @@ Examples:
         print(f"Processed: {result.items_processed}  Skipped: {result.items_skipped}")
         print(f"Duration: {result.duration_seconds:.1f}s")
         if result.errors:
-            print(f"\nErrors:")
+            print("\nErrors:")
             for err in result.errors:
                 print(f"  - {err}")
         if result.details:
-            print(f"\nDetails:")
+            print("\nDetails:")
             for detail in result.details:
                 print(f"  {json.dumps(detail)}")
         print(f"{'=' * 50}")

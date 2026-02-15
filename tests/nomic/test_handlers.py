@@ -180,9 +180,7 @@ async def test_create_recovery_handler_binds_dependencies(monkeypatch, tmp_path)
 
     with patch(
         "aragora.nomic.handlers.core_recovery_handler",
-        new=AsyncMock(
-            return_value=(NomicState.IMPLEMENT, {"decision": {"strategy": "SKIP"}})
-        ),
+        new=AsyncMock(return_value=(NomicState.IMPLEMENT, {"decision": {"strategy": "SKIP"}})),
     ):
         next_state, data = await handler(context, event)
 

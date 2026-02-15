@@ -84,13 +84,17 @@ class TestGetPreferences:
         prefs = api.get_preferences()
         assert prefs == []
 
-    def test_get_preferences_missing_key(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_get_preferences_missing_key(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         prefs = api.get_preferences()
         assert prefs == []
 
     @pytest.mark.asyncio
-    async def test_get_preferences_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_get_preferences_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"preferences": [SAMPLE_PREFERENCE]})
         prefs = await api.get_preferences_async()
         assert len(prefs) == 1
@@ -98,7 +102,9 @@ class TestGetPreferences:
 
 
 class TestUpdatePreference:
-    def test_update_preference_all_fields(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_update_preference_all_fields(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._patch.return_value = {"preference": SAMPLE_PREFERENCE}
         result = api.update_preference(
             event_type="debate_completed",
@@ -114,7 +120,9 @@ class TestUpdatePreference:
         assert body["channels"] == ["email", "slack"]
         assert body["frequency"] == "immediate"
 
-    def test_update_preference_minimal(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_update_preference_minimal(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._patch.return_value = {"preference": SAMPLE_PREFERENCE}
         api.update_preference(event_type="debate_completed")
         body = mock_client._patch.call_args[0][1]
@@ -123,7 +131,9 @@ class TestUpdatePreference:
         assert "channels" not in body
         assert "frequency" not in body
 
-    def test_update_preference_partial(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_update_preference_partial(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._patch.return_value = {"preference": SAMPLE_PREFERENCE}
         api.update_preference(event_type="debate_completed", frequency="daily")
         body = mock_client._patch.call_args[0][1]
@@ -132,17 +142,22 @@ class TestUpdatePreference:
         assert "enabled" not in body
         assert "channels" not in body
 
-    def test_update_preference_fallback_parse(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_update_preference_fallback_parse(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         """When response has no 'preference' key, parse the response itself."""
         mock_client._patch.return_value = SAMPLE_PREFERENCE
         result = api.update_preference(event_type="debate_completed")
         assert result.event_type == "debate_completed"
 
     @pytest.mark.asyncio
-    async def test_update_preference_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_update_preference_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._patch_async = AsyncMock(return_value={"preference": SAMPLE_PREFERENCE})
         result = await api.update_preference_async(
-            event_type="debate_completed", enabled=False,
+            event_type="debate_completed",
+            enabled=False,
         )
         assert isinstance(result, NotificationPreference)
         body = mock_client._patch_async.call_args[0][1]
@@ -158,7 +173,9 @@ class TestMuteUnmute:
         assert body["action"] == "mute"
         assert "duration_hours" not in body
 
-    def test_mute_all_with_duration(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_mute_all_with_duration(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {}
         result = api.mute_all(duration_hours=4)
         assert result is True
@@ -181,7 +198,9 @@ class TestMuteUnmute:
         assert body["duration_hours"] == 8
 
     @pytest.mark.asyncio
-    async def test_unmute_all_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_unmute_all_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={})
         result = await api.unmute_all_async()
         assert result is True
@@ -208,13 +227,17 @@ class TestListChannels:
         channels = api.list_channels()
         assert channels == []
 
-    def test_list_channels_missing_key(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_list_channels_missing_key(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {}
         channels = api.list_channels()
         assert channels == []
 
     @pytest.mark.asyncio
-    async def test_list_channels_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_list_channels_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"channels": [SAMPLE_CHANNEL]})
         channels = await api.list_channels_async()
         assert len(channels) == 1
@@ -222,7 +245,9 @@ class TestListChannels:
 
 
 class TestConfigureChannel:
-    def test_configure_channel_full(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_configure_channel_full(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"channel": SAMPLE_CHANNEL}
         result = api.configure_channel(
             channel_type="slack",
@@ -238,7 +263,9 @@ class TestConfigureChannel:
         assert body["target"] == "#decisions"
         assert body["settings"] == {"mention_users": True}
 
-    def test_configure_channel_minimal(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_configure_channel_minimal(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"channel": {"type": "email", "enabled": True}}
         api.configure_channel(channel_type="email")
         body = mock_client._post.call_args[0][1]
@@ -246,24 +273,31 @@ class TestConfigureChannel:
         assert "target" not in body
         assert "settings" not in body
 
-    def test_configure_channel_disabled(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_configure_channel_disabled(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"channel": {"type": "webhook", "enabled": False}}
         result = api.configure_channel(channel_type="webhook", enabled=False)
         assert result.enabled is False
         body = mock_client._post.call_args[0][1]
         assert body["enabled"] is False
 
-    def test_configure_channel_fallback_parse(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_configure_channel_fallback_parse(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         """When response has no 'channel' key, parse the response itself."""
         mock_client._post.return_value = SAMPLE_CHANNEL
         result = api.configure_channel(channel_type="slack", target="#decisions")
         assert result.type == "slack"
 
     @pytest.mark.asyncio
-    async def test_configure_channel_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_configure_channel_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"channel": SAMPLE_CHANNEL})
         result = await api.configure_channel_async(
-            channel_type="slack", target="#decisions",
+            channel_type="slack",
+            target="#decisions",
         )
         assert result.type == "slack"
 
@@ -275,10 +309,14 @@ class TestTestChannel:
         assert result is True
         body = mock_client._post.call_args[0][1]
         assert body == {"type": "email"}
-        mock_client._post.assert_called_once_with("/api/v1/notifications/channels/test", {"type": "email"})
+        mock_client._post.assert_called_once_with(
+            "/api/v1/notifications/channels/test", {"type": "email"}
+        )
 
     @pytest.mark.asyncio
-    async def test_test_channel_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_test_channel_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={})
         result = await api.test_channel_async("slack")
         assert result is True
@@ -340,7 +378,9 @@ class TestListNotifications:
         assert notifications[0].type == "debate_completed"
 
     @pytest.mark.asyncio
-    async def test_list_async_with_filters(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_list_async_with_filters(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"notifications": [], "total": 0})
         await api.list_async(status="read", type_filter="alert", limit=25, offset=10)
         params = mock_client._get_async.call_args[1]["params"]
@@ -356,7 +396,9 @@ class TestMarkAsRead:
         mock_client._post.assert_called_once_with("/api/v1/notifications/notif-001/read", {})
 
     @pytest.mark.asyncio
-    async def test_mark_as_read_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_mark_as_read_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={})
         result = await api.mark_as_read_async("notif-002")
         assert result is True
@@ -375,13 +417,17 @@ class TestMarkAllAsRead:
         count = api.mark_all_as_read()
         assert count == 0
 
-    def test_mark_all_as_read_missing_count(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    def test_mark_all_as_read_missing_count(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {}
         count = api.mark_all_as_read()
         assert count == 0
 
     @pytest.mark.asyncio
-    async def test_mark_all_as_read_async(self, api: NotificationsAPI, mock_client: AragoraClient) -> None:
+    async def test_mark_all_as_read_async(
+        self, api: NotificationsAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"count": 7})
         count = await api.mark_all_as_read_async()
         assert count == 7
@@ -437,14 +483,26 @@ class TestParseNotification:
         assert result.sent_at.year == 2026
 
     def test_parse_missing_datetimes(self, api: NotificationsAPI) -> None:
-        data = {"id": "n1", "type": "alert", "title": "t", "message": "m", "status": "pending", "priority": "low"}
+        data = {
+            "id": "n1",
+            "type": "alert",
+            "title": "t",
+            "message": "m",
+            "status": "pending",
+            "priority": "low",
+        }
         result = api._parse_notification(data)
         assert result.created_at is None
         assert result.sent_at is None
         assert result.read_at is None
 
     def test_parse_invalid_datetime(self, api: NotificationsAPI) -> None:
-        data = {**SAMPLE_NOTIFICATION, "created_at": "not-a-date", "sent_at": "bad", "read_at": "invalid"}
+        data = {
+            **SAMPLE_NOTIFICATION,
+            "created_at": "not-a-date",
+            "sent_at": "bad",
+            "read_at": "invalid",
+        }
         result = api._parse_notification(data)
         assert result.created_at is None
         assert result.sent_at is None
@@ -518,7 +576,9 @@ class TestDataclasses:
 
     def test_notification_channel_full(self) -> None:
         ch = NotificationChannel(
-            type="webhook", enabled=False, target="https://example.com/hook",
+            type="webhook",
+            enabled=False,
+            target="https://example.com/hook",
             settings={"retry": True},
         )
         assert ch.type == "webhook"
@@ -544,7 +604,9 @@ class TestDataclasses:
         assert pref.frequency == "weekly"
 
     def test_notification_defaults(self) -> None:
-        n = Notification(id="n1", type="alert", title="T", message="M", status="pending", priority="low")
+        n = Notification(
+            id="n1", type="alert", title="T", message="M", status="pending", priority="low"
+        )
         assert n.created_at is None
         assert n.sent_at is None
         assert n.read_at is None
@@ -561,8 +623,12 @@ class TestDataclasses:
 
     def test_notification_stats_custom(self) -> None:
         stats = NotificationStats(
-            total_sent=50, total_delivered=48, total_failed=2,
-            total_read=30, delivery_rate=0.96, read_rate=0.625,
+            total_sent=50,
+            total_delivered=48,
+            total_failed=2,
+            total_read=30,
+            delivery_rate=0.96,
+            read_rate=0.625,
         )
         assert stats.total_sent == 50
         assert stats.delivery_rate == 0.96

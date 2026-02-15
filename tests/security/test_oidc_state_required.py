@@ -31,9 +31,7 @@ def _make_oidc_provider() -> OIDCProvider:
         jwks_uri="https://issuer.example.com/.well-known/jwks.json",
         validate_tokens=True,
     )
-    with patch(
-        "aragora.auth.oidc.validate_oidc_security_settings"
-    ):
+    with patch("aragora.auth.oidc.validate_oidc_security_settings"):
         return OIDCProvider(config)
 
 
@@ -97,9 +95,7 @@ class TestOIDCStateRequired:
         # Mock _exchange_code to raise a known error so we can confirm
         # that state validation passed and execution reached token exchange.
         sentinel_msg = "MOCK_TOKEN_EXCHANGE_REACHED"
-        provider._exchange_code = AsyncMock(
-            side_effect=SSOAuthenticationError(sentinel_msg)
-        )
+        provider._exchange_code = AsyncMock(side_effect=SSOAuthenticationError(sentinel_msg))
 
         with pytest.raises(SSOAuthenticationError) as exc_info:
             await provider.authenticate(code="auth-code-123", state=valid_state)

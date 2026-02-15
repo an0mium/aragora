@@ -108,6 +108,9 @@ class TestSelectionFeedbackAutoInit:
         )
         coord = config.create_coordinator(protocol=None, loop_id="test")
         assert coord.selection_feedback_loop is not None
-        assert coord.selection_feedback_loop.config.performance_to_selection_weight == pytest.approx(0.25)
+        assert (
+            coord.selection_feedback_loop.config.performance_to_selection_weight
+            == pytest.approx(0.25)
+        )
         assert coord.selection_feedback_loop.config.feedback_decay_factor == pytest.approx(0.85)
         assert coord.selection_feedback_loop.config.min_debates_for_feedback == 7

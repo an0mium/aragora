@@ -28,12 +28,15 @@ _mock_service_cls = MagicMock()
 _mock_threat_type = MagicMock()
 _mock_threat_type.SUSPICIOUS = "suspicious"
 
-with patch.dict("sys.modules", {
-    "aragora.services.threat_intelligence": MagicMock(
-        ThreatIntelligenceService=_mock_service_cls,
-        ThreatType=_mock_threat_type,
-    ),
-}):
+with patch.dict(
+    "sys.modules",
+    {
+        "aragora.services.threat_intelligence": MagicMock(
+            ThreatIntelligenceService=_mock_service_cls,
+            ThreatType=_mock_threat_type,
+        ),
+    },
+):
     from aragora.server.handlers.threat_intel import (
         ThreatIntelHandler,
         get_threat_service,
@@ -164,6 +167,7 @@ class TestThreatIntelHandlerBasics:
     def test_get_threat_service_creates_singleton(self):
         """get_threat_service returns a service instance."""
         import aragora.server.handlers.threat_intel as mod
+
         original = mod._threat_service
         try:
             mod._threat_service = None
@@ -205,7 +209,9 @@ class TestCheckUrl:
         ):
             await _unwrap(handler.check_url)(handler, MockRequest())
             call_kwargs = mock_service.check_url.call_args
-            assert call_kwargs.kwargs.get("url", call_kwargs[1].get("url", "")).startswith("https://")
+            assert call_kwargs.kwargs.get("url", call_kwargs[1].get("url", "")).startswith(
+                "https://"
+            )
 
     @pytest.mark.asyncio
     async def test_check_url_empty_url(self, handler, mock_service):

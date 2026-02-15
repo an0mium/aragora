@@ -53,8 +53,10 @@ class TestSchedulerAnalytics:
             "by_platform": {"hackernews": {"total": 5}},
         }
 
-        with patch(_SCHEDULER_PATCH, return_value=mock_scheduler), \
-             patch(_STORE_PATCH, return_value=mock_store):
+        with (
+            patch(_SCHEDULER_PATCH, return_value=mock_scheduler),
+            patch(_STORE_PATCH, return_value=mock_store),
+        ):
             result = handler._get_scheduler_analytics()
 
         body = result[0]
@@ -72,8 +74,10 @@ class TestSchedulerAnalytics:
         mock_scheduler = MagicMock()
         mock_scheduler.metrics.to_dict.return_value = {"polls_total": 5}
 
-        with patch(_SCHEDULER_PATCH, return_value=mock_scheduler), \
-             patch(_STORE_PATCH, return_value=None):
+        with (
+            patch(_SCHEDULER_PATCH, return_value=mock_scheduler),
+            patch(_STORE_PATCH, return_value=None),
+        ):
             result = handler._get_scheduler_analytics()
 
         body = result[0]
@@ -98,8 +102,20 @@ class TestTopicOutcomes:
             created_at=1700000000.0,
         )
         mock_store.fetch_all.return_value = [
-            ("rec-1", "abc123", "AI safety debate", "hackernews", "tech", 100,
-             "debate-123", 1700000000.0, 1, 0.85, 3, "run-1"),
+            (
+                "rec-1",
+                "abc123",
+                "AI safety debate",
+                "hackernews",
+                "tech",
+                100,
+                "debate-123",
+                1700000000.0,
+                1,
+                0.85,
+                3,
+                "run-1",
+            ),
         ]
         mock_store._row_to_record.return_value = record
 
@@ -128,8 +144,10 @@ class TestTopicOutcomes:
         outcome.timestamp = 1700000000
         mock_manager._outcomes = [outcome]
 
-        with patch(_STORE_PATCH, return_value=mock_store), \
-             patch(_MANAGER_PATCH, return_value=mock_manager):
+        with (
+            patch(_STORE_PATCH, return_value=mock_store),
+            patch(_MANAGER_PATCH, return_value=mock_manager),
+        ):
             result = handler._get_topic_outcomes("debate-456")
 
         body = result[0]
@@ -140,8 +158,7 @@ class TestTopicOutcomes:
         mock_store = MagicMock()
         mock_store.fetch_all.return_value = []
 
-        with patch(_STORE_PATCH, return_value=mock_store), \
-             patch(_MANAGER_PATCH, return_value=None):
+        with patch(_STORE_PATCH, return_value=mock_store), patch(_MANAGER_PATCH, return_value=None):
             result = handler._get_topic_outcomes("nonexistent")
 
         assert result[1] == 404
@@ -150,21 +167,57 @@ class TestTopicOutcomes:
 
     def test_multiple_outcomes_returned(self, handler):
         record1 = MockRecord(
-            id="rec-1", topic_text="AI safety", platform="hackernews",
-            category="tech", debate_id="d-1", consensus_reached=True,
-            confidence=0.9, rounds_used=3, created_at=1700000000.0,
+            id="rec-1",
+            topic_text="AI safety",
+            platform="hackernews",
+            category="tech",
+            debate_id="d-1",
+            consensus_reached=True,
+            confidence=0.9,
+            rounds_used=3,
+            created_at=1700000000.0,
         )
         record2 = MockRecord(
-            id="rec-2", topic_text="AI safety", platform="reddit",
-            category="tech", debate_id="d-2", consensus_reached=False,
-            confidence=0.5, rounds_used=5, created_at=1700001000.0,
+            id="rec-2",
+            topic_text="AI safety",
+            platform="reddit",
+            category="tech",
+            debate_id="d-2",
+            consensus_reached=False,
+            confidence=0.5,
+            rounds_used=5,
+            created_at=1700001000.0,
         )
         mock_store = MagicMock()
         mock_store.fetch_all.return_value = [
-            ("rec-1", "abc", "AI safety", "hackernews", "tech", 100,
-             "d-1", 1700000000.0, 1, 0.9, 3, "r-1"),
-            ("rec-2", "abc", "AI safety", "reddit", "tech", 50,
-             "d-2", 1700001000.0, 0, 0.5, 5, "r-2"),
+            (
+                "rec-1",
+                "abc",
+                "AI safety",
+                "hackernews",
+                "tech",
+                100,
+                "d-1",
+                1700000000.0,
+                1,
+                0.9,
+                3,
+                "r-1",
+            ),
+            (
+                "rec-2",
+                "abc",
+                "AI safety",
+                "reddit",
+                "tech",
+                50,
+                "d-2",
+                1700001000.0,
+                0,
+                0.5,
+                5,
+                "r-2",
+            ),
         ]
         mock_store._row_to_record.side_effect = [record1, record2]
 

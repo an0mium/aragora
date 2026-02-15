@@ -843,10 +843,14 @@ class TestERC8004HandlerRouting:
         """Should route agent registration path correctly."""
         post_handler = MockHandler(command="POST", body={})
         with (
-            patch.object(handler_instance, "read_json_body", return_value={
-                "agent_uri": "ipfs://QmAgent",
-                "metadata": {"role": "critic"},
-            }),
+            patch.object(
+                handler_instance,
+                "read_json_body",
+                return_value={
+                    "agent_uri": "ipfs://QmAgent",
+                    "metadata": {"role": "critic"},
+                },
+            ),
             patch.object(erc8004, "handle_register_agent") as mock_fn,
         ):
             mock_fn.return_value = {"status": 201, "body": "{}"}

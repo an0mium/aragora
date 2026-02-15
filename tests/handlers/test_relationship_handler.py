@@ -51,9 +51,7 @@ class TestRelationshipSummary:
 
     def test_rivals_sorted_by_rivalry_score(self, handler, mock_tracker):
         with patch(_TRACKER_PATCH, return_value=mock_tracker):
-            result = handler.handle(
-                "/api/v1/agents/claude/relationships", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/relationships", {}, MagicMock())
         body = result[0]
         assert body["agent"] == "claude"
         assert len(body["rivals"]) == 2
@@ -62,9 +60,7 @@ class TestRelationshipSummary:
 
     def test_allies_sorted_by_alliance_score(self, handler, mock_tracker):
         with patch(_TRACKER_PATCH, return_value=mock_tracker):
-            result = handler.handle(
-                "/api/v1/agents/claude/relationships", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/relationships", {}, MagicMock())
         body = result[0]
         assert len(body["allies"]) == 1
         assert body["allies"][0]["alliance_score"] == 0.8
@@ -75,18 +71,14 @@ class TestRelationshipSummary:
         empty_tracker.get_allies.return_value = []
 
         with patch(_TRACKER_PATCH, return_value=empty_tracker):
-            result = handler.handle(
-                "/api/v1/agents/newagent/relationships", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/newagent/relationships", {}, MagicMock())
         body = result[0]
         assert body["rivals"] == []
         assert body["allies"] == []
 
     def test_no_tracker_returns_empty(self, handler):
         with patch(_TRACKER_PATCH, return_value=None):
-            result = handler.handle(
-                "/api/v1/agents/claude/relationships", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/relationships", {}, MagicMock())
         body = result[0]
         assert body["rivals"] == []
         assert body["allies"] == []
@@ -97,9 +89,7 @@ class TestPairwiseMetrics:
 
     def test_pairwise_metrics_returned(self, handler, mock_tracker):
         with patch(_TRACKER_PATCH, return_value=mock_tracker):
-            result = handler.handle(
-                "/api/v1/agents/claude/relationships/gpt4", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/relationships/gpt4", {}, MagicMock())
         body = result[0]
         assert body["agent_a"] == "claude"
         assert body["agent_b"] == "gpt4"
@@ -110,9 +100,7 @@ class TestPairwiseMetrics:
 
     def test_no_tracker_returns_unknown(self, handler):
         with patch(_TRACKER_PATCH, return_value=None):
-            result = handler.handle(
-                "/api/v1/agents/claude/relationships/gpt4", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/relationships/gpt4", {}, MagicMock())
         body = result[0]
         assert body["debate_count"] == 0
         assert body["relationship"] == "unknown"

@@ -358,7 +358,9 @@ theorem test : True := trivial
         """Test batch translation."""
         translator = DeepSeekProverTranslator(api_key="test_key")
 
-        mock_response_data = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
+        mock_response_data = {
+            "choices": [{"message": {"content": "theorem test : True := trivial"}}]
+        }
 
         with _mock_pool_response(status_code=200, json_data=mock_response_data):
             claims = ["claim 1", "claim 2"]
@@ -381,7 +383,9 @@ class TestTranslateToLean:
     @pytest.mark.asyncio
     async def test_translate_to_lean_with_key(self):
         """Test convenience function with API key."""
-        mock_response_data = {"choices": [{"message": {"content": "theorem test : True := trivial"}}]}
+        mock_response_data = {
+            "choices": [{"message": {"content": "theorem test : True := trivial"}}]
+        }
 
         with _mock_pool_response(status_code=200, json_data=mock_response_data):
             result = await translate_to_lean(

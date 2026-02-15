@@ -338,11 +338,13 @@ class TestConsensusTopicValidation:
         mock_user = MagicMock()
         mock_user.user_id = "test-user"
         monkeypatch.setattr(
-            ConsensusHandler, "require_auth_or_error",
+            ConsensusHandler,
+            "require_auth_or_error",
             lambda self, handler: (mock_user, None),
         )
         monkeypatch.setattr(
-            ConsensusHandler, "require_permission_or_error",
+            ConsensusHandler,
+            "require_permission_or_error",
             lambda self, handler, perm: (mock_user, None),
         )
 

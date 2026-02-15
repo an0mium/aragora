@@ -139,9 +139,7 @@ class TestHandleCostAnomaly:
         assert suspended is True
 
         budgets = manager.get_budgets_for_org("org-4", active_only=False)
-        suspended_count = sum(
-            1 for b in budgets if b.status == BudgetStatus.SUSPENDED
-        )
+        suspended_count = sum(1 for b in budgets if b.status == BudgetStatus.SUSPENDED)
         assert suspended_count == 2
 
     def test_no_budgets_returns_false(self, manager):

@@ -634,9 +634,7 @@ class TestHandleRouting:
             "aragora.server.handlers.slo.check_availability_slo",
             return_value=mock_result,
         ):
-            result = handler.handle(
-                "/api/slos/availability/compliant", {}, mock_handler
-            )
+            result = handler.handle("/api/slos/availability/compliant", {}, mock_handler)
             assert result is not None
             assert result.status_code == 200
 

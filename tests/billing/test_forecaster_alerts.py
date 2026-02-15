@@ -195,9 +195,7 @@ class TestCheckBudgetRunway:
 
         with patch.object(forecaster, "_get_daily_costs", new_callable=AsyncMock) as mock_costs:
             mock_costs.return_value = daily
-            result = await forecaster.check_budget_runway(
-                "ws-001", warning_threshold_days=14
-            )
+            result = await forecaster.check_budget_runway("ws-001", warning_threshold_days=14)
 
         # 10 days remaining < 14 day threshold -> warning
         assert result.alert_level == AlertSeverity.WARNING
@@ -227,9 +225,7 @@ class TestCheckBudgetRunway:
 class TestRunBudgetRunwayCheck:
     @pytest.mark.asyncio
     async def test_checks_all_workspaces(self):
-        with patch(
-            "aragora.billing.forecaster.get_cost_forecaster"
-        ) as mock_get:
+        with patch("aragora.billing.forecaster.get_cost_forecaster") as mock_get:
             forecaster = MagicMock()
             mock_get.return_value = forecaster
             forecaster._cost_tracker = None
@@ -249,9 +245,7 @@ class TestRunBudgetRunwayCheck:
 
     @pytest.mark.asyncio
     async def test_sends_notification_on_warning(self):
-        with patch(
-            "aragora.billing.forecaster.get_cost_forecaster"
-        ) as mock_get:
+        with patch("aragora.billing.forecaster.get_cost_forecaster") as mock_get:
             forecaster = MagicMock()
             mock_get.return_value = forecaster
             forecaster._cost_tracker = None
@@ -273,14 +267,17 @@ class TestRunBudgetRunwayCheck:
                 # Patch the notification import inside run_budget_runway_check
                 mock_service = MagicMock()
                 mock_service.notify = AsyncMock()
-                with patch.dict("sys.modules", {
-                    "aragora.notifications.service": MagicMock(
-                        get_notification_service=MagicMock(return_value=mock_service)
-                    ),
-                    "aragora.notifications.models": MagicMock(
-                        Notification=MagicMock(),
-                    ),
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora.notifications.service": MagicMock(
+                            get_notification_service=MagicMock(return_value=mock_service)
+                        ),
+                        "aragora.notifications.models": MagicMock(
+                            Notification=MagicMock(),
+                        ),
+                    },
+                ):
                     results = await run_budget_runway_check(workspace_ids=["ws-001"])
 
             assert len(results) == 1
@@ -288,16 +285,12 @@ class TestRunBudgetRunwayCheck:
 
     @pytest.mark.asyncio
     async def test_handles_workspace_error(self):
-        with patch(
-            "aragora.billing.forecaster.get_cost_forecaster"
-        ) as mock_get:
+        with patch("aragora.billing.forecaster.get_cost_forecaster") as mock_get:
             forecaster = MagicMock()
             mock_get.return_value = forecaster
             forecaster._cost_tracker = None
 
-            forecaster.check_budget_runway = AsyncMock(
-                side_effect=RuntimeError("db error")
-            )
+            forecaster.check_budget_runway = AsyncMock(side_effect=RuntimeError("db error"))
 
             results = await run_budget_runway_check(workspace_ids=["ws-001"])
 
@@ -305,9 +298,7 @@ class TestRunBudgetRunwayCheck:
 
     @pytest.mark.asyncio
     async def test_empty_workspace_list(self):
-        with patch(
-            "aragora.billing.forecaster.get_cost_forecaster"
-        ) as mock_get:
+        with patch("aragora.billing.forecaster.get_cost_forecaster") as mock_get:
             forecaster = MagicMock()
             mock_get.return_value = forecaster
             forecaster._cost_tracker = None
@@ -318,9 +309,7 @@ class TestRunBudgetRunwayCheck:
 
     @pytest.mark.asyncio
     async def test_no_notification_on_info(self):
-        with patch(
-            "aragora.billing.forecaster.get_cost_forecaster"
-        ) as mock_get:
+        with patch("aragora.billing.forecaster.get_cost_forecaster") as mock_get:
             forecaster = MagicMock()
             mock_get.return_value = forecaster
             forecaster._cost_tracker = None

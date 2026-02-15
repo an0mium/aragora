@@ -124,18 +124,16 @@ class TestListRepositories:
 
     @pytest.mark.asyncio
     async def test_list_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"repositories": [SAMPLE_REPO], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"repositories": [SAMPLE_REPO], "total": 1})
         repos, total = await api.list_repositories_async()
         assert len(repos) == 1
         assert total == 1
 
     @pytest.mark.asyncio
-    async def test_list_async_with_status(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"repositories": [], "total": 0}
-        )
+    async def test_list_async_with_status(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
+        mock_client._get_async = AsyncMock(return_value={"repositories": [], "total": 0})
         await api.list_repositories_async(status="error")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["status"] == "error"
@@ -157,7 +155,9 @@ class TestConnectRepository:
         assert body["branch"] == "main"
         assert "access_token" not in body
 
-    def test_connect_with_branch_and_token(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
+    def test_connect_with_branch_and_token(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"repository": SAMPLE_REPO}
         api.connect_repository(
             url="https://github.com/org/repo",
@@ -169,7 +169,9 @@ class TestConnectRepository:
         assert body["branch"] == "develop"
         assert body["access_token"] == "tok-secret"
 
-    def test_connect_response_without_wrapper(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
+    def test_connect_response_without_wrapper(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_REPO
         repo = api.connect_repository(url="https://example.com/repo", provider="bitbucket")
         assert repo.provider == "github"
@@ -184,7 +186,9 @@ class TestConnectRepository:
         assert repo.id == "repo-001"
 
     @pytest.mark.asyncio
-    async def test_connect_async_with_token(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
+    async def test_connect_async_with_token(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"repository": SAMPLE_REPO})
         await api.connect_repository_async(
             url="https://github.com/org/repo",
@@ -221,9 +225,7 @@ class TestSyncRepository:
         mock_client._post.return_value = {"repository": syncing_repo}
         repo = api.sync_repository("repo-001")
         assert repo.status == "syncing"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/codebase/repositories/repo-001/sync", {}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/codebase/repositories/repo-001/sync", {})
 
     @pytest.mark.asyncio
     async def test_sync_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
@@ -239,9 +241,7 @@ class TestDisconnectRepository:
         mock_client._delete.return_value = {}
         result = api.disconnect_repository("repo-001")
         assert result is True
-        mock_client._delete.assert_called_once_with(
-            "/api/v1/codebase/repositories/repo-001"
-        )
+        mock_client._delete.assert_called_once_with("/api/v1/codebase/repositories/repo-001")
 
     @pytest.mark.asyncio
     async def test_disconnect_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
@@ -273,7 +273,9 @@ class TestListFiles:
         assert params["limit"] == 25
         assert params["offset"] == 5
 
-    def test_list_omits_empty_path_and_language(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
+    def test_list_omits_empty_path_and_language(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"files": [], "total": 0}
         api.list_files("repo-001")
         params = mock_client._get.call_args[1]["params"]
@@ -287,18 +289,16 @@ class TestListFiles:
 
     @pytest.mark.asyncio
     async def test_list_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"files": [SAMPLE_FILE], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"files": [SAMPLE_FILE], "total": 1})
         files, total = await api.list_files_async("repo-001")
         assert len(files) == 1
         assert total == 1
 
     @pytest.mark.asyncio
-    async def test_list_async_with_language(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"files": [], "total": 0}
-        )
+    async def test_list_async_with_language(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
+        mock_client._get_async = AsyncMock(return_value={"files": [], "total": 0})
         await api.list_files_async("repo-001", language="typescript")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["language"] == "typescript"
@@ -321,9 +321,7 @@ class TestGetFileContent:
 
     @pytest.mark.asyncio
     async def test_get_content_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"content": "# async content"}
-        )
+        mock_client._get_async = AsyncMock(return_value={"content": "# async content"})
         content = await api.get_file_content_async("repo-001", "main.py")
         assert content == "# async content"
 
@@ -366,15 +364,15 @@ class TestListDependencies:
 
     @pytest.mark.asyncio
     async def test_list_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"dependencies": [SAMPLE_DEPENDENCY]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"dependencies": [SAMPLE_DEPENDENCY]})
         deps = await api.list_dependencies_async("repo-001")
         assert len(deps) == 1
         assert deps[0].ecosystem == "pip"
 
     @pytest.mark.asyncio
-    async def test_list_async_with_filters(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
+    async def test_list_async_with_filters(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"dependencies": []})
         await api.list_dependencies_async("repo-001", ecosystem="maven", vulnerable_only=True)
         params = mock_client._get_async.call_args[1]["params"]
@@ -442,18 +440,16 @@ class TestListSecurityFindings:
 
     @pytest.mark.asyncio
     async def test_list_async(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"findings": [SAMPLE_FINDING], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"findings": [SAMPLE_FINDING], "total": 1})
         findings, total = await api.list_security_findings_async("repo-001")
         assert len(findings) == 1
         assert total == 1
 
     @pytest.mark.asyncio
-    async def test_list_async_with_severity(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"findings": [], "total": 0}
-        )
+    async def test_list_async_with_severity(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
+        mock_client._get_async = AsyncMock(return_value={"findings": [], "total": 0})
         await api.list_security_findings_async("repo-001", severity="low")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["severity"] == "low"
@@ -675,9 +671,7 @@ class TestDataclasses:
         assert finding.status == "open"
 
     def test_analysis_result_defaults(self) -> None:
-        result = AnalysisResult(
-            repository_id="r1", analysis_type="scan", status="pending"
-        )
+        result = AnalysisResult(repository_id="r1", analysis_type="scan", status="pending")
         assert result.started_at is None
         assert result.completed_at is None
         assert result.findings_count == 0
@@ -707,7 +701,9 @@ class TestEndpoints:
         api.list_repositories()
         assert mock_client._get.call_args[0][0] == "/api/v1/codebase/repositories"
 
-    def test_connect_repository_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
+    def test_connect_repository_endpoint(
+        self, api: CodebaseAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_REPO
         api.connect_repository(url="u", provider="github")
         assert mock_client._post.call_args[0][0] == "/api/v1/codebase/repositories"
@@ -720,16 +716,12 @@ class TestEndpoints:
     def test_sync_repository_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = SAMPLE_REPO
         api.sync_repository("repo-xyz")
-        mock_client._post.assert_called_once_with(
-            "/api/v1/codebase/repositories/repo-xyz/sync", {}
-        )
+        mock_client._post.assert_called_once_with("/api/v1/codebase/repositories/repo-xyz/sync", {})
 
     def test_disconnect_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._delete.return_value = {}
         api.disconnect_repository("repo-xyz")
-        mock_client._delete.assert_called_once_with(
-            "/api/v1/codebase/repositories/repo-xyz"
-        )
+        mock_client._delete.assert_called_once_with("/api/v1/codebase/repositories/repo-xyz")
 
     def test_list_files_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"files": [], "total": 0}
@@ -747,7 +739,10 @@ class TestEndpoints:
     def test_list_dependencies_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"dependencies": []}
         api.list_dependencies("repo-xyz")
-        assert mock_client._get.call_args[0][0] == "/api/v1/codebase/repositories/repo-xyz/dependencies"
+        assert (
+            mock_client._get.call_args[0][0]
+            == "/api/v1/codebase/repositories/repo-xyz/dependencies"
+        )
 
     def test_security_scan_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = SAMPLE_ANALYSIS
@@ -759,7 +754,10 @@ class TestEndpoints:
     def test_security_findings_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"findings": [], "total": 0}
         api.list_security_findings("repo-xyz")
-        assert mock_client._get.call_args[0][0] == "/api/v1/codebase/repositories/repo-xyz/security/findings"
+        assert (
+            mock_client._get.call_args[0][0]
+            == "/api/v1/codebase/repositories/repo-xyz/security/findings"
+        )
 
     def test_update_finding_endpoint(self, api: CodebaseAPI, mock_client: AragoraClient) -> None:
         mock_client._patch.return_value = SAMPLE_FINDING

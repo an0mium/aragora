@@ -23,6 +23,7 @@ from aragora.compat.openclaw.standalone import (
 # Helpers for simulating raw HTTP requests
 # ---------------------------------------------------------------------------
 
+
 def _make_reader_writer(method: str, path: str, headers: dict[str, str] | None = None):
     """Build mock reader/writer for a raw HTTP request."""
     header_lines: list[bytes] = []
@@ -72,7 +73,8 @@ def _response_body(writer: MagicMock) -> dict:
 def _clean_auth_env() -> dict[str, str]:
     """Return a copy of os.environ with auth-related env vars removed."""
     return {
-        k: v for k, v in os.environ.items()
+        k: v
+        for k, v in os.environ.items()
         if k not in ("OPENCLAW_API_KEY", "ARAGORA_API_TOKEN", "OPENCLAW_ALLOWED_ORIGINS")
     }
 
@@ -249,11 +251,13 @@ class TestRequestHandling:
         writer.wait_closed = AsyncMock()
 
         # Simulate GET /health request
-        reader.readline = AsyncMock(side_effect=[
-            b"GET /health HTTP/1.1\r\n",
-            b"Host: localhost\r\n",
-            b"\r\n",
-        ])
+        reader.readline = AsyncMock(
+            side_effect=[
+                b"GET /health HTTP/1.1\r\n",
+                b"Host: localhost\r\n",
+                b"\r\n",
+            ]
+        )
 
         await server._handle_request(reader, writer)
 
@@ -275,10 +279,12 @@ class TestRequestHandling:
         writer.close = MagicMock()
         writer.wait_closed = AsyncMock()
 
-        reader.readline = AsyncMock(side_effect=[
-            b"GET /api/unknown HTTP/1.1\r\n",
-            b"\r\n",
-        ])
+        reader.readline = AsyncMock(
+            side_effect=[
+                b"GET /api/unknown HTTP/1.1\r\n",
+                b"\r\n",
+            ]
+        )
 
         await server._handle_request(reader, writer)
 
@@ -297,10 +303,12 @@ class TestRequestHandling:
         writer.close = MagicMock()
         writer.wait_closed = AsyncMock()
 
-        reader.readline = AsyncMock(side_effect=[
-            b"OPTIONS /api/gateway/openclaw/sessions HTTP/1.1\r\n",
-            b"\r\n",
-        ])
+        reader.readline = AsyncMock(
+            side_effect=[
+                b"OPTIONS /api/gateway/openclaw/sessions HTTP/1.1\r\n",
+                b"\r\n",
+            ]
+        )
 
         await server._handle_request(reader, writer)
 
@@ -329,7 +337,8 @@ class TestApiKeyAuth:
         """Requests without any auth header get 401 when key is set."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/gateway/openclaw/sessions",
+            "GET",
+            "/api/gateway/openclaw/sessions",
         )
 
         await server._handle_request(reader, writer)
@@ -342,7 +351,8 @@ class TestApiKeyAuth:
         """Wrong Bearer token gets 401."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/gateway/openclaw/sessions",
+            "GET",
+            "/api/gateway/openclaw/sessions",
             headers={"Authorization": "Bearer wrong-key"},
         )
 
@@ -355,7 +365,8 @@ class TestApiKeyAuth:
         """Wrong X-API-Key header gets 401."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/gateway/openclaw/sessions",
+            "GET",
+            "/api/gateway/openclaw/sessions",
             headers={"X-API-Key": "wrong-key"},
         )
 
@@ -368,7 +379,8 @@ class TestApiKeyAuth:
         """Empty Bearer value still gets 401."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/gateway/openclaw/sessions",
+            "GET",
+            "/api/gateway/openclaw/sessions",
             headers={"Authorization": "Bearer "},
         )
 
@@ -383,7 +395,8 @@ class TestApiKeyAuth:
         """Valid Bearer token passes auth (reaches handler/404)."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/unknown",
+            "GET",
+            "/api/unknown",
             headers={"Authorization": f"Bearer {self.SECRET}"},
         )
 
@@ -397,7 +410,8 @@ class TestApiKeyAuth:
         """Valid X-API-Key header passes auth."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/unknown",
+            "GET",
+            "/api/unknown",
             headers={"X-API-Key": self.SECRET},
         )
 
@@ -410,7 +424,8 @@ class TestApiKeyAuth:
         """When both headers are present, Bearer is checked first."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/api/unknown",
+            "GET",
+            "/api/unknown",
             headers={
                 "Authorization": f"Bearer {self.SECRET}",
                 "X-API-Key": "wrong-key",
@@ -429,7 +444,8 @@ class TestApiKeyAuth:
         """/health bypasses auth (before API route check)."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/health",
+            "GET",
+            "/health",
         )
 
         await server._handle_request(reader, writer)
@@ -441,7 +457,8 @@ class TestApiKeyAuth:
         """/ bypasses auth (before API route check)."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "GET", "/",
+            "GET",
+            "/",
         )
 
         await server._handle_request(reader, writer)
@@ -457,7 +474,8 @@ class TestApiKeyAuth:
         server._handler.handle = MagicMock(return_value=(200, {"status": "healthy"}))
 
         reader, writer = _make_reader_writer(
-            "GET", "/api/gateway/openclaw/health",
+            "GET",
+            "/api/gateway/openclaw/health",
         )
 
         await server._handle_request(reader, writer)
@@ -474,7 +492,8 @@ class TestApiKeyAuth:
         assert server._api_key is None
 
         reader, writer = _make_reader_writer(
-            "GET", "/api/unknown",
+            "GET",
+            "/api/unknown",
         )
 
         await server._handle_request(reader, writer)
@@ -489,7 +508,8 @@ class TestApiKeyAuth:
         """OPTIONS requests bypass auth for CORS preflight."""
         server = self._make_authed_server()
         reader, writer = _make_reader_writer(
-            "OPTIONS", "/api/gateway/openclaw/sessions",
+            "OPTIONS",
+            "/api/gateway/openclaw/sessions",
         )
 
         await server._handle_request(reader, writer)
@@ -501,7 +521,8 @@ class TestApiKeyAuth:
     def test_warning_logged_when_no_api_key(self):
         """Server logs a warning when started without an API key."""
         clean_env = {
-            k: v for k, v in os.environ.items()
+            k: v
+            for k, v in os.environ.items()
             if k not in ("OPENCLAW_API_KEY", "ARAGORA_API_TOKEN")
         }
         with patch.dict(os.environ, clean_env, clear=True):
@@ -529,7 +550,8 @@ class TestApiKeyEnvVars:
     def test_openclaw_api_key_env_var(self):
         """OPENCLAW_API_KEY env var is read."""
         clean_env = {
-            k: v for k, v in os.environ.items()
+            k: v
+            for k, v in os.environ.items()
             if k not in ("OPENCLAW_API_KEY", "ARAGORA_API_TOKEN")
         }
         clean_env["OPENCLAW_API_KEY"] = "env-key-1"
@@ -540,7 +562,8 @@ class TestApiKeyEnvVars:
     def test_aragora_api_token_env_var(self):
         """ARAGORA_API_TOKEN env var is used as fallback."""
         clean_env = {
-            k: v for k, v in os.environ.items()
+            k: v
+            for k, v in os.environ.items()
             if k not in ("OPENCLAW_API_KEY", "ARAGORA_API_TOKEN")
         }
         clean_env["ARAGORA_API_TOKEN"] = "env-key-2"
@@ -551,7 +574,8 @@ class TestApiKeyEnvVars:
     def test_explicit_api_key_overrides_env(self):
         """Explicit api_key parameter takes precedence over env vars."""
         clean_env = {
-            k: v for k, v in os.environ.items()
+            k: v
+            for k, v in os.environ.items()
             if k not in ("OPENCLAW_API_KEY", "ARAGORA_API_TOKEN")
         }
         clean_env["OPENCLAW_API_KEY"] = "env-key"
@@ -562,7 +586,8 @@ class TestApiKeyEnvVars:
     def test_openclaw_key_takes_precedence_over_aragora_token(self):
         """OPENCLAW_API_KEY takes precedence over ARAGORA_API_TOKEN."""
         clean_env = {
-            k: v for k, v in os.environ.items()
+            k: v
+            for k, v in os.environ.items()
             if k not in ("OPENCLAW_API_KEY", "ARAGORA_API_TOKEN")
         }
         clean_env["OPENCLAW_API_KEY"] = "openclaw-key"
@@ -593,10 +618,7 @@ class TestCorsConfiguration:
 
     def test_openclaw_allowed_origins_env_var(self):
         """OPENCLAW_ALLOWED_ORIGINS env var is read when no parameter given."""
-        clean_env = {
-            k: v for k, v in os.environ.items()
-            if k != "OPENCLAW_ALLOWED_ORIGINS"
-        }
+        clean_env = {k: v for k, v in os.environ.items() if k != "OPENCLAW_ALLOWED_ORIGINS"}
         clean_env["OPENCLAW_ALLOWED_ORIGINS"] = "https://a.com, https://b.com"
         with patch.dict(os.environ, clean_env, clear=True):
             server = StandaloneGatewayServer()
@@ -604,9 +626,13 @@ class TestCorsConfiguration:
 
     def test_explicit_cors_overrides_env_var(self):
         """Explicit cors_origins parameter overrides env var."""
-        with patch.dict(os.environ, {
-            "OPENCLAW_ALLOWED_ORIGINS": "https://env.example.com",
-        }, clear=False):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENCLAW_ALLOWED_ORIGINS": "https://env.example.com",
+            },
+            clear=False,
+        ):
             server = StandaloneGatewayServer(cors_origins=["https://explicit.example.com"])
             assert server.cors_origins == ["https://explicit.example.com"]
 
@@ -625,10 +651,7 @@ class TestCorsConfiguration:
 
     def test_empty_env_var_falls_back_to_default(self):
         """Empty OPENCLAW_ALLOWED_ORIGINS falls back to localhost default."""
-        clean_env = {
-            k: v for k, v in os.environ.items()
-            if k != "OPENCLAW_ALLOWED_ORIGINS"
-        }
+        clean_env = {k: v for k, v in os.environ.items() if k != "OPENCLAW_ALLOWED_ORIGINS"}
         clean_env["OPENCLAW_ALLOWED_ORIGINS"] = ""
         with patch.dict(os.environ, clean_env, clear=True):
             server = StandaloneGatewayServer()
@@ -658,9 +681,7 @@ class TestCliApiKeyFlag:
         with patch("aragora.compat.openclaw.standalone.asyncio") as mock_asyncio:
             mock_asyncio.run = MagicMock(side_effect=KeyboardInterrupt)
 
-            with patch(
-                "aragora.compat.openclaw.standalone.StandaloneGatewayServer"
-            ) as MockServer:
+            with patch("aragora.compat.openclaw.standalone.StandaloneGatewayServer") as MockServer:
                 MockServer.return_value.start = AsyncMock()
                 cmd_openclaw_serve(args)
 
@@ -683,9 +704,7 @@ class TestCliApiKeyFlag:
         with patch("aragora.compat.openclaw.standalone.asyncio") as mock_asyncio:
             mock_asyncio.run = MagicMock(side_effect=KeyboardInterrupt)
 
-            with patch(
-                "aragora.compat.openclaw.standalone.StandaloneGatewayServer"
-            ) as MockServer:
+            with patch("aragora.compat.openclaw.standalone.StandaloneGatewayServer") as MockServer:
                 MockServer.return_value.start = AsyncMock()
                 cmd_openclaw_serve(args)
 

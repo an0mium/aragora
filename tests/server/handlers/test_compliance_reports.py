@@ -104,9 +104,12 @@ class TestRouting:
 
 class TestGenerateReport:
     def test_generate_with_defaults(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 201
         body = _parse(result)
@@ -115,10 +118,13 @@ class TestGenerateReport:
         assert body["debate_id"] == "debate-001"
 
     def test_generate_with_framework(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-            "framework": "soc2",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+                "framework": "soc2",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 201
         body = _parse(result)
@@ -131,18 +137,24 @@ class TestGenerateReport:
         assert "debate_id" in _parse(result).get("error", "")
 
     def test_generate_invalid_framework(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-            "framework": "invalid",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+                "framework": "invalid",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 400
 
     def test_generate_debate_not_found(self, handler, mock_storage):
         mock_storage.get_debate.return_value = None
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "missing-debate",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "missing-debate",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 404
 
@@ -152,39 +164,51 @@ class TestGenerateReport:
         assert result is None
 
     def test_generate_gdpr_framework(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-            "framework": "gdpr",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+                "framework": "gdpr",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 201
         body = _parse(result)
         assert body["framework"] == "gdpr"
 
     def test_generate_hipaa_framework(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-            "framework": "hipaa",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+                "framework": "hipaa",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 201
 
     def test_generate_with_scope_options(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-            "scope": {
-                "include_evidence": False,
-                "include_chain": False,
-                "include_transcript": True,
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+                "scope": {
+                    "include_evidence": False,
+                    "include_chain": False,
+                    "include_transcript": True,
+                },
             },
-        })
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         assert result.status_code == 201
 
     def test_generate_caches_report(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         body = _parse(result)
         report_id = body["report_id"]
@@ -198,9 +222,12 @@ class TestGenerateReport:
 
 class TestGetReport:
     def _generate_report(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         return _parse(result)["report_id"]
 
@@ -234,9 +261,12 @@ class TestGetReport:
 
 class TestDownloadReport:
     def _generate_report(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "debate_id": "debate-001",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "debate_id": "debate-001",
+            },
+        )
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, http)
         return _parse(result)["report_id"]
 

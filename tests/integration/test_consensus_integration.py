@@ -371,40 +371,70 @@ class TestPartialConsensus:
 
     def test_partial_consensus_ratio(self):
         pc = PartialConsensus(debate_id="d1")
-        pc.add_item(PartialConsensusItem(
-            item_id="i1", topic="Storage", statement="Use PostgreSQL",
-            confidence=0.9, agreed=True, supporting_agents=["alice", "bob"],
-        ))
-        pc.add_item(PartialConsensusItem(
-            item_id="i2", topic="Caching", statement="Use Redis",
-            confidence=0.6, agreed=False,
-            supporting_agents=["alice"], dissenting_agents=["bob"],
-        ))
+        pc.add_item(
+            PartialConsensusItem(
+                item_id="i1",
+                topic="Storage",
+                statement="Use PostgreSQL",
+                confidence=0.9,
+                agreed=True,
+                supporting_agents=["alice", "bob"],
+            )
+        )
+        pc.add_item(
+            PartialConsensusItem(
+                item_id="i2",
+                topic="Caching",
+                statement="Use Redis",
+                confidence=0.6,
+                agreed=False,
+                supporting_agents=["alice"],
+                dissenting_agents=["bob"],
+            )
+        )
 
         assert pc.consensus_ratio == 0.5
 
     def test_actionable_items_filter(self):
         pc = PartialConsensus(debate_id="d1")
-        pc.add_item(PartialConsensusItem(
-            item_id="i1", topic="API", statement="Use REST",
-            confidence=0.9, agreed=True, actionable=True,
-            supporting_agents=["a"],
-        ))
-        pc.add_item(PartialConsensusItem(
-            item_id="i2", topic="Future", statement="Maybe GraphQL",
-            confidence=0.4, agreed=True, actionable=False,
-            supporting_agents=["b"],
-        ))
+        pc.add_item(
+            PartialConsensusItem(
+                item_id="i1",
+                topic="API",
+                statement="Use REST",
+                confidence=0.9,
+                agreed=True,
+                actionable=True,
+                supporting_agents=["a"],
+            )
+        )
+        pc.add_item(
+            PartialConsensusItem(
+                item_id="i2",
+                topic="Future",
+                statement="Maybe GraphQL",
+                confidence=0.4,
+                agreed=True,
+                actionable=False,
+                supporting_agents=["b"],
+            )
+        )
 
         assert len(pc.actionable_items) == 1
         assert pc.actionable_items[0].item_id == "i1"
 
     def test_partial_consensus_serialization(self):
         pc = PartialConsensus(debate_id="d1")
-        pc.add_item(PartialConsensusItem(
-            item_id="i1", topic="Test", statement="Statement",
-            confidence=0.8, agreed=True, supporting_agents=["a"],
-        ))
+        pc.add_item(
+            PartialConsensusItem(
+                item_id="i1",
+                topic="Test",
+                statement="Statement",
+                confidence=0.8,
+                agreed=True,
+                supporting_agents=["a"],
+            )
+        )
 
         d = pc.to_dict()
         assert d["debate_id"] == "d1"

@@ -299,8 +299,7 @@ async def _cleanup_pending_tasks():
     yield
     loop = asyncio.get_event_loop()
     pending = [
-        t for t in asyncio.all_tasks(loop)
-        if not t.done() and t is not asyncio.current_task()
+        t for t in asyncio.all_tasks(loop) if not t.done() and t is not asyncio.current_task()
     ]
     for task in pending:
         task.cancel()

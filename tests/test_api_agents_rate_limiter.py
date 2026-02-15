@@ -65,6 +65,7 @@ def reset_global_limiter():
     # Clear ServiceRegistry entry (the actual backing store)
     try:
         from aragora.services import ServiceRegistry
+
         registry = ServiceRegistry.get()
         if registry.has(module.OpenRouterRateLimiter):
             registry.unregister(module.OpenRouterRateLimiter)
@@ -78,6 +79,7 @@ def reset_global_limiter():
 
     try:
         from aragora.services import ServiceRegistry
+
         registry = ServiceRegistry.get()
         if registry.has(module.OpenRouterRateLimiter):
             registry.unregister(module.OpenRouterRateLimiter)

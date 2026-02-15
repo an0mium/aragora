@@ -63,7 +63,9 @@ def test_chatgpt_export_loading():
     export = connector.load_export(CHATGPT_EXPORT)
 
     assert export.source == "chatgpt", f"Expected source 'chatgpt', got '{export.source}'"
-    assert export.conversation_count == 3, f"Expected 3 conversations, got {export.conversation_count}"
+    assert export.conversation_count == 3, (
+        f"Expected 3 conversations, got {export.conversation_count}"
+    )
     assert export.total_messages > 0, "Should have messages"
     assert export.total_words > 0, "Should have words"
 
@@ -79,7 +81,9 @@ def test_chatgpt_export_loading():
     assert first_msg.role == "user"
     assert "instrumental convergence" in first_msg.content
 
-    print(f"✓ ChatGPT export loading passed ({export.conversation_count} conversations, {export.total_words:,} words)")
+    print(
+        f"✓ ChatGPT export loading passed ({export.conversation_count} conversations, {export.total_words:,} words)"
+    )
 
 
 def test_claude_export_loading():
@@ -88,7 +92,9 @@ def test_claude_export_loading():
     export = connector.load_export(CLAUDE_EXPORT)
 
     assert export.source == "claude", f"Expected source 'claude', got '{export.source}'"
-    assert export.conversation_count == 3, f"Expected 3 conversations, got {export.conversation_count}"
+    assert export.conversation_count == 3, (
+        f"Expected 3 conversations, got {export.conversation_count}"
+    )
     assert export.total_messages > 0, "Should have messages"
 
     # Check first conversation
@@ -101,7 +107,9 @@ def test_claude_export_loading():
     first_msg = conv.messages[0]
     assert first_msg.role == "user", f"Expected 'user', got '{first_msg.role}'"
 
-    print(f"✓ Claude export loading passed ({export.conversation_count} conversations, {export.total_words:,} words)")
+    print(
+        f"✓ Claude export loading passed ({export.conversation_count} conversations, {export.total_words:,} words)"
+    )
 
 
 def test_search():
@@ -150,7 +158,9 @@ def test_claim_extraction():
 
     # Check for specific expected claims
     claim_texts = [c.claim.lower() for c in claims]
-    found_ai_claim = any("instrumental" in t or "alignment" in t or "optimization" in t for t in claim_texts)
+    found_ai_claim = any(
+        "instrumental" in t or "alignment" in t or "optimization" in t for t in claim_texts
+    )
     found_systems_claim = any("systems" in t or "structure" in t for t in claim_texts)
 
     # Print some sample claims
@@ -177,7 +187,14 @@ def test_topic_keywords():
     keyword_set = set(all_keywords)
 
     # Should find some expected terms
-    expected_terms = {"system", "systems", "intelligence", "optimization", "democratic", "procedural"}
+    expected_terms = {
+        "system",
+        "systems",
+        "intelligence",
+        "optimization",
+        "democratic",
+        "procedural",
+    }
     found_terms = keyword_set & expected_terms
 
     print(f"  Top 15 keywords: {all_keywords[:15]}")
@@ -195,7 +212,9 @@ def test_statistics():
     stats = connector.get_statistics()
 
     assert stats["loaded"] == True
-    assert stats["total_conversations"] == 6, f"Expected 6 conversations, got {stats['total_conversations']}"
+    assert stats["total_conversations"] == 6, (
+        f"Expected 6 conversations, got {stats['total_conversations']}"
+    )
     assert stats["total_exports"] == 2
     assert stats["total_user_words"] > 0
     assert stats["total_assistant_words"] > 0
@@ -250,7 +269,9 @@ def test_conversation_by_topic():
     systems_convs = connector.get_conversations_by_topic("systems")
     assert len(systems_convs) > 0, "Should find conversations about systems"
 
-    print(f"✓ Topic search passed (found {len(ai_convs)} intelligence, {len(systems_convs)} systems conversations)")
+    print(
+        f"✓ Topic search passed (found {len(ai_convs)} intelligence, {len(systems_convs)} systems conversations)"
+    )
 
 
 def test_evidence_fetch():
@@ -300,6 +321,7 @@ def run_all_tests():
         except Exception as e:
             print(f"✗ FAILED: {e}")
             import traceback
+
             traceback.print_exc()
             failed += 1
 

@@ -230,9 +230,7 @@ class MockPolicyStore:
             return True
         return False
 
-    def toggle_policy(
-        self, policy_id: str, enabled: bool, changed_by: str | None = None
-    ) -> bool:
+    def toggle_policy(self, policy_id: str, enabled: bool, changed_by: str | None = None) -> bool:
         policy = self._policies.get(policy_id)
         if policy is None:
             return False

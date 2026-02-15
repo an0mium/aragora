@@ -312,7 +312,9 @@ class TestFormatComment:
     def test_unanimous_section(self):
         findings = [
             ReviewFinding(
-                severity="high", title="auth", description="Missing auth",
+                severity="high",
+                title="auth",
+                description="Missing auth",
                 unanimous=True,
             ),
         ]
@@ -351,10 +353,20 @@ class TestReviewReceipt:
 
     def test_receipt_duration(self):
         receipt = ReviewReceipt(
-            review_id="x", pr_url="url", started_at=100.0, completed_at=145.5,
-            findings_count=0, critical_count=0, high_count=0, medium_count=0,
-            low_count=0, agreement_score=0.0, agents_used=[], policy_name="test",
-            policy_violations=[], checksum="",
+            review_id="x",
+            pr_url="url",
+            started_at=100.0,
+            completed_at=145.5,
+            findings_count=0,
+            critical_count=0,
+            high_count=0,
+            medium_count=0,
+            low_count=0,
+            agreement_score=0.0,
+            agents_used=[],
+            policy_name="test",
+            policy_violations=[],
+            checksum="",
         )
         assert receipt.duration_seconds == 45.5
 
@@ -367,14 +379,19 @@ class TestReviewReceipt:
 class TestReviewResult:
     def test_critical_count(self):
         result = ReviewResult(
-            pr_url="url", pr_number=1, repo="o/r",
+            pr_url="url",
+            pr_number=1,
+            repo="o/r",
             findings=[
                 ReviewFinding(severity="critical", title="a", description="a"),
                 ReviewFinding(severity="critical", title="b", description="b"),
                 ReviewFinding(severity="high", title="c", description="c"),
             ],
-            agreement_score=0.5, agents_used=[], comment_posted=False,
-            comment_url=None, receipt=None,
+            agreement_score=0.5,
+            agents_used=[],
+            comment_posted=False,
+            comment_url=None,
+            receipt=None,
         )
         assert result.critical_count == 2
         assert result.high_count == 1
@@ -382,12 +399,17 @@ class TestReviewResult:
 
     def test_no_critical(self):
         result = ReviewResult(
-            pr_url="url", pr_number=1, repo="o/r",
+            pr_url="url",
+            pr_number=1,
+            repo="o/r",
             findings=[
                 ReviewFinding(severity="low", title="a", description="a"),
             ],
-            agreement_score=0.9, agents_used=[], comment_posted=False,
-            comment_url=None, receipt=None,
+            agreement_score=0.9,
+            agents_used=[],
+            comment_posted=False,
+            comment_url=None,
+            receipt=None,
         )
         assert result.has_critical is False
 
@@ -441,7 +463,9 @@ class TestPRReviewRunner:
         runner = PRReviewRunner(dry_run=True)
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
-                returncode=1, stderr="Not found", stdout="",
+                returncode=1,
+                stderr="Not found",
+                stdout="",
             )
             result = await runner.review_pr("https://github.com/o/r/pull/1")
         assert result.error is not None
@@ -466,7 +490,9 @@ class TestPRReviewRunner:
 
         with patch("subprocess.run", return_value=diff_result):
             with patch.object(
-                runner, "_run_review", new_callable=AsyncMock,
+                runner,
+                "_run_review",
+                new_callable=AsyncMock,
                 return_value=(mock_findings, None),
             ):
                 result = await runner.review_pr("https://github.com/o/r/pull/42")
@@ -492,10 +518,12 @@ class TestPRReviewRunner:
 
         diff_result = MagicMock(returncode=0, stdout="diff")
         comment_result = MagicMock(
-            returncode=0, stdout="https://github.com/o/r/pull/1#comment",
+            returncode=0,
+            stdout="https://github.com/o/r/pull/1#comment",
         )
 
         call_count = 0
+
         def side_effect(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -505,7 +533,9 @@ class TestPRReviewRunner:
 
         with patch("subprocess.run", side_effect=side_effect):
             with patch.object(
-                runner, "_run_review", new_callable=AsyncMock,
+                runner,
+                "_run_review",
+                new_callable=AsyncMock,
                 return_value=(mock_findings, None),
             ):
                 result = await runner.review_pr("https://github.com/o/r/pull/1")
@@ -529,7 +559,9 @@ class TestPRReviewRunner:
 
         with patch("subprocess.run", return_value=diff_result):
             with patch.object(
-                runner, "_run_review", new_callable=AsyncMock,
+                runner,
+                "_run_review",
+                new_callable=AsyncMock,
                 return_value=({"agreement_score": 0.5}, None),
             ):
                 result = await runner.review_pr("https://github.com/o/r/pull/1")
@@ -570,9 +602,15 @@ class TestPRReviewRunner:
         async def mock_review(pr_url):
             reviewed_prs.append(pr_url)
             return ReviewResult(
-                pr_url=pr_url, pr_number=None, repo=None,
-                findings=[], agreement_score=0.0, agents_used=[],
-                comment_posted=False, comment_url=None, receipt=None,
+                pr_url=pr_url,
+                pr_number=None,
+                repo=None,
+                findings=[],
+                agreement_score=0.0,
+                agents_used=[],
+                comment_posted=False,
+                comment_url=None,
+                receipt=None,
             )
 
         with patch("subprocess.run", return_value=list_result):
@@ -709,7 +747,9 @@ class TestFindingsToSarif:
 
         result = run["results"][0]
         assert result["level"] == "error"  # critical → error
-        assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/auth.py"
+        assert (
+            result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/auth.py"
+        )
         assert result["locations"][0]["physicalLocation"]["region"]["startLine"] == 42
         assert result["properties"]["agent"] == "claude-opus"
 
@@ -778,7 +818,9 @@ class TestFindingsToSarif:
     def test_unanimous_property(self):
         findings = [
             ReviewFinding(
-                severity="high", title="Bug", description="Bug",
+                severity="high",
+                title="Bug",
+                description="Bug",
                 unanimous=True,
             ),
         ]

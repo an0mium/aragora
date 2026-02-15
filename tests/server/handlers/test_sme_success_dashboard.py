@@ -950,9 +950,7 @@ class TestModuleExports:
 class TestDebateAnalyticsIntegration:
     """Tests that DebateAnalytics data flows into success metrics."""
 
-    def _make_debate_stats(
-        self, total=25, completed=20, consensus=18, avg_duration=180.0
-    ):
+    def _make_debate_stats(self, total=25, completed=20, consensus=18, avg_duration=180.0):
         """Create a mock DebateStats-like object."""
         stats = MagicMock()
         stats.total_debates = total

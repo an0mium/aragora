@@ -70,9 +70,7 @@ class TestImpactAnalyzer:
     @pytest.mark.asyncio
     async def test_detects_resolved(self):
         runner = MagicMock()
-        runner.run_full = AsyncMock(
-            return_value=FakeTestResult(failures=[])
-        )
+        runner.run_full = AsyncMock(return_value=FakeTestResult(failures=[]))
 
         analyzer = ImpactAnalyzer(runner)
         result = await analyzer.check_impact(["test_was_broken"])
@@ -101,9 +99,7 @@ class TestImpactAnalyzer:
     @pytest.mark.asyncio
     async def test_passes_override_command(self):
         runner = MagicMock()
-        runner.run_full = AsyncMock(
-            return_value=FakeTestResult(failures=[])
-        )
+        runner.run_full = AsyncMock(return_value=FakeTestResult(failures=[]))
 
         analyzer = ImpactAnalyzer(runner)
         await analyzer.check_impact([], override_command="pytest tests/ -v")

@@ -554,9 +554,9 @@ class TestSecretsRotationScheduler:
         )
 
         # Reset shared ContextVar to get a fresh in-memory DB
-        SecretsRotationStorage._conn_var = __import__(
-            "contextvars"
-        ).ContextVar("secrets_rotation_conn", default=None)
+        SecretsRotationStorage._conn_var = __import__("contextvars").ContextVar(
+            "secrets_rotation_conn", default=None
+        )
 
         config = SecretsRotationConfig(storage_path=":memory:")
         scheduler = SecretsRotationScheduler(config)

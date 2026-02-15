@@ -145,9 +145,7 @@ class TestGetBudget:
 
     def test_get_budget_success(self, handler, mock_get):
         """Should return current budget configuration."""
-        with patch(
-            "aragora.debate.context_budgeter.DEFAULT_TOTAL_TOKENS", 4500
-        ):
+        with patch("aragora.debate.context_budgeter.DEFAULT_TOTAL_TOKENS", 4500):
             with patch(
                 "aragora.debate.context_budgeter.DEFAULT_SECTION_LIMITS",
                 {"env_context": 1400, "historical": 800},
@@ -199,9 +197,7 @@ class TestUpdateBudget:
         mock_user = MagicMock()
         mock = make_handler("PUT", {"total_tokens": 6000})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch.dict(os.environ, {}, clear=False):
                 result = handler.handle("/api/v1/context/budget", {}, mock)
 
@@ -216,9 +212,7 @@ class TestUpdateBudget:
         limits = {"env_context": 2000, "historical": 1000}
         mock = make_handler("PUT", {"section_limits": limits})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch.dict(os.environ, {}, clear=False):
                 result = handler.handle("/api/v1/context/budget", {}, mock)
 
@@ -231,9 +225,7 @@ class TestUpdateBudget:
         mock_user = MagicMock()
         mock = make_handler("PUT", {"total_tokens": 50})  # Below minimum of 100
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             result = handler.handle("/api/v1/context/budget", {}, mock)
         assert result.status_code == 400
 
@@ -242,9 +234,7 @@ class TestUpdateBudget:
         mock_user = MagicMock()
         mock = make_handler("PUT", {"section_limits": "not a dict"})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             result = handler.handle("/api/v1/context/budget", {}, mock)
         assert result.status_code == 400
 
@@ -253,9 +243,7 @@ class TestUpdateBudget:
         mock_user = MagicMock()
         mock = make_handler("PUT")
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch.object(handler, "read_json_body", return_value=None):
                 result = handler.handle("/api/v1/context/budget", {}, mock)
         assert result.status_code == 400
@@ -271,12 +259,15 @@ class TestEstimateBudget:
 
     def test_estimate_success(self, handler):
         """Should return token estimates for each section."""
-        mock = make_handler("POST", {
-            "sections": {
-                "env_context": "Hello world this is test",
-                "historical": "Some longer text that should take more tokens",
-            }
-        })
+        mock = make_handler(
+            "POST",
+            {
+                "sections": {
+                    "env_context": "Hello world this is test",
+                    "historical": "Some longer text that should take more tokens",
+                }
+            },
+        )
 
         with patch(
             "aragora.debate.context_budgeter._estimate_tokens",

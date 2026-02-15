@@ -112,9 +112,7 @@ class TestListAdapters:
 
         assert body["coordinator_available"] is True
 
-        continuum = next(
-            (a for a in body["adapters"] if a["name"] == "continuum"), None
-        )
+        continuum = next((a for a in body["adapters"] if a["name"] == "continuum"), None)
         if continuum:
             assert continuum["status"] == "active"
             assert continuum["enabled"] is True
@@ -143,12 +141,8 @@ class TestUnavailable:
     """Tests when KM system is unavailable."""
 
     def test_km_unavailable_returns_503(self, handler, mock_handler):
-        with patch(
-            "aragora.server.handlers.knowledge.adapters.KM_AVAILABLE", False
-        ):
-            result = handler.handle(
-                "/api/v1/knowledge/adapters", {}, mock_handler
-            )
+        with patch("aragora.server.handlers.knowledge.adapters.KM_AVAILABLE", False):
+            result = handler.handle("/api/v1/knowledge/adapters", {}, mock_handler)
             assert result.status_code == 503
 
 

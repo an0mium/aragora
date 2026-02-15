@@ -155,7 +155,6 @@ async def test_decision_to_action_smoke(tmp_path: Path) -> None:
         artifact["failed_at"] = datetime.utcnow().isoformat()
         artifact_path = _write_artifact(artifact)
         pytest.fail(
-            "Decision-to-action smoke scenario failed. "
-            f"Inspect artifact: {artifact_path}",
+            f"Decision-to-action smoke scenario failed. Inspect artifact: {artifact_path}",
             pytrace=False,
         )

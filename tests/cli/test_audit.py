@@ -742,7 +742,9 @@ class TestGenerateReport:
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             with patch.dict("sys.modules", {"aragora.reports": mock_reports_module}):
-                result = await generate_report(report_args, use_api=False, server_url="", api_key=None)
+                result = await generate_report(
+                    report_args, use_api=False, server_url="", api_key=None
+                )
 
         assert result == 0
         captured = capsys.readouterr()
@@ -759,7 +761,9 @@ class TestGenerateReport:
 
         with patch.dict("sys.modules", {"aragora.audit": mock_audit_module}):
             with patch.dict("sys.modules", {"aragora.reports": MagicMock()}):
-                result = await generate_report(report_args, use_api=False, server_url="", api_key=None)
+                result = await generate_report(
+                    report_args, use_api=False, server_url="", api_key=None
+                )
 
         assert result == 1
         captured = capsys.readouterr()

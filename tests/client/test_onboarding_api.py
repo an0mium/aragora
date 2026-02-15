@@ -76,7 +76,9 @@ SAMPLE_ANALYTICS_RESPONSE = {
 
 
 class TestGetFlow:
-    def test_get_flow_with_existing_flow(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_flow_with_existing_flow(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_FLOW_RESPONSE
         needs, flow, templates = api.get_flow()
         assert needs is True
@@ -88,7 +90,9 @@ class TestGetFlow:
         assert isinstance(templates[0], StarterTemplate)
         mock_client._get.assert_called_once()
 
-    def test_get_flow_no_existing_flow(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_flow_no_existing_flow(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {
             "needs_onboarding": True,
             "exists": False,
@@ -105,7 +109,9 @@ class TestGetFlow:
         params = mock_client._get.call_args[1]["params"]
         assert params["user_id"] == "user-1"
 
-    def test_get_flow_with_organization_id(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_flow_with_organization_id(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_FLOW_RESPONSE
         api.get_flow(organization_id="org-1")
         params = mock_client._get.call_args[1]["params"]
@@ -119,7 +125,11 @@ class TestGetFlow:
         assert params["organization_id"] == "org-1"
 
     def test_get_flow_no_params(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
-        mock_client._get.return_value = {"needs_onboarding": True, "exists": False, "recommended_templates": []}
+        mock_client._get.return_value = {
+            "needs_onboarding": True,
+            "exists": False,
+            "recommended_templates": [],
+        }
         api.get_flow()
         mock_client._get.assert_called_once_with("/api/v1/onboarding/flow", params={})
 
@@ -133,7 +143,9 @@ class TestGetFlow:
         assert len(templates) == 1
 
     @pytest.mark.asyncio
-    async def test_get_flow_async_with_user_id(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_get_flow_async_with_user_id(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_FLOW_RESPONSE)
         await api.get_flow_async(user_id="user-2")
         params = mock_client._get_async.call_args[1]["params"]
@@ -156,27 +168,37 @@ class TestInitFlow:
         body = mock_client._post.call_args[0][1]
         assert body["use_case"] == "product_decisions"
 
-    def test_init_flow_with_quick_start_profile(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_init_flow_with_quick_start_profile(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_FLOW
         api.init_flow(quick_start_profile="developer")
         body = mock_client._post.call_args[0][1]
         assert body["quick_start_profile"] == "developer"
 
-    def test_init_flow_with_skip_to_step(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_init_flow_with_skip_to_step(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_FLOW
         api.init_flow(skip_to_step="template")
         body = mock_client._post.call_args[0][1]
         assert body["skip_to_step"] == "template"
 
-    def test_init_flow_with_all_options(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_init_flow_with_all_options(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_FLOW
-        api.init_flow(use_case="security", quick_start_profile="compliance", skip_to_step="first_debate")
+        api.init_flow(
+            use_case="security", quick_start_profile="compliance", skip_to_step="first_debate"
+        )
         body = mock_client._post.call_args[0][1]
         assert body["use_case"] == "security"
         assert body["quick_start_profile"] == "compliance"
         assert body["skip_to_step"] == "first_debate"
 
-    def test_init_flow_calls_correct_endpoint(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_init_flow_calls_correct_endpoint(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = SAMPLE_FLOW
         api.init_flow()
         assert mock_client._post.call_args[0][0] == "/api/v1/onboarding/flow"
@@ -192,7 +214,9 @@ class TestInitFlow:
 
 
 class TestUpdateStep:
-    def test_update_step_default_action(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_update_step_default_action(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._put.return_value = {"status": "ok"}
         result = api.update_step()
         assert result == {"status": "ok"}
@@ -205,7 +229,9 @@ class TestUpdateStep:
         body = mock_client._put.call_args[0][1]
         assert body["action"] == "previous"
 
-    def test_update_step_with_step_data(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_update_step_with_step_data(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._put.return_value = {"status": "ok"}
         api.update_step(step_data={"selected_template": "tpl-001"})
         body = mock_client._put.call_args[0][1]
@@ -217,7 +243,9 @@ class TestUpdateStep:
         body = mock_client._put.call_args[0][1]
         assert body["jump_to_step"] == "first_debate"
 
-    def test_update_step_calls_correct_endpoint(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_update_step_calls_correct_endpoint(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._put.return_value = {"status": "ok"}
         api.update_step()
         assert mock_client._put.call_args[0][0] == "/api/v1/onboarding/flow/step"
@@ -241,7 +269,9 @@ class TestSkipOnboarding:
         assert body["action"] == "skip"
 
     @pytest.mark.asyncio
-    async def test_skip_onboarding_async(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_skip_onboarding_async(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._put_async = AsyncMock(return_value={"skipped": True})
         result = await api.skip_onboarding_async()
         assert result == {"skipped": True}
@@ -256,7 +286,9 @@ class TestCompleteOnboarding:
         assert body["action"] == "complete"
 
     @pytest.mark.asyncio
-    async def test_complete_onboarding_async(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_complete_onboarding_async(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._put_async = AsyncMock(return_value={"completed": True})
         result = await api.complete_onboarding_async()
         assert result == {"completed": True}
@@ -271,13 +303,17 @@ class TestGetTemplates:
         assert templates[0].id == "tpl-001"
         assert templates[0].name == "Quick Decision"
 
-    def test_get_templates_with_use_case(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_templates_with_use_case(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"templates": []}
         api.get_templates(use_case="security")
         params = mock_client._get.call_args[1]["params"]
         assert params["use_case"] == "security"
 
-    def test_get_templates_with_profile(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_templates_with_profile(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"templates": []}
         api.get_templates(profile="executive")
         params = mock_client._get.call_args[1]["params"]
@@ -288,13 +324,17 @@ class TestGetTemplates:
         templates = api.get_templates()
         assert templates == []
 
-    def test_get_templates_calls_correct_endpoint(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_templates_calls_correct_endpoint(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = {"templates": []}
         api.get_templates()
         mock_client._get.assert_called_once_with("/api/v1/onboarding/templates", params={})
 
     @pytest.mark.asyncio
-    async def test_get_templates_async(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_get_templates_async(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value={"templates": [SAMPLE_TEMPLATE]})
         templates = await api.get_templates_async(use_case="product")
         assert len(templates) == 1
@@ -302,26 +342,34 @@ class TestGetTemplates:
 
 
 class TestStartFirstDebate:
-    def test_start_first_debate_minimal(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_start_first_debate_minimal(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"debate_id": "deb-001", "status": "started"}
         result = api.start_first_debate()
         assert result["debate_id"] == "deb-001"
         body = mock_client._post.call_args[0][1]
         assert body == {}
 
-    def test_start_first_debate_with_template(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_start_first_debate_with_template(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"debate_id": "deb-002"}
         api.start_first_debate(template_id="tpl-001")
         body = mock_client._post.call_args[0][1]
         assert body["template_id"] == "tpl-001"
 
-    def test_start_first_debate_with_topic(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_start_first_debate_with_topic(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"debate_id": "deb-003"}
         api.start_first_debate(topic="Should we use Kubernetes?")
         body = mock_client._post.call_args[0][1]
         assert body["topic"] == "Should we use Kubernetes?"
 
-    def test_start_first_debate_with_example(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_start_first_debate_with_example(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post.return_value = {"debate_id": "deb-004"}
         api.start_first_debate(template_id="tpl-001", use_example=True)
         body = mock_client._post.call_args[0][1]
@@ -344,7 +392,9 @@ class TestStartFirstDebate:
         assert mock_client._post.call_args[0][0] == "/api/v1/onboarding/first-debate"
 
     @pytest.mark.asyncio
-    async def test_start_first_debate_async(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_start_first_debate_async(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"debate_id": "deb-010"})
         result = await api.start_first_debate_async(topic="Test topic")
         assert result["debate_id"] == "deb-010"
@@ -366,7 +416,9 @@ class TestApplyQuickStart:
         assert mock_client._post.call_args[0][0] == "/api/v1/onboarding/quick-start"
 
     @pytest.mark.asyncio
-    async def test_apply_quick_start_async(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_apply_quick_start_async(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._post_async = AsyncMock(return_value={"applied": True, "profile": "executive"})
         result = await api.apply_quick_start_async("executive")
         assert result["profile"] == "executive"
@@ -384,19 +436,25 @@ class TestGetAnalytics:
         assert analytics.step_completion == {"welcome": 100, "use_case": 80, "template": 60}
         assert analytics.total_events == 500
 
-    def test_get_analytics_with_organization(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_analytics_with_organization(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_ANALYTICS_RESPONSE
         api.get_analytics(organization_id="org-1")
         params = mock_client._get.call_args[1]["params"]
         assert params["organization_id"] == "org-1"
 
-    def test_get_analytics_calls_correct_endpoint(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    def test_get_analytics_calls_correct_endpoint(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get.return_value = SAMPLE_ANALYTICS_RESPONSE
         api.get_analytics()
         mock_client._get.assert_called_once_with("/api/v1/onboarding/analytics", params={})
 
     @pytest.mark.asyncio
-    async def test_get_analytics_async(self, api: OnboardingAPI, mock_client: AragoraClient) -> None:
+    async def test_get_analytics_async(
+        self, api: OnboardingAPI, mock_client: AragoraClient
+    ) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_ANALYTICS_RESPONSE)
         analytics = await api.get_analytics_async(organization_id="org-2")
         assert analytics.started == 100

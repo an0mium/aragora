@@ -146,26 +146,30 @@ def handler(mock_server_context, mock_orchestrator, temp_db_path):
     h._storage = storage
 
     # Seed some tasks via storage
-    storage.save_task({
-        "task_id": "task-001",
-        "goal": "Open settings",
-        "max_steps": 10,
-        "dry_run": False,
-        "status": "completed",
-        "created_at": "2025-01-29T10:00:00Z",
-        "steps": [{"action": "click", "success": True}],
-        "result": {"success": True, "message": "Done", "steps_taken": 1},
-    })
-    storage.save_task({
-        "task_id": "task-002",
-        "goal": "Enable dark mode",
-        "max_steps": 5,
-        "dry_run": False,
-        "status": "running",
-        "created_at": "2025-01-29T11:00:00Z",
-        "steps": [],
-        "result": None,
-    })
+    storage.save_task(
+        {
+            "task_id": "task-001",
+            "goal": "Open settings",
+            "max_steps": 10,
+            "dry_run": False,
+            "status": "completed",
+            "created_at": "2025-01-29T10:00:00Z",
+            "steps": [{"action": "click", "success": True}],
+            "result": {"success": True, "message": "Done", "steps_taken": 1},
+        }
+    )
+    storage.save_task(
+        {
+            "task_id": "task-002",
+            "goal": "Enable dark mode",
+            "max_steps": 5,
+            "dry_run": False,
+            "status": "running",
+            "created_at": "2025-01-29T11:00:00Z",
+            "steps": [],
+            "result": None,
+        }
+    )
     return h
 
 

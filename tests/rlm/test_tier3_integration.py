@@ -147,9 +147,7 @@ class TestEnrichPlanContext:
 
     def test_memory_helper_injection(self) -> None:
         rlm = MagicMock()
-        rlm.inject_memory_helpers.return_value = {
-            "helpers": {"recall": "fn_recall"}
-        }
+        rlm.inject_memory_helpers.return_value = {"helpers": {"recall": "fn_recall"}}
         continuum = MagicMock()
 
         ctx = enrich_plan_context(rlm, continuum=continuum)
@@ -160,14 +158,10 @@ class TestEnrichPlanContext:
 
     def test_knowledge_helper_injection(self) -> None:
         rlm = MagicMock()
-        rlm.inject_knowledge_helpers.return_value = {
-            "helpers": {"search": "fn_search"}
-        }
+        rlm.inject_knowledge_helpers.return_value = {"helpers": {"search": "fn_search"}}
         mound = MagicMock()
 
-        ctx = enrich_plan_context(
-            rlm, mound=mound, workspace_id="ws-001"
-        )
+        ctx = enrich_plan_context(rlm, mound=mound, workspace_id="ws-001")
 
         rlm.inject_knowledge_helpers.assert_called_once_with(mound, "ws-001")
         assert ctx.knowledge_helpers == {"search": "fn_search"}
@@ -516,9 +510,7 @@ class TestAnalyzeDebateForGauntlet:
 
     def test_evidence_field_populated(self) -> None:
         long_msg = "You always " + "x" * 300
-        debate = _make_debate_result(
-            messages=[{"agent": "a", "content": long_msg, "round": 1}]
-        )
+        debate = _make_debate_result(messages=[{"agent": "a", "content": long_msg, "round": 1}])
         analysis = analyze_debate_for_gauntlet(MagicMock(spec=[]), debate)
 
         assert len(analysis.findings) >= 1
@@ -535,21 +527,23 @@ class TestParseGauntletFindings:
     """Tests for _parse_gauntlet_findings."""
 
     def test_parse_json_array(self) -> None:
-        raw = json.dumps([
-            {
-                "category": "logical_fallacy",
-                "severity": "high",
-                "description": "Ad hominem attack",
-                "source_round": 1,
-                "source_agent": "agent-x",
-                "evidence": "some text",
-            },
-            {
-                "category": "weak_argument",
-                "severity": "low",
-                "description": "Unsupported claim",
-            },
-        ])
+        raw = json.dumps(
+            [
+                {
+                    "category": "logical_fallacy",
+                    "severity": "high",
+                    "description": "Ad hominem attack",
+                    "source_round": 1,
+                    "source_agent": "agent-x",
+                    "evidence": "some text",
+                },
+                {
+                    "category": "weak_argument",
+                    "severity": "low",
+                    "description": "Unsupported claim",
+                },
+            ]
+        )
         findings = _parse_gauntlet_findings(raw)
         assert len(findings) == 2
         assert findings[0].category == "logical_fallacy"
@@ -579,11 +573,7 @@ class TestParseGauntletFindings:
         assert findings == []
 
     def test_comment_lines_skipped(self) -> None:
-        raw = (
-            "# This is a comment\n"
-            "[cat] (sev) Description\n"
-            "# Another comment\n"
-        )
+        raw = "# This is a comment\n[cat] (sev) Description\n# Another comment\n"
         findings = _parse_gauntlet_findings(raw)
         assert len(findings) == 1
 
@@ -648,9 +638,7 @@ class TestCollectTrajectoryForLearning:
 
     def test_extracts_all_fields(self) -> None:
         result = _make_rlm_result()
-        data = collect_trajectory_for_learning(
-            result, query="What is X?", debate_id="d-42"
-        )
+        data = collect_trajectory_for_learning(result, query="What is X?", debate_id="d-42")
 
         assert data.query == "What is X?"
         assert data.answer == "The answer"
@@ -789,9 +777,7 @@ class TestLoadTrajectoryInsights:
     def test_reads_jsonl_back(self, tmp_path: Any) -> None:
         output_dir = str(tmp_path / "traj")
         for i in range(3):
-            data = TrajectoryLearningData(
-                query=f"q{i}", answer=f"a{i}", rlm_iterations=i
-            )
+            data = TrajectoryLearningData(query=f"q{i}", answer=f"a{i}", rlm_iterations=i)
             store_trajectory_learning(data, output_dir=output_dir)
 
         entries = load_trajectory_insights(trajectory_dir=output_dir)
@@ -800,9 +786,7 @@ class TestLoadTrajectoryInsights:
         assert entries[2].rlm_iterations == 2
 
     def test_handles_missing_file(self, tmp_path: Any) -> None:
-        entries = load_trajectory_insights(
-            trajectory_dir=str(tmp_path / "nonexistent")
-        )
+        entries = load_trajectory_insights(trajectory_dir=str(tmp_path / "nonexistent"))
         assert entries == []
 
     def test_respects_limit_parameter(self, tmp_path: Any) -> None:

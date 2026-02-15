@@ -117,9 +117,7 @@ class TestStepOrdering:
         )
         coordinator = PostDebateCoordinator(config=config)
 
-        with patch.object(
-            coordinator, "_step_create_plan", return_value={"plan": "test"}
-        ) as mock:
+        with patch.object(coordinator, "_step_create_plan", return_value={"plan": "test"}) as mock:
             result = coordinator.run("d1", _make_debate_result(), confidence=0.85)
             mock.assert_called_once()
             assert result.plan == {"plan": "test"}

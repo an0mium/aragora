@@ -307,10 +307,10 @@ def _run_decide_demo(args: argparse.Namespace) -> None:
 
         receipts_dir = Path.cwd() / ".aragora" / "receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
-        receipt_file = receipts_dir / f"decide-demo-receipt.json"
+        receipt_file = receipts_dir / "decide-demo-receipt.json"
         receipt_file.write_text(json.dumps(receipt_data, indent=2, default=str))
 
-        html_file = receipts_dir / f"decide-demo-receipt.html"
+        html_file = receipts_dir / "decide-demo-receipt.html"
         html_file.write_text(receipt_to_html(receipt_data))
 
         print()

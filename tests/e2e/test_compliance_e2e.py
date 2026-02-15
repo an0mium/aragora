@@ -789,10 +789,13 @@ class TestRightToBeForgotten:
             result = await compliance_handler.handle(
                 "/api/v2/compliance/gdpr/right-to-be-forgotten",
                 {},
-                _make_http_handler("POST", body={
-                    "user_id": "user-789",
-                    "reason": "User requested account deletion",
-                }),
+                _make_http_handler(
+                    "POST",
+                    body={
+                        "user_id": "user-789",
+                        "reason": "User requested account deletion",
+                    },
+                ),
             )
 
             assert result["status"] == 200

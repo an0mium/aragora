@@ -437,9 +437,7 @@ class TestBudgetWithOtherFilters:
         """check_budget is called with the correct org_id."""
         budget_manager.check_budget.return_value = (True, "OK", None)
         selector.select(agents)
-        budget_manager.check_budget.assert_called_once_with(
-            "org-test", estimated_cost_usd=0.0
-        )
+        budget_manager.check_budget.assert_called_once_with("org-test", estimated_cost_usd=0.0)
 
     def test_allow_with_charges_no_filtering(self, agents, selector, budget_manager):
         """ALLOW_WITH_CHARGES action doesn't filter (not in filter logic)."""

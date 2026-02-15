@@ -366,7 +366,9 @@ class TestRegistrationValidation:
 
         with patch(
             "aragora.skills.registry.validate_skill_imports",
-            return_value=["Skill 'safe_skill' imports ['os'] but does not declare SHELL_EXECUTION capability"],
+            return_value=[
+                "Skill 'safe_skill' imports ['os'] but does not declare SHELL_EXECUTION capability"
+            ],
         ) as mock_validate:
             skill = SafeSkill()
             registry.register(skill)

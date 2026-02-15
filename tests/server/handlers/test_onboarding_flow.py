@@ -301,9 +301,7 @@ class TestOnboardingHandlerRouting:
         assert handler.can_handle("/api/v1/debates/list") is False
 
     async def test_routes_get_flow(self, handler):
-        with patch(
-            "aragora.server.handlers.onboarding.get_onboarding_repository"
-        ) as mock_repo_fn:
+        with patch("aragora.server.handlers.onboarding.get_onboarding_repository") as mock_repo_fn:
             mock_repo = MagicMock()
             mock_repo.get_flow.return_value = None
             mock_repo_fn.return_value = mock_repo
@@ -333,9 +331,7 @@ class TestHandlerFunctions:
     """Test individual onboarding handler functions."""
 
     async def test_get_flow_no_existing(self):
-        with patch(
-            "aragora.server.handlers.onboarding.get_onboarding_repository"
-        ) as mock_repo_fn:
+        with patch("aragora.server.handlers.onboarding.get_onboarding_repository") as mock_repo_fn:
             mock_repo = MagicMock()
             mock_repo.get_flow.return_value = None
             mock_repo_fn.return_value = mock_repo
@@ -348,9 +344,7 @@ class TestHandlerFunctions:
             assert data["exists"] is False
 
     async def test_init_flow_creates_state(self):
-        with patch(
-            "aragora.server.handlers.onboarding.get_onboarding_repository"
-        ) as mock_repo_fn:
+        with patch("aragora.server.handlers.onboarding.get_onboarding_repository") as mock_repo_fn:
             mock_repo = MagicMock()
             mock_repo.create_flow.return_value = "flow-123"
             mock_repo_fn.return_value = mock_repo
@@ -366,9 +360,7 @@ class TestHandlerFunctions:
             assert data["current_step"] == "welcome"
 
     async def test_init_flow_with_quick_start_profile(self):
-        with patch(
-            "aragora.server.handlers.onboarding.get_onboarding_repository"
-        ) as mock_repo_fn:
+        with patch("aragora.server.handlers.onboarding.get_onboarding_repository") as mock_repo_fn:
             mock_repo = MagicMock()
             mock_repo.create_flow.return_value = "flow-456"
             mock_repo_fn.return_value = mock_repo

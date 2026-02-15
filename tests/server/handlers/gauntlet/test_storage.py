@@ -191,7 +191,9 @@ class TestDurableQueue:
         try:
             # Re-evaluate the expression used in storage.py
             result = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() not in (
-                "0", "false", "no",
+                "0",
+                "false",
+                "no",
             )
             assert result is True
         finally:

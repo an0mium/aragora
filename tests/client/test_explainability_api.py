@@ -163,9 +163,7 @@ class TestDataclasses:
         assert cf.key_differences == []
 
     def test_decision_explanation_defaults(self) -> None:
-        exp = DecisionExplanation(
-            debate_id="d", decision="ok", confidence=0.9, summary="sum"
-        )
+        exp = DecisionExplanation(debate_id="d", decision="ok", confidence=0.9, summary="sum")
         assert exp.factors == []
         assert exp.evidence_chain == []
         assert exp.vote_pivots == []
@@ -390,9 +388,7 @@ class TestGetVotePivots:
 
 
 class TestGetCounterfactuals:
-    def test_get_counterfactuals(
-        self, api: ExplainabilityAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_get_counterfactuals(self, api: ExplainabilityAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"counterfactuals": [SAMPLE_COUNTERFACTUAL]}
         result = api.get_counterfactuals("debate-42")
         assert len(result) == 1
@@ -651,9 +647,7 @@ class TestGetBatchResults:
         assert br.explanation.debate_id == "debate-42"
         assert br.error is None
         assert br.processing_time_ms == 450.5
-        mock_client._get.assert_called_once_with(
-            "/api/v1/explainability/batch/batch-99/results"
-        )
+        mock_client._get.assert_called_once_with("/api/v1/explainability/batch/batch-99/results")
 
     def test_get_batch_results_with_error(
         self, api: ExplainabilityAPI, mock_client: AragoraClient

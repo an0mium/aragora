@@ -196,9 +196,7 @@ class TestGetStats:
 
     def test_invalid_period_returns_400(self, handler, mock_get):
         """Should return 400 for invalid period value."""
-        result = handler.handle(
-            "/api/v1/debates/stats", {"period": "century"}, mock_get
-        )
+        result = handler.handle("/api/v1/debates/stats", {"period": "century"}, mock_get)
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "period" in data.get("error", "")
@@ -240,9 +238,7 @@ class TestGetAgentStats:
             "aragora.analytics.debate_analytics.DebateAnalytics",
             return_value=mock_service,
         ):
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {}, mock_get
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {}, mock_get)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -258,16 +254,12 @@ class TestGetAgentStats:
             "aragora.analytics.debate_analytics.DebateAnalytics",
             return_value=mock_service,
         ):
-            handler.handle(
-                "/api/v1/debates/stats/agents", {"limit": "5"}, mock_get
-            )
+            handler.handle("/api/v1/debates/stats/agents", {"limit": "5"}, mock_get)
             mock_service.get_agent_stats.assert_called_once_with(limit=5)
 
     def test_no_storage_returns_error(self, handler_no_storage, mock_get):
         """Should return error when storage not available."""
-        result = handler_no_storage.handle(
-            "/api/v1/debates/stats/agents", {}, mock_get
-        )
+        result = handler_no_storage.handle("/api/v1/debates/stats/agents", {}, mock_get)
         assert result.status_code in (500, 503)
 
     def test_service_error_returns_500(self, handler, mock_get):
@@ -276,7 +268,5 @@ class TestGetAgentStats:
             "aragora.analytics.debate_analytics.DebateAnalytics",
             side_effect=RuntimeError("DB down"),
         ):
-            result = handler.handle(
-                "/api/v1/debates/stats/agents", {}, mock_get
-            )
+            result = handler.handle("/api/v1/debates/stats/agents", {}, mock_get)
         assert result.status_code == 500

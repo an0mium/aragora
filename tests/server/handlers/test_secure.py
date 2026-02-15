@@ -160,9 +160,7 @@ class TestCheckPermission:
 
     @patch("aragora.rbac.checker.get_permission_checker")
     @patch("aragora.observability.metrics.security.record_rbac_decision")
-    def test_check_with_resource_id(
-        self, mock_record, mock_get_checker, handler, auth_context
-    ):
+    def test_check_with_resource_id(self, mock_record, mock_get_checker, handler, auth_context):
         mock_checker = MagicMock()
         mock_decision = MagicMock()
         mock_decision.allowed = True

@@ -124,11 +124,14 @@ class TestGetRules:
 
 class TestUpdateRules:
     def test_update_rules(self, handler):
-        http = _make_mock_handler(method="PUT", body={
-            "rules": [
-                {"label": "vip", "keywords": ["vip", "priority"], "priority": "high"},
-            ],
-        })
+        http = _make_mock_handler(
+            method="PUT",
+            body={
+                "rules": [
+                    {"label": "vip", "keywords": ["vip", "priority"], "priority": "high"},
+                ],
+            },
+        )
         result = handler.handle_put("/api/v1/email/triage/rules", {}, http)
         assert result.status_code == 200
         body = _parse(result)
@@ -142,21 +145,27 @@ class TestUpdateRules:
         assert body2["rules"][0]["label"] == "vip"
 
     def test_update_with_escalation_keywords(self, handler):
-        http = _make_mock_handler(method="PUT", body={
-            "rules": [
-                {"label": "support", "keywords": ["help"], "priority": "medium"},
-            ],
-            "escalation_keywords": ["emergency", "outage"],
-        })
+        http = _make_mock_handler(
+            method="PUT",
+            body={
+                "rules": [
+                    {"label": "support", "keywords": ["help"], "priority": "medium"},
+                ],
+                "escalation_keywords": ["emergency", "outage"],
+            },
+        )
         result = handler.handle_put("/api/v1/email/triage/rules", {}, http)
         assert result.status_code == 200
 
     def test_update_invalid_priority(self, handler):
-        http = _make_mock_handler(method="PUT", body={
-            "rules": [
-                {"label": "bad", "keywords": ["test"], "priority": "critical"},
-            ],
-        })
+        http = _make_mock_handler(
+            method="PUT",
+            body={
+                "rules": [
+                    {"label": "bad", "keywords": ["test"], "priority": "critical"},
+                ],
+            },
+        )
         result = handler.handle_put("/api/v1/email/triage/rules", {}, http)
         assert result.status_code == 400
 
@@ -182,11 +191,14 @@ class TestUpdateRules:
 
 class TestTestMessage:
     def test_high_priority_match(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "subject": "URGENT: Rush order needed",
-            "from_address": "customer@example.com",
-            "snippet": "Please process this rush order immediately",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "subject": "URGENT: Rush order needed",
+                "from_address": "customer@example.com",
+                "snippet": "Please process this rush order immediately",
+            },
+        )
         result = handler.handle_post("/api/v1/email/triage/test", {}, http)
         assert result.status_code == 200
         body = _parse(result)
@@ -195,45 +207,60 @@ class TestTestMessage:
         assert body["score_boost"] > 0
 
     def test_medium_priority_match(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "subject": "Refund request",
-            "snippet": "I would like a refund for my order",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "subject": "Refund request",
+                "snippet": "I would like a refund for my order",
+            },
+        )
         result = handler.handle_post("/api/v1/email/triage/test", {}, http)
         body = _parse(result)
         assert body["priority"] == "medium"
 
     def test_low_priority_match(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "subject": "Weekly Newsletter",
-            "snippet": "Click to unsubscribe",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "subject": "Weekly Newsletter",
+                "snippet": "Click to unsubscribe",
+            },
+        )
         result = handler.handle_post("/api/v1/email/triage/test", {}, http)
         body = _parse(result)
         assert body["priority"] == "low"
 
     def test_no_match(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "subject": "Hello there",
-            "snippet": "Just saying hi",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "subject": "Hello there",
+                "snippet": "Just saying hi",
+            },
+        )
         result = handler.handle_post("/api/v1/email/triage/test", {}, http)
         body = _parse(result)
         assert body["priority"] == "none"
 
     def test_escalation_flag(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "subject": "Legal notice from lawsuit",
-            "snippet": "Urgent legal matter",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "subject": "Legal notice from lawsuit",
+                "snippet": "Urgent legal matter",
+            },
+        )
         result = handler.handle_post("/api/v1/email/triage/test", {}, http)
         body = _parse(result)
         assert body["should_escalate"] is True
 
     def test_missing_subject_and_snippet(self, handler):
-        http = _make_mock_handler(method="POST", body={
-            "from_address": "test@example.com",
-        })
+        http = _make_mock_handler(
+            method="POST",
+            body={
+                "from_address": "test@example.com",
+            },
+        )
         result = handler.handle_post("/api/v1/email/triage/test", {}, http)
         assert result.status_code == 400
 

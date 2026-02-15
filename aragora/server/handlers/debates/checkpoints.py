@@ -32,7 +32,7 @@ def _get_checkpoint_manager(server_context: dict[str, Any] | None = None) -> Any
         from aragora.debate.checkpoint import CheckpointManager, DatabaseCheckpointStore
 
         return CheckpointManager(store=DatabaseCheckpointStore())
-    except Exception:
+    except (ImportError, TypeError, ValueError, OSError):
         return None
 
 

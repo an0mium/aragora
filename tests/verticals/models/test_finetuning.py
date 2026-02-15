@@ -803,9 +803,9 @@ class TestVerticalFineTuningPipelineTrain:
         with pytest.raises(ValueError, match="Model not loaded"):
             import asyncio
 
-            asyncio.run(
-                pipeline.train.__wrapped__(pipeline, {})
-            ) if hasattr(pipeline.train, "__wrapped__") else pipeline.train({})
+            asyncio.run(pipeline.train.__wrapped__(pipeline, {})) if hasattr(
+                pipeline.train, "__wrapped__"
+            ) else pipeline.train({})
 
 
 class TestVerticalFineTuningPipelineSaveAdapter:

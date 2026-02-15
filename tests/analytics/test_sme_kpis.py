@@ -138,9 +138,7 @@ class TestGetSMEKPIsWithAnalytics:
         mock_analytics.get_debate_stats = fake_get_stats
 
         mock_tracker = MagicMock()
-        mock_tracker.get_workspace_stats.return_value = (
-            workspace_stats or _mock_workspace_stats()
-        )
+        mock_tracker.get_workspace_stats.return_value = workspace_stats or _mock_workspace_stats()
 
         return mock_analytics, mock_tracker
 

@@ -200,13 +200,13 @@ def cmd_starter(args: argparse.Namespace) -> None:
         print(f"    Topic: {topic}")
     else:
         topic = DEMO_TASKS["microservices"]["topic"]
-        print(f"    Scenario: microservices (default)")
+        print("    Scenario: microservices (default)")
         print(f"    Topic: {topic}")
 
     agent_names = [name for name, _ in _AGENT_CONFIGS]
     print(f"    Agents: {', '.join(agent_names)}")
-    print(f"    Rounds: 2")
-    print(f"    Mode: Offline (mock agents, no API keys)")
+    print("    Rounds: 2")
+    print("    Mode: Offline (mock agents, no API keys)")
     print()
 
     # Run the debate

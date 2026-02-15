@@ -89,18 +89,20 @@ class TestGetHealth:
         """Without env vars, integrations should show as not configured."""
         # Ensure no integration env vars are set
         env_vars = [
-            "SLACK_WEBHOOK_URL", "SLACK_BOT_TOKEN",
-            "DISCORD_WEBHOOK_URL", "DISCORD_BOT_TOKEN",
-            "TEAMS_WEBHOOK_URL", "MS_TEAMS_WEBHOOK",
-            "ZAPIER_WEBHOOK_URL", "ZAPIER_API_KEY",
+            "SLACK_WEBHOOK_URL",
+            "SLACK_BOT_TOKEN",
+            "DISCORD_WEBHOOK_URL",
+            "DISCORD_BOT_TOKEN",
+            "TEAMS_WEBHOOK_URL",
+            "MS_TEAMS_WEBHOOK",
+            "ZAPIER_WEBHOOK_URL",
+            "ZAPIER_API_KEY",
         ]
         with patch.dict(os.environ, {}, clear=False):
             for var in env_vars:
                 os.environ.pop(var, None)
 
-            result = handler.handle(
-                "/api/v1/integrations/health", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/integrations/health", {}, mock_handler)
             body = parse_body(result)
 
             slack = next(i for i in body["integrations"] if i["name"] == "slack")
@@ -112,9 +114,7 @@ class TestGetHealth:
         """Integration shows as configured when env var is present."""
         with patch.dict(os.environ, {"SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"}):
             handler = IntegrationHealthHandler(ctx={})
-            result = handler.handle(
-                "/api/v1/integrations/health", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/integrations/health", {}, mock_handler)
             body = parse_body(result)
             slack = next(i for i in body["integrations"] if i["name"] == "slack")
             assert slack["configured"] is True
@@ -127,12 +127,8 @@ class TestGetHealth:
         mock_connector.healthy = True
         mock_connector.last_check = datetime(2026, 2, 14, 10, 0, 0)
 
-        handler = IntegrationHealthHandler(
-            ctx={"connectors": {"slack": mock_connector}}
-        )
-        result = handler.handle(
-            "/api/v1/integrations/health", {}, mock_handler
-        )
+        handler = IntegrationHealthHandler(ctx={"connectors": {"slack": mock_connector}})
+        result = handler.handle("/api/v1/integrations/health", {}, mock_handler)
         body = parse_body(result)
         slack = next(i for i in body["integrations"] if i["name"] == "slack")
         assert slack["healthy"] is True
@@ -155,9 +151,7 @@ class TestGetHealth:
             },
         ):
             handler = IntegrationHealthHandler(ctx={})
-            result = handler.handle(
-                "/api/v1/integrations/health", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/integrations/health", {}, mock_handler)
             body = parse_body(result)
             assert body["configured"] >= 2
 
@@ -170,9 +164,7 @@ class TestGetHealth:
         handler = IntegrationHealthHandler(
             ctx={"connectors": {"slack": mock_conn, "email": mock_conn}}
         )
-        result = handler.handle(
-            "/api/v1/integrations/health", {}, mock_handler
-        )
+        result = handler.handle("/api/v1/integrations/health", {}, mock_handler)
         body = parse_body(result)
         assert body["healthy"] == 2
 

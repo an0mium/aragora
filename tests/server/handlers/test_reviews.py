@@ -188,12 +188,14 @@ class TestListReviews:
         reviews_dir = tmp_path / "reviews_corrupt"
         reviews_dir.mkdir()
         (reviews_dir / "good.json").write_text(
-            json.dumps({
-                "id": "good1",
-                "created_at": "2026-01-01",
-                "agents": [],
-                "findings": {"unanimous_critiques": [], "agreement_score": 0.5},
-            })
+            json.dumps(
+                {
+                    "id": "good1",
+                    "created_at": "2026-01-01",
+                    "agents": [],
+                    "findings": {"unanimous_critiques": [], "agreement_score": 0.5},
+                }
+            )
         )
         (reviews_dir / "bad.json").write_text("not valid json {{{")
 
@@ -270,7 +272,9 @@ class TestHandleRouting:
 
         with patch("aragora.server.handlers.reviews.REVIEWS_DIR", empty_dir):
             with patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)):
-                with patch.object(handler, "require_permission_or_error", return_value=(MagicMock(), None)):
+                with patch.object(
+                    handler, "require_permission_or_error", return_value=(MagicMock(), None)
+                ):
                     result = handler.handle("/api/reviews", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200
@@ -280,14 +284,18 @@ class TestHandleRouting:
 
         with patch("aragora.server.handlers.reviews.REVIEWS_DIR", tmp_reviews_dir):
             with patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)):
-                with patch.object(handler, "require_permission_or_error", return_value=(MagicMock(), None)):
+                with patch.object(
+                    handler, "require_permission_or_error", return_value=(MagicMock(), None)
+                ):
                     result = handler.handle("/api/reviews/abc123", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200
 
     def test_handle_auth_failure(self, handler):
         mock_handler = _make_mock_handler()
-        err = HandlerResult(status_code=401, content_type="application/json", body=b'{"error":"Unauthorized"}')
+        err = HandlerResult(
+            status_code=401, content_type="application/json", body=b'{"error":"Unauthorized"}'
+        )
 
         with patch.object(handler, "require_auth_or_error", return_value=(None, err)):
             result = handler.handle("/api/reviews", {}, mock_handler)
@@ -295,10 +303,14 @@ class TestHandleRouting:
 
     def test_handle_permission_failure(self, handler):
         mock_handler = _make_mock_handler()
-        perm_err = HandlerResult(status_code=403, content_type="application/json", body=b'{"error":"Forbidden"}')
+        perm_err = HandlerResult(
+            status_code=403, content_type="application/json", body=b'{"error":"Forbidden"}'
+        )
 
         with patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)):
-            with patch.object(handler, "require_permission_or_error", return_value=(None, perm_err)):
+            with patch.object(
+                handler, "require_permission_or_error", return_value=(None, perm_err)
+            ):
                 result = handler.handle("/api/reviews", {}, mock_handler)
                 assert result.status_code == 403
 
@@ -317,7 +329,9 @@ class TestHandleRouting:
 
         with patch("aragora.server.handlers.reviews.REVIEWS_DIR", empty_dir):
             with patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)):
-                with patch.object(handler, "require_permission_or_error", return_value=(MagicMock(), None)):
+                with patch.object(
+                    handler, "require_permission_or_error", return_value=(MagicMock(), None)
+                ):
                     result = handler.handle("/api/v1/reviews", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200

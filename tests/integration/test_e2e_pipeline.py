@@ -84,10 +84,27 @@ def debate_result() -> DebateResult:
             "gemini": "Logistic regression baseline with neural net uplift...",
         },
         messages=[
-            Message(role="proposer", agent="claude", content="I propose an XGBoost-based credit model...", round=1),
-            Message(role="critic", agent="gpt4", content="The proposal lacks explainability...", round=1),
-            Message(role="proposer", agent="gemini", content="A simpler baseline would be more robust...", round=1),
-            Message(role="synthesizer", agent="claude", content="Combining ensemble with SHAP...", round=2),
+            Message(
+                role="proposer",
+                agent="claude",
+                content="I propose an XGBoost-based credit model...",
+                round=1,
+            ),
+            Message(
+                role="critic", agent="gpt4", content="The proposal lacks explainability...", round=1
+            ),
+            Message(
+                role="proposer",
+                agent="gemini",
+                content="A simpler baseline would be more robust...",
+                round=1,
+            ),
+            Message(
+                role="synthesizer",
+                agent="claude",
+                content="Combining ensemble with SHAP...",
+                round=2,
+            ),
         ],
         critiques=[
             Critique(
@@ -110,9 +127,24 @@ def debate_result() -> DebateResult:
             ),
         ],
         votes=[
-            Vote(agent="claude", choice="claude", reasoning="Ensemble addresses all concerns", confidence=0.9),
-            Vote(agent="gpt4", choice="claude", reasoning="SHAP integration is critical", confidence=0.85),
-            Vote(agent="gemini", choice="claude", reasoning="Acceptable complexity tradeoff", confidence=0.8),
+            Vote(
+                agent="claude",
+                choice="claude",
+                reasoning="Ensemble addresses all concerns",
+                confidence=0.9,
+            ),
+            Vote(
+                agent="gpt4",
+                choice="claude",
+                reasoning="SHAP integration is critical",
+                confidence=0.85,
+            ),
+            Vote(
+                agent="gemini",
+                choice="claude",
+                reasoning="Acceptable complexity tradeoff",
+                confidence=0.8,
+            ),
         ],
         dissenting_views=["Gemini preferred simpler baseline initially"],
         duration_seconds=45.2,
@@ -424,9 +456,7 @@ class TestStage4Blockchain:
 
     def test_validation_record_from_receipt(self, gauntlet_receipt: GauntletReceipt):
         """A ValidationRecord is created from receipt data."""
-        request_hash = hashlib.sha256(
-            gauntlet_receipt.receipt_id.encode()
-        ).hexdigest()
+        request_hash = hashlib.sha256(gauntlet_receipt.receipt_id.encode()).hexdigest()
 
         record = ValidationRecord(
             request_hash=request_hash,
@@ -455,9 +485,7 @@ class TestStage4Blockchain:
         proof = gauntlet_receipt.consensus_proof
 
         for agent_name, agent_id in agents_to_ids.items():
-            is_supporting = (
-                proof is not None and agent_name in proof.supporting_agents
-            )
+            is_supporting = proof is not None and agent_name in proof.supporting_agents
             # Supporting agents get positive feedback; dissenting get neutral
             value = 100 if is_supporting else 50
 
@@ -571,7 +599,7 @@ class TestStage5Compliance:
 
         articles = {m.article for m in report.article_mappings}
         # Expect at least these core articles
-        assert "Article 9" in articles   # Risk management
+        assert "Article 9" in articles  # Risk management
         assert "Article 12" in articles  # Record-keeping
         assert "Article 13" in articles  # Transparency
         assert "Article 14" in articles  # Human oversight
@@ -673,9 +701,7 @@ class TestFullPipeline:
         assert action_metadata["verdict"] == "CONDITIONAL"
 
         # Stage 4: Blockchain validation record from receipt
-        request_hash = hashlib.sha256(
-            gauntlet_receipt.receipt_id.encode()
-        ).hexdigest()
+        request_hash = hashlib.sha256(gauntlet_receipt.receipt_id.encode()).hexdigest()
         validation = ValidationRecord(
             request_hash=request_hash,
             agent_id=42,

@@ -302,17 +302,13 @@ class TestRegistryManagement:
     """Tests for registry get, clear, register functions."""
 
     def test_get_registered_endpoints_returns_copy(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/api/a", method="GET", summary="A", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/api/a", method="GET", summary="A", tags=[]))
         eps1 = get_registered_endpoints()
         eps2 = get_registered_endpoints()
         assert eps1 is not eps2
 
     def test_clear_registry_empties_list(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/api/a", method="GET", summary="A", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/api/a", method="GET", summary="A", tags=[]))
         clear_registry()
         assert len(get_registered_endpoints()) == 0
 
@@ -336,12 +332,8 @@ class TestRegistryManagement:
         assert "post" in d["/api/items"]
 
     def test_endpoints_dict_multiple_paths(self):
-        register_endpoint(
-            OpenAPIEndpoint(path="/api/a", method="GET", summary="A", tags=[])
-        )
-        register_endpoint(
-            OpenAPIEndpoint(path="/api/b", method="GET", summary="B", tags=[])
-        )
+        register_endpoint(OpenAPIEndpoint(path="/api/a", method="GET", summary="A", tags=[]))
+        register_endpoint(OpenAPIEndpoint(path="/api/b", method="GET", summary="B", tags=[]))
         d = get_registered_endpoints_dict()
         assert "/api/a" in d
         assert "/api/b" in d

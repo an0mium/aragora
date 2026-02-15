@@ -13,7 +13,9 @@ import json
 
 import pytest
 
-pytest.importorskip("aragora_debate", reason="aragora_debate package is required for debate integration tests")
+pytest.importorskip(
+    "aragora_debate", reason="aragora_debate package is required for debate integration tests"
+)
 
 from aragora_debate import (
     Debate,
@@ -34,15 +36,30 @@ async def test_full_debate_lifecycle() -> None:
         consensus="majority",
     )
 
-    debate.add_agent(create_agent("mock", name="backend-lead",
-                                   proposal="Use PostgreSQL for ACID compliance and relational queries.",
-                                   vote_for="backend-lead"))
-    debate.add_agent(create_agent("mock", name="devops-lead",
-                                   proposal="Use MongoDB for flexible schema and horizontal scaling.",
-                                   vote_for="backend-lead"))
-    debate.add_agent(create_agent("mock", name="architect",
-                                   proposal="Use PostgreSQL with JSONB columns for flexibility.",
-                                   vote_for="backend-lead"))
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="backend-lead",
+            proposal="Use PostgreSQL for ACID compliance and relational queries.",
+            vote_for="backend-lead",
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="devops-lead",
+            proposal="Use MongoDB for flexible schema and horizontal scaling.",
+            vote_for="backend-lead",
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="architect",
+            proposal="Use PostgreSQL with JSONB columns for flexibility.",
+            vote_for="backend-lead",
+        )
+    )
 
     result = await debate.run()
 
@@ -87,9 +104,14 @@ async def test_debate_with_trickster() -> None:
     )
 
     for i in range(4):
-        debate.add_agent(create_agent("mock", name=f"agent-{i}",
-                                       proposal="Yes, rewrite in Rust for performance.",
-                                       vote_for="agent-0"))
+        debate.add_agent(
+            create_agent(
+                "mock",
+                name=f"agent-{i}",
+                proposal="Yes, rewrite in Rust for performance.",
+                vote_for="agent-0",
+            )
+        )
 
     result = await debate.run()
     assert result.receipt is not None
@@ -101,15 +123,22 @@ async def test_debate_with_dissent() -> None:
     """Verify dissenting opinions are captured in consensus."""
     debate = Debate(topic="Monolith vs microservices?", rounds=2, consensus="majority")
 
-    debate.add_agent(create_agent("mock", name="pro-mono",
-                                   proposal="Keep the monolith.",
-                                   vote_for="pro-mono"))
-    debate.add_agent(create_agent("mock", name="pro-micro",
-                                   proposal="Split into microservices.",
-                                   vote_for="pro-micro"))
-    debate.add_agent(create_agent("mock", name="pragmatist",
-                                   proposal="Start monolith, extract later.",
-                                   vote_for="pro-mono"))
+    debate.add_agent(
+        create_agent("mock", name="pro-mono", proposal="Keep the monolith.", vote_for="pro-mono")
+    )
+    debate.add_agent(
+        create_agent(
+            "mock", name="pro-micro", proposal="Split into microservices.", vote_for="pro-micro"
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="pragmatist",
+            proposal="Start monolith, extract later.",
+            vote_for="pro-mono",
+        )
+    )
 
     result = await debate.run()
     assert result.receipt is not None

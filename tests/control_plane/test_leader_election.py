@@ -632,9 +632,7 @@ class TestElectionFlow:
 
         try:
             # Should start as follower, then try to become leader
-            await poll_until(
-                lambda: election.state in {LeaderState.LEADER, LeaderState.FOLLOWER}
-            )
+            await poll_until(lambda: election.state in {LeaderState.LEADER, LeaderState.FOLLOWER})
         finally:
             await election.stop()
 

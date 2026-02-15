@@ -37,6 +37,7 @@ from aragora.compliance.eu_ai_act import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def classifier():
     return RiskClassifier()
@@ -124,6 +125,7 @@ def minimal_receipt() -> dict:
 # ---------------------------------------------------------------------------
 # RiskClassifier Tests
 # ---------------------------------------------------------------------------
+
 
 class TestRiskClassifier:
     """Tests for EU AI Act risk classification."""
@@ -235,6 +237,7 @@ class TestRiskClassifier:
 # ConformityReportGenerator Tests
 # ---------------------------------------------------------------------------
 
+
 class TestConformityReportGenerator:
     """Tests for EU AI Act conformity report generation."""
 
@@ -342,6 +345,7 @@ class TestConformityReportGenerator:
 # ConformityReport serialization tests
 # ---------------------------------------------------------------------------
 
+
 class TestConformityReport:
     """Tests for ConformityReport serialization."""
 
@@ -380,6 +384,7 @@ class TestConformityReport:
 # Helper function tests
 # ---------------------------------------------------------------------------
 
+
 class TestHelpers:
     """Tests for helper functions."""
 
@@ -409,6 +414,7 @@ class TestHelpers:
 # ---------------------------------------------------------------------------
 # CLI integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestComplianceCLI:
     """Tests for the compliance CLI commands."""
@@ -521,10 +527,26 @@ class TestComplianceArtifactGenerator:
                 {"agent": "agent-b", "view": "Bias risk too high"},
             ],
             "provenance_chain": [
-                {"event_type": "debate_started", "timestamp": "2026-01-01T00:00:00Z", "actor": "system"},
-                {"event_type": "proposal_submitted", "timestamp": "2026-01-01T00:01:00Z", "actor": "agent-a"},
-                {"event_type": "human_approval", "timestamp": "2026-01-01T00:10:00Z", "actor": "admin@test.com"},
-                {"event_type": "receipt_generated", "timestamp": "2026-01-01T00:10:05Z", "actor": "system"},
+                {
+                    "event_type": "debate_started",
+                    "timestamp": "2026-01-01T00:00:00Z",
+                    "actor": "system",
+                },
+                {
+                    "event_type": "proposal_submitted",
+                    "timestamp": "2026-01-01T00:01:00Z",
+                    "actor": "agent-a",
+                },
+                {
+                    "event_type": "human_approval",
+                    "timestamp": "2026-01-01T00:10:00Z",
+                    "actor": "admin@test.com",
+                },
+                {
+                    "event_type": "receipt_generated",
+                    "timestamp": "2026-01-01T00:10:05Z",
+                    "actor": "system",
+                },
             ],
             "config_used": {
                 "protocol": "adversarial",

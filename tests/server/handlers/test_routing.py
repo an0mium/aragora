@@ -190,9 +190,7 @@ class TestGetDomainLeaderboard:
 
     def test_domain_leaderboard_success(self, handler):
         mock_selector = MagicMock()
-        mock_selector.get_domain_leaderboard.return_value = [
-            {"agent": "claude", "score": 1500}
-        ]
+        mock_selector.get_domain_leaderboard.return_value = [{"agent": "claude", "score": 1500}]
         mock_selector_cls = MagicMock()
         mock_selector_cls.create_with_defaults.return_value = mock_selector
 
@@ -228,9 +226,7 @@ class TestGetRecommendations:
 
     def test_recommendations_success(self, handler):
         mock_selector = MagicMock()
-        mock_selector.get_recommendations.return_value = [
-            {"agent": "claude", "score": 0.92}
-        ]
+        mock_selector.get_recommendations.return_value = [{"agent": "claude", "score": 0.92}]
         mock_selector_cls = MagicMock(return_value=mock_selector)
         mock_requirements_cls = MagicMock()
 
@@ -492,9 +488,7 @@ class TestHandleRouting:
 
         mock_handler = _make_mock_handler()
         with patch.object(_routing_limiter, "is_allowed", return_value=False):
-            result = handler.handle(
-                "/api/routing/best-teams", {}, mock_handler
-            )
+            result = handler.handle("/api/routing/best-teams", {}, mock_handler)
             assert result.status_code == 429
 
 
@@ -525,9 +519,7 @@ class TestHandlePostRouting:
                 return_value={"primary_domain": "general"},
             ):
                 with patch.object(handler, "get_elo_system", return_value=MagicMock()):
-                    result = handler.handle_post(
-                        "/api/routing/recommendations", {}, mock_handler
-                    )
+                    result = handler.handle_post("/api/routing/recommendations", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200
 
@@ -547,17 +539,13 @@ class TestHandlePostRouting:
                 "read_json_body",
                 return_value={"task": "Something"},
             ):
-                result = handler.handle_post(
-                    "/api/routing/detect-domain", {}, mock_handler
-                )
+                result = handler.handle_post("/api/routing/detect-domain", {}, mock_handler)
                 assert result is not None
                 assert result.status_code == 200
 
     def test_handle_post_unmatched_returns_none(self, handler):
         mock_handler = _make_mock_handler("POST")
-        result = handler.handle_post(
-            "/api/routing/unknown", {}, mock_handler
-        )
+        result = handler.handle_post("/api/routing/unknown", {}, mock_handler)
         assert result is None
 
     def test_handle_post_versioned_path(self, handler):
@@ -577,8 +565,6 @@ class TestHandlePostRouting:
                 "read_json_body",
                 return_value={"task": "Something"},
             ):
-                result = handler.handle_post(
-                    "/api/v1/routing/detect-domain", {}, mock_handler
-                )
+                result = handler.handle_post("/api/v1/routing/detect-domain", {}, mock_handler)
                 assert result is not None
                 assert result.status_code == 200

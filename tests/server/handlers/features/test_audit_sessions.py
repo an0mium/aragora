@@ -1418,9 +1418,7 @@ class TestLifecycleTransitions:
     @pytest.mark.asyncio
     async def test_start_running_session_fails(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "running"
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start")
         resp = await handler.handle_request(req)
         assert resp["status"] == 400
         body = _parse_body(resp)
@@ -1429,63 +1427,49 @@ class TestLifecycleTransitions:
     @pytest.mark.asyncio
     async def test_start_cancelled_session_fails(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "cancelled"
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start")
         resp = await handler.handle_request(req)
         assert resp["status"] == 400
 
     @pytest.mark.asyncio
     async def test_pause_completed_session_fails(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "completed"
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/pause"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/pause")
         resp = await handler.handle_request(req)
         assert resp["status"] == 400
 
     @pytest.mark.asyncio
     async def test_resume_running_session_fails(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "running"
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/resume"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/resume")
         resp = await handler.handle_request(req)
         assert resp["status"] == 400
 
     @pytest.mark.asyncio
     async def test_resume_completed_session_fails(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "completed"
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/resume"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/resume")
         resp = await handler.handle_request(req)
         assert resp["status"] == 400
 
     @pytest.mark.asyncio
     async def test_delete_completed_session_succeeds(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "completed"
-        req = FakeRequest(
-            method="DELETE", path=f"/api/v1/audit/sessions/{_seed_session}"
-        )
+        req = FakeRequest(method="DELETE", path=f"/api/v1/audit/sessions/{_seed_session}")
         resp = await handler.handle_request(req)
         assert resp["status"] == 200
 
     @pytest.mark.asyncio
     async def test_delete_cancelled_session_succeeds(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "cancelled"
-        req = FakeRequest(
-            method="DELETE", path=f"/api/v1/audit/sessions/{_seed_session}"
-        )
+        req = FakeRequest(method="DELETE", path=f"/api/v1/audit/sessions/{_seed_session}")
         resp = await handler.handle_request(req)
         assert resp["status"] == 200
 
     @pytest.mark.asyncio
     async def test_start_updates_timestamps(self, handler, _seed_session):
         original_updated = _sessions[_seed_session]["updated_at"]
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/start")
         with patch.object(handler, "_run_audit_background", new_callable=AsyncMock):
             await handler.handle_request(req)
         assert _sessions[_seed_session]["updated_at"] != original_updated
@@ -1495,9 +1479,7 @@ class TestLifecycleTransitions:
     async def test_pause_updates_timestamp(self, handler, _seed_session):
         _sessions[_seed_session]["status"] = "running"
         original_updated = _sessions[_seed_session]["updated_at"]
-        req = FakeRequest(
-            method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/pause"
-        )
+        req = FakeRequest(method="POST", path=f"/api/v1/audit/sessions/{_seed_session}/pause")
         await handler.handle_request(req)
         assert _sessions[_seed_session]["updated_at"] != original_updated
 
@@ -1525,9 +1507,7 @@ class TestFindingsEdgeCases:
             {"id": "f-unknown", "severity": "unknown_level"},
             {"id": "f-critical", "severity": "critical"},
         ]
-        req = FakeRequest(
-            method="GET", path=f"/api/v1/audit/sessions/{_seed_session}/findings"
-        )
+        req = FakeRequest(method="GET", path=f"/api/v1/audit/sessions/{_seed_session}/findings")
         resp = await handler.handle_request(req)
         body = _parse_body(resp)
         assert body["findings"][0]["id"] == "f-critical"

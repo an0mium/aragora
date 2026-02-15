@@ -53,4 +53,5 @@ class TestAudienceDatabase:
         db = AudienceDatabase(str(db_path))
         # Verify connection is a context manager method
         import inspect
+
         assert inspect.ismethod(db.connection) or callable(db.connection)

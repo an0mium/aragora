@@ -185,6 +185,7 @@ class MockKnowledgeMound:
         class QueryResult:
             def __init__(self, result_items: list) -> None:
                 self.items = [KnowledgeItem(i) if isinstance(i, dict) else i for i in result_items]
+
         return QueryResult(items)
 
     def set_query_results(self, results: list[dict[str, Any]]) -> None:

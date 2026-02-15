@@ -160,9 +160,7 @@ class TestCompleteConnection:
         body = mock_client._post.call_args[0][1]
         assert body["code"] == "auth-code-123"
         assert body["state"] == "state-xyz"
-        mock_client._post.assert_called_once_with(
-            "/api/v1/connectors/gmail/callback", body
-        )
+        mock_client._post.assert_called_once_with("/api/v1/connectors/gmail/callback", body)
 
     @pytest.mark.asyncio
     async def test_complete_connection_async(
@@ -222,9 +220,7 @@ class TestListTriageRules:
         assert rules == []
 
     @pytest.mark.asyncio
-    async def test_list_triage_rules_async(
-        self, api: GmailAPI, mock_client: AragoraClient
-    ) -> None:
+    async def test_list_triage_rules_async(self, api: GmailAPI, mock_client: AragoraClient) -> None:
         mock_client._get_async = AsyncMock(return_value={"rules": [SAMPLE_TRIAGE_RULE]})
         rules = await api.list_triage_rules_async()
         assert len(rules) == 1
@@ -276,9 +272,7 @@ class TestCreateTriageRule:
 
 
 class TestUpdateTriageRule:
-    def test_update_triage_rule_all_fields(
-        self, api: GmailAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_triage_rule_all_fields(self, api: GmailAPI, mock_client: AragoraClient) -> None:
         updated = {**SAMPLE_TRIAGE_RULE, "name": "Renamed", "priority": 20}
         mock_client._patch.return_value = {"rule": updated}
         rule = api.update_triage_rule(
@@ -296,9 +290,7 @@ class TestUpdateTriageRule:
         assert body["enabled"] is False
         assert body["priority"] == 20
 
-    def test_update_triage_rule_partial(
-        self, api: GmailAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_triage_rule_partial(self, api: GmailAPI, mock_client: AragoraClient) -> None:
         mock_client._patch.return_value = {"rule": SAMPLE_TRIAGE_RULE}
         api.update_triage_rule(rule_id="rule-1", name="Updated")
         body = mock_client._patch.call_args[0][1]
@@ -332,9 +324,7 @@ class TestDeleteTriageRule:
         mock_client._delete.return_value = None
         result = api.delete_triage_rule("rule-1")
         assert result is True
-        mock_client._delete.assert_called_once_with(
-            "/api/v1/connectors/gmail/triage/rules/rule-1"
-        )
+        mock_client._delete.assert_called_once_with("/api/v1/connectors/gmail/triage/rules/rule-1")
 
     @pytest.mark.asyncio
     async def test_delete_triage_rule_async(
@@ -370,17 +360,13 @@ class TestListDebateConfigs:
     async def test_list_debate_configs_async(
         self, api: GmailAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"configs": [SAMPLE_DEBATE_CONFIG]}
-        )
+        mock_client._get_async = AsyncMock(return_value={"configs": [SAMPLE_DEBATE_CONFIG]})
         configs = await api.list_debate_configs_async()
         assert len(configs) == 1
 
 
 class TestCreateDebateConfig:
-    def test_create_debate_config_full(
-        self, api: GmailAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_create_debate_config_full(self, api: GmailAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {"config": SAMPLE_DEBATE_CONFIG}
         config = api.create_debate_config(
             name="Auto-debate important emails",
@@ -397,9 +383,7 @@ class TestCreateDebateConfig:
         assert body["debate_template"] == "quick_review"
         assert body["auto_reply"] is True
 
-    def test_create_debate_config_minimal(
-        self, api: GmailAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_create_debate_config_minimal(self, api: GmailAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = SAMPLE_DEBATE_CONFIG
         api.create_debate_config(
             name="simple",
@@ -415,18 +399,14 @@ class TestCreateDebateConfig:
         self, api: GmailAPI, mock_client: AragoraClient
     ) -> None:
         mock_client._post.return_value = SAMPLE_DEBATE_CONFIG
-        config = api.create_debate_config(
-            name="test", trigger_conditions={"label": "inbox"}
-        )
+        config = api.create_debate_config(name="test", trigger_conditions={"label": "inbox"})
         assert config.id == "dconf-1"
 
     @pytest.mark.asyncio
     async def test_create_debate_config_async(
         self, api: GmailAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._post_async = AsyncMock(
-            return_value={"config": SAMPLE_DEBATE_CONFIG}
-        )
+        mock_client._post_async = AsyncMock(return_value={"config": SAMPLE_DEBATE_CONFIG})
         config = await api.create_debate_config_async(
             name="async config",
             trigger_conditions={"label": "important"},
@@ -486,9 +466,7 @@ class TestListProcessedEmails:
     async def test_list_processed_emails_async_with_filter(
         self, api: GmailAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"emails": [], "total": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"emails": [], "total": 0})
         emails, total = await api.list_processed_emails_async(status="failed")
         assert emails == []
         assert total == 0

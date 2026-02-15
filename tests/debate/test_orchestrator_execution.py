@@ -1814,7 +1814,9 @@ class TestRequireAgents:
     def test_require_agents_raises_on_empty(self, environment, protocol):
         """_require_agents raises when agents empty."""
         # Create arena with fabric to bypass initial validation
-        with patch("aragora.debate.orchestrator_agents.get_fabric_agents_sync", return_value=[MockAgent()]):
+        with patch(
+            "aragora.debate.orchestrator_agents.get_fabric_agents_sync", return_value=[MockAgent()]
+        ):
             arena = Arena(
                 environment,
                 agents=[],

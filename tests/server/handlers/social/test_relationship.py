@@ -266,7 +266,6 @@ def mock_tracker():
 # ---- can_handle tests ----
 
 
-
 class TestCanHandle:
     def test_summary_route(self, handler):
         assert handler.can_handle("/api/v1/relationships/summary") is True
@@ -295,7 +294,6 @@ class TestCanHandle:
 
 
 # ---- Rate limiting ----
-
 
 
 class TestRateLimiting:
@@ -331,7 +329,6 @@ class TestRateLimiting:
 # ---- RBAC permission checks ----
 
 
-
 class TestRBACPermission:
     @pytest.mark.no_auto_auth
     def test_handle_requires_relationships_read(self):
@@ -347,7 +344,6 @@ class TestRBACPermission:
 
 
 # ---- GET /api/v1/relationships/summary ----
-
 
 
 class TestGetSummary:
@@ -427,7 +423,6 @@ class TestGetSummary:
 
 
 # ---- GET /api/v1/relationships/graph ----
-
 
 
 class TestGetGraph:
@@ -510,7 +505,6 @@ class TestGetGraph:
 # ---- GET /api/v1/relationships/stats ----
 
 
-
 class TestGetStats:
     def _call_stats(self, handler, db_path):
         mock_tracker = MagicMock()
@@ -577,7 +571,6 @@ class TestGetStats:
 
 
 # ---- GET /api/v1/relationship/{agent_a}/{agent_b} ----
-
 
 
 class TestGetPairDetail:
@@ -653,7 +646,6 @@ class TestGetPairDetail:
 
 
 # ---- Input validation (agent name patterns via handle routing) ----
-
 
 
 class TestInputValidation:
@@ -763,7 +755,6 @@ class TestInputValidation:
 # ---- require_tracker decorator ----
 
 
-
 class TestRequireTracker:
     def test_tracker_not_available(self, handler):
         """When RELATIONSHIP_TRACKER_AVAILABLE is False, return 503."""
@@ -789,7 +780,6 @@ class TestRequireTracker:
 
 
 # ---- _get_tracker method ----
-
 
 
 class TestGetTracker:
@@ -871,7 +861,6 @@ class TestGetTracker:
 # ---- _empty_stats_response ----
 
 
-
 class TestEmptyStatsResponse:
     def test_returns_correct_structure(self, handler):
         result = handler._empty_stats_response()
@@ -886,7 +875,6 @@ class TestEmptyStatsResponse:
 
 
 # ---- _fetch_relationships ----
-
 
 
 class TestFetchRelationships:
@@ -925,7 +913,6 @@ class TestFetchRelationships:
 
 
 # ---- handle() routing ----
-
 
 
 class TestHandleRouting:

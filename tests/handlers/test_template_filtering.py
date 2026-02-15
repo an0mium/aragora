@@ -240,13 +240,15 @@ class TestTemplateCombinedFilters:
             "aragora.server.handlers.orchestration.templates._list_templates",
             mock_list,
         ):
-            handler._get_templates({
-                "category": "business",
-                "search": "hiring",
-                "tags": "sme,hr",
-                "limit": "20",
-                "offset": "2",
-            })
+            handler._get_templates(
+                {
+                    "category": "business",
+                    "search": "hiring",
+                    "tags": "sme,hr",
+                    "limit": "20",
+                    "offset": "2",
+                }
+            )
 
         kwargs = mock_list.call_args.kwargs
         assert kwargs["category"] == "business"

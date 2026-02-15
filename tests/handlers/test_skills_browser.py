@@ -88,15 +88,20 @@ def mock_registry():
 @pytest.fixture
 def handler(mock_registry):
     """Create a SkillsHandler with mocked registry."""
-    with patch(
-        "aragora.server.handlers.skills.SKILLS_AVAILABLE", True
-    ), patch(
-        "aragora.server.handlers.skills.get_skill_registry",
-        return_value=mock_registry,
-    ), patch(
-        "aragora.server.handlers.skills.SkillStatus", MockSkillStatus,
-    ), patch(
-        "aragora.server.handlers.skills.SkillContext", MagicMock,
+    with (
+        patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True),
+        patch(
+            "aragora.server.handlers.skills.get_skill_registry",
+            return_value=mock_registry,
+        ),
+        patch(
+            "aragora.server.handlers.skills.SkillStatus",
+            MockSkillStatus,
+        ),
+        patch(
+            "aragora.server.handlers.skills.SkillContext",
+            MagicMock,
+        ),
     ):
         h = SkillsHandler(server_context={})
         h._registry = mock_registry
@@ -183,9 +188,7 @@ class TestInvokeSkillByPath:
     @pytest.mark.asyncio
     async def test_invoke_by_path(self, handler, mock_request):
         mock_request.json = AsyncMock(return_value={"input": {"query": "test"}})
-        result = await handler.handle_post(
-            "/api/v1/skills/search/invoke", mock_request
-        )
+        result = await handler.handle_post("/api/v1/skills/search/invoke", mock_request)
         assert result.status_code == 200
         body = parse_body(result)
         assert body["status"] == "success"
@@ -193,19 +196,13 @@ class TestInvokeSkillByPath:
     @pytest.mark.asyncio
     async def test_invoke_nonexistent_by_path(self, handler, mock_request):
         mock_request.json = AsyncMock(return_value={"input": {}})
-        result = await handler.handle_post(
-            "/api/v1/skills/nonexistent/invoke", mock_request
-        )
+        result = await handler.handle_post("/api/v1/skills/nonexistent/invoke", mock_request)
         assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_invoke_by_body(self, handler, mock_request):
-        mock_request.json = AsyncMock(
-            return_value={"skill": "search", "input": {"query": "test"}}
-        )
-        result = await handler.handle_post(
-            "/api/v1/skills/invoke", mock_request
-        )
+        mock_request.json = AsyncMock(return_value={"skill": "search", "input": {"query": "test"}})
+        result = await handler.handle_post("/api/v1/skills/invoke", mock_request)
         assert result.status_code == 200
 
 

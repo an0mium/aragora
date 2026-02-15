@@ -152,9 +152,7 @@ class TestFhirBundleToClinicalSummary:
                         "resourceType": "Observation",
                         "code": {"text": "HbA1c"},
                         "valueQuantity": {"value": 8.2, "unit": "%"},
-                        "interpretation": [
-                            {"coding": [{"code": "H", "display": "High"}]}
-                        ],
+                        "interpretation": [{"coding": [{"code": "H", "display": "High"}]}],
                     }
                 }
             ]

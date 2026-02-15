@@ -529,7 +529,7 @@ class TestNosecSuppression:
 
     def test_nosec_marks_false_positive(self, scanner, tmp_path):
         """Test that # nosec marks findings as false positive."""
-        code = 'result = eval(user_input)  # nosec\n'
+        code = "result = eval(user_input)  # nosec\n"
         file_path = tmp_path / "suppressed.py"
         file_path.write_text(code)
 
@@ -541,7 +541,7 @@ class TestNosecSuppression:
         """Test that # nosec findings are excluded from summary counts."""
         from datetime import datetime, timezone
 
-        code = 'result = eval(user_input)  # nosec\n'
+        code = "result = eval(user_input)  # nosec\n"
         file_path = tmp_path / "suppressed.py"
         file_path.write_text(code)
 
@@ -561,7 +561,7 @@ class TestNosecSuppression:
         """Test that findings without # nosec are counted normally."""
         from datetime import datetime, timezone
 
-        code = 'result = eval(user_input)\n'
+        code = "result = eval(user_input)\n"
         file_path = tmp_path / "not_suppressed.py"
         file_path.write_text(code)
 
@@ -577,7 +577,13 @@ class TestNosecSuppression:
         )
         report.calculate_summary()
 
-        total = report.critical_count + report.high_count + report.medium_count + report.low_count + report.info_count
+        total = (
+            report.critical_count
+            + report.high_count
+            + report.medium_count
+            + report.low_count
+            + report.info_count
+        )
         assert total >= 1
 
 

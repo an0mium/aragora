@@ -198,9 +198,7 @@ class TestVerifyReceipt:
         assert "checksum_match" in data
         assert "details" in data
 
-    def test_verify_receipt_with_valid_integrity(
-        self, client, mock_receipt_store
-    ):
+    def test_verify_receipt_with_valid_integrity(self, client, mock_receipt_store):
         """Verify receipt with matching checksum succeeds."""
         # Create a receipt using the actual DecisionReceipt class for correct checksum
         try:
@@ -243,6 +241,7 @@ class TestExportReceipt:
         assert "content" in data
         # Content should be valid JSON
         import json
+
         parsed = json.loads(data["content"])
         assert parsed["receipt_id"] == "rcpt_test123"
 
@@ -265,10 +264,13 @@ class TestExportReceipt:
         data = response.json()
         assert data["format"] == "sarif"
         import json
+
         sarif = json.loads(data["content"])
         assert sarif["version"] == "2.1.0"
 
-    def test_export_receipt_default_format_is_json(self, client, mock_receipt_store, sample_receipt_dict):
+    def test_export_receipt_default_format_is_json(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
         """Export without format param defaults to JSON."""
         mock_receipt_store.get.return_value = sample_receipt_dict
 

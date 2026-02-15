@@ -26,9 +26,7 @@ class MockCoordinator:
         self._health_monitor = MagicMock()
         self._health_monitor.get_all_health.return_value = {}
 
-    async def list_agents(
-        self, capability: str | None = None, only_available: bool = True
-    ) -> list:
+    async def list_agents(self, capability: str | None = None, only_available: bool = True) -> list:
         agents = list(self._agents.values())
         if capability:
             agents = [a for a in agents if capability in a.capabilities]
@@ -174,6 +172,7 @@ class MockCoordinator:
 # ---------------------------------------------------------------------------
 # Auth / RBAC bypass helper
 # ---------------------------------------------------------------------------
+
 
 def _mock_user():
     """Create a mock authenticated user context."""
@@ -350,9 +349,7 @@ class TestRegisterAgent:
         }
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/agents", {}, mock_http_handler
                 )
@@ -367,9 +364,7 @@ class TestRegisterAgent:
         body = {"capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/agents", {}, mock_http_handler
                 )
@@ -420,9 +415,7 @@ class TestAgentHeartbeat:
         body = {"status": "available"}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 with patch(
                     "aragora.control_plane.registry.AgentStatus",
                     MagicMock(return_value="available"),
@@ -441,9 +434,7 @@ class TestAgentHeartbeat:
         body = {"status": "available"}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 with patch(
                     "aragora.control_plane.registry.AgentStatus",
                     MagicMock(return_value="available"),
@@ -470,9 +461,7 @@ class TestSubmitTask:
         }
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 with patch(
                     "aragora.control_plane.scheduler.TaskPriority",
                     MagicMock(NORMAL="normal"),
@@ -491,9 +480,7 @@ class TestSubmitTask:
         body = {"payload": {"topic": "AI"}}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/tasks", {}, mock_http_handler
                 )
@@ -538,9 +525,7 @@ class TestCompleteTask:
         body = {"result": {"consensus": "reached"}, "latency_ms": 1500}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     f"/api/control-plane/tasks/{task_id}/complete", {}, mock_http_handler
                 )
@@ -555,9 +540,7 @@ class TestCompleteTask:
         body = {"result": {"consensus": "reached"}}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/tasks/nonexistent/complete", {}, mock_http_handler
                 )
@@ -569,18 +552,14 @@ class TestFailTask:
     """Test POST /api/control-plane/tasks/:id/fail."""
 
     @pytest.mark.asyncio
-    async def test_fail_task_success(
-        self, handler, mock_coordinator, mock_http_handler, mock_user
-    ):
+    async def test_fail_task_success(self, handler, mock_coordinator, mock_http_handler, mock_user):
         """Test failing a task."""
         task_id = await mock_coordinator.submit_task("debate", {"topic": "AI"})
 
         body = {"error": "Agent timeout", "requeue": True}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     f"/api/control-plane/tasks/{task_id}/fail", {}, mock_http_handler
                 )
@@ -674,9 +653,7 @@ class TestClaimTask:
         body = {"agent_id": "agent-1", "capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/tasks/any/claim", {}, mock_http_handler
                 )
@@ -692,9 +669,7 @@ class TestClaimTask:
         body = {"agent_id": "agent-1", "capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/tasks/any/claim", {}, mock_http_handler
                 )
@@ -708,9 +683,7 @@ class TestClaimTask:
         body = {"capabilities": ["debate"]}
 
         with patch.object(handler, "read_json_body_validated", return_value=(body, None)):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = await handler.handle_post(
                     "/api/control-plane/tasks/any/claim", {}, mock_http_handler
                 )
@@ -855,9 +828,7 @@ class TestListPolicyViolations:
         """Test listing policy violations."""
         _patch_auth(handler, admin_user)
         with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = handler.handle(
                     "/api/control-plane/policies/violations", {}, mock_http_handler
                 )
@@ -874,9 +845,7 @@ class TestListPolicyViolations:
         """Test filtering violations by status."""
         _patch_auth(handler, admin_user)
         with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = handler.handle(
                     "/api/control-plane/policies/violations",
                     {"status": ["open"]},
@@ -891,9 +860,7 @@ class TestListPolicyViolations:
         """Test listing violations without permission."""
         _patch_auth(handler, admin_user)
         with patch("aragora.server.handlers.control_plane.has_permission", return_value=False):
-            result = handler.handle(
-                "/api/control-plane/policies/violations", {}, mock_http_handler
-            )
+            result = handler.handle("/api/control-plane/policies/violations", {}, mock_http_handler)
 
         assert result.status_code == 403
         data = json.loads(result.body)
@@ -907,9 +874,7 @@ class TestGetPolicyViolation:
         """Test getting a specific violation."""
         _patch_auth(handler, admin_user)
         with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = handler.handle(
                     "/api/control-plane/policies/violations/viol-1", {}, mock_http_handler
                 )
@@ -925,9 +890,7 @@ class TestGetPolicyViolation:
         """Test getting non-existent violation."""
         _patch_auth(handler, admin_user)
         with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = handler.handle(
                     "/api/control-plane/policies/violations/nonexistent", {}, mock_http_handler
                 )
@@ -942,9 +905,7 @@ class TestGetPolicyViolationStats:
         """Test getting violation statistics."""
         _patch_auth(handler, admin_user)
         with patch.object(handler, "_get_policy_store", return_value=mock_policy_store):
-            with patch(
-                "aragora.server.handlers.control_plane.has_permission", return_value=True
-            ):
+            with patch("aragora.server.handlers.control_plane.has_permission", return_value=True):
                 result = handler.handle(
                     "/api/control-plane/policies/violations/stats", {}, mock_http_handler
                 )

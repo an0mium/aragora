@@ -496,9 +496,7 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_handle_post_audio_circuit_breaker_blocked(self, handler):
         mock_handler = _make_mock_handler("POST")
-        with patch(
-            "aragora.server.handlers.transcription._audio_limiter"
-        ) as mock_limiter:
+        with patch("aragora.server.handlers.transcription._audio_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
             with patch(
                 "aragora.server.handlers.transcription._transcription_circuit_breaker"

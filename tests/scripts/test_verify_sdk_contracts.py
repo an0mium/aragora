@@ -10,8 +10,7 @@ import scripts.verify_sdk_contracts as verify_sdk_contracts
 
 def test_normalize_collapses_version_and_params():
     assert (
-        verify_sdk_contracts._normalize("/api/v1/policies/{policy_id}/")
-        == "/api/policies/{param}"
+        verify_sdk_contracts._normalize("/api/v1/policies/{policy_id}/") == "/api/policies/{param}"
     )
 
 

@@ -123,9 +123,7 @@ class TestCheckpointPause:
     @pytest.mark.asyncio
     async def test_pause_without_manager_returns_503(self, auth_context):
         """Pausing without a checkpoint manager returns 503."""
-        result = await handle_checkpoint_pause(
-            "debate-1", auth_context, checkpoint_manager=None
-        )
+        result = await handle_checkpoint_pause("debate-1", auth_context, checkpoint_manager=None)
 
         assert result["status"] == 503
 
@@ -135,9 +133,7 @@ class TestCheckpointPause:
         manager = MagicMock()
         manager.create_checkpoint = AsyncMock(side_effect=RuntimeError("Store unavailable"))
 
-        result = await handle_checkpoint_pause(
-            "debate-1", auth_context, checkpoint_manager=manager
-        )
+        result = await handle_checkpoint_pause("debate-1", auth_context, checkpoint_manager=manager)
 
         assert result["status"] == 500
         assert "Store unavailable" in _body(result)["error"]
@@ -263,9 +259,7 @@ class TestCheckpointResume:
     @pytest.mark.asyncio
     async def test_resume_without_manager_returns_503(self, auth_context):
         """Resume without checkpoint manager returns 503."""
-        result = await handle_checkpoint_resume(
-            "debate-1", auth_context, checkpoint_manager=None
-        )
+        result = await handle_checkpoint_resume("debate-1", auth_context, checkpoint_manager=None)
 
         assert result["status"] == 503
 
@@ -364,9 +358,7 @@ class TestListCheckpoints:
     @pytest.mark.asyncio
     async def test_list_without_manager_returns_503(self, auth_context):
         """List without checkpoint manager returns 503."""
-        result = await handle_list_checkpoints(
-            "debate-1", auth_context, checkpoint_manager=None
-        )
+        result = await handle_list_checkpoints("debate-1", auth_context, checkpoint_manager=None)
 
         assert result["status"] == 503
 
@@ -389,13 +381,9 @@ class TestListCheckpoints:
         """List handles store errors gracefully."""
         manager = MagicMock()
         manager.store = MagicMock()
-        manager.store.list_checkpoints = AsyncMock(
-            side_effect=OSError("Store connection lost")
-        )
+        manager.store.list_checkpoints = AsyncMock(side_effect=OSError("Store connection lost"))
 
-        result = await handle_list_checkpoints(
-            "debate-1", auth_context, checkpoint_manager=manager
-        )
+        result = await handle_list_checkpoints("debate-1", auth_context, checkpoint_manager=manager)
 
         assert result["status"] == 500
         assert "Store connection lost" in _body(result)["error"]

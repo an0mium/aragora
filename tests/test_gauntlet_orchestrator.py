@@ -256,7 +256,9 @@ class TestGauntletOrchestratorPhases:
     @pytest.mark.asyncio
     async def test_risk_assessment_import_error(self, orchestrator, config):
         """Test risk assessment handles import error gracefully."""
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def mock_import(name, *args, **kwargs):
             if name == "aragora.debate.risk_assessor":
@@ -281,9 +283,9 @@ class TestGauntletOrchestratorPhases:
         mock_assessment.mitigations = ["Mitigate"]
         mock_assessment.confidence = 0.8
 
-        mock_assessor_class = Mock(return_value=Mock(
-            assess_topic=Mock(return_value=[mock_assessment])
-        ))
+        mock_assessor_class = Mock(
+            return_value=Mock(assess_topic=Mock(return_value=[mock_assessment]))
+        )
         mock_risk_level = Mock()
 
         # Patch the import inside the function

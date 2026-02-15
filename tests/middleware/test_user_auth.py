@@ -575,10 +575,13 @@ class TestSupabaseAuthValidator:
         token = create_unsigned_jwt(sample_jwt_payload)
 
         with patch("aragora.server.middleware.user_auth.HAS_JWT", False):
-            with patch.dict("os.environ", {
-                "ARAGORA_ENVIRONMENT": "development",
-                "ARAGORA_ALLOW_INSECURE_JWT": "1",
-            }):
+            with patch.dict(
+                "os.environ",
+                {
+                    "ARAGORA_ENVIRONMENT": "development",
+                    "ARAGORA_ALLOW_INSECURE_JWT": "1",
+                },
+            ):
                 user = validator.validate_jwt(token)
 
                 assert user is not None

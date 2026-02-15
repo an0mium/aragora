@@ -153,9 +153,7 @@ class TestVerifiedOnlyPolicyEnforcement:
     @pytest.mark.asyncio
     async def test_verified_only_blocks_unverified_skill(self):
         """When require_verified_only=True, installing an unverified skill is rejected."""
-        mock_mp = MockMarketplaceForVerification(
-            listing=_make_listing(is_verified=False)
-        )
+        mock_mp = MockMarketplaceForVerification(listing=_make_listing(is_verified=False))
         installer = SkillInstaller(marketplace=mock_mp)
         installer.set_policy(
             "tenant-1",
@@ -175,9 +173,7 @@ class TestVerifiedOnlyPolicyEnforcement:
     @pytest.mark.asyncio
     async def test_verified_only_allows_verified_skill(self):
         """When require_verified_only=True, installing a verified skill succeeds."""
-        mock_mp = MockMarketplaceForVerification(
-            listing=_make_listing(is_verified=True)
-        )
+        mock_mp = MockMarketplaceForVerification(listing=_make_listing(is_verified=True))
         installer = SkillInstaller(marketplace=mock_mp)
         installer.set_policy(
             "tenant-1",
@@ -196,9 +192,7 @@ class TestVerifiedOnlyPolicyEnforcement:
     @pytest.mark.asyncio
     async def test_no_verified_requirement_allows_unverified(self):
         """When require_verified_only=False (default), unverified skills install fine."""
-        mock_mp = MockMarketplaceForVerification(
-            listing=_make_listing(is_verified=False)
-        )
+        mock_mp = MockMarketplaceForVerification(listing=_make_listing(is_verified=False))
         installer = SkillInstaller(marketplace=mock_mp)
         # Default policy has require_verified_only=False
         installer.set_policy("tenant-1", InstallationPolicy())
@@ -215,9 +209,7 @@ class TestVerifiedOnlyPolicyEnforcement:
     @pytest.mark.asyncio
     async def test_can_install_check_blocks_unverified(self):
         """can_install returns not allowed for unverified skills under strict policy."""
-        mock_mp = MockMarketplaceForVerification(
-            listing=_make_listing(is_verified=False)
-        )
+        mock_mp = MockMarketplaceForVerification(listing=_make_listing(is_verified=False))
         installer = SkillInstaller(marketplace=mock_mp)
         installer.set_policy(
             "tenant-1",
@@ -237,9 +229,7 @@ class TestVerifiedOnlyPolicyEnforcement:
     @pytest.mark.asyncio
     async def test_can_install_check_allows_verified(self):
         """can_install returns allowed for verified skills under strict policy."""
-        mock_mp = MockMarketplaceForVerification(
-            listing=_make_listing(is_verified=True)
-        )
+        mock_mp = MockMarketplaceForVerification(listing=_make_listing(is_verified=True))
         installer = SkillInstaller(marketplace=mock_mp)
         installer.set_policy(
             "tenant-1",
@@ -424,15 +414,16 @@ class TestVerificationRouting:
 
     def test_can_handle_verify_put(self, skill_handler):
         """Handler recognizes PUT verify path."""
-        assert skill_handler.can_handle(
-            "/api/v1/skills/marketplace/skill-123/verify", "PUT"
-        ) is True
+        assert (
+            skill_handler.can_handle("/api/v1/skills/marketplace/skill-123/verify", "PUT") is True
+        )
 
     def test_can_handle_verify_delete(self, skill_handler):
         """Handler recognizes DELETE verify path."""
-        assert skill_handler.can_handle(
-            "/api/v1/skills/marketplace/skill-123/verify", "DELETE"
-        ) is True
+        assert (
+            skill_handler.can_handle("/api/v1/skills/marketplace/skill-123/verify", "DELETE")
+            is True
+        )
 
     @pytest.mark.asyncio
     async def test_verify_requires_auth(self, skill_handler):

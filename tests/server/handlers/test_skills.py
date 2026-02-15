@@ -134,6 +134,7 @@ def handler(mock_registry):
 def _reset_rate_limiter():
     """Reset the rate limiter between tests."""
     import aragora.server.handlers.skills as mod
+
     mod._skills_limiter = mod.RateLimiter(requests_per_minute=1000)  # high limit for tests
     yield
 
@@ -337,8 +338,10 @@ class TestHandleGetRouting:
     @pytest.mark.asyncio
     async def test_handle_get_list(self, handler):
         request = MockRequest()
-        with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True), \
-             patch.object(handler, "get_query_param", return_value="50"):
+        with (
+            patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True),
+            patch.object(handler, "get_query_param", return_value="50"),
+        ):
             result = await handler.handle_get.__wrapped__(handler, "/api/skills", request)
             assert result.status_code == 200
 
@@ -353,7 +356,9 @@ class TestHandleGetRouting:
     async def test_handle_get_metrics(self, handler, mock_registry):
         request = MockRequest()
         with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
-            result = await handler.handle_get.__wrapped__(handler, "/api/skills/skill-a/metrics", request)
+            result = await handler.handle_get.__wrapped__(
+                handler, "/api/skills/skill-a/metrics", request
+            )
             assert result.status_code == 200
 
     @pytest.mark.asyncio
@@ -375,8 +380,10 @@ class TestHandlePostRouting:
     @pytest.mark.asyncio
     async def test_handle_post_invoke(self, handler, mock_registry):
         request = MockRequest(body={"skill": "skill-a", "input": {}})
-        with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True), \
-             patch("aragora.server.handlers.skills.SkillContext", MagicMock()):
+        with (
+            patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True),
+            patch("aragora.server.handlers.skills.SkillContext", MagicMock()),
+        ):
             mock_result = MagicMock()
             mock_result.data = {"result": "ok"}
             mock_result.duration_seconds = 0.5
@@ -385,7 +392,9 @@ class TestHandlePostRouting:
             with patch("aragora.server.handlers.skills.SkillStatus") as mock_ss:
                 mock_result.status = mock_ss.SUCCESS
                 mock_registry.invoke = AsyncMock(return_value=mock_result)
-                result = await handler.handle_post.__wrapped__(handler, "/api/skills/invoke", request)
+                result = await handler.handle_post.__wrapped__(
+                    handler, "/api/skills/invoke", request
+                )
                 assert result.status_code == 200
 
     @pytest.mark.asyncio

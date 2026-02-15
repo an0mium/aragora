@@ -896,6 +896,7 @@ class TestOAuthIntegration:
         # Verify state contains user_id for linking
         # Use validate_oauth_state to decode JWT-based state tokens
         from aragora.server.oauth_state_store import validate_oauth_state, get_oauth_state_store
+
         state_data = validate_oauth_state(state)
         assert state_data is not None, "State token should be valid"
         assert state_data["user_id"] == existing_user.id

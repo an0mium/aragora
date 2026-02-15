@@ -63,4 +63,3 @@ async def test_run_gauntlet_legacy_mode_works_without_agents() -> None:
     assert result is not None
     assert result.input_summary
     assert hasattr(result, "verdict")
-

@@ -108,4 +108,5 @@ def test_cmd_ask_demo_forces_local_offline(monkeypatch):
         assert call_kwargs["protocol_overrides"]["enable_llm_synthesis"] is False
 
     import os
+
     assert os.getenv("ARAGORA_OFFLINE") == "1"

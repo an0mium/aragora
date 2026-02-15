@@ -287,7 +287,9 @@ class TestUpdateConfig:
             "aragora.server.handlers.moderation.get_spam_moderation",
             return_value=mock_moderation,
         ):
-            with patch.object(handler, "read_json_body_validated", return_value=({"spam_threshold": 0.9}, None)):
+            with patch.object(
+                handler, "read_json_body_validated", return_value=({"spam_threshold": 0.9}, None)
+            ):
                 result = handler._handle_update_config(mock_handler)
                 assert result.status_code == 200
                 data = _parse_body(result)
@@ -295,7 +297,9 @@ class TestUpdateConfig:
 
     def test_update_config_invalid_body(self, handler):
         mock_handler = _make_mock_handler("PUT", b"not json")
-        err_result = HandlerResult(status_code=400, content_type="application/json", body=b'{"error":"bad"}')
+        err_result = HandlerResult(
+            status_code=400, content_type="application/json", body=b'{"error":"bad"}'
+        )
 
         with patch.object(handler, "read_json_body_validated", return_value=(None, err_result)):
             result = handler._handle_update_config(mock_handler)
@@ -429,7 +433,9 @@ class TestHandlePutRouting:
             "aragora.server.handlers.moderation.get_spam_moderation",
             return_value=mock_moderation,
         ):
-            with patch.object(handler, "read_json_body_validated", return_value=({"enabled": False}, None)):
+            with patch.object(
+                handler, "read_json_body_validated", return_value=({"enabled": False}, None)
+            ):
                 result = handler.handle_put("/api/moderation/config", {}, mock_handler)
                 assert result is not None
                 assert result.status_code == 200
@@ -456,9 +462,7 @@ class TestHandlePostRouting:
             "aragora.server.handlers.moderation.pop_review_item",
             return_value=mock_item,
         ):
-            result = handler.handle_post(
-                "/api/moderation/items/item-001/approve", {}, mock_handler
-            )
+            result = handler.handle_post("/api/moderation/items/item-001/approve", {}, mock_handler)
             assert result is not None
             assert result.status_code == 200
             data = _parse_body(result)
@@ -472,9 +476,7 @@ class TestHandlePostRouting:
             "aragora.server.handlers.moderation.pop_review_item",
             return_value=mock_item,
         ):
-            result = handler.handle_post(
-                "/api/moderation/items/item-002/reject", {}, mock_handler
-            )
+            result = handler.handle_post("/api/moderation/items/item-002/reject", {}, mock_handler)
             assert result is not None
             assert result.status_code == 200
             data = _parse_body(result)
@@ -494,7 +496,5 @@ class TestHandlePostRouting:
             "aragora.server.handlers.moderation.pop_review_item",
             return_value=mock_item,
         ) as mock_pop:
-            handler.handle_post(
-                "/api/moderation/items/my-item-123/approve", {}, mock_handler
-            )
+            handler.handle_post("/api/moderation/items/my-item-123/approve", {}, mock_handler)
             mock_pop.assert_called_once_with("my-item-123")

@@ -419,9 +419,7 @@ class TestFallbackWarningLoggedInDevelopment:
             # 1st call: with signature verification → raises InvalidSignatureError
             # 2nd call: without signature verification → should succeed with claims
             call_count = 0
-            original_error = jwt.exceptions.InvalidSignatureError(
-                "Signature verification failed"
-            )
+            original_error = jwt.exceptions.InvalidSignatureError("Signature verification failed")
 
             def jwt_decode_side_effect(*args, **kwargs):
                 nonlocal call_count

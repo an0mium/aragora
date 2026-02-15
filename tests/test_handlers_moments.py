@@ -274,7 +274,9 @@ class TestTimelineEndpoint:
         }
 
         handler = _bypass_rbac(MomentsHandler({"moment_detector": mock_detector}))
-        result = await handler.handle("/api/moments/timeline", {"limit": "5", "offset": "8"}, Mock())
+        result = await handler.handle(
+            "/api/moments/timeline", {"limit": "5", "offset": "8"}, Mock()
+        )
 
         data = json.loads(result.body)
         assert len(data["moments"]) == 2  # Only 2 remaining after offset 8

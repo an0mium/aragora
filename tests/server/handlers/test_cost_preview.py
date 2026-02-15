@@ -128,9 +128,7 @@ class TestEstimateDebateCost:
 class TestDryRunMode:
     """Test dry_run mode returns cost estimate without executing."""
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
@@ -141,9 +139,7 @@ class TestDryRunMode:
         mock_auth.return_value = MagicMock(user_id="test-user")
         base_request_data["dry_run"] = True
 
-        result = handler._handle_deliberate(
-            base_request_data, MagicMock(), MagicMock(), sync=False
-        )
+        result = handler._handle_deliberate(base_request_data, MagicMock(), MagicMock(), sync=False)
         body = _parse_response(result)
 
         assert body["dry_run"] is True
@@ -152,9 +148,7 @@ class TestDryRunMode:
         assert body["agents"] == ["anthropic-api", "openai-api", "gemini"]
         assert result.status_code == 200
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
@@ -173,9 +167,7 @@ class TestDryRunMode:
             body = _parse_response(result)
             assert body["dry_run"] is True
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
@@ -186,15 +178,11 @@ class TestDryRunMode:
         mock_auth.return_value = MagicMock(user_id="test-user")
         base_request_data["dry_run"] = True
 
-        result = handler._handle_deliberate(
-            base_request_data, MagicMock(), MagicMock(), sync=False
-        )
+        result = handler._handle_deliberate(base_request_data, MagicMock(), MagicMock(), sync=False)
         body = _parse_response(result)
         assert "request_id" in body
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
@@ -206,9 +194,7 @@ class TestDryRunMode:
         base_request_data["dry_run"] = True
         base_request_data["max_rounds"] = 5
 
-        result = handler._handle_deliberate(
-            base_request_data, MagicMock(), MagicMock(), sync=False
-        )
+        result = handler._handle_deliberate(base_request_data, MagicMock(), MagicMock(), sync=False)
         body = _parse_response(result)
         assert body["max_rounds"] == 5
 
@@ -221,9 +207,7 @@ class TestDryRunMode:
 class TestCostInDeliberationResponse:
     """Test that cost estimate is included in normal deliberation responses."""
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
@@ -235,18 +219,14 @@ class TestCostInDeliberationResponse:
         mock_auth.return_value = MagicMock(user_id="test-user")
         mock_asyncio.create_task = MagicMock()
 
-        result = handler._handle_deliberate(
-            base_request_data, MagicMock(), MagicMock(), sync=False
-        )
+        result = handler._handle_deliberate(base_request_data, MagicMock(), MagicMock(), sync=False)
         body = _parse_response(result)
 
         assert "estimated_cost_usd" in body
         assert isinstance(body["estimated_cost_usd"], float)
         assert result.status_code == 202
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
@@ -266,25 +246,19 @@ class TestCostInDeliberationResponse:
         }
         mock_run_async.return_value = mock_result
 
-        result = handler._handle_deliberate(
-            base_request_data, MagicMock(), MagicMock(), sync=True
-        )
+        result = handler._handle_deliberate(base_request_data, MagicMock(), MagicMock(), sync=True)
         body = _parse_response(result)
 
         assert "estimated_cost_usd" in body
         assert isinstance(body["estimated_cost_usd"], float)
 
-    @patch(
-        "aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission"
-    )
+    @patch("aragora.server.handlers.orchestration.handler.OrchestrationHandler.check_permission")
     @patch(
         "aragora.server.handlers.orchestration.handler.OrchestrationHandler.get_auth_context",
         new_callable=AsyncMock,
     )
     @patch("aragora.server.handlers.orchestration.handler.asyncio")
-    async def test_cost_scales_with_agent_count(
-        self, mock_asyncio, mock_auth, mock_perm, handler
-    ):
+    async def test_cost_scales_with_agent_count(self, mock_asyncio, mock_auth, mock_perm, handler):
         mock_auth.return_value = MagicMock(user_id="test-user")
         mock_asyncio.create_task = MagicMock()
 

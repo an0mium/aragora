@@ -199,11 +199,15 @@ class TestListPlans:
     """Tests for GET /api/v1/plans."""
 
     def test_list_plans_success(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._list_plans({})
             assert result.status_code == 200
@@ -212,31 +216,43 @@ class TestListPlans:
             assert len(data["plans"]) == 2
 
     def test_list_plans_with_status_filter(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._list_plans({"status": "approved"})
             assert result.status_code == 200
 
     def test_list_plans_invalid_status(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._list_plans({"status": "nonexistent_status"})
             assert result.status_code == 400
 
     def test_list_plans_with_pagination(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._list_plans({"limit": "10", "offset": "5"})
             assert result.status_code == 200
@@ -283,42 +299,61 @@ class TestCreatePlan:
 
     def test_create_plan_success(self, handler, mock_store):
         body = {"debate_id": "debate-001", "task": "Implement feature"}
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch.object(handler, "get_json_body", return_value=body), patch(
-            "aragora.pipeline.decision_plan.core.DecisionPlan", MockPlan,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.ApprovalMode", MockApprovalMode,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch(
-            "aragora.server.handlers.plans._fire_plan_notification",
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch.object(handler, "get_json_body", return_value=body),
+            patch(
+                "aragora.pipeline.decision_plan.core.DecisionPlan",
+                MockPlan,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.ApprovalMode",
+                MockApprovalMode,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch(
+                "aragora.server.handlers.plans._fire_plan_notification",
+            ),
         ):
             result = handler._create_plan({})
             assert result.status_code == 201
 
     def test_create_plan_missing_body(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch.object(handler, "get_json_body", return_value=None):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch.object(handler, "get_json_body", return_value=None),
+        ):
             result = handler._create_plan({})
             assert result.status_code == 400
 
     def test_create_plan_missing_debate_id(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch.object(handler, "get_json_body", return_value={"task": "Do something"}):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch.object(handler, "get_json_body", return_value={"task": "Do something"}),
+        ):
             result = handler._create_plan({})
             assert result.status_code == 400
 
     def test_create_plan_missing_task(self, handler, mock_store):
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch.object(handler, "get_json_body", return_value={"debate_id": "d-1"}):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch.object(handler, "get_json_body", return_value={"debate_id": "d-1"}),
+        ):
             result = handler._create_plan({})
             assert result.status_code == 400
 
@@ -335,13 +370,19 @@ class TestApprovePlan:
         plan = MockPlan(status="awaiting_approval")
         mock_store.get.return_value = plan
 
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(handler, "get_json_body", return_value={}), patch(
-            "aragora.server.handlers.plans._fire_plan_notification",
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
+            patch(
+                "aragora.server.handlers.plans._fire_plan_notification",
+            ),
         ):
             result = handler._approve_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 200
@@ -350,11 +391,15 @@ class TestApprovePlan:
 
     def test_approve_plan_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._approve_plan({"plan_id": "nonexistent"}, {})
             assert result.status_code == 404
@@ -362,11 +407,15 @@ class TestApprovePlan:
     def test_approve_already_approved(self, handler, mock_store):
         plan = MockPlan(status="approved")
         mock_store.get.return_value = plan
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._approve_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 409
@@ -384,15 +433,19 @@ class TestRejectPlan:
         plan = MockPlan(status="awaiting_approval")
         mock_store.get.return_value = plan
 
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(
-            handler, "get_json_body", return_value={"reason": "Not ready"}
-        ), patch(
-            "aragora.server.handlers.plans._fire_plan_notification",
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={"reason": "Not ready"}),
+            patch(
+                "aragora.server.handlers.plans._fire_plan_notification",
+            ),
         ):
             result = handler._reject_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 200
@@ -403,24 +456,31 @@ class TestRejectPlan:
     def test_reject_plan_missing_reason(self, handler, mock_store):
         plan = MockPlan(status="awaiting_approval")
         mock_store.get.return_value = plan
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(
-            handler, "get_json_body", return_value={}
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
         ):
             result = handler._reject_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 400
 
     def test_reject_plan_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             result = handler._reject_plan({"plan_id": "nonexistent"}, {})
             assert result.status_code == 404
@@ -438,18 +498,23 @@ class TestExecutePlan:
         plan = MockPlan(status="approved")
         mock_store.get.return_value = plan
 
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(
-            handler, "get_json_body", return_value={}
-        ), patch(
-            "aragora.pipeline.execution_bridge.get_execution_bridge",
-            return_value=MagicMock(),
-        ), patch(
-            "aragora.server.handlers.plans._fire_plan_notification",
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
+            patch(
+                "aragora.pipeline.execution_bridge.get_execution_bridge",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.plans._fire_plan_notification",
+            ),
         ):
             result = handler._execute_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 202
@@ -457,47 +522,67 @@ class TestExecutePlan:
     def test_execute_unapproved_plan(self, handler, mock_store):
         plan = MockPlan(status="awaiting_approval")
         mock_store.get.return_value = plan
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(handler, "get_json_body", return_value={}):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
+        ):
             result = handler._execute_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 409
 
     def test_execute_already_executing(self, handler, mock_store):
         plan = MockPlan(status="executing")
         mock_store.get.return_value = plan
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(handler, "get_json_body", return_value={}):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
+        ):
             result = handler._execute_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 409
 
     def test_execute_completed_plan(self, handler, mock_store):
         plan = MockPlan(status="completed")
         mock_store.get.return_value = plan
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(handler, "get_json_body", return_value={}):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
+        ):
             result = handler._execute_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 409
 
     def test_execute_not_found(self, handler, mock_store):
         mock_store.get.return_value = None
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
-        ), patch.object(handler, "get_json_body", return_value={}):
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
+            patch.object(handler, "get_json_body", return_value={}),
+        ):
             result = handler._execute_plan({"plan_id": "nonexistent"}, {})
             assert result.status_code == 404
 
@@ -541,11 +626,15 @@ class TestHandleRouting:
 
     def test_handle_list_plans(self, handler, mock_store):
         mock_handler = _make_mock_handler()
-        with patch(
-            "aragora.server.handlers.plans._get_plan_store",
-            return_value=mock_store,
-        ), patch(
-            "aragora.pipeline.decision_plan.core.PlanStatus", MockPlanStatus,
+        with (
+            patch(
+                "aragora.server.handlers.plans._get_plan_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.pipeline.decision_plan.core.PlanStatus",
+                MockPlanStatus,
+            ),
         ):
             handler.set_request_context(mock_handler, {})
             result = handler._get_dispatcher.dispatch("/api/v1/plans", {})

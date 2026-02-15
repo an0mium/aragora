@@ -1,0 +1,1722 @@
+[
+  {
+    "method": "delete",
+    "path": "/api/accounting/expenses/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/checkpoints/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/cross-pollination/subscribers/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/debates/{param}/notes/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/debates/{param}/permanent"
+  },
+  {
+    "method": "delete",
+    "path": "/api/debates/{param}/tags"
+  },
+  {
+    "method": "delete",
+    "path": "/api/email/{param}/snooze"
+  },
+  {
+    "method": "delete",
+    "path": "/api/facts/relationships/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/facts/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/gmail/triage-rules/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/integrations/wizard/providers/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/km/checkpoints/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/knowledge/mound/federation/regions/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/knowledge/mound/nodes/{param}/access"
+  },
+  {
+    "method": "delete",
+    "path": "/api/knowledge/mound/share"
+  },
+  {
+    "method": "delete",
+    "path": "/api/media/audio/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/memory/context"
+  },
+  {
+    "method": "delete",
+    "path": "/api/memory/snapshots/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/outlook/messages/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/partners/keys/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/payments/customer/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/payments/subscription/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/replays/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/rlm/context/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/transcription/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/users/{param}"
+  },
+  {
+    "method": "delete",
+    "path": "/api/webhooks/bulk"
+  },
+  {
+    "method": "delete",
+    "path": "/api/webhooks/{param}/events"
+  },
+  {
+    "method": "delete",
+    "path": "/inbox/accounts/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ap/discounts"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ap/forecast"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ap/invoices"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ap/invoices/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ar/aging"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ar/collections"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ar/customers/{param}/balance"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ar/invoices"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/ar/invoices/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/expenses/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/invoices/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/accounting/invoices/{param}/anomalies"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/circuit-breakers"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/organizations/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/security/audit"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/security/compliance"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/security/keys/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/security/scan/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/security/threats"
+  },
+  {
+    "method": "get",
+    "path": "/api/admin/users/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/agents/configs/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/agents/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/agents/{param}/quota"
+  },
+  {
+    "method": "get",
+    "path": "/api/analytics/workspace/{param}/usage"
+  },
+  {
+    "method": "get",
+    "path": "/api/audit/resource/{param}/{param}/history"
+  },
+  {
+    "method": "get",
+    "path": "/api/audit/security/debate/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/backups/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/batch"
+  },
+  {
+    "method": "get",
+    "path": "/api/batch/queue/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/batch/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/bindings/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/bots/email/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/bots/slack/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/checkpoints/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/code-review/history"
+  },
+  {
+    "method": "get",
+    "path": "/api/code-review/results/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/compliance/audit-events"
+  },
+  {
+    "method": "get",
+    "path": "/api/compliance/gdpr-export"
+  },
+  {
+    "method": "get",
+    "path": "/api/compliance/soc2-report"
+  },
+  {
+    "method": "get",
+    "path": "/api/compliance/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/compliance/summary"
+  },
+  {
+    "method": "get",
+    "path": "/api/computer-use/actions/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/connectors/{param}/health"
+  },
+  {
+    "method": "get",
+    "path": "/api/connectors/{param}/syncs"
+  },
+  {
+    "method": "get",
+    "path": "/api/connectors/{param}/syncs/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/cross-pollination/conflicts"
+  },
+  {
+    "method": "get",
+    "path": "/api/cross-pollination/federation"
+  },
+  {
+    "method": "get",
+    "path": "/api/cross-pollination/sync/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/analytics/consensus"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/analytics/trends"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/archived"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/batch/{param}/results"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/health"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/hybrid/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/statistics"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/statistics/agents"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/stream"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/{param}/checkpoints"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/{param}/health"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/{param}/quality"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/{param}/replay"
+  },
+  {
+    "method": "get",
+    "path": "/api/debates/{param}/similar"
+  },
+  {
+    "method": "get",
+    "path": "/api/decisions/plans"
+  },
+  {
+    "method": "get",
+    "path": "/api/decisions/plans/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/decisions/plans/{param}/outcome"
+  },
+  {
+    "method": "get",
+    "path": "/api/devices/user/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/email/{param}/snooze-suggestions"
+  },
+  {
+    "method": "get",
+    "path": "/api/evolution/ab-tests/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/evolution/ab-tests/{param}/active"
+  },
+  {
+    "method": "get",
+    "path": "/api/external-agents/tasks/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/facts/relationships/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/facts/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/facts/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/feedback/nps/summary"
+  },
+  {
+    "method": "get",
+    "path": "/api/feedback/prompts"
+  },
+  {
+    "method": "get",
+    "path": "/api/gateway/agents/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/gateway/credentials/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/gateway/routing/rules"
+  },
+  {
+    "method": "get",
+    "path": "/api/gateway/routing/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/gauntlet/receipts/{param}/verify-full"
+  },
+  {
+    "method": "get",
+    "path": "/api/genesis/debates/{param}/tree"
+  },
+  {
+    "method": "get",
+    "path": "/api/genesis/genomes/{param}/descendants"
+  },
+  {
+    "method": "get",
+    "path": "/api/genesis/genomes/{param}/lineage"
+  },
+  {
+    "method": "get",
+    "path": "/api/gmail/connection"
+  },
+  {
+    "method": "get",
+    "path": "/api/gmail/processed"
+  },
+  {
+    "method": "get",
+    "path": "/api/gmail/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/gusto/employees"
+  },
+  {
+    "method": "get",
+    "path": "/api/gusto/payrolls"
+  },
+  {
+    "method": "get",
+    "path": "/api/gusto/payrolls/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/gusto/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/inbox/command"
+  },
+  {
+    "method": "get",
+    "path": "/api/inbox/daily-digest"
+  },
+  {
+    "method": "get",
+    "path": "/api/inbox/sender-profile"
+  },
+  {
+    "method": "get",
+    "path": "/api/incidents/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/incidents/{param}/acknowledge"
+  },
+  {
+    "method": "get",
+    "path": "/api/incidents/{param}/merge"
+  },
+  {
+    "method": "get",
+    "path": "/api/incidents/{param}/notes"
+  },
+  {
+    "method": "get",
+    "path": "/api/incidents/{param}/reassign"
+  },
+  {
+    "method": "get",
+    "path": "/api/incidents/{param}/resolve"
+  },
+  {
+    "method": "get",
+    "path": "/api/integrations/wizard/providers/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/integrations/wizard/recommendations"
+  },
+  {
+    "method": "get",
+    "path": "/api/integrations/wizard/status/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/integrations/wizard/{param}/workspaces"
+  },
+  {
+    "method": "get",
+    "path": "/api/keys/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/km/checkpoints"
+  },
+  {
+    "method": "get",
+    "path": "/api/km/checkpoints/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/km/checkpoints/{param}/compare"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/entries/{param}/embeddings"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/entries/{param}/sources"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/export"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/federation/regions"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/federation/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/global"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/global/facts"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/graph/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/my-shares"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/nodes/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/nodes/{param}/access"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/nodes/{param}/relationships"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/nodes/{param}/visibility"
+  },
+  {
+    "method": "get",
+    "path": "/api/knowledge/mound/shared-with-me"
+  },
+  {
+    "method": "get",
+    "path": "/api/leaderboard/agent/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/leaderboard/agent/{param}/elo-history"
+  },
+  {
+    "method": "get",
+    "path": "/api/leaderboard/compare"
+  },
+  {
+    "method": "get",
+    "path": "/api/leaderboard/domain/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/leaderboard/domains"
+  },
+  {
+    "method": "get",
+    "path": "/api/leaderboard/movers"
+  },
+  {
+    "method": "get",
+    "path": "/api/learning/knowledge/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/learning/metrics/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/learning/patterns/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/learning/sessions/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/media/audio"
+  },
+  {
+    "method": "get",
+    "path": "/api/media/audio/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/media/audio/{param}/transcription"
+  },
+  {
+    "method": "get",
+    "path": "/api/memory/context"
+  },
+  {
+    "method": "get",
+    "path": "/api/memory/cross-debate"
+  },
+  {
+    "method": "get",
+    "path": "/api/memory/snapshots"
+  },
+  {
+    "method": "get",
+    "path": "/api/memory/tier/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/notifications/email/config"
+  },
+  {
+    "method": "get",
+    "path": "/api/notifications/email/recipients"
+  },
+  {
+    "method": "get",
+    "path": "/api/notifications/history"
+  },
+  {
+    "method": "get",
+    "path": "/api/notifications/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/notifications/telegram/config"
+  },
+  {
+    "method": "get",
+    "path": "/api/oncall/services/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/orchestration/status/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/orchestration/templates"
+  },
+  {
+    "method": "get",
+    "path": "/api/org/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/org/{param}/invitations/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/org/{param}/members/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/conversations/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/messages"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/messages/search"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/messages/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/oauth/callback"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/oauth/url"
+  },
+  {
+    "method": "get",
+    "path": "/api/outlook/status"
+  },
+  {
+    "method": "get",
+    "path": "/api/partners/keys"
+  },
+  {
+    "method": "get",
+    "path": "/api/partners/limits"
+  },
+  {
+    "method": "get",
+    "path": "/api/partners/me"
+  },
+  {
+    "method": "get",
+    "path": "/api/partners/usage"
+  },
+  {
+    "method": "get",
+    "path": "/api/partners/webhooks"
+  },
+  {
+    "method": "get",
+    "path": "/api/payments/customer/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/payments/subscription/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/payments/transaction/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/personas/options"
+  },
+  {
+    "method": "get",
+    "path": "/api/podcast/episodes/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/podcast/feed"
+  },
+  {
+    "method": "get",
+    "path": "/api/policies/violations"
+  },
+  {
+    "method": "get",
+    "path": "/api/probes/reports/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/pulse/scheduler/analytics"
+  },
+  {
+    "method": "get",
+    "path": "/api/rbac/assignments/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/rbac/permissions/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/rbac/roles/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/rbac/users/{param}/permissions"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/compare"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/search"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/{param}/events"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/{param}/evolution"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/{param}/export"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/{param}/forks"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/{param}/html"
+  },
+  {
+    "method": "get",
+    "path": "/api/replays/{param}/summary"
+  },
+  {
+    "method": "get",
+    "path": "/api/repository/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/rlm/context/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/services/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/skills/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/teams/tenants/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/teams/tenants/{param}/channels/{param}/notifications"
+  },
+  {
+    "method": "get",
+    "path": "/api/transcription/formats"
+  },
+  {
+    "method": "get",
+    "path": "/api/transcription/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/transcription/{param}/segments"
+  },
+  {
+    "method": "get",
+    "path": "/api/users"
+  },
+  {
+    "method": "get",
+    "path": "/api/webhooks/events/categories"
+  },
+  {
+    "method": "get",
+    "path": "/api/webhooks/{param}/deliveries"
+  },
+  {
+    "method": "get",
+    "path": "/api/webhooks/{param}/deliveries/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/api/webhooks/{param}/retry-policy"
+  },
+  {
+    "method": "get",
+    "path": "/api/webhooks/{param}/signing"
+  },
+  {
+    "method": "get",
+    "path": "/api/webhooks/{param}/stats"
+  },
+  {
+    "method": "get",
+    "path": "/api/workflow/pattern-templates/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/accounts"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/messages"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/messages/{param}"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/oauth/gmail"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/oauth/outlook"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/stats"
+  },
+  {
+    "method": "get",
+    "path": "/inbox/trends"
+  },
+  {
+    "method": "patch",
+    "path": "/api/debates/{param}/metadata"
+  },
+  {
+    "method": "patch",
+    "path": "/api/facts/relationships/{param}"
+  },
+  {
+    "method": "patch",
+    "path": "/api/facts/{param}"
+  },
+  {
+    "method": "patch",
+    "path": "/api/gmail/triage-rules/{param}"
+  },
+  {
+    "method": "patch",
+    "path": "/api/knowledge/mound/share"
+  },
+  {
+    "method": "patch",
+    "path": "/api/outlook/messages/{param}/read"
+  },
+  {
+    "method": "patch",
+    "path": "/api/teams/tenants/{param}"
+  },
+  {
+    "method": "patch",
+    "path": "/api/teams/tenants/{param}/channels/{param}/notifications"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ap/batch"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ap/invoices"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ap/invoices/{param}/payment"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ap/optimize"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ar/customers"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ar/invoices"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ar/invoices/{param}/payment"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ar/invoices/{param}/reminder"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/ar/invoices/{param}/send"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/connect"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/disconnect"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/expenses/{param}/approve"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/expenses/{param}/reject"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/invoices/{param}/approve"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/invoices/{param}/match"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/invoices/{param}/reject"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/invoices/{param}/schedule"
+  },
+  {
+    "method": "post",
+    "path": "/api/accounting/reports"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/circuit-breakers/reset"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/organizations/{param}/credits"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/security/keys/{param}/revoke"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/security/scan"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/security/threats/{param}/resolve"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/users/{param}/impersonate"
+  },
+  {
+    "method": "post",
+    "path": "/api/admin/users/{param}/suspend"
+  },
+  {
+    "method": "post",
+    "path": "/api/agents/{param}/calibrate"
+  },
+  {
+    "method": "post",
+    "path": "/api/agents/{param}/disable"
+  },
+  {
+    "method": "post",
+    "path": "/api/agents/{param}/elo"
+  },
+  {
+    "method": "post",
+    "path": "/api/agents/{param}/enable"
+  },
+  {
+    "method": "post",
+    "path": "/api/backups/cleanup"
+  },
+  {
+    "method": "post",
+    "path": "/api/backups/{param}/restore-test"
+  },
+  {
+    "method": "post",
+    "path": "/api/backups/{param}/verify"
+  },
+  {
+    "method": "post",
+    "path": "/api/backups/{param}/verify-comprehensive"
+  },
+  {
+    "method": "post",
+    "path": "/api/batch"
+  },
+  {
+    "method": "post",
+    "path": "/api/checkpoints/{param}/intervention"
+  },
+  {
+    "method": "post",
+    "path": "/api/checkpoints/{param}/resume"
+  },
+  {
+    "method": "post",
+    "path": "/api/code-review/diff"
+  },
+  {
+    "method": "post",
+    "path": "/api/code-review/pr"
+  },
+  {
+    "method": "post",
+    "path": "/api/code-review/review"
+  },
+  {
+    "method": "post",
+    "path": "/api/code-review/security-scan"
+  },
+  {
+    "method": "post",
+    "path": "/api/compliance/audit-verify"
+  },
+  {
+    "method": "post",
+    "path": "/api/compliance/eu-ai-act/audit"
+  },
+  {
+    "method": "post",
+    "path": "/api/compliance/eu-ai-act/classify"
+  },
+  {
+    "method": "post",
+    "path": "/api/compliance/eu-ai-act/generate-bundle"
+  },
+  {
+    "method": "post",
+    "path": "/api/compliance/gdpr/right-to-be-forgotten"
+  },
+  {
+    "method": "post",
+    "path": "/api/computer-use/tasks/{param}/cancel"
+  },
+  {
+    "method": "post",
+    "path": "/api/connectors/{param}/syncs/{param}/cancel"
+  },
+  {
+    "method": "post",
+    "path": "/api/connectors/{param}/test"
+  },
+  {
+    "method": "post",
+    "path": "/api/cross-pollination/conflicts/{param}/resolve"
+  },
+  {
+    "method": "post",
+    "path": "/api/cross-pollination/federation/sync"
+  },
+  {
+    "method": "post",
+    "path": "/api/cross-pollination/subscribe"
+  },
+  {
+    "method": "post",
+    "path": "/api/cross-pollination/sync/trigger"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/archive/batch"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/batch/{param}/cancel"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/batch/{param}/retry"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/compare"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/import"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/{param}/checkpoint"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/{param}/notes"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/{param}/restore"
+  },
+  {
+    "method": "post",
+    "path": "/api/debates/{param}/tags"
+  },
+  {
+    "method": "post",
+    "path": "/api/decisions/plans"
+  },
+  {
+    "method": "post",
+    "path": "/api/decisions/plans/{param}/approve"
+  },
+  {
+    "method": "post",
+    "path": "/api/decisions/plans/{param}/execute"
+  },
+  {
+    "method": "post",
+    "path": "/api/decisions/plans/{param}/reject"
+  },
+  {
+    "method": "post",
+    "path": "/api/devices/user/{param}/notify"
+  },
+  {
+    "method": "post",
+    "path": "/api/devices/{param}/notify"
+  },
+  {
+    "method": "post",
+    "path": "/api/email/followups/{param}/resolve"
+  },
+  {
+    "method": "post",
+    "path": "/api/email/{param}/snooze"
+  },
+  {
+    "method": "post",
+    "path": "/api/facts/batch"
+  },
+  {
+    "method": "post",
+    "path": "/api/facts/batch/delete"
+  },
+  {
+    "method": "post",
+    "path": "/api/facts/merge"
+  },
+  {
+    "method": "post",
+    "path": "/api/facts/relationships"
+  },
+  {
+    "method": "post",
+    "path": "/api/facts/validate"
+  },
+  {
+    "method": "post",
+    "path": "/api/feedback/general"
+  },
+  {
+    "method": "post",
+    "path": "/api/feedback/nps"
+  },
+  {
+    "method": "post",
+    "path": "/api/gateway/devices/{param}/heartbeat"
+  },
+  {
+    "method": "post",
+    "path": "/api/gateway/messages/route"
+  },
+  {
+    "method": "post",
+    "path": "/api/gmail/callback"
+  },
+  {
+    "method": "post",
+    "path": "/api/gmail/debate-configs"
+  },
+  {
+    "method": "post",
+    "path": "/api/gmail/triage-rules"
+  },
+  {
+    "method": "post",
+    "path": "/api/gusto/connect"
+  },
+  {
+    "method": "post",
+    "path": "/api/gusto/disconnect"
+  },
+  {
+    "method": "post",
+    "path": "/api/gusto/payrolls/{param}/journal-entry"
+  },
+  {
+    "method": "post",
+    "path": "/api/inbox/actions"
+  },
+  {
+    "method": "post",
+    "path": "/api/inbox/bulk-actions"
+  },
+  {
+    "method": "post",
+    "path": "/api/inbox/reprioritize"
+  },
+  {
+    "method": "post",
+    "path": "/api/incidents/{param}/notes"
+  },
+  {
+    "method": "post",
+    "path": "/api/integrations/wizard/preflight"
+  },
+  {
+    "method": "post",
+    "path": "/api/integrations/wizard/providers/{param}/install"
+  },
+  {
+    "method": "post",
+    "path": "/api/integrations/wizard/providers/{param}/refresh"
+  },
+  {
+    "method": "post",
+    "path": "/api/integrations/wizard/{param}/disconnect"
+  },
+  {
+    "method": "post",
+    "path": "/api/integrations/wizard/{param}/test"
+  },
+  {
+    "method": "post",
+    "path": "/api/km/checkpoints"
+  },
+  {
+    "method": "post",
+    "path": "/api/km/checkpoints/{param}/restore"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/embeddings"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/culture/documents"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/culture/promote"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/federation/regions"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/federation/sync/all"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/federation/sync/pull"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/federation/sync/push"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/global"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/global/promote"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/index/repository"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/nodes/{param}/access"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/mound/share"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/refresh"
+  },
+  {
+    "method": "post",
+    "path": "/api/knowledge/validate"
+  },
+  {
+    "method": "post",
+    "path": "/api/learning/knowledge/extract"
+  },
+  {
+    "method": "post",
+    "path": "/api/learning/patterns/{param}/validate"
+  },
+  {
+    "method": "post",
+    "path": "/api/learning/sessions/{param}/stop"
+  },
+  {
+    "method": "post",
+    "path": "/api/media/audio"
+  },
+  {
+    "method": "post",
+    "path": "/api/media/audio/{param}/convert"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/compact"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/context"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/cross-debate"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/cross-debate/inject"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/export"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/import"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/prune"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/query"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/rebuild-index"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/semantic-search"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/snapshots"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/snapshots/{param}/restore"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/sync"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/vacuum"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/{param}/demote"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/{param}/move"
+  },
+  {
+    "method": "post",
+    "path": "/api/memory/{param}/promote"
+  },
+  {
+    "method": "post",
+    "path": "/api/notifications/email/recipient"
+  },
+  {
+    "method": "post",
+    "path": "/api/notifications/send"
+  },
+  {
+    "method": "post",
+    "path": "/api/notifications/test"
+  },
+  {
+    "method": "post",
+    "path": "/api/orchestration/deliberate"
+  },
+  {
+    "method": "post",
+    "path": "/api/orchestration/deliberate/sync"
+  },
+  {
+    "method": "post",
+    "path": "/api/outlook/messages/reply"
+  },
+  {
+    "method": "post",
+    "path": "/api/outlook/messages/send"
+  },
+  {
+    "method": "post",
+    "path": "/api/outlook/messages/{param}/move"
+  },
+  {
+    "method": "post",
+    "path": "/api/partners/register"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/authorize"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/capture"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/charge"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/customer"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/refund"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/subscription"
+  },
+  {
+    "method": "post",
+    "path": "/api/payments/void"
+  },
+  {
+    "method": "post",
+    "path": "/api/personas"
+  },
+  {
+    "method": "post",
+    "path": "/api/plugins/query"
+  },
+  {
+    "method": "post",
+    "path": "/api/plugins/validate"
+  },
+  {
+    "method": "post",
+    "path": "/api/policies/validate"
+  },
+  {
+    "method": "post",
+    "path": "/api/policies/violations/{param}/resolve"
+  },
+  {
+    "method": "post",
+    "path": "/api/policies/{param}/disable"
+  },
+  {
+    "method": "post",
+    "path": "/api/policies/{param}/enable"
+  },
+  {
+    "method": "post",
+    "path": "/api/replays/{param}/fork"
+  },
+  {
+    "method": "post",
+    "path": "/api/teams/debates/send"
+  },
+  {
+    "method": "post",
+    "path": "/api/transcription/upload"
+  },
+  {
+    "method": "post",
+    "path": "/api/users/invite"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/debates/{param}/synthesize"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/device"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/gather"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/gather/confirm"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/inbound"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/status"
+  },
+  {
+    "method": "post",
+    "path": "/api/voice/synthesize"
+  },
+  {
+    "method": "post",
+    "path": "/api/webhooks/pause-all"
+  },
+  {
+    "method": "post",
+    "path": "/api/webhooks/resume-all"
+  },
+  {
+    "method": "post",
+    "path": "/api/webhooks/{param}/deliveries/{param}/retry"
+  },
+  {
+    "method": "post",
+    "path": "/api/webhooks/{param}/events"
+  },
+  {
+    "method": "post",
+    "path": "/api/webhooks/{param}/rotate-secret"
+  },
+  {
+    "method": "post",
+    "path": "/api/workflow/pattern-templates/{param}/instantiate"
+  },
+  {
+    "method": "post",
+    "path": "/inbox/bulk-action"
+  },
+  {
+    "method": "post",
+    "path": "/inbox/connect"
+  },
+  {
+    "method": "post",
+    "path": "/inbox/messages/send"
+  },
+  {
+    "method": "post",
+    "path": "/inbox/messages/{param}/reply"
+  },
+  {
+    "method": "post",
+    "path": "/inbox/triage"
+  },
+  {
+    "method": "put",
+    "path": "/api/accounting/expenses/{param}"
+  },
+  {
+    "method": "put",
+    "path": "/api/admin/organizations/{param}"
+  },
+  {
+    "method": "put",
+    "path": "/api/agents/{param}/quota"
+  },
+  {
+    "method": "put",
+    "path": "/api/knowledge/mound/nodes/{param}/visibility"
+  },
+  {
+    "method": "put",
+    "path": "/api/memory/{param}"
+  },
+  {
+    "method": "put",
+    "path": "/api/onboarding/flow/step"
+  },
+  {
+    "method": "put",
+    "path": "/api/payments/customer/{param}"
+  },
+  {
+    "method": "put",
+    "path": "/api/payments/subscription/{param}"
+  },
+  {
+    "method": "put",
+    "path": "/api/users/{param}/role"
+  },
+  {
+    "method": "put",
+    "path": "/api/webhooks/{param}/retry-policy"
+  }
+]

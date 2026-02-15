@@ -184,6 +184,7 @@ def fix_rbac_role_resolution():
     original = None
     try:
         from aragora.rbac.defaults import helpers as rbac_helpers
+
         original = rbac_helpers.get_role_permissions
 
         def _patched_get_role_permissions(role_name, include_inherited=True):

@@ -29,6 +29,7 @@ import pytest
 # when we flip HAS_OFFICIAL_RLM to True for certain tests.
 # ---------------------------------------------------------------------------
 
+
 def _make_fake_rlm_module():
     """Create a minimal fake ``rlm`` package with ``rlm.RLM`` and ``rlm.logger.RLMLogger``."""
     fake_rlm = builtin_types.ModuleType("rlm")
@@ -44,41 +45,49 @@ def _make_fake_rlm_module():
 # 1. RLMResult trajectory fields
 # ===================================================================
 
+
 class TestRLMResultTrajectoryFields:
     """Verify the three new trajectory fields on RLMResult."""
 
     def test_trajectory_log_path_default_none(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(answer="ok")
         assert r.trajectory_log_path is None
 
     def test_trajectory_log_path_set(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(answer="ok", trajectory_log_path="/tmp/traj.jsonl")
         assert r.trajectory_log_path == "/tmp/traj.jsonl"
 
     def test_rlm_iterations_default_zero(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(answer="ok")
         assert r.rlm_iterations == 0
 
     def test_rlm_iterations_set(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(answer="ok", rlm_iterations=7)
         assert r.rlm_iterations == 7
 
     def test_code_blocks_executed_default_zero(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(answer="ok")
         assert r.code_blocks_executed == 0
 
     def test_code_blocks_executed_set(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(answer="ok", code_blocks_executed=42)
         assert r.code_blocks_executed == 42
 
     def test_all_trajectory_fields_together(self):
         from aragora.rlm.types import RLMResult
+
         r = RLMResult(
             answer="done",
             trajectory_log_path="/logs/run.jsonl",
@@ -94,51 +103,61 @@ class TestRLMResultTrajectoryFields:
 # 2. RLMBackendConfig new fields
 # ===================================================================
 
+
 class TestRLMBackendConfigNewFields:
     """Verify the four new configuration fields on RLMBackendConfig."""
 
     def test_sub_backend_default_none(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig()
         assert cfg.sub_backend is None
 
     def test_sub_backend_model_default_none(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig()
         assert cfg.sub_backend_model is None
 
     def test_trajectory_log_dir_default_none(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig()
         assert cfg.trajectory_log_dir is None
 
     def test_custom_system_prompt_default_none(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig()
         assert cfg.custom_system_prompt is None
 
     def test_sub_backend_set(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig(sub_backend="anthropic")
         assert cfg.sub_backend == "anthropic"
 
     def test_sub_backend_model_set(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig(sub_backend_model="claude-3-haiku")
         assert cfg.sub_backend_model == "claude-3-haiku"
 
     def test_trajectory_log_dir_set(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig(trajectory_log_dir="/tmp/traj")
         assert cfg.trajectory_log_dir == "/tmp/traj"
 
     def test_custom_system_prompt_set(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig(custom_system_prompt="You are a helpful bot.")
         assert cfg.custom_system_prompt == "You are a helpful bot."
 
     def test_all_new_fields_together(self):
         from aragora.rlm.bridge import RLMBackendConfig
+
         cfg = RLMBackendConfig(
             sub_backend="openrouter",
             sub_backend_model="deepseek/deepseek-chat",
@@ -155,11 +174,13 @@ class TestRLMBackendConfigNewFields:
 # 3. DEBATE_RLM_SYSTEM_PROMPT constant
 # ===================================================================
 
+
 class TestDebateRLMSystemPrompt:
     """Verify the debate-optimised system prompt contains required elements."""
 
     def _prompt(self):
         from aragora.rlm.bridge import DEBATE_RLM_SYSTEM_PROMPT
+
         return DEBATE_RLM_SYSTEM_PROMPT
 
     def test_contains_llm_query(self):
@@ -217,6 +238,7 @@ class TestDebateRLMSystemPrompt:
 # 4. _init_official_rlm() behaviour (mocked)
 # ===================================================================
 
+
 class TestInitOfficialRLM:
     """Verify _init_official_rlm() wiring when the official rlm package is mocked."""
 
@@ -249,6 +271,7 @@ class TestInitOfficialRLM:
                 with patch("aragora.rlm.bridge.HAS_OFFICIAL_RLM", True):
                     with patch("aragora.rlm.bridge.OfficialRLM", mock_rlm_cls):
                         from aragora.rlm.bridge import AragoraRLM
+
                         instance = AragoraRLM(backend_config=cfg)
         return instance, mock_rlm_cls, fake_logger_mod
 
@@ -271,9 +294,9 @@ class TestInitOfficialRLM:
         )
         # OfficialRLM should have been called; check 'logger' kwarg
         init_call = mock_cls.call_args
-        assert "logger" in init_call.kwargs or any(
-            "logger" in str(c) for c in init_call
-        ), "Expected 'logger' kwarg to be passed to OfficialRLM"
+        assert "logger" in init_call.kwargs or any("logger" in str(c) for c in init_call), (
+            "Expected 'logger' kwarg to be passed to OfficialRLM"
+        )
 
     def test_trajectory_log_dir_creates_directory(self, tmp_path):
         """The log directory should be created if it doesn't exist."""
@@ -303,6 +326,7 @@ class TestInitOfficialRLM:
     def test_sub_backend_without_model_uses_sub_model_name(self):
         """When sub_backend_model is None, should fall back to sub_model_name."""
         from aragora.rlm.bridge import RLMBackendConfig
+
         # sub_model_name defaults to "gpt-4o-mini"
         inst, mock_cls, _ = self._build_rlm_with_mock(
             sub_backend="openrouter",
@@ -374,11 +398,13 @@ class TestInitOfficialRLM:
 # 5. Lifecycle methods
 # ===================================================================
 
+
 class TestLifecycleMethods:
     """Verify close(), __enter__/__exit__, and get_trajectory_log_path()."""
 
     def test_close_calls_official_close(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         mock_official = MagicMock()
         mock_official.close = MagicMock()
@@ -388,6 +414,7 @@ class TestLifecycleMethods:
 
     def test_close_calls_fallback_close(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         mock_fallback = MagicMock()
         mock_fallback.close = MagicMock()
@@ -397,6 +424,7 @@ class TestLifecycleMethods:
 
     def test_close_calls_both_official_and_fallback(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         mock_official = MagicMock()
         mock_fallback = MagicMock()
@@ -408,6 +436,7 @@ class TestLifecycleMethods:
 
     def test_close_handles_missing_close_attr_on_official(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         # Object without close attribute
         rlm._official_rlm = object()
@@ -416,6 +445,7 @@ class TestLifecycleMethods:
 
     def test_close_handles_exception_in_official(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         mock_official = MagicMock()
         mock_official.close.side_effect = RuntimeError("boom")
@@ -425,6 +455,7 @@ class TestLifecycleMethods:
 
     def test_close_handles_exception_in_fallback(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         mock_fallback = MagicMock()
         mock_fallback.close.side_effect = RuntimeError("boom")
@@ -434,12 +465,14 @@ class TestLifecycleMethods:
 
     def test_context_manager_enter_returns_self(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         result = rlm.__enter__()
         assert result is rlm
 
     def test_context_manager_exit_calls_close(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         rlm.close = MagicMock()
         rlm.__exit__(None, None, None)
@@ -447,29 +480,34 @@ class TestLifecycleMethods:
 
     def test_context_manager_exit_returns_false(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         result = rlm.__exit__(None, None, None)
         assert result is False
 
     def test_context_manager_with_statement(self):
         from aragora.rlm.bridge import AragoraRLM
+
         with AragoraRLM() as rlm:
             assert isinstance(rlm, AragoraRLM)
         # close is called implicitly via __exit__
 
     def test_get_trajectory_log_path_default_none(self):
         from aragora.rlm.bridge import AragoraRLM
+
         rlm = AragoraRLM()
         assert rlm.get_trajectory_log_path() is None
 
     def test_get_trajectory_log_path_returns_dir(self):
         from aragora.rlm.bridge import AragoraRLM, RLMBackendConfig
+
         cfg = RLMBackendConfig(trajectory_log_dir="/var/log/rlm_traj")
         rlm = AragoraRLM(backend_config=cfg)
         assert rlm.get_trajectory_log_path() == "/var/log/rlm_traj"
 
     def test_trajectory_log_dir_stored_on_instance(self):
         from aragora.rlm.bridge import AragoraRLM, RLMBackendConfig
+
         cfg = RLMBackendConfig(trajectory_log_dir="/tmp/my_traj")
         rlm = AragoraRLM(backend_config=cfg)
         assert rlm._trajectory_log_dir == "/tmp/my_traj"
@@ -479,47 +517,56 @@ class TestLifecycleMethods:
 # 6. create_aragora_rlm() new params
 # ===================================================================
 
+
 class TestCreateAragoraRLMNewParams:
     """Verify create_aragora_rlm() passes through new parameters."""
 
     def test_sub_backend_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(sub_backend="anthropic")
         assert rlm.backend_config.sub_backend == "anthropic"
 
     def test_sub_model_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(sub_model="claude-3-haiku")
         assert rlm.backend_config.sub_backend_model == "claude-3-haiku"
 
     def test_trajectory_log_dir_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(trajectory_log_dir="/tmp/logs")
         assert rlm.backend_config.trajectory_log_dir == "/tmp/logs"
         assert rlm.get_trajectory_log_path() == "/tmp/logs"
 
     def test_persistent_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(persistent=True)
         assert rlm.backend_config.persistent is True
 
     def test_persistent_default_false(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm()
         assert rlm.backend_config.persistent is False
 
     def test_debate_mode_sets_system_prompt(self):
         from aragora.rlm.bridge import create_aragora_rlm, DEBATE_RLM_SYSTEM_PROMPT
+
         rlm = create_aragora_rlm(debate_mode=True)
         assert rlm.backend_config.custom_system_prompt == DEBATE_RLM_SYSTEM_PROMPT
 
     def test_debate_mode_false_no_system_prompt(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(debate_mode=False)
         assert rlm.backend_config.custom_system_prompt is None
 
     def test_all_new_params_together(self):
         from aragora.rlm.bridge import create_aragora_rlm, DEBATE_RLM_SYSTEM_PROMPT
+
         rlm = create_aragora_rlm(
             sub_backend="openrouter",
             sub_model="deepseek/deepseek-chat",
@@ -535,12 +582,14 @@ class TestCreateAragoraRLMNewParams:
 
     def test_backend_and_model_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(backend="anthropic", model="claude-3-opus")
         assert rlm.backend_config.backend == "anthropic"
         assert rlm.backend_config.model_name == "claude-3-opus"
 
     def test_verbose_passed(self):
         from aragora.rlm.bridge import create_aragora_rlm
+
         rlm = create_aragora_rlm(verbose=True)
         assert rlm.backend_config.verbose is True
 
@@ -549,6 +598,7 @@ class TestCreateAragoraRLMNewParams:
 # 7. Prompt instructions use llm_query() not RLM_M()
 # ===================================================================
 
+
 class TestPromptUsesLlmQuery:
     """Verify prompts reference llm_query() rather than the old RLM_M() API."""
 
@@ -556,6 +606,7 @@ class TestPromptUsesLlmQuery:
         """The _true_rlm_query prompt should reference llm_query(prompt)."""
         from aragora.rlm.bridge import AragoraRLM
         import inspect
+
         source = inspect.getsource(AragoraRLM._true_rlm_query)
         assert "llm_query(" in source or "llm_query(prompt)" in source
 
@@ -563,6 +614,7 @@ class TestPromptUsesLlmQuery:
         """The _true_rlm_query prompt should NOT reference RLM_M(prompt)."""
         from aragora.rlm.bridge import AragoraRLM
         import inspect
+
         source = inspect.getsource(AragoraRLM._true_rlm_query)
         # It should not contain RLM_M( in the prompt strings
         # (filter out any comments)
@@ -574,6 +626,7 @@ class TestPromptUsesLlmQuery:
         """The _default_feedback method should mention llm_query() not RLM_M()."""
         from aragora.rlm.bridge import AragoraRLM
         import inspect
+
         source = inspect.getsource(AragoraRLM._default_feedback)
         assert "llm_query()" in source
 
@@ -581,12 +634,14 @@ class TestPromptUsesLlmQuery:
         """The _default_feedback method should NOT mention RLM_M()."""
         from aragora.rlm.bridge import AragoraRLM
         import inspect
+
         source = inspect.getsource(AragoraRLM._default_feedback)
         assert "RLM_M()" not in source
 
     def test_system_prompt_uses_llm_query(self):
         """DEBATE_RLM_SYSTEM_PROMPT should reference llm_query not RLM_M."""
         from aragora.rlm.bridge import DEBATE_RLM_SYSTEM_PROMPT
+
         assert "llm_query(" in DEBATE_RLM_SYSTEM_PROMPT
         assert "RLM_M(" not in DEBATE_RLM_SYSTEM_PROMPT
 
@@ -594,6 +649,7 @@ class TestPromptUsesLlmQuery:
 # ===================================================================
 # 8. RLMResult trajectory data extraction
 # ===================================================================
+
 
 class TestRLMResultTrajectoryExtraction:
     """Verify that trajectory data from the official RLM logger propagates to RLMResult."""
@@ -627,6 +683,7 @@ class TestRLMResultTrajectoryExtraction:
     async def test_trajectory_log_path_propagated(self):
         rlm = self._build_rlm_with_logger(log_path="/tmp/traj_out.jsonl")
         from aragora.rlm.types import RLMContext
+
         ctx = RLMContext(original_content="test", original_tokens=10)
         result = await rlm._true_rlm_query("question", ctx, "auto")
         assert result.trajectory_log_path == "/tmp/traj_out.jsonl"
@@ -635,6 +692,7 @@ class TestRLMResultTrajectoryExtraction:
     async def test_rlm_iterations_propagated(self):
         rlm = self._build_rlm_with_logger(iterations=8)
         from aragora.rlm.types import RLMContext
+
         ctx = RLMContext(original_content="test", original_tokens=10)
         result = await rlm._true_rlm_query("question", ctx, "auto")
         assert result.rlm_iterations == 8
@@ -643,6 +701,7 @@ class TestRLMResultTrajectoryExtraction:
     async def test_code_blocks_executed_propagated(self):
         rlm = self._build_rlm_with_logger(code_blocks=15)
         from aragora.rlm.types import RLMContext
+
         ctx = RLMContext(original_content="test", original_tokens=10)
         result = await rlm._true_rlm_query("question", ctx, "auto")
         assert result.code_blocks_executed == 15
@@ -726,6 +785,7 @@ class TestRLMResultTrajectoryExtraction:
         """After successful _true_rlm_query, used_true_rlm should be True."""
         rlm = self._build_rlm_with_logger()
         from aragora.rlm.types import RLMContext
+
         ctx = RLMContext(original_content="test", original_tokens=10)
         result = await rlm._true_rlm_query("question", ctx, "auto")
         assert rlm._last_query_used_true_rlm is True
@@ -735,6 +795,7 @@ class TestRLMResultTrajectoryExtraction:
         """The answer in RLMResult should come from the completion response."""
         rlm = self._build_rlm_with_logger()
         from aragora.rlm.types import RLMContext
+
         ctx = RLMContext(original_content="test", original_tokens=10)
         result = await rlm._true_rlm_query("question", ctx, "auto")
         assert result.answer == "The answer is 42"
@@ -744,6 +805,7 @@ class TestRLMResultTrajectoryExtraction:
         """TRUE RLM result should have default confidence of 0.8."""
         rlm = self._build_rlm_with_logger()
         from aragora.rlm.types import RLMContext
+
         ctx = RLMContext(original_content="test", original_tokens=10)
         result = await rlm._true_rlm_query("question", ctx, "auto")
         assert result.confidence == 0.8

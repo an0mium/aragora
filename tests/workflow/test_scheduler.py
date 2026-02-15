@@ -32,7 +32,7 @@ class TestParseCronExpression:
         assert parsed[1] == set(range(0, 24))  # hour
         assert parsed[2] == set(range(1, 32))  # day of month
         assert parsed[3] == set(range(1, 13))  # month
-        assert parsed[4] == set(range(0, 7))   # day of week
+        assert parsed[4] == set(range(0, 7))  # day of week
 
     def test_specific_values(self):
         parsed = parse_cron_expression("30 9 1 6 3")
@@ -150,28 +150,40 @@ class TestScheduleStore:
     def test_list_all(self, tmp_path):
         store = _ScheduleStore(str(tmp_path / "test.db"))
         for i in range(3):
-            store.insert(ScheduleEntry(
-                id=f"sched_{i}",
-                workflow_id=f"wf-{i}",
-                cron_expr="* * * * *",
-                created_at=f"2026-01-0{i+1}T00:00:00+00:00",
-                updated_at=f"2026-01-0{i+1}T00:00:00+00:00",
-            ))
+            store.insert(
+                ScheduleEntry(
+                    id=f"sched_{i}",
+                    workflow_id=f"wf-{i}",
+                    cron_expr="* * * * *",
+                    created_at=f"2026-01-0{i + 1}T00:00:00+00:00",
+                    updated_at=f"2026-01-0{i + 1}T00:00:00+00:00",
+                )
+            )
         assert len(store.list_all()) == 3
         store.close()
 
     def test_list_enabled(self, tmp_path):
         store = _ScheduleStore(str(tmp_path / "test.db"))
-        store.insert(ScheduleEntry(
-            id="s1", workflow_id="w1", cron_expr="* * * * *",
-            enabled=True, created_at="2026-01-01T00:00:00+00:00",
-            updated_at="2026-01-01T00:00:00+00:00",
-        ))
-        store.insert(ScheduleEntry(
-            id="s2", workflow_id="w2", cron_expr="* * * * *",
-            enabled=False, created_at="2026-01-02T00:00:00+00:00",
-            updated_at="2026-01-02T00:00:00+00:00",
-        ))
+        store.insert(
+            ScheduleEntry(
+                id="s1",
+                workflow_id="w1",
+                cron_expr="* * * * *",
+                enabled=True,
+                created_at="2026-01-01T00:00:00+00:00",
+                updated_at="2026-01-01T00:00:00+00:00",
+            )
+        )
+        store.insert(
+            ScheduleEntry(
+                id="s2",
+                workflow_id="w2",
+                cron_expr="* * * * *",
+                enabled=False,
+                created_at="2026-01-02T00:00:00+00:00",
+                updated_at="2026-01-02T00:00:00+00:00",
+            )
+        )
         enabled = store.list_enabled()
         assert len(enabled) == 1
         assert enabled[0].id == "s1"
@@ -180,7 +192,9 @@ class TestScheduleStore:
     def test_update(self, tmp_path):
         store = _ScheduleStore(str(tmp_path / "test.db"))
         entry = ScheduleEntry(
-            id="s1", workflow_id="w1", cron_expr="* * * * *",
+            id="s1",
+            workflow_id="w1",
+            cron_expr="* * * * *",
             created_at="2026-01-01T00:00:00+00:00",
             updated_at="2026-01-01T00:00:00+00:00",
         )
@@ -195,11 +209,15 @@ class TestScheduleStore:
 
     def test_delete(self, tmp_path):
         store = _ScheduleStore(str(tmp_path / "test.db"))
-        store.insert(ScheduleEntry(
-            id="s1", workflow_id="w1", cron_expr="* * * * *",
-            created_at="2026-01-01T00:00:00+00:00",
-            updated_at="2026-01-01T00:00:00+00:00",
-        ))
+        store.insert(
+            ScheduleEntry(
+                id="s1",
+                workflow_id="w1",
+                cron_expr="* * * * *",
+                created_at="2026-01-01T00:00:00+00:00",
+                updated_at="2026-01-01T00:00:00+00:00",
+            )
+        )
         assert store.delete("s1") is True
         assert store.get("s1") is None
         assert store.delete("s1") is False
@@ -229,7 +247,8 @@ class TestWorkflowSchedulerCRUD:
 
     def test_add_schedule_with_inputs(self):
         sid = self.scheduler.add_schedule(
-            "wf-1", "0 9 * * 1-5",
+            "wf-1",
+            "0 9 * * 1-5",
             inputs={"report_type": "daily"},
             enabled=False,
         )
@@ -351,9 +370,7 @@ class TestSchedulerTick:
             self.scheduler, "_enqueue_execution", new_callable=AsyncMock
         ) as mock_enqueue:
             # Patch datetime to a time that won't match
-            with patch(
-                "aragora.workflow.scheduler.datetime"
-            ) as mock_dt:
+            with patch("aragora.workflow.scheduler.datetime") as mock_dt:
                 mock_dt.now.return_value = datetime(2026, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
                 mock_dt.fromisoformat = datetime.fromisoformat
                 await self.scheduler._tick()
@@ -378,9 +395,7 @@ class TestSchedulerTick:
     async def test_tick_updates_run_count(self):
         sid = self.scheduler.add_schedule("wf-count", "* * * * *")
 
-        with patch.object(
-            self.scheduler, "_enqueue_execution", new_callable=AsyncMock
-        ):
+        with patch.object(self.scheduler, "_enqueue_execution", new_callable=AsyncMock):
             await self.scheduler._tick()
 
         entry = self.scheduler.get_schedule(sid)

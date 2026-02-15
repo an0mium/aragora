@@ -336,7 +336,9 @@ class TestRBACPermissions:
 
         with (
             patch.object(ConsensusHandler, "require_auth_or_error", return_value=(user_dict, None)),
-            patch.object(ConsensusHandler, "require_permission_or_error", return_value=(user_dict, None)),
+            patch.object(
+                ConsensusHandler, "require_permission_or_error", return_value=(user_dict, None)
+            ),
             patch("aragora.server.handlers.consensus.get_permission_checker", return_value=checker),
             patch("aragora.server.handlers.consensus.CONSENSUS_MEMORY_AVAILABLE", True),
             patch("aragora.server.handlers.consensus.extract_user_from_request") as mock_extract,

@@ -191,6 +191,7 @@ def clear_caches():
     clear_cache()
     # Reset audio rate limiter to prevent cross-test pollution
     from aragora.server.handlers.features.audio import _audio_limiter
+
     _audio_limiter.clear()
     yield
     clear_cache()
@@ -619,7 +620,9 @@ class TestBroadcastGeneration:
         unwrapped = handler._generate_broadcast.__wrapped__
         with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
-                with patch("aragora.server.handlers.features.broadcast.broadcast_debate") as mock_broadcast:
+                with patch(
+                    "aragora.server.handlers.features.broadcast.broadcast_debate"
+                ) as mock_broadcast:
                     mock_broadcast.return_value = audio_path
                     with patch(
                         "aragora.server.handlers.features.broadcast._run_async",
@@ -656,7 +659,9 @@ class TestBroadcastGeneration:
         unwrapped = handler._generate_broadcast.__wrapped__
         with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
-                with patch("aragora.server.handlers.features.broadcast._run_async", return_value=None):
+                with patch(
+                    "aragora.server.handlers.features.broadcast._run_async", return_value=None
+                ):
                     result = unwrapped(handler, "test", mock_handler)
 
         assert result is not None
@@ -693,7 +698,8 @@ class TestBroadcastGeneration:
                 with patch("aragora.server.handlers.features.broadcast.MP3", return_value=mock_mp3):
                     with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
                         with patch(
-                            "aragora.server.handlers.features.broadcast._run_async", return_value=audio_path
+                            "aragora.server.handlers.features.broadcast._run_async",
+                            return_value=audio_path,
                         ):
                             result = unwrapped(handler, "test", mock_handler)
 
@@ -730,7 +736,9 @@ class TestBroadcastGeneration:
         unwrapped = handler._generate_broadcast.__wrapped__
         with patch("aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE", True):
             with patch("aragora.debate.traces.DebateTrace.load", return_value=mock_trace):
-                with patch("aragora.server.handlers.features.broadcast._run_async", return_value=audio_path):
+                with patch(
+                    "aragora.server.handlers.features.broadcast._run_async", return_value=audio_path
+                ):
                     result = unwrapped(handler, "test", mock_handler)
 
         assert result is not None
@@ -793,7 +801,9 @@ class TestTwitterPublish:
         assert result.status_code == 500
 
     def test_twitter_not_configured(self, social_handler, mock_handler):
-        result = social_handler.handle_post("/api/v1/debates/test/publish/twitter", {}, mock_handler)
+        result = social_handler.handle_post(
+            "/api/v1/debates/test/publish/twitter", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 400
@@ -831,7 +841,9 @@ class TestYouTubePublish:
         assert result.status_code == 500
 
     def test_youtube_not_configured(self, social_handler, mock_handler):
-        result = social_handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
+        result = social_handler.handle_post(
+            "/api/v1/debates/test/publish/youtube", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 400
@@ -843,7 +855,9 @@ class TestYouTubePublish:
         mock_youtube_connector.rate_limiter.can_upload.return_value = False
         mock_youtube_connector.rate_limiter.remaining_quota = 0
 
-        result = social_handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
+        result = social_handler.handle_post(
+            "/api/v1/debates/test/publish/youtube", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 429
@@ -856,7 +870,9 @@ class TestYouTubePublish:
         mock_youtube_connector.is_configured = True
         mock_audio_store.exists.return_value = False
 
-        result = social_handler.handle_post("/api/v1/debates/test/publish/youtube", {}, mock_handler)
+        result = social_handler.handle_post(
+            "/api/v1/debates/test/publish/youtube", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 400

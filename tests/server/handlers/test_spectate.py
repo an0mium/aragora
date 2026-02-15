@@ -74,9 +74,7 @@ class TestPushSpectatorEvent:
         q: asyncio.Queue = asyncio.Queue()
         _active_collectors["debate-1"] = {q}
 
-        count = push_spectator_event(
-            "debate-1", "proposal", agent="claude", details="test"
-        )
+        count = push_spectator_event("debate-1", "proposal", agent="claude", details="test")
 
         assert count == 1
         event = q.get_nowait()
@@ -129,9 +127,7 @@ class TestPushSpectatorEvent:
         q: asyncio.Queue = asyncio.Queue()
         _active_collectors["debate-1"] = {q}
 
-        push_spectator_event(
-            "debate-1", "convergence", metric=0.85, round_number=3
-        )
+        push_spectator_event("debate-1", "convergence", metric=0.85, round_number=3)
 
         event = q.get_nowait()
         assert event["metric"] == 0.85

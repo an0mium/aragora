@@ -72,8 +72,15 @@ class TestQuickstartParser:
 
 class TestDetectAgents:
     def test_no_keys(self, monkeypatch):
-        for key in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
-                     "MISTRAL_API_KEY", "XAI_API_KEY", "GROK_API_KEY", "OPENROUTER_API_KEY"]:
+        for key in [
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "MISTRAL_API_KEY",
+            "XAI_API_KEY",
+            "GROK_API_KEY",
+            "OPENROUTER_API_KEY",
+        ]:
             monkeypatch.delenv(key, raising=False)
         assert _detect_agents() == []
 

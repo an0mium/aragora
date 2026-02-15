@@ -51,9 +51,7 @@ class TestFeedbackMetrics:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=mock_loop,
         ):
-            result = handler.handle(
-                "/api/v1/agents/feedback/metrics", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/feedback/metrics", {}, MagicMock())
         assert result is not None
         body = result[0]
         assert body["debates_processed"] == 3
@@ -65,9 +63,7 @@ class TestFeedbackMetrics:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=None,
         ):
-            result = handler.handle(
-                "/api/v1/agents/feedback/metrics", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/feedback/metrics", {}, MagicMock())
         assert result is not None
         body = result[0]
         assert body["debates_processed"] == 0
@@ -82,9 +78,7 @@ class TestFeedbackStates:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=mock_loop,
         ):
-            result = handler.handle(
-                "/api/v1/agents/feedback/states", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/feedback/states", {}, MagicMock())
         assert result is not None
         body = result[0]
         assert body["count"] == 2
@@ -96,9 +90,7 @@ class TestFeedbackStates:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=mock_loop,
         ):
-            result = handler.handle(
-                "/api/v1/agents/feedback/states", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/feedback/states", {}, MagicMock())
         body = result[0]
         claude = body["agents"]["claude"]
         assert claude["total_debates"] == 3
@@ -113,9 +105,7 @@ class TestFeedbackStates:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=None,
         ):
-            result = handler.handle(
-                "/api/v1/agents/feedback/states", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/feedback/states", {}, MagicMock())
         body = result[0]
         assert body["count"] == 0
         assert body["agents"] == {}
@@ -129,9 +119,7 @@ class TestFeedbackDomains:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=mock_loop,
         ):
-            result = handler.handle(
-                "/api/v1/agents/claude/feedback/domains", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/feedback/domains", {}, MagicMock())
         assert result is not None
         body = result[0]
         assert body["agent"] == "claude"
@@ -157,9 +145,7 @@ class TestFeedbackDomains:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=mock_loop,
         ):
-            result = handler.handle(
-                "/api/v1/agents/nonexistent/feedback/domains", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/nonexistent/feedback/domains", {}, MagicMock())
         body = result[0]
         assert body["agent"] == "nonexistent"
         assert body["domains"] == {}
@@ -169,9 +155,7 @@ class TestFeedbackDomains:
             "aragora.server.handlers.agents.feedback._get_feedback_loop",
             return_value=None,
         ):
-            result = handler.handle(
-                "/api/v1/agents/claude/feedback/domains", {}, MagicMock()
-            )
+            result = handler.handle("/api/v1/agents/claude/feedback/domains", {}, MagicMock())
         body = result[0]
         assert body["domains"] == {}
 
@@ -199,6 +183,4 @@ class TestFeedbackPermission:
     def test_metrics_requires_permission(self, handler):
         """Without auth bypass, ensure the decorator is present."""
         # The @require_permission decorator should be on handle()
-        assert hasattr(handler.handle, "__wrapped__") or hasattr(
-            handler.handle, "_permission"
-        )
+        assert hasattr(handler.handle, "__wrapped__") or hasattr(handler.handle, "_permission")

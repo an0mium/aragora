@@ -128,9 +128,7 @@ class TestTenantsList:
 
     @pytest.mark.asyncio
     async def test_list_async(self, api: TenantsAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"tenants": [SAMPLE_TENANT], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"tenants": [SAMPLE_TENANT], "total": 1})
         tenants, total = await api.list_async()
         assert len(tenants) == 1
         assert total == 1
@@ -140,9 +138,7 @@ class TestTenantsList:
     async def test_list_async_with_filters(
         self, api: TenantsAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"tenants": [], "total": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"tenants": [], "total": 0})
         await api.list_async(status="active", tier="free", limit=25, offset=10)
         params = mock_client._get_async.call_args[1]["params"]
         assert params["status"] == "active"
@@ -294,9 +290,7 @@ class TestTenantsUpdate:
         body = mock_client._patch.call_args[0][1]
         assert body["quotas"] == quotas
 
-    def test_update_excludes_none_fields(
-        self, api: TenantsAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_excludes_none_fields(self, api: TenantsAPI, mock_client: AragoraClient) -> None:
         mock_client._patch.return_value = {"tenant": SAMPLE_TENANT}
         api.update("t-001", name="Only Name")
         body = mock_client._patch.call_args[0][1]
@@ -472,12 +466,8 @@ class TestTenantsUpdateQuotas:
         assert quotas.storage_gb == 500
 
     @pytest.mark.asyncio
-    async def test_update_quotas_async(
-        self, api: TenantsAPI, mock_client: AragoraClient
-    ) -> None:
-        mock_client._patch_async = AsyncMock(
-            return_value={"quotas": {"concurrent_debates": 100}}
-        )
+    async def test_update_quotas_async(self, api: TenantsAPI, mock_client: AragoraClient) -> None:
+        mock_client._patch_async = AsyncMock(return_value={"quotas": {"concurrent_debates": 100}})
         quotas = await api.update_quotas_async("t-001", {"concurrent_debates": 100})
         assert isinstance(quotas, TenantQuota)
         assert quotas.concurrent_debates == 100

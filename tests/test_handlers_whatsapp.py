@@ -298,7 +298,9 @@ class TestWhatsAppWebhookMessages:
         mock_handler.set_body(body)
 
         # Bypass signature verification for this test
-        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True
+        ):
             result = whatsapp_handler._handle_webhook(mock_handler)
 
             # Should acknowledge receipt
@@ -347,7 +349,9 @@ class TestWhatsAppWebhookMessages:
         body = json.dumps(payload).encode()
         mock_handler.set_body(body)
 
-        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True
+        ):
             result = whatsapp_handler._handle_webhook(mock_handler)
             assert result.status_code == 200
 
@@ -355,7 +359,9 @@ class TestWhatsAppWebhookMessages:
         """Test handling invalid JSON payload."""
         mock_handler.set_body(b"not valid json")
 
-        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True
+        ):
             result = whatsapp_handler._handle_webhook(mock_handler)
             assert result.status_code == 400
 
@@ -366,7 +372,9 @@ class TestWhatsAppWebhookMessages:
         body = json.dumps(payload).encode()
         mock_handler.set_body(body)
 
-        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True
+        ):
             result = whatsapp_handler._handle_webhook(mock_handler)
             # Should still return 200 and acknowledge receipt
             assert result.status_code == 200
@@ -574,7 +582,9 @@ class TestWhatsAppIntegration:
 
         handler = WhatsAppHandler(MockServerContext())
 
-        with patch("aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True):
+        with patch(
+            "aragora.server.handlers.bots.whatsapp._verify_whatsapp_signature", return_value=True
+        ):
             result = handler._handle_webhook(mock_handler)
 
             # Should acknowledge receipt

@@ -28,6 +28,7 @@ from aragora.rbac.models import AuthorizationContext
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def emergency_mgr():
     """Return a fresh BreakGlassAccess instance (no persistence)."""
@@ -57,6 +58,7 @@ def admin_context():
 # ---------------------------------------------------------------------------
 # Middleware bypass tests
 # ---------------------------------------------------------------------------
+
 
 class TestEmergencyMiddlewareBypass:
     """Verify emergency access bypasses normal RBAC in middleware."""
@@ -185,15 +187,14 @@ class TestEmergencyMiddlewareBypass:
             RBACMiddlewareConfig(default_authenticated=True),
             validate_permissions=False,
         )
-        allowed, reason, _ = middleware.check_request(
-            "/api/v1/admin/security/status", "GET", None
-        )
+        allowed, reason, _ = middleware.check_request("/api/v1/admin/security/status", "GET", None)
         assert not allowed
 
 
 # ---------------------------------------------------------------------------
 # Emergency API handler tests
 # ---------------------------------------------------------------------------
+
 
 class TestEmergencyAccessHandler:
     """Tests for the EmergencyAccessHandler endpoints."""
@@ -218,12 +219,14 @@ class TestEmergencyAccessHandler:
         # The _activate, _deactivate, and _status methods use @require_permission
         # This is verified by the RBAC enforcement test scanning for the import
         import inspect
+
         source = inspect.getsource(EmergencyAccessHandler)
         assert "require_permission" in source
 
     def test_handler_import(self):
         """Handler can be imported from the expected location."""
         from aragora.server.handlers.admin.emergency_access import EmergencyAccessHandler
+
         assert EmergencyAccessHandler is not None
 
     def test_handler_registered_in_admin_registry(self):
@@ -232,6 +235,7 @@ class TestEmergencyAccessHandler:
             ADMIN_HANDLER_REGISTRY,
             EmergencyAccessHandler,
         )
+
         # Find entry in registry
         registry_names = [name for name, _ in ADMIN_HANDLER_REGISTRY]
         assert "_emergency_access_handler" in registry_names
@@ -240,6 +244,7 @@ class TestEmergencyAccessHandler:
 # ---------------------------------------------------------------------------
 # Route permission tests
 # ---------------------------------------------------------------------------
+
 
 class TestEmergencyRoutePermissions:
     """Verify emergency routes are covered by RBAC middleware."""
@@ -250,7 +255,9 @@ class TestEmergencyRoutePermissions:
 
         emergency_patterns = []
         for rule in DEFAULT_ROUTE_PERMISSIONS:
-            pattern_str = rule.pattern.pattern if hasattr(rule.pattern, "pattern") else str(rule.pattern)
+            pattern_str = (
+                rule.pattern.pattern if hasattr(rule.pattern, "pattern") else str(rule.pattern)
+            )
             if "emergency" in pattern_str:
                 emergency_patterns.append(pattern_str)
 
@@ -299,6 +306,7 @@ class TestEmergencyRoutePermissions:
 # Export tests
 # ---------------------------------------------------------------------------
 
+
 class TestEmergencyExports:
     """Verify emergency classes are properly exported."""
 
@@ -310,6 +318,7 @@ class TestEmergencyExports:
             EmergencyAccessStatus,
             get_break_glass_access,
         )
+
         assert BreakGlassAccess is not None
         assert EmergencyAccessRecord is not None
         assert EmergencyAccessStatus is not None
@@ -323,4 +332,5 @@ class TestEmergencyExports:
             EmergencyAccessStatus,
             get_break_glass_access,
         )
+
         assert BreakGlassAccess is not None

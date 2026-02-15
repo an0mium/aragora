@@ -606,7 +606,7 @@ def process_export(
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, default=str)
 
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Input: {total_processed:,} conversations")
     print(f"  Output: {len(kept_conversations):,} conversations")
     print(f"  Reduction: {(1 - len(kept_conversations) / total_processed) * 100:.1f}%")

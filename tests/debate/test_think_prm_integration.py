@@ -53,9 +53,7 @@ def _convert_messages_to_think_prm_rounds(
             }
         )
 
-    return [
-        {"contributions": rounds[r]} for r in sorted(rounds.keys())
-    ]
+    return [{"contributions": rounds[r]} for r in sorted(rounds.keys())]
 
 
 async def _run_think_prm_verification(
@@ -197,12 +195,14 @@ class TestConvertMessagesToThinkPRMRounds:
 @dataclass
 class MockAgent:
     """Mock agent for testing."""
+
     name: str = "claude"
 
 
 @dataclass
 class MockProtocol:
     """Mock protocol for testing."""
+
     think_prm_verifier_agent: str = "claude"
     think_prm_parallel: bool = True
     think_prm_max_parallel: int = 3
@@ -211,6 +211,7 @@ class MockProtocol:
 @dataclass
 class MockAutonomic:
     """Mock autonomic executor."""
+
     async def generate(
         self,
         agent: Any,
@@ -227,6 +228,7 @@ SUGGESTED_FIX: None"""
 @dataclass
 class MockDebateContext:
     """Mock debate context."""
+
     debate_id: str = "test-debate-123"
     context_messages: list = field(default_factory=list)
 
@@ -234,6 +236,7 @@ class MockDebateContext:
 @dataclass
 class MockArena:
     """Mock arena for testing."""
+
     agents: list = field(default_factory=list)
     protocol: MockProtocol = field(default_factory=MockProtocol)
     autonomic: MockAutonomic = field(default_factory=MockAutonomic)

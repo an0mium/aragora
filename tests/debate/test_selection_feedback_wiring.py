@@ -158,4 +158,7 @@ class TestTeamSelectorWiring:
             team_selector=ts,
         )
         # feedback_loop should not have been set on team_selector
-        assert not hasattr(ts, "feedback_loop") or ts.feedback_loop is not coord.selection_feedback_loop
+        assert (
+            not hasattr(ts, "feedback_loop")
+            or ts.feedback_loop is not coord.selection_feedback_loop
+        )

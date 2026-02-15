@@ -208,9 +208,7 @@ class TestLeaderboardEndpoint:
         assert result is not None
         body = result[0]
         assert body["domain"] == "legal"
-        handler.ctx["elo_system"].get_leaderboard.assert_called_once_with(
-            limit=20, domain="legal"
-        )
+        handler.ctx["elo_system"].get_leaderboard.assert_called_once_with(limit=20, domain="legal")
 
     def test_leaderboard_default_limit(self, handler, mock_http_handler):
         handler.ctx["elo_system"].get_cached_leaderboard.return_value = []

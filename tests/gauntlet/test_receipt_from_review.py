@@ -25,6 +25,7 @@ from aragora.gauntlet.receipt_models import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_review_result(**overrides) -> dict:
     """Build a realistic review-result dict matching extract_review_findings() output."""
     base = {
@@ -192,12 +193,8 @@ class TestHashDeterminism:
 
     def test_different_input_different_hash(self):
         """Changing the review content changes the input_hash."""
-        findings_a = _make_review_result(
-            final_summary="Version A of the summary."
-        )
-        findings_b = _make_review_result(
-            final_summary="Version B of the summary."
-        )
+        findings_a = _make_review_result(final_summary="Version A of the summary.")
+        findings_b = _make_review_result(final_summary="Version B of the summary.")
         receipt_a = DecisionReceipt.from_review_result(findings_a)
         receipt_b = DecisionReceipt.from_review_result(findings_b)
 
@@ -256,9 +253,7 @@ class TestProvenanceChain:
         findings = _make_review_result()
         receipt = DecisionReceipt.from_review_result(findings)
 
-        finding_events = [
-            p for p in receipt.provenance_chain if p.event_type == "review_finding"
-        ]
+        finding_events = [p for p in receipt.provenance_chain if p.event_type == "review_finding"]
         # 1 critical + 1 high + 1 medium + 0 low = 3
         assert len(finding_events) == 3
 
@@ -267,9 +262,7 @@ class TestProvenanceChain:
         findings = _make_review_result()
         receipt = DecisionReceipt.from_review_result(findings)
 
-        finding_events = [
-            p for p in receipt.provenance_chain if p.event_type == "review_finding"
-        ]
+        finding_events = [p for p in receipt.provenance_chain if p.event_type == "review_finding"]
         agents_in_provenance = {p.agent for p in finding_events}
         assert "anthropic-api" in agents_in_provenance
         assert "openai-api" in agents_in_provenance
@@ -280,9 +273,7 @@ class TestProvenanceChain:
         receipt = DecisionReceipt.from_review_result(findings)
 
         unanimous_events = [
-            p
-            for p in receipt.provenance_chain
-            if p.event_type == "unanimous_critique"
+            p for p in receipt.provenance_chain if p.event_type == "unanimous_critique"
         ]
         assert len(unanimous_events) == 2
 
@@ -291,9 +282,7 @@ class TestProvenanceChain:
         findings = _make_review_result()
         receipt = DecisionReceipt.from_review_result(findings)
 
-        split_events = [
-            p for p in receipt.provenance_chain if p.event_type == "split_opinion"
-        ]
+        split_events = [p for p in receipt.provenance_chain if p.event_type == "split_opinion"]
         assert len(split_events) == 1
 
     def test_provenance_ends_with_verdict(self):
@@ -309,9 +298,7 @@ class TestProvenanceChain:
         findings = _make_review_result()
         receipt = DecisionReceipt.from_review_result(findings)
 
-        finding_events = [
-            p for p in receipt.provenance_chain if p.event_type == "review_finding"
-        ]
+        finding_events = [p for p in receipt.provenance_chain if p.event_type == "review_finding"]
         for event in finding_events:
             assert event.evidence_hash, f"Missing hash on: {event.description}"
 
@@ -401,9 +388,7 @@ class TestMissingOptionalFields:
         findings = _make_review_result(split_opinions=[])
         receipt = DecisionReceipt.from_review_result(findings)
 
-        split_events = [
-            p for p in receipt.provenance_chain if p.event_type == "split_opinion"
-        ]
+        split_events = [p for p in receipt.provenance_chain if p.event_type == "split_opinion"]
         assert len(split_events) == 0
         assert receipt.consensus_proof.dissenting_agents == []
 
@@ -431,9 +416,7 @@ class TestMissingOptionalFields:
         )
         receipt = DecisionReceipt.from_review_result(findings)
         assert receipt.risk_summary["critical"] == 1
-        finding_events = [
-            p for p in receipt.provenance_chain if p.event_type == "review_finding"
-        ]
+        finding_events = [p for p in receipt.provenance_chain if p.event_type == "review_finding"]
         assert len(finding_events) == 1
         assert finding_events[0].agent is None  # no agent for plain strings
 

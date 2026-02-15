@@ -805,9 +805,7 @@ class TestUnauthorized:
         """
         mock_handler = MockHandler(body={"agent_name": "test"})
 
-        result = auditing_handler.handle(
-            "/api/v1/debates/capability-probe", {}, mock_handler
-        )
+        result = auditing_handler.handle("/api/v1/debates/capability-probe", {}, mock_handler)
 
         assert result.status_code == 403
 
@@ -823,8 +821,6 @@ class TestUnauthorized:
         """Test red team rejects unauthenticated requests."""
         mock_handler = MockHandler(body={})
 
-        result = auditing_handler.handle(
-            "/api/v1/debates/test-debate-1/red-team", {}, mock_handler
-        )
+        result = auditing_handler.handle("/api/v1/debates/test-debate-1/red-team", {}, mock_handler)
 
         assert result.status_code == 403

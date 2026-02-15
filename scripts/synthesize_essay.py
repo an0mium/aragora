@@ -300,7 +300,7 @@ def print_summary(result: WorkflowResult) -> None:
     print("=" * 60)
     print(f"\nTitle: {result.title}")
     print(f"Thesis: {result.thesis[:200]}...")
-    print(f"\nStatistics:")
+    print("\nStatistics:")
     for key, value in result.statistics.items():
         print(f"  - {key}: {value}")
     print(f"\nGenerated: {result.generated_at}")

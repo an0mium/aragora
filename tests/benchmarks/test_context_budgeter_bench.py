@@ -29,9 +29,18 @@ def _make_content(tokens: int) -> str:
 def _make_sections(count: int, tokens_each: int = 200) -> list[ContextSection]:
     """Generate a list of context sections."""
     keys = [
-        "env_context", "historical", "continuum", "supermemory",
-        "belief", "dissent", "patterns", "calibration",
-        "elo", "evidence", "trending", "audience",
+        "env_context",
+        "historical",
+        "continuum",
+        "supermemory",
+        "belief",
+        "dissent",
+        "patterns",
+        "calibration",
+        "elo",
+        "evidence",
+        "trending",
+        "audience",
     ]
     return [
         ContextSection(

@@ -129,10 +129,7 @@ class TestFullDebatePipeline:
             # Process rounds - update() takes votes dict and round_num
             last_result = None
             for round_data in mock_debate_rounds:
-                votes = {
-                    c["agent_id"]: c["position"]
-                    for c in round_data.contributions
-                }
+                votes = {c["agent_id"]: c["position"] for c in round_data.contributions}
                 last_result = detector.update(votes, round_num=round_data.round_number)
 
             # Check stability result
@@ -246,7 +243,13 @@ class TestFullDebatePipeline:
                 assert result is not None
                 assert result.selected_mode is not None
                 # Mode should be one of the valid modes
-                assert result.selected_mode.value in ["rag", "rlm", "long_context", "graph", "hybrid"]
+                assert result.selected_mode.value in [
+                    "rag",
+                    "rlm",
+                    "long_context",
+                    "graph",
+                    "hybrid",
+                ]
 
     @pytest.mark.asyncio
     async def test_think_prm_integration(self, mock_debate_rounds: list[MockDebateRound]) -> None:

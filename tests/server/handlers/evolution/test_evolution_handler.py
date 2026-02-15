@@ -184,9 +184,7 @@ class TestRateLimiting:
 class TestEvolutionUnavailable:
     def test_patterns_returns_503(self):
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False):
             result = h._get_patterns(None, 10)
         status, data = _parse_result(result)
         assert status == 503
@@ -194,27 +192,21 @@ class TestEvolutionUnavailable:
 
     def test_history_returns_503(self):
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False):
             result = h._get_evolution_history("claude", 10)
         status, data = _parse_result(result)
         assert status == 503
 
     def test_prompt_version_returns_503(self):
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False):
             result = h._get_prompt_version("claude", None)
         status, data = _parse_result(result)
         assert status == 503
 
     def test_summary_returns_503(self):
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False
-        ):
+        with patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", False):
             result = h._get_summary()
         status, data = _parse_result(result)
         assert status == 503
@@ -228,10 +220,9 @@ class TestEvolutionUnavailable:
 class TestNomicDirNotConfigured:
     def test_patterns_no_nomic_dir(self):
         h = _make_handler_instance(ctx={})
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()),
         ):
             result = h._get_patterns(None, 10)
         status, data = _parse_result(result)
@@ -240,10 +231,9 @@ class TestNomicDirNotConfigured:
 
     def test_history_no_nomic_dir(self):
         h = _make_handler_instance(ctx={})
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()),
         ):
             result = h._get_evolution_history("claude", 10)
         status, data = _parse_result(result)
@@ -251,10 +241,9 @@ class TestNomicDirNotConfigured:
 
     def test_prompt_version_no_nomic_dir(self):
         h = _make_handler_instance(ctx={})
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()),
         ):
             result = h._get_prompt_version("claude", None)
         status, data = _parse_result(result)
@@ -262,10 +251,9 @@ class TestNomicDirNotConfigured:
 
     def test_summary_no_nomic_dir(self):
         h = _make_handler_instance(ctx={})
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", MagicMock()),
         ):
             result = h._get_summary()
         status, data = _parse_result(result)
@@ -287,12 +275,12 @@ class TestGetPatterns:
         mock_evolver_cls.return_value = mock_evolver_inst
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_patterns("strategy", 10)
 
@@ -306,12 +294,12 @@ class TestGetPatterns:
         mock_evolver_cls = MagicMock(side_effect=Exception("db error"))
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_patterns(None, 10)
 
@@ -330,12 +318,12 @@ class TestGetEvolutionHistory:
         mock_evolver_cls.return_value = mock_evolver_inst
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_evolution_history("claude", 10)
 
@@ -348,12 +336,12 @@ class TestGetEvolutionHistory:
         mock_evolver_cls = MagicMock(side_effect=RuntimeError("broken"))
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_evolution_history("claude", 5)
 
@@ -378,12 +366,12 @@ class TestGetPromptVersion:
         mock_evolver_cls.return_value = mock_evolver_inst
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_prompt_version("claude", 3)
 
@@ -401,12 +389,12 @@ class TestGetPromptVersion:
         mock_evolver_cls.return_value = mock_evolver_inst
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_prompt_version("unknown_agent", None)
 
@@ -417,12 +405,12 @@ class TestGetPromptVersion:
         mock_evolver_cls = MagicMock(side_effect=Exception("boom"))
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_prompt_version("claude", 1)
 
@@ -466,12 +454,12 @@ class TestGetSummary:
         mock_evolver_cls.return_value = mock_evolver_inst
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_summary()
 
@@ -488,12 +476,12 @@ class TestGetSummary:
         mock_evolver_cls = MagicMock(side_effect=Exception("db crash"))
 
         h = _make_handler_instance()
-        with patch(
-            "aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True
-        ), patch(
-            "aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls
-        ), patch(
-            "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+        with (
+            patch("aragora.server.handlers.evolution.handler.EVOLUTION_AVAILABLE", True),
+            patch("aragora.server.handlers.evolution.handler.PromptEvolver", mock_evolver_cls),
+            patch(
+                "aragora.server.handlers.evolution.handler.get_db_path", return_value="/tmp/test.db"
+            ),
         ):
             result = h._get_summary()
 

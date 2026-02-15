@@ -164,9 +164,7 @@ class TestListApprovals:
             {"id": "approval-2", "type": "decision_plan", "status": "pending"},
         ]
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=mock_approvals,
@@ -184,9 +182,7 @@ class TestListApprovals:
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
@@ -199,9 +195,7 @@ class TestListApprovals:
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
@@ -211,18 +205,14 @@ class TestListApprovals:
                     {"source": "workflow,gateway"},
                     mock_http_get,
                 )
-                mock_collect.assert_called_once_with(
-                    limit=100, sources=["workflow", "gateway"]
-                )
+                mock_collect.assert_called_once_with(limit=100, sources=["workflow", "gateway"])
 
     def test_default_sources_in_response(self, handler, mock_http_get):
         """Should include default sources when none specified."""
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
@@ -240,9 +230,7 @@ class TestListApprovals:
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             result = handler.handle(
                 "/api/v1/approvals",
                 {"status": "completed"},
@@ -256,9 +244,7 @@ class TestListApprovals:
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.approvals.inbox.collect_pending_approvals",
                 return_value=[],
@@ -281,9 +267,7 @@ class TestErrorHandling:
         mock_user = MagicMock()
         mock_user.user_id = "user-1"
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.approvals.inbox.collect_pending_approvals",
                 side_effect=RuntimeError("DB connection failed"),

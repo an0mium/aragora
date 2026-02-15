@@ -199,13 +199,17 @@ class TestFormatPulseContext:
         from aragora.debate.prompt_builder import PromptBuilder
 
         builder = PromptBuilder(protocol=mock_protocol, env=mock_env)
-        builder.set_pulse_topics([{
-            "topic": "Breaking news",
-            "platform": "twitter",
-            "volume": 50000,
-            "category": "news",
-            "hours_ago": 0.5,
-        }])
+        builder.set_pulse_topics(
+            [
+                {
+                    "topic": "Breaking news",
+                    "platform": "twitter",
+                    "volume": 50000,
+                    "category": "news",
+                    "hours_ago": 0.5,
+                }
+            ]
+        )
         context = builder.format_pulse_context()
         assert "HIGH VELOCITY" in context
 
@@ -214,13 +218,17 @@ class TestFormatPulseContext:
         from aragora.debate.prompt_builder import PromptBuilder
 
         builder = PromptBuilder(protocol=mock_protocol, env=mock_env)
-        builder.set_pulse_topics([{
-            "topic": "New framework",
-            "platform": "reddit",
-            "volume": 5000,
-            "category": "tech",
-            "hours_ago": 3.0,
-        }])
+        builder.set_pulse_topics(
+            [
+                {
+                    "topic": "New framework",
+                    "platform": "reddit",
+                    "volume": 5000,
+                    "category": "tech",
+                    "hours_ago": 3.0,
+                }
+            ]
+        )
         context = builder.format_pulse_context()
         assert "RISING" in context
 

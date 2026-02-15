@@ -317,9 +317,7 @@ class TestStartIndex:
 
     @pytest.mark.asyncio
     async def test_index_with_errors(self, handler, mock_orchestrator):
-        mock_orchestrator.index_repository.return_value = MockIndexResult(
-            errors=["file not found"]
-        )
+        mock_orchestrator.index_repository.return_value = MockIndexResult(errors=["file not found"])
         with patch(
             "aragora.server.handlers.repository._get_orchestrator",
             return_value=mock_orchestrator,
@@ -562,9 +560,7 @@ class TestHandlePostRouting:
             "aragora.server.handlers.repository._get_orchestrator",
             return_value=mock_orchestrator,
         ):
-            result = await handler.handle_post(
-                "/api/v1/repository/incremental", {}, mock_handler
-            )
+            result = await handler.handle_post("/api/v1/repository/incremental", {}, mock_handler)
             assert result is not None
             assert result.status_code == 200
 
@@ -592,9 +588,7 @@ class TestHandleDeleteRouting:
             "aragora.server.handlers.repository._get_orchestrator",
             return_value=mock_orchestrator,
         ):
-            result = await handler.handle_delete(
-                "/api/v1/repository/my-repo", {}, mock_handler
-            )
+            result = await handler.handle_delete("/api/v1/repository/my-repo", {}, mock_handler)
             assert result is not None
             assert result.status_code == 200
 

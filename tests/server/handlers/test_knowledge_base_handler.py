@@ -192,13 +192,21 @@ class TestKnowledgeHandlerFacts:
         mock_store = MagicMock()
 
         mock_fact = MagicMock()
-        mock_fact.to_dict.return_value = {"id": "fact-001", "content": "Test fact", "confidence": 0.9}
+        mock_fact.to_dict.return_value = {
+            "id": "fact-001",
+            "content": "Test fact",
+            "confidence": 0.9,
+        }
         mock_fact.id = "fact-001"
 
         mock_store.list_facts.return_value = [mock_fact]
         mock_store.get_fact.return_value = mock_fact
         mock_new_fact = MagicMock()
-        mock_new_fact.to_dict.return_value = {"id": "fact-new", "content": "New fact", "confidence": 0.8}
+        mock_new_fact.to_dict.return_value = {
+            "id": "fact-new",
+            "content": "New fact",
+            "confidence": 0.8,
+        }
         mock_new_fact.id = "fact-new"
         mock_store.add_fact.return_value = mock_new_fact
         mock_store.update_fact.return_value = True

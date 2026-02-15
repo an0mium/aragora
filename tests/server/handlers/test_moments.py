@@ -406,9 +406,7 @@ class TestHandleRouting:
         from aragora.server.handlers.utils.auth import UnauthorizedError
 
         mock_handler = _make_mock_handler()
-        with patch.object(
-            handler, "get_auth_context", side_effect=UnauthorizedError()
-        ):
+        with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
             result = await handler.handle("/api/moments/summary", {}, mock_handler)
             assert result.status_code == 401
 
@@ -433,13 +431,9 @@ class TestHandleRouting:
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch(
-                    "aragora.server.handlers.moments._moments_limiter"
-                ) as mock_limiter:
+                with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
                     mock_limiter.is_allowed.return_value = True
-                    result = await handler.handle(
-                        "/api/moments/summary", {}, mock_handler
-                    )
+                    result = await handler.handle("/api/moments/summary", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200
 
@@ -449,9 +443,7 @@ class TestHandleRouting:
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch(
-                    "aragora.server.handlers.moments._moments_limiter"
-                ) as mock_limiter:
+                with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
                     mock_limiter.is_allowed.return_value = True
                     result = await handler.handle(
                         "/api/moments/timeline", {"limit": "10", "offset": "0"}, mock_handler
@@ -465,13 +457,9 @@ class TestHandleRouting:
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch(
-                    "aragora.server.handlers.moments._moments_limiter"
-                ) as mock_limiter:
+                with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
                     mock_limiter.is_allowed.return_value = True
-                    result = await handler.handle(
-                        "/api/moments/trending", {}, mock_handler
-                    )
+                    result = await handler.handle("/api/moments/trending", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200
 
@@ -481,9 +469,7 @@ class TestHandleRouting:
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch(
-                    "aragora.server.handlers.moments._moments_limiter"
-                ) as mock_limiter:
+                with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
                     mock_limiter.is_allowed.return_value = True
                     result = await handler.handle(
                         "/api/moments/by-type/invalid_type", {}, mock_handler
@@ -497,13 +483,9 @@ class TestHandleRouting:
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch(
-                    "aragora.server.handlers.moments._moments_limiter"
-                ) as mock_limiter:
+                with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
                     mock_limiter.is_allowed.return_value = False
-                    result = await handler.handle(
-                        "/api/moments/summary", {}, mock_handler
-                    )
+                    result = await handler.handle("/api/moments/summary", {}, mock_handler)
                     assert result.status_code == 429
 
     @pytest.mark.asyncio
@@ -512,13 +494,9 @@ class TestHandleRouting:
         auth_ctx = MagicMock()
         with patch.object(handler, "get_auth_context", return_value=auth_ctx):
             with patch.object(handler, "check_permission", return_value=True):
-                with patch(
-                    "aragora.server.handlers.moments._moments_limiter"
-                ) as mock_limiter:
+                with patch("aragora.server.handlers.moments._moments_limiter") as mock_limiter:
                     mock_limiter.is_allowed.return_value = True
-                    result = await handler.handle(
-                        "/api/moments/unknown", {}, mock_handler
-                    )
+                    result = await handler.handle("/api/moments/unknown", {}, mock_handler)
                     assert result is None
 
 
@@ -545,7 +523,14 @@ class TestMomentToDict:
         moment = MockMoment()
         d = handler._moment_to_dict(moment)
         expected_keys = {
-            "id", "type", "agent", "description", "significance",
-            "debate_id", "other_agents", "metadata", "created_at",
+            "id",
+            "type",
+            "agent",
+            "description",
+            "significance",
+            "debate_id",
+            "other_agents",
+            "metadata",
+            "created_at",
         }
         assert set(d.keys()) == expected_keys

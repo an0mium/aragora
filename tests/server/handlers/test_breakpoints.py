@@ -220,9 +220,7 @@ class TestGetPending:
         assert result.status_code == 503
 
     def test_get_pending_exception(self, handler, mock_manager):
-        mock_manager.get_pending_breakpoints = MagicMock(
-            side_effect=RuntimeError("DB down")
-        )
+        mock_manager.get_pending_breakpoints = MagicMock(side_effect=RuntimeError("DB down"))
         result = handler._get_pending_breakpoints()
         assert result.status_code == 500
 
@@ -260,9 +258,7 @@ class TestGetStatus:
         assert data["snapshot"]["confidence"] == 0.75
 
     def test_get_status_exception(self, handler, mock_manager):
-        mock_manager.get_breakpoint = MagicMock(
-            side_effect=RuntimeError("DB error")
-        )
+        mock_manager.get_breakpoint = MagicMock(side_effect=RuntimeError("DB error"))
         result = handler._get_breakpoint_status("bp-001")
         assert result.status_code == 500
 
@@ -330,9 +326,7 @@ class TestResolveBreakpoint:
             assert result.status_code == 200
 
     def test_resolve_exception(self, handler, mock_manager):
-        mock_manager.resolve_breakpoint = MagicMock(
-            side_effect=RuntimeError("Resolve failed")
-        )
+        mock_manager.resolve_breakpoint = MagicMock(side_effect=RuntimeError("Resolve failed"))
         with patch("aragora.server.handlers.breakpoints.HumanGuidance") as mock_cls:
             mock_cls.return_value = MagicMock()
             body = {"action": "continue"}
@@ -376,9 +370,7 @@ class TestHandleRouting:
 
         mock_handler = _make_mock_handler()
         with patch.object(_breakpoints_limiter, "is_allowed", return_value=False):
-            result = handler.handle(
-                "/api/v1/breakpoints/pending", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/breakpoints/pending", {}, mock_handler)
             assert result.status_code == 429
 
 

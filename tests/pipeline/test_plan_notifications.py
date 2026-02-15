@@ -24,6 +24,7 @@ from aragora.implement.types import ImplementPlan, ImplementTask
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def basic_plan():
     """A minimal DecisionPlan for testing."""
@@ -47,47 +48,55 @@ def plan_with_risks():
         approval_mode=ApprovalMode.ALWAYS,
         budget=BudgetAllocation(limit_usd=500.0),
     )
-    plan.risk_register = RiskRegister(debate_id="d-risk123", risks=[
-        Risk(
-            id="r-1",
-            title="Auth downtime",
-            description="Migration may cause auth downtime",
-            level=RiskLevel.CRITICAL,
-            category=RiskCategory.SECURITY,
-            source="debate",
-            mitigation="Staged rollout",
-        ),
-        Risk(
-            id="r-2",
-            title="Token invalidation",
-            description="Existing tokens may be invalidated",
-            level=RiskLevel.HIGH,
-            category=RiskCategory.SECURITY,
-            source="debate",
-            mitigation="Grace period for old tokens",
-        ),
-    ])
-    plan.implement_plan = ImplementPlan(design_hash="abc123", tasks=[
-        ImplementTask(
-            id="t-1",
-            description="Update auth provider config",
-            files=["aragora/auth/provider.py"],
-            complexity="moderate",
-        ),
-        ImplementTask(
-            id="t-2",
-            description="Add migration script",
-            files=["scripts/migrate_auth.py"],
-            complexity="simple",
-        ),
-    ])
+    plan.risk_register = RiskRegister(
+        debate_id="d-risk123",
+        risks=[
+            Risk(
+                id="r-1",
+                title="Auth downtime",
+                description="Migration may cause auth downtime",
+                level=RiskLevel.CRITICAL,
+                category=RiskCategory.SECURITY,
+                source="debate",
+                mitigation="Staged rollout",
+            ),
+            Risk(
+                id="r-2",
+                title="Token invalidation",
+                description="Existing tokens may be invalidated",
+                level=RiskLevel.HIGH,
+                category=RiskCategory.SECURITY,
+                source="debate",
+                mitigation="Grace period for old tokens",
+            ),
+        ],
+    )
+    plan.implement_plan = ImplementPlan(
+        design_hash="abc123",
+        tasks=[
+            ImplementTask(
+                id="t-1",
+                description="Update auth provider config",
+                files=["aragora/auth/provider.py"],
+                complexity="moderate",
+            ),
+            ImplementTask(
+                id="t-2",
+                description="Add migration script",
+                files=["scripts/migrate_auth.py"],
+                complexity="simple",
+            ),
+        ],
+    )
     return plan
 
 
 @pytest.fixture
 def approved_plan(plan_with_risks):
     """A plan that has been approved."""
-    plan_with_risks.approve("user-approver", reason="Looks good", conditions=["Monitor after deploy"])
+    plan_with_risks.approve(
+        "user-approver", reason="Looks good", conditions=["Monitor after deploy"]
+    )
     return plan_with_risks
 
 
@@ -107,6 +116,7 @@ def mock_notification_service():
 # ---------------------------------------------------------------------------
 # notify_plan_created
 # ---------------------------------------------------------------------------
+
 
 class TestNotifyPlanCreated:
     """Tests for notify_plan_created."""
@@ -175,7 +185,9 @@ class TestNotifyPlanCreated:
         assert notification.action_url == f"/api/v1/plans/{basic_plan.id}"
 
     @pytest.mark.asyncio
-    async def test_metadata_contains_plan_and_debate_ids(self, basic_plan, mock_notification_service):
+    async def test_metadata_contains_plan_and_debate_ids(
+        self, basic_plan, mock_notification_service
+    ):
         from aragora.pipeline.notifications import notify_plan_created
 
         await notify_plan_created(basic_plan)
@@ -207,6 +219,7 @@ class TestNotifyPlanCreated:
 # ---------------------------------------------------------------------------
 # notify_plan_approved
 # ---------------------------------------------------------------------------
+
 
 class TestNotifyPlanApproved:
     """Tests for notify_plan_approved."""
@@ -256,6 +269,7 @@ class TestNotifyPlanApproved:
 # ---------------------------------------------------------------------------
 # notify_plan_rejected
 # ---------------------------------------------------------------------------
+
 
 class TestNotifyPlanRejected:
     """Tests for notify_plan_rejected."""
@@ -313,6 +327,7 @@ class TestNotifyPlanRejected:
 # notify_execution_started
 # ---------------------------------------------------------------------------
 
+
 class TestNotifyExecutionStarted:
     """Tests for notify_execution_started."""
 
@@ -352,6 +367,7 @@ class TestNotifyExecutionStarted:
 # ---------------------------------------------------------------------------
 # notify_execution_completed
 # ---------------------------------------------------------------------------
+
 
 class TestNotifyExecutionCompleted:
     """Tests for notify_execution_completed."""
@@ -397,6 +413,7 @@ class TestNotifyExecutionCompleted:
 # notify_execution_failed
 # ---------------------------------------------------------------------------
 
+
 class TestNotifyExecutionFailed:
     """Tests for notify_execution_failed."""
 
@@ -437,6 +454,7 @@ class TestNotifyExecutionFailed:
 # Risk-to-severity mapping
 # ---------------------------------------------------------------------------
 
+
 class TestRiskSeverityMapping:
     """Tests for _risk_to_severity helper."""
 
@@ -453,17 +471,20 @@ class TestRiskSeverityMapping:
     async def test_medium_risk_plan(self, basic_plan, mock_notification_service):
         from aragora.pipeline.notifications import notify_plan_created
 
-        basic_plan.risk_register = RiskRegister(debate_id="d-abc123", risks=[
-            Risk(
-                id="r-m",
-                title="Medium risk",
-                description="Something moderate",
-                level=RiskLevel.MEDIUM,
-                category=RiskCategory.TECHNICAL,
-                source="debate",
-                mitigation="Watch it",
-            ),
-        ])
+        basic_plan.risk_register = RiskRegister(
+            debate_id="d-abc123",
+            risks=[
+                Risk(
+                    id="r-m",
+                    title="Medium risk",
+                    description="Something moderate",
+                    level=RiskLevel.MEDIUM,
+                    category=RiskCategory.TECHNICAL,
+                    source="debate",
+                    mitigation="Watch it",
+                ),
+            ],
+        )
         await notify_plan_created(basic_plan)
         notification = mock_notification_service.notify.call_args[0][0]
         assert notification.severity == "warning"
@@ -472,17 +493,20 @@ class TestRiskSeverityMapping:
     async def test_high_risk_plan(self, basic_plan, mock_notification_service):
         from aragora.pipeline.notifications import notify_plan_created
 
-        basic_plan.risk_register = RiskRegister(debate_id="d-abc123", risks=[
-            Risk(
-                id="r-h",
-                title="High risk",
-                description="Something serious",
-                level=RiskLevel.HIGH,
-                category=RiskCategory.TECHNICAL,
-                source="debate",
-                mitigation="Be careful",
-            ),
-        ])
+        basic_plan.risk_register = RiskRegister(
+            debate_id="d-abc123",
+            risks=[
+                Risk(
+                    id="r-h",
+                    title="High risk",
+                    description="Something serious",
+                    level=RiskLevel.HIGH,
+                    category=RiskCategory.TECHNICAL,
+                    source="debate",
+                    mitigation="Be careful",
+                ),
+            ],
+        )
         await notify_plan_created(basic_plan)
         notification = mock_notification_service.notify.call_args[0][0]
         assert notification.severity == "error"
@@ -491,6 +515,7 @@ class TestRiskSeverityMapping:
 # ---------------------------------------------------------------------------
 # Channel routing (action_label field)
 # ---------------------------------------------------------------------------
+
 
 class TestChannelFormatting:
     """Tests for channel formatting details."""
@@ -556,6 +581,7 @@ class TestChannelFormatting:
 # ---------------------------------------------------------------------------
 # Handler integration (_fire_plan_notification)
 # ---------------------------------------------------------------------------
+
 
 class TestFirePlanNotification:
     """Tests for the _fire_plan_notification helper in plans handler."""

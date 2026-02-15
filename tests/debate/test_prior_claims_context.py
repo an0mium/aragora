@@ -30,11 +30,15 @@ class TestGetRelatedClaims:
     def kernel(self):
         """Create a ClaimsKernel with some claims."""
         k = ClaimsKernel(debate_id="test-debate")
-        k.add_claim("Rate limiting should use token bucket algorithm", "claude", ClaimType.PROPOSAL, 0.8)
+        k.add_claim(
+            "Rate limiting should use token bucket algorithm", "claude", ClaimType.PROPOSAL, 0.8
+        )
         k.add_claim("Database queries need connection pooling", "gpt", ClaimType.ASSERTION, 0.7)
         k.add_claim("Security audit found SQL injection risk", "gemini", ClaimType.ASSERTION, 0.9)
         k.add_claim("The API design follows REST principles", "claude", ClaimType.ASSERTION, 0.6)
-        k.add_claim("Rate limiting prevents abuse of API endpoints", "deepseek", ClaimType.ASSERTION, 0.75)
+        k.add_claim(
+            "Rate limiting prevents abuse of API endpoints", "deepseek", ClaimType.ASSERTION, 0.75
+        )
         return k
 
     def test_finds_related_claims_by_keyword(self, kernel):

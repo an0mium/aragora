@@ -257,7 +257,9 @@ class TestDataExport:
             "aragora.server.handlers.privacy.extract_user_from_request",
             return_value=mock_auth_context,
         ):
-            result = privacy_handler.handle("/api/v1/privacy/export", {"format": "csv"}, mock_handler)
+            result = privacy_handler.handle(
+                "/api/v1/privacy/export", {"format": "csv"}, mock_handler
+            )
 
         assert result is not None
         # CSV export returns a tuple (body, status, headers) instead of HandlerResult

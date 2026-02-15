@@ -262,7 +262,9 @@ class TestMarketplaceCircuitBreaker:
         assert cb.state == MarketplaceCircuitBreaker.HALF_OPEN
 
     def test_half_open_allows_limited_calls(self):
-        cb = MarketplaceCircuitBreaker(failure_threshold=1, cooldown_seconds=0.01, half_open_max_calls=2)
+        cb = MarketplaceCircuitBreaker(
+            failure_threshold=1, cooldown_seconds=0.01, half_open_max_calls=2
+        )
         cb.record_failure()
         time.sleep(0.02)
         # Should allow up to half_open_max_calls
@@ -271,7 +273,9 @@ class TestMarketplaceCircuitBreaker:
         assert cb.can_proceed() is False
 
     def test_closes_after_successful_half_open(self):
-        cb = MarketplaceCircuitBreaker(failure_threshold=1, cooldown_seconds=0.01, half_open_max_calls=2)
+        cb = MarketplaceCircuitBreaker(
+            failure_threshold=1, cooldown_seconds=0.01, half_open_max_calls=2
+        )
         cb.record_failure()
         time.sleep(0.02)
         cb.can_proceed()  # consume one half-open call
@@ -410,7 +414,9 @@ class TestMarketplaceListTemplates:
         h = MarketplaceHandler()
         h._current_query_params = {}
 
-        with patch("aragora.server.handlers.marketplace._get_registry", side_effect=RuntimeError("DB down")):
+        with patch(
+            "aragora.server.handlers.marketplace._get_registry", side_effect=RuntimeError("DB down")
+        ):
             result = h.handle_list_templates()
             assert result.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
 
@@ -493,7 +499,9 @@ class TestMarketplaceCreateTemplate:
 
         with patch.object(h, "require_auth_or_error", return_value=(MagicMock(), None)):
             with patch.object(h, "get_json_body", return_value={"name": "New Template"}):
-                with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
+                with patch(
+                    "aragora.server.handlers.marketplace._get_registry", return_value=mock_registry
+                ):
                     result = h.handle_create_template()
                     assert result.status_code == HTTPStatus.CREATED
                     data = _parse_body(result)
@@ -532,7 +540,9 @@ class TestMarketplaceDeleteTemplate:
         mock_registry.delete.return_value = False
 
         with patch.object(h, "require_auth_or_error", return_value=(MagicMock(), None)):
-            with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
+            with patch(
+                "aragora.server.handlers.marketplace._get_registry", return_value=mock_registry
+            ):
                 result = h.handle_delete_template("builtin-template")
                 assert result.status_code == HTTPStatus.FORBIDDEN
 
@@ -545,7 +555,9 @@ class TestMarketplaceDeleteTemplate:
         mock_registry.delete.return_value = True
 
         with patch.object(h, "require_auth_or_error", return_value=(MagicMock(), None)):
-            with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
+            with patch(
+                "aragora.server.handlers.marketplace._get_registry", return_value=mock_registry
+            ):
                 result = h.handle_delete_template("user-template")
                 assert result.status_code == 200
                 data = _parse_body(result)
@@ -600,7 +612,9 @@ class TestMarketplaceRateTemplate:
 
         with patch.object(h, "require_auth_or_error", return_value=(mock_user, None)):
             with patch.object(h, "get_json_body", return_value={"score": 4, "review": "Great!"}):
-                with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
+                with patch(
+                    "aragora.server.handlers.marketplace._get_registry", return_value=mock_registry
+                ):
                     result = h.handle_rate_template("valid-id")
                     assert result.status_code == 200
                     data = _parse_body(result)
@@ -665,7 +679,9 @@ class TestMarketplaceStarTemplate:
         mock_registry.get.return_value = mock_template
 
         with patch.object(h, "require_auth_or_error", return_value=(MagicMock(), None)):
-            with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
+            with patch(
+                "aragora.server.handlers.marketplace._get_registry", return_value=mock_registry
+            ):
                 result = h.handle_star_template("valid-id")
                 assert result.status_code == 200
                 data = _parse_body(result)
@@ -753,7 +769,9 @@ class TestMarketplaceImportTemplate:
 
         with patch.object(h, "require_auth_or_error", return_value=(MagicMock(), None)):
             with patch.object(h, "get_json_body", return_value={"name": "Imported"}):
-                with patch("aragora.server.handlers.marketplace._get_registry", return_value=mock_registry):
+                with patch(
+                    "aragora.server.handlers.marketplace._get_registry", return_value=mock_registry
+                ):
                     result = h.handle_import_template()
                     assert result.status_code == HTTPStatus.CREATED
 

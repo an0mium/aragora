@@ -1466,9 +1466,13 @@ def _reset_handler_global_state():
 # conversion, causing `TypeError: 'list' object is not an iterator`.
 from unittest.mock import NonCallableMock as _NCMock
 
-_real_side_effect_descriptor = type.__dict__["__dict__"].__get__(  # noqa: B009
-    _NCMock
-).get("side_effect", None)
+_real_side_effect_descriptor = (
+    type.__dict__["__dict__"]
+    .__get__(  # noqa: B009
+        _NCMock
+    )
+    .get("side_effect", None)
+)
 if _real_side_effect_descriptor is None:
     # Fallback: walk MRO
     for _cls in _NCMock.__mro__:

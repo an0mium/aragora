@@ -17,39 +17,47 @@ import pytest
 # Tier 1: Core Primitives (always installed)
 # ---------------------------------------------------------------------------
 
+
 class TestTier1Core:
     """Core debate/gauntlet/ranking/knowledge modules must always import."""
 
-    @pytest.mark.parametrize("module", [
-        "aragora.debate.orchestrator",
-        "aragora.debate.consensus",
-        "aragora.debate.convergence",
-        "aragora.debate.phases",
-        "aragora.gauntlet.runner",
-        "aragora.gauntlet.receipt",
-        "aragora.gauntlet.result",
-        "aragora.ranking.elo",
-        "aragora.knowledge.mound",
-        "aragora.knowledge.bridges",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.debate.orchestrator",
+            "aragora.debate.consensus",
+            "aragora.debate.convergence",
+            "aragora.debate.phases",
+            "aragora.gauntlet.runner",
+            "aragora.gauntlet.receipt",
+            "aragora.gauntlet.result",
+            "aragora.ranking.elo",
+            "aragora.knowledge.mound",
+            "aragora.knowledge.bridges",
+        ],
+    )
     def test_core_module_imports(self, module: str) -> None:
         mod = importlib.import_module(module)
         assert mod is not None
 
     def test_arena_class_available(self) -> None:
         from aragora.debate.orchestrator import Arena
+
         assert Arena is not None
 
     def test_consensus_builder_available(self) -> None:
         from aragora.debate.consensus import ConsensusBuilder
+
         assert ConsensusBuilder is not None
 
     def test_elo_system_available(self) -> None:
         from aragora.ranking.elo import EloSystem
+
         assert EloSystem is not None
 
     def test_gauntlet_runner_available(self) -> None:
         from aragora.gauntlet.runner import GauntletRunner
+
         assert GauntletRunner is not None
 
 
@@ -57,14 +65,18 @@ class TestTier1Core:
 # Tier 2: Gateway (OpenClaw)
 # ---------------------------------------------------------------------------
 
+
 class TestTier2Gateway:
     """OpenClaw gateway modules import without extra deps."""
 
-    @pytest.mark.parametrize("module", [
-        "aragora.compat.openclaw",
-        "aragora.compat.openclaw.standalone",
-        "aragora.compat.openclaw.skill_scanner",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.compat.openclaw",
+            "aragora.compat.openclaw.standalone",
+            "aragora.compat.openclaw.skill_scanner",
+        ],
+    )
     def test_gateway_module_imports(self, module: str) -> None:
         mod = importlib.import_module(module)
         assert mod is not None
@@ -74,21 +86,23 @@ class TestTier2Gateway:
 # Tier 3: Blockchain (ERC-8004)
 # ---------------------------------------------------------------------------
 
+
 class TestTier3Blockchain:
     """Blockchain modules import; web3 dependency is lazy."""
 
-    @pytest.mark.parametrize("module", [
-        "aragora.blockchain",
-        "aragora.blockchain.models",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.blockchain",
+            "aragora.blockchain.models",
+        ],
+    )
     def test_blockchain_module_imports(self, module: str) -> None:
         mod = importlib.import_module(module)
         assert mod is not None
 
     def test_blockchain_adapter_imports(self) -> None:
-        mod = importlib.import_module(
-            "aragora.knowledge.mound.adapters.erc8004_adapter"
-        )
+        mod = importlib.import_module("aragora.knowledge.mound.adapters.erc8004_adapter")
         assert mod is not None
 
 
@@ -96,29 +110,34 @@ class TestTier3Blockchain:
 # Tier 4: Enterprise
 # ---------------------------------------------------------------------------
 
+
 class TestTier4Enterprise:
     """Enterprise auth/RBAC/security/compliance modules import."""
 
-    @pytest.mark.parametrize("module", [
-        "aragora.auth",
-        "aragora.auth.oidc",
-        "aragora.rbac",
-        "aragora.rbac.models",
-        "aragora.rbac.checker",
-        "aragora.rbac.decorators",
-        "aragora.tenancy",
-        "aragora.compliance",
-        "aragora.security",
-        "aragora.security.encryption",
-        "aragora.backup",
-        "aragora.backup.manager",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.auth",
+            "aragora.auth.oidc",
+            "aragora.rbac",
+            "aragora.rbac.models",
+            "aragora.rbac.checker",
+            "aragora.rbac.decorators",
+            "aragora.tenancy",
+            "aragora.compliance",
+            "aragora.security",
+            "aragora.security.encryption",
+            "aragora.backup",
+            "aragora.backup.manager",
+        ],
+    )
     def test_enterprise_module_imports(self, module: str) -> None:
         mod = importlib.import_module(module)
         assert mod is not None
 
     def test_rbac_permission_checker(self) -> None:
         from aragora.rbac.checker import PermissionChecker
+
         assert PermissionChecker is not None
 
 
@@ -126,21 +145,28 @@ class TestTier4Enterprise:
 # Tier 5: Connectors
 # ---------------------------------------------------------------------------
 
+
 class TestTier5Connectors:
     """Connector modules import; heavy deps are lazy."""
 
-    @pytest.mark.parametrize("module", [
-        "aragora.connectors",
-        "aragora.integrations",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.connectors",
+            "aragora.integrations",
+        ],
+    )
     def test_connector_module_imports(self, module: str) -> None:
         mod = importlib.import_module(module)
         assert mod is not None
 
-    @pytest.mark.parametrize("module", [
-        "aragora.connectors.enterprise.streaming.kafka",
-        "aragora.connectors.enterprise.streaming.rabbitmq",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.connectors.enterprise.streaming.kafka",
+            "aragora.connectors.enterprise.streaming.rabbitmq",
+        ],
+    )
     def test_streaming_modules_import(self, module: str) -> None:
         """Streaming connectors should import even without aiokafka/aio-pika."""
         mod = importlib.import_module(module)
@@ -151,14 +177,18 @@ class TestTier5Connectors:
 # Tier 6: Experimental
 # ---------------------------------------------------------------------------
 
+
 class TestTier6Experimental:
     """Experimental modules import without extra deps."""
 
-    @pytest.mark.parametrize("module", [
-        "aragora.genesis",
-        "aragora.introspection",
-        "aragora.visualization",
-    ])
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "aragora.genesis",
+            "aragora.introspection",
+            "aragora.visualization",
+        ],
+    )
     def test_experimental_module_imports(self, module: str) -> None:
         mod = importlib.import_module(module)
         assert mod is not None
@@ -167,6 +197,7 @@ class TestTier6Experimental:
 # ---------------------------------------------------------------------------
 # Cross-tier: no tier should pull in another tier's required imports
 # ---------------------------------------------------------------------------
+
 
 class TestTierIsolation:
     """Verify that importing one tier doesn't force-import another tier's packages."""
@@ -213,6 +244,7 @@ class TestTierIsolation:
 # Dependency group metadata
 # ---------------------------------------------------------------------------
 
+
 class TestDependencyGroups:
     """Verify pyproject.toml declares the expected tier groups."""
 
@@ -227,13 +259,16 @@ class TestDependencyGroups:
             data = tomllib.load(f)
         return data["project"]["optional-dependencies"]
 
-    @pytest.mark.parametrize("group", [
-        "gateway",
-        "blockchain",
-        "enterprise",
-        "connectors",
-        "experimental",
-    ])
+    @pytest.mark.parametrize(
+        "group",
+        [
+            "gateway",
+            "blockchain",
+            "enterprise",
+            "connectors",
+            "experimental",
+        ],
+    )
     def test_tier_group_exists(self, optional_deps: dict, group: str) -> None:
         assert group in optional_deps, f"Missing optional-dependencies group: {group}"
 

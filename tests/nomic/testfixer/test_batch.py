@@ -93,12 +93,9 @@ class TestFailureGrouper:
         assert batches[1].size == 2
 
     def test_splits_large_groups(self):
-        failures = [
-            FakeFailure(f"test_{i}", "tests/handlers/test_auth.py") for i in range(7)
-        ]
+        failures = [FakeFailure(f"test_{i}", "tests/handlers/test_auth.py") for i in range(7)]
         analyses = [
-            FailureAnalysis(failure=f, category=FailureCategory.TEST_ASSERTION)
-            for f in failures
+            FailureAnalysis(failure=f, category=FailureCategory.TEST_ASSERTION) for f in failures
         ]
 
         grouper = FailureGrouper()
@@ -181,9 +178,7 @@ class TestBatchOrchestrator:
     async def test_success_on_all_passing(self):
         config = FixLoopConfig()
         orch = self._make_orchestrator()
-        orch.runner.run_full = AsyncMock(
-            return_value=FakeTestResult(success=True, failures=[])
-        )
+        orch.runner.run_full = AsyncMock(return_value=FakeTestResult(success=True, failures=[]))
 
         batch_orch = BatchOrchestrator(orch, config)
         result = await batch_orch.run(max_iterations=1)
@@ -205,9 +200,7 @@ class TestBatchOrchestrator:
             ]
         )
         orch.analyzer.analyze = AsyncMock(
-            return_value=FailureAnalysis(
-                failure=f1, category=FailureCategory.TEST_ASSERTION
-            )
+            return_value=FailureAnalysis(failure=f1, category=FailureCategory.TEST_ASSERTION)
         )
         orch.run_single_fix = AsyncMock(
             return_value=FixAttempt(
@@ -234,13 +227,9 @@ class TestBatchOrchestrator:
         orch = self._make_orchestrator()
 
         f1 = FakeFailure("test_a", "tests/a/test_a.py")
-        orch.runner.run_full = AsyncMock(
-            return_value=FakeTestResult(failures=[f1])
-        )
+        orch.runner.run_full = AsyncMock(return_value=FakeTestResult(failures=[f1]))
         orch.analyzer.analyze = AsyncMock(
-            return_value=FailureAnalysis(
-                failure=f1, category=FailureCategory.UNKNOWN
-            )
+            return_value=FailureAnalysis(failure=f1, category=FailureCategory.UNKNOWN)
         )
         orch.run_single_fix = AsyncMock(
             return_value=FixAttempt(
@@ -273,9 +262,7 @@ class TestBatchOrchestrator:
             ]
         )
         orch.analyzer.analyze = AsyncMock(
-            return_value=FailureAnalysis(
-                failure=f1, category=FailureCategory.TEST_ASSERTION
-            )
+            return_value=FailureAnalysis(failure=f1, category=FailureCategory.TEST_ASSERTION)
         )
         # First fix succeeds, second fails
         orch.run_single_fix = AsyncMock(
@@ -310,17 +297,13 @@ class TestBatchOrchestrator:
     async def test_emits_events(self):
         config = FixLoopConfig()
         orch = self._make_orchestrator()
-        orch.runner.run_full = AsyncMock(
-            return_value=FakeTestResult(success=True, failures=[])
-        )
+        orch.runner.run_full = AsyncMock(return_value=FakeTestResult(success=True, failures=[]))
 
         batch_orch = BatchOrchestrator(orch, config)
         await batch_orch.run(max_iterations=1)
 
         # Should emit batch_started and batch_complete
-        event_types = [
-            call.args[0] for call in orch._emit_event.call_args_list
-        ]
+        event_types = [call.args[0] for call in orch._emit_event.call_args_list]
         from aragora.events.types import StreamEventType
 
         assert StreamEventType.TESTFIXER_BATCH_STARTED in event_types
@@ -340,9 +323,7 @@ class TestBatchOrchestrator:
             ]
         )
         orch.analyzer.analyze = AsyncMock(
-            return_value=FailureAnalysis(
-                failure=f1, category=FailureCategory.TEST_ASSERTION
-            )
+            return_value=FailureAnalysis(failure=f1, category=FailureCategory.TEST_ASSERTION)
         )
 
         proposal = FakeProposal()
@@ -380,9 +361,7 @@ class TestBatchOrchestrator:
     async def test_error_on_no_failures_parsed(self):
         config = FixLoopConfig()
         orch = self._make_orchestrator()
-        orch.runner.run_full = AsyncMock(
-            return_value=FakeTestResult(success=False, failures=[])
-        )
+        orch.runner.run_full = AsyncMock(return_value=FakeTestResult(success=False, failures=[]))
 
         batch_orch = BatchOrchestrator(orch, config)
         result = await batch_orch.run(max_iterations=1)

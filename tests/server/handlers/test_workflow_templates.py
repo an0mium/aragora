@@ -152,12 +152,30 @@ class TestListTemplates:
 
     def test_list_templates_success(self, wt_handler):
         mock_templates = [
-            {"id": "general/quick-decision", "name": "Quick Decision", "tags": ["quick"], "description": "Fast decisions"},
-            {"id": "code/review", "name": "Code Review", "tags": ["code"], "description": "Review code"},
+            {
+                "id": "general/quick-decision",
+                "name": "Quick Decision",
+                "tags": ["quick"],
+                "description": "Fast decisions",
+            },
+            {
+                "id": "code/review",
+                "name": "Code Review",
+                "tags": ["code"],
+                "description": "Review code",
+            },
         ]
         mock_workflow_templates = {
-            "general/quick-decision": {"steps": [{"id": "s1"}], "pattern": "simple", "estimated_duration": 5},
-            "code/review": {"steps": [{"id": "s1"}, {"id": "s2"}], "pattern": "review", "estimated_duration": 10},
+            "general/quick-decision": {
+                "steps": [{"id": "s1"}],
+                "pattern": "simple",
+                "estimated_duration": 5,
+            },
+            "code/review": {
+                "steps": [{"id": "s1"}, {"id": "s2"}],
+                "pattern": "review",
+                "estimated_duration": 10,
+            },
         }
 
         with patch(f"{_WT}.list_templates", return_value=mock_templates):
@@ -184,8 +202,18 @@ class TestListTemplates:
 
     def test_list_templates_with_search(self, wt_handler):
         mock_templates = [
-            {"id": "code/review", "name": "Code Review", "tags": [], "description": "Review code changes"},
-            {"id": "general/brainstorm", "name": "Brainstorm", "tags": [], "description": "Ideation"},
+            {
+                "id": "code/review",
+                "name": "Code Review",
+                "tags": [],
+                "description": "Review code changes",
+            },
+            {
+                "id": "general/brainstorm",
+                "name": "Brainstorm",
+                "tags": [],
+                "description": "Ideation",
+            },
         ]
         mock_workflow_templates = {
             "code/review": {"steps": []},
@@ -215,8 +243,7 @@ class TestListTemplates:
 
     def test_list_templates_with_pagination(self, wt_handler):
         mock_templates = [
-            {"id": f"t{i}", "name": f"T{i}", "tags": [], "description": ""}
-            for i in range(10)
+            {"id": f"t{i}", "name": f"T{i}", "tags": [], "description": ""} for i in range(10)
         ]
         mock_workflow_templates = {f"t{i}": {"steps": []} for i in range(10)}
 
@@ -315,9 +342,7 @@ class TestWorkflowTemplatesHandleRouting:
             with patch(f"{_WT}.WORKFLOW_TEMPLATES", mock_workflow_templates):
                 with patch(f"{_HANDLER_MOD}._template_limiter") as limiter:
                     limiter.is_allowed.return_value = True
-                    result = wt_handler.handle(
-                        "/api/v1/workflow/templates", {}, mock_handler
-                    )
+                    result = wt_handler.handle("/api/v1/workflow/templates", {}, mock_handler)
                     assert result is not None
                     assert result.status_code == 200
 
@@ -326,9 +351,7 @@ class TestWorkflowTemplatesHandleRouting:
 
         with patch(f"{_HANDLER_MOD}._template_limiter") as limiter:
             limiter.is_allowed.return_value = False
-            result = wt_handler.handle(
-                "/api/v1/workflow/templates", {}, mock_handler
-            )
+            result = wt_handler.handle("/api/v1/workflow/templates", {}, mock_handler)
             assert result is not None
             assert result.status_code == 429
 
@@ -337,9 +360,7 @@ class TestWorkflowTemplatesHandleRouting:
 
         with patch(f"{_HANDLER_MOD}._template_limiter") as limiter:
             limiter.is_allowed.return_value = True
-            result = wt_handler.handle(
-                "/api/v1/workflow/templates", {}, mock_handler
-            )
+            result = wt_handler.handle("/api/v1/workflow/templates", {}, mock_handler)
             assert result is not None
             assert result.status_code == 405
 
@@ -461,7 +482,10 @@ class TestWorkflowPatternTemplatesHandler:
         assert pattern_templates_handler.can_handle("/api/v1/workflow/pattern-templates") is True
 
     def test_can_handle_specific(self, pattern_templates_handler):
-        assert pattern_templates_handler.can_handle("/api/v1/workflow/pattern-templates/hive-mind") is True
+        assert (
+            pattern_templates_handler.can_handle("/api/v1/workflow/pattern-templates/hive-mind")
+            is True
+        )
 
     def test_cannot_handle_other(self, pattern_templates_handler):
         assert pattern_templates_handler.can_handle("/api/v1/workflow/templates") is False
@@ -501,7 +525,9 @@ class TestWorkflowPatternTemplatesHandler:
             assert result.status_code == 404
 
     def test_instantiate_pattern_success(self, pattern_templates_handler):
-        mock_handler = _make_handler_obj("POST", json.dumps({"name": "My WF", "task": "test"}).encode())
+        mock_handler = _make_handler_obj(
+            "POST", json.dumps({"name": "My WF", "task": "test"}).encode()
+        )
 
         mock_workflow = MagicMock()
         mock_workflow.id = "wf-1"
@@ -597,8 +623,14 @@ class TestTemplateRecommendationsHandler:
             assert len(data["recommendations"]) > 0
 
     def test_use_case_templates_has_expected_keys(self):
-        expected_keys = {"team_decisions", "project_planning", "vendor_selection",
-                         "policy_review", "technical_decisions", "general"}
+        expected_keys = {
+            "team_decisions",
+            "project_planning",
+            "vendor_selection",
+            "policy_review",
+            "technical_decisions",
+            "general",
+        }
         assert expected_keys.issubset(set(USE_CASE_TEMPLATES.keys()))
 
 
@@ -665,7 +697,12 @@ class TestSMEWorkflowsHandler:
     def test_create_sme_workflow_success(self, sme_handler):
         mock_handler = _make_handler_obj(
             "POST",
-            json.dumps({"customer_id": "c1", "items": [{"name": "Widget", "quantity": 1, "unit_price": 10}]}).encode(),
+            json.dumps(
+                {
+                    "customer_id": "c1",
+                    "items": [{"name": "Widget", "quantity": 1, "unit_price": 10}],
+                }
+            ).encode(),
         )
 
         mock_workflow = MagicMock()

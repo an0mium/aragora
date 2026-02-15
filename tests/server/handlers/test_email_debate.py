@@ -60,7 +60,9 @@ def _make_mock_handler(
 class MockEmailDebateResult:
     """Mock EmailDebateResult."""
 
-    def __init__(self, message_id: str = "msg-001", priority_val: str = "normal", category_val: str = "fyi"):
+    def __init__(
+        self, message_id: str = "msg-001", priority_val: str = "normal", category_val: str = "fyi"
+    ):
         self.message_id = message_id
         self.priority = MagicMock(value=priority_val)
         self.category = MagicMock(value=category_val)
@@ -159,7 +161,9 @@ class TestHandleGet:
             # Re-create handler to pick up undecorated version
             h = EmailDebateHandler.__new__(EmailDebateHandler)
             h.ctx = {}
-            result = EmailDebateHandler.handle.__wrapped__(h, "/api/v1/email/prioritize", {}, mock_handler)
+            result = EmailDebateHandler.handle.__wrapped__(
+                h, "/api/v1/email/prioritize", {}, mock_handler
+            )
             assert result.status_code == 405
 
 
@@ -176,12 +180,12 @@ class TestPrioritizeSingle:
         mock_handler = _make_mock_handler()
         mock_result = MockEmailDebateResult()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"subject": "Test", "body": "Hello", "sender": "a@b.com"}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=({"subject": "Test", "body": "Hello", "sender": "a@b.com"}, None),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_email = AsyncMock(return_value=mock_result)
 
@@ -194,9 +198,9 @@ class TestPrioritizeSingle:
     async def test_prioritize_missing_subject_and_body(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"sender": "a@b.com"}, None
-        )):
+        with patch.object(
+            handler, "read_json_body_validated", return_value=({"sender": "a@b.com"}, None)
+        ):
             result = await handler._prioritize_single(mock_handler)
             assert result.status_code == 400
             data = _parse_body(result)
@@ -219,16 +223,14 @@ class TestPrioritizeSingle:
     async def test_prioritize_service_error(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"subject": "Test", "body": "Hello"}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=({"subject": "Test", "body": "Hello"}, None),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
-                service_instance.prioritize_email = AsyncMock(
-                    side_effect=RuntimeError("LLM down")
-                )
+                service_instance.prioritize_email = AsyncMock(side_effect=RuntimeError("LLM down"))
 
                 result = await handler._prioritize_single(mock_handler)
                 assert result.status_code == 500
@@ -241,17 +243,19 @@ class TestPrioritizeSingle:
         mock_handler = _make_mock_handler()
         mock_result = MockEmailDebateResult()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {
-                "subject": "Test",
-                "body": "Hello",
-                "received_at": "2024-01-15T10:30:00Z",
-            },
-            None,
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=(
+                {
+                    "subject": "Test",
+                    "body": "Hello",
+                    "received_at": "2024-01-15T10:30:00Z",
+                },
+                None,
+            ),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_email = AsyncMock(return_value=mock_result)
 
@@ -272,19 +276,21 @@ class TestPrioritizeBatch:
         mock_handler = _make_mock_handler()
         mock_batch = MockBatchResult()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {
-                "emails": [
-                    {"subject": "Test 1", "body": "Hello", "sender": "a@b.com"},
-                    {"subject": "Test 2", "body": "Hi", "sender": "c@d.com"},
-                ],
-                "user_id": "user-1",
-            },
-            None,
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=(
+                {
+                    "emails": [
+                        {"subject": "Test 1", "body": "Hello", "sender": "a@b.com"},
+                        {"subject": "Test 2", "body": "Hi", "sender": "c@d.com"},
+                    ],
+                    "user_id": "user-1",
+                },
+                None,
+            ),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_batch = AsyncMock(return_value=mock_batch)
 
@@ -298,9 +304,9 @@ class TestPrioritizeBatch:
     async def test_batch_missing_emails(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"user_id": "user-1"}, None
-        )):
+        with patch.object(
+            handler, "read_json_body_validated", return_value=({"user_id": "user-1"}, None)
+        ):
             result = await handler._prioritize_batch(mock_handler)
             assert result.status_code == 400
 
@@ -308,9 +314,7 @@ class TestPrioritizeBatch:
     async def test_batch_empty_emails(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"emails": []}, None
-        )):
+        with patch.object(handler, "read_json_body_validated", return_value=({"emails": []}, None)):
             result = await handler._prioritize_batch(mock_handler)
             assert result.status_code == 400
 
@@ -318,12 +322,12 @@ class TestPrioritizeBatch:
     async def test_batch_service_error(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"emails": [{"subject": "Test", "body": "Hi"}]}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=({"emails": [{"subject": "Test", "body": "Hi"}]}, None),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_batch = AsyncMock(
                     side_effect=RuntimeError("Batch failed")
@@ -346,12 +350,12 @@ class TestTriageInbox:
         mock_handler = _make_mock_handler()
         mock_batch = MockBatchResult()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"emails": [{"subject": "Test", "body": "Hi"}]}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=({"emails": [{"subject": "Test", "body": "Hi"}]}, None),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_batch = AsyncMock(return_value=mock_batch)
 
@@ -365,9 +369,9 @@ class TestTriageInbox:
     async def test_triage_missing_emails(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"sort_by": "priority"}, None
-        )):
+        with patch.object(
+            handler, "read_json_body_validated", return_value=({"sort_by": "priority"}, None)
+        ):
             result = await handler._triage_inbox(mock_handler)
             assert result.status_code == 400
 
@@ -380,12 +384,15 @@ class TestTriageInbox:
         ]
         mock_batch = MockBatchResult(results=results)
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"emails": [{"subject": "A"}, {"subject": "B"}], "group_by": "category"}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=(
+                {"emails": [{"subject": "A"}, {"subject": "B"}], "group_by": "category"},
+                None,
+            ),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_batch = AsyncMock(return_value=mock_batch)
 
@@ -403,12 +410,15 @@ class TestTriageInbox:
         ]
         mock_batch = MockBatchResult(results=results)
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"emails": [{"subject": "A"}, {"subject": "B"}], "group_by": "priority"}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=(
+                {"emails": [{"subject": "A"}, {"subject": "B"}], "group_by": "priority"},
+                None,
+            ),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_batch = AsyncMock(return_value=mock_batch)
 
@@ -421,12 +431,12 @@ class TestTriageInbox:
     async def test_triage_service_error(self, handler):
         mock_handler = _make_mock_handler()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"emails": [{"subject": "Test"}]}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=({"emails": [{"subject": "Test"}]}, None),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_batch = AsyncMock(
                     side_effect=RuntimeError("Triage failed")
@@ -449,12 +459,12 @@ class TestHandlePostRouting:
         mock_handler = _make_mock_handler()
         mock_result = MockEmailDebateResult()
 
-        with patch.object(handler, "read_json_body_validated", return_value=(
-            {"subject": "Test", "body": "Hello"}, None
-        )):
-            with patch(
-                "aragora.server.handlers.email_debate.EmailDebateService"
-            ) as MockService:
+        with patch.object(
+            handler,
+            "read_json_body_validated",
+            return_value=({"subject": "Test", "body": "Hello"}, None),
+        ):
+            with patch("aragora.server.handlers.email_debate.EmailDebateService") as MockService:
                 service_instance = MockService.return_value
                 service_instance.prioritize_email = AsyncMock(return_value=mock_result)
 

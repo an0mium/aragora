@@ -463,7 +463,9 @@ class TestRoutePermissionCoverage:
         protected = total - public
 
         # Count by permission type
-        unique_permissions = {r.permission_key for r in DEFAULT_ROUTE_PERMISSIONS if r.permission_key}
+        unique_permissions = {
+            r.permission_key for r in DEFAULT_ROUTE_PERMISSIONS if r.permission_key
+        }
 
         print("\nRoute Permission Coverage Report:")
         print(f"  Total route rules: {total}")

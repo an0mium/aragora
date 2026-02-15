@@ -59,14 +59,34 @@ def memory(temp_db_path, tier_manager):
 def multi_tenant_memory(memory):
     """Memory with entries belonging to different tenants."""
     # Tenant A entries
-    memory.add("a_fast_1", "Tenant A fast 1", tier=MemoryTier.FAST, importance=0.3, tenant_id="tenant_a")
-    memory.add("a_fast_2", "Tenant A fast 2", tier=MemoryTier.FAST, importance=0.2, tenant_id="tenant_a")
-    memory.add("a_medium_1", "Tenant A medium 1", tier=MemoryTier.MEDIUM, importance=0.4, tenant_id="tenant_a")
+    memory.add(
+        "a_fast_1", "Tenant A fast 1", tier=MemoryTier.FAST, importance=0.3, tenant_id="tenant_a"
+    )
+    memory.add(
+        "a_fast_2", "Tenant A fast 2", tier=MemoryTier.FAST, importance=0.2, tenant_id="tenant_a"
+    )
+    memory.add(
+        "a_medium_1",
+        "Tenant A medium 1",
+        tier=MemoryTier.MEDIUM,
+        importance=0.4,
+        tenant_id="tenant_a",
+    )
 
     # Tenant B entries
-    memory.add("b_fast_1", "Tenant B fast 1", tier=MemoryTier.FAST, importance=0.5, tenant_id="tenant_b")
-    memory.add("b_fast_2", "Tenant B fast 2", tier=MemoryTier.FAST, importance=0.1, tenant_id="tenant_b")
-    memory.add("b_medium_1", "Tenant B medium 1", tier=MemoryTier.MEDIUM, importance=0.6, tenant_id="tenant_b")
+    memory.add(
+        "b_fast_1", "Tenant B fast 1", tier=MemoryTier.FAST, importance=0.5, tenant_id="tenant_b"
+    )
+    memory.add(
+        "b_fast_2", "Tenant B fast 2", tier=MemoryTier.FAST, importance=0.1, tenant_id="tenant_b"
+    )
+    memory.add(
+        "b_medium_1",
+        "Tenant B medium 1",
+        tier=MemoryTier.MEDIUM,
+        importance=0.6,
+        tenant_id="tenant_b",
+    )
 
     # No-tenant entries (legacy/global)
     memory.add("global_fast_1", "Global fast 1", tier=MemoryTier.FAST, importance=0.7)
@@ -156,8 +176,16 @@ class TestCleanupExpiredTenatIsolation:
     def test_cleanup_without_tenant_removes_all_expired(self, multi_tenant_memory):
         """Cleanup without tenant_id removes expired entries from all tenants."""
         # Age ALL entries
-        all_ids = ["a_fast_1", "a_fast_2", "a_medium_1", "b_fast_1", "b_fast_2",
-                    "b_medium_1", "global_fast_1", "global_medium_1"]
+        all_ids = [
+            "a_fast_1",
+            "a_fast_2",
+            "a_medium_1",
+            "b_fast_1",
+            "b_fast_2",
+            "b_medium_1",
+            "global_fast_1",
+            "global_medium_1",
+        ]
         _age_entries(multi_tenant_memory, all_ids, hours=500)
 
         result = cleanup_expired_memories(
@@ -183,7 +211,11 @@ class TestCleanupExpiredTenatIsolation:
         _age_entries(multi_tenant_memory, ["a_fast_1", "a_fast_2", "a_medium_1"], hours=500)
 
         result = cleanup_expired_memories(
-            multi_tenant_memory, tier=MemoryTier.FAST, archive=False, max_age_hours=1.0, tenant_id="tenant_a"
+            multi_tenant_memory,
+            tier=MemoryTier.FAST,
+            archive=False,
+            max_age_hours=1.0,
+            tenant_id="tenant_a",
         )
 
         # Only fast tier tenant_a entries deleted
@@ -196,7 +228,11 @@ class TestCleanupExpiredTenatIsolation:
         _age_entries(multi_tenant_memory, ["a_fast_1", "b_fast_1"], hours=500)
 
         result = cleanup_expired_memories(
-            multi_tenant_memory, tier=MemoryTier.FAST, archive=True, max_age_hours=1.0, tenant_id="tenant_a"
+            multi_tenant_memory,
+            tier=MemoryTier.FAST,
+            archive=True,
+            max_age_hours=1.0,
+            tenant_id="tenant_a",
         )
 
         assert result["archived"] == 1
@@ -217,7 +253,12 @@ class TestEnforceTierLimitsTenatIsolation:
     def test_enforce_limits_with_tenant_only_evicts_that_tenant(self, memory):
         """When enforcing limits for tenant_a, only tenant_a's entries are evicted."""
         # Set very low tier limit
-        memory.hyperparams["max_entries_per_tier"] = {"fast": 1, "medium": 1000, "slow": 1000, "glacial": 1000}
+        memory.hyperparams["max_entries_per_tier"] = {
+            "fast": 1,
+            "medium": 1000,
+            "slow": 1000,
+            "glacial": 1000,
+        }
 
         # Add 3 fast entries for tenant_a, 2 for tenant_b
         memory.add("a1", "A1", tier=MemoryTier.FAST, importance=0.9, tenant_id="tenant_a")
@@ -243,16 +284,19 @@ class TestEnforceTierLimitsTenatIsolation:
 
     def test_enforce_limits_without_tenant_affects_all(self, memory):
         """Enforcing limits without tenant_id affects all entries globally."""
-        memory.hyperparams["max_entries_per_tier"] = {"fast": 2, "medium": 1000, "slow": 1000, "glacial": 1000}
+        memory.hyperparams["max_entries_per_tier"] = {
+            "fast": 2,
+            "medium": 1000,
+            "slow": 1000,
+            "glacial": 1000,
+        }
 
         memory.add("a1", "A1", tier=MemoryTier.FAST, importance=0.9, tenant_id="tenant_a")
         memory.add("a2", "A2", tier=MemoryTier.FAST, importance=0.5, tenant_id="tenant_a")
         memory.add("b1", "B1", tier=MemoryTier.FAST, importance=0.8, tenant_id="tenant_b")
         memory.add("g1", "G1", tier=MemoryTier.FAST, importance=0.1)
 
-        result = enforce_tier_limits(
-            memory, tier=MemoryTier.FAST, archive=False, tenant_id=None
-        )
+        result = enforce_tier_limits(memory, tier=MemoryTier.FAST, archive=False, tenant_id=None)
 
         # 4 entries, limit 2, should evict 2 lowest importance
         assert result["fast"] == 2
@@ -263,7 +307,12 @@ class TestEnforceTierLimitsTenatIsolation:
 
     def test_enforce_limits_tenant_b_does_not_affect_tenant_a(self, memory):
         """Enforcing limits for tenant_b leaves tenant_a's data intact."""
-        memory.hyperparams["max_entries_per_tier"] = {"fast": 1, "medium": 1000, "slow": 1000, "glacial": 1000}
+        memory.hyperparams["max_entries_per_tier"] = {
+            "fast": 1,
+            "medium": 1000,
+            "slow": 1000,
+            "glacial": 1000,
+        }
 
         memory.add("a1", "A1", tier=MemoryTier.FAST, importance=0.2, tenant_id="tenant_a")
         memory.add("a2", "A2", tier=MemoryTier.FAST, importance=0.1, tenant_id="tenant_a")
@@ -298,7 +347,12 @@ class TestWrapperMethodsTenantThreading:
 
     def test_tier_ops_enforce_limits_passes_tenant_id(self, memory):
         """ContinuumMemory.enforce_tier_limits passes tenant_id through."""
-        memory.hyperparams["max_entries_per_tier"] = {"fast": 1, "medium": 1000, "slow": 1000, "glacial": 1000}
+        memory.hyperparams["max_entries_per_tier"] = {
+            "fast": 1,
+            "medium": 1000,
+            "slow": 1000,
+            "glacial": 1000,
+        }
 
         memory.add("a1", "A1", tier=MemoryTier.FAST, importance=0.9, tenant_id="tenant_a")
         memory.add("a2", "A2", tier=MemoryTier.FAST, importance=0.1, tenant_id="tenant_a")
@@ -329,10 +383,13 @@ class TestHandlerTenantExtraction:
         mock_handler._auth_context = MagicMock()  # has auth context but no tenant
         mock_handler.ctx = {"continuum_memory": MagicMock()}
 
-        with patch("aragora.memory.access.tenant_enforcement_enabled", return_value=True), \
-             patch("aragora.memory.access.resolve_tenant_id", return_value=None):
+        with (
+            patch("aragora.memory.access.tenant_enforcement_enabled", return_value=True),
+            patch("aragora.memory.access.resolve_tenant_id", return_value=None),
+        ):
             # The handler logic checks: enforce_tenant and not tenant_id and auth_context is not None → 400
             # We verify the pattern exists in the handler code
             from aragora.memory.access import resolve_tenant_id, tenant_enforcement_enabled
+
             assert tenant_enforcement_enabled() is True
             assert resolve_tenant_id(mock_handler._auth_context) is None

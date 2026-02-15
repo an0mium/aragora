@@ -191,10 +191,13 @@ class TestSupabaseAuthValidator:
 
         validator = SupabaseAuthValidator()
 
-        with patch.dict("os.environ", {
-            "ARAGORA_ENVIRONMENT": "development",
-            "ARAGORA_ALLOW_INSECURE_JWT": "1",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "ARAGORA_ENVIRONMENT": "development",
+                "ARAGORA_ALLOW_INSECURE_JWT": "1",
+            },
+        ):
             # First call
             user1 = validator.validate_jwt(token)
             assert user1 is not None

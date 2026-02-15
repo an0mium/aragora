@@ -153,9 +153,7 @@ class TestGenericSendReceive:
         connector_with_webhook._http_request = AsyncMock(
             return_value=(True, {"message_id": "m1"}, None)
         )
-        result = await connector_with_webhook.send(
-            {"channel_id": "ch1", "message": "hello"}
-        )
+        result = await connector_with_webhook.send({"channel_id": "ch1", "message": "hello"})
         assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -273,12 +271,8 @@ class TestFileOpsDefaults:
 
     @pytest.mark.asyncio
     async def test_download_file_with_url_kwarg(self, connector):
-        connector._http_request = AsyncMock(
-            return_value=(True, b"file-content", None)
-        )
-        result = await connector.download_file(
-            "file-1", url="https://example.com/file.txt"
-        )
+        connector._http_request = AsyncMock(return_value=(True, b"file-content", None))
+        result = await connector.download_file("file-1", url="https://example.com/file.txt")
         assert isinstance(result, FileAttachment)
         assert result.content == b"file-content"
         assert result.size == 12
@@ -292,21 +286,15 @@ class TestFileOpsDefaults:
 
     @pytest.mark.asyncio
     async def test_upload_file_webhook_failure_raises_runtime(self, connector_with_webhook):
-        connector_with_webhook._http_request = AsyncMock(
-            return_value=(False, None, "Server error")
-        )
+        connector_with_webhook._http_request = AsyncMock(return_value=(False, None, "Server error"))
         with pytest.raises(RuntimeError, match="Server error"):
             await connector_with_webhook.upload_file("ch1", b"data", "test.txt")
 
     @pytest.mark.asyncio
     async def test_download_file_url_failure_raises_runtime(self, connector):
-        connector._http_request = AsyncMock(
-            return_value=(False, None, "Network error")
-        )
+        connector._http_request = AsyncMock(return_value=(False, None, "Network error"))
         with pytest.raises(RuntimeError, match="Network error"):
-            await connector.download_file(
-                "file-1", url="https://example.com/file.txt"
-            )
+            await connector.download_file("file-1", url="https://example.com/file.txt")
 
 
 # ============================================================================
@@ -450,9 +438,7 @@ class TestSlashCommandHandling:
 
     @pytest.mark.asyncio
     async def test_respond_to_command_via_response_url(self, connector):
-        connector._http_request = AsyncMock(
-            return_value=(True, {}, None)
-        )
+        connector._http_request = AsyncMock(return_value=(True, {}, None))
         cmd = BotCommand(
             name="test",
             text="/test",
@@ -494,9 +480,7 @@ class TestInteractionResponse:
     async def test_respond_via_response_url(self, connector):
         from aragora.connectors.chat.models import UserInteraction
 
-        connector._http_request = AsyncMock(
-            return_value=(True, {}, None)
-        )
+        connector._http_request = AsyncMock(return_value=(True, {}, None))
         interaction = UserInteraction(
             id="int1",
             platform="minimal",
@@ -580,9 +564,7 @@ class TestWebhookDefaults:
         assert c.verify_webhook({}, b"body") is False
 
     def test_parse_webhook_event_valid_json(self, connector):
-        event = connector.parse_webhook_event(
-            {}, b'{"type": "message", "text": "hello"}'
-        )
+        event = connector.parse_webhook_event({}, b'{"type": "message", "text": "hello"}')
         assert isinstance(event, WebhookEvent)
         assert event.platform == "minimal"
         assert event.event_type == "message"
@@ -599,9 +581,7 @@ class TestWebhookDefaults:
 
     def test_parse_webhook_event_nested_type(self, connector):
         """Extracts event_type from nested 'event.type' field."""
-        event = connector.parse_webhook_event(
-            {}, b'{"event": {"type": "app_mention"}}'
-        )
+        event = connector.parse_webhook_event({}, b'{"event": {"type": "app_mention"}}')
         assert event.event_type == "app_mention"
 
 
@@ -685,33 +665,25 @@ class TestSessionDefaults:
     @pytest.mark.asyncio
     async def test_get_or_create_session_without_manager(self, connector):
         """Returns None when session manager not available."""
-        with patch.object(
-            connector, "_get_session_manager", return_value=None
-        ):
+        with patch.object(connector, "_get_session_manager", return_value=None):
             result = await connector.get_or_create_session("user1")
             assert result is None
 
     @pytest.mark.asyncio
     async def test_link_debate_to_session_without_manager(self, connector):
-        with patch.object(
-            connector, "_get_session_manager", return_value=None
-        ):
+        with patch.object(connector, "_get_session_manager", return_value=None):
             result = await connector.link_debate_to_session("user1", "debate1")
             assert result is None
 
     @pytest.mark.asyncio
     async def test_find_sessions_for_debate_without_manager(self, connector):
-        with patch.object(
-            connector, "_get_session_manager", return_value=None
-        ):
+        with patch.object(connector, "_get_session_manager", return_value=None):
             result = await connector.find_sessions_for_debate("debate1")
             assert result == []
 
     @pytest.mark.asyncio
     async def test_route_debate_result_without_manager(self, connector):
-        with patch.object(
-            connector, "_get_session_manager", return_value=None
-        ):
+        with patch.object(connector, "_get_session_manager", return_value=None):
             result = await connector.route_debate_result("debate1", "consensus text")
             assert result == []
 
@@ -721,9 +693,7 @@ class TestSessionDefaults:
         mock_manager = AsyncMock()
         mock_manager.get_or_create_session = AsyncMock(return_value=mock_session)
 
-        with patch.object(
-            connector, "_get_session_manager", return_value=mock_manager
-        ):
+        with patch.object(connector, "_get_session_manager", return_value=mock_manager):
             result = await connector.get_or_create_session("user1")
             assert result.session_id == "sess-1"
             mock_manager.get_or_create_session.assert_awaited_once()
@@ -736,9 +706,7 @@ class TestSessionDefaults:
         mock_manager.link_debate = AsyncMock()
         mock_manager.find_sessions_for_debate = AsyncMock(return_value=[mock_session])
 
-        with patch.object(
-            connector, "_get_session_manager", return_value=mock_manager
-        ):
+        with patch.object(connector, "_get_session_manager", return_value=mock_manager):
             session_id = await connector.link_debate_to_session("user1", "debate1")
             assert session_id == "sess-1"
             mock_manager.link_debate.assert_awaited_once_with("sess-1", "debate1")

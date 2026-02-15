@@ -338,9 +338,7 @@ class TestAuthentication:
         ):
             with patch("httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    side_effect=ConnectionError("invalid_grant")
-                )
+                mock_instance.post = AsyncMock(side_effect=ConnectionError("invalid_grant"))
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock()
                 mock_client.return_value = mock_instance

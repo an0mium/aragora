@@ -29,9 +29,7 @@ def _restore_validation_runner():
     """
     import aragora.server.startup.validation_runner as vr_module
 
-    orig_attrs = {
-        k: v for k, v in vr_module.__dict__.items() if not k.startswith("__")
-    }
+    orig_attrs = {k: v for k, v in vr_module.__dict__.items() if not k.startswith("__")}
     yield
     vr_module.__dict__.update(orig_attrs)
 

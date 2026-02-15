@@ -581,7 +581,9 @@ class TestRabbitMQErrorHandling:
         )
         from aragora.connectors.enterprise.streaming.resilience import StreamingResilienceConfig
 
-        config = RabbitMQConfig(url="amqp://guest:guest@localhost/", resilience=StreamingResilienceConfig(max_retries=0))
+        config = RabbitMQConfig(
+            url="amqp://guest:guest@localhost/", resilience=StreamingResilienceConfig(max_retries=0)
+        )
         connector = RabbitMQConnector(config)
 
         mock_aio_pika = MagicMock()

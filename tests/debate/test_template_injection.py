@@ -241,9 +241,7 @@ class TestTemplateInjectionInPrompts:
             "aragora.deliberation.templates.registry.get_template",
             return_value=template,
         ):
-            prompt = builder.build_revision_prompt(
-                agent, "Original proposal text", [critique]
-            )
+            prompt = builder.build_revision_prompt(agent, "Original proposal text", [critique])
             assert "DELIBERATION TEMPLATE: finance_audit" in prompt
             assert "Verify SOX compliance controls." in prompt
             assert "Auditor" in prompt
@@ -259,9 +257,7 @@ class TestTemplateInjectionInPrompts:
         assert "DELIBERATION TEMPLATE" not in prompt
 
     def test_invalid_template_name_produces_no_section(self):
-        builder = _make_prompt_builder(
-            DebateProtocol(deliberation_template="does_not_exist")
-        )
+        builder = _make_prompt_builder(DebateProtocol(deliberation_template="does_not_exist"))
         agent = FakeAgent()
 
         with patch(

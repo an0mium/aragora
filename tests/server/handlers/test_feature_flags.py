@@ -207,9 +207,7 @@ class TestFlagsUnavailable:
     def test_flags_unavailable_on_specific_flag(self, handler, mock_get):
         """Should return 503 for specific flag when system unavailable."""
         with patch("aragora.server.handlers.feature_flags.FLAGS_AVAILABLE", False):
-            result = handler.handle(
-                "/api/v1/feature-flags/enable_trickster", {}, mock_get
-            )
+            result = handler.handle("/api/v1/feature-flags/enable_trickster", {}, mock_get)
         assert result.status_code == 503
 
 
@@ -261,13 +259,9 @@ class TestListFlags:
                     )
 
         assert result.status_code == 200
-        mock_registry.get_all_flags.assert_called_once_with(
-            category=MockFlagCategory.KNOWLEDGE
-        )
+        mock_registry.get_all_flags.assert_called_once_with(category=MockFlagCategory.KNOWLEDGE)
 
-    def test_list_flags_invalid_category_returns_400(
-        self, handler, mock_get, mock_registry
-    ):
+    def test_list_flags_invalid_category_returns_400(self, handler, mock_get, mock_registry):
         """Should return 400 for invalid category filter."""
         with patch("aragora.server.handlers.feature_flags.FLAGS_AVAILABLE", True):
             with patch(
@@ -325,9 +319,7 @@ class TestGetFlag:
                 "aragora.server.handlers.feature_flags.get_flag_registry",
                 return_value=mock_registry,
             ):
-                result = handler.handle(
-                    "/api/v1/feature-flags/enable_trickster", {}, mock_get
-                )
+                result = handler.handle("/api/v1/feature-flags/enable_trickster", {}, mock_get)
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -342,9 +334,7 @@ class TestGetFlag:
                 "aragora.server.handlers.feature_flags.get_flag_registry",
                 return_value=mock_registry,
             ):
-                result = handler.handle(
-                    "/api/v1/feature-flags/nonexistent", {}, mock_get
-                )
+                result = handler.handle("/api/v1/feature-flags/nonexistent", {}, mock_get)
 
         assert result.status_code == 404
         data = json.loads(result.body)
@@ -357,9 +347,7 @@ class TestGetFlag:
                 "aragora.server.handlers.feature_flags.get_flag_registry",
                 return_value=MagicMock(),
             ):
-                result = handler.handle(
-                    "/api/v1/feature-flags/", {}, mock_get
-                )
+                result = handler.handle("/api/v1/feature-flags/", {}, mock_get)
 
         # The path /api/v1/feature-flags/ with empty name should return 400
         assert result.status_code == 400

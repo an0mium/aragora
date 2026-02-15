@@ -43,12 +43,14 @@ def _clear_email_cache():
     """Clear email cache between tests."""
     try:
         from aragora.server.handlers.inbox_command import _email_cache
+
         _email_cache.clear()
     except (ImportError, AttributeError):
         pass
     yield
     try:
         from aragora.server.handlers.inbox_command import _email_cache
+
         _email_cache.clear()
     except (ImportError, AttributeError):
         pass
@@ -276,9 +278,7 @@ class TestDrafts:
         actions_with_gmail.gmail_connector.create_forward_draft = AsyncMock(
             return_value="draft-fwd-123"
         )
-        result = await actions_with_gmail._create_forward_draft(
-            "email-1", {"to": "bob@test.com"}
-        )
+        result = await actions_with_gmail._create_forward_draft("email-1", {"to": "bob@test.com"})
         assert result["draftId"] == "draft-fwd-123"
 
     @pytest.mark.asyncio
@@ -304,6 +304,7 @@ class TestVipAndBlock:
 
         try:
             from aragora.server.handlers.inbox_command import _email_cache
+
             _email_cache["email-1"] = {"from": "vip@company.com"}
         except ImportError:
             pytest.skip("inbox_command not available")
@@ -320,6 +321,7 @@ class TestVipAndBlock:
 
         try:
             from aragora.server.handlers.inbox_command import _email_cache
+
             _email_cache["email-1"] = {"from": "spam@example.com"}
         except ImportError:
             pytest.skip("inbox_command not available")
@@ -379,6 +381,7 @@ class TestGetEmailsByFilter:
     async def test_all_filter_returns_all(self, actions):
         try:
             from aragora.server.handlers.inbox_command import _email_cache
+
             _email_cache["e1"] = {"priority": "high", "unread": True}
             _email_cache["e2"] = {"priority": "low", "unread": False}
 
@@ -391,6 +394,7 @@ class TestGetEmailsByFilter:
     async def test_low_filter(self, actions):
         try:
             from aragora.server.handlers.inbox_command import _email_cache
+
             _email_cache["e1"] = {"priority": "low", "unread": True}
             _email_cache["e2"] = {"priority": "high", "unread": True}
             _email_cache["e3"] = {"priority": "defer", "unread": True}

@@ -112,9 +112,7 @@ class TestEUAIActClassify:
     @pytest.mark.asyncio
     async def test_classify_returns_rationale(self, handler):
         """Classification includes rationale."""
-        result = await handler._eu_ai_act_classify(
-            {"description": "AI for employment decisions"}
-        )
+        result = await handler._eu_ai_act_classify({"description": "AI for employment decisions"})
         body = json.loads(result.body)
         assert body["classification"]["rationale"]
 
@@ -198,9 +196,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_generate_bundle_success(self, handler, sample_receipt):
         """Bundle generation returns a complete artifact bundle."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         assert result.status_code == 200
         body = json.loads(result.body)
         bundle = body["bundle"]
@@ -211,9 +207,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_contains_all_articles(self, handler, sample_receipt):
         """Bundle includes Articles 12, 13, and 14."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         bundle = body["bundle"]
         assert "article_12_record_keeping" in bundle
@@ -223,9 +217,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_article_12_structure(self, handler, sample_receipt):
         """Article 12 artifact has expected structure."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         art12 = body["bundle"]["article_12_record_keeping"]
         assert art12["article"] == "Article 12"
@@ -236,9 +228,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_article_13_structure(self, handler, sample_receipt):
         """Article 13 artifact has expected structure."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         art13 = body["bundle"]["article_13_transparency"]
         assert art13["article"] == "Article 13"
@@ -248,9 +238,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_article_14_structure(self, handler, sample_receipt):
         """Article 14 artifact has expected structure."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         art14 = body["bundle"]["article_14_human_oversight"]
         assert art14["article"] == "Article 14"
@@ -260,9 +248,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_has_integrity_hash(self, handler, sample_receipt):
         """Bundle includes SHA-256 integrity hash."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         integrity_hash = body["bundle"]["integrity_hash"]
         assert len(integrity_hash) == 64  # SHA-256 hex digest
@@ -270,9 +256,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_has_risk_classification(self, handler, sample_receipt):
         """Bundle includes risk classification."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         classification = body["bundle"]["risk_classification"]
         assert "risk_level" in classification
@@ -281,9 +265,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_has_conformity_report(self, handler, sample_receipt):
         """Bundle includes conformity report."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": sample_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": sample_receipt})
         body = json.loads(result.body)
         report = body["bundle"]["conformity_report"]
         assert "overall_status" in report
@@ -291,13 +273,15 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_with_custom_provider(self, handler, sample_receipt):
         """Bundle generation accepts custom provider details."""
-        result = await handler._eu_ai_act_generate_bundle({
-            "receipt": sample_receipt,
-            "provider_name": "Acme Corp",
-            "provider_contact": "legal@acme.com",
-            "system_name": "Acme Decision Engine",
-            "system_version": "1.0.0",
-        })
+        result = await handler._eu_ai_act_generate_bundle(
+            {
+                "receipt": sample_receipt,
+                "provider_name": "Acme Corp",
+                "provider_contact": "legal@acme.com",
+                "system_name": "Acme Decision Engine",
+                "system_version": "1.0.0",
+            }
+        )
         assert result.status_code == 200
         body = json.loads(result.body)
         provider = body["bundle"]["article_13_transparency"]["provider_identity"]
@@ -306,9 +290,7 @@ class TestEUAIActGenerateBundle:
     @pytest.mark.asyncio
     async def test_bundle_minimal_receipt(self, handler, minimal_receipt):
         """Bundle generation works with minimal receipt data."""
-        result = await handler._eu_ai_act_generate_bundle(
-            {"receipt": minimal_receipt}
-        )
+        result = await handler._eu_ai_act_generate_bundle({"receipt": minimal_receipt})
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["bundle"]["bundle_id"].startswith("EUAIA-")
@@ -343,9 +325,7 @@ class TestEUAIActRouting:
         mock_handler.rfile = MagicMock()
         mock_handler.rfile.read.return_value = body_bytes
         headers = MagicMock()
-        headers.get = lambda k, d=None: (
-            str(len(body_bytes)) if k == "Content-Length" else d
-        )
+        headers.get = lambda k, d=None: (str(len(body_bytes)) if k == "Content-Length" else d)
         # Make headers iterable for dict(handler.headers)
         headers.__iter__ = lambda self: iter([])
         mock_handler.headers = headers
@@ -354,12 +334,8 @@ class TestEUAIActRouting:
     @pytest.mark.asyncio
     async def test_classify_route(self, handler):
         """Classify route dispatches correctly."""
-        mock_handler = self._make_mock_handler(
-            {"description": "AI for employment decisions"}
-        )
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/classify", {}, mock_handler
-        )
+        mock_handler = self._make_mock_handler({"description": "AI for employment decisions"})
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/classify", {}, mock_handler)
         assert result.status_code == 200
         body = json.loads(result.body)
         assert "classification" in body
@@ -368,9 +344,7 @@ class TestEUAIActRouting:
     async def test_audit_route(self, handler, sample_receipt):
         """Audit route dispatches correctly."""
         mock_handler = self._make_mock_handler({"receipt": sample_receipt})
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/audit", {}, mock_handler
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/audit", {}, mock_handler)
         assert result.status_code == 200
         body = json.loads(result.body)
         assert "conformity_report" in body
@@ -390,7 +364,5 @@ class TestEUAIActRouting:
     async def test_unknown_eu_ai_act_path_returns_404(self, handler):
         """Unknown sub-path returns 404."""
         mock_handler = self._make_mock_handler({}, method="GET")
-        result = await handler.handle(
-            "/api/v2/compliance/eu-ai-act/unknown", {}, mock_handler
-        )
+        result = await handler.handle("/api/v2/compliance/eu-ai-act/unknown", {}, mock_handler)
         assert result.status_code == 404

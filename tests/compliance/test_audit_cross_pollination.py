@@ -51,9 +51,7 @@ class TestComplianceToAudit:
             "aragora.audit.log.get_audit_log",
             return_value=None,
         ):
-            status = ComplianceStatus(
-                frameworks={"soc2": FrameworkStatus(framework="soc2")}
-            )
+            status = ComplianceStatus(frameworks={"soc2": FrameworkStatus(framework="soc2")})
             result = monitor._fetch_audit_context(status)
             assert result is None
 
@@ -121,9 +119,7 @@ class TestComplianceToAudit:
 
     def test_fetch_audit_context_log_error(self, monitor):
         """Returns None gracefully on audit log errors."""
-        status = ComplianceStatus(
-            frameworks={"soc2": FrameworkStatus(framework="soc2")}
-        )
+        status = ComplianceStatus(frameworks={"soc2": FrameworkStatus(framework="soc2")})
 
         mock_log = MagicMock()
         mock_log.query.side_effect = TypeError("query failed")
@@ -145,16 +141,17 @@ class TestComplianceToAudit:
             "source": "audit_orchestrator",
         }
 
-        with patch.object(
-            monitor, "_fetch_audit_context", return_value=mock_context
-        ), patch.object(
-            monitor, "_calculate_overall_health", return_value=ComplianceHealth.HEALTHY
-        ), patch.object(
-            monitor, "_calculate_overall_score", return_value=100.0
-        ), patch.object(
-            monitor, "_calculate_trend", return_value=ViolationTrend.STABLE
-        ), patch.object(
-            monitor, "_check_and_alert",
+        with (
+            patch.object(monitor, "_fetch_audit_context", return_value=mock_context),
+            patch.object(
+                monitor, "_calculate_overall_health", return_value=ComplianceHealth.HEALTHY
+            ),
+            patch.object(monitor, "_calculate_overall_score", return_value=100.0),
+            patch.object(monitor, "_calculate_trend", return_value=ViolationTrend.STABLE),
+            patch.object(
+                monitor,
+                "_check_and_alert",
+            ),
         ):
             status = await monitor._run_quick_check()
             assert "audit_findings_summary" in status.metadata
@@ -251,9 +248,7 @@ class TestAuditToCompliance:
             "source": "compliance_monitor",
         }
 
-        with patch.object(
-            orchestrator, "_fetch_compliance_context", return_value=mock_compliance
-        ):
+        with patch.object(orchestrator, "_fetch_compliance_context", return_value=mock_compliance):
             session = AuditSession(
                 id="test-session",
                 name="test.pdf",
@@ -266,9 +261,7 @@ class TestAuditToCompliance:
     @pytest.mark.asyncio
     async def test_no_compliance_context_when_unavailable(self, orchestrator):
         """No metadata when compliance context is unavailable."""
-        with patch.object(
-            orchestrator, "_fetch_compliance_context", return_value=None
-        ):
+        with patch.object(orchestrator, "_fetch_compliance_context", return_value=None):
             from aragora.audit.document_auditor import AuditSession
 
             session = AuditSession(

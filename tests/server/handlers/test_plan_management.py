@@ -154,26 +154,20 @@ class TestListPlans:
         assert body["limit"] == 2
 
     def test_pagination_offset(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/plans", {"offset": "1", "limit": "2"}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/plans", {"offset": "1", "limit": "2"}, mock_http_handler)
         body = result[0]
         assert body["count"] == 2
         assert body["offset"] == 1
 
     def test_filter_by_status(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/plans", {"status": "created"}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/plans", {"status": "created"}, mock_http_handler)
         body = result[0]
         assert body["count"] == 2
         for plan in body["plans"]:
             assert plan["status"] == "created"
 
     def test_filter_by_approved_status(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/plans", {"status": "approved"}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/plans", {"status": "approved"}, mock_http_handler)
         body = result[0]
         assert body["count"] == 1
         assert body["plans"][0]["status"] == "approved"
@@ -230,9 +224,7 @@ class TestGetPlan:
         plan_obj.to_dict.assert_called_once()
 
     def test_invalid_plan_id(self, handler, mock_http_handler):
-        result = handler.handle(
-            "/api/v1/plans/'; DROP TABLE plans;--", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/plans/'; DROP TABLE plans;--", {}, mock_http_handler)
         assert result is not None
         assert result[1] == 400
 
@@ -245,9 +237,7 @@ class TestGetPlan:
 class TestApprovePlan:
     def test_approve_dict_plan(self, handler, mock_http_handler):
         put_handler = _make_put_handler({"reason": "Looks good"})
-        result = handler.handle_put(
-            "/api/v1/plans/dp-001/approve", {}, put_handler
-        )
+        result = handler.handle_put("/api/v1/plans/dp-001/approve", {}, put_handler)
         assert result is not None
         body = result[0]
         assert body["approved"] is True
@@ -259,13 +249,13 @@ class TestApprovePlan:
         assert sample_plans["dp-001"]["status"] == "approved"
 
     def test_approve_with_conditions(self, handler, mock_http_handler):
-        put_handler = _make_put_handler({
-            "reason": "Conditional approval",
-            "conditions": ["Must pass tests", "Review needed"],
-        })
-        result = handler.handle_put(
-            "/api/v1/plans/dp-001/approve", {}, put_handler
+        put_handler = _make_put_handler(
+            {
+                "reason": "Conditional approval",
+                "conditions": ["Must pass tests", "Review needed"],
+            }
         )
+        result = handler.handle_put("/api/v1/plans/dp-001/approve", {}, put_handler)
         body = result[0]
         assert body["plan"]["approval_record"]["conditions"] == [
             "Must pass tests",
@@ -286,15 +276,11 @@ class TestApprovePlan:
 
     def test_approve_not_found(self, handler, mock_http_handler):
         put_handler = _make_put_handler({})
-        result = handler.handle_put(
-            "/api/v1/plans/dp-999/approve", {}, put_handler
-        )
+        result = handler.handle_put("/api/v1/plans/dp-999/approve", {}, put_handler)
         assert result[1] == 404
 
     def test_approve_empty_body(self, handler, mock_http_handler):
-        result = handler.handle_put(
-            "/api/v1/plans/dp-001/approve", {}, mock_http_handler
-        )
+        result = handler.handle_put("/api/v1/plans/dp-001/approve", {}, mock_http_handler)
         assert result is not None
         body = result[0]
         assert body["approved"] is True
@@ -348,7 +334,5 @@ class TestPlanRateLimiting:
             _plan_limiter.is_allowed("127.0.0.1")
 
         put_handler = _make_put_handler({})
-        result = handler.handle_put(
-            "/api/v1/plans/dp-001/approve", {}, put_handler
-        )
+        result = handler.handle_put("/api/v1/plans/dp-001/approve", {}, put_handler)
         assert result[1] == 429

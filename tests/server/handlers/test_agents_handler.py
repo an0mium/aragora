@@ -343,9 +343,7 @@ class TestAgentsHandlerAgentEndpoint:
 
         handler.extract_path_param = _fake_extract
 
-        result = handler._handle_agent_endpoint(
-            "/api/v1/agent/claude/opponent-briefing/gpt", {}
-        )
+        result = handler._handle_agent_endpoint("/api/v1/agent/claude/opponent-briefing/gpt", {})
         handler._get_opponent_briefing.assert_called_once_with("claude", "gpt")
 
 

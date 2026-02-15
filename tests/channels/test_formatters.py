@@ -378,9 +378,7 @@ class TestFormatterRegistry:
             def channel_type(self) -> str:
                 return "test_channel_123"
 
-            def format(
-                self, receipt: Any, options: dict[str, Any] | None = None
-            ) -> dict[str, Any]:
+            def format(self, receipt: Any, options: dict[str, Any] | None = None) -> dict[str, Any]:
                 return {"test": True}
 
         formatter = get_formatter("test_channel_123")

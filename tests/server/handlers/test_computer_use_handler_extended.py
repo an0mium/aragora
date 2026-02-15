@@ -170,60 +170,70 @@ def handler(mock_server_context, temp_db_path):
 def handler_with_tasks(handler):
     """Create handler pre-seeded with tasks."""
     storage = handler._get_storage()
-    storage.save_task({
-        "task_id": "task-aaa",
-        "goal": "Open browser",
-        "max_steps": 10,
-        "dry_run": False,
-        "status": "completed",
-        "created_at": "2025-01-29T10:00:00Z",
-        "steps": [
-            {"action": "click", "success": True},
-            {"action": "type", "success": True},
-            {"action": "screenshot", "success": False},
-        ],
-        "result": {"success": True, "message": "Done", "steps_taken": 3},
-    })
-    storage.save_task({
-        "task_id": "task-bbb",
-        "goal": "Navigate to settings",
-        "max_steps": 5,
-        "dry_run": False,
-        "status": "running",
-        "created_at": "2025-01-29T11:00:00Z",
-        "steps": [],
-        "result": None,
-    })
-    storage.save_task({
-        "task_id": "task-ccc",
-        "goal": "Click button",
-        "max_steps": 3,
-        "dry_run": False,
-        "status": "failed",
-        "created_at": "2025-01-29T09:00:00Z",
-        "steps": [{"action": "click", "success": False}],
-        "result": {"success": False, "message": "Element not found", "steps_taken": 1},
-    })
-    storage.save_task({
-        "task_id": "task-ddd",
-        "goal": "Scroll page",
-        "max_steps": 2,
-        "dry_run": False,
-        "status": "pending",
-        "created_at": "2025-01-29T12:00:00Z",
-        "steps": [],
-        "result": None,
-    })
-    storage.save_task({
-        "task_id": "task-eee",
-        "goal": "Already cancelled",
-        "max_steps": 2,
-        "dry_run": False,
-        "status": "cancelled",
-        "created_at": "2025-01-29T08:00:00Z",
-        "steps": [],
-        "result": None,
-    })
+    storage.save_task(
+        {
+            "task_id": "task-aaa",
+            "goal": "Open browser",
+            "max_steps": 10,
+            "dry_run": False,
+            "status": "completed",
+            "created_at": "2025-01-29T10:00:00Z",
+            "steps": [
+                {"action": "click", "success": True},
+                {"action": "type", "success": True},
+                {"action": "screenshot", "success": False},
+            ],
+            "result": {"success": True, "message": "Done", "steps_taken": 3},
+        }
+    )
+    storage.save_task(
+        {
+            "task_id": "task-bbb",
+            "goal": "Navigate to settings",
+            "max_steps": 5,
+            "dry_run": False,
+            "status": "running",
+            "created_at": "2025-01-29T11:00:00Z",
+            "steps": [],
+            "result": None,
+        }
+    )
+    storage.save_task(
+        {
+            "task_id": "task-ccc",
+            "goal": "Click button",
+            "max_steps": 3,
+            "dry_run": False,
+            "status": "failed",
+            "created_at": "2025-01-29T09:00:00Z",
+            "steps": [{"action": "click", "success": False}],
+            "result": {"success": False, "message": "Element not found", "steps_taken": 1},
+        }
+    )
+    storage.save_task(
+        {
+            "task_id": "task-ddd",
+            "goal": "Scroll page",
+            "max_steps": 2,
+            "dry_run": False,
+            "status": "pending",
+            "created_at": "2025-01-29T12:00:00Z",
+            "steps": [],
+            "result": None,
+        }
+    )
+    storage.save_task(
+        {
+            "task_id": "task-eee",
+            "goal": "Already cancelled",
+            "max_steps": 2,
+            "dry_run": False,
+            "status": "cancelled",
+            "created_at": "2025-01-29T08:00:00Z",
+            "steps": [],
+            "result": None,
+        }
+    )
     return handler
 
 
@@ -1086,15 +1096,17 @@ class TestActionStats:
     def test_action_stats_ignores_unknown_actions(self, handler):
         """Test that stats ignores action types not in the predefined list."""
         storage = handler._get_storage()
-        storage.save_task({
-            "task_id": "task-x",
-            "goal": "Unknown action test",
-            "status": "completed",
-            "steps": [
-                {"action": "unknown_action", "success": True},
-                {"action": "click", "success": True},
-            ],
-        })
+        storage.save_task(
+            {
+                "task_id": "task-x",
+                "goal": "Unknown action test",
+                "status": "completed",
+                "steps": [
+                    {"action": "unknown_action", "success": True},
+                    {"action": "click", "success": True},
+                ],
+            }
+        )
         mock_handler = MockRequestHandler()
         with patch.object(handler, "_check_rbac_permission", return_value=None):
             result = handler.handle("/api/v1/computer-use/actions/stats", {}, mock_handler)
@@ -1128,12 +1140,14 @@ class TestListPolicies:
     def test_list_policies_with_custom_policies(self, handler):
         """Test listing policies includes custom policies."""
         storage = handler._get_storage()
-        storage.save_policy({
-            "policy_id": "policy-custom",
-            "name": "Custom Policy",
-            "description": "My custom policy",
-            "allowed_actions": ["screenshot"],
-        })
+        storage.save_policy(
+            {
+                "policy_id": "policy-custom",
+                "name": "Custom Policy",
+                "description": "My custom policy",
+                "allowed_actions": ["screenshot"],
+            }
+        )
 
         mock_handler = MockRequestHandler()
         with patch.object(handler, "_check_rbac_permission", return_value=None):
@@ -1148,12 +1162,14 @@ class TestListPolicies:
     def test_list_policies_custom_policy_attributes(self, handler):
         """Test that custom policy attributes are correctly serialized."""
         storage = handler._get_storage()
-        storage.save_policy({
-            "policy_id": "policy-restricted",
-            "name": "Restricted",
-            "description": "Limited actions",
-            "allowed_actions": ["screenshot", "scroll"],
-        })
+        storage.save_policy(
+            {
+                "policy_id": "policy-restricted",
+                "name": "Restricted",
+                "description": "Limited actions",
+                "allowed_actions": ["screenshot", "scroll"],
+            }
+        )
 
         mock_handler = MockRequestHandler()
         with patch.object(handler, "_check_rbac_permission", return_value=None):
@@ -1812,12 +1828,14 @@ class TestRoutingEdgeCases:
         """Test that handle correctly identifies task ID from path."""
         mock_handler = MockRequestHandler()
         storage = handler._get_storage()
-        storage.save_task({
-            "task_id": "abc",
-            "goal": "test",
-            "status": "pending",
-            "created_at": "2025-01-01T00:00:00Z",
-        })
+        storage.save_task(
+            {
+                "task_id": "abc",
+                "goal": "test",
+                "status": "pending",
+                "created_at": "2025-01-01T00:00:00Z",
+            }
+        )
         with patch.object(handler, "_check_rbac_permission", return_value=None):
             result = handler.handle("/api/v1/computer-use/tasks/abc", {}, mock_handler)
         assert result.status_code == 200
@@ -2161,16 +2179,18 @@ class TestEndToEndFlows:
 
         # Create a task that stays pending (non dry_run but execution fails quickly)
         storage = handler._get_storage()
-        storage.save_task({
-            "task_id": "task-pending-e2e",
-            "goal": "Pending task",
-            "max_steps": 5,
-            "dry_run": False,
-            "status": "running",
-            "created_at": "2025-01-30T00:00:00Z",
-            "steps": [],
-            "result": None,
-        })
+        storage.save_task(
+            {
+                "task_id": "task-pending-e2e",
+                "goal": "Pending task",
+                "max_steps": 5,
+                "dry_run": False,
+                "status": "running",
+                "created_at": "2025-01-30T00:00:00Z",
+                "steps": [],
+                "result": None,
+            }
+        )
 
         # Cancel it
         with patch.object(handler, "_check_rbac_permission", return_value=None):
@@ -2224,19 +2244,21 @@ class TestEndToEndFlows:
 
         # Add a task with known steps
         storage = handler._get_storage()
-        storage.save_task({
-            "task_id": "task-stats",
-            "goal": "Stats test",
-            "status": "completed",
-            "steps": [
-                {"action": "click", "success": True},
-                {"action": "click", "success": False},
-                {"action": "scroll", "success": True},
-                {"action": "key", "success": True},
-                {"action": "key", "success": False},
-                {"action": "key", "success": True},
-            ],
-        })
+        storage.save_task(
+            {
+                "task_id": "task-stats",
+                "goal": "Stats test",
+                "status": "completed",
+                "steps": [
+                    {"action": "click", "success": True},
+                    {"action": "click", "success": False},
+                    {"action": "scroll", "success": True},
+                    {"action": "key", "success": True},
+                    {"action": "key", "success": False},
+                    {"action": "key", "success": True},
+                ],
+            }
+        )
 
         with patch.object(handler, "_check_rbac_permission", return_value=None):
             result = handler.handle("/api/v1/computer-use/actions/stats", {}, mock_handler)

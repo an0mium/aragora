@@ -60,9 +60,7 @@ class _MockSkill(Skill):
             tags=["test"],
         )
 
-    async def execute(
-        self, input_data: dict[str, Any], context: SkillContext
-    ) -> SkillResult:
+    async def execute(self, input_data: dict[str, Any], context: SkillContext) -> SkillResult:
         return self._execute_result
 
 
@@ -78,9 +76,7 @@ class _FailingSkill(Skill):
             input_schema={},
         )
 
-    async def execute(
-        self, input_data: dict[str, Any], context: SkillContext
-    ) -> SkillResult:
+    async def execute(self, input_data: dict[str, Any], context: SkillContext) -> SkillResult:
         raise RuntimeError("intentional failure for audit test")
 
 
@@ -175,9 +171,7 @@ class TestInvokeAuditLogMessages:
         assert "status=failure" in done_msgs[0].message
 
     @pytest.mark.asyncio
-    async def test_permission_denied_logs_correctly(
-        self, registry: SkillRegistry, caplog
-    ):
+    async def test_permission_denied_logs_correctly(self, registry: SkillRegistry, caplog):
         """Permission denied invocations should log with permission_denied status."""
         skill = _MockSkill(
             required_permissions=["admin:secret"],
@@ -218,12 +212,13 @@ class TestInvokeAuditEventEmission:
         mock_audit_log_instance = MagicMock()
         mock_audit_log_cls = MagicMock(return_value=mock_audit_log_instance)
 
-        with patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls), \
-             patch("aragora.skills.registry._audit_event_cls") as mock_event_cls, \
-             patch("aragora.skills.registry._audit_category_cls") as mock_cat_cls, \
-             patch("aragora.skills.registry._audit_outcome_cls") as mock_outcome_cls, \
-             patch("aragora.skills.registry._ensure_audit_imports", return_value=True):
-
+        with (
+            patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls),
+            patch("aragora.skills.registry._audit_event_cls") as mock_event_cls,
+            patch("aragora.skills.registry._audit_category_cls") as mock_cat_cls,
+            patch("aragora.skills.registry._audit_outcome_cls") as mock_outcome_cls,
+            patch("aragora.skills.registry._ensure_audit_imports", return_value=True),
+        ):
             mock_event = MagicMock()
             mock_event_cls.return_value = mock_event
 
@@ -262,12 +257,13 @@ class TestInvokeAuditEventEmission:
         mock_audit_log_instance = MagicMock()
         mock_audit_log_cls = MagicMock(return_value=mock_audit_log_instance)
 
-        with patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls), \
-             patch("aragora.skills.registry._audit_event_cls") as mock_event_cls, \
-             patch("aragora.skills.registry._audit_category_cls") as mock_cat_cls, \
-             patch("aragora.skills.registry._audit_outcome_cls") as mock_outcome_cls, \
-             patch("aragora.skills.registry._ensure_audit_imports", return_value=True):
-
+        with (
+            patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls),
+            patch("aragora.skills.registry._audit_event_cls") as mock_event_cls,
+            patch("aragora.skills.registry._audit_category_cls") as mock_cat_cls,
+            patch("aragora.skills.registry._audit_outcome_cls") as mock_outcome_cls,
+            patch("aragora.skills.registry._ensure_audit_imports", return_value=True),
+        ):
             mock_event = MagicMock()
             mock_event_cls.return_value = mock_event
 
@@ -285,9 +281,7 @@ class TestInvokeAuditEventEmission:
         mock_audit_log_instance.log.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_permission_denied_emits_audit_event(
-        self, registry: SkillRegistry
-    ):
+    async def test_permission_denied_emits_audit_event(self, registry: SkillRegistry):
         """Permission denied should emit an AuditEvent with outcome=denied."""
         skill = _MockSkill(required_permissions=["admin:secret"])
         registry.register(skill)
@@ -300,12 +294,13 @@ class TestInvokeAuditEventEmission:
         mock_audit_log_instance = MagicMock()
         mock_audit_log_cls = MagicMock(return_value=mock_audit_log_instance)
 
-        with patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls), \
-             patch("aragora.skills.registry._audit_event_cls") as mock_event_cls, \
-             patch("aragora.skills.registry._audit_category_cls") as mock_cat_cls, \
-             patch("aragora.skills.registry._audit_outcome_cls") as mock_outcome_cls, \
-             patch("aragora.skills.registry._ensure_audit_imports", return_value=True):
-
+        with (
+            patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls),
+            patch("aragora.skills.registry._audit_event_cls") as mock_event_cls,
+            patch("aragora.skills.registry._audit_category_cls") as mock_cat_cls,
+            patch("aragora.skills.registry._audit_outcome_cls") as mock_outcome_cls,
+            patch("aragora.skills.registry._ensure_audit_imports", return_value=True),
+        ):
             mock_event = MagicMock()
             mock_event_cls.return_value = mock_event
 
@@ -352,12 +347,13 @@ class TestAuditFailureResilience:
         mock_audit_log_instance.log.side_effect = RuntimeError("audit DB down")
         mock_audit_log_cls = MagicMock(return_value=mock_audit_log_instance)
 
-        with patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls), \
-             patch("aragora.skills.registry._audit_event_cls", MagicMock()), \
-             patch("aragora.skills.registry._audit_category_cls", MagicMock()), \
-             patch("aragora.skills.registry._audit_outcome_cls", MagicMock()), \
-             patch("aragora.skills.registry._ensure_audit_imports", return_value=True):
-
+        with (
+            patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls),
+            patch("aragora.skills.registry._audit_event_cls", MagicMock()),
+            patch("aragora.skills.registry._audit_category_cls", MagicMock()),
+            patch("aragora.skills.registry._audit_outcome_cls", MagicMock()),
+            patch("aragora.skills.registry._ensure_audit_imports", return_value=True),
+        ):
             result = await registry.invoke("audit_test_skill", {"query": "test"}, context)
 
         # Skill should still succeed even though audit blew up
@@ -374,12 +370,13 @@ class TestAuditFailureResilience:
         mock_event_cls = MagicMock(side_effect=TypeError("bad event args"))
         mock_audit_log_cls = MagicMock()
 
-        with patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls), \
-             patch("aragora.skills.registry._audit_event_cls", mock_event_cls), \
-             patch("aragora.skills.registry._audit_category_cls", MagicMock()), \
-             patch("aragora.skills.registry._audit_outcome_cls", MagicMock()), \
-             patch("aragora.skills.registry._ensure_audit_imports", return_value=True):
-
+        with (
+            patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls),
+            patch("aragora.skills.registry._audit_event_cls", mock_event_cls),
+            patch("aragora.skills.registry._audit_category_cls", MagicMock()),
+            patch("aragora.skills.registry._audit_outcome_cls", MagicMock()),
+            patch("aragora.skills.registry._ensure_audit_imports", return_value=True),
+        ):
             result = await registry.invoke("audit_test_skill", {"query": "test"}, context)
 
         assert result.success is True
@@ -396,12 +393,13 @@ class TestAuditFailureResilience:
         mock_audit_log_instance.log.side_effect = RuntimeError("double failure")
         mock_audit_log_cls = MagicMock(return_value=mock_audit_log_instance)
 
-        with patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls), \
-             patch("aragora.skills.registry._audit_event_cls", MagicMock()), \
-             patch("aragora.skills.registry._audit_category_cls", MagicMock()), \
-             patch("aragora.skills.registry._audit_outcome_cls", MagicMock()), \
-             patch("aragora.skills.registry._ensure_audit_imports", return_value=True):
-
+        with (
+            patch("aragora.skills.registry._audit_log_cls", mock_audit_log_cls),
+            patch("aragora.skills.registry._audit_event_cls", MagicMock()),
+            patch("aragora.skills.registry._audit_category_cls", MagicMock()),
+            patch("aragora.skills.registry._audit_outcome_cls", MagicMock()),
+            patch("aragora.skills.registry._ensure_audit_imports", return_value=True),
+        ):
             result = await registry.invoke("failing_audit_skill", {}, context)
 
         # Skill failure result should still be returned

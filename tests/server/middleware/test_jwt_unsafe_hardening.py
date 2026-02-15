@@ -215,9 +215,7 @@ class TestStartupInsecureJwtValidation:
             check_production_requirements()
 
         # The warning should be logged (via warnings list which gets logged)
-        insecure_msgs = [
-            r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message
-        ]
+        insecure_msgs = [r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message]
         assert len(insecure_msgs) >= 1
 
     @patch.dict(
@@ -234,9 +232,7 @@ class TestStartupInsecureJwtValidation:
         with caplog.at_level(logging.WARNING):
             check_production_requirements()
 
-        security_msgs = [
-            r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message
-        ]
+        security_msgs = [r for r in caplog.records if "ARAGORA_ALLOW_INSECURE_JWT" in r.message]
         assert len(security_msgs) >= 1
 
     @patch.dict(
@@ -259,7 +255,5 @@ class TestStartupInsecureJwtValidation:
         with caplog.at_level(logging.WARNING):
             check_production_requirements()
 
-        insecure_warnings = [
-            r for r in caplog.records if "INSECURE_JWT" in r.message
-        ]
+        insecure_warnings = [r for r in caplog.records if "INSECURE_JWT" in r.message]
         assert len(insecure_warnings) == 0

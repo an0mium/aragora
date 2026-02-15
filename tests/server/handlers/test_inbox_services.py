@@ -50,12 +50,14 @@ def _clear_email_cache():
     """Clear email cache between tests."""
     try:
         from aragora.server.handlers.inbox_command import _email_cache
+
         _email_cache.clear()
     except (ImportError, AttributeError):
         pass
     yield
     try:
         from aragora.server.handlers.inbox_command import _email_cache
+
         _email_cache.clear()
     except (ImportError, AttributeError):
         pass
@@ -113,6 +115,7 @@ class TestDemoEmails:
     def test_demo_emails_populates_cache(self, service):
         try:
             from aragora.server.handlers.inbox_command import _email_cache
+
             service._get_demo_emails(limit=10, offset=0, priority_filter=None)
             assert len(_email_cache) > 0
         except ImportError:

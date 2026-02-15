@@ -355,7 +355,9 @@ def _bypass_rbac_for_root_handler_tests(request, monkeypatch):
     """
     # Only activate for root-level handler test files
     test_file = request.fspath.basename
-    if not test_file.startswith("test_handlers_") and not test_file.startswith("test_agents_handler"):
+    if not test_file.startswith("test_handlers_") and not test_file.startswith(
+        "test_agents_handler"
+    ):
         yield
         return
 
@@ -2165,7 +2167,7 @@ def _clear_config_legacy_cache():
 
         _legacy = getattr(_cfg, "_LEGACY_NAMES", set())
         _slo = getattr(_cfg, "_SLO_NAMES", set())
-        _to_clear = (_legacy | _slo | {"DEFAULT_AGENT_LIST"})
+        _to_clear = _legacy | _slo | {"DEFAULT_AGENT_LIST"}
         _g = vars(_cfg)
         for name in _to_clear:
             _g.pop(name, None)
@@ -2650,7 +2652,9 @@ requires_postgres = not HAS_POSTGRES_CONFIGURED
 # See tests/SKIP_AUDIT.md for skip marker inventory.
 
 SKIP_THRESHOLD = 200  # Raised from 150 to accommodate contract matrix parametrized skips
-UNCONDITIONAL_SKIP_THRESHOLD = 0  # No unconditional @pytest.mark.skip allowed (was 1, converted last one to xfail)
+UNCONDITIONAL_SKIP_THRESHOLD = (
+    0  # No unconditional @pytest.mark.skip allowed (was 1, converted last one to xfail)
+)
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):

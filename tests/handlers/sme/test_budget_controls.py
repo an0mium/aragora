@@ -88,9 +88,7 @@ class MockBudget:
     def remaining_usd(self) -> float:
         return max(0.0, self.amount_usd - self.spent_usd)
 
-    def can_spend_extended(
-        self, amount_usd: float, user_id: str | None = None
-    ) -> MockSpendResult:
+    def can_spend_extended(self, amount_usd: float, user_id: str | None = None) -> MockSpendResult:
         """Mock spend check."""
         if self.spent_usd + amount_usd > self.amount_usd:
             if not self.allow_overage:

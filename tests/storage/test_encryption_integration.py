@@ -313,6 +313,7 @@ class TestSyncStoreEncryption:
     def _reset_encryption_singleton(self):
         """Reset encryption service singleton before each test."""
         import aragora.security.encryption as enc_mod
+
         saved = enc_mod._encryption_service
         enc_mod._encryption_service = None
         yield

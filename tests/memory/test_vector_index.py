@@ -21,7 +21,6 @@ from aragora.memory.backends.in_memory import InMemoryBackend
 from aragora.memory.protocols import MemoryEntry
 
 
-
 class TestVectorIndexBasics:
     """Basic tests for VectorIndex functionality."""
 

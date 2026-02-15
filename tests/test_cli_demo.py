@@ -11,7 +11,9 @@ from unittest.mock import patch
 
 import pytest
 
-pytest.importorskip("aragora_debate", reason="aragora_debate package is required for CLI demo tests")
+pytest.importorskip(
+    "aragora_debate", reason="aragora_debate package is required for CLI demo tests"
+)
 
 from aragora.cli.demo import (
     DEMO_TASKS,
@@ -99,7 +101,10 @@ class TestMain:
     def test_main_calls_run_demo(self, mock_run_demo):
         """Main function calls run_demo."""
         args = argparse.Namespace(
-            name="rate-limiter", list_demos=False, server=False, topic=None,
+            name="rate-limiter",
+            list_demos=False,
+            server=False,
+            topic=None,
         )
         main(args)
         mock_run_demo.assert_called_once_with("rate-limiter")
@@ -108,7 +113,10 @@ class TestMain:
     def test_main_defaults_to_default_demo(self, mock_run_demo):
         """Main function defaults to the default demo."""
         args = argparse.Namespace(
-            name=None, list_demos=False, server=False, topic=None,
+            name=None,
+            list_demos=False,
+            server=False,
+            topic=None,
         )
         main(args)
         mock_run_demo.assert_called_once_with(_DEFAULT_DEMO)
@@ -117,7 +125,10 @@ class TestMain:
     def test_main_with_custom_demo(self, mock_run_demo):
         """Main function uses specified demo."""
         args = argparse.Namespace(
-            name="auth", list_demos=False, server=False, topic=None,
+            name="auth",
+            list_demos=False,
+            server=False,
+            topic=None,
         )
         main(args)
         mock_run_demo.assert_called_once_with("auth")
@@ -125,7 +136,10 @@ class TestMain:
     def test_main_list_flag(self, capsys):
         """Main function lists demos with --list flag."""
         args = argparse.Namespace(
-            name=None, list_demos=True, server=False, topic=None,
+            name=None,
+            list_demos=True,
+            server=False,
+            topic=None,
         )
         main(args)
         captured = capsys.readouterr()

@@ -396,9 +396,7 @@ class TestRateLimiting:
         """
         import sys
 
-        live_mod = sys.modules.get(
-            "aragora.server.handlers.debates.matrix_debates", _matrix_module
-        )
+        live_mod = sys.modules.get("aragora.server.handlers.debates.matrix_debates", _matrix_module)
         limiter = live_mod._matrix_limiter
         limiter._buckets.clear()
         # Ensure rate limiting is NOT globally disabled.

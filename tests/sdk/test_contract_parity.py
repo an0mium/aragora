@@ -158,9 +158,8 @@ class TestOpenclawContractParity:
         canonical = set(OPENCLAW_ENDPOINTS)
 
         missing = canonical - sdk_paths
-        assert not missing, (
-            f"Python SDK openclaw missing {len(missing)} endpoints:\n"
-            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        assert not missing, f"Python SDK openclaw missing {len(missing)} endpoints:\n" + "\n".join(
+            f"  {m} {p}" for m, p in sorted(missing)
         )
 
     def test_typescript_sdk_covers_all_endpoints(self):
@@ -190,8 +189,14 @@ class TestOpenclawContractParity:
         tree = ast.parse(source)
         endpoints: set[tuple[str, str]] = set()
 
-        method_map = {"_get": "GET", "_post": "POST", "_delete": "DELETE",
-                      "_get_async": "GET", "_post_async": "POST", "_delete_async": "DELETE"}
+        method_map = {
+            "_get": "GET",
+            "_post": "POST",
+            "_delete": "DELETE",
+            "_get_async": "GET",
+            "_post_async": "POST",
+            "_delete_async": "DELETE",
+        }
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -239,12 +244,10 @@ class TestOpenclawContractParity:
         # These were the old incorrect paths
         bad_patterns = [
             "/sessions/${sessionId}/actions",  # should be /actions
-            "/sessions/${sessionId}/close",     # should be /sessions/{id}/end
+            "/sessions/${sessionId}/close",  # should be /sessions/{id}/end
         ]
         for pattern in bad_patterns:
-            assert pattern not in source, (
-                f"TypeScript SDK still uses incorrect path: {pattern}"
-            )
+            assert pattern not in source, f"TypeScript SDK still uses incorrect path: {pattern}"
 
     def test_python_sdk_method_count(self):
         """Python SDK has both sync and async classes."""

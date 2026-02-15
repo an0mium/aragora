@@ -149,9 +149,7 @@ class TestRBACDefaultDeny:
         mw = RBACMiddleware(validate_permissions=False)
         ctx = _make_auth_context()
 
-        allowed, reason, _ = mw.check_request(
-            "/api/v1/totally-made-up-endpoint", "GET", ctx
-        )
+        allowed, reason, _ = mw.check_request("/api/v1/totally-made-up-endpoint", "GET", ctx)
 
         assert allowed is False
 

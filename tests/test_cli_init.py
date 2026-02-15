@@ -248,8 +248,14 @@ class TestCmdInit:
     def test_prints_next_steps(self, clean_dir, capsys, monkeypatch):
         """Print next steps including API key prompt when no keys set."""
         # Clear API keys so the 'no keys detected' path runs
-        for key in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
-                     "XAI_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY"):
+        for key in (
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+            "MISTRAL_API_KEY",
+            "OPENROUTER_API_KEY",
+        ):
             monkeypatch.delenv(key, raising=False)
 
         args = MagicMock()

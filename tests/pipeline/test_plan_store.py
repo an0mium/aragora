@@ -130,12 +130,22 @@ class TestPlanStoreList:
         assert len(plans) == 5
 
     def test_list_filter_by_status(self, store: PlanStore) -> None:
-        store.create(DecisionPlan(
-            id="dp-approved", debate_id="d1", task="T1", status=PlanStatus.APPROVED,
-        ))
-        store.create(DecisionPlan(
-            id="dp-pending", debate_id="d2", task="T2", status=PlanStatus.AWAITING_APPROVAL,
-        ))
+        store.create(
+            DecisionPlan(
+                id="dp-approved",
+                debate_id="d1",
+                task="T1",
+                status=PlanStatus.APPROVED,
+            )
+        )
+        store.create(
+            DecisionPlan(
+                id="dp-pending",
+                debate_id="d2",
+                task="T2",
+                status=PlanStatus.AWAITING_APPROVAL,
+            )
+        )
 
         approved = store.list(status=PlanStatus.APPROVED)
         assert len(approved) == 1
@@ -170,9 +180,15 @@ class TestPlanStoreList:
         assert ids1.isdisjoint(ids2)
 
     def test_count(self, store: PlanStore) -> None:
-        store.create(DecisionPlan(id="dp-c1", debate_id="d1", task="T1", status=PlanStatus.APPROVED))
-        store.create(DecisionPlan(id="dp-c2", debate_id="d1", task="T2", status=PlanStatus.APPROVED))
-        store.create(DecisionPlan(id="dp-c3", debate_id="d2", task="T3", status=PlanStatus.REJECTED))
+        store.create(
+            DecisionPlan(id="dp-c1", debate_id="d1", task="T1", status=PlanStatus.APPROVED)
+        )
+        store.create(
+            DecisionPlan(id="dp-c2", debate_id="d1", task="T2", status=PlanStatus.APPROVED)
+        )
+        store.create(
+            DecisionPlan(id="dp-c3", debate_id="d2", task="T3", status=PlanStatus.REJECTED)
+        )
 
         assert store.count() == 3
         assert store.count(status=PlanStatus.APPROVED) == 2
@@ -186,9 +202,7 @@ class TestPlanStoreUpdate:
 
     def test_update_status_approve(self, store: PlanStore, sample_plan: DecisionPlan) -> None:
         store.create(sample_plan)
-        result = store.update_status(
-            sample_plan.id, PlanStatus.APPROVED, approved_by="user-42"
-        )
+        result = store.update_status(sample_plan.id, PlanStatus.APPROVED, approved_by="user-42")
 
         assert result is True
         plan = store.get(sample_plan.id)

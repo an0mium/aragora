@@ -99,15 +99,11 @@ class TestCommandValidation:
         assert reason == "allowed"
 
     def test_gh_pr_list_allowed(self):
-        ok, _ = self.agent._validate_command(
-            "gh pr list -R test/repo --state open --json number"
-        )
+        ok, _ = self.agent._validate_command("gh pr list -R test/repo --state open --json number")
         assert ok
 
     def test_gh_pr_merge_blocked_without_destructive(self):
-        ok, reason = self.agent._validate_command(
-            "gh pr merge 123 -R test/repo"
-        )
+        ok, reason = self.agent._validate_command("gh pr merge 123 -R test/repo")
         assert not ok
         assert "allow-destructive" in reason
 
@@ -148,9 +144,7 @@ class TestDryRun:
         self.agent = DevOpsAgent(self.config)
 
     def test_dry_run_does_not_execute(self):
-        ok, output = self.agent._execute(
-            "gh pr list -R test/repo --state open", "test_action"
-        )
+        ok, output = self.agent._execute("gh pr list -R test/repo --state open", "test_action")
         assert ok
         assert output == "[dry run]"
 
@@ -219,29 +213,33 @@ class TestReviewPRs:
 
     def test_review_prs_skips_reviewed(self):
         """PRs with aragora-reviewed label should be skipped."""
-        prs_json = json.dumps([
-            {"number": 1, "title": "Test PR", "labels": [{"name": "aragora-reviewed"}]},
-            {"number": 2, "title": "New PR", "labels": []},
-        ])
+        prs_json = json.dumps(
+            [
+                {"number": 1, "title": "Test PR", "labels": [{"name": "aragora-reviewed"}]},
+                {"number": 2, "title": "New PR", "labels": []},
+            ]
+        )
         with patch.object(self.agent, "_execute") as mock_exec:
             mock_exec.side_effect = [
-                (True, prs_json),      # list PRs
-                (True, "diff content"), # get diff for PR #2
-                (True, "{}"),           # run review
-                (True, ""),             # post comment
-                (True, ""),             # add label
+                (True, prs_json),  # list PRs
+                (True, "diff content"),  # get diff for PR #2
+                (True, "{}"),  # run review
+                (True, ""),  # post comment
+                (True, ""),  # add label
             ]
             self.config.dry_run = False
             result = self.agent.review_prs()
         assert result.items_skipped == 1
 
     def test_format_review_comment(self):
-        review_data = json.dumps({
-            "findings": [
-                {"severity": "high", "message": "SQL injection risk"},
-                {"severity": "low", "message": "Consider renaming variable"},
-            ]
-        })
+        review_data = json.dumps(
+            {
+                "findings": [
+                    {"severity": "high", "message": "SQL injection risk"},
+                    {"severity": "low", "message": "Consider renaming variable"},
+                ]
+            }
+        )
         comment = self.agent._format_review_comment(review_data, 42)
         assert "Aragora AI Review" in comment
         assert "SQL injection risk" in comment
@@ -285,9 +283,7 @@ class TestTriageIssues:
         assert "security" in labels
 
     def test_classify_issue_docs(self):
-        labels = self.agent._classify_issue(
-            "README typo", "The documentation has a typo"
-        )
+        labels = self.agent._classify_issue("README typo", "The documentation has a typo")
         assert "documentation" in labels
 
     def test_classify_issue_question(self):
@@ -313,9 +309,11 @@ class TestTriageIssues:
         assert result.success
 
     def test_triage_skips_already_triaged(self):
-        issues_json = json.dumps([
-            {"number": 1, "title": "Old issue", "body": "", "labels": [{"name": "triaged"}]},
-        ])
+        issues_json = json.dumps(
+            [
+                {"number": 1, "title": "Old issue", "body": "", "labels": [{"name": "triaged"}]},
+            ]
+        )
         with patch.object(self.agent, "_execute") as mock_exec:
             mock_exec.return_value = (True, issues_json)
             self.config.dry_run = False
@@ -425,21 +423,25 @@ class TestEndToEnd:
         config = DevOpsAgentConfig(repo="test/repo", dry_run=False)
         agent = DevOpsAgent(config)
 
-        pr_list = json.dumps([
-            {"number": 42, "title": "Add feature X", "labels": []},
-        ])
-        review_output = json.dumps({
-            "findings": [
-                {"severity": "medium", "message": "Consider input validation"},
+        pr_list = json.dumps(
+            [
+                {"number": 42, "title": "Add feature X", "labels": []},
             ]
-        })
+        )
+        review_output = json.dumps(
+            {
+                "findings": [
+                    {"severity": "medium", "message": "Consider input validation"},
+                ]
+            }
+        )
 
         responses = [
-            (True, pr_list),           # list PRs
+            (True, pr_list),  # list PRs
             (True, "diff content\n"),  # get diff
-            (True, review_output),     # run review
-            (True, ""),                # post comment
-            (True, ""),                # add label
+            (True, review_output),  # run review
+            (True, ""),  # post comment
+            (True, ""),  # add label
         ]
         call_idx = 0
 
@@ -462,16 +464,28 @@ class TestEndToEnd:
         config = DevOpsAgentConfig(repo="test/repo", dry_run=False)
         agent = DevOpsAgent(config)
 
-        issue_list = json.dumps([
-            {"number": 10, "title": "Bug: crash on startup", "body": "App crashes with error", "labels": []},
-            {"number": 11, "title": "Add dark mode", "body": "Feature request for UI", "labels": []},
-        ])
+        issue_list = json.dumps(
+            [
+                {
+                    "number": 10,
+                    "title": "Bug: crash on startup",
+                    "body": "App crashes with error",
+                    "labels": [],
+                },
+                {
+                    "number": 11,
+                    "title": "Add dark mode",
+                    "body": "Feature request for UI",
+                    "labels": [],
+                },
+            ]
+        )
 
         call_idx = 0
         responses = [
             (True, issue_list),  # list issues
-            (True, ""),          # label issue 10
-            (True, ""),          # label issue 11
+            (True, ""),  # label issue 10
+            (True, ""),  # label issue 11
         ]
 
         def mock_execute(cmd, action):

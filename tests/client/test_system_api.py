@@ -319,21 +319,15 @@ class TestCircuitBreakerStatusDataclass:
         assert cb.last_success == "2026-02-12T08:00:00Z"
 
     def test_is_open_true(self) -> None:
-        cb = CircuitBreakerStatus(
-            agent_id="a", state="open", failure_count=5, success_count=0
-        )
+        cb = CircuitBreakerStatus(agent_id="a", state="open", failure_count=5, success_count=0)
         assert cb.is_open is True
 
     def test_is_open_false_closed(self) -> None:
-        cb = CircuitBreakerStatus(
-            agent_id="a", state="closed", failure_count=0, success_count=10
-        )
+        cb = CircuitBreakerStatus(agent_id="a", state="closed", failure_count=0, success_count=10)
         assert cb.is_open is False
 
     def test_is_open_false_half_open(self) -> None:
-        cb = CircuitBreakerStatus(
-            agent_id="a", state="half-open", failure_count=3, success_count=1
-        )
+        cb = CircuitBreakerStatus(agent_id="a", state="half-open", failure_count=3, success_count=1)
         assert cb.is_open is False
 
     def test_from_dict_full(self) -> None:
@@ -499,9 +493,7 @@ class TestCircuitBreakers:
         mock_client._get.assert_called_once_with("/api/system/circuit-breakers")
 
     @pytest.mark.asyncio
-    async def test_circuit_breakers_async(
-        self, api: SystemAPI, mock_client: AragoraClient
-    ) -> None:
+    async def test_circuit_breakers_async(self, api: SystemAPI, mock_client: AragoraClient) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_BREAKERS)
         result = await api.circuit_breakers_async()
         assert len(result) == 2
@@ -513,9 +505,7 @@ class TestCircuitBreakers:
         result = api.circuit_breakers()
         assert result == []
 
-    def test_circuit_breakers_missing_key(
-        self, api: SystemAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_circuit_breakers_missing_key(self, api: SystemAPI, mock_client: AragoraClient) -> None:
         """When response lacks 'breakers' key, should return empty list."""
         mock_client._get.return_value = {}
         result = api.circuit_breakers()
@@ -548,9 +538,7 @@ class TestResetCircuitBreaker:
         mock_client._post.return_value = {"reset": True}
         result = api.reset_circuit_breaker("agent-2")
         assert result is True
-        mock_client._post.assert_called_once_with(
-            "/api/system/circuit-breakers/agent-2/reset", {}
-        )
+        mock_client._post.assert_called_once_with("/api/system/circuit-breakers/agent-2/reset", {})
 
     def test_reset_failure(self, api: SystemAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {"reset": False}
@@ -739,9 +727,7 @@ class TestWorkflowIntegration:
         self, api: SystemAPI, mock_client: AragoraClient
     ) -> None:
         """Async version: check health, then get info."""
-        mock_client._get_async = AsyncMock(
-            side_effect=[SAMPLE_HEALTH, SAMPLE_INFO]
-        )
+        mock_client._get_async = AsyncMock(side_effect=[SAMPLE_HEALTH, SAMPLE_INFO])
         health = await api.health_async()
         assert health.is_healthy is True
 

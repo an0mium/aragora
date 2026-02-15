@@ -380,9 +380,7 @@ class TestSarifFlag:
     @patch("aragora.cli.review.run_review_debate")
     @patch("aragora.cli.review.extract_review_findings")
     @patch("aragora.cli.review.get_available_agents")
-    def test_sarif_flag_with_diff_file(
-        self, mock_agents, mock_extract, mock_debate, tmp_path
-    ):
+    def test_sarif_flag_with_diff_file(self, mock_agents, mock_extract, mock_debate, tmp_path):
         """--sarif works with real review flow (mocked)."""
         # Setup mocks
         mock_agents.return_value = "anthropic-api,openai-api"
@@ -475,9 +473,7 @@ class TestGauntletFlag:
     @patch("aragora.cli.review.run_review_debate")
     @patch("aragora.cli.review.extract_review_findings")
     @patch("aragora.cli.review.get_available_agents")
-    def test_no_gauntlet_when_flag_not_set(
-        self, mock_agents, mock_extract, mock_debate, tmp_path
-    ):
+    def test_no_gauntlet_when_flag_not_set(self, mock_agents, mock_extract, mock_debate, tmp_path):
         """Gauntlet does not run when --gauntlet is not set."""
         mock_agents.return_value = "anthropic-api,openai-api"
         mock_debate.return_value = MockDebateResult()
@@ -555,8 +551,7 @@ class TestSarifAndGauntletCombined:
 
         # Should have original + gauntlet critical issues
         critical_results = [
-            r for r in results
-            if r.get("properties", {}).get("severity") == "CRITICAL"
+            r for r in results if r.get("properties", {}).get("severity") == "CRITICAL"
         ]
         assert len(critical_results) == 2  # Original + gauntlet
 
@@ -668,9 +663,7 @@ class TestRunGauntletOnDiff:
     @pytest.mark.asyncio
     @patch("aragora.gauntlet.runner.GauntletRunner")
     @patch("aragora.gauntlet.templates.get_template")
-    async def test_gauntlet_uses_code_review_template(
-        self, mock_get_template, mock_runner_cls
-    ):
+    async def test_gauntlet_uses_code_review_template(self, mock_get_template, mock_runner_cls):
         """Gauntlet helper uses the CODE_REVIEW template."""
         mock_config = MagicMock()
         mock_get_template.return_value = mock_config
@@ -701,9 +694,7 @@ class TestRunGauntletOnDiff:
     @pytest.mark.asyncio
     @patch("aragora.gauntlet.runner.GauntletRunner")
     @patch("aragora.gauntlet.templates.get_template")
-    async def test_gauntlet_merges_vulnerabilities(
-        self, mock_get_template, mock_runner_cls
-    ):
+    async def test_gauntlet_merges_vulnerabilities(self, mock_get_template, mock_runner_cls):
         """Gauntlet vulnerabilities get merged into findings severity buckets."""
         mock_config = MagicMock()
         mock_get_template.return_value = mock_config

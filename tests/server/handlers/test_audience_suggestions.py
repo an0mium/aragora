@@ -263,9 +263,7 @@ class TestSubmitSuggestion:
         mock_user.user_id = "user-42"
         mock_post = make_post({"debate_id": "d-1", "suggestion": "Add caching layer"})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             with patch(
                 "aragora.audience.suggestions.sanitize_suggestion",
                 return_value="Add caching layer",
@@ -282,9 +280,7 @@ class TestSubmitSuggestion:
         mock_user = MagicMock()
         mock_post = make_post({"suggestion": "test"})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             result = handler.handle("/api/v1/audience/suggestions", {}, mock_post)
         assert result.status_code == 400
 
@@ -293,9 +289,7 @@ class TestSubmitSuggestion:
         mock_user = MagicMock()
         mock_post = make_post({"debate_id": "d-1", "suggestion": ""})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             result = handler.handle("/api/v1/audience/suggestions", {}, mock_post)
         assert result.status_code == 400
 
@@ -305,9 +299,7 @@ class TestSubmitSuggestion:
         long_text = "x" * 501
         mock_post = make_post({"debate_id": "d-1", "suggestion": long_text})
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             result = handler.handle("/api/v1/audience/suggestions", {}, mock_post)
         assert result.status_code == 400
 
@@ -322,9 +314,7 @@ class TestSubmitSuggestion:
         }
         mock_post.rfile = io.BytesIO(b"notjson")  # Will fail JSON parse
 
-        with patch.object(
-            handler, "require_permission_or_error", return_value=(mock_user, None)
-        ):
+        with patch.object(handler, "require_permission_or_error", return_value=(mock_user, None)):
             # read_json_body returns None on parse error
             with patch.object(handler, "read_json_body", return_value=None):
                 result = handler.handle("/api/v1/audience/suggestions", {}, mock_post)
@@ -343,7 +333,5 @@ class TestSubmitSuggestion:
                 "aragora.audience.suggestions.sanitize_suggestion",
                 return_value="test",
             ):
-                result = handler_no_storage.handle(
-                    "/api/v1/audience/suggestions", {}, mock_post
-                )
+                result = handler_no_storage.handle("/api/v1/audience/suggestions", {}, mock_post)
         assert result.status_code == 503

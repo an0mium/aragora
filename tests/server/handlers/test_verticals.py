@@ -124,9 +124,7 @@ def _patch_auth(handler):
     """Context manager to mock RBAC auth for handler."""
     mock_auth = MagicMock()
     mock_auth.has_permission.return_value = True
-    return patch.object(
-        handler, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth
-    )
+    return patch.object(handler, "get_auth_context", new_callable=AsyncMock, return_value=mock_auth)
 
 
 def _patch_check_permission(handler):
@@ -201,9 +199,7 @@ class TestVerticalsCircuitBreaker:
         assert cb.state == VerticalsCircuitBreaker.CLOSED
 
     def test_half_open_reopens_on_failure(self):
-        cb = VerticalsCircuitBreaker(
-            failure_threshold=1, cooldown_seconds=0.01
-        )
+        cb = VerticalsCircuitBreaker(failure_threshold=1, cooldown_seconds=0.01)
         cb.record_failure()
         time.sleep(0.02)
         cb.can_proceed()

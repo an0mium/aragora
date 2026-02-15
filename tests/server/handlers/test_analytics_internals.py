@@ -419,14 +419,16 @@ class TestConsensusQuality:
             consensus_flags = [True] * len(confidences)
         debates = []
         for i, (conf, cons) in enumerate(zip(confidences, consensus_flags)):
-            debates.append({
-                "id": f"debate-{i}",
-                "timestamp": f"2024-01-{15 + i:02d}T10:00:00Z",
-                "result": {
-                    "confidence": conf,
-                    "consensus_reached": cons,
-                },
-            })
+            debates.append(
+                {
+                    "id": f"debate-{i}",
+                    "timestamp": f"2024-01-{15 + i:02d}T10:00:00Z",
+                    "result": {
+                        "confidence": conf,
+                        "consensus_reached": cons,
+                    },
+                }
+            )
         return debates
 
     def test_improving_trend(self, analytics_handler):

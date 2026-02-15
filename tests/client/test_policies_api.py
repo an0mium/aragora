@@ -141,9 +141,7 @@ class TestPoliciesList:
 
     @pytest.mark.asyncio
     async def test_list_async(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"policies": [SAMPLE_POLICY], "total": 1}
-        )
+        mock_client._get_async = AsyncMock(return_value={"policies": [SAMPLE_POLICY], "total": 1})
         policies, total = await api.list_async()
         assert len(policies) == 1
         assert total == 1
@@ -153,12 +151,8 @@ class TestPoliciesList:
     async def test_list_async_with_filters(
         self, api: PoliciesAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"policies": [], "total": 0}
-        )
-        await api.list_async(
-            workspace_id="ws-2", framework_id="soc2", enabled_only=True
-        )
+        mock_client._get_async = AsyncMock(return_value={"policies": [], "total": 0})
+        await api.list_async(workspace_id="ws-2", framework_id="soc2", enabled_only=True)
         params = mock_client._get_async.call_args[1]["params"]
         assert params["workspace_id"] == "ws-2"
         assert params["framework_id"] == "soc2"
@@ -190,9 +184,7 @@ class TestPoliciesGet:
 class TestPoliciesCreate:
     def test_create_minimal(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = {"policy": SAMPLE_POLICY}
-        policy = api.create(
-            name="GDPR Policy", framework_id="gdpr", vertical_id="healthcare"
-        )
+        policy = api.create(name="GDPR Policy", framework_id="gdpr", vertical_id="healthcare")
         assert isinstance(policy, Policy)
         assert policy.id == "pol-123"
         mock_client._post.assert_called_once()
@@ -227,9 +219,7 @@ class TestPoliciesCreate:
         assert body["rules"] == rules
         assert body["metadata"] == {"author": "admin"}
 
-    def test_create_no_optional_fields(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_create_no_optional_fields(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         """When rules and metadata are None, they should not be in the body."""
         mock_client._post.return_value = {"policy": SAMPLE_POLICY}
         api.create(name="Test", framework_id="f1", vertical_id="v1")
@@ -251,9 +241,7 @@ class TestPoliciesCreate:
     ) -> None:
         mock_client._post_async = AsyncMock(return_value={"policy": SAMPLE_POLICY})
         rules = [{"id": "r1", "name": "check", "condition": "x > 1", "severity": "high"}]
-        await api.create_async(
-            name="Custom", framework_id="custom", vertical_id="v1", rules=rules
-        )
+        await api.create_async(name="Custom", framework_id="custom", vertical_id="v1", rules=rules)
         body = mock_client._post_async.call_args[0][1]
         assert body["rules"] == rules
 
@@ -267,9 +255,7 @@ class TestPoliciesUpdate:
         body = mock_client._patch.call_args[0][1]
         assert body["name"] == "Updated Name"
 
-    def test_update_multiple_fields(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_multiple_fields(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._patch.return_value = {"policy": SAMPLE_POLICY}
         api.update(
             "pol-123",
@@ -354,9 +340,7 @@ class TestPoliciesToggle:
 
 
 class TestViolationsList:
-    def test_list_violations_default(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_list_violations_default(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {"violations": [SAMPLE_VIOLATION], "total": 1}
         violations, total = api.list_violations()
         assert len(violations) == 1
@@ -408,9 +392,7 @@ class TestViolationsList:
     async def test_list_violations_async_with_filters(
         self, api: PoliciesAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"violations": [], "total": 0}
-        )
+        mock_client._get_async = AsyncMock(return_value={"violations": [], "total": 0})
         await api.list_violations_async(status="resolved", severity="high")
         params = mock_client._get_async.call_args[1]["params"]
         assert params["status"] == "resolved"
@@ -427,28 +409,20 @@ class TestViolationsGet:
         assert violation.status == "open"
         mock_client._get.assert_called_once_with("/api/v1/compliance/violations/viol-456")
 
-    def test_get_violation_unwrapped(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_get_violation_unwrapped(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = SAMPLE_VIOLATION
         violation = api.get_violation("viol-456")
         assert violation.id == "viol-456"
 
     @pytest.mark.asyncio
-    async def test_get_violation_async(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
-        mock_client._get_async = AsyncMock(
-            return_value={"violation": SAMPLE_VIOLATION}
-        )
+    async def test_get_violation_async(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
+        mock_client._get_async = AsyncMock(return_value={"violation": SAMPLE_VIOLATION})
         violation = await api.get_violation_async("viol-456")
         assert violation.rule_name == "No PII exposure"
 
 
 class TestViolationsUpdate:
-    def test_update_violation_status(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_update_violation_status(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         resolved_data = {**SAMPLE_VIOLATION, "status": "resolved"}
         mock_client._patch.return_value = {"violation": resolved_data}
         violation = api.update_violation("viol-456", status="resolved")
@@ -461,9 +435,7 @@ class TestViolationsUpdate:
         self, api: PoliciesAPI, mock_client: AragoraClient
     ) -> None:
         mock_client._patch.return_value = {"violation": SAMPLE_VIOLATION}
-        api.update_violation(
-            "viol-456", status="false_positive", resolution_notes="Not applicable"
-        )
+        api.update_violation("viol-456", status="false_positive", resolution_notes="Not applicable")
         body = mock_client._patch.call_args[0][1]
         assert body["status"] == "false_positive"
         assert body["resolution_notes"] == "Not applicable"
@@ -472,9 +444,7 @@ class TestViolationsUpdate:
     async def test_update_violation_async(
         self, api: PoliciesAPI, mock_client: AragoraClient
     ) -> None:
-        mock_client._patch_async = AsyncMock(
-            return_value={"violation": SAMPLE_VIOLATION}
-        )
+        mock_client._patch_async = AsyncMock(return_value={"violation": SAMPLE_VIOLATION})
         violation = await api.update_violation_async(
             "viol-456", status="investigating", resolution_notes="Looking into it"
         )
@@ -503,9 +473,7 @@ class TestComplianceCheck:
         assert body["store_violations"] is False
         assert body["workspace_id"] == "default"
 
-    def test_check_with_options(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_check_with_options(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._post.return_value = SAMPLE_CHECK_RESULT
         api.check(
             content="Check this",
@@ -520,9 +488,7 @@ class TestComplianceCheck:
         assert body["store_violations"] is True
         assert body["workspace_id"] == "ws-1"
 
-    def test_check_no_frameworks(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_check_no_frameworks(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         """When frameworks is None, it should not be in the body."""
         mock_client._post.return_value = SAMPLE_CHECK_RESULT
         api.check("content")
@@ -530,9 +496,7 @@ class TestComplianceCheck:
         assert "frameworks" not in body
 
     @pytest.mark.asyncio
-    async def test_check_async(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    async def test_check_async(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._post_async = AsyncMock(return_value=SAMPLE_CHECK_RESULT)
         result = await api.check_async("Check this async")
         assert result.compliant is False
@@ -549,9 +513,7 @@ class TestComplianceCheck:
 
 
 class TestComplianceStats:
-    def test_get_stats_default(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_get_stats_default(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = SAMPLE_STATS
         stats = api.get_stats()
         assert isinstance(stats, ComplianceStats)
@@ -563,17 +525,13 @@ class TestComplianceStats:
         assert stats.violations_by_severity == {"critical": 2, "high": 3}
         assert stats.risk_score == 35
 
-    def test_get_stats_with_workspace(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_get_stats_with_workspace(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = SAMPLE_STATS
         api.get_stats(workspace_id="ws-1")
         params = mock_client._get.call_args[1]["params"]
         assert params["workspace_id"] == "ws-1"
 
-    def test_get_stats_empty(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    def test_get_stats_empty(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._get.return_value = {}
         stats = api.get_stats()
         assert stats.policies_total == 0
@@ -581,9 +539,7 @@ class TestComplianceStats:
         assert stats.risk_score == 0
 
     @pytest.mark.asyncio
-    async def test_get_stats_async(
-        self, api: PoliciesAPI, mock_client: AragoraClient
-    ) -> None:
+    async def test_get_stats_async(self, api: PoliciesAPI, mock_client: AragoraClient) -> None:
         mock_client._get_async = AsyncMock(return_value=SAMPLE_STATS)
         stats = await api.get_stats_async()
         assert stats.policies_total == 10

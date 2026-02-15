@@ -127,9 +127,7 @@ class TestHistoryRouteMatching:
 
 class TestNotificationHistory:
     def test_returns_notifications(self, history_handler, mock_http_handler):
-        result = history_handler.handle(
-            "/api/v1/notifications/history", {}, mock_http_handler
-        )
+        result = history_handler.handle("/api/v1/notifications/history", {}, mock_http_handler)
         assert result is not None
         body = result[0]
         assert body["count"] == 2
@@ -184,16 +182,12 @@ class TestNotificationHistory:
             "aragora.server.handlers.notifications.history.NotificationHistoryHandler._get_notification_service",
             return_value=None,
         ):
-            result = handler.handle(
-                "/api/v1/notifications/history", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/notifications/history", {}, mock_http_handler)
             assert result[1] == 503
 
     def test_service_exception(self, history_handler, mock_http_handler, mock_notification_service):
         mock_notification_service.get_history.side_effect = RuntimeError("db error")
-        result = history_handler.handle(
-            "/api/v1/notifications/history", {}, mock_http_handler
-        )
+        result = history_handler.handle("/api/v1/notifications/history", {}, mock_http_handler)
         assert result[1] == 500
 
 
@@ -237,9 +231,7 @@ class TestDeliveryStats:
             ctx={"notification_service": mock_notification_service}
         )
 
-        result = handler.handle(
-            "/api/v1/notifications/delivery-stats", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/notifications/delivery-stats", {}, mock_http_handler)
         body = result[0]
         assert body["total_notifications"] == 0
         assert body["success_rate"] == 0.0
@@ -250,9 +242,7 @@ class TestDeliveryStats:
             "aragora.server.handlers.notifications.history.NotificationHistoryHandler._get_notification_service",
             return_value=None,
         ):
-            result = handler.handle(
-                "/api/v1/notifications/delivery-stats", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/notifications/delivery-stats", {}, mock_http_handler)
             assert result[1] == 503
 
 
@@ -280,12 +270,11 @@ class TestGetPreferences:
         from aragora.server.handlers.notifications.preferences import (
             _user_preferences as prefs_store,
         )
+
         prefs_store.clear()
         handler = NotificationPreferencesHandler(ctx={})
 
-        result = handler.handle(
-            "/api/v1/notifications/preferences", {}, mock_http_handler
-        )
+        result = handler.handle("/api/v1/notifications/preferences", {}, mock_http_handler)
         assert result is not None
         body = result[0]
         assert "preferences" in body
@@ -299,9 +288,7 @@ class TestGetPreferences:
         user_id = "test-user-001"
         _user_preferences[user_id] = {"channels": {"slack": False}, "digest_mode": True}
 
-        result = prefs_handler.handle(
-            "/api/v1/notifications/preferences", {}, mock_http_handler
-        )
+        result = prefs_handler.handle("/api/v1/notifications/preferences", {}, mock_http_handler)
         body = result[0]
         assert body["preferences"]["channels"]["slack"] is False
         assert body["preferences"]["digest_mode"] is True
@@ -315,9 +302,7 @@ class TestGetPreferences:
 class TestUpdatePreferences:
     def test_update_channels(self, prefs_handler):
         handler = _make_put_handler({"channels": {"slack": False}})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         assert result is not None
         body = result[0]
         assert body["updated"] is True
@@ -326,55 +311,41 @@ class TestUpdatePreferences:
 
     def test_update_event_types(self, prefs_handler):
         handler = _make_put_handler({"event_types": {"budget_alert": False}})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         body = result[0]
         assert body["preferences"]["event_types"]["budget_alert"] is False
 
     def test_update_digest_mode(self, prefs_handler):
         handler = _make_put_handler({"digest_mode": True})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         body = result[0]
         assert body["preferences"]["digest_mode"] is True
 
     def test_update_quiet_hours(self, prefs_handler):
         handler = _make_put_handler({"quiet_hours": {"enabled": True, "start": "23:00"}})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         body = result[0]
         assert body["preferences"]["quiet_hours"]["enabled"] is True
         assert body["preferences"]["quiet_hours"]["start"] == "23:00"
 
     def test_invalid_channel_name(self, prefs_handler):
         handler = _make_put_handler({"channels": {"pigeon": True}})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         assert result[1] == 400
 
     def test_invalid_channel_value_type(self, prefs_handler):
         handler = _make_put_handler({"channels": {"slack": "yes"}})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         assert result[1] == 400
 
     def test_invalid_event_type_value(self, prefs_handler):
         handler = _make_put_handler({"event_types": {"budget_alert": "maybe"}})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         assert result[1] == 400
 
     def test_invalid_digest_mode_type(self, prefs_handler):
         handler = _make_put_handler({"digest_mode": "yes"})
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         assert result[1] == 400
 
     def test_invalid_json_body(self, prefs_handler):
@@ -383,33 +354,23 @@ class TestUpdatePreferences:
         handler.headers = {"Content-Length": "5"}
         handler.rfile = MagicMock()
         handler.rfile.read.return_value = b"xxxxx"
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         assert result[1] == 400
 
     def test_preferences_persist_across_gets(self, prefs_handler, mock_http_handler):
         # Update
         put_handler = _make_put_handler({"digest_mode": True})
-        prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, put_handler
-        )
+        prefs_handler.handle_put("/api/v1/notifications/preferences", {}, put_handler)
 
         # Read back
-        result = prefs_handler.handle(
-            "/api/v1/notifications/preferences", {}, mock_http_handler
-        )
+        result = prefs_handler.handle("/api/v1/notifications/preferences", {}, mock_http_handler)
         body = result[0]
         assert body["preferences"]["digest_mode"] is True
 
     def test_wrapped_preferences_body(self, prefs_handler):
         """Test that updates wrapped in {'preferences': ...} are accepted."""
-        handler = _make_put_handler(
-            {"preferences": {"channels": {"webhook": False}}}
-        )
-        result = prefs_handler.handle_put(
-            "/api/v1/notifications/preferences", {}, handler
-        )
+        handler = _make_put_handler({"preferences": {"channels": {"webhook": False}}})
+        result = prefs_handler.handle_put("/api/v1/notifications/preferences", {}, handler)
         body = result[0]
         assert body["preferences"]["channels"]["webhook"] is False
 
@@ -429,16 +390,12 @@ class TestNotificationRateLimiting:
             "aragora.server.handlers.notifications.history.NotificationHistoryHandler._get_notification_service",
             return_value=MagicMock(),
         ):
-            result = handler.handle(
-                "/api/v1/notifications/history", {}, mock_http_handler
-            )
+            result = handler.handle("/api/v1/notifications/history", {}, mock_http_handler)
             assert result[1] == 429
 
     def test_preferences_rate_limit(self, prefs_handler, mock_http_handler):
         for _ in range(35):
             _preferences_limiter.is_allowed("127.0.0.1")
 
-        result = prefs_handler.handle(
-            "/api/v1/notifications/preferences", {}, mock_http_handler
-        )
+        result = prefs_handler.handle("/api/v1/notifications/preferences", {}, mock_http_handler)
         assert result[1] == 429

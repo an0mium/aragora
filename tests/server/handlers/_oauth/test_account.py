@@ -516,7 +516,10 @@ class TestLinkAccount:
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
     @patch("aragora.server.handlers._oauth_impl._get_github_redirect_uri")
     @patch("aragora.server.handlers._oauth_impl.GITHUB_CLIENT_ID", "github-client-id")
-    @patch("aragora.server.handlers._oauth_impl.GITHUB_AUTH_URL", "https://github.com/login/oauth/authorize")
+    @patch(
+        "aragora.server.handlers._oauth_impl.GITHUB_AUTH_URL",
+        "https://github.com/login/oauth/authorize",
+    )
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_link_github_account(
         self,
@@ -555,7 +558,10 @@ class TestLinkAccount:
     @patch("aragora.server.handlers._oauth_impl._get_microsoft_redirect_uri")
     @patch("aragora.server.handlers._oauth_impl._get_microsoft_tenant")
     @patch("aragora.server.handlers._oauth_impl._get_microsoft_client_id")
-    @patch("aragora.server.handlers._oauth_impl.MICROSOFT_AUTH_URL_TEMPLATE", "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize")
+    @patch(
+        "aragora.server.handlers._oauth_impl.MICROSOFT_AUTH_URL_TEMPLATE",
+        "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize",
+    )
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_link_microsoft_account(
         self,
@@ -598,7 +604,10 @@ class TestLinkAccount:
     @patch("aragora.server.handlers._oauth_impl._get_oauth_success_url")
     @patch("aragora.server.handlers._oauth_impl._get_apple_redirect_uri")
     @patch("aragora.server.handlers._oauth_impl._get_apple_client_id")
-    @patch("aragora.server.handlers._oauth_impl.APPLE_AUTH_URL", "https://appleid.apple.com/auth/authorize")
+    @patch(
+        "aragora.server.handlers._oauth_impl.APPLE_AUTH_URL",
+        "https://appleid.apple.com/auth/authorize",
+    )
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_link_apple_account(
         self,

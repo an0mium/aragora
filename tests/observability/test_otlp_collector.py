@@ -181,12 +181,14 @@ class TestCreateOtlpExporter:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter,
             )
+
             assert exporter is not None
         except ImportError:
             try:
                 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                     OTLPSpanExporter,
                 )
+
                 # Fell back to HTTP
                 assert exporter is not None
             except ImportError:
@@ -205,6 +207,7 @@ class TestCreateOtlpExporter:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
                 OTLPSpanExporter,
             )
+
             has_any = True
         except ImportError:
             pass
@@ -212,6 +215,7 @@ class TestCreateOtlpExporter:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter,
             )
+
             has_any = True
         except ImportError:
             pass
@@ -235,6 +239,7 @@ class TestCreateOtlpExporter:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter,
             )
+
             assert exporter is not None
         except ImportError:
             pass
@@ -244,7 +249,9 @@ class TestCreateOtlpExporter:
         config = OTelConfig(protocol="grpc", insecure=True)
 
         # Mock both exporter imports to fail
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def mock_import(name, *args, **kwargs):
             if "opentelemetry.exporter.otlp" in name:

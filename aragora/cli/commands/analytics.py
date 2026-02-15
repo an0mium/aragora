@@ -106,7 +106,7 @@ def _cmd_summary(analytics, days: int, org_id: str | None, as_json: bool) -> Non
     print(f"Total Messages:    {stats.total_messages}")
     print(f"Total Votes:       {stats.total_votes}")
     if stats.by_protocol:
-        print(f"\nBy Protocol:")
+        print("\nBy Protocol:")
         for proto, count in stats.by_protocol.items():
             print(f"  {proto}: {count}")
     print()
@@ -153,7 +153,7 @@ def _cmd_costs(analytics, days: int, org_id: str | None, as_json: bool) -> None:
     print(f"Total Tokens Out:  {d.get('total_tokens_out', 0):,}")
     print(f"Avg Cost/Debate:   ${d.get('avg_cost_per_debate', 0)}")
     if d.get("by_agent"):
-        print(f"\nBy Agent:")
+        print("\nBy Agent:")
         for agent_name, cost in d["by_agent"].items():
             print(f"  {agent_name}: ${cost}")
     print()

@@ -287,22 +287,24 @@ class TestScanGitHubIssues:
     def test_parses_issues(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout=json.dumps([
-                {
-                    "number": 1,
-                    "title": "Login broken",
-                    "labels": [{"name": "bug"}],
-                    "url": "https://github.com/o/r/issues/1",
-                    "body": "Users can't log in",
-                },
-                {
-                    "number": 2,
-                    "title": "Add dark mode",
-                    "labels": [{"name": "enhancement"}],
-                    "url": "https://github.com/o/r/issues/2",
-                    "body": "Please add dark mode",
-                },
-            ]),
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 1,
+                        "title": "Login broken",
+                        "labels": [{"name": "bug"}],
+                        "url": "https://github.com/o/r/issues/1",
+                        "body": "Users can't log in",
+                    },
+                    {
+                        "number": 2,
+                        "title": "Add dark mode",
+                        "labels": [{"name": "enhancement"}],
+                        "url": "https://github.com/o/r/issues/2",
+                        "body": "Please add dark mode",
+                    },
+                ]
+            ),
         )
         steps = scan_github_issues("o/r")
         assert len(steps) == 2
@@ -324,6 +326,7 @@ class TestScanGitHubIssues:
     @patch("aragora.compat.openclaw.next_steps_runner.subprocess.run")
     def test_handles_timeout(self, mock_run):
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="gh", timeout=30)
         steps = scan_github_issues("o/r")
         assert steps == []
@@ -341,16 +344,18 @@ class TestScanGitHubPRs:
     def test_approved_pr_high_priority(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout=json.dumps([
-                {
-                    "number": 10,
-                    "title": "Add feature X",
-                    "url": "https://github.com/o/r/pull/10",
-                    "reviewDecision": "APPROVED",
-                    "isDraft": False,
-                    "createdAt": "2026-01-01T00:00:00Z",
-                },
-            ]),
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 10,
+                        "title": "Add feature X",
+                        "url": "https://github.com/o/r/pull/10",
+                        "reviewDecision": "APPROVED",
+                        "isDraft": False,
+                        "createdAt": "2026-01-01T00:00:00Z",
+                    },
+                ]
+            ),
         )
         steps = scan_github_prs("o/r")
         assert len(steps) == 1
@@ -361,16 +366,18 @@ class TestScanGitHubPRs:
     def test_draft_prs_skipped(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout=json.dumps([
-                {
-                    "number": 11,
-                    "title": "WIP",
-                    "url": "https://github.com/o/r/pull/11",
-                    "reviewDecision": "",
-                    "isDraft": True,
-                    "createdAt": "2026-01-01T00:00:00Z",
-                },
-            ]),
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 11,
+                        "title": "WIP",
+                        "url": "https://github.com/o/r/pull/11",
+                        "reviewDecision": "",
+                        "isDraft": True,
+                        "createdAt": "2026-01-01T00:00:00Z",
+                    },
+                ]
+            ),
         )
         steps = scan_github_prs("o/r")
         assert len(steps) == 0
@@ -379,16 +386,18 @@ class TestScanGitHubPRs:
     def test_changes_requested_pr(self, mock_run):
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout=json.dumps([
-                {
-                    "number": 12,
-                    "title": "Update deps",
-                    "url": "https://github.com/o/r/pull/12",
-                    "reviewDecision": "CHANGES_REQUESTED",
-                    "isDraft": False,
-                    "createdAt": "2026-01-01T00:00:00Z",
-                },
-            ]),
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 12,
+                        "title": "Update deps",
+                        "url": "https://github.com/o/r/pull/12",
+                        "reviewDecision": "CHANGES_REQUESTED",
+                        "isDraft": False,
+                        "createdAt": "2026-01-01T00:00:00Z",
+                    },
+                ]
+            ),
         )
         steps = scan_github_prs("o/r")
         assert len(steps) == 1
@@ -528,8 +537,16 @@ class TestStepsToJson:
 
     def test_basic_output(self):
         steps = [
-            NextStep("Fix A", "desc A", "bug", "high", "small", "code-marker",
-                     file_path="a.py", line_number=1),
+            NextStep(
+                "Fix A",
+                "desc A",
+                "bug",
+                "high",
+                "small",
+                "code-marker",
+                file_path="a.py",
+                line_number=1,
+            ),
         ]
         result = steps_to_json(steps)
         assert result["count"] == 1

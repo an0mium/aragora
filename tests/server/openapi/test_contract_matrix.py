@@ -140,6 +140,7 @@ def openapi_endpoints(openapi_spec: dict) -> set[tuple[str, str]]:
 
 # -- Budget loading --
 
+
 def _load_py_budget() -> set[str]:
     """Load Python SDK namespaces with known OpenAPI gaps from the budget file."""
     budget_path = _repo_root() / "scripts/baselines/contract_matrix_py_budget.json"
@@ -179,9 +180,7 @@ def test_python_sdk_endpoints_in_openapi(
         pytest.skip(f"No endpoints extracted from {namespace}.py")
     missing = sorted(sdk_eps - openapi_endpoints)
     if missing and namespace in _PY_BUDGET_NAMESPACES:
-        pytest.xfail(
-            f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec"
-        )
+        pytest.xfail(f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec")
     assert not missing, (
         f"Python SDK namespace '{namespace}' references endpoints not in OpenAPI spec: {missing}"
     )
@@ -201,9 +200,7 @@ def test_typescript_sdk_endpoints_in_openapi(
         pytest.skip(f"No endpoints extracted from {namespace}.ts")
     missing = sorted(sdk_eps - openapi_endpoints)
     if missing and namespace in _TS_BUDGET_NAMESPACES:
-        pytest.xfail(
-            f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec"
-        )
+        pytest.xfail(f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec")
     assert not missing, (
         f"TypeScript SDK namespace '{namespace}' references endpoints not in OpenAPI spec: {missing}"
     )

@@ -60,7 +60,9 @@ class TestAutoExplainFlag:
         ctx = _make_ctx()
         result = _make_result()
 
-        with patch.object(ext, "_auto_generate_explanation", wraps=ext._auto_generate_explanation) as mock:
+        with patch.object(
+            ext, "_auto_generate_explanation", wraps=ext._auto_generate_explanation
+        ) as mock:
             ext.on_debate_complete(ctx, result, [])
             mock.assert_called_once()
 
@@ -142,9 +144,7 @@ class TestAutoGenerateExplanation:
         ctx = _make_ctx()
         result = _make_result()
 
-        with patch(
-            "aragora.explainability.builder.ExplanationBuilder"
-        ) as MockBuilder:
+        with patch("aragora.explainability.builder.ExplanationBuilder") as MockBuilder:
             mock_instance = MagicMock()
             mock_decision = MagicMock()
             mock_decision.evidence_chain = []

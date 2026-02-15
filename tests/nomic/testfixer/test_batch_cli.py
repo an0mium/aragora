@@ -46,9 +46,7 @@ class TestBatchCLIArgs:
         assert ns.impact_analysis is True
 
     def test_batch_test_command(self):
-        ns = self._parse(
-            "/tmp/repo", "--batch", "--batch-test-command", "pytest tests/ -v"
-        )
+        ns = self._parse("/tmp/repo", "--batch", "--batch-test-command", "pytest tests/ -v")
         assert ns.batch_test_command == "pytest tests/ -v"
 
     def test_defaults_without_batch(self):
@@ -115,9 +113,7 @@ class TestBatchCLIDispatch:
         mock_result.summary.return_value = "BatchFixer success: 1/1"
         mock_result.status.value = "success"
 
-        with patch(
-            "aragora.cli.commands.testfixer.TestFixerOrchestrator"
-        ) as MockOrch:
+        with patch("aragora.cli.commands.testfixer.TestFixerOrchestrator") as MockOrch:
             instance = MockOrch.return_value
             instance.run_batch_fix_loop = AsyncMock(return_value=mock_result)
 
@@ -178,9 +174,7 @@ class TestBatchCLIDispatch:
         mock_result.summary.return_value = "TestFixer success: 1/1"
         mock_result.status.value = "success"
 
-        with patch(
-            "aragora.cli.commands.testfixer.TestFixerOrchestrator"
-        ) as MockOrch:
+        with patch("aragora.cli.commands.testfixer.TestFixerOrchestrator") as MockOrch:
             instance = MockOrch.return_value
             instance.run_fix_loop = AsyncMock(return_value=mock_result)
 

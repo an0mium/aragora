@@ -958,9 +958,7 @@ class TestPrioritizeInbox:
         mock_gmail = AsyncMock()
 
         # Mock list_messages to return message IDs
-        mock_gmail.list_messages = AsyncMock(
-            return_value=(["msg_0", "msg_1", "msg_2"], None)
-        )
+        mock_gmail.list_messages = AsyncMock(return_value=(["msg_0", "msg_1", "msg_2"], None))
 
         # Mock get_messages to return email objects
         mock_emails = []

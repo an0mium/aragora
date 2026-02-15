@@ -139,9 +139,7 @@ class TestTokenRotationResult:
         assert d["errors"] == {"github": "gh not found"}
 
     def test_prefix_masking(self):
-        manager = TokenRotationManager(
-            config=TokenRotationConfig(stores=[])
-        )
+        manager = TokenRotationManager(config=TokenRotationConfig(stores=[]))
         assert manager._mask_token("pypi-abcdef123456") == "pypi-abc..."
         assert manager._mask_token("short") == "shor..."
         assert manager._mask_token("exactly8") == "exac..."
@@ -257,7 +255,10 @@ class TestTokenRotationManagerAWS:
 
         assert result.success is False
         assert "aws" in result.errors
-        assert "not available" in result.errors["aws"].lower() or "boto3" in result.errors["aws"].lower()
+        assert (
+            "not available" in result.errors["aws"].lower()
+            or "boto3" in result.errors["aws"].lower()
+        )
 
     @patch("aragora.security.token_rotation._BOTO3_AVAILABLE", True)
     @patch("aragora.security.token_rotation.boto3")
@@ -266,10 +267,12 @@ class TestTokenRotationManagerAWS:
         mock_client = MagicMock()
         mock_boto3.client.return_value = mock_client
         mock_client.get_secret_value.return_value = {
-            "SecretString": json.dumps({
-                "pypi": "pypi-abc123",
-                "pypi_rotated_at": "2026-02-12T00:00:00+00:00",
-            })
+            "SecretString": json.dumps(
+                {
+                    "pypi": "pypi-abc123",
+                    "pypi_rotated_at": "2026-02-12T00:00:00+00:00",
+                }
+            )
         }
 
         manager = self._make_manager()
@@ -444,17 +447,17 @@ class TestTokenRotationManagerListVerify:
         mock_client = MagicMock()
         mock_boto3.client.return_value = mock_client
         mock_client.get_secret_value.return_value = {
-            "SecretString": json.dumps({
-                "pypi": "pypi-abcdefgh12345",
-                "pypi_rotated_at": "2026-02-12T00:00:00+00:00",
-                "npm": "npm_xyz789",
-                "npm_rotated_at": "2026-02-11T00:00:00+00:00",
-            })
+            "SecretString": json.dumps(
+                {
+                    "pypi": "pypi-abcdefgh12345",
+                    "pypi_rotated_at": "2026-02-12T00:00:00+00:00",
+                    "npm": "npm_xyz789",
+                    "npm_rotated_at": "2026-02-11T00:00:00+00:00",
+                }
+            )
         }
 
-        manager = TokenRotationManager(
-            config=TokenRotationConfig(stores=["aws"])
-        )
+        manager = TokenRotationManager(config=TokenRotationConfig(stores=["aws"]))
         manager._aws_client = mock_client
 
         tokens = manager.list_managed_tokens()
