@@ -126,6 +126,7 @@ class TestPriorClaimsContext:
         protocol.rounds = 3
         protocol.asymmetric_stances = False
         protocol.agreement_intensity = None
+        protocol.enable_privacy_anonymization = False
         protocol.get_round_phase.return_value = None
         return protocol
 

@@ -41,7 +41,7 @@ CRITIQUE_STORE_SCHEMA_VERSION = 1
 CRITIQUE_INITIAL_SCHEMA = """
     -- Debates table
     CREATE TABLE IF NOT EXISTS debates (
-        id TEXT,
+        id TEXT PRIMARY KEY,
         task TEXT NOT NULL,
         final_answer TEXT,
         consensus_reached INTEGER,
