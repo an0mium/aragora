@@ -399,6 +399,7 @@ class ArenaDelegatesMixin:
     def _build_proposal_prompt(self, agent: Agent) -> str:
         """Build the initial proposal prompt. Delegates to PromptContextBuilder."""
         self._sync_prompt_builder_state()
+        self.prompt_builder.set_mode_for_phase("propose")
         return self._prompt_context.build_proposal_prompt(agent)
 
     def _build_revision_prompt(
@@ -406,6 +407,7 @@ class ArenaDelegatesMixin:
     ) -> str:
         """Build the revision prompt. Delegates to PromptContextBuilder."""
         self._sync_prompt_builder_state()
+        self.prompt_builder.set_mode_for_phase("revise")
         return self._prompt_context.build_revision_prompt(
             agent, original, critiques, round_number=round_number
         )

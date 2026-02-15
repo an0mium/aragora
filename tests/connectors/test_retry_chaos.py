@@ -7,6 +7,7 @@ for various failure scenarios (network errors, rate limits, timeouts).
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from aragora.connectors.base import BaseConnector, Evidence
@@ -360,9 +361,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_timeout_retry_then_success(self, connector):
         """Test timeout followed by success."""
-        pytest.importorskip("httpx")
-        import httpx
-
         attempt_count = 0
 
         async def request_with_timeout():
@@ -379,9 +377,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_timeout_exhausts_retries(self, connector):
         """Test timeout exhausts all retries."""
-        pytest.importorskip("httpx")
-        import httpx
-
         async def always_timeout():
             raise httpx.TimeoutException("timeout")
 
@@ -391,9 +386,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_network_error_retry(self, connector):
         """Test network error triggers retry."""
-        pytest.importorskip("httpx")
-        import httpx
-
         attempt_count = 0
 
         async def network_then_success():
@@ -410,9 +402,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_rate_limit_with_retry_after(self, connector):
         """Test 429 error respects Retry-After header."""
-        pytest.importorskip("httpx")
-        import httpx
-
         attempt_count = 0
 
         async def rate_limit_then_success():
@@ -431,9 +420,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_server_error_retry(self, connector):
         """Test 5xx error triggers retry."""
-        pytest.importorskip("httpx")
-        import httpx
-
         attempt_count = 0
 
         async def server_error_then_success():
@@ -453,9 +439,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_client_error_no_retry(self, connector):
         """Test 4xx error does not retry."""
-        pytest.importorskip("httpx")
-        import httpx
-
         async def client_error():
             response = MagicMock()
             response.status_code = 400

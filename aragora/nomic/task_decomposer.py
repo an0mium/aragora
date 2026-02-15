@@ -212,9 +212,11 @@ class TaskDecomposer:
         complexity_score = self._calculate_complexity(task_description, debate_result)
         complexity_level = self._score_to_level(complexity_score)
 
-        # If the goal is vague (low complexity score), try semantic expansion
-        # to produce concrete subtasks from templates and track configs
-        if complexity_score < 3:
+        # If the goal is vague (below decomposition threshold), try semantic
+        # expansion to produce concrete subtasks from templates and track configs.
+        # This handles abstract goals like "maximize utility for SMEs" that lack
+        # file mentions and specific keywords but are still genuinely complex.
+        if complexity_score < self.config.complexity_threshold:
             expanded = self._expand_vague_goal(task_description)
             if expanded is not None:
                 logger.info(
