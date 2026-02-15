@@ -724,7 +724,7 @@ class TestStartDebateOnTopic:
 
         assert result.status_code == 400
         body = json.loads(result.body)
-        assert "JSON" in body["error"]
+        assert body["error"]  # Sanitized error message present
 
     def test_start_debate_valid_consensus_modes(self):
         """Test that all valid consensus modes are accepted."""

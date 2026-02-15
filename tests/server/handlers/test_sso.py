@@ -938,7 +938,7 @@ class TestSSOHandleCallback:
         mock_http = MockHTTPHandler()
         mock_provider = MockSSOProvider()
         mock_provider.authenticate = AsyncMock(
-            side_effect=Exception("DOMAIN_NOT_ALLOWED: test.com")
+            side_effect=ValueError("DOMAIN_NOT_ALLOWED: test.com")
         )
 
         with patch.object(handler, "_get_provider", return_value=mock_provider):
@@ -958,7 +958,7 @@ class TestSSOHandleCallback:
         handler = SSOHandler()
         mock_http = MockHTTPHandler()
         mock_provider = MockSSOProvider()
-        mock_provider.authenticate = AsyncMock(side_effect=Exception("INVALID_STATE"))
+        mock_provider.authenticate = AsyncMock(side_effect=ValueError("INVALID_STATE"))
 
         with patch.object(handler, "_get_provider", return_value=mock_provider):
             result = await handler.handle_callback(mock_http, {"code": "auth_code"})

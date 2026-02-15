@@ -659,7 +659,7 @@ class TestExportReceipt:
     async def test_export_failure(self, handler):
         with patch(
             "aragora.export.decision_receipt.DecisionReceipt.from_dict",
-            side_effect=RuntimeError("Serialization error"),
+            side_effect=OSError("Serialization error"),
         ):
             result = await handler._export_receipt("receipt-001", {"format": "json"})
             assert result.status_code == 500

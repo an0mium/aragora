@@ -278,7 +278,7 @@ class TestListTemplates:
         """List templates returns 500 on internal error."""
         with patch(
             "aragora.server.handlers.marketplace._get_registry",
-            side_effect=RuntimeError("DB down"),
+            side_effect=OSError("DB down"),
         ):
             result = handler.handle_list_templates()
 
@@ -318,7 +318,7 @@ class TestGetTemplate:
         """Get template returns 500 on internal error."""
         with patch(
             "aragora.server.handlers.marketplace._get_registry",
-            side_effect=RuntimeError("fail"),
+            side_effect=OSError("fail"),
         ):
             result = handler.handle_get_template("tpl-001")
 

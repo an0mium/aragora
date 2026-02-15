@@ -2090,7 +2090,7 @@ class TestNetworkErrorHandling:
     async def test_create_customer_exception(self, mock_stripe_connector):
         """Create customer returns 500 on unexpected exception."""
         mock_stripe_connector.create_customer = AsyncMock(
-            side_effect=RuntimeError("Customer creation failed")
+            side_effect=OSError("Customer creation failed")
         )
         request = create_mock_request(
             {
@@ -2110,7 +2110,7 @@ class TestNetworkErrorHandling:
     @pytest.mark.asyncio
     async def test_delete_customer_exception(self, mock_stripe_connector):
         """Delete customer returns 500 on unexpected exception."""
-        mock_stripe_connector.delete_customer = AsyncMock(side_effect=RuntimeError("Delete failed"))
+        mock_stripe_connector.delete_customer = AsyncMock(side_effect=OSError("Delete failed"))
         request = create_mock_request({}, method="DELETE")
         request.match_info = {"customer_id": "cus_test123"}
         request.query = {"provider": "stripe"}
