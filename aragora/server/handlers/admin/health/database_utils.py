@@ -72,7 +72,7 @@ def handle_store_check_errors(
             "healthy": True,
             "status": "module_not_available",
         }, True
-    except Exception as e:
+    except Exception as e:  # broad catch: last-resort handler
         logger.warning("%s unexpected error: %s", store_name, e)
         return {
             "healthy": False,

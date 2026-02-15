@@ -141,7 +141,7 @@ class CritiqueHandler(BaseHandler):
                     "stats": stats,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "critique_patterns"), 500)
 
     def _get_archive_stats(self, nomic_dir: Path | None) -> HandlerResult:
@@ -156,7 +156,7 @@ class CritiqueHandler(BaseHandler):
 
             stats = store.get_archive_stats()
             return json_response(stats)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "archive_stats"), 500)
 
     def _get_all_reputations(self, nomic_dir: Path | None) -> HandlerResult:
@@ -186,7 +186,7 @@ class CritiqueHandler(BaseHandler):
                     "count": len(reputations),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "reputations"), 500)
 
     def _get_agent_reputation(self, nomic_dir: Path | None, agent: str) -> HandlerResult:
@@ -220,5 +220,5 @@ class CritiqueHandler(BaseHandler):
                 return json_response(
                     {"agent": agent, "reputation": None, "message": "Agent not found"}
                 )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "agent_reputation"), 500)

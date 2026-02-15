@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import hashlib
+import json
 import logging
 import os
 from typing import Any
@@ -252,7 +253,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Always return 200 to acknowledge
             return json_response({"status": "ok"})
 
-        except Exception as e:
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError, RuntimeError, OSError) as e:
             logger.exception("Unexpected WhatsApp webhook error: %s", e)
             # Return 200 to prevent retries
             return json_response({"status": "error", "message": "An error occurred processing the webhook"})
@@ -493,7 +494,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                         attachment["content_type"] = file_obj.content_type
                     if not attachment.get("size") and getattr(file_obj, "size", None):
                         attachment["size"] = file_obj.size
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                 logger.debug("Failed to download WhatsApp media %s: %s", file_id, e)
 
         return attachments

@@ -182,7 +182,7 @@ class RBACHandler(BaseHandler):
 
             return error_response("Not found", 404)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.exception(f"Error handling RBAC request: {e}")
             return error_response("Internal server error", 500)
 

@@ -235,7 +235,7 @@ class MomentsHandler(SecureHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in moments summary: {e}")
             return error_response(_safe_error_message(e, "moments summary"), 400)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Unexpected error getting moments summary: {e}")
             return error_response(_safe_error_message(e, "moments summary"), 500)
 
@@ -289,7 +289,7 @@ class MomentsHandler(SecureHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in moments timeline: {e}")
             return error_response(_safe_error_message(e, "moments timeline"), 400)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Unexpected error getting moments timeline: {e}")
             return error_response(_safe_error_message(e, "moments timeline"), 500)
 
@@ -331,7 +331,7 @@ class MomentsHandler(SecureHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in moments trending: {e}")
             return error_response(_safe_error_message(e, "moments trending"), 400)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Unexpected error getting moments trending: {e}")
             return error_response(_safe_error_message(e, "moments trending"), 500)
 
@@ -382,6 +382,6 @@ class MomentsHandler(SecureHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in moments by type {moment_type}: {e}")
             return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 400)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Unexpected error getting moments by type {moment_type}: {e}")
             return error_response(_safe_error_message(e, f"moments by type {moment_type}"), 500)

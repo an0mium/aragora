@@ -198,7 +198,7 @@ class ExternalIntegrationsHandler(SecureHandler):
                 permissions=permissions,
                 org_id=user_info.org_id,
             )
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError, KeyError) as e:
             logger.debug(f"Could not extract auth context: {e}")
             return None
 

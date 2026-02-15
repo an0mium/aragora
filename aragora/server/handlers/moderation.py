@@ -43,7 +43,7 @@ class ModerationHandler(SecureHandler):
         if not moderation._initialized:
             try:
                 run_async(moderation.initialize())
-            except Exception as exc:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError) as exc:
                 logger.warning("Moderation init failed: %s", exc)
         return moderation
 

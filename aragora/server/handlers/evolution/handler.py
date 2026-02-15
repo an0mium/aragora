@@ -150,7 +150,7 @@ class EvolutionHandler(BaseHandler):
                     "count": len(history),
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting evolution history for {agent}: {e}", exc_info=True)
             return error_response("Failed to get evolution history", 500)
 
@@ -176,7 +176,7 @@ class EvolutionHandler(BaseHandler):
                     "filter": pattern_type,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting evolution patterns: {e}", exc_info=True)
             return error_response("Failed to get evolution patterns", 500)
 
@@ -210,7 +210,7 @@ class EvolutionHandler(BaseHandler):
                     "created_at": prompt_version.created_at,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting prompt version for {agent}: {e}", exc_info=True)
             return error_response("Failed to get prompt version", 500)
 
@@ -297,6 +297,6 @@ class EvolutionHandler(BaseHandler):
                     "recent_activity": recent_activity,
                 }
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Error getting evolution summary: {e}", exc_info=True)
             return error_response("Failed to get evolution summary", 500)

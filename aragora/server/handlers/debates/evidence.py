@@ -498,7 +498,7 @@ class EvidenceOperationsMixin:
                                     "tier": str(getattr(memory, "tier", "medium")),
                                 }
                             )
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Could not fetch ContinuumMemory evidence: {e}")
 
             # Build response

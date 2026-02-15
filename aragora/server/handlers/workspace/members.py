@@ -98,7 +98,7 @@ class WorkspaceMembersMixin:
         except m.AccessDeniedException as e:
             logger.warning("Handler error: %s", e)
             return m.error_response("Permission denied", 403)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Failed to list workspace members: %s", e)
             return m.error_response("Failed to list members", 500)
 

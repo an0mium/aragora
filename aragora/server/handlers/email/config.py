@@ -140,7 +140,7 @@ async def handle_update_config(
             "config": (await handle_get_config(user_id, workspace_id))["config"],
         }
 
-    except Exception as e:
+    except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
         logger.exception(f"Failed to update config: {e}")
         return {
             "success": False,

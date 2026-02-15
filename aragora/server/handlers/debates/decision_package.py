@@ -271,7 +271,7 @@ class DecisionPackageHandler(BaseHandler):
                     "checksum": receipt.checksum,
                     "created_at": str(receipt.created_at) if receipt.created_at else None,
                 }
-        except Exception as exc:
+        except (ImportError, KeyError, ValueError, OSError, TypeError, RuntimeError, AttributeError) as exc:
             logger.debug("Receipt not available for %s: %s", debate_id, exc)
 
         # -- Verdict & confidence (from receipt or result) --
@@ -308,7 +308,7 @@ class DecisionPackageHandler(BaseHandler):
                     )
                 map_json = cart.export_json(include_full_content=False)
                 argument_map = json.loads(map_json)
-        except Exception as exc:
+        except (ImportError, json.JSONDecodeError, KeyError, ValueError, TypeError, AttributeError) as exc:
             logger.debug("Argument map not available for %s: %s", debate_id, exc)
 
         # -- Cost --

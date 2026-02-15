@@ -847,7 +847,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             return json_response({"success": True, "query": query, "results": results})
 
-        except Exception as e:  # broad catch: last-resort handler
+        except (ImportError, KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.exception(f"Search error: {e}")
             return error_response("Internal server error", 500)
 

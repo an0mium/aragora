@@ -520,7 +520,7 @@ class TeamsBot:
                     "message": f"Permission denied: {decision.reason}",
                     "permission": permission_key,
                 }
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"RBAC check failed: {e}")
             return None
 

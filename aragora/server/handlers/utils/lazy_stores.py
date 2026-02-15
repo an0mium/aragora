@@ -88,7 +88,7 @@ class LazyStore(Generic[T]):
             try:
                 self._store = self._factory()
                 logger.info(f"[{self.logger_context}] Initialized {self.store_name}")
-            except Exception as e:
+            except (ImportError, OSError, RuntimeError, TypeError, ValueError, AttributeError) as e:
                 self._init_error = f"Init failed: {e}"
                 logger.warning(f"[{self.logger_context}] Failed to init {self.store_name}: {e}")
 
@@ -211,7 +211,7 @@ class LazyStoreFactory:
             )
             return None
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError) as e:
             self._init_error = f"Unexpected error: {e}"
             logger.warning(f"[{self.logger_context}] Failed to init {self.store_name}: {e}")
             return None

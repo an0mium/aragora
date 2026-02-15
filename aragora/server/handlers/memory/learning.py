@@ -210,7 +210,7 @@ class LearningHandler(SecureHandler):
                             continue
                 patterns["failed_patterns"] = failed_cycles[-10:]
                 patterns["successful_patterns"] = successful_cycles[-10:]
-            except Exception as e:
+            except (json.JSONDecodeError, ValueError, KeyError, OSError, TypeError) as e:
                 logger.warning(f"Failed to read risk register: {e}")
 
         # Analyze replays for recurring themes (bounded iteration)
@@ -386,7 +386,7 @@ class LearningHandler(SecureHandler):
                                 "created_at": row[5],
                             }
                         )
-            except Exception as e:
+            except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
                 logger.warning(f"Failed to read insights DB: {e}")
 
         # Aggregate by category

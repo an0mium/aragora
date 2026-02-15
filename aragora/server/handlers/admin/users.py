@@ -288,7 +288,7 @@ class UserManagementMixin:
                     mfa_fresh = session_manager.is_session_mfa_fresh(
                         auth_ctx.user_id, token_jti, MFA_IMPERSONATION_MAX_AGE_SECONDS
                     )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"MFA freshness check failed for impersonation: {e}")
             mfa_fresh = False
 
@@ -336,7 +336,7 @@ class UserManagementMixin:
                 ip_address=getattr(handler, "client_address", ("unknown",))[0],
                 details={"target_email": target_user.email},
             )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to record audit event: {e}")
 
         return json_response(
@@ -569,7 +569,7 @@ class UserManagementMixin:
                     },
                     ip_address=getattr(handler, "client_address", ("unknown",))[0],
                 )
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to record audit event: {e}")
 
         return json_response(

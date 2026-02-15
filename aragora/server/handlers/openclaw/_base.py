@@ -28,7 +28,7 @@ def _has_permission(role: Any, permission: str) -> bool:
         override = getattr(gateway_module, "has_permission", None) if gateway_module else None
         if override is not None and override is not has_permission:
             return override(role, permission)
-    except Exception as e:
+    except (ImportError, AttributeError, TypeError, KeyError) as e:
         import logging
 
         logging.getLogger(__name__).debug("Permission shim lookup failed: %s", e)

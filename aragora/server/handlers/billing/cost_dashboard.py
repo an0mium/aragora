@@ -95,6 +95,6 @@ class CostDashboardHandler(SecureHandler):
 
             return json_response(summary)
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError, KeyError, TypeError) as e:
             logger.error("Cost dashboard error: %s", e, exc_info=True)
             return error_response("Dashboard loading failed", 500)

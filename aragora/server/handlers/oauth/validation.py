@@ -57,6 +57,6 @@ def _validate_redirect_url(redirect_url: str) -> bool:
 
         logger.warning(f"oauth_redirect_blocked: host={host} not in allowlist")
         return False
-    except Exception as e:
+    except (ValueError, TypeError, AttributeError) as e:
         logger.warning(f"oauth_redirect_validation_error: {e}")
         return False

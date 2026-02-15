@@ -230,7 +230,7 @@ class TournamentHandler(BaseHandler):
                             "top_agent": standings[0].agent if standings else None,
                         }
                     )
-                except Exception as e:
+                except (OSError, ValueError, TypeError, RuntimeError, KeyError) as e:
                     # Skip corrupted or invalid tournament files
                     logger.warning(
                         "Failed to load tournament %s: %s: %s", tournament_id, type(e).__name__, e

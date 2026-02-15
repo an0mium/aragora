@@ -507,7 +507,7 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
         except RecordNotFoundError:
             logger.info("Rhetorical analysis failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.error(
                 "Failed to get rhetorical observations for %s: %s",
                 debate_id,
@@ -614,7 +614,7 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
         except RecordNotFoundError:
             logger.info("Trickster analysis failed - debate not found: %s", debate_id)
             return error_response(f"Debate not found: {debate_id}", 404)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
             logger.error(
                 "Failed to get trickster status for %s: %s",
                 debate_id,

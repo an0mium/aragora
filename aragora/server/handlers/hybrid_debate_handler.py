@@ -302,7 +302,7 @@ class HybridDebateHandler(BaseHandler):
 
             # Record success for circuit breaker
             cb.record_success()
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             # Record failure for circuit breaker
             cb.record_failure()
             logger.error(f"Hybrid debate execution failed: {e}")

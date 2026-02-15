@@ -87,7 +87,7 @@ class LeaderboardViewHandler(SecureHandler):
         """
         try:
             data[key] = fetch_fn()
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, ImportError, OSError) as e:  # broad catch: last-resort handler
             logger.error(
                 "Leaderboard section '%s' failed: %s: %s", key, type(e).__name__, e, exc_info=True
             )
@@ -379,7 +379,7 @@ class LeaderboardViewHandler(SecureHandler):
                     agent, memory=memory, persona_manager=persona_manager
                 )
                 snapshots[agent] = snapshot.to_dict()
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError) as e:
                 # Skip agents that fail introspection
                 logger.warning(
                     "Agent introspection failed for %s: %s: %s", agent, type(e).__name__, e

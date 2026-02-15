@@ -1272,7 +1272,7 @@ class BillingHandler(SecureHandler):
                             f"Flushed {len(flushed_records)} usage records for org {org.id} "
                             f"on invoice finalize"
                         )
-                except Exception as e:
+                except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
                     logger.error(f"Failed to flush usage on invoice finalize: {e}")
 
         return json_response(

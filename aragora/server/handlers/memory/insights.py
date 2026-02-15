@@ -219,7 +219,7 @@ class InsightsHandler(SecureHandler):
                     )
                 if len(flips) >= limit:
                     break
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
             logger.warning(f"Error fetching position flips: {e}")
 
         return json_response(
@@ -258,7 +258,7 @@ class InsightsHandler(SecureHandler):
             for i in insights:
                 if i.type.value == "position_reversal":
                     total_flips += 1
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError, RuntimeError) as e:
             logger.warning(f"Error fetching flips summary: {e}")
 
         response: dict[str, Any] = {"summary": {"total": total_flips}}

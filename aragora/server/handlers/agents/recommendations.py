@@ -141,7 +141,7 @@ class AgentRecommendationHandler(BaseHandler):
                     if snapshot:
                         agent_dict["strengths"] = getattr(snapshot, "strengths", [])
                         agent_dict["expertise"] = getattr(snapshot, "expertise_areas", [])
-                except (ImportError, Exception):
+                except ImportError:
                     pass
 
                 recommendations.append(agent_dict)
@@ -153,7 +153,7 @@ class AgentRecommendationHandler(BaseHandler):
                     "count": len(recommendations),
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Agent recommendation failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get agent recommendations", 500)
 
@@ -202,6 +202,6 @@ class AgentRecommendationHandler(BaseHandler):
                     },
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Leaderboard fetch failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get leaderboard", 500)

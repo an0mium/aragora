@@ -118,7 +118,7 @@ class WhatsAppHandler(BaseHandler):
                 roles={user_info.role} if user_info.role else set(),
                 org_id=user_info.org_id,
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.debug(f"Could not extract auth context: {e}")
             return None
 
@@ -138,7 +138,7 @@ class WhatsAppHandler(BaseHandler):
             if not decision.allowed:
                 logger.warning(f"Permission denied: {permission_key} for user {context.user_id}")
                 return error_response(f"Permission denied: {decision.reason}", 403)
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"RBAC check failed: {e}")
             return None
 
@@ -178,7 +178,7 @@ class WhatsAppHandler(BaseHandler):
                 # Default roles - in production these would come from role assignment lookup
                 roles={"whatsapp_user"},
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.debug(f"Could not build auth context from message: {e}")
             return None
 
@@ -228,7 +228,7 @@ class WhatsAppHandler(BaseHandler):
                         f"{user_display} ({context.user_id}), reason: {decision.reason}"
                     )
                     return f"Permission denied: {decision.reason}"
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning(f"WhatsApp RBAC check failed: {e}")
             # On error, allow by default (fail open)
             return None
@@ -651,7 +651,7 @@ class WhatsAppHandler(BaseHandler):
                     vote=vote_option,
                     source="whatsapp",
                 )
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, OSError, TypeError) as e:
             logger.warning(f"Failed to record vote: {e}")
 
         emoji = "+" if vote_option == "agree" else "-"
@@ -692,7 +692,7 @@ class WhatsAppHandler(BaseHandler):
             db = get_debates_db()
             if db:
                 debate_data = db.get(debate_id)
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, OSError, TypeError) as e:
             logger.warning(f"Failed to fetch debate: {e}")
 
         if not debate_data:

@@ -540,7 +540,7 @@ def _init_persistent_store() -> bool:
         _use_persistent_store = True
         logger.info("Template marketplace using persistent SQLite storage")
         return True
-    except Exception as e:
+    except (ImportError, RuntimeError, OSError, ValueError) as e:
         # Check if distributed state is required (multi-instance or production)
         if is_distributed_state_required():
             raise DistributedStateError(

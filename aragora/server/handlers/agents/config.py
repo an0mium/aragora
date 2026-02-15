@@ -252,7 +252,7 @@ class AgentConfigHandler(SecureHandler):
                     "config_used": name,
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Failed to create agent from config {name}: {e}")
             return error_response("Agent creation failed", 500)
 
@@ -277,7 +277,7 @@ class AgentConfigHandler(SecureHandler):
                     "configs": list(reloaded.keys()),
                 }
             )
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Failed to reload configs: {e}")
             return error_response("Reload operation failed", 500)
 

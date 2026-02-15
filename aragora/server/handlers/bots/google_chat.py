@@ -205,7 +205,7 @@ def _verify_token_via_google_auth(token: str) -> bool | None:
     except ValueError as e:
         logger.warning("google-auth token verification failed: %s", e)
         return False
-    except Exception as e:
+    except (RuntimeError, TypeError, OSError) as e:
         logger.debug("google-auth unexpected error (will try next layer): %s", e)
         return None
 

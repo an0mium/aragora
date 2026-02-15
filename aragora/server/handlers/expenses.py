@@ -431,7 +431,7 @@ async def handle_list_expenses(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, LookupError, ValueError, TypeError) as e:
         cb.record_failure()
         logger.exception("Error listing expenses")
         return error_response("Failed to list expenses", status=500)

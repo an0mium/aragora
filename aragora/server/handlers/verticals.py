@@ -352,7 +352,7 @@ class VerticalsHandler(SecureHandler):
             self._circuit_breaker.record_failure()
             logger.warning("Verticals module not available")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError, TypeError) as e:
             self._circuit_breaker.record_failure()
             logger.error(f"Error loading verticals registry: {e}")
             return None

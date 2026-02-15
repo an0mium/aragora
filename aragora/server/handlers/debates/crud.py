@@ -223,7 +223,7 @@ class CrudOperationsMixin:
             from aragora.server.handlers.debates import handler as handler_module
 
             active_debates = getattr(handler_module, "_active_debates", _active_debates)
-        except Exception as exc:
+        except (ImportError, AttributeError) as exc:
             logger.debug("Failed to load active debates from handler module: %s", exc)
             active_debates = _active_debates
 

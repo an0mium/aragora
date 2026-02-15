@@ -414,7 +414,7 @@ async def _start_teams_debate(
                     "service_url": service_url,
                 },
             )
-        except Exception as exc:
+        except (RuntimeError, KeyError, AttributeError, OSError) as exc:
             logger.debug("Failed to register Teams debate origin: %s", exc)
 
         # Route through DecisionRouter
@@ -436,7 +436,7 @@ async def _start_teams_debate(
                         "service_url": service_url,
                     },
                 )
-            except Exception as exc:
+            except (RuntimeError, KeyError, AttributeError, OSError) as exc:
                 logger.debug("Failed to register dedup Teams origin: %s", exc)
 
         if result.request_id:

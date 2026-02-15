@@ -121,6 +121,6 @@ class MemoryCritiquesMixin:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError, RuntimeError) as e:
             logger.error(f"Failed to get critiques: {e}")
             return error_response(safe_error_message(e, "get critiques"), 500)

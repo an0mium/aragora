@@ -414,7 +414,7 @@ class ComputerUseHandler(BaseHandler):
                     for s in result.steps
                 ]
                 storage.save_task(task)
-            except Exception as e:
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
                 logger.warning("Computer use task %s failed: %s", task_id, e)
                 task["status"] = "failed"
                 task["result"] = {

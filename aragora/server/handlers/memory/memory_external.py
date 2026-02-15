@@ -59,7 +59,7 @@ class MemoryExternalMixin:
             response = run_async(
                 client.search(query=query, limit=limit, container_tag=container_tag)
             )
-        except Exception as exc:  # pragma: no cover - external dependency
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - external dependency
             logger.debug(f"Supermemory search failed: {exc}")
             return []
 
@@ -94,7 +94,7 @@ class MemoryExternalMixin:
         connector = ClaudeMemConnector(ClaudeMemConfig.from_env())
         try:
             evidence = run_async(connector.search(query, limit=limit, project=project))
-        except Exception as exc:  # pragma: no cover - external dependency
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - external dependency
             logger.debug(f"Claude-mem search failed: {exc}")
             return []
 

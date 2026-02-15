@@ -1253,7 +1253,7 @@ def _get_store() -> OpenClawGatewayStore | OpenClawPersistentStore:
         override = getattr(gateway_module, "_get_store", None) if gateway_module else None
         if override is not None and override is not _get_store:
             return override()
-    except Exception as e:
+    except (ImportError, AttributeError, TypeError, KeyError) as e:
         logging.getLogger(__name__).debug("Failed to resolve _get_store override: %s", e)
 
     global _store

@@ -406,7 +406,7 @@ class UsageMeteringHandler(SecureHandler):
                             status.period_resets_at.isoformat() if status.period_resets_at else None
                         ),
                     }
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to get quota status for {resource}: {e}")
                 continue
 

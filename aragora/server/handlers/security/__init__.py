@@ -137,12 +137,12 @@ class CSPReportHandler:
                         result = self.on_violation(violation)
                         if hasattr(result, "__await__"):
                             await result
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
                     logger.error("Error in CSP violation callback: %s", e)
 
         except json.JSONDecodeError:
             logger.warning("Invalid JSON in CSP report")
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, UnicodeDecodeError) as e:
             logger.error("Error processing CSP report: %s", e)
 
         # Always return 204 No Content - CSP reports are fire-and-forget

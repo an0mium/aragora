@@ -269,7 +269,7 @@ class UncertaintyHandler(BaseHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid data for follow-up generation: {e}")
             return error_response("Invalid request data", 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError, OSError) as e:
             logger.exception(f"Unexpected error generating follow-ups: {e}")
             return error_response("Follow-up generation failed", 500)
 
@@ -313,7 +313,7 @@ class UncertaintyHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error getting debate uncertainty: {e}")
             return error_response("Invalid debate data", 400)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ImportError) as e:
             logger.exception(f"Unexpected error getting debate uncertainty: {e}")
             return error_response("Debate uncertainty retrieval failed", 500)
 
@@ -357,6 +357,6 @@ class UncertaintyHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error getting agent calibration: {e}")
             return error_response("Invalid agent data", 400)
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError, ImportError) as e:
             logger.exception(f"Unexpected error getting agent calibration: {e}")
             return error_response("Agent calibration retrieval failed", 500)

@@ -111,7 +111,7 @@ class MemoryProgressiveMixin:
                     )
                 )
                 hybrid_used = True
-            except Exception as exc:  # pragma: no cover - optional dependency
+            except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:  # pragma: no cover - optional dependency
                 logger.debug(f"Hybrid memory search failed, falling back: {exc}")
                 hybrid_results = []
 

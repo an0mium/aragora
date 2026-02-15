@@ -499,7 +499,7 @@ class PrivacyHandler(SecureHandler):
                 "data_deleted": data_deleted,
             }
 
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             logger.error(f"Account deletion failed: {e}")
             return {
                 "success": False,

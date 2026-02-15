@@ -115,7 +115,7 @@ class EmailDebateHandler(BaseHandler):
 
             return json_response(result.to_dict())
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.exception(f"Email prioritization failed: {e}")
             return error_response("Prioritization failed", 500)
 
@@ -192,7 +192,7 @@ class EmailDebateHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.exception(f"Batch prioritization failed: {e}")
             return error_response("Batch prioritization failed", 500)
 
@@ -302,7 +302,7 @@ class EmailDebateHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, TypeError, RuntimeError) as e:
             logger.exception(f"Inbox triage failed: {e}")
             return error_response("Inbox triage failed", 500)
 

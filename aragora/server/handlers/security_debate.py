@@ -186,7 +186,7 @@ class SecurityDebateHandler(SecureHandler):
 
         try:
             result = run_async(_run_debate())
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             logger.exception("Security debate failed")
             return error_response("Debate operation failed", 500)
 

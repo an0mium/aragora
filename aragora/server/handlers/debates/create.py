@@ -355,7 +355,7 @@ class CreateOperationsMixin:
             try:
                 task.cancel()
                 logger.info(f"Cancelled running task for debate {debate_id}")
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError, OSError) as e:
                 logger.warning(f"Failed to cancel task for {debate_id}: {e}")
 
         # Emit cancellation event to all subscribers
@@ -441,8 +441,7 @@ class CreateOperationsMixin:
             # Moderation explicitly rejected content
             logger.warning(f"Content moderation error: {e}")
             return error_response("Invalid request", 400)
-        except Exception as e:
-            # Unexpected error - log but allow content through (fail-open)
+        except Exception as e:  # broad catch: last-resort handler (fail-open for spam check)
             logger.error(f"Spam check failed unexpectedly: {e}", exc_info=True)
             return None
 

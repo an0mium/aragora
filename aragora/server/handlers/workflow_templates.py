@@ -107,7 +107,7 @@ async def _execute_workflow_async(
                 f"success={result.success}, duration={result.total_duration_ms}ms"
             )
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
         logger.exception(f"Workflow execution {execution_id} failed: {e}")
         execution = store.get_execution(execution_id)
         if execution:
@@ -378,7 +378,7 @@ class WorkflowTemplatesHandler(BaseHandler):
                     "result": result.to_dict() if hasattr(result, "to_dict") else result,
                 }
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.error(f"Template execution failed: {e}")
             return json_response(
                 {
@@ -671,7 +671,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
             return error_response("Pattern instantiation failed", 500)
 
@@ -1192,6 +1192,6 @@ class SMEWorkflowsHandler(BaseHandler):
 
             return json_response(response_data, status=201)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"Failed to create SME workflow: {e}")
             return error_response("Workflow creation failed", 500)

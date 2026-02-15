@@ -261,7 +261,7 @@ def job_queue_health_status(handler: Any) -> HandlerResult:
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.warning("Queue connectivity error: %s: %s", type(e).__name__, e)
         errors.append("Queue connectivity error")
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.warning("Queue status error: %s: %s", type(e).__name__, e)
         errors.append("Queue status error")
 

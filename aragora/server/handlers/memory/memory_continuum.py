@@ -370,7 +370,7 @@ class MemoryContinuumMixin:
                 )
             else:
                 return error_response(f"Memory not found: {memory_id}", 404)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, RuntimeError) as e:
             return error_response(safe_error_message(e, "delete memory"), 500)
 
     @rate_limit(requests_per_minute=60, limiter_name="memory_read")

@@ -78,7 +78,7 @@ async def handle_fetch_and_rank_inbox(
             try:
                 msg = await connector.get_message(msg_id)
                 emails.append(msg)
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, KeyError) as e:
                 logger.warning(f"Failed to fetch message {msg_id}: {e}")
 
         # Rank emails
@@ -118,7 +118,7 @@ async def handle_fetch_and_rank_inbox(
             "fetched_at": datetime.now().isoformat(),
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError, KeyError, AttributeError, RuntimeError) as e:
         logger.exception(f"Failed to fetch inbox: {e}")
         return {
             "success": False,
