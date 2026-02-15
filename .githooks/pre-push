@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Pre-push hook: warn if handler changes may require OpenAPI spec regeneration.
+#
+# Install with:
+#   git config core.hooksPath .githooks
+#
+# This catches the most common CI failure: handler changes without
+# regenerating docs/openapi.yaml. Run `make openapi` to fix.
+
+set -euo pipefail
+
+# Get the range of commits being pushed
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    # Skip deletions
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        continue
+    fi
+
+    # If remote_sha is all zeros, compare against the merge-base with main
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        remote_sha=$(git merge-base HEAD main 2>/dev/null || echo "HEAD~10")
+    fi
+
+    # Check if any handler files changed in this push
+    changed_handlers=$(git diff --name-only "$remote_sha" "$local_sha" -- \
+        'aragora/server/handlers/' 2>/dev/null || true)
+
+    if [ -n "$changed_handlers" ]; then
+        # Check if OpenAPI spec was also updated
+        changed_spec=$(git diff --name-only "$remote_sha" "$local_sha" -- \
+            'docs/openapi.yaml' 'docs/api/openapi.json' 'docs/api/openapi.yaml' 2>/dev/null || true)
+
+        if [ -z "$changed_spec" ]; then
+            echo ""
+            echo "========================================="
+            echo " WARNING: Handler changes without"
+            echo " OpenAPI spec update detected!"
+            echo "========================================="
+            echo ""
+            echo "Changed handlers:"
+            echo "$changed_handlers" | head -10 | while read -r f; do
+                echo "  - $f"
+            done
+            echo ""
+            echo "Run to regenerate:"
+            echo "  make openapi"
+            echo "  git add docs/openapi.yaml docs/api/"
+            echo "  git commit --amend --no-edit"
+            echo ""
+            echo "To push anyway: git push --no-verify"
+            echo ""
+            exit 1
+        fi
+    fi
+done
