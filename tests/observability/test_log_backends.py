@@ -12,11 +12,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import sys
+import types
+
 import pytest
 
 from aragora.observability.log_types import AuditBackend, AuditEntry, DailyAnchor
 
-# Check if psycopg2 is available
+# Check if psycopg2 is available; if not, install a stub module so that
+# ``patch("psycopg2.pool.ThreadedConnectionPool", ...)`` works in tests
+# that already fully mock the database layer.
 try:
     import psycopg2
 
@@ -24,7 +29,13 @@ try:
 except ImportError:
     POSTGRESQL_AVAILABLE = False
 
-needs_psycopg2 = pytest.mark.skipif(not POSTGRESQL_AVAILABLE, reason="psycopg2 not installed")
+    # Create lightweight stub so patch targets resolve without the real package.
+    _psycopg2_stub = types.ModuleType("psycopg2")
+    _pool_stub = types.ModuleType("psycopg2.pool")
+    _pool_stub.ThreadedConnectionPool = None  # type: ignore[attr-defined]
+    _psycopg2_stub.pool = _pool_stub  # type: ignore[attr-defined]
+    sys.modules.setdefault("psycopg2", _psycopg2_stub)
+    sys.modules.setdefault("psycopg2.pool", _pool_stub)
 
 
 class TestAuditBackendEnum:

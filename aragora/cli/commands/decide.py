@@ -202,11 +202,127 @@ async def run_decide(
     return result
 
 
+def _run_decide_demo(args: argparse.Namespace) -> None:
+    """Run the decide command in demo mode using mock agents.
+
+    Produces a decision summary and receipt without requiring API keys.
+    """
+    import json
+    import time
+
+    task = args.task
+    verbose = getattr(args, "verbose", False)
+
+    print("\n" + "=" * 60)
+    print("  ARAGORA DECIDE (Demo Mode)")
+    print("  Full decision pipeline with mock agents")
+    print("=" * 60)
+    print(f"\n  Task: {task}")
+    print("  Mode: Offline (no API keys required)")
+    print()
+
+    # Step 1: Run debate via aragora-debate mock agents
+    if verbose:
+        print("[decide-demo] Running debate with mock agents...")
+
+    from aragora_debate.arena import Arena
+    from aragora_debate.styled_mock import StyledMockAgent
+    from aragora_debate.types import DebateConfig
+
+    agents = [
+        StyledMockAgent("Analyst", style="supportive"),
+        StyledMockAgent("Critic", style="critical"),
+        StyledMockAgent("Synthesizer", style="balanced"),
+        StyledMockAgent("Devil's Advocate", style="contrarian"),
+    ]
+
+    rounds = min(getattr(args, "rounds", 2), 3)
+    config = DebateConfig(rounds=rounds, early_stopping=False)
+    arena = Arena(question=task, agents=agents, config=config)
+
+    start_time = time.monotonic()
+    debate_result = asyncio.run(arena.run())
+    elapsed = time.monotonic() - start_time
+
+    # Step 2: Build receipt
+    from aragora.cli.demo import _build_receipt_data
+    from aragora.cli.receipt_formatter import receipt_to_html
+
+    receipt_data = _build_receipt_data(debate_result, elapsed)
+
+    # Print decision summary
+    print("=" * 60)
+    print("DECISION SUMMARY")
+    print("=" * 60)
+
+    verdict = receipt_data.get("verdict", "N/A")
+    confidence = receipt_data.get("confidence", 0)
+    receipt_id = receipt_data.get("receipt_id", "")
+
+    print(f"Task: {task}")
+    print(f"Verdict: {verdict}")
+    print(f"Confidence: {confidence:.0%}")
+    print(f"Agents: {', '.join(receipt_data.get('agents', []))}")
+    print(f"Rounds: {receipt_data.get('rounds', 0)}")
+    print(f"Duration: {elapsed:.2f}s")
+    if receipt_id:
+        print(f"Receipt ID: {receipt_id}")
+
+    if debate_result.final_answer:
+        print()
+        print("WINNING POSITION:")
+        print("-" * 40)
+        print(debate_result.final_answer[:500])
+
+    if receipt_data.get("consensus_proof"):
+        cp = receipt_data["consensus_proof"]
+        print()
+        print("CONSENSUS:")
+        print("-" * 40)
+        print(f"  Reached: {'Yes' if cp.get('reached') else 'No'}")
+        print(f"  Method: {cp.get('method', 'N/A')}")
+        print(f"  Confidence: {cp.get('confidence', 0):.0%}")
+
+    # Step 3: Save receipt
+    dry_run = getattr(args, "dry_run", False)
+    if not dry_run:
+        from pathlib import Path
+
+        receipts_dir = Path.cwd() / ".aragora" / "receipts"
+        receipts_dir.mkdir(parents=True, exist_ok=True)
+        receipt_file = receipts_dir / f"decide-demo-receipt.json"
+        receipt_file.write_text(json.dumps(receipt_data, indent=2, default=str))
+
+        html_file = receipts_dir / f"decide-demo-receipt.html"
+        html_file.write_text(receipt_to_html(receipt_data))
+
+        print()
+        print(f"Receipt (JSON): {receipt_file}")
+        print(f"Receipt (HTML): {html_file}")
+        print()
+        print("View receipt: aragora receipt view " + str(html_file))
+
+    print()
+    print("DEMO NOTE:")
+    print("-" * 40)
+    print("  This used mock agents. For real AI-powered decisions:")
+    if dry_run:
+        print("  (Dry run mode - no receipt saved)")
+    print()
+    print(f'  aragora decide "{task}" --agents anthropic-api,openai-api')
+    print()
+
+
 def cmd_decide(args: argparse.Namespace) -> None:
     """Handle 'decide' command - full gold path."""
     # Handle --list-templates
     if getattr(args, "list_templates", False):
         _print_available_templates()
+        return
+
+    # Handle --demo: run offline debate with mock agents, produce receipt
+    if getattr(args, "demo", False):
+        _run_decide_demo(args)
         return
 
     from aragora.cli.commands.debate import (

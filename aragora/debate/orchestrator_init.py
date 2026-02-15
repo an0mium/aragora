@@ -261,6 +261,11 @@ def run_init_subsystems(arena: Arena) -> None:
     # Initialize knowledge mound operations
     arena._init_knowledge_ops()
 
+    # Initialize selection feedback, cost tracking, and health registry
+    arena._init_selection_feedback()
+    arena._init_cost_tracking()
+    arena._init_health_registry()
+
     # Initialize phase classes for orchestrator decomposition
     arena._init_phases()
 

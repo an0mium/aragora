@@ -915,8 +915,11 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
     except ImportError as e:
         logger.debug(f"DecisionRouter middleware not available: {e}")
         return False
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(f"Email debate connection error: {type(e).__name__}: {e}")
+        return False
     except Exception as e:
-        logger.error(f"Failed to start email debate: {e}")
+        logger.error(f"Failed to start email debate: {type(e).__name__}: {e}")
         return False
 
 
@@ -1001,8 +1004,10 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
 
     except ImportError:
         logger.warning("Event bus not available for email reply routing")
+    except (ConnectionError, TimeoutError, OSError) as e:
+        logger.error(f"Email reply routing connection error: {type(e).__name__}: {e}")
     except Exception as e:
-        logger.error(f"Failed to route email reply: {e}")
+        logger.error(f"Failed to route email reply: {type(e).__name__}: {e}")
 
     # Alternative: Try queue-based submission
     try:

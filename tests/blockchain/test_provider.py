@@ -347,9 +347,12 @@ class TestWeb3Provider:
         assert provider.get_config(137).rpc_url == "https://polygon.rpc"
 
 
-@requires_web3
 class TestWeb3ProviderGetWeb3:
-    """Tests for get_web3 method."""
+    """Tests for get_web3 method.
+
+    These tests mock _require_web3 and the Web3 global so they run
+    regardless of whether the web3 package is installed.
+    """
 
     @patch("aragora.blockchain.provider._require_web3")
     def test_get_web3_returns_cached_instance(self, _mock_require):
@@ -358,7 +361,14 @@ class TestWeb3ProviderGetWeb3:
         provider = Web3Provider.from_config(config)
         mock_w3 = MagicMock()
         provider._web3_instances["https://rpc.test"] = mock_w3
-        assert provider.get_web3() is mock_w3
+        # Ensure the Web3 global is set so the method doesn't try to import
+        import aragora.blockchain.provider as _pmod
+        _orig = _pmod.Web3
+        _pmod.Web3 = MagicMock()
+        try:
+            assert provider.get_web3() is mock_w3
+        finally:
+            _pmod.Web3 = _orig
 
     @patch("aragora.blockchain.provider._require_web3")
     def test_get_web3_missing_chain_raises(self, _mock_require):
@@ -385,9 +395,15 @@ class TestWeb3ProviderGetWeb3:
         mock_w3 = MagicMock()
         provider._web3_instances["https://fallback.rpc"] = mock_w3
 
-        result = provider.get_web3()
-        assert result is mock_w3
-        assert provider._active_rpc[1] == "https://fallback.rpc"
+        import aragora.blockchain.provider as _pmod
+        _orig = _pmod.Web3
+        _pmod.Web3 = MagicMock()
+        try:
+            result = provider.get_web3()
+            assert result is mock_w3
+            assert provider._active_rpc[1] == "https://fallback.rpc"
+        finally:
+            _pmod.Web3 = _orig
 
     @patch("aragora.blockchain.provider._require_web3")
     def test_get_web3_no_healthy_rpc_uses_active(self, _mock_require):
@@ -402,8 +418,14 @@ class TestWeb3ProviderGetWeb3:
         mock_w3 = MagicMock()
         provider._web3_instances["https://rpc.test"] = mock_w3
 
-        result = provider.get_web3()
-        assert result is mock_w3
+        import aragora.blockchain.provider as _pmod
+        _orig = _pmod.Web3
+        _pmod.Web3 = MagicMock()
+        try:
+            result = provider.get_web3()
+            assert result is mock_w3
+        finally:
+            _pmod.Web3 = _orig
 
 
 class TestWeb3ProviderFailover:

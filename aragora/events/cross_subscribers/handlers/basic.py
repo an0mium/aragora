@@ -337,6 +337,157 @@ class BasicHandlersMixin:
             except (ImportError, AttributeError):
                 pass
 
+    def _handle_gauntlet_complete_to_notification(self, event: StreamEvent) -> None:
+        """Gauntlet complete → Notification dispatch.
+
+        When a gauntlet stress-test finishes, notify stakeholders with
+        the verdict and finding counts.
+        """
+        data = event.data
+        gauntlet_id = data.get("gauntlet_id", "")
+        verdict = data.get("verdict", "unknown")
+        confidence = data.get("confidence", 0.0)
+        total_findings = data.get("total_findings", 0)
+        critical_count = data.get("critical_count", 0)
+
+        logger.debug(f"Gauntlet complete: {gauntlet_id} verdict={verdict}")
+
+        try:
+            from aragora.notifications.service import notify_gauntlet_completed
+
+            notify_gauntlet_completed(
+                gauntlet_id=gauntlet_id,
+                verdict=verdict,
+                confidence=confidence,
+                total_findings=total_findings,
+                critical_count=critical_count,
+            )
+        except ImportError:
+            pass  # Notification service not available
+        except Exception as e:
+            logger.debug(f"Gauntlet notification failed: {e}")
+
+    def _handle_debate_end_to_cost_tracking(self, event: StreamEvent) -> None:
+        """Debate end → Cost tracking record.
+
+        When a debate ends, record the total cost for billing
+        and usage analytics.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        total_cost = data.get("total_cost", 0.0)
+        total_tokens = data.get("total_tokens", 0)
+
+        if not total_cost:
+            return
+
+        logger.debug(f"Recording debate cost: {debate_id} ${total_cost:.4f}")
+
+        try:
+            from aragora.billing.cost_tracker import get_cost_tracker
+
+            tracker = get_cost_tracker()
+            if tracker and hasattr(tracker, "record_debate_total"):
+                tracker.record_debate_total(
+                    debate_id=debate_id,
+                    total_cost=total_cost,
+                    total_tokens=total_tokens,
+                )
+        except ImportError:
+            pass  # CostTracker not available
+        except Exception as e:
+            logger.debug(f"Cost tracking record failed: {e}")
+
+    def _handle_consensus_to_learning(self, event: StreamEvent) -> None:
+        """Consensus → Selection feedback learning.
+
+        When consensus is reached, feed the outcome to the
+        SelectionFeedbackLoop for performance-based agent selection.
+        """
+        data = event.data
+        debate_id = data.get("debate_id", "")
+        confidence = data.get("confidence", 0.0)
+        agents_used = data.get("agents", [])
+
+        if not agents_used or confidence < 0.5:
+            return
+
+        logger.debug(f"Learning from consensus: {debate_id} confidence={confidence:.2f}")
+
+        try:
+            from aragora.debate.selection_feedback import get_selection_feedback_loop
+
+            loop = get_selection_feedback_loop()
+            if loop and hasattr(loop, "process_debate_outcome"):
+                loop.process_debate_outcome(
+                    debate_id=debate_id,
+                    confidence=confidence,
+                    agents=agents_used,
+                )
+        except ImportError:
+            pass  # SelectionFeedbackLoop not available
+        except Exception as e:
+            logger.debug(f"Selection feedback learning failed: {e}")
+
+    def _handle_agent_message_to_rhetorical(self, event: StreamEvent) -> None:
+        """Agent message → Rhetorical analysis.
+
+        When an agent sends a message, pass it to the RhetoricalObserver
+        for argumentation quality analysis.
+        """
+        data = event.data
+        agent_name = data.get("agent", "")
+        content = data.get("content", "")
+
+        if not content or len(content) < 20:
+            return
+
+        try:
+            from aragora.debate.rhetorical_observer import get_rhetorical_observer
+
+            observer = get_rhetorical_observer()
+            if observer and hasattr(observer, "analyze_message"):
+                observer.analyze_message(
+                    agent_name=agent_name,
+                    content=content,
+                    metadata=data,
+                )
+        except ImportError:
+            pass  # RhetoricalObserver not available
+        except Exception as e:
+            logger.debug(f"Rhetorical analysis failed: {e}")
+
+    def _handle_vote_to_belief(self, event: StreamEvent) -> None:
+        """Vote → Belief network update.
+
+        When an agent casts a vote, update the belief network
+        with the position endorsement.
+        """
+        data = event.data
+        agent_name = data.get("agent", "")
+        position = data.get("position", "")
+        confidence = data.get("confidence", 0.5)
+        debate_id = data.get("debate_id", "")
+
+        if not position:
+            return
+
+        try:
+            from aragora.reasoning.belief import get_belief_network
+
+            network = get_belief_network()
+            if network and hasattr(network, "update_belief"):
+                network.update_belief(
+                    agent=agent_name,
+                    position=position,
+                    confidence=confidence,
+                    debate_id=debate_id,
+                )
+        except ImportError:
+            pass  # BeliefNetwork not available
+        except Exception as e:
+            logger.debug(f"Belief network update failed: {e}")
+
     def _handle_debate_end_to_explainability(self, event: StreamEvent) -> None:
         """Debate end → Explainability auto-trigger.
 

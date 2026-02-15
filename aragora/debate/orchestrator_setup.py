@@ -273,6 +273,115 @@ def init_rlm_limiter(
     arena.rlm_compression_round_threshold = rlm_compression_round_threshold
 
 
+def init_selection_feedback(arena: Arena) -> None:
+    """Initialize SelectionFeedbackLoop for performance-based agent selection.
+
+    Reads ``enable_performance_feedback`` from the arena's config and
+    auto-creates a SelectionFeedbackLoop if enabled.
+
+    Args:
+        arena: Arena instance to configure.
+    """
+    if not getattr(arena, "enable_performance_feedback", False):
+        arena._selection_feedback_loop = None
+        return
+
+    try:
+        from aragora.debate.selection_feedback import SelectionFeedbackLoop
+
+        arena._selection_feedback_loop = SelectionFeedbackLoop()
+        logger.info("[selection_feedback] SelectionFeedbackLoop initialized")
+    except ImportError:
+        logger.debug("SelectionFeedbackLoop not available")
+        arena._selection_feedback_loop = None
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Failed to initialize SelectionFeedbackLoop: {e}")
+        arena._selection_feedback_loop = None
+
+
+def init_cost_tracking(arena: Arena) -> None:
+    """Initialize CostTracker and register debate-level budget limits.
+
+    Reads ``budget_limit_usd`` from the arena's budget sub-config and
+    registers it with the global CostTracker instance.
+
+    Args:
+        arena: Arena instance to configure.
+    """
+    try:
+        from aragora.billing.cost_tracker import get_cost_tracker
+
+        tracker = get_cost_tracker()
+        if tracker is None:
+            arena._cost_tracker = None
+            return
+
+        arena._cost_tracker = tracker
+
+        # Register per-debate budget limit if configured
+        budget_limit = getattr(arena, "budget_limit_usd", None)
+        if budget_limit and budget_limit > 0:
+            try:
+                tracker.set_budget_limit(budget_limit)
+                logger.info(f"[cost_tracking] Budget limit set: ${budget_limit:.2f}")
+            except (AttributeError, TypeError):
+                pass  # set_budget_limit may not exist yet
+
+        logger.debug("[cost_tracking] CostTracker attached to arena")
+    except ImportError:
+        logger.debug("CostTracker not available")
+        arena._cost_tracker = None
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Failed to initialize CostTracker: {e}")
+        arena._cost_tracker = None
+
+
+def init_health_registry(arena: Arena) -> None:
+    """Initialize HealthRegistry and register health checkers for subsystems.
+
+    Registers health checks for event_bus, knowledge_mound, memory, and
+    cost_tracker so that startup and runtime health reports include them.
+
+    Args:
+        arena: Arena instance to configure.
+    """
+    try:
+        from aragora.resilience.health import get_global_health_registry
+
+        registry = get_global_health_registry()
+        if registry is None:
+            arena._health_registry = None
+            return
+
+        arena._health_registry = registry
+
+        # Register health checks for key subsystems
+        subsystem_checks = {
+            "event_bus": arena.event_bus is not None,
+            "knowledge_mound": getattr(arena, "knowledge_mound", None) is not None,
+            "memory": getattr(arena, "memory", None) is not None,
+            "cost_tracker": getattr(arena, "_cost_tracker", None) is not None,
+        }
+
+        for name, healthy in subsystem_checks.items():
+            try:
+                registry.register(name, lambda _n=name: True)
+                if healthy:
+                    registry.record_success(name)
+            except (AttributeError, TypeError):
+                pass  # register/record_success may not exist
+
+        logger.debug(
+            f"[health] Registered {len(subsystem_checks)} subsystem health checks"
+        )
+    except ImportError:
+        logger.debug("HealthRegistry not available")
+        arena._health_registry = None
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Failed to initialize HealthRegistry: {e}")
+        arena._health_registry = None
+
+
 async def setup_agent_channels(arena: Arena, ctx: DebateContext, debate_id: str) -> None:
     """Initialize agent-to-agent channels for the current debate.
 

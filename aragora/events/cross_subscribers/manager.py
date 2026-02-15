@@ -360,6 +360,45 @@ class CrossSubscriberManager(
             self._handle_debate_outcome_to_knowledge,
         )
 
+        # =====================================================================
+        # Phase 3: Cross-Subsystem Event Bridges
+        # =====================================================================
+
+        # Gauntlet Complete → Notification
+        self.register(
+            "gauntlet_to_notification",
+            StreamEventType.GAUNTLET_COMPLETE,
+            self._handle_gauntlet_complete_to_notification,
+        )
+
+        # Debate End → Cost Tracking
+        self.register(
+            "debate_end_to_cost_tracking",
+            StreamEventType.DEBATE_END,
+            self._handle_debate_end_to_cost_tracking,
+        )
+
+        # Consensus → Selection Learning
+        self.register(
+            "consensus_to_learning",
+            StreamEventType.CONSENSUS,
+            self._handle_consensus_to_learning,
+        )
+
+        # Agent Message → Rhetorical Analysis
+        self.register(
+            "agent_message_to_rhetorical",
+            StreamEventType.AGENT_MESSAGE,
+            self._handle_agent_message_to_rhetorical,
+        )
+
+        # Vote → Belief Network
+        self.register(
+            "vote_to_belief",
+            StreamEventType.VOTE,
+            self._handle_vote_to_belief,
+        )
+
         # Register webhook delivery for all cross-pollination events
         webhook_event_types = [
             StreamEventType.MEMORY_STORED,
