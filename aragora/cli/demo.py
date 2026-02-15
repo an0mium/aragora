@@ -20,10 +20,20 @@ import time
 from pathlib import Path
 from typing import Any
 
-from aragora_debate.arena import Arena
-from aragora_debate.events import EventType
-from aragora_debate.styled_mock import StyledMockAgent
-from aragora_debate.types import DebateConfig, DebateResult
+try:
+    from aragora_debate.arena import Arena
+    from aragora_debate.events import EventType
+    from aragora_debate.styled_mock import StyledMockAgent
+    from aragora_debate.types import DebateConfig, DebateResult
+
+    HAS_ARAGORA_DEBATE = True
+except ImportError:
+    HAS_ARAGORA_DEBATE = False
+    Arena = None  # type: ignore[assignment,misc]
+    EventType = None  # type: ignore[assignment,misc]
+    StyledMockAgent = None  # type: ignore[assignment,misc]
+    DebateConfig = None  # type: ignore[assignment,misc]
+    DebateResult = None  # type: ignore[assignment,misc]
 
 # ---------------------------------------------------------------------------
 # Pre-configured demo scenarios
@@ -448,6 +458,11 @@ def run_demo(
 
 def main(args: argparse.Namespace) -> None:
     """Handle 'demo' command."""
+    if not HAS_ARAGORA_DEBATE:
+        print("Error: aragora-debate package is not installed.")
+        print("Install it with: pip install aragora-debate")
+        sys.exit(1)
+
     # --list flag
     if getattr(args, "list_demos", False):
         print("\nAvailable demos:")

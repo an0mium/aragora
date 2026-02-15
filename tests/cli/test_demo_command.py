@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+aragora_debate = pytest.importorskip("aragora_debate", reason="aragora-debate not installed")
 
 from aragora.cli.demo import (
     DEMO_TASKS,
