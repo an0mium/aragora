@@ -29,8 +29,10 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import hashlib
 import json
 import logging
+import secrets
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -97,6 +99,14 @@ class HardenedConfig:
     # Circuit breaker: failures before opening per agent type
     circuit_breaker_threshold: int = 3
     circuit_breaker_timeout: int = 60  # seconds before half-open
+    # Canary token: injected into system prompts, detected in outputs
+    enable_canary_tokens: bool = True
+    # Output validation: scan agent-generated diffs for dangerous patterns
+    enable_output_validation: bool = True
+    # Code review gate: use different agent to review changes before merge
+    enable_review_gate: bool = True
+    # Review gate: minimum safety score (0-10) to allow merge
+    review_gate_min_score: int = 5
 
 
 class HardenedOrchestrator(AutonomousOrchestrator):
