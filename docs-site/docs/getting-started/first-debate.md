@@ -15,7 +15,32 @@ By the end of this tutorial, you'll have:
 - Watched them deliberate through multiple rounds
 - Obtained a consensus with confidence scores
 
-## Prerequisites
+## Try Without API Keys
+
+The fastest way to see a debate in action -- no API keys needed:
+
+**Option A: Live website**
+Visit [aragora.ai](https://aragora.ai), type a question, and click "RUN FREE DEBATE". Results appear inline with proposals, critiques, and votes.
+
+**Option B: Local demo server**
+```bash
+pip install aragora
+aragora serve --demo
+# Open http://localhost:8080 in your browser
+```
+
+**Option C: CLI one-liner**
+```bash
+aragora review --demo
+```
+
+All three options use mock agents that simulate a real debate without consuming API credits.
+
+---
+
+## Full Setup (with real AI agents)
+
+### Prerequisites
 
 - Aragora server running (see [Installation](/docs/getting-started/installation))
 - At least one AI provider API key configured

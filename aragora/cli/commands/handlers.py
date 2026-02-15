@@ -25,7 +25,9 @@ def add_handlers_parser(subparsers: argparse._SubParsersAction) -> None:
 
     # handlers list
     list_p = sub.add_parser("list", help="List registered handler classes")
-    list_p.add_argument("--tier", help="Filter by handler tier (core, extended, enterprise, experimental)")
+    list_p.add_argument(
+        "--tier", help="Filter by handler tier (core, extended, enterprise, experimental)"
+    )
     list_p.add_argument("--json", action="store_true", help="Output as JSON")
     list_p.set_defaults(func=_cmd_list_handlers)
 
@@ -57,14 +59,16 @@ def _get_registry_data(tier_filter: str | None = None) -> list[dict]:
         if handler_cls and hasattr(handler_cls, "ROUTES"):
             routes = list(handler_cls.ROUTES)
 
-        results.append({
-            "attr": attr_name,
-            "class": cls_name,
-            "tier": tier,
-            "routes": routes,
-            "route_count": len(routes),
-            "active": tier in active_tiers,
-        })
+        results.append(
+            {
+                "attr": attr_name,
+                "class": cls_name,
+                "tier": tier,
+                "routes": routes,
+                "route_count": len(routes),
+                "active": tier in active_tiers,
+            }
+        )
 
     return results
 
@@ -99,12 +103,14 @@ def _cmd_list_routes(args: argparse.Namespace) -> int:
     route_entries: list[dict] = []
     for entry in data:
         for route in entry["routes"]:
-            route_entries.append({
-                "path": route,
-                "handler": entry["class"],
-                "tier": entry["tier"],
-                "active": entry["active"],
-            })
+            route_entries.append(
+                {
+                    "path": route,
+                    "handler": entry["class"],
+                    "tier": entry["tier"],
+                    "active": entry["active"],
+                }
+            )
 
     route_entries.sort(key=lambda r: r["path"])
 

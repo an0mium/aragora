@@ -21,7 +21,7 @@ services:
     environment:
       ARAGORA_ENV: production
       OPENCLAW_URL: http://openclaw:3000
-      POLICY_FILE: /etc/aragora/policies/policy.yaml
+      POLICY_FILE: /etc/aragora/policies/enterprise.yaml
       DEFAULT_POLICY: deny
       AUDIT_ENABLED: "true"
     volumes:
@@ -33,7 +33,7 @@ services:
     networks:
       - gateway-net
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8100/health')\" || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
