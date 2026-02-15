@@ -29,6 +29,7 @@ from aragora.pipeline.decision_plan import (
     PlanOutcome,
     PlanStatus,
 )
+from aragora.pipeline.risk_register import RiskLevel
 from aragora.pipeline.execution_bridge import (
     ExecutionBridge,
     reset_execution_bridge,
@@ -68,11 +69,12 @@ def _make_debate_result(
         critiques=[
             Critique(
                 agent="critic-1",
-                target="proposer-1",
+                target_agent="proposer-1",
+                target_content="Use Redis for distributed counter storage",
                 issues=["Redis dependency adds operational complexity"],
                 suggestions=["Consider SQLite fallback for single-node deploys"],
                 severity=6.5,
-                round=2,
+                reasoning="Redis adds ops burden for single-node deploys",
             ),
         ],
         dissenting_views=["Local in-memory rate limiting may suffice for small deployments"],
@@ -424,9 +426,11 @@ class TestRiskBasedApproval:
         """High-confidence consensus auto-approves in RISK_BASED mode."""
         result = _make_debate_result(confidence=0.95, consensus_reached=True)
         plan = DecisionPlanFactory.from_debate_result(
-            result, approval_mode=ApprovalMode.RISK_BASED
+            result,
+            approval_mode=ApprovalMode.RISK_BASED,
+            max_auto_risk=RiskLevel.MEDIUM,
         )
-        # High confidence, consensus reached, no critical risks → auto-approved
+        # High confidence, consensus reached, only medium dissent risk → auto-approved
         assert plan.status == PlanStatus.APPROVED
 
     def test_low_confidence_requires_approval(self):

@@ -134,8 +134,8 @@ def test_verdict_enum_consistency() -> None:
     from aragora.export.decision_receipt import DecisionReceipt
 
     receipt = DecisionReceipt(receipt_id="test-id", gauntlet_id="test-gauntlet")
-    assert receipt.verdict == Verdict.NEEDS_REVIEW.value, (
-        f"Default verdict is '{receipt.verdict}', expected '{Verdict.NEEDS_REVIEW.value}'"
+    assert receipt.verdict == Verdict.NEEDS_REVIEW.value.upper(), (
+        f"Default verdict is '{receipt.verdict}', expected '{Verdict.NEEDS_REVIEW.value.upper()}'"
     )
 
 

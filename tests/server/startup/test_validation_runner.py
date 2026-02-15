@@ -17,6 +17,25 @@ from aragora.server.startup.validation_runner import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _restore_validation_runner():
+    """Restore validation_runner module state after importlib.reload.
+
+    Some tests use importlib.reload to test import-time behavior.
+    Reload replaces class objects in the module's __dict__, which causes
+    class identity mismatches for any code holding references to the
+    original classes (e.g. pytest.raises(StartupValidationError) in
+    tests/server/test_startup_validation_runner.py).
+    """
+    import aragora.server.startup.validation_runner as vr_module
+
+    orig_attrs = {
+        k: v for k, v in vr_module.__dict__.items() if not k.startswith("__")
+    }
+    yield
+    vr_module.__dict__.update(orig_attrs)
+
+
 # =============================================================================
 # Helper Function Tests
 # =============================================================================
