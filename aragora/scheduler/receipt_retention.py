@@ -225,7 +225,7 @@ class ReceiptRetentionScheduler:
                     completed_at=datetime.now(timezone.utc),
                     duration_seconds=0.0,
                     retention_days=self.retention_days or DEFAULT_RETENTION_DAYS,
-                    error=str(e),
+                    error="Receipt cleanup cycle failed",
                 )
                 self._stats.add_result(error_result)
 
@@ -262,7 +262,7 @@ class ReceiptRetentionScheduler:
             )
         except Exception as e:
             logger.error(f"Exception during receipt cleanup: {e}")
-            error = str(e)
+            error = "Receipt cleanup failed"
 
         completed_at = datetime.now(timezone.utc)
         duration = (completed_at - started_at).total_seconds()
