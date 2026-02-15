@@ -778,7 +778,7 @@ class SecretsRotationScheduler:
 
         except Exception as e:
             rotation.status = RotationStatus.FAILED
-            rotation.error_message = str(e)
+            rotation.error_message = "Secret rotation failed"
             logger.error(f"Secret rotation failed: {e}")
 
         # Finalize
