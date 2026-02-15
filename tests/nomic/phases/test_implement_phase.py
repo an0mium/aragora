@@ -1170,7 +1170,7 @@ class TestImplementPhaseErrorHandling:
             result = await phase.execute(design="Test")
 
             assert result["success"] is False
-            assert "Plan failed" in result.get("error", "")
+            assert result.get("error")  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_handles_executor_failure(

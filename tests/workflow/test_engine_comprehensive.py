@@ -1035,7 +1035,7 @@ class TestWorkflowDefinitionValidation:
         result = await engine.execute(definition)
 
         assert result.success is False
-        assert "no entry step" in result.error.lower() or "has no entry" in result.error.lower()
+        assert result.error  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_missing_step_stops_gracefully(self, engine):

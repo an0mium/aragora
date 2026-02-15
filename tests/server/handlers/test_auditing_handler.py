@@ -356,7 +356,7 @@ class TestAuditAgentFactory:
 
     def test_create_multiple_agents_requires_minimum(self):
         """create_multiple_agents requires at least 2 agents."""
-        mock_create = MagicMock(side_effect=Exception("Fail"))
+        mock_create = MagicMock(side_effect=RuntimeError("Fail"))
 
         with patch("aragora.server.handlers.auditing.DEBATE_AVAILABLE", True):
             with patch("aragora.server.handlers.auditing.create_agent", mock_create):
