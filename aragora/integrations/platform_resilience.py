@@ -463,8 +463,8 @@ class DeadLetterQueue:
                 conn.commit()
             logger.info(f"Dead letter {msg_id} delivered successfully")
             return True
-        except Exception as e:
-            logger.error(f"Failed to mark dead letter success: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Dead letter mark-success database error: {type(e).__name__}: {e}")
             return False
 
     def mark_retry(self, msg_id: str, error_message: str) -> bool:
@@ -523,8 +523,8 @@ class DeadLetterQueue:
                 )
                 return True
 
-        except Exception as e:
-            logger.error(f"Failed to mark dead letter retry: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Dead letter mark-retry database error: {type(e).__name__}: {e}")
             return False
 
     def cleanup_old(self, max_age_hours: float = DLQ_RETENTION_HOURS) -> int:
@@ -547,8 +547,8 @@ class DeadLetterQueue:
                 if deleted > 0:
                     logger.info(f"Cleaned up {deleted} old dead letters")
                 return deleted
-        except Exception as e:
-            logger.error(f"Failed to cleanup dead letters: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Dead letter cleanup database error: {type(e).__name__}: {e}")
             return 0
 
     def get_stats(self) -> dict[str, Any]:

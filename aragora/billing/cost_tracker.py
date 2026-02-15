@@ -1064,25 +1064,28 @@ class CostTracker:
     async def detect_and_store_anomalies(
         self,
         workspace_id: str,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], CostAdvisory]:
         """
         Detect cost anomalies and store them to Knowledge Mound.
 
         Compares current workspace stats against historical patterns
-        to identify unusual cost spikes.
+        to identify unusual cost spikes. Returns both the raw anomaly
+        list and a CostAdvisory with a recommended action.
 
         Args:
             workspace_id: Workspace to check
 
         Returns:
-            List of detected anomalies
+            Tuple of (anomalies list, CostAdvisory with recommended action)
         """
+        no_action = CostAdvisory.no_action(workspace_id)
+
         if not self._km_adapter:
-            return []
+            return [], no_action
 
         stats = self._workspace_stats.get(workspace_id)
         if not stats:
-            return []
+            return [], no_action
 
         try:
             anomalies = self._km_adapter.detect_anomalies(
@@ -1136,10 +1139,55 @@ class CostTracker:
                             enforce_err,
                         )
 
-            return stored
+            # Build advisory from the highest-severity anomaly
+            advisory = self._build_advisory(stored, workspace_id)
+            self._last_advisory[workspace_id] = advisory
+
+            return stored, advisory
         except Exception as e:
             logger.error(f"Failed to detect/store anomalies: {e}")
-            return []
+            return [], no_action
+
+    def _build_advisory(
+        self,
+        anomalies: list[dict[str, Any]],
+        workspace_id: str,
+    ) -> CostAdvisory:
+        """Build a CostAdvisory from detected anomalies.
+
+        Uses the highest severity anomaly to determine the recommended action.
+        """
+        if not anomalies:
+            return CostAdvisory.no_action(workspace_id)
+
+        severity_rank = {"critical": 4, "high": 3, "warning": 2, "info": 1}
+        worst = max(anomalies, key=lambda a: severity_rank.get(a.get("severity", "info"), 0))
+        severity = worst.get("severity", "info")
+
+        return CostAdvisory(
+            recommended_action=CostAdvisory.severity_to_action(severity),
+            severity=severity,
+            reason=worst.get("description", f"{len(anomalies)} anomalies detected"),
+            workspace_id=workspace_id,
+            anomaly_count=len(anomalies),
+        )
+
+    def get_workspace_cost_advisory(self, workspace_id: str) -> CostAdvisory:
+        """Get the cached cost advisory for a workspace.
+
+        Returns the advisory from the last detect_and_store_anomalies() call,
+        or a no-action advisory if none exists.
+
+        Args:
+            workspace_id: Workspace to get advisory for
+
+        Returns:
+            The most recent CostAdvisory for this workspace
+        """
+        return self._last_advisory.get(
+            workspace_id,
+            CostAdvisory.no_action(workspace_id),
+        )
 
     def reset_daily_budgets(self) -> None:
         """Reset daily budget counters (called at midnight)."""
