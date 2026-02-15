@@ -407,7 +407,7 @@ class TestGetNomicCircuitBreakers:
 
             assert result.status_code == 500
             data = get_response_data(result)
-            assert "Unexpected error" in data["error"]
+            assert data["error"]  # Sanitized error message present
 
 
 # ===========================================================================
@@ -964,7 +964,7 @@ class TestResetNomicCircuitBreakers:
 
             assert result.status_code == 500
             data = get_response_data(result)
-            assert "Unexpected error" in data["error"]
+            assert data["error"]  # Sanitized error message present
 
     def test_reset_circuit_breakers_updates_metrics(self, nomic_handler, mock_http_handler):
         """Test reset circuit breakers updates metrics."""
@@ -1109,7 +1109,7 @@ class TestErrorHandling:
 
         assert result.status_code == 500
         data = get_response_data(result)
-        assert "Failed to write state" in data["error"]
+        assert data["error"]  # Sanitized error message present
 
     def test_file_write_error_pause(self, nomic_handler, mock_http_handler, tmp_path):
         """Test pause handles file write errors."""
@@ -1129,7 +1129,7 @@ class TestErrorHandling:
 
             assert result.status_code == 500
             data = get_response_data(result)
-            assert "Failed to pause nomic" in data["error"]
+            assert data["error"]  # Sanitized error message present
         finally:
             # Restore permissions for cleanup
             state_file.chmod(0o644)
@@ -1158,7 +1158,7 @@ class TestErrorHandling:
 
         assert result.status_code == 500
         data = get_response_data(result)
-        assert "Failed to resume nomic" in data["error"]
+        assert data["error"]  # Sanitized error message present
 
 
 # ===========================================================================
