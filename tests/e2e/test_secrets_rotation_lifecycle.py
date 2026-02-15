@@ -39,6 +39,21 @@ from aragora.scheduler.secrets_rotation_scheduler import (
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _reset_rotation_storage_conn():
+    """Reset the class-level ContextVar to prevent cross-test state leakage.
+
+    SecretsRotationStorage uses a class-level ContextVar for DB connections.
+    With :memory: databases, an old ContextVar value causes a new Storage
+    instance to reuse the previous test's connection (and its data).
+    """
+    from aragora.scheduler.secrets_rotation_scheduler import SecretsRotationStorage
+
+    token = SecretsRotationStorage._conn_var.set(None)
+    yield
+    SecretsRotationStorage._conn_var.set(None)
+
+
 @pytest.fixture
 def rotation_config():
     """Create a test rotation config with in-memory storage."""
