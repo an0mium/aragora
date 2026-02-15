@@ -457,6 +457,7 @@ def _has_rbac_protection(source: str) -> bool:
         "verify_auth",
         "require_permission",
         "require_role",
+        "require_auth",
         "auth_context",
         "authorization_context",
         "rbac_check",
@@ -580,6 +581,7 @@ class TestHandlerRBACEnforcement:
             has_perm = (
                 "require_permission" in source
                 or "require_role" in source
+                or "require_auth" in source
                 or "check_permission" in source
                 or "_check_rbac_permission" in source
                 or any(b in source for b in SECURE_BASE_CLASSES)
