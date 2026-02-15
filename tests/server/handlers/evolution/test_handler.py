@@ -364,14 +364,12 @@ class TestRateLimiting:
 class TestRBACPermissions:
     """Verify that the evolution:read permission is enforced."""
 
-    @pytest.mark.xfail(reason="EvolutionHandler is rate-limited only, no RBAC enforcement yet", strict=False)
     @pytest.mark.no_auto_auth
-    def test_missing_auth_context_raises(self, handler):
-        """Without auth context, the require_permission decorator should raise."""
-        from aragora.rbac.decorators import PermissionDeniedError
-
-        with pytest.raises(PermissionDeniedError):
-            handler.handle("/api/evolution/patterns", {}, _mock_http())
+    def test_missing_auth_context_returns_401(self, handler):
+        """Without auth context, require_auth_or_error returns 401."""
+        result = handler.handle("/api/evolution/patterns", {}, _mock_http())
+        assert result is not None
+        assert result.status_code in (401, 403)
 
     def test_handle_has_require_permission_decorator(self):
         """Verify handle method is decorated with require_permission."""
