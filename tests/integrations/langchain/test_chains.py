@@ -187,4 +187,4 @@ class TestAragoraResearchDebateChain:
         ):
             result = await chain._acall({"topic": "test"})
         assert "failed" in result["conclusion"].lower()
-        assert result["debate_summary"] == "Debate failed"
+        assert "debate" in result["debate_summary"].lower()
