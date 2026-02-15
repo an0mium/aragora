@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 if TYPE_CHECKING:
@@ -66,6 +67,7 @@ class AgentRecommendationHandler(BaseHandler):
         cleaned = strip_version_prefix(path)
         return cleaned in ("/api/agents/recommend", "/api/agents/leaderboard")
 
+    @require_permission("agents:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

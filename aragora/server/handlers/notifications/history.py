@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
@@ -43,6 +44,7 @@ class NotificationHistoryHandler(BaseHandler):
             "/api/notifications/delivery-stats",
         )
 
+    @require_permission("notifications:read")
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

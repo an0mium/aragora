@@ -34,6 +34,10 @@ class AudienceSuggestionsHandler(BaseHandler):
         return error_response("Method not allowed", 405)
 
     def _list_suggestions(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        user, perm_err = self.require_permission_or_error(handler, "audience:read")
+        if perm_err:
+            return perm_err
+
         debate_id = query_params.get("debate_id")
         if not debate_id:
             return error_response("debate_id query parameter is required", 400)

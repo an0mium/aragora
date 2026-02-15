@@ -42,6 +42,10 @@ class ContextBudgetHandler(BaseHandler):
         return error_response("Method not allowed", 405)
 
     def _get_budget(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+        user, perm_err = self.require_permission_or_error(handler, "admin:context_budget")
+        if perm_err:
+            return perm_err
+
         try:
             from aragora.debate.context_budgeter import (
                 DEFAULT_TOTAL_TOKENS,
@@ -89,6 +93,10 @@ class ContextBudgetHandler(BaseHandler):
         })
 
     def _estimate_budget(self, handler: Any) -> HandlerResult:
+        user, perm_err = self.require_permission_or_error(handler, "admin:context_budget")
+        if perm_err:
+            return perm_err
+
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
