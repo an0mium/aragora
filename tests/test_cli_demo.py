@@ -107,7 +107,7 @@ class TestMain:
             topic=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with("rate-limiter")
+        mock_run_demo.assert_called_once_with("rate-limiter", receipt_path=None)
 
     @patch("aragora.cli.demo.run_demo")
     def test_main_defaults_to_default_demo(self, mock_run_demo):
@@ -119,7 +119,7 @@ class TestMain:
             topic=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with(_DEFAULT_DEMO)
+        mock_run_demo.assert_called_once_with(_DEFAULT_DEMO, receipt_path=None)
 
     @patch("aragora.cli.demo.run_demo")
     def test_main_with_custom_demo(self, mock_run_demo):
@@ -131,7 +131,7 @@ class TestMain:
             topic=None,
         )
         main(args)
-        mock_run_demo.assert_called_once_with("auth")
+        mock_run_demo.assert_called_once_with("auth", receipt_path=None)
 
     def test_main_list_flag(self, capsys):
         """Main function lists demos with --list flag."""
