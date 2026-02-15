@@ -275,7 +275,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
                 results[store] = {"status": "pending", "message": "Re-encryption queued"}
             except (OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.error(f"Re-encryption failed for {store}: {e}")
-                results[store] = {"status": "failed", "error": str(e)}
+                results[store] = {"status": "failed", "error": "Re-encryption failed"}
 
         return {
             "secret_id": secret_id,

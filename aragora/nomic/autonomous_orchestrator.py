@@ -1664,7 +1664,7 @@ class AutonomousOrchestrator:
             )
 
         except Exception as e:
-            logger.warning("Failed to create convoy: %s", e)
+            logger.warning(f"Failed to create convoy: {e}")
 
     async def _update_bead_status(
         self,
@@ -1688,7 +1688,7 @@ class AutonomousOrchestrator:
             elif status == "failed":
                 await self.workspace_manager.fail_bead(bead_id, error or "Unknown error")
         except Exception as e:
-            logger.debug("Failed to update bead %s: %s", bead_id, e)
+            logger.debug(f"Failed to update bead {bead_id}: {e}")
 
     async def _complete_convoy(
         self,
@@ -1708,7 +1708,7 @@ class AutonomousOrchestrator:
                 tracker = self.workspace_manager._convoy_tracker
                 await tracker.fail_convoy(self._convoy_id, error or "Orchestration failed")
         except Exception as e:
-            logger.debug("Failed to complete convoy: %s", e)
+            logger.debug(f"Failed to complete convoy: {e}")
 
     def _hierarchical_to_orchestration_result(
         self,

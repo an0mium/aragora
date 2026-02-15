@@ -257,7 +257,7 @@ class RotationHandler(ABC):
                 status=RotationStatus.FAILED,
                 secret_id=secret_id,
                 secret_type=self.secret_type,
-                error_message=str(e),
+                error_message="Credential revocation failed",
             )
 
 
