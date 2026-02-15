@@ -1,0 +1,162 @@
+"""SME-friendly configuration presets for ArenaConfig.
+
+Provides one-line configuration shortcuts so SMEs don't need to discover
+18+ boolean flags individually.
+
+Usage:
+    from aragora.debate.presets import get_preset, apply_preset
+
+    # Get raw preset dict
+    preset = get_preset("sme")
+
+    # Apply with overrides
+    merged = apply_preset("sme", overrides={"enable_telemetry": True})
+
+    # Use with ArenaConfig
+    config = ArenaConfig(**apply_preset("sme"))
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+_PRESETS: dict[str, dict[str, Any]] = {
+    "sme": {
+        # Audit trail
+        "enable_receipt_generation": True,
+        "enable_receipt_auto_sign": True,
+        "enable_provenance": True,
+        "enable_bead_tracking": True,
+        # Knowledge
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        # Budget
+        "budget_downgrade_models": True,
+        # Memory
+        "enable_supermemory": True,
+        # Convergence
+        "enable_stability_detection": True,
+        # Tracking
+        "enable_position_ledger": True,
+        # Compliance
+        "enable_compliance_artifacts": True,
+    },
+    "enterprise": {
+        # Everything in SME
+        "enable_receipt_generation": True,
+        "enable_receipt_auto_sign": True,
+        "enable_provenance": True,
+        "enable_bead_tracking": True,
+        "enable_knowledge_extraction": True,
+        "enable_auto_revalidation": True,
+        "budget_downgrade_models": True,
+        "enable_supermemory": True,
+        "enable_stability_detection": True,
+        "enable_position_ledger": True,
+        "enable_compliance_artifacts": True,
+        # Enterprise extras
+        "enable_telemetry": True,
+        "use_airlock": True,
+        "enable_performance_monitor": True,
+    },
+    "minimal": {
+        # Cheap & fast
+        "enable_stability_detection": True,
+        "budget_downgrade_models": True,
+    },
+    "audit": {
+        # Maximum traceability
+        "enable_receipt_generation": True,
+        "enable_receipt_auto_sign": True,
+        "enable_provenance": True,
+        "enable_bead_tracking": True,
+        "enable_compliance_artifacts": True,
+        "enable_position_ledger": True,
+        "enable_telemetry": True,
+    },
+}
+
+_PRESET_DESCRIPTIONS: dict[str, str] = {
+    "sme": "Balanced preset for small/medium businesses: receipts, knowledge, budget controls, compliance",
+    "enterprise": "Full-featured preset: everything in SME plus telemetry, airlock, performance monitoring",
+    "minimal": "Lightweight preset: stability detection and budget controls only (fast & cheap)",
+    "audit": "Maximum traceability: receipts, provenance, beads, compliance, position ledger, telemetry",
+}
+
+
+def get_preset(name: str) -> dict[str, Any]:
+    """Get a preset configuration dict by name.
+
+    Args:
+        name: Preset name (sme, enterprise, minimal, audit).
+
+    Returns:
+        Dict of ArenaConfig kwargs.
+
+    Raises:
+        KeyError: If preset name is not found.
+    """
+    if name not in _PRESETS:
+        available = ", ".join(sorted(_PRESETS))
+        raise KeyError(f"Unknown preset '{name}'. Available: {available}")
+    return dict(_PRESETS[name])
+
+
+def list_presets() -> list[str]:
+    """List available preset names.
+
+    Returns:
+        Sorted list of preset names.
+    """
+    return sorted(_PRESETS)
+
+
+def get_preset_info(name: str) -> dict[str, Any]:
+    """Get preset metadata including description and flags.
+
+    Args:
+        name: Preset name.
+
+    Returns:
+        Dict with 'name', 'description', 'flags' keys.
+
+    Raises:
+        KeyError: If preset name is not found.
+    """
+    if name not in _PRESETS:
+        available = ", ".join(sorted(_PRESETS))
+        raise KeyError(f"Unknown preset '{name}'. Available: {available}")
+    return {
+        "name": name,
+        "description": _PRESET_DESCRIPTIONS.get(name, ""),
+        "flags": dict(_PRESETS[name]),
+    }
+
+
+def apply_preset(
+    name: str,
+    overrides: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Get a preset and merge with overrides.
+
+    Overrides take precedence over preset values.
+
+    Args:
+        name: Preset name.
+        overrides: Optional dict of overrides.
+        **kwargs: Additional overrides as keyword arguments.
+
+    Returns:
+        Merged configuration dict.
+
+    Raises:
+        KeyError: If preset name is not found.
+    """
+    merged = get_preset(name)
+    if overrides:
+        merged.update(overrides)
+    if kwargs:
+        merged.update(kwargs)
+    return merged

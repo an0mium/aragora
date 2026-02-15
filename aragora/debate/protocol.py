@@ -532,6 +532,11 @@ class DebateProtocol:
     # Deliberation template: inject domain-specific template context into prompts
     deliberation_template: str | None = None  # Template name from deliberation registry
 
+    # Privacy anonymization: Automatically anonymize PII in debate prompts and content
+    # Uses HIPAAAnonymizer to redact names, SSNs, emails, phone numbers, etc.
+    enable_privacy_anonymization: bool = False
+    privacy_anonymization_method: str = "redact"  # "redact", "hash", "pseudonymize"
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 
