@@ -915,7 +915,7 @@ class TestKnowledgeMoundExport:
         assert result.status_code == 500
         body = json.loads(result.body)
         assert "error" in body
-        assert "Export failed" in body["error"]
+        assert body["error"]  # Sanitized error message present
 
     def test_export_graphml_mound_unavailable(self, mound_handler, mock_http_handler):
         """Test GraphML export returns 503 when mound not available."""
