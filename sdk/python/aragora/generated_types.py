@@ -16,7 +16,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyUrl, BaseModel, Extra, Field
 
 
 class Code(StrEnum):
@@ -217,6 +217,15 @@ class ConsensusResult(BaseModel):
     dissenting_agents: list[str] | None = None
 
 
+class Agents(BaseModel):
+    provider: str
+    model: str | None = None
+    persona: str | None = None
+    role: str | None = None
+    name: str | None = None
+    hierarchy_role: str | None = None
+
+
 class Consensus(StrEnum):
     majority = "majority"
     unanimous = "unanimous"
@@ -227,11 +236,19 @@ class Consensus(StrEnum):
     none = "none"
 
 
+class DebateFormat(StrEnum):
+    light = "light"
+    full = "full"
+
+
 class AutoSelectConfig(BaseModel):
-    min_agents: int | None = 3
-    max_agents: int | None = 5
-    diversity_weight: float | None = 0.3
-    expertise_weight: float | None = 0.7
+    primary_domain: str | None = "general"
+    secondary_domains: list[str] | None = None
+    required_traits: list[str] | None = None
+    min_agents: int | None = 2
+    max_agents: int | None = 4
+    quality_priority: float | None = 0.7
+    diversity_preference: float | None = 0.5
 
 
 class TrendingCategory(StrEnum):
@@ -257,12 +274,12 @@ class DebateCreateRequest(BaseModel):
         Field(deprecated=True, description="Alias for task (deprecated, use task instead)"),
     ] = None
     agents: Annotated[
-        list[str] | None,
+        list[str | Agents] | None,
         Field(
-            description="List of agent names to participate. If empty, auto_select is used.",
+            description="List of agent specs to participate. If empty, auto_select is used.",
             example=["claude", "gpt-4", "gemini"],
             max_items=8,
-            min_items=2,
+            min_items=0,
         ),
     ] = None
     rounds: Annotated[
@@ -281,6 +298,9 @@ class DebateCreateRequest(BaseModel):
             max_length=10000,
         ),
     ] = None
+    debate_format: Annotated[DebateFormat | None, Field(description="Debate protocol preset")] = (
+        "full"
+    )
     documents: Annotated[
         list[str] | None,
         Field(
@@ -296,11 +316,23 @@ class DebateCreateRequest(BaseModel):
     ] = None
     auto_select: Annotated[
         bool | None,
-        Field(description="Automatically select optimal agents based on topic"),
-    ] = True
+        Field(
+            description="Automatically select optimal agents based on topic (used when agents is empty)"
+        ),
+    ] = False
     auto_select_config: Annotated[
         AutoSelectConfig | None,
         Field(description="Configuration for auto-selection algorithm"),
+    ] = None
+    enable_verticals: Annotated[
+        bool | None,
+        Field(
+            description="Enable vertical specialist injection for the task domain (default set by ARAGORA_ENABLE_VERTICALS)"
+        ),
+    ] = True
+    vertical_id: Annotated[
+        str | None,
+        Field(description="Explicit vertical ID to inject (e.g., software, legal, healthcare)"),
     ] = None
     use_trending: Annotated[
         bool | None,
@@ -309,6 +341,10 @@ class DebateCreateRequest(BaseModel):
     trending_category: Annotated[
         TrendingCategory | None,
         Field(description="Category filter for trending content"),
+    ] = None
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(description="Optional metadata for tracking and integrations"),
     ] = None
 
 
@@ -2182,7 +2218,8 @@ class AnalyticsOutcomeConfidenceBucket(BaseModel):
 
 
 class Outcomes(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    class Config:
+        extra = Extra.forbid
 
     consensus: int | None = None
     majority: int | None = None
@@ -2356,6 +2393,261 @@ class AnalyticsActiveUsers(BaseModel):
     activity_distribution: AnalyticsActivityDistribution | None = None
     message: str | None = None
     generated_at: datetime | None = None
+
+
+class Role1(StrEnum):
+    observer = "observer"
+    participant = "participant"
+    moderator = "moderator"
+
+
+class DebateJoinRequest(BaseModel):
+    role: Annotated[Role1 | None, Field(description="Role in the debate")] = "observer"
+    display_name: Annotated[
+        str | None,
+        Field(description="Display name shown to other participants", max_length=100),
+    ] = None
+
+
+class DebateVoteRequest(BaseModel):
+    position: Annotated[
+        str,
+        Field(description="The position being voted on", max_length=500, min_length=1),
+    ]
+    intensity: Annotated[
+        int | None,
+        Field(description="Vote intensity/conviction (1=weak, 10=strong)", ge=1, le=10),
+    ] = 5
+    reasoning: Annotated[
+        str | None,
+        Field(description="Optional reasoning for the vote", max_length=2000),
+    ] = None
+
+
+class Type3(StrEnum):
+    argument = "argument"
+    question = "question"
+    evidence = "evidence"
+    follow_up = "follow_up"
+
+
+class DebateSuggestionRequest(BaseModel):
+    content: Annotated[
+        str,
+        Field(description="The suggestion or argument text", max_length=5000, min_length=1),
+    ]
+    type: Annotated[Type3 | None, Field(description="Type of suggestion")] = "argument"
+    target_agent: Annotated[
+        str | None,
+        Field(description="Optional: direct the suggestion at a specific agent"),
+    ] = None
+
+
+class Consensus2(StrEnum):
+    majority = "majority"
+    unanimous = "unanimous"
+    supermajority = "supermajority"
+    weighted = "weighted"
+    hybrid = "hybrid"
+    judge = "judge"
+    none = "none"
+
+
+class DebateUpdateRequest(BaseModel):
+    rounds: Annotated[int | None, Field(description="Update max rounds", ge=1, le=12)] = None
+    consensus: Annotated[Consensus2 | None, Field(description="Change consensus strategy")] = None
+    context: Annotated[
+        str | None, Field(description="Append additional context", max_length=10000)
+    ] = None
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(description="Update metadata (merged with existing)"),
+    ] = None
+
+
+class DebateForkRequest(BaseModel):
+    branch_point: Annotated[int, Field(description="Round number to branch from (1-indexed)", ge=1)]
+    new_premise: Annotated[
+        str | None,
+        Field(description="New premise or constraint for the forked branch", max_length=2000),
+    ] = None
+
+
+class Format1(StrEnum):
+    audio = "audio"
+    video = "video"
+
+
+class DebateBroadcastRequest(BaseModel):
+    format: Annotated[Format1 | None, Field(description="Output format for the broadcast")] = (
+        "audio"
+    )
+    voices: Annotated[
+        dict[str, str] | None,
+        Field(description="Voice mapping (agent_name -> voice_id)"),
+    ] = None
+    language: Annotated[str | None, Field(description="Language code for TTS")] = "en-US"
+
+
+class DebateCloneRequest(BaseModel):
+    preserveAgents: Annotated[bool | None, Field(description="Keep the same agent lineup")] = True
+    preserveContext: Annotated[
+        bool | None, Field(description="Keep the original context and documents")
+    ] = True
+
+
+class DebateFollowupRequest(BaseModel):
+    cruxId: Annotated[str | None, Field(description="ID of the crux claim to follow up on")] = None
+    context: Annotated[
+        str | None,
+        Field(description="Additional context for the follow-up", max_length=5000),
+    ] = None
+
+
+class DebateEvidenceRequest(BaseModel):
+    evidence: Annotated[
+        str,
+        Field(description="The evidence text or URL", max_length=10000, min_length=1),
+    ]
+    source: Annotated[str | None, Field(description="Source attribution", max_length=500)] = None
+    metadata: Annotated[
+        dict[str, Any] | None,
+        Field(description="Additional metadata about the evidence"),
+    ] = None
+
+
+class DebateVerifyClaimRequest(BaseModel):
+    claim_id: Annotated[str, Field(description="ID of the claim to verify")]
+    evidence: Annotated[
+        str | None,
+        Field(description="Optional evidence to check the claim against", max_length=5000),
+    ] = None
+
+
+class Type4(StrEnum):
+    suggestion = "suggestion"
+    vote = "vote"
+    question = "question"
+    context = "context"
+
+
+class DebateUserInputRequest(BaseModel):
+    input: Annotated[str, Field(description="The user's input text", max_length=5000, min_length=1)]
+    type: Annotated[Type4 | None, Field(description="Type of user input")] = "suggestion"
+
+
+class DebateCounterfactualRequest(BaseModel):
+    condition: Annotated[
+        str, Field(description="The hypothetical condition to analyze", max_length=2000)
+    ]
+    variables: Annotated[
+        dict[str, Any] | None, Field(description="Variables to adjust in the scenario")
+    ] = None
+
+
+class Role2(StrEnum):
+    user = "user"
+    system = "system"
+
+
+class DebateMessageRequest(BaseModel):
+    content: Annotated[str, Field(description="Message content", max_length=5000, min_length=1)]
+    role: Annotated[Role2 | None, Field(description="Message role")] = "user"
+
+
+class DebateBatchRequest(BaseModel):
+    requests: Annotated[
+        list[DebateCreateRequest],
+        Field(description="Array of debate creation requests", max_items=50, min_items=1),
+    ]
+
+
+class Type5(StrEnum):
+    argument = "argument"
+    follow_up = "follow_up"
+
+
+class DebateInjectArgumentRequest(BaseModel):
+    content: Annotated[
+        str,
+        Field(description="The argument or question to inject", max_length=5000, min_length=1),
+    ]
+    type: Annotated[Type5 | None, Field(description="Type of injection")] = "argument"
+    source: Annotated[str | None, Field(description="Source identifier")] = "user"
+    user_id: Annotated[str | None, Field(description="User ID for attribution")] = None
+
+
+class DebateUpdateWeightsRequest(BaseModel):
+    agent: Annotated[str, Field(description="Agent name or ID", min_length=1)]
+    weight: Annotated[
+        float,
+        Field(description="Influence weight (0.0=muted, 1.0=normal, 2.0=double)", ge=0.0, le=2.0),
+    ]
+    user_id: Annotated[str | None, Field(description="User ID for audit trail")] = None
+
+
+class DebateUpdateThresholdRequest(BaseModel):
+    threshold: Annotated[
+        float,
+        Field(
+            description="Consensus threshold (0.5=majority, 0.75=strong, 1.0=unanimous)",
+            ge=0.5,
+            le=1.0,
+        ),
+    ]
+    user_id: Annotated[str | None, Field(description="User ID for audit trail")] = None
+
+
+class DebateCostEstimateRequest(BaseModel):
+    num_agents: Annotated[
+        int | None, Field(description="Number of agents to participate", ge=1, le=8)
+    ] = 3
+    num_rounds: Annotated[int | None, Field(description="Number of debate rounds", ge=1, le=12)] = 9
+    model_types: Annotated[
+        list[str] | None,
+        Field(
+            description="Model types to use", example=["claude-sonnet-4", "gpt-4o", "gemini-pro"]
+        ),
+    ] = None
+
+
+class BreakdownByModelItem(BaseModel):
+    model: str | None = None
+    provider: str | None = None
+    estimated_input_tokens: int | None = None
+    estimated_output_tokens: int | None = None
+    input_cost_usd: float | None = None
+    output_cost_usd: float | None = None
+    subtotal_usd: float | None = None
+
+
+class Assumptions(BaseModel):
+    avg_input_tokens_per_round: int | None = None
+    avg_output_tokens_per_round: int | None = None
+    includes_system_prompt: bool | None = None
+
+
+class DebateCostEstimateResponse(BaseModel):
+    total_estimated_cost_usd: Annotated[float, Field(description="Total estimated cost in USD")]
+    breakdown_by_model: Annotated[
+        list[BreakdownByModelItem], Field(description="Cost breakdown per model")
+    ]
+    assumptions: Annotated[
+        Assumptions | None, Field(description="Assumptions used for the estimate")
+    ] = None
+    num_agents: int | None = None
+    num_rounds: int | None = None
+
+
+class WebSocketResumeToken(BaseModel):
+    resume_token: Annotated[
+        str, Field(description="Opaque token encoding the last received event position")
+    ]
+    debate_id: Annotated[str, Field(description="Debate this token belongs to")]
+    last_seq: Annotated[int, Field(description="Sequence number of last received event")]
+    expires_at: Annotated[datetime | None, Field(description="When this resume token expires")] = (
+        None
+    )
 
 
 class Debate(BaseModel):
