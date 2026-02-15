@@ -309,7 +309,7 @@ class TestBlockchainConfig:
         """Should return 500 on provider error."""
         with (
             patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
-            patch.object(erc8004, "_get_provider", side_effect=Exception("Connection failed")),
+            patch.object(erc8004, "_get_provider", side_effect=RuntimeError("Connection failed")),
         ):
             result = await erc8004.handle_blockchain_config()
 
@@ -365,7 +365,7 @@ class TestGetAgent:
     async def test_get_agent_not_found(self, mock_provider, mock_circuit_breaker):
         """Should return 404 for non-existent agent."""
         mock_contract = MagicMock()
-        mock_contract.get_agent.side_effect = Exception("Agent not found")
+        mock_contract.get_agent.side_effect = LookupError("Agent not found")
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
@@ -442,7 +442,7 @@ class TestGetReputation:
     async def test_get_reputation_not_found(self, mock_provider, mock_circuit_breaker):
         """Should return 404 when reputation not found."""
         mock_contract = MagicMock()
-        mock_contract.get_summary.side_effect = Exception("No reputation data")
+        mock_contract.get_summary.side_effect = LookupError("No reputation data")
 
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
@@ -630,7 +630,7 @@ class TestBlockchainHealth:
 
         with (
             patch.object(erc8004, "_get_connector", return_value=mock_connector),
-            patch.object(erc8004, "_get_adapter", side_effect=Exception("Adapter error")),
+            patch.object(erc8004, "_get_adapter", side_effect=RuntimeError("Adapter error")),
         ):
             result = await erc8004.handle_blockchain_health()
 

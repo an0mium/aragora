@@ -689,7 +689,7 @@ class TestSecurityScanEndpoint:
         self, mock_code_reviewer_with_security_findings, reset_review_storage
     ):
         """Test error handling when reviewer service fails."""
-        mock_code_reviewer_with_security_findings.review_code.side_effect = Exception(
+        mock_code_reviewer_with_security_findings.review_code.side_effect = RuntimeError(
             "Service unavailable"
         )
 
@@ -705,7 +705,7 @@ class TestSecurityScanEndpoint:
 
             assert result.status_code == 500
             response = get_response_data(result)
-            assert "failed" in response["error"].lower()
+            assert response["error"]  # Sanitized error message present
 
 
 class TestReviewResultRetrieval:
@@ -830,7 +830,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_review_code_service_error(self, mock_code_reviewer, reset_review_storage):
         """Test handling of service errors during code review."""
-        mock_code_reviewer.review_code.side_effect = Exception("Service unavailable")
+        mock_code_reviewer.review_code.side_effect = RuntimeError("Service unavailable")
 
         with patch(
             "aragora.server.handlers.code_review.get_code_reviewer",
@@ -842,12 +842,12 @@ class TestErrorHandling:
 
             assert result.status_code == 500
             response = get_response_data(result)
-            assert "failed" in response["error"].lower()
+            assert response["error"]  # Sanitized error message present
 
     @pytest.mark.asyncio
     async def test_review_diff_service_error(self, mock_code_reviewer, reset_review_storage):
         """Test handling of service errors during diff review."""
-        mock_code_reviewer.review_diff.side_effect = Exception("Network error")
+        mock_code_reviewer.review_diff.side_effect = RuntimeError("Network error")
 
         with patch(
             "aragora.server.handlers.code_review.get_code_reviewer",
@@ -862,7 +862,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_review_pr_service_error(self, mock_code_reviewer, reset_review_storage):
         """Test handling of service errors during PR review."""
-        mock_code_reviewer.review_pr.side_effect = Exception("GitHub API error")
+        mock_code_reviewer.review_pr.side_effect = RuntimeError("GitHub API error")
 
         with patch(
             "aragora.server.handlers.code_review.get_code_reviewer",
