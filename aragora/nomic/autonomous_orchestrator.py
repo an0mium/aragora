@@ -791,10 +791,7 @@ class AutonomousOrchestrator:
                 # Budget hard cutoff: don't start new tasks if budget exceeded
                 if self.budget_limit is not None and self._total_cost_usd > self.budget_limit:
                     logger.warning(
-                        "budget_exceeded limit=%.2f spent=%.2f remaining_tasks=%d",
-                        self.budget_limit,
-                        self._total_cost_usd,
-                        len(pending),
+                        f"budget_exceeded limit={self.budget_limit:.2f} spent={self._total_cost_usd:.2f} remaining_tasks={len(pending)}"
                     )
                     for p in pending:
                         p.status = "skipped"
