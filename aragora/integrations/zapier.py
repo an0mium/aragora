@@ -18,6 +18,7 @@ Actions:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -26,6 +27,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import aiohttp
 from aiohttp import ClientTimeout
 
 from aragora.integrations.base import BaseIntegration
@@ -175,8 +177,11 @@ class ZapierIntegration(BaseIntegration):
                 timeout=ClientTimeout(total=10),
             ) as response:
                 return response.status == 200
-        except Exception as e:
-            logger.error(f"Failed to send Zapier webhook: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.error(f"Zapier webhook connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"Zapier webhook payload error: {type(e).__name__}: {e}")
             return False
 
     # =========================================================================
@@ -400,8 +405,11 @@ class ZapierIntegration(BaseIntegration):
                 else:
                     logger.warning(f"Zapier trigger {trigger.id} failed: {response.status}")
                     return False
-        except Exception as e:
-            logger.error(f"Failed to fire Zapier trigger {trigger.id}: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.error(f"Zapier trigger {trigger.id} connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"Zapier trigger {trigger.id} payload error: {type(e).__name__}: {e}")
             return False
 
     def _format_trigger_payload(

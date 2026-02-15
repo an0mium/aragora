@@ -15,6 +15,7 @@ Regular Nodes:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -24,6 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+import aiohttp
 from aiohttp import ClientTimeout
 
 from aragora.integrations.base import BaseIntegration
@@ -286,8 +288,11 @@ class N8nIntegration(BaseIntegration):
                 timeout=ClientTimeout(total=10),
             ) as response:
                 return response.status == 200
-        except Exception as e:
-            logger.error(f"Failed to send n8n webhook: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.error(f"n8n webhook connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"n8n webhook payload error: {type(e).__name__}: {e}")
             return False
 
     # =========================================================================
@@ -534,8 +539,11 @@ class N8nIntegration(BaseIntegration):
                 else:
                     logger.warning(f"n8n webhook {webhook.id} failed: {response.status}")
                     return False
-        except Exception as e:
-            logger.error(f"Failed to dispatch to n8n webhook {webhook.id}: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            logger.error(f"n8n webhook {webhook.id} connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"n8n webhook {webhook.id} payload error: {type(e).__name__}: {e}")
             return False
 
     def _format_webhook_payload(

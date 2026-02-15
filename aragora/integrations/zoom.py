@@ -26,6 +26,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -480,8 +481,11 @@ class ZoomIntegration:
 
             return None
 
-        except Exception as e:
-            logger.error(f"Failed to get transcript: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error(f"Zoom transcript connection error: {type(e).__name__}: {e}")
+            return None
+        except (ValueError, KeyError) as e:
+            logger.error(f"Zoom transcript parse error: {type(e).__name__}: {e}")
             return None
 
     async def send_chat_message(
@@ -519,8 +523,11 @@ class ZoomIntegration:
             await self._api_request("POST", endpoint, data=data)
             logger.debug("Zoom chat message sent")
             return True
-        except Exception as e:
-            logger.error(f"Failed to send Zoom chat: {e}")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error(f"Zoom chat connection error: {type(e).__name__}: {e}")
+            return False
+        except (ValueError, TypeError) as e:
+            logger.error(f"Zoom chat payload error: {type(e).__name__}: {e}")
             return False
 
     async def send_debate_summary(
