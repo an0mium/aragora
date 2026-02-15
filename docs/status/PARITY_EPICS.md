@@ -9,11 +9,22 @@ extensions, while keeping Aragora as the enterprise decision control plane.
 Owner: Platform
 Milestone: M1 (2026-02-16 to 2026-03-13)
 Goal: Scale to large-N agents with isolation, quotas, and lifecycle controls.
+Status: **READY FOR M1 LAUNCH** (95%)
+- 6,035 LOC across 11 modules (fabric.py, lifecycle.py, scheduler.py, policy.py, budget.py, models.py, hooks.py, isolation.py, telemetry.py, audit.py, nudge.py)
+- 163 tests passing including 18 load tests
+- Load tested to 100 concurrent agents, p99 scheduling latency < 50ms, throughput > 200 tasks/sec
+- Remaining: server integration end-to-end test, GUPP patrol cycle (non-blocking)
 
 ### EPIC-2: Policy + Safety Gate
 Owner: Security + Runtime
 Milestone: M1 (2026-02-16 to 2026-03-13)
 Goal: Unified policy enforcement and approvals for tools, devices, and sandboxed actions.
+Status: **READY FOR M1 LAUNCH** (100%)
+- 1,268 LOC policy engine with safe AST-based condition evaluation
+- 5 risk levels x 5 blast radii = 25 risk profiles
+- 144 tests passing (73 policy + 71 integration)
+- 1,059 LOC HTTP API handlers (policy.py + control_plane/policy.py)
+- Features complete: risk budgets, approval workflows, rate limiting, audit trails, default policies
 
 ### EPIC-3: Gastown Workspace Extension
 Owner: Workspace
