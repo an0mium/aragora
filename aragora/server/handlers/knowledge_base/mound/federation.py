@@ -398,7 +398,7 @@ class FederationOperationsMixin:
 
         try:
             status = _run_async(mound.get_federation_status())
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to list regions: {e}")
             return error_response("Failed to list regions", 500)
 

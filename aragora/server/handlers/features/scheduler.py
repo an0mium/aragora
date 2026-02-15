@@ -511,7 +511,7 @@ class SchedulerHandler(BaseHandler):
                     "runs": [run.to_dict() for run in runs],
                 }
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             logger.error(f"Git push handling failed: {e}")
             return error_response(safe_error_message(e, "Git push handling"), 500)
 
@@ -559,6 +559,6 @@ class SchedulerHandler(BaseHandler):
                     "runs": [run.to_dict() for run in runs],
                 }
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
             logger.error(f"File upload handling failed: {e}")
             return error_response(safe_error_message(e, "File upload handling"), 500)

@@ -1822,6 +1822,7 @@ def reset_orchestrator() -> None:
 __all__ = [
     "AutonomousOrchestrator",
     "AgentRouter",
+    "BudgetExceededError",
     "FeedbackLoop",
     "HierarchyConfig",
     "Track",

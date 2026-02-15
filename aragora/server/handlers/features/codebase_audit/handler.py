@@ -711,7 +711,7 @@ class CodebaseAuditHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError) as e:
             logger.exception(f"Error dismissing finding: {e}")
             return error_response("Dismiss operation failed", 500)
 
@@ -776,7 +776,7 @@ class CodebaseAuditHandler(SecureHandler):
                 }
             )
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, AttributeError, ConnectionError, OSError) as e:
             logger.exception(f"Error creating issue: {e}")
             return error_response("Issue creation failed", 500)
 
