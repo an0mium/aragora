@@ -613,7 +613,7 @@ class AuditScheduler:
 
         except Exception as e:
             run.status = "error"
-            run.error_message = str(e)
+            run.error_message = "Audit job execution failed"
             run.completed_at = datetime.now(timezone.utc)
             job.status = (
                 ScheduleStatus.ERROR
