@@ -458,6 +458,6 @@ class GraphDebatesHandler(SecureHandler):
         try:
             nodes = await storage.get_debate_nodes(debate_id)
             return json_response({"debate_id": debate_id, "nodes": nodes})
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get nodes for {debate_id}: {e}")
             return error_response("Failed to retrieve nodes", 500)

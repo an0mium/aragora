@@ -439,7 +439,7 @@ class AgentsHandler(  # type: ignore[misc]
                     "available_count": sum(1 for a in local_agents if a.get("available", False)),
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Could not detect local LLMs: {e}")
             return json_response(
                 {

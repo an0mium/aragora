@@ -249,6 +249,6 @@ class ConfidenceDecayOperationsMixin:
             _stats_fn: Any = mound.get_decay_stats
             stats = _stats_fn()
             return json_response(stats)
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError) as e:
             logger.error(f"Error getting decay stats: {e}")
             return error_response(safe_error_message(e), status=500)

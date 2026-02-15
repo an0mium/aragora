@@ -792,7 +792,7 @@ async def handle_analyze_impact(repo_id: str, body: dict[str, Any]) -> HandlerRe
 
         return success_response(result)
 
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error(f"Impact analysis failed: {e}")
         return error_response("Impact analysis failed", status=500)
 
@@ -856,7 +856,7 @@ async def handle_understand(repo_id: str, body: dict[str, Any]) -> HandlerResult
     except ImportError as e:
         logger.error(f"CodebaseUnderstandingAgent not available: {e}")
         return error_response("Codebase understanding not available", status=503)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error(f"Understanding query failed: {e}")
         return error_response("Understanding query failed", status=500)
 

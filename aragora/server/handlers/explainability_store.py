@@ -403,7 +403,7 @@ class DatabaseBatchJobStore(BatchJobStore):
                         f"DELETE FROM {self._TABLE_NAME} WHERE batch_id = ?",
                         (row_batch_id,),
                     )
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.warning("Failed to delete expired batch %s: %s", row_batch_id, e)
                 continue
             jobs.append(self._row_to_job(db_row))
@@ -475,7 +475,7 @@ def get_batch_job_store() -> BatchJobStore:
                         _batch_store = RedisBatchJobStore(redis_client, ttl=ttl_seconds)
                         logger.info("batch_job_store_initialized", extra={"backend": "redis"})
                         return _batch_store
-            except Exception as e:
+            except (ImportError, ConnectionError, OSError, RuntimeError) as e:
                 logger.warning("Redis batch store unavailable: %s", e)
             _batch_store = _create_sqlite_store(
                 "Redis not available for explainability batch store"

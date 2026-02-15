@@ -330,7 +330,7 @@ class GlobalKnowledgeOperationsMixin:
 
         try:
             workspace_id: str = mound.get_system_workspace_id()
-        except Exception as e:
+        except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.error(f"Failed to get system workspace ID: {e}")
             return error_response("Failed to get system workspace ID", 500)
 

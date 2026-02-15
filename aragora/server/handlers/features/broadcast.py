@@ -176,7 +176,7 @@ class BroadcastHandler(BaseHandler):
                     "error": result.error_message,
                 }
             )
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Pipeline failed for {debate_id}: {e}", exc_info=True)
             return error_response(_safe_error_message(e, "broadcast_pipeline"), status=500)
 

@@ -726,7 +726,7 @@ class DocumentHandler(BaseHandler):
 
         try:
             file_content = handler.rfile.read(content_length)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, MemoryError) as e:
             logger.warning("Failed to read raw upload body: %s", e)
             return (
                 None,

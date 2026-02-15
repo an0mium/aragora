@@ -264,7 +264,7 @@ class ApprovalHandler:
                 {"success": False, "error": "Permission denied"},
                 status=403,
             )
-        except Exception as e:
+        except (KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("Error getting approval request: %s", e)
             return web.json_response(
                 {"success": False, "error": "Failed to retrieve approval request"},

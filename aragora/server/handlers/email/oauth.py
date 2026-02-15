@@ -64,7 +64,7 @@ async def handle_gmail_oauth_url(
             "scopes": scopes,
         }
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.exception(f"Failed to get OAuth URL: {e}")
         return {
             "success": False,

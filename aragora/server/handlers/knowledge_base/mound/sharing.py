@@ -173,7 +173,7 @@ class SharingOperationsMixin:
         except ValueError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Resource not found", 404)
-        except Exception as e:
+        except (KeyError, OSError, TypeError, RuntimeError, AttributeError) as e:
             logger.error(f"Failed to share item: {e}")
             return error_response("Failed to share item", 500)
 

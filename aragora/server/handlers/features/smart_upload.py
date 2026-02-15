@@ -896,7 +896,7 @@ async def _expand_archive(
                             "compressed": info.compress_size,
                         }
                     )
-        except Exception as e:
+        except (zipfile.BadZipFile, OSError, ValueError) as e:
             logger.warning("Archive expansion failed: %s", e)
             return error_dict("Archive expansion failed", code="INTERNAL_ERROR", status=500)
 
