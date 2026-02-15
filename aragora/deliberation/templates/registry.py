@@ -247,7 +247,7 @@ class TemplateRegistry:
             score = float(sim)
             if domain and template.category.value == domain:
                 score += 0.3  # domain boost
-            if score > 0.01:  # minimum threshold
+            if score > 0.15:  # minimum relevance threshold
                 scored.append((score, template))
 
         scored.sort(key=lambda x: (-x[0], x[1].name))

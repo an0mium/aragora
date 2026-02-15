@@ -240,7 +240,7 @@ async def run_sast_scan(
     except ImportError:
         logger.warning("SAST scanner not available, using mock data")
         findings = _get_mock_sast_findings(scan_id)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
         logger.warning(f"SAST scan error, using mock data: {e}")
         findings = _get_mock_sast_findings(scan_id)
 
@@ -283,7 +283,7 @@ async def run_bug_scan(
     except ImportError:
         logger.warning("Bug detector not available, using mock data")
         findings = _get_mock_bug_findings(scan_id)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
         logger.warning(f"Bug scan error, using mock data: {e}")
         findings = _get_mock_bug_findings(scan_id)
 
@@ -325,7 +325,7 @@ async def run_secrets_scan(
     except ImportError:
         logger.warning("Secrets scanner not available, using mock data")
         findings = _get_mock_secrets_findings(scan_id)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
         logger.warning(f"Secrets scan error, using mock data: {e}")
         findings = _get_mock_secrets_findings(scan_id)
 
@@ -373,7 +373,7 @@ async def run_dependency_scan(
     except ImportError:
         logger.warning("Dependency scanner not available, using mock data")
         findings = _get_mock_dependency_findings(scan_id)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
         logger.warning(f"Dependency scan error, using mock data: {e}")
         findings = _get_mock_dependency_findings(scan_id)
 
@@ -413,7 +413,7 @@ async def run_metrics_analysis(
     except ImportError:
         logger.warning("Metrics analyzer not available, using mock data")
         metrics = _get_mock_metrics()
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
         logger.warning(f"Metrics analysis error, using mock data: {e}")
         metrics = _get_mock_metrics()
 
