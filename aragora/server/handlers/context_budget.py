@@ -52,10 +52,12 @@ class ContextBudgetHandler(BaseHandler):
                 DEFAULT_SECTION_LIMITS,
             )
 
-            return json_response({
-                "total_tokens": DEFAULT_TOTAL_TOKENS,
-                "section_limits": DEFAULT_SECTION_LIMITS,
-            })
+            return json_response(
+                {
+                    "total_tokens": DEFAULT_TOTAL_TOKENS,
+                    "section_limits": DEFAULT_SECTION_LIMITS,
+                }
+            )
         except Exception as exc:
             logger.error("Failed to get context budget: %s", exc)
             return error_response("Failed to get context budget", 500)
@@ -79,18 +81,22 @@ class ContextBudgetHandler(BaseHandler):
             return error_response("section_limits must be a dict", 400)
 
         import os
+
         if total_tokens is not None:
             os.environ["ARAGORA_CONTEXT_TOTAL_TOKENS"] = str(total_tokens)
 
         if section_limits is not None:
             import json
+
             os.environ["ARAGORA_CONTEXT_SECTION_LIMITS"] = json.dumps(section_limits)
 
-        return json_response({
-            "updated": True,
-            "total_tokens": total_tokens,
-            "section_limits": section_limits,
-        })
+        return json_response(
+            {
+                "updated": True,
+                "total_tokens": total_tokens,
+                "section_limits": section_limits,
+            }
+        )
 
     def _estimate_budget(self, handler: Any) -> HandlerResult:
         user, perm_err = self.require_permission_or_error(handler, "admin:context_budget")
@@ -115,10 +121,12 @@ class ContextBudgetHandler(BaseHandler):
                 estimates[section_name] = tokens
                 total += tokens
 
-            return json_response({
-                "estimates": estimates,
-                "total_estimated_tokens": total,
-            })
+            return json_response(
+                {
+                    "estimates": estimates,
+                    "total_estimated_tokens": total,
+                }
+            )
         except Exception as exc:
             logger.error("Failed to estimate context budget: %s", exc)
             return error_response("Failed to estimate context budget", 500)

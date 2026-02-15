@@ -68,9 +68,7 @@ class AgentRecommendationHandler(BaseHandler):
         return cleaned in ("/api/agents/recommend", "/api/agents/leaderboard")
 
     @require_permission("agents:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         cleaned = strip_version_prefix(path)
 
@@ -148,11 +146,13 @@ class AgentRecommendationHandler(BaseHandler):
 
                 recommendations.append(agent_dict)
 
-            return json_response({
-                "recommendations": recommendations,
-                "domain": domain,
-                "count": len(recommendations),
-            })
+            return json_response(
+                {
+                    "recommendations": recommendations,
+                    "domain": domain,
+                    "count": len(recommendations),
+                }
+            )
         except Exception as e:
             logger.error("Agent recommendation failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get agent recommendations", 500)
@@ -190,16 +190,18 @@ class AgentRecommendationHandler(BaseHandler):
 
             stats = elo.get_stats() if hasattr(elo, "get_stats") else {}
 
-            return json_response({
-                "leaderboard": agents,
-                "count": len(agents),
-                "domain": domain,
-                "stats": {
-                    "total_agents": stats.get("total_agents", len(agents)),
-                    "total_matches": stats.get("total_matches", 0),
-                    "mean_elo": stats.get("avg_elo", stats.get("mean_elo", 1500)),
-                },
-            })
+            return json_response(
+                {
+                    "leaderboard": agents,
+                    "count": len(agents),
+                    "domain": domain,
+                    "stats": {
+                        "total_agents": stats.get("total_agents", len(agents)),
+                        "total_matches": stats.get("total_matches", 0),
+                        "mean_elo": stats.get("avg_elo", stats.get("mean_elo", 1500)),
+                    },
+                }
+            )
         except Exception as e:
             logger.error("Leaderboard fetch failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get leaderboard", 500)

@@ -45,9 +45,7 @@ class NotificationHistoryHandler(BaseHandler):
         )
 
     @require_permission("notifications:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         cleaned = strip_version_prefix(path)
 
         client_ip = get_client_ip(handler)
@@ -68,6 +66,7 @@ class NotificationHistoryHandler(BaseHandler):
             return service
         try:
             from aragora.notifications.service import get_notification_service
+
             return get_notification_service()
         except (ImportError, Exception):
             return None
@@ -90,11 +89,11 @@ class NotificationHistoryHandler(BaseHandler):
             if channel_filter:
                 try:
                     from aragora.notifications.models import NotificationChannel
+
                     channel_enum = NotificationChannel(channel_filter.lower())
                 except (ValueError, ImportError):
                     return error_response(
-                        f"Invalid channel: {channel_filter}. "
-                        "Valid: slack, email, webhook",
+                        f"Invalid channel: {channel_filter}. Valid: slack, email, webhook",
                         400,
                     )
 
@@ -104,16 +103,18 @@ class NotificationHistoryHandler(BaseHandler):
             )
 
             # Apply offset
-            paginated = history[offset:offset + limit]
+            paginated = history[offset : offset + limit]
 
-            return json_response({
-                "notifications": paginated,
-                "count": len(paginated),
-                "total": len(history),
-                "limit": limit,
-                "offset": offset,
-                "channel": channel_filter,
-            })
+            return json_response(
+                {
+                    "notifications": paginated,
+                    "count": len(paginated),
+                    "total": len(history),
+                    "limit": limit,
+                    "offset": offset,
+                    "channel": channel_filter,
+                }
+            )
         except Exception as e:
             logger.error("Notification history failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get notification history", 500)
@@ -154,20 +155,23 @@ class NotificationHistoryHandler(BaseHandler):
             dlq_count = 0
             try:
                 from aragora.control_plane.notifications import get_notification_dispatcher
+
                 dispatcher = get_notification_dispatcher()
                 if dispatcher and hasattr(dispatcher, "dead_letter_count"):
                     dlq_count = dispatcher.dead_letter_count
             except (ImportError, Exception):
                 pass
 
-            return json_response({
-                "total_notifications": total,
-                "successful": success,
-                "failed": failed,
-                "success_rate": round(success_rate, 1),
-                "dlq_count": dlq_count,
-                "by_channel": by_channel,
-            })
+            return json_response(
+                {
+                    "total_notifications": total,
+                    "successful": success,
+                    "failed": failed,
+                    "success_rate": round(success_rate, 1),
+                    "dlq_count": dlq_count,
+                    "by_channel": by_channel,
+                }
+            )
         except Exception as e:
             logger.error("Delivery stats failed: %s: %s", type(e).__name__, e)
             return error_response("Failed to get delivery stats", 500)

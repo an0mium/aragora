@@ -42,7 +42,9 @@ class AudienceSuggestionsHandler(BaseHandler):
         if not debate_id:
             return error_response("debate_id query parameter is required", 400)
 
-        max_clusters = safe_query_int(query_params, "max_clusters", default=5, min_val=1, max_val=20)
+        max_clusters = safe_query_int(
+            query_params, "max_clusters", default=5, min_val=1, max_val=20
+        )
         threshold = float(query_params.get("threshold", "0.6"))
         if not (0.0 <= threshold <= 1.0):
             return error_response("threshold must be between 0.0 and 1.0", 400)
@@ -60,18 +62,20 @@ class AudienceSuggestionsHandler(BaseHandler):
                 similarity_threshold=threshold,
                 max_clusters=max_clusters,
             )
-            return json_response({
-                "debate_id": debate_id,
-                "clusters": [
-                    {
-                        "representative": c.representative,
-                        "count": c.count,
-                        "user_ids": c.user_ids,
-                    }
-                    for c in clusters
-                ],
-                "total_clusters": len(clusters),
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "clusters": [
+                        {
+                            "representative": c.representative,
+                            "count": c.count,
+                            "user_ids": c.user_ids,
+                        }
+                        for c in clusters
+                    ],
+                    "total_clusters": len(clusters),
+                }
+            )
         except Exception as exc:
             logger.error("Failed to list audience suggestions: %s", exc)
             return error_response("Failed to list audience suggestions", 500)
@@ -108,11 +112,14 @@ class AudienceSuggestionsHandler(BaseHandler):
                 user_id=getattr(user, "user_id", "anonymous"),
                 suggestion=sanitized,
             )
-            return json_response({
-                "status": "accepted",
-                "debate_id": debate_id,
-                "sanitized_text": sanitized,
-            }, status=201)
+            return json_response(
+                {
+                    "status": "accepted",
+                    "debate_id": debate_id,
+                    "sanitized_text": sanitized,
+                },
+                status=201,
+            )
         except Exception as exc:
             logger.error("Failed to submit suggestion: %s", exc)
             return error_response("Failed to submit suggestion", 500)
