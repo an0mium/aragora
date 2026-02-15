@@ -2,8 +2,8 @@
 Tests for ProbesHandler endpoints.
 
 Endpoints tested:
-- POST /api/probes/capability - Run capability probes on an agent
-- POST /api/probes/run - Legacy route for capability probes
+- POST /api/v1/probes/capability - Run capability probes on an agent
+- POST /api/v1/probes/run - Legacy route for capability probes
 """
 
 import json
@@ -108,7 +108,7 @@ class TestCapabilityProbe:
     """Tests for POST /api/probes/capability endpoint."""
 
     def test_probe_prober_unavailable(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
+        import aragora.server.handlers.agents.probes as mod
 
         original = mod.PROBER_AVAILABLE
         mod.PROBER_AVAILABLE = False
@@ -116,7 +116,7 @@ class TestCapabilityProbe:
             mock_handler.rfile = Mock()
             mock_handler.rfile.read.return_value = b'{"agent_name": "test"}'
 
-            result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+            result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
             assert result is not None
             assert result.status_code == 503
             data = json.loads(result.body)
@@ -125,7 +125,7 @@ class TestCapabilityProbe:
             mod.PROBER_AVAILABLE = original
 
     def test_probe_agent_unavailable(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
+        import aragora.server.handlers.agents.probes as mod
 
         original_prober = mod.PROBER_AVAILABLE
         original_agent = mod.AGENT_AVAILABLE
@@ -135,7 +135,7 @@ class TestCapabilityProbe:
             mock_handler.rfile = Mock()
             mock_handler.rfile.read.return_value = b'{"agent_name": "test"}'
 
-            result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+            result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
             assert result is not None
             assert result.status_code == 503
             data = json.loads(result.body)
@@ -145,30 +145,20 @@ class TestCapabilityProbe:
             mod.AGENT_AVAILABLE = original_agent
 
     def test_probe_missing_agent_name(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
-
-        if not mod.PROBER_AVAILABLE or not mod.AGENT_AVAILABLE:
-            pytest.skip("Prober or agent module not available")
-
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b"{}"
 
-        result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
         assert result is not None
         assert result.status_code == 400
         data = json.loads(result.body)
         assert "agent_name" in data["error"].lower()
 
     def test_probe_invalid_agent_name(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
-
-        if not mod.PROBER_AVAILABLE or not mod.AGENT_AVAILABLE:
-            pytest.skip("Prober or agent module not available")
-
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b'{"agent_name": "../etc/passwd"}'
 
-        result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
         assert result is not None
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -178,22 +168,17 @@ class TestCapabilityProbe:
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b"not json"
 
-        result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
         assert result is not None
         assert result.status_code == 400
 
     def test_probe_empty_probe_types(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
-
-        if not mod.PROBER_AVAILABLE or not mod.AGENT_AVAILABLE:
-            pytest.skip("Prober or agent module not available")
-
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = (
             b'{"agent_name": "test", "probe_types": ["invalid_type"]}'
         )
 
-        result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
         assert result is not None
         assert result.status_code == 400
         data = json.loads(result.body)
@@ -201,7 +186,7 @@ class TestCapabilityProbe:
 
     def test_probe_legacy_route(self, probes_handler, mock_handler):
         """Test that legacy /api/probes/run route works."""
-        import aragora.server.handlers.probes as mod
+        import aragora.server.handlers.agents.probes as mod
 
         original = mod.PROBER_AVAILABLE
         mod.PROBER_AVAILABLE = False
@@ -210,7 +195,7 @@ class TestCapabilityProbe:
             mock_handler.rfile.read.return_value = b'{"agent_name": "test"}'
 
             # Should handle legacy route the same way
-            result = probes_handler.handle_post("/api/probes/run", {}, mock_handler)
+            result = probes_handler.handle_post("/api/v1/probes/run", {}, mock_handler)
             assert result is not None
             assert result.status_code == 503  # Service unavailable
         finally:
@@ -226,27 +211,17 @@ class TestProbesSecurity:
     """Security tests for probes endpoints."""
 
     def test_path_traversal_blocked(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
-
-        if not mod.PROBER_AVAILABLE or not mod.AGENT_AVAILABLE:
-            pytest.skip("Prober or agent module not available")
-
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b'{"agent_name": "..%2F..%2Fetc"}'
 
-        result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
         assert result.status_code == 400
 
     def test_sql_injection_blocked(self, probes_handler, mock_handler):
-        import aragora.server.handlers.probes as mod
-
-        if not mod.PROBER_AVAILABLE or not mod.AGENT_AVAILABLE:
-            pytest.skip("Prober or agent module not available")
-
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b'{"agent_name": "\'; DROP TABLE agents;--"}'
 
-        result = probes_handler.handle_post("/api/probes/capability", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/probes/capability", {}, mock_handler)
         assert result.status_code == 400
 
 
@@ -260,14 +235,14 @@ class TestProbesErrorHandling:
 
     def test_handle_returns_none_for_get(self, probes_handler):
         # ProbesHandler only handles POST
-        result = probes_handler.handle("/api/probes/capability", {}, None)
+        result = probes_handler.handle("/api/v1/probes/capability", {}, None)
         assert result is None
 
     def test_handle_returns_none_for_unhandled_route(self, probes_handler, mock_handler):
         mock_handler.rfile = Mock()
         mock_handler.rfile.read.return_value = b"{}"
 
-        result = probes_handler.handle_post("/api/other/endpoint", {}, mock_handler)
+        result = probes_handler.handle_post("/api/v1/other/endpoint", {}, mock_handler)
         assert result is None
 
 

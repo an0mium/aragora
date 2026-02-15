@@ -575,7 +575,6 @@ class TestKnowledgeMoundAdvanced:
         yield m
         await m.close()
 
-    @pytest.mark.xfail(reason="Update path may return None when embedding service unavailable")
     @pytest.mark.asyncio
     async def test_update_node(self, mound):
         """Test updating a knowledge node."""
