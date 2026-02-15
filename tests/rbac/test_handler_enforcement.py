@@ -152,6 +152,8 @@ ALLOWED_WITHOUT_RBAC = {
     "docs",
     # Template discovery (public browsing API, rate-limited, read-only)
     "template_discovery",
+    # Debate sharing (public spectate endpoint; POST/DELETE use inline require_auth_or_error)
+    "debates/share",
     # Marketplace browse (public catalog browsing, read-only)
     "marketplace_browse",
     # Health probes and dashboard monitoring (public liveness/readiness endpoints)
