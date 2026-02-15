@@ -704,7 +704,7 @@ class TestAlertHandlerErrorHandling:
             assert response.status == 500
             body = json.loads(response.body)
             assert body["success"] is False
-            assert "Database error" in body["error"]
+            assert "Failed to list alerts" in body["error"]
 
     @pytest.mark.asyncio
     async def test_acknowledge_handles_exception(

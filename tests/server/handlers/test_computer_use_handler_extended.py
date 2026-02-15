@@ -741,7 +741,7 @@ class TestCreateTask:
         assert task is not None
         result_dict = task.to_dict()["result"]
         assert result_dict["success"] is False
-        assert "Connection timeout" in result_dict["message"]
+        assert result_dict["message"] == "Task execution failed"
 
     def test_create_task_missing_goal(self, handler):
         """Test creating task without goal returns 400."""

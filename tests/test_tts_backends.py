@@ -429,12 +429,8 @@ class TestXTTSBackend:
         """Not available without torch."""
         backend = XTTSBackend(config)
 
-        def mock_import(name, *args, **kwargs):
-            if "torch" in name:
-                raise ImportError("No torch")
-            return MagicMock()
-
-        with patch("builtins.__import__", side_effect=mock_import):
+        # Remove torch and TTS from sys.modules so find_spec fails cleanly
+        with patch.dict("sys.modules", {"torch": None, "TTS": None, "TTS.api": None}):
             assert backend.is_available() is False
 
     def test_get_device_auto_cuda(self, config):
@@ -632,7 +628,9 @@ class TestPyttsx3Backend:
     def test_is_available_with_module(self, config):
         """Available when pyttsx3 installed."""
         backend = Pyttsx3Backend(config)
-        with patch.dict("sys.modules", {"pyttsx3": MagicMock()}):
+        mock_mod = MagicMock()
+        mock_mod.__spec__ = MagicMock()
+        with patch.dict("sys.modules", {"pyttsx3": mock_mod}):
             assert backend.is_available() is True
 
     def test_is_available_without_module(self, config):
@@ -649,9 +647,11 @@ class TestPyttsx3Backend:
         output = tmp_path / "output.mp3"
 
         mock_engine = MagicMock()
+        mock_pyttsx3 = MagicMock()
+        mock_pyttsx3.init.return_value = mock_engine
 
         with patch.object(backend, "is_available", return_value=True):
-            with patch("pyttsx3.init", return_value=mock_engine):
+            with patch.dict("sys.modules", {"pyttsx3": mock_pyttsx3}):
                 # Create output to simulate success
                 output.touch()
                 result = await backend.synthesize("Hello", output_path=output)
@@ -672,9 +672,11 @@ class TestPyttsx3Backend:
     async def test_synthesize_engine_error(self, config):
         """Engine error returns None."""
         backend = Pyttsx3Backend(config)
+        mock_pyttsx3 = MagicMock()
+        mock_pyttsx3.init.side_effect = Exception("Engine init failed")
 
         with patch.object(backend, "is_available", return_value=True):
-            with patch("pyttsx3.init", side_effect=Exception("Engine init failed")):
+            with patch.dict("sys.modules", {"pyttsx3": mock_pyttsx3}):
                 result = await backend.synthesize("Hello")
                 assert result is None
 

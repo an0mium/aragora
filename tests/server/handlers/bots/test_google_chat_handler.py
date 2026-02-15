@@ -13,33 +13,17 @@ from aragora.server.handlers.bots.google_chat import (
     _verify_google_chat_token,
 )
 
-# Optional token cache imports - these features may not be implemented yet
-try:
-    from aragora.server.handlers.bots.google_chat import (
-        clear_token_cache,
-        _get_cached_result,
-        _set_cached_result,
-        _token_cache,
-        _token_cache_lock,
-        _token_cache_key,
-        _verify_token_via_jwt_verifier,
-        _verify_token_via_google_auth,
-        _verify_token_via_tokeninfo,
-    )
-
-    HAS_TOKEN_CACHE = True
-except ImportError:
-    HAS_TOKEN_CACHE = False
-    # Placeholders for type checking
-    clear_token_cache = None  # type: ignore
-    _get_cached_result = None  # type: ignore
-    _set_cached_result = None  # type: ignore
-    _token_cache = None  # type: ignore
-    _token_cache_lock = None  # type: ignore
-    _token_cache_key = None  # type: ignore
-    _verify_token_via_jwt_verifier = None  # type: ignore
-    _verify_token_via_google_auth = None  # type: ignore
-    _verify_token_via_tokeninfo = None  # type: ignore
+from aragora.server.handlers.bots.google_chat import (
+    clear_token_cache,
+    _get_cached_result,
+    _set_cached_result,
+    _token_cache,
+    _token_cache_lock,
+    _token_cache_key,
+    _verify_token_via_jwt_verifier,
+    _verify_token_via_google_auth,
+    _verify_token_via_tokeninfo,
+)
 
 
 # =============================================================================
@@ -538,7 +522,6 @@ class TestBearerTokenHeaderParsing:
         assert _verify_google_chat_token(None) is False
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestBearerTokenLayeredVerification:
     """Tests for the layered Bearer token verification system (requires token cache)."""
 
@@ -696,7 +679,6 @@ class TestBearerTokenLayeredVerification:
 # =============================================================================
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestTokenCache:
     """Tests for the token verification cache."""
 
@@ -790,7 +772,6 @@ class TestTokenCache:
 # =============================================================================
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestJWTVerifierLayer:
     """Tests for _verify_token_via_jwt_verifier."""
 
@@ -818,7 +799,6 @@ class TestJWTVerifierLayer:
             assert result is None
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestGoogleAuthLayer:
     """Tests for _verify_token_via_google_auth."""
 
@@ -856,7 +836,6 @@ class TestGoogleAuthLayer:
                 assert result is False
 
 
-@pytest.mark.xfail(not HAS_TOKEN_CACHE, reason="Token cache not implemented", strict=False)
 class TestTokeninfoLayer:
     """Tests for _verify_token_via_tokeninfo."""
 

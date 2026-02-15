@@ -359,7 +359,7 @@ class TestKnowledgeSourceValidation:
 
         assert result is not None
         assert result.status_code == 400
-        assert "path traversal" in json.loads(result.body)["error"].lower()
+        assert "invalid" in json.loads(result.body)["error"].lower()
 
     def test_validate_knowledge_source_valid(self, handler, mock_auth_context):
         """Test valid knowledge source passes validation."""
