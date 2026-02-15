@@ -82,7 +82,7 @@ async def trigger_external_webhook_tool(
         return {"error": f"{platform} integration module not available"}
     except Exception as e:
         logger.error(f"Failed to trigger {platform} webhook: {e}")
-        return {"error": f"Trigger failed: {str(e)}"}
+        return {"error": "Webhook trigger failed"}
 
 
 async def list_integrations_tool(
@@ -245,7 +245,7 @@ async def test_integration_tool(
         return {"error": f"{platform} integration module not available"}
     except Exception as e:
         logger.error(f"Failed to test {platform} integration: {e}")
-        return {"error": f"Test failed: {str(e)}"}
+        return {"error": "Integration test failed"}
 
     return {"error": "Unknown platform"}
 
@@ -303,7 +303,7 @@ async def get_integration_events_tool(
         return {"error": f"{platform} integration module not available"}
     except Exception as e:
         logger.error(f"Failed to get {platform} events: {e}")
-        return {"error": f"Failed: {str(e)}"}
+        return {"error": "Failed to retrieve integration events"}
 
     return {"error": "Unknown platform"}
 

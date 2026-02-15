@@ -138,7 +138,7 @@ class DebateBeliefAnalyzer:
                     logger.debug(f"belief_cruxes count={len(result.cruxes)}")
 
         except Exception as e:
-            result.analysis_error = str(e)
+            result.analysis_error = f"Belief analysis failed: {type(e).__name__}"
             logger.warning(f"belief_analysis_error error={e}")
 
         return result
@@ -193,7 +193,7 @@ class DebateBeliefAnalyzer:
                     logger.debug(f"belief_crux claim={claim_preview} uncertainty={uncertainty:.2f}")
 
         except Exception as e:
-            result.analysis_error = str(e)
+            result.analysis_error = f"Belief analysis failed: {type(e).__name__}"
             logger.debug(f"Belief analysis failed: {e}")
 
         return result

@@ -1465,6 +1465,6 @@ class ConsensusPhase:
             logger.warning("formal_verification_error: %s", e)
             result.formal_verification = {
                 "status": "error",
-                "error": str(e),
+                "error": f"verification_error:{type(e).__name__}",
                 "is_verified": False,
             }

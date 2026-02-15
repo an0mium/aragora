@@ -672,7 +672,7 @@ class AutonomicExecutor:
 
             # Notify immune system of failure
             if self.immune_system:
-                self.immune_system.agent_failed(agent.name, str(e), recoverable=True)
+                self.immune_system.agent_failed(agent.name, f"connection_error:{type(e).__name__}", recoverable=True)
 
             # Emit telemetry for connection error
             self._emit_agent_telemetry(
@@ -683,7 +683,7 @@ class AutonomicExecutor:
             self._emit_agent_error(
                 agent.name,
                 error_type="connection",
-                message=f"Connection failed: {e}",
+                message=f"Connection failed: {type(e).__name__}",
                 recoverable=True,
                 phase=phase,
             )
@@ -705,7 +705,7 @@ class AutonomicExecutor:
 
             # Notify immune system of failure
             if self.immune_system:
-                self.immune_system.agent_failed(agent.name, str(e), recoverable=False)
+                self.immune_system.agent_failed(agent.name, f"internal_error:{type(e).__name__}", recoverable=False)
 
             # Emit telemetry for exception
             self._emit_agent_telemetry(
@@ -1102,7 +1102,17 @@ class AutonomicExecutor:
                         f"[Autonomic] {current_agent.name} connection error on attempt "
                         f"{attempt + 1}: {e}"
                     )
-                    last_error = str(e)
+                    last_error = f"timeout after {timeout:.1f}s"
+
+                except (ConnectionError, OSError) as e:
+                    self.record_retry(current_agent.name)
+                    if self.circuit_breaker:
+                        self.circuit_breaker.record_failure(current_agent.name)
+                    logger.warning(
+                        f"[Autonomic] {current_agent.name} connection error on attempt "
+                        f"{attempt + 1}: {e}"
+                    )
+                    last_error = f"connection_error:{type(e).__name__}"
 
                 except Exception as e:
                     self.record_retry(current_agent.name)
@@ -1112,7 +1122,7 @@ class AutonomicExecutor:
                         f"[Autonomic] {current_agent.name} failed on attempt "
                         f"{attempt + 1}: {type(e).__name__}: {e}"
                     )
-                    last_error = str(e)
+                    last_error = f"agent_error:{type(e).__name__}"
                     # Don't retry on unexpected errors
                     break
 
@@ -1137,7 +1147,12 @@ class AutonomicExecutor:
 
         # Total failure
         tried_names = [a.name for a in all_agents]
-        return f"[System: All agents failed ({', '.join(tried_names)}). Last error: {last_error}]"
+        logger.error(
+            "[Autonomic] All agents failed: %s. Last error: %s",
+            tried_names,
+            last_error,
+        )
+        return f"[System: All agents failed ({', '.join(tried_names)}). Please retry or check agent configuration.]"
 
 
 __all__ = ["AutonomicExecutor", "StreamingContentBuffer"]

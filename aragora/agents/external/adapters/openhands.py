@@ -175,7 +175,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
             self._record_failure(e)
             logger.error(f"OpenHands task submission failed: {e}")
             raise ExternalAgentError(
-                f"Task submission failed: {e}",
+                "Task submission failed",
                 adapter_name=self.adapter_name,
             ) from e
 
@@ -338,7 +338,7 @@ class OpenHandsAdapter(ExternalAgentAdapter):
                 healthy=False,
                 last_check=datetime.now(timezone.utc),
                 response_time_ms=0.0,
-                error=str(e),
+                error="Health check failed",
             )
 
     async def stream_progress(self, task_id: str) -> AsyncIterator[TaskProgress]:

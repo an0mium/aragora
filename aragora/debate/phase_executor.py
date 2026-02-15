@@ -222,7 +222,7 @@ class PhaseExecutor:
         except Exception as e:
             logger.exception(f"Phase execution failed: {e}")
             success = False
-            error = str(e)
+            error = f"Execution failed: {type(e).__name__}"
             final_output = None
 
         total_duration = (time.time() - start_time) * 1000
@@ -404,7 +404,7 @@ class PhaseExecutor:
                     started_at=started_at,
                     completed_at=datetime.now(timezone.utc),
                     duration_ms=duration_ms,
-                    error=str(e),
+                    error=f"Phase '{phase_name}' failed: {type(e).__name__}",
                 )
 
             finally:
@@ -474,7 +474,7 @@ class PhaseExecutor:
                 started_at=started_at,
                 completed_at=datetime.now(timezone.utc),
                 duration_ms=duration_ms,
-                error=str(e),
+                error=f"Phase '{phase_name}' failed: {type(e).__name__}",
             )
 
         finally:

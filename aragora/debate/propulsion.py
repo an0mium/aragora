@@ -352,7 +352,7 @@ class PropulsionEngine:
 
             except Exception as e:
                 duration_ms = (time.time() - start_time) * 1000
-                payload.last_error = str(e)
+                payload.last_error = f"handler_error:{type(e).__name__}"
 
                 logger.error(
                     f"Propulsion handler {registered.name} failed: {e}",
@@ -363,7 +363,7 @@ class PropulsionEngine:
                     payload_id=payload.id,
                     success=False,
                     handler_name=registered.name,
-                    error_message=str(e),
+                    error_message=f"Handler '{registered.name}' failed: {type(e).__name__}",
                     duration_ms=duration_ms,
                 )
 

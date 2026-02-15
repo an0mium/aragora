@@ -373,10 +373,10 @@ class DebateSession:
 
         except Exception as e:
             self._transition_state(DebateSessionState.FAILED)
-            self.error_message = str(e)
+            self.error_message = f"Session failed: {type(e).__name__}"
             self._emit_event(
                 SessionEventType.FAILED,
-                data={"error": str(e)},
+                data={"error": f"session_failed:{type(e).__name__}"},
             )
             logger.error(f"session_failed id={self.id} error={e}")
 

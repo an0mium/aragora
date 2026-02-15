@@ -113,7 +113,7 @@ async def query_knowledge_tool(
     except Exception as e:
         logger.error(f"Knowledge query failed: {e}")
         return {
-            "error": f"Query failed: {str(e)}",
+            "error": "Knowledge query failed",
             "query": query,
         }
 
@@ -201,7 +201,7 @@ async def store_knowledge_tool(
         return {"error": "Knowledge Mound module not available"}
     except Exception as e:
         logger.error(f"Failed to store knowledge: {e}")
-        return {"error": f"Store failed: {str(e)}"}
+        return {"error": "Failed to store knowledge"}
 
 
 async def get_knowledge_stats_tool() -> dict[str, Any]:
@@ -248,7 +248,7 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Failed to get knowledge stats: {e}")
-        return {"error": f"Stats failed: {str(e)}"}
+        return {"error": "Failed to retrieve knowledge stats"}
 
 
 async def get_decision_receipt_tool(
@@ -333,7 +333,7 @@ async def get_decision_receipt_tool(
 
     except Exception as e:
         logger.error(f"Failed to generate decision receipt: {e}")
-        return {"error": f"Receipt generation failed: {str(e)}"}
+        return {"error": "Receipt generation failed"}
 
 
 async def verify_decision_receipt_tool(
@@ -382,7 +382,7 @@ async def verify_decision_receipt_tool(
 
     except Exception as e:
         logger.error(f"Receipt verification failed: {e}")
-        return {"error": f"Receipt verification failed: {str(e)}"}
+        return {"error": "Receipt verification failed"}
 
 
 async def build_decision_integrity_tool(
@@ -433,7 +433,7 @@ async def build_decision_integrity_tool(
 
     except Exception as e:
         logger.error(f"Failed to build decision integrity package: {e}")
-        return {"error": f"Decision integrity build failed: {str(e)}"}
+        return {"error": "Decision integrity build failed"}
 
 
 def _format_receipt_markdown(receipt: dict[str, Any]) -> str:

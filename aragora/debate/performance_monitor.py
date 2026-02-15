@@ -360,7 +360,7 @@ class DebatePerformanceMonitor:
         try:
             yield metric
         except Exception as e:
-            metric.error = str(e)
+            metric.error = f"phase_error:{type(e).__name__}"
             raise
         finally:
             metric.end_time = time.time()

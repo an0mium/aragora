@@ -308,10 +308,10 @@ class GitCheckpointStore(CheckpointStore):
             return False, "git not found in PATH"
         except (OSError, PermissionError) as e:
             logger.warning(f"Git command OS error: {e}")
-            return False, str(e)
+            return False, f"git_os_error:{type(e).__name__}"
         except Exception as e:
             logger.exception(f"Unexpected git command error: {e}")
-            return False, str(e)
+            return False, f"git_error:{type(e).__name__}"
 
     async def save(self, checkpoint: DebateCheckpoint) -> str:
         # Validate checkpoint ID for git safety

@@ -310,7 +310,7 @@ Text to translate:
                 target_language=target,
                 confidence=0.0,
                 backend=f"llm-{self.provider}-error",
-                metadata={"error": str(e)},
+                metadata={"error": "translation_failed"},
             )
 
     async def detect_language(self, text: str) -> LanguageDetectionResult:

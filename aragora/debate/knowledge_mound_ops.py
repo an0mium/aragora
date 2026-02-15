@@ -183,7 +183,7 @@ class KnowledgeMoundOperations:
 
         except Exception as e:
             success = False
-            error_msg = str(e)
+            error_msg = f"query_error:{type(e).__name__}"
             logger.warning(f"  [knowledge_mound] Failed to fetch context: {e}")
             return None
 
@@ -280,7 +280,7 @@ class KnowledgeMoundOperations:
                     )
 
         except (RuntimeError, ValueError, OSError, KeyError) as e:
-            error_msg = str(e)
+            error_msg = f"ingest_error:{type(e).__name__}"
             logger.warning(f"  [knowledge_mound] Failed to ingest outcome: {e}")
 
         finally:

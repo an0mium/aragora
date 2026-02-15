@@ -326,7 +326,7 @@ def validate_agent_response(
         logger.warning(f"Response validation failed for {agent_name}: {e}")
         return ValidationResult(
             is_valid=False,
-            errors=[str(e)],
+            errors=[f"Validation failed: {type(e).__name__}"],
             warnings=warnings if warnings else None,
         )
 

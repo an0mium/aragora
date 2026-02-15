@@ -230,7 +230,7 @@ class DevOpsAgent:
             return False, "Command timed out after 120s"
         except OSError as e:
             self._audit(action_name, command, "error", str(e))
-            return False, str(e)
+            return False, "Command execution failed"
 
     def _audit(self, action: str, command: str, outcome: str, detail: str = "") -> None:
         entry = AuditEntry(
@@ -303,7 +303,8 @@ class DevOpsAgent:
                 with open(diff_path, "w") as f:
                     f.write(diff)
             except OSError as e:
-                return {"pr": pr_number, "success": False, "error": str(e)}
+                logger.error("Failed to write diff for PR %s: %s", pr_number, e)
+                return {"pr": pr_number, "success": False, "error": "Failed to write diff file"}
 
             # Run aragora review
             ok, review_output = self._execute(

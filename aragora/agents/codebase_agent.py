@@ -566,7 +566,7 @@ class CodebaseUnderstandingAgent:
                 result.lines_analyzed = security_report.lines_scanned
             except (OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.error(f"Security scan failed: {e}")
-                result.error = str(e)
+                result.error = "Security scan failed"
 
         # Run bug detection
         if self.bug_detector:
@@ -581,9 +581,9 @@ class CodebaseUnderstandingAgent:
             except (OSError, ValueError, RuntimeError, AttributeError) as e:
                 logger.error(f"Bug detection failed: {e}")
                 if result.error:
-                    result.error += f"; {e}"
+                    result.error += "; Bug detection failed"
                 else:
-                    result.error = str(e)
+                    result.error = "Bug detection failed"
 
         # Dead code analysis
         if include_dead_code and self.call_graph_builder:

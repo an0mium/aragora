@@ -129,7 +129,8 @@ async def cite_evidence_tool(
         }
 
     except Exception as e:
-        return {"error": f"Failed to add citation: {e}"}
+        logger.warning("Failed to add citation: %s", e)
+        return {"error": "Failed to add citation"}
 
 
 async def verify_citation_tool(
@@ -163,7 +164,8 @@ async def verify_citation_tool(
     except asyncio.TimeoutError:
         return {"url": url, "valid": False, "error": "Timeout"}
     except Exception as e:
-        return {"url": url, "valid": False, "error": str(e)}
+        logger.warning("Citation verification failed for %s: %s", url, e)
+        return {"url": url, "valid": False, "error": "Verification failed"}
 
 
 __all__ = [

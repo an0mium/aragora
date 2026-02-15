@@ -265,7 +265,8 @@ class FabricAgentAdapter:
             return result
 
         except Exception as e:
-            await self.fabric.complete_task(handle.task_id, error=str(e))
+            logger.warning("Agent %s generation failed: %s", self.agent_id, e)
+            await self.fabric.complete_task(handle.task_id, error=f"agent_error:{type(e).__name__}")
             raise
 
 
@@ -445,8 +446,8 @@ class FabricDebateRunner:
             raise TimeoutError(f"Debate {debate_id} exceeded timeout")
 
         except Exception as e:
-            await self.fabric.complete_task(handle.task_id, error=str(e))
-            logger.exception(f"Debate {debate_id} failed")
+            logger.exception(f"Debate {debate_id} failed: {e}")
+            await self.fabric.complete_task(handle.task_id, error=f"debate_failed:{type(e).__name__}")
             raise
 
         finally:

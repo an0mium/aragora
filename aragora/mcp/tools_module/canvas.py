@@ -66,7 +66,7 @@ async def canvas_create_tool(
         return {"success": False, "error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas creation failed: {e}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Canvas creation failed"}
 
 
 async def canvas_get_tool(
@@ -106,7 +106,7 @@ async def canvas_get_tool(
         return {"error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas get failed: {e}")
-        return {"error": str(e)}
+        return {"error": "Failed to retrieve canvas"}
 
 
 async def canvas_add_node_tool(
@@ -171,7 +171,7 @@ async def canvas_add_node_tool(
         return {"error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas add_node failed: {e}")
-        return {"error": str(e)}
+        return {"error": "Failed to add node to canvas"}
 
 
 async def canvas_add_edge_tool(
@@ -229,7 +229,7 @@ async def canvas_add_edge_tool(
         return {"error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas add_edge failed: {e}")
-        return {"error": str(e)}
+        return {"error": "Failed to add edge to canvas"}
 
 
 async def canvas_execute_action_tool(
@@ -272,7 +272,7 @@ async def canvas_execute_action_tool(
         return {"error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas execute_action failed: {e}")
-        return {"error": str(e)}
+        return {"error": "Canvas action execution failed"}
 
 
 async def canvas_list_tool(
@@ -321,7 +321,7 @@ async def canvas_list_tool(
         return {"canvases": [], "count": 0, "error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas list failed: {e}")
-        return {"canvases": [], "count": 0, "error": str(e)}
+        return {"canvases": [], "count": 0, "error": "Failed to list canvases"}
 
 
 async def canvas_delete_node_tool(
@@ -351,7 +351,7 @@ async def canvas_delete_node_tool(
         return {"error": "Canvas module not available"}
     except Exception as e:
         logger.error(f"Canvas delete_node failed: {e}")
-        return {"error": str(e)}
+        return {"error": "Failed to delete canvas node"}
 
 
 __all__ = [

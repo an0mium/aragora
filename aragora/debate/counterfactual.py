@@ -490,7 +490,8 @@ class CounterfactualOrchestrator:
 
         except Exception as e:
             branch.status = CounterfactualStatus.FAILED
-            branch.conclusion = f"Branch failed: {str(e)}"
+            logger.warning("Counterfactual branch %s failed: %s", branch.branch_id, e)
+            branch.conclusion = f"Branch failed: {type(e).__name__}"
 
         finally:
             branch.completed_at = datetime.now().isoformat()

@@ -258,12 +258,13 @@ class ReceiptDeliveryHook:
             return result
 
         except Exception as e:
+            logger.warning("Receipt delivery failed (%s): %s", channel_type, e)
             result = DeliveryResult(
                 channel_type=channel_type,
                 channel_id=channel_id,
                 workspace_id=workspace_id,
                 success=False,
-                error=str(e),
+                error=f"delivery_failed:{channel_type}",
             )
             self._delivery_history.append(result)
             return result
@@ -329,7 +330,7 @@ class ReceiptDeliveryHook:
                 channel_id=channel_id,
                 workspace_id=workspace_id,
                 success=False,
-                error=str(e),
+                error="delivery_failed:slack",
             )
 
     async def _send_to_teams(
@@ -395,7 +396,7 @@ class ReceiptDeliveryHook:
                 channel_id=channel_id,
                 workspace_id=workspace_id,
                 success=False,
-                error=str(e),
+                error="delivery_failed:teams",
             )
 
     async def _send_to_email(
@@ -447,7 +448,7 @@ class ReceiptDeliveryHook:
                 channel_id=email_address,
                 workspace_id=None,
                 success=False,
-                error=str(e),
+                error="delivery_failed:email",
             )
 
     async def _send_to_webhook(
@@ -495,7 +496,7 @@ class ReceiptDeliveryHook:
                 channel_id=webhook_url,
                 workspace_id=None,
                 success=False,
-                error=str(e),
+                error="delivery_failed:webhook",
             )
 
     def _format_receipt_for_slack(self, receipt: dict[str, Any]) -> list[dict[str, Any]]:

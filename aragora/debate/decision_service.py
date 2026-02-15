@@ -614,7 +614,7 @@ class AsyncDecisionService:
             except Exception as e:
                 logger.exception(f"Debate {debate_id} failed: {e}")
                 state.status = DebateStatus.FAILED
-                state.error = str(e)
+                state.error = f"Debate failed: {type(e).__name__}"
                 state.completed_at = datetime.now(timezone.utc)
                 await self._store.save(state)
 
@@ -622,7 +622,7 @@ class AsyncDecisionService:
                     DebateEvent(
                         debate_id=debate_id,
                         type=EventType.DEBATE_FAILED,
-                        data={"error": str(e)},
+                        data={"error": f"debate_failed:{type(e).__name__}"},
                     )
                 )
 
