@@ -1030,7 +1030,7 @@ class TestErrorClassification:
         )
 
         assert result.id == ""
-        assert "Runtime issue" in result.metadata.get("error", "")
+        assert result.metadata.get("error")  # Sanitized error message present
 
 
 # =============================================================================

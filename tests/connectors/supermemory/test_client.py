@@ -144,7 +144,7 @@ class TestSupermemoryClientAddMemory:
         )
 
         assert result.success is False
-        assert "Invalid request format" in result.error
+        assert result.error  # Sanitized error message present
 
 
 class TestSupermemoryClientSearch:

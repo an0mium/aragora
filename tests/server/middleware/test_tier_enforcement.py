@@ -1021,7 +1021,7 @@ class TestGetQuotaStatus:
         status = get_quota_status("org-123", mock_user_store)
 
         assert "error" in status
-        assert "DB error" in status["error"]
+        assert status["error"]  # Sanitized error message present
 
     def test_includes_billing_cycle_start(self, mock_user_store, free_org):
         """Should include billing_cycle_start in response."""

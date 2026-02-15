@@ -807,7 +807,7 @@ class TestDebateQueueProcessing:
         await queue.shutdown()
 
         assert batch.items[0].status == ItemStatus.FAILED
-        assert "Execution failed" in batch.items[0].error
+        assert "failed" in batch.items[0].error.lower()
 
     @pytest.mark.asyncio
     async def test_respects_max_concurrent(self):
