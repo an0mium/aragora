@@ -135,6 +135,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         rate_limit_window_seconds: int = 60,
         circuit_breaker_threshold: int = 3,
         circuit_breaker_timeout: int = 60,
+        enable_canary_tokens: bool = True,
+        enable_output_validation: bool = True,
+        enable_review_gate: bool = True,
+        review_gate_min_score: int = 5,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
@@ -156,6 +160,10 @@ class HardenedOrchestrator(AutonomousOrchestrator):
             rate_limit_window_seconds=rate_limit_window_seconds,
             circuit_breaker_threshold=circuit_breaker_threshold,
             circuit_breaker_timeout=circuit_breaker_timeout,
+            enable_canary_tokens=enable_canary_tokens,
+            enable_output_validation=enable_output_validation,
+            enable_review_gate=enable_review_gate,
+            review_gate_min_score=review_gate_min_score,
         )
 
         # Budget tracking (simple float counter, legacy)
@@ -187,6 +195,11 @@ class HardenedOrchestrator(AutonomousOrchestrator):
         self._agent_circuit_breakers: dict[str, Any] = {}
         self._agent_failure_counts: dict[str, int] = collections.defaultdict(int)
         self._agent_open_until: dict[str, float] = {}
+
+        # Canary token: random hex injected into system prompts
+        self._canary_token: str = (
+            f"CANARY-{secrets.token_hex(8)}" if enable_canary_tokens else ""
+        )
 
     def _init_budget_manager(self, config: BudgetEnforcementConfig) -> None:
         """Initialize BudgetManager integration."""
