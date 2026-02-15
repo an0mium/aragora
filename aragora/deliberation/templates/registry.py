@@ -192,7 +192,11 @@ class TemplateRegistry:
             return []
 
         try:
-            return self._recommend_tfidf(question, domain, limit)
+            results = self._recommend_tfidf(question, domain, limit)
+            if results:
+                return results
+            # TF-IDF returned no results (zero similarity); fall back to keywords
+            return self._recommend_keywords(question, domain, limit)
         except Exception:
             # Fallback to keyword matching if sklearn unavailable or any error
             return self._recommend_keywords(question, domain, limit)

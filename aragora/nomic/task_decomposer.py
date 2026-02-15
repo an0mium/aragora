@@ -495,6 +495,55 @@ class TaskDecomposer:
         ]
 
     # =========================================================================
+    # Codebase module mapping for relevance scoring
+    # =========================================================================
+
+    _CODEBASE_MODULES: dict[str, list[str]] = {
+        "debate": ["aragora/debate/"],
+        "agents": ["aragora/agents/"],
+        "analytics": ["aragora/analytics/"],
+        "audit": ["aragora/audit/"],
+        "billing": ["aragora/billing/"],
+        "cli": ["aragora/cli/"],
+        "compliance": ["aragora/compliance/"],
+        "connectors": ["aragora/connectors/"],
+        "gateway": ["aragora/gateway/"],
+        "knowledge": ["aragora/knowledge/"],
+        "memory": ["aragora/memory/"],
+        "nomic": ["aragora/nomic/"],
+        "pipeline": ["aragora/pipeline/"],
+        "rbac": ["aragora/rbac/"],
+        "security": ["aragora/security/"],
+        "server": ["aragora/server/"],
+        "skills": ["aragora/skills/"],
+        "storage": ["aragora/storage/"],
+        "workflow": ["aragora/workflow/"],
+        "frontend": ["aragora/live/src/"],
+        "sdk": ["sdk/"],
+        "tests": ["tests/"],
+    }
+
+    def _score_codebase_relevance(self, goal: str) -> list[str]:
+        """Find relevant codebase directories for a goal using keyword matching.
+
+        Parses the goal against the CLAUDE.md module table to suggest file
+        scopes for matched templates, turning abstract matches into
+        actionable subtasks with file_scope populated.
+
+        Args:
+            goal: The goal string to find relevant directories for
+
+        Returns:
+            List of up to 5 relevant codebase directory paths
+        """
+        goal_lower = goal.lower()
+        relevant: list[str] = []
+        for module, paths in self._CODEBASE_MODULES.items():
+            if module in goal_lower:
+                relevant.extend(paths)
+        return relevant[:5]
+
+    # =========================================================================
     # Vague goal expansion (cross-references templates + track configs)
     # =========================================================================
 
@@ -516,12 +565,24 @@ class TaskDecomposer:
         subtasks: list[SubTask] = []
         matched_sources: list[str] = []
 
+        # Compute codebase-relevant directories from the goal text
+        goal_relevant_paths = self._score_codebase_relevance(goal)
+
         # 1. Cross-reference against deliberation templates
         try:
             from aragora.deliberation.templates.registry import match_templates
 
             matched = match_templates(goal, limit=3)
             for i, template in enumerate(matched):
+                # Derive file_scope from template tags + codebase module mapping
+                tag_paths: list[str] = []
+                for tag in template.tags:
+                    tag_lower = tag.lower()
+                    if tag_lower in self._CODEBASE_MODULES:
+                        tag_paths.extend(self._CODEBASE_MODULES[tag_lower])
+                # Combine tag-derived paths with goal-derived paths, deduplicate
+                combined_paths = list(dict.fromkeys(tag_paths + goal_relevant_paths))[:5]
+
                 subtasks.append(
                     SubTask(
                         id=f"subtask_{len(subtasks) + 1}",
@@ -534,7 +595,7 @@ class TaskDecomposer:
                         ),
                         dependencies=[f"subtask_{len(subtasks)}"] if subtasks else [],
                         estimated_complexity="medium",
-                        file_scope=[],
+                        file_scope=combined_paths,
                     )
                 )
                 matched_sources.append(f"template:{template.name}")

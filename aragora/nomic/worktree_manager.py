@@ -43,6 +43,33 @@ class WorktreeContext:
     status: str = "active"  # active | completed | failed | cleaned
 
 
+@dataclass
+class MergeGateConfig:
+    """Configuration for test-gated merges."""
+
+    pre_merge_test_paths: list[str] = field(default_factory=list)
+    post_merge_test_paths: list[str] = field(default_factory=list)
+    auto_revert: bool = True
+    test_timeout: int = 300  # seconds
+    require_pre_merge_pass: bool = True
+    require_post_merge_pass: bool = True
+
+
+@dataclass
+class MergeGateResult:
+    """Result of a test-gated merge operation."""
+
+    success: bool
+    pre_merge_passed: bool | None = None
+    merge_succeeded: bool | None = None
+    post_merge_passed: bool | None = None
+    reverted: bool = False
+    commit_sha: str | None = None
+    error: str | None = None
+    pre_merge_output: str = ""
+    post_merge_output: str = ""
+
+
 class WorktreeManager:
     """Manages git worktree lifecycle for parallel agent execution.
 
@@ -331,6 +358,146 @@ class WorktreeManager:
             "conflicts": [],
         }
 
+    async def merge_with_gate(
+        self,
+        ctx: WorktreeContext,
+        gate_config: MergeGateConfig | None = None,
+    ) -> MergeGateResult:
+        """Merge worktree branch with pre/post test gates and auto-revert.
+
+        Flow:
+        1. Run pre-merge tests in worktree (ensures branch is clean)
+        2. Merge branch to base (--no-ff)
+        3. Run post-merge tests on base
+        4. If post-merge fails and auto_revert: git revert HEAD --no-edit
+
+        Args:
+            ctx: WorktreeContext for the worktree to merge
+            gate_config: Test gate configuration (uses defaults if None)
+
+        Returns:
+            MergeGateResult with detailed status of each phase
+        """
+        config = gate_config or MergeGateConfig()
+
+        # Phase 1: Pre-merge tests in the worktree
+        if config.require_pre_merge_pass and config.pre_merge_test_paths:
+            pre_result = await self.run_tests_in_worktree(
+                ctx, config.pre_merge_test_paths, timeout=config.test_timeout,
+            )
+            if not pre_result["success"]:
+                logger.warning(
+                    "merge_gate_pre_failed subtask=%s", ctx.subtask_id,
+                )
+                return MergeGateResult(
+                    success=False,
+                    pre_merge_passed=False,
+                    pre_merge_output=pre_result["output"],
+                    error="Pre-merge tests failed",
+                )
+        else:
+            pre_result = None
+
+        # Phase 2: Merge branch to base (--no-ff)
+        self._run_git("checkout", self.base_branch)
+        merge_proc = self._run_git(
+            "merge", "--no-ff", "-m",
+            f"Merge {ctx.branch_name} (subtask {ctx.subtask_id})",
+            ctx.branch_name,
+        )
+
+        if merge_proc.returncode != 0:
+            self._run_git("merge", "--abort")
+            ctx.status = "failed"
+            return MergeGateResult(
+                success=False,
+                pre_merge_passed=True if pre_result else None,
+                merge_succeeded=False,
+                pre_merge_output=pre_result["output"] if pre_result else "",
+                error=merge_proc.stderr or "Merge failed",
+            )
+
+        sha_proc = self._run_git("rev-parse", "HEAD")
+        commit_sha = sha_proc.stdout.strip()
+
+        # Phase 3: Post-merge tests on base
+        if config.require_post_merge_pass and config.post_merge_test_paths:
+            cmd = (
+                ["python", "-m", "pytest"]
+                + config.post_merge_test_paths
+                + ["--tb=short", "-q"]
+            )
+            start = datetime.now(timezone.utc)
+            try:
+                post_proc = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        subprocess.run,
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        cwd=self.repo_path,
+                    ),
+                    timeout=config.test_timeout,
+                )
+                post_output = post_proc.stdout + post_proc.stderr
+                post_passed = post_proc.returncode == 0
+            except asyncio.TimeoutError:
+                post_output = f"Post-merge tests timed out after {config.test_timeout}s"
+                post_passed = False
+
+            if not post_passed:
+                logger.warning(
+                    "merge_gate_post_failed subtask=%s sha=%s",
+                    ctx.subtask_id,
+                    commit_sha[:8],
+                )
+
+                reverted = False
+                if config.auto_revert:
+                    reverted = self._revert_merge(commit_sha)
+                    if reverted:
+                        logger.info(
+                            "merge_gate_reverted subtask=%s sha=%s",
+                            ctx.subtask_id,
+                            commit_sha[:8],
+                        )
+
+                ctx.status = "failed"
+                return MergeGateResult(
+                    success=False,
+                    pre_merge_passed=True if pre_result else None,
+                    merge_succeeded=True,
+                    post_merge_passed=False,
+                    reverted=reverted,
+                    commit_sha=commit_sha,
+                    pre_merge_output=pre_result["output"] if pre_result else "",
+                    post_merge_output=post_output,
+                    error="Post-merge tests failed",
+                )
+        else:
+            post_output = ""
+
+        ctx.status = "completed"
+        logger.info(
+            "merge_gate_success subtask=%s sha=%s",
+            ctx.subtask_id,
+            commit_sha[:8],
+        )
+        return MergeGateResult(
+            success=True,
+            pre_merge_passed=True if pre_result else None,
+            merge_succeeded=True,
+            post_merge_passed=True if config.post_merge_test_paths else None,
+            commit_sha=commit_sha,
+            pre_merge_output=pre_result["output"] if pre_result else "",
+            post_merge_output=post_output,
+        )
+
+    def _revert_merge(self, commit_sha: str) -> bool:
+        """Revert a merge commit. Returns True if successful."""
+        result = self._run_git("revert", "--no-edit", commit_sha)
+        return result.returncode == 0
+
     async def cleanup_worktree(self, ctx: WorktreeContext) -> bool:
         """Remove a worktree and optionally its branch.
 
@@ -401,6 +568,8 @@ class WorktreeManager:
 
 
 __all__ = [
+    "MergeGateConfig",
+    "MergeGateResult",
     "WorktreeContext",
     "WorktreeManager",
 ]

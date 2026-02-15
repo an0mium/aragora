@@ -800,6 +800,184 @@ class BranchCoordinator:
 
         return deleted
 
+    async def safe_merge_with_gate(
+        self,
+        source: str,
+        target: str | None = None,
+        test_paths: list[str] | None = None,
+        auto_revert: bool = True,
+        test_timeout: int = 300,
+    ) -> MergeResult:
+        """Merge a branch with test-gated verification.
+
+        1. Dry-run merge check
+        2. Run pre-merge tests on the source branch
+        3. Actual merge (--no-ff)
+        4. Run post-merge tests on target
+        5. Auto-revert if post-merge tests fail
+
+        Uses ``AutonomousOrchestrator._infer_test_paths`` as a fallback
+        when *test_paths* is not provided.
+
+        Args:
+            source: Source branch to merge
+            target: Target branch (default: base_branch from config)
+            test_paths: Test paths to run pre/post merge
+            auto_revert: Whether to auto-revert on post-merge test failure
+            test_timeout: Maximum test execution time in seconds
+
+        Returns:
+            MergeResult with merge status
+        """
+        target = target or self.config.base_branch
+
+        if not self.branch_exists(source):
+            return MergeResult(
+                source_branch=source,
+                target_branch=target,
+                success=False,
+                error=f"Branch {source} does not exist",
+            )
+
+        # Infer test paths if not provided
+        resolved_test_paths = test_paths
+        if not resolved_test_paths:
+            try:
+                from aragora.nomic.autonomous_orchestrator import AutonomousOrchestrator
+
+                changed_files = self._get_branch_files(source, target)
+                resolved_test_paths = AutonomousOrchestrator._infer_test_paths(changed_files)
+            except ImportError:
+                logger.debug("AutonomousOrchestrator not available for test path inference")
+                resolved_test_paths = []
+
+        # Step 1: Dry-run merge check
+        dry_result = await self.safe_merge(source, target, dry_run=True)
+        if not dry_result.success:
+            return MergeResult(
+                source_branch=source,
+                target_branch=target,
+                success=False,
+                error="Dry-run merge failed: conflicts detected",
+                conflicts=dry_result.conflicts,
+            )
+
+        # Step 2: Pre-merge tests on source branch
+        if resolved_test_paths:
+            worktree_path = self._worktree_paths.get(source)
+            cwd = worktree_path if worktree_path else self.repo_path
+            cmd = ["python", "-m", "pytest"] + resolved_test_paths + ["--tb=short", "-q"]
+
+            try:
+                pre_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        subprocess.run,
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        cwd=cwd,
+                    ),
+                    timeout=test_timeout,
+                )
+                if pre_result.returncode != 0:
+                    return MergeResult(
+                        source_branch=source,
+                        target_branch=target,
+                        success=False,
+                        error="Pre-merge tests failed",
+                    )
+            except asyncio.TimeoutError:
+                return MergeResult(
+                    source_branch=source,
+                    target_branch=target,
+                    success=False,
+                    error=f"Pre-merge tests timed out after {test_timeout}s",
+                )
+
+        # Step 3: Actual merge (--no-ff)
+        self._run_git("checkout", target)
+        self._run_git("pull", "--rebase", "origin", target, check=False)
+
+        merge_proc = self._run_git(
+            "merge",
+            "--no-ff",
+            "-m",
+            f"Merge {source} into {target}",
+            source,
+            check=False,
+        )
+
+        if merge_proc.returncode != 0:
+            conflicts = self._parse_merge_conflicts(merge_proc.stderr)
+            self._run_git("merge", "--abort", check=False)
+            return MergeResult(
+                source_branch=source,
+                target_branch=target,
+                success=False,
+                error="Merge failed",
+                conflicts=conflicts,
+            )
+
+        sha_result = self._run_git("rev-parse", "HEAD")
+        commit_sha = sha_result.stdout.strip()
+
+        # Step 4: Post-merge tests on target
+        if resolved_test_paths:
+            cmd = ["python", "-m", "pytest"] + resolved_test_paths + ["--tb=short", "-q"]
+            try:
+                post_result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        subprocess.run,
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        cwd=self.repo_path,
+                    ),
+                    timeout=test_timeout,
+                )
+                post_passed = post_result.returncode == 0
+            except asyncio.TimeoutError:
+                post_passed = False
+
+            # Step 5: Auto-revert if post-merge tests fail
+            if not post_passed and auto_revert:
+                revert_result = self._run_git("revert", "--no-edit", commit_sha, check=False)
+                revert_msg = " (reverted)" if revert_result.returncode == 0 else " (revert failed)"
+                logger.warning(
+                    "merge_gate_post_failed source=%s sha=%s%s",
+                    source,
+                    commit_sha[:8],
+                    revert_msg,
+                )
+                return MergeResult(
+                    source_branch=source,
+                    target_branch=target,
+                    success=False,
+                    commit_sha=commit_sha,
+                    error=f"Post-merge tests failed{revert_msg}",
+                )
+            elif not post_passed:
+                logger.warning(
+                    "merge_gate_post_failed source=%s sha=%s (no revert)",
+                    source,
+                    commit_sha[:8],
+                )
+                return MergeResult(
+                    source_branch=source,
+                    target_branch=target,
+                    success=False,
+                    commit_sha=commit_sha,
+                    error="Post-merge tests failed",
+                )
+
+        logger.info("safe_merge_with_gate source=%s sha=%s", source, commit_sha[:8])
+        return MergeResult(
+            source_branch=source,
+            target_branch=target,
+            success=True,
+            commit_sha=commit_sha,
+        )
+
     def _remove_worktree(self, branch_name: str) -> None:
         """Remove a git worktree for a branch if it exists."""
         worktree_path = self._worktree_paths.pop(branch_name, None)
