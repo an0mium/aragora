@@ -390,6 +390,8 @@ class ArenaConfig:
         enable_n1_detection: bool = False,
         n1_detection_mode: str = "warn",
         n1_detection_threshold: int = 5,
+        # Autotuner (budget-aware debate optimization)
+        autotune_config: Any | None = None,
         # Stability Detection (adaptive stopping)
         enable_stability_detection: bool = False,
         stability_threshold: float = 0.85,
@@ -468,6 +470,7 @@ class ArenaConfig:
         self.enable_n1_detection = enable_n1_detection
         self.n1_detection_mode = n1_detection_mode
         self.n1_detection_threshold = n1_detection_threshold
+        self.autotune_config = autotune_config
         self.enable_stability_detection = enable_stability_detection
         self.stability_threshold = stability_threshold
         self.stability_min_rounds = stability_min_rounds

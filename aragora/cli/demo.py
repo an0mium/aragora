@@ -420,15 +420,29 @@ def _run_server_demo() -> None:
 # CLI entry points
 # ---------------------------------------------------------------------------
 
-def run_demo(demo_name: str) -> DebateResult | None:
-    """Run a specific demo by name. Returns the DebateResult or None."""
+
+def run_demo(
+    demo_name: str,
+    receipt_path: str | None = None,
+) -> DebateResult | None:
+    """Run a specific demo by name. Returns the DebateResult or None.
+
+    Args:
+        demo_name: Name of the demo scenario (e.g. "microservices").
+        receipt_path: If provided, save a decision receipt to this file path.
+    """
     if demo_name not in DEMO_TASKS:
         print(f"Unknown demo: {demo_name}")
         print(f"Available demos: {', '.join(DEMO_TASKS.keys())}")
         return None
 
     topic = DEMO_TASKS[demo_name]["topic"]
-    result, _ = asyncio.run(_run_demo_debate(topic))
+    result, elapsed = asyncio.run(_run_demo_debate(topic))
+
+    if receipt_path:
+        saved = _save_demo_receipt(result, elapsed, receipt_path)
+        print(f"\n  Receipt saved to: {saved}")
+
     return result
 
 
@@ -448,10 +462,10 @@ def main(args: argparse.Namespace) -> None:
         _run_server_demo()
         return
 
-    # Custom topic via --topic
-    custom_topic = getattr(args, "topic", None)
     receipt_path = getattr(args, "receipt", None)
 
+    # Custom topic via --topic
+    custom_topic = getattr(args, "topic", None)
     if custom_topic:
         result, elapsed = asyncio.run(_run_demo_debate(custom_topic))
         if receipt_path:
@@ -459,19 +473,9 @@ def main(args: argparse.Namespace) -> None:
             print(f"\n  Receipt saved to: {saved}")
         return
 
-    # Named demo
+    # Named demo (or default)
     demo_name = getattr(args, "name", None) or _DEFAULT_DEMO
-    if demo_name not in DEMO_TASKS:
-        print(f"Unknown demo: {demo_name}")
-        print(f"Available demos: {', '.join(DEMO_TASKS.keys())}")
-        return
-
-    topic = DEMO_TASKS[demo_name]["topic"]
-    result, elapsed = asyncio.run(_run_demo_debate(topic))
-
-    if receipt_path:
-        saved = _save_demo_receipt(result, elapsed, receipt_path)
-        print(f"\n  Receipt saved to: {saved}")
+    run_demo(demo_name, receipt_path=receipt_path)
 
 
 if __name__ == "__main__":
@@ -483,7 +487,8 @@ if __name__ == "__main__":
         help=f"Demo name (available: {', '.join(DEMO_TASKS.keys())})",
     )
     parser.add_argument(
-        "--topic", "-t",
+        "--topic",
+        "-t",
         help="Custom topic to debate (overrides named demo)",
     )
     parser.add_argument(
