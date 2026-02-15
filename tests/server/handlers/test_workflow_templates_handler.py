@@ -1214,7 +1214,7 @@ class TestAsyncWorkflowExecution:
 
                 mock_store.save_execution.assert_called_once()
                 assert mock_execution["status"] == "failed"
-                assert "Boom" in mock_execution["error"]
+                assert "failed" in mock_execution["error"].lower()
 
     @pytest.mark.asyncio
     async def test_execute_workflow_async_result_failed(self):

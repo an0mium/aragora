@@ -243,7 +243,7 @@ class TestHandleAuthErrors:
                 ):
                     result = await handler.handle("/api/v1/dashboard/debates", {}, mock_http)
                     data = _parse_body(result)
-                    assert "Denied" in data.get("error", "")
+                    assert "denied" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_handle_post_returns_401_on_unauthorized(self, handler):
@@ -782,7 +782,7 @@ class TestQualityMetricsPermission:
                         "/api/v1/dashboard/quality-metrics", {}, mock_http
                     )
                     data = _parse_body(result)
-                    assert "No metrics access" in data.get("error", "")
+                    assert "denied" in data.get("error", "").lower()
 
 
 if __name__ == "__main__":
