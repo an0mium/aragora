@@ -239,8 +239,8 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         # Handle repository-specific DELETE routes
         parts = path.split("/")
-        if len(parts) == 4:
-            repo_id = parts[3]  # /api/v1/repository/{repo_id}
+        if len(parts) == 5:
+            repo_id = parts[4]  # /api/v1/repository/{repo_id}
 
             # Validate repo_id
             is_valid, err = validate_path_segment(repo_id, "repo_id", SAFE_ID_PATTERN)
