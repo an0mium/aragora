@@ -128,7 +128,6 @@ class TestBackupEncryption:
 
     def test_decrypt_tampered_data_fails(self, encryptor):
         """Decryption should fail if data is tampered."""
-        pytest.importorskip("cryptography")
         from cryptography.exceptions import InvalidTag
 
         original = b"Secret data"
@@ -176,7 +175,6 @@ class TestBackupEncryptionFiles:
 
     def test_encrypt_decrypt_file(self, encryptor):
         """Should encrypt and decrypt files correctly."""
-        pytest.importorskip("cryptography")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -202,7 +200,6 @@ class TestBackupEncryptionFiles:
 
     def test_encrypt_nonexistent_file_fails(self, encryptor):
         """Should raise error for nonexistent source file."""
-        pytest.importorskip("cryptography")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir)
@@ -303,7 +300,6 @@ class TestModuleFunctions:
 
     def test_encrypt_decrypt_backup(self):
         """Should encrypt and decrypt using module functions."""
-        pytest.importorskip("cryptography")
         from aragora.backup.encryption import (
             BackupEncryption,
             encrypt_backup,

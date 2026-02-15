@@ -453,8 +453,6 @@ class TestRetryChaosScenarios:
     @pytest.mark.asyncio
     async def test_parse_error_no_retry(self, connector):
         """Test parse error does not retry."""
-        pytest.importorskip("httpx")
-
         async def parse_error():
             raise RuntimeError("json decode error")
 

@@ -11,9 +11,6 @@ from unittest.mock import patch
 
 import pytest
 
-pytest.importorskip(
-    "aragora_debate", reason="aragora_debate package is required for CLI demo tests"
-)
 
 from aragora.cli.demo import (
     DEMO_TASKS,

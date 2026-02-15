@@ -5,6 +5,7 @@ This module provides common fixtures used across multiple test files,
 reducing duplication and ensuring consistent test setup.
 """
 
+import importlib.util
 import json
 import os
 import tempfile
@@ -31,14 +32,16 @@ if TYPE_CHECKING:
 
 
 def _check_import(module_name: str) -> bool:
-    """Check if a module can be imported."""
+    """Check if a module is available without fully importing it.
+
+    Uses ``importlib.util.find_spec`` to avoid executing module-level code
+    that may trigger heavy side-effects (e.g. ``sentence_transformers``
+    pulls in ``transformers`` which imports ``huggingface_hub``, potentially
+    blocking on network downloads in CI).
+    """
     try:
-        __import__(module_name)
-        return True
-    except Exception:
-        # Optional dependencies may fail with non-ImportError exceptions
-        # (for example, native library load errors). Treat these as unavailable
-        # so optional dependency markers can skip cleanly.
+        return importlib.util.find_spec(module_name) is not None
+    except (ModuleNotFoundError, ValueError):
         return False
 
 

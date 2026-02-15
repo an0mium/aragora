@@ -251,7 +251,6 @@ class TestOpenclawContractParity:
 
     def test_python_sdk_method_count(self):
         """Python SDK has both sync and async classes."""
-        pytest.importorskip("aragora_sdk")
         from aragora_sdk.namespaces.openclaw import AsyncOpenclawAPI, OpenclawAPI
 
         sync_methods = [m for m in dir(OpenclawAPI) if not m.startswith("_")]
@@ -308,7 +307,6 @@ class TestBlockchainContractParity:
 
     def test_python_sdk_blockchain_method_count(self):
         """Python SDK blockchain has both sync and async classes."""
-        pytest.importorskip("aragora_sdk")
         from aragora_sdk.namespaces.blockchain import AsyncBlockchainAPI, BlockchainAPI
 
         sync_methods = [m for m in dir(BlockchainAPI) if not m.startswith("_")]

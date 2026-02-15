@@ -140,7 +140,6 @@ class TestTFIDFBackend:
 
     def test_identical_text_returns_near_one(self):
         """Identical text should have similarity near 1.0."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         text = "the quick brown fox jumps over the lazy dog"
         similarity = backend.compute_similarity(text, text)
@@ -148,7 +147,6 @@ class TestTFIDFBackend:
 
     def test_different_text_returns_less_than_one(self):
         """Different text should have similarity less than 1.0."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         text1 = "I prefer TypeScript for type safety"
         text2 = "JavaScript is more flexible"
@@ -158,21 +156,18 @@ class TestTFIDFBackend:
 
     def test_empty_string_first_returns_zero(self):
         """Empty first string should return 0.0."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         similarity = backend.compute_similarity("", "some text")
         assert similarity == 0.0
 
     def test_empty_string_second_returns_zero(self):
         """Empty second string should return 0.0."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         similarity = backend.compute_similarity("some text", "")
         assert similarity == 0.0
 
     def test_semantic_overlap_captured(self):
         """TF-IDF should capture word overlap."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         text1 = "TypeScript provides type safety"
         text2 = "TypeScript is better for types"
@@ -510,7 +505,6 @@ class TestGetSimilarityBackend:
 
     def test_tfidf_returns_tfidf_backend(self):
         """'tfidf' should return TFIDFBackend if available."""
-        pytest.importorskip("sklearn")
         backend = get_similarity_backend("tfidf")
         assert isinstance(backend, TFIDFBackend)
 
@@ -579,7 +573,6 @@ class TestBatchSimilarityMethods:
 
     def test_compute_batch_similarity_tfidf(self):
         """Test batch similarity with TFIDFBackend."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         texts = ["machine learning", "deep learning", "neural networks"]
 
@@ -767,7 +760,6 @@ class TestConvergenceEdgeCases:
 
     def test_tfidf_with_special_characters(self):
         """TF-IDF should handle special characters."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
 
         text1 = "C++ is fast! @performance #systems"
@@ -778,7 +770,6 @@ class TestConvergenceEdgeCases:
 
     def test_tfidf_cache_symmetric(self):
         """TF-IDF cache should be symmetric."""
-        pytest.importorskip("sklearn")
         TFIDFBackend.clear_cache()
         backend = TFIDFBackend()
 
@@ -913,7 +904,6 @@ class TestCacheBehavior:
 
     def test_tfidf_clear_cache(self):
         """TFIDFBackend.clear_cache() should clear the cache."""
-        pytest.importorskip("sklearn")
         backend = TFIDFBackend()
         backend.compute_similarity("test", "test")
 

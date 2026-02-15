@@ -6,7 +6,6 @@ import pytest
 
 from aragora.mcp.tools_module.trending import list_trending_topics_tool
 
-pytest.importorskip("mcp")
 
 
 class TestListTrendingTopicsTool:

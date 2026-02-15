@@ -13,7 +13,6 @@ from aragora.mcp.tools_module.debate import (
     search_debates_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestRunDebateTool:

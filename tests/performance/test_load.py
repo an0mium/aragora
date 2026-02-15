@@ -34,7 +34,6 @@ from unittest.mock import MagicMock
 import pytest
 
 # Skip if aiohttp not available
-pytest.importorskip("aiohttp")
 
 
 # =============================================================================

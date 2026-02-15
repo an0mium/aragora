@@ -6,7 +6,6 @@ import pytest
 
 from aragora.mcp.tools_module.gauntlet import run_gauntlet_tool
 
-pytest.importorskip("mcp")
 
 
 class TestRunGauntletTool:

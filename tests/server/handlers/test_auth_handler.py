@@ -29,6 +29,7 @@ from io import BytesIO
 from typing import Any
 from unittest.mock import MagicMock, patch, PropertyMock
 
+import pyotp
 import pytest
 
 
@@ -1089,7 +1090,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_generates_secret(self, mock_auth, auth_handler, mock_user_store):
         """MFA setup generates secret and provisioning URI."""
-        pytest.importorskip("pyotp")
 
         user = MockUser()
         mock_user_store.users["user-123"] = user
@@ -1107,7 +1107,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_already_enabled_returns_400(self, mock_auth, auth_handler, mock_user_store):
         """MFA setup fails when already enabled."""
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_enabled=True)
         mock_user_store.users["user-123"] = user
@@ -1122,7 +1121,7 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_with_valid_totp(self, mock_auth, auth_handler, mock_user_store):
         """MFA enable succeeds with valid TOTP code."""
-        pyotp = pytest.importorskip("pyotp")
+
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_secret=secret)
@@ -1144,7 +1143,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_invalid_code_returns_400(self, mock_auth, auth_handler, mock_user_store):
         """MFA enable fails with invalid code."""
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_secret="JBSWY3DPEHPK3PXP")
         mock_user_store.users["user-123"] = user
@@ -1163,7 +1161,7 @@ class TestMFAEnforcement:
         self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
     ):
         """MFA verify succeeds with valid TOTP code."""
-        pyotp = pytest.importorskip("pyotp")
+
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_enabled=True, mfa_secret=secret)
@@ -1191,7 +1189,6 @@ class TestMFAEnforcement:
         self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
     ):
         """MFA verify succeeds with valid backup code."""
-        pytest.importorskip("pyotp")
         import json as json_module
 
         backup_code = "testcode"
@@ -1218,7 +1215,6 @@ class TestMFAEnforcement:
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_mfa_verify_invalid_pending_token_returns_401(self, mock_pending, auth_handler):
         """MFA verify fails with invalid pending token."""
-        pytest.importorskip("pyotp")
 
         mock_pending.return_value = None
 
@@ -1230,7 +1226,6 @@ class TestMFAEnforcement:
 
     def test_mfa_verify_missing_code_returns_400(self, auth_handler):
         """MFA verify fails when code is missing."""
-        pytest.importorskip("pyotp")
 
         handler = make_mock_handler({"code": "", "pending_token": "some_token"})
 
@@ -1240,7 +1235,6 @@ class TestMFAEnforcement:
 
     def test_mfa_verify_missing_pending_token_returns_400(self, auth_handler):
         """MFA verify fails when pending token is missing."""
-        pytest.importorskip("pyotp")
 
         handler = make_mock_handler({"code": "123456", "pending_token": ""})
 
@@ -1251,7 +1245,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_with_password(self, mock_auth, auth_handler, mock_user_store):
         """MFA disable succeeds with correct password."""
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_enabled=True, mfa_secret="JBSWY3DPEHPK3PXP")
         mock_user_store.users["user-123"] = user
@@ -1267,7 +1260,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_wrong_password_returns_400(self, mock_auth, auth_handler, mock_user_store):
         """MFA disable fails with wrong password."""
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_enabled=True, mfa_secret="JBSWY3DPEHPK3PXP")
         mock_user_store.users["user-123"] = user
@@ -1282,7 +1274,6 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_not_enabled_returns_400(self, mock_auth, auth_handler, mock_user_store):
         """MFA disable fails when MFA not enabled."""
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_enabled=False)
         mock_user_store.users["user-123"] = user
@@ -1297,7 +1288,7 @@ class TestMFAEnforcement:
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_backup_codes_regeneration(self, mock_auth, auth_handler, mock_user_store):
         """Regenerate backup codes succeeds with valid MFA code."""
-        pyotp = pytest.importorskip("pyotp")
+
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_enabled=True, mfa_secret=secret)

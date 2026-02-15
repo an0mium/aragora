@@ -224,7 +224,6 @@ class TestSAMLAuthentication:
     @pytest.mark.asyncio
     async def test_saml_request_generation(self):
         """Test SAML authentication request generation."""
-        pytest.importorskip("onelogin.saml2", reason="python3-saml required")
         from aragora.auth.saml import SAMLProvider, SAMLConfig
         from aragora.auth.sso import SSOProviderType
 
@@ -248,7 +247,6 @@ class TestSAMLAuthentication:
     @pytest.mark.asyncio
     async def test_saml_response_validation(self):
         """Test SAML response validation."""
-        pytest.importorskip("onelogin.saml2", reason="python3-saml required")
         from aragora.auth.saml import SAMLProvider, SAMLConfig
         from aragora.auth.sso import SSOProviderType, SSOUser
 

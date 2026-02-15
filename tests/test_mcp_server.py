@@ -16,7 +16,6 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any
 
-pytest.importorskip("mcp")
 
 from mcp.types import (
     Tool,
@@ -40,7 +39,6 @@ import aragora.debate.orchestrator  # noqa: F401
 # Import MAX_ROUNDS for test assertions
 from aragora.config import MAX_ROUNDS
 
-pytest.importorskip("mcp")
 
 
 async def _get_tools(server):

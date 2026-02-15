@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-pytest.importorskip("pytest_benchmark")
 
 from aragora.knowledge.mound.quality import (
     QualityScorer,

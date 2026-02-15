@@ -15,7 +15,6 @@ from aragora.mcp.tools_module.canvas import (
     canvas_list_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 @pytest.fixture(autouse=True)

@@ -10,7 +10,6 @@ from aragora.mcp.tools_module.memory import (
     store_memory_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestQueryMemoryTool:

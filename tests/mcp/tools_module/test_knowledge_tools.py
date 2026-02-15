@@ -14,7 +14,6 @@ from aragora.mcp.tools_module.knowledge import (
     verify_decision_receipt_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestQueryKnowledgeTool:

@@ -20,19 +20,12 @@ from unittest.mock import MagicMock
 import pytest
 
 
-try:
-    from aragora.server.handlers.openclaw.store import OpenClawGatewayStore
-    from aragora.server.handlers.openclaw.models import (
-        ActionStatus,
-        CredentialType,
-        SessionStatus,
-    )
-
-    HAS_STORE = True
-except ImportError:
-    HAS_STORE = False
-
-pytestmark = pytest.mark.skipif(not HAS_STORE, reason="OpenClaw store not available")
+from aragora.server.handlers.openclaw.store import OpenClawGatewayStore
+from aragora.server.handlers.openclaw.models import (
+    ActionStatus,
+    CredentialType,
+    SessionStatus,
+)
 
 
 # ============================================================================

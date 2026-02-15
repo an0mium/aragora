@@ -16,7 +16,6 @@ from aragora.mcp.tools_module.audit import (
     update_finding_status_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestListAuditPresetsTool:

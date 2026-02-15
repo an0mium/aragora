@@ -11,7 +11,6 @@ import inspect
 
 import pytest
 
-pytest.importorskip("aragora_sdk")
 
 from aragora_sdk.namespaces.batch import AsyncBatchAPI, BatchAPI
 

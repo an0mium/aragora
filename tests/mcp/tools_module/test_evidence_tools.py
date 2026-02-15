@@ -10,7 +10,6 @@ from aragora.mcp.tools_module.evidence import (
     verify_citation_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestSearchEvidenceTool:

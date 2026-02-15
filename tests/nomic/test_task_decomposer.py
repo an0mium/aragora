@@ -205,12 +205,17 @@ class TestRationale:
             assert "5" in result.rationale or "touches" in result.rationale.lower()
 
     def test_rationale_mentions_concepts(self):
-        """Rationale should mention concept areas."""
+        """Rationale should mention concept areas or expansion sources."""
         decomposer = TaskDecomposer()
         result = decomposer.analyze("Update database, api, and security for new feature")
 
         if result.complexity_score >= 5:
-            assert "concept" in result.rationale.lower() or "span" in result.rationale.lower()
+            rationale_lower = result.rationale.lower()
+            assert (
+                "concept" in rationale_lower
+                or "span" in rationale_lower
+                or "expanded" in rationale_lower
+            )
 
 
 class TestDepthLimits:

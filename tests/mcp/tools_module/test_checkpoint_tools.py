@@ -12,7 +12,6 @@ from aragora.mcp.tools_module.checkpoint import (
     resume_checkpoint_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 def _make_storage_module(db_return=None):

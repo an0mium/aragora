@@ -29,13 +29,6 @@ if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
     # 32-byte AES-256 key expressed as hex
     os.environ["ARAGORA_ENCRYPTION_KEY"] = secrets.token_hex(32)
 
-# Skip only if the cryptography library is not installed at all.
-try:
-    from aragora.security.encryption import CRYPTO_AVAILABLE
-except ImportError:
-    CRYPTO_AVAILABLE = False
-
-pytestmark = pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="cryptography library not installed")
 
 
 def _generate_test_data(size_bytes: int) -> str:

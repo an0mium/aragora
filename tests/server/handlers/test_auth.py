@@ -23,6 +23,7 @@ from io import BytesIO
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pyotp
 import pytest
 
 from aragora.server.handlers.auth import (
@@ -1025,7 +1026,6 @@ class TestAuthHandlerMFA:
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_success(self, mock_auth, auth_handler):
-        pytest.importorskip("pyotp")
 
         user = MockUser()
         auth_handler.ctx["user_store"].users["user-123"] = user
@@ -1045,7 +1045,6 @@ class TestAuthHandlerMFA:
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_setup_already_enabled(self, mock_auth, auth_handler):
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_enabled=True)
         auth_handler.ctx["user_store"].users["user-123"] = user
@@ -1062,7 +1061,7 @@ class TestAuthHandlerMFA:
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_success(self, mock_auth, auth_handler):
-        pyotp = pytest.importorskip("pyotp")
+
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_secret=secret)
@@ -1087,7 +1086,6 @@ class TestAuthHandlerMFA:
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_enable_invalid_code(self, mock_auth, auth_handler):
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_secret="JBSWY3DPEHPK3PXP")
         auth_handler.ctx["user_store"].users["user-123"] = user
@@ -1104,7 +1102,6 @@ class TestAuthHandlerMFA:
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_mfa_disable_with_password(self, mock_auth, auth_handler):
-        pytest.importorskip("pyotp")
 
         user = MockUser(mfa_enabled=True, mfa_secret="JBSWY3DPEHPK3PXP")
         auth_handler.ctx["user_store"].users["user-123"] = user
@@ -1125,7 +1122,7 @@ class TestAuthHandlerMFA:
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     def test_mfa_verify_success(self, mock_blacklist, mock_tokens, mock_pending, auth_handler):
-        pyotp = pytest.importorskip("pyotp")
+
 
         secret = "JBSWY3DPEHPK3PXP"
         user = MockUser(mfa_enabled=True, mfa_secret=secret)
@@ -1155,7 +1152,6 @@ class TestAuthHandlerMFA:
     @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
     def test_mfa_verify_invalid_pending_token(self, mock_pending, auth_handler):
-        pytest.importorskip("pyotp")
 
         mock_pending.return_value = None
 

@@ -58,7 +58,6 @@ from aragora.mcp.tools_module.workflow import (
     run_workflow_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 # =============================================================================

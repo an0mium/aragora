@@ -8,7 +8,6 @@ For detailed tool tests, see test_mcp_tools.py.
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
-pytest.importorskip("mcp")
 
 
 class TestMCPModuleStructure:

@@ -11,7 +11,6 @@ from aragora.mcp.tools_module.chat_actions import (
     update_message_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestSendMessageTool:

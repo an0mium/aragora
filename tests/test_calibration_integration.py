@@ -322,13 +322,14 @@ class TestCalibrationLeaderboardEndpoint:
         """Test ROUTES includes leaderboard endpoint."""
         assert "/api/calibration/leaderboard" in handler.ROUTES
 
-    @pytest.mark.xfail(
-        reason="Handler patching requires complex setup; tested via integration tests"
-    )
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", True)
     @patch("aragora.server.handlers.agents.calibration.EloSystem")
     def test_leaderboard_returns_json(self, mock_elo_cls, handler):
-        """Test leaderboard returns JSON response."""
+        """Test leaderboard returns JSON response.
+
+        Calls the internal _get_calibration_leaderboard directly to bypass
+        the async handle() + RBAC layer, testing the actual logic.
+        """
         import json
 
         # Setup mock ELO system
@@ -346,7 +347,8 @@ class TestCalibrationLeaderboardEndpoint:
         )
         mock_elo_cls.return_value = mock_elo
 
-        result = handler.handle("/api/calibration/leaderboard", {}, None)
+        # Call internal method directly (sync) to test leaderboard logic
+        result = handler._get_calibration_leaderboard(limit=20, metric="brier", min_predictions=5)
 
         assert result is not None
         assert result.status_code == 200
@@ -354,13 +356,14 @@ class TestCalibrationLeaderboardEndpoint:
         assert "agents" in body
         assert "metric" in body
 
-    @pytest.mark.xfail(
-        reason="Handler patching requires complex setup; tested via integration tests"
-    )
     @patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False)
     def test_leaderboard_unavailable_without_elo(self, handler):
-        """Test leaderboard returns 503 without ELO system."""
-        result = handler.handle("/api/calibration/leaderboard", {}, None)
+        """Test leaderboard returns 503 without ELO system.
+
+        Calls the internal _get_calibration_leaderboard directly to bypass
+        the async handle() + RBAC layer, testing the actual logic.
+        """
+        result = handler._get_calibration_leaderboard(limit=20, metric="brier", min_predictions=5)
 
         assert result is not None
         assert result.status_code == 503  # Service unavailable
@@ -416,29 +419,43 @@ class TestCalibrationEdgeCases:
         agent.role = "proposer"
         return agent
 
-    @pytest.mark.xfail(reason="Known issue: Arena initialization calls get_rating during setup")
     def test_calibration_weight_exception_handling(self, mock_agent):
-        """Test calibration weight handles exceptions gracefully."""
+        """Test calibration weight handles exceptions gracefully.
+
+        Sets the ValueError side_effect *after* Arena init to avoid the
+        initialization calling get_rating during setup.
+        """
         mock_elo = MagicMock(spec=EloSystem)
-        mock_elo.get_rating.side_effect = ValueError("DB error")
+        # Return a default rating during init so Arena construction succeeds
+        mock_elo.get_rating.return_value = AgentRating(agent_name="test")
 
         env = Environment(task="Test")
         protocol = DebateProtocol(rounds=1)
         arena = Arena(env, [mock_agent], protocol, elo_system=mock_elo)
+
+        # Now set the error side_effect for the actual test
+        mock_elo.get_rating.side_effect = ValueError("DB error")
 
         # Should return default weight (1.0) on exception
         weight = arena._get_calibration_weight("any")
         assert weight == 1.0
 
-    @pytest.mark.xfail(reason="Known issue: Arena initialization calls get_rating during setup")
     def test_composite_score_exception_handling(self, mock_agent):
-        """Test composite score handles exceptions gracefully."""
+        """Test composite score handles exceptions gracefully.
+
+        Sets the ValueError side_effect *after* Arena init to avoid the
+        initialization calling get_rating during setup.
+        """
         mock_elo = MagicMock(spec=EloSystem)
-        mock_elo.get_rating.side_effect = ValueError("DB error")
+        # Return a default rating during init so Arena construction succeeds
+        mock_elo.get_rating.return_value = AgentRating(agent_name="test")
 
         env = Environment(task="Test")
         protocol = DebateProtocol(rounds=1)
         arena = Arena(env, [mock_agent], protocol, elo_system=mock_elo)
+
+        # Now set the error side_effect for the actual test
+        mock_elo.get_rating.side_effect = ValueError("DB error")
 
         # Should return baseline score (1000.0) on exception
         # (default ELO 1000 * default calibration 1.0)

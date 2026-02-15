@@ -815,10 +815,13 @@ class TestHybridExecutorBridge:
         assert outcome.tasks_completed > 0
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="MockActionExecutor doesn't complete pipeline tasks")
     async def test_computer_use_mode_emits_progress(self):
-        """Computer use execution should emit progress callbacks."""
-        from aragora.computer_use.orchestrator import MockActionExecutor
+        """Computer use execution should emit progress callbacks.
+
+        Mocks at the orchestrator level (not MockActionExecutor) to avoid
+        requiring Claude API calls. Verifies on_task_complete callbacks
+        are invoked for each completed step.
+        """
         from aragora.pipeline.executor import PlanExecutor
 
         result = _make_debate_result()
@@ -831,20 +834,31 @@ class TestHybridExecutorBridge:
         def _on_task_complete(task_id: str, result: object) -> None:
             progress_events.append((task_id, result))
 
-        class _StubExecutor:
-            def __init__(self, *args, **kwargs):
-                self._executor = MockActionExecutor()
+        # Create a mock task result with steps for progress tracking
+        mock_step = MagicMock()
+        mock_step.step_number = 1
+        mock_step.status = "completed"
 
-            async def __aenter__(self):
-                return self._executor
+        mock_task_result = MagicMock()
+        mock_task_result.success = True
+        mock_task_result.error = None
+        mock_task_result.steps_completed = 2
+        mock_task_result.total_steps = 2
+        mock_task_result.steps = [mock_step, mock_step]
+        mock_task_result.actions = []
 
-            async def __aexit__(self, exc_type, exc, tb):
-                return None
-
-        with patch(
-            "aragora.computer_use.executor.PlaywrightActionExecutor",
-            side_effect=lambda *args, **kwargs: _StubExecutor(),
+        with (
+            patch("aragora.computer_use.executor.PlaywrightActionExecutor") as MockExecutor,
+            patch("aragora.computer_use.orchestrator.ComputerUseOrchestrator") as MockOrch,
         ):
+            mock_exec_instance = AsyncMock()
+            MockExecutor.return_value.__aenter__ = AsyncMock(return_value=mock_exec_instance)
+            MockExecutor.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            mock_orch_instance = MagicMock()
+            mock_orch_instance.run_task = AsyncMock(return_value=mock_task_result)
+            MockOrch.return_value = mock_orch_instance
+
             outcome = await executor.execute(
                 plan,
                 execution_mode="computer_use",

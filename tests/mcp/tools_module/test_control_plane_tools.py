@@ -18,7 +18,6 @@ from aragora.mcp.tools_module.control_plane import (
     unregister_agent_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 @pytest.fixture(autouse=True)

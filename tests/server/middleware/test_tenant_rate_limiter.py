@@ -303,7 +303,6 @@ class TestTenantRateLimiter:
 class TestTenantRateLimiterQuotaIntegration:
     """Tests for TenantRateLimiter integration with QuotaManager."""
 
-    @pytest.mark.xfail(reason="QuotaManager limit delegation not yet implemented")
     def test_uses_quota_manager_limits(self):
         """Test that limits are fetched from QuotaManager."""
         mock_quota_manager = Mock()
@@ -337,7 +336,6 @@ class TestTenantRateLimiterQuotaIntegration:
         assert result.allowed is True
         assert result.limit == 50  # Default limit used
 
-    @pytest.mark.xfail(reason="QuotaManager limit delegation not yet implemented")
     def test_different_tenants_different_limits(self):
         """Test that different tenants can have different limits."""
         mock_quota_manager = Mock()

@@ -12,7 +12,6 @@ from aragora.mcp.tools_module.integrations import (
     trigger_external_webhook_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 def _make_mock_module(func_name, return_value):

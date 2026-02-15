@@ -13,9 +13,6 @@ import json
 
 import pytest
 
-pytest.importorskip(
-    "aragora_debate", reason="aragora_debate package is required for debate integration tests"
-)
 
 from aragora_debate import (
     Debate,

@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from contextlib import asynccontextmanager
 import json
 
-pytest.importorskip("asyncpg")
 
 import asyncpg
 

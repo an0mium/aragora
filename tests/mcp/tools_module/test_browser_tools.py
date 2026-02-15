@@ -20,7 +20,6 @@ from aragora.mcp.tools_module.browser import (
     browser_wait_for_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 @pytest.fixture(autouse=True)

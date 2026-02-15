@@ -10,7 +10,6 @@ from aragora.mcp.tools_module.verification import (
     verify_consensus_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestGetConsensusProofsTool:

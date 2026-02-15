@@ -11,7 +11,6 @@ from aragora.mcp.tools_module.agent import (
     list_agents_tool,
 )
 
-pytest.importorskip("mcp")
 
 
 class TestListAgentsTool:

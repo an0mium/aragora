@@ -410,7 +410,6 @@ class TestSkillLoaderManifestLoading:
 
     def test_load_yaml_manifest(self, loader: SkillLoader):
         """Test loading skill from YAML manifest."""
-        pytest.importorskip("yaml")
 
         manifest_data = """
 name: yaml_manifest_skill

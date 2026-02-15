@@ -30,20 +30,13 @@ def _body(result) -> dict:
     return json.loads(result.body)
 
 
-try:
-    from aragora.server.handlers.verification.formal_verification import (
-        FormalVerificationHandler,
-        VerificationHistoryEntry,
-        _build_proof_tree,
-        _generate_verification_id,
-        _verification_history,
-    )
-
-    HAS_HANDLER = True
-except ImportError:
-    HAS_HANDLER = False
-
-pytestmark = pytest.mark.skipif(not HAS_HANDLER, reason="FormalVerificationHandler not available")
+from aragora.server.handlers.verification.formal_verification import (
+    FormalVerificationHandler,
+    VerificationHistoryEntry,
+    _build_proof_tree,
+    _generate_verification_id,
+    _verification_history,
+)
 
 
 # ============================================================================

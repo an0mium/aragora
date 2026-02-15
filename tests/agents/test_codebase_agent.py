@@ -23,7 +23,6 @@ from aragora.agents.codebase_agent import (
 @pytest.fixture
 def require_networkx() -> None:
     """Skip tests that require networkx when dependency is missing."""
-    pytest.importorskip("networkx")
 
 
 # Sample code for testing

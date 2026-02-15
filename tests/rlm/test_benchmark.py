@@ -13,7 +13,6 @@ import asyncio
 from typing import Any
 import pytest
 
-pytest.importorskip("pytest_benchmark")
 
 from aragora.rlm.bridge import AragoraRLM, DebateContextAdapter
 from aragora.rlm.compressor import (

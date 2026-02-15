@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 # Skip if fabric not available
-pytest.importorskip("aragora.fabric")
 
 from aragora.fabric import AgentFabric, FabricConfig
 from aragora.fabric.models import (

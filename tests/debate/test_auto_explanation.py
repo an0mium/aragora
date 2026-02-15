@@ -40,10 +40,10 @@ def _make_result(final_answer: str = "Yes, adopt microservices with gradual migr
 class TestAutoExplainFlag:
     """Test that auto_explain flag controls explanation generation."""
 
-    def test_auto_explain_disabled_by_default(self):
+    def test_auto_explain_enabled_by_default(self):
         ext = ArenaExtensions()
-        assert ext.auto_explain is False
-        assert ext.has_explanation is False
+        assert ext.auto_explain is True
+        assert ext.has_explanation is True
 
     def test_auto_explain_enabled(self):
         ext = ArenaExtensions(auto_explain=True)
@@ -262,7 +262,7 @@ class TestExtensionsConfig:
     def test_create_extensions_defaults(self):
         config = ExtensionsConfig()
         ext = config.create_extensions()
-        assert ext.auto_explain is False
+        assert ext.auto_explain is True
         assert ext.explanation_builder is None
 
 

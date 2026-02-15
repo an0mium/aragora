@@ -620,9 +620,6 @@ class TestNLIContradictionDetection:
     @pytest.fixture
     def nli_backend(self):
         """Create a SentenceTransformerBackend with NLI enabled."""
-        pytest.importorskip(
-            "sentence_transformers", reason="NLI tests require sentence-transformers"
-        )
         from aragora.debate.similarity.backends import SentenceTransformerBackend
 
         # Clear ALL class-level caches including model caches
