@@ -230,7 +230,7 @@ class SlackOAuthHandler(SecureHandler):
                     # Any permission is sufficient
                     return True
             except (ForbiddenError, PermissionError) as e:
-                errors.append(str(e))
+                errors.append("Permission denied")
                 if require_all:
                     # All permissions required, one failed
                     raise ForbiddenError(
@@ -1348,7 +1348,7 @@ class SlackOAuthHandler(SecureHandler):
                         workspace_id=workspace_id,
                         action="token_refresh",
                         success=False,
-                        error=str(e),
+                        error="Token refresh failed",
                     )
                 logger.warning("Handler error: %s", e)
                 return error_response("Token refresh failed", 502)

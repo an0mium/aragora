@@ -141,7 +141,7 @@ class ChannelHealthHandler:
                 channels[name] = {
                     "platform": name,
                     "status": "error",
-                    "error": str(e),
+                    "error": "Health check failed",
                     "timestamp": time.time(),
                 }
                 unhealthy_count += 1
@@ -218,7 +218,7 @@ class ChannelHealthHandler:
                 {
                     "platform": channel,
                     "status": "error",
-                    "error": str(e),
+                    "error": "Health check failed",
                     "timestamp": time.time(),
                 },
                 status=500,
@@ -249,7 +249,7 @@ class ChannelHealthHandler:
                 health["details"] = result
             except Exception as e:
                 health["status"] = "unhealthy"
-                health["details"]["error"] = str(e)
+                health["details"]["error"] = "Health check failed"
         else:
             # Assume healthy if configured and no test method
             if health.get("configured", True):

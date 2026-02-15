@@ -86,10 +86,10 @@ class InteractiveMixin(MessagingMixin):
 
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid interactive payload data: {e}")
-            return json_response({"text": f"Error: {str(e)[:100]}"})
+            return json_response({"text": "Sorry, an error occurred while processing your request."})
         except Exception as e:
             logger.exception(f"Unexpected interactive handler error: {e}")
-            return json_response({"text": f"Error: {str(e)[:100]}"})
+            return json_response({"text": "Sorry, an error occurred while processing your request."})
 
     def _handle_vote_action(self, payload: dict[str, Any], action: dict[str, Any]) -> HandlerResult:
         """Handle vote button clicks."""

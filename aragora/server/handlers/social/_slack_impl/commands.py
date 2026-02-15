@@ -237,7 +237,7 @@ class CommandsMixin(BlocksMixin):
                     result="error",
                     channel_id=channel_id,
                     response_time_ms=response_time_ms,
-                    error=str(e)[:200],
+                    error="Command execution failed",
                 )
 
             return self._slack_response(
@@ -1422,7 +1422,7 @@ class CommandsMixin(BlocksMixin):
                         "replace_original": False,
                     },
                 )
-            self._update_debate_status(debate_id, "failed", error=str(e)[:200])
+            self._update_debate_status(debate_id, "failed", error="Debate execution failed")
 
     def _update_debate_status(
         self,

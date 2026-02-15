@@ -610,13 +610,13 @@ class TeamsIntegrationHandler(BaseHandler):
             logger.exception(f"Teams debate error: {e}")
             await connector.send_message(
                 channel_id=conv_id,
-                text=f"Debate failed: {str(e)[:200]}",
+                text="Sorry, an error occurred while processing your debate.",
                 service_url=service_url,
                 thread_id=thread_ts,
             )
             if conv_id in self._active_debates:
                 self._active_debates[conv_id]["status"] = "failed"
-                self._active_debates[conv_id]["error"] = str(e)
+                self._active_debates[conv_id]["error"] = "Debate execution failed"
         finally:
             # Clean up after delay
             await asyncio.sleep(300)  # Keep for 5 minutes

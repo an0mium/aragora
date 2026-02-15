@@ -399,7 +399,7 @@ class SharingHandler(BaseHandler):
                         return debate_id, None
             return None, "Could not extract debate ID from path"
         except Exception as e:
-            return None, str(e)
+            return None, "Failed to extract debate ID"
 
     def _resolve_social_user(self, handler: Any, user: Any) -> Any:
         """Resolve user context for social share operations."""
