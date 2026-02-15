@@ -345,13 +345,12 @@ class TeamsTokenRefreshScheduler:
                 )
 
         except Exception as e:
-            error = str(e)
-            logger.error(f"Exception refreshing Teams token for {tenant_name}: {error}")
+            logger.error(f"Exception refreshing Teams token for {tenant_name}: {e}")
             return RefreshResult(
                 tenant_id=tenant_id,
                 tenant_name=tenant_name,
                 success=False,
-                error=error,
+                error="Token refresh failed",
             )
 
     async def refresh_now(self) -> RefreshStats:

@@ -209,7 +209,7 @@ class RotationHandler(ABC):
                 secret_id=secret_id,
                 secret_type=self.secret_type,
                 old_version=old_version,
-                error_message=str(e),
+                error_message="Secret rotation failed",
             )
 
     async def cleanup_expired(
