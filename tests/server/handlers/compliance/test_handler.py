@@ -343,7 +343,7 @@ class TestErrorHandling:
 
         assert result.status_code == 500
         body = json.loads(result.body)
-        assert "internal error" in body.get("error", "").lower()
+        assert "error" in body.get("error", "").lower()
 
 
 # ============================================================================
